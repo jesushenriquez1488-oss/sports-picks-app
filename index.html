@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sports Picks App</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -14,7 +15,7 @@
     <span class="badge">AI Sports Picks</span>
     <h1 id="appTitle">NBA Picks App</h1>
     <p id="appSubtitle">Análisis automático con odds y proyección del modelo</p>
-    <p style="font-size:13px;opacity:0.75;">
+    <p class="disclaimer">
       Modelo basado en datos, líneas de mercado y proyección automática. No garantiza resultados.
     </p>
   </div>
@@ -28,21 +29,28 @@
 
   <button id="searchBtn" onclick="loadGames()">Buscar juegos NBA</button>
 
+  <div class="premium-monthly-box">
+    <button class="unlock-btn monthly-btn" onclick="window.open('TU_LINK_DE_STRIPE_MENSUAL', '_blank')">
+      🔥 Premium Access $19.99 / mes
+    </button>
+    <p>Acceso a todos los picks premium del mes.</p>
+  </div>
+
+  <div class="accuracy-box">
+    <div>
+      <strong>Premium Picks</strong>
+      <span id="premiumRate">88% aciertos</span>
+    </div>
+
+    <div>
+      <strong>Normal Picks</strong>
+      <span id="normalRate">65% aciertos</span>
+    </div>
+  </div>
+
   <div id="status"></div>
   <div id="games"></div>
 
-</div>
-
-<div class="accuracy-box">
-  <div>
-    <strong>Premium Picks</strong>
-    <span id="premiumRate">88% aciertos</span>
-  </div>
-
-  <div>
-    <strong>Normal Picks</strong>
-    <span id="normalRate">65% aciertos</span>
-  </div>
 </div>
 
 <script src="script.js"></script>
