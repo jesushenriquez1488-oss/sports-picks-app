@@ -1,3 +1,13 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Sports Picks App</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
 <div class="app">
 
   <div class="hero">
@@ -7,10 +17,10 @@
   </div>
 
   <div class="league-tabs">
- <button class="league-btn active" onclick="selectSport(event,'basketball_nba','NBA')">NBA</button>
-<button class="league-btn" onclick="selectSport(event,'basketball_wnba','WNBA')">WNBA</button>
-<button class="league-btn" onclick="selectSport(event,'basketball_ncaab','NCAAB')">NCAAB</button>
-<button class="league-btn" onclick="selectSport(event,'basketball_euroleague','EuroLeague')">EuroLeague</button>
+    <button class="league-btn active" onclick="selectSport(event,'basketball_nba','NBA')">NBA</button>
+    <button class="league-btn" onclick="selectSport(event,'basketball_wnba','WNBA')">WNBA</button>
+    <button class="league-btn" onclick="selectSport(event,'basketball_ncaab','NCAAB')">NCAAB</button>
+    <button class="league-btn" onclick="selectSport(event,'basketball_euroleague','EuroLeague')">EuroLeague</button>
   </div>
 
   <button id="searchBtn" onclick="loadGames()">Buscar juegos NBA</button>
@@ -19,6 +29,7 @@
   <div id="games"></div>
 
 </div>
+
 <div class="accuracy-box">
   <div>
     <strong>Premium Picks</strong>
@@ -30,3 +41,8 @@
     <span id="normalRate">65% aciertos</span>
   </div>
 </div>
+
+<script src="script.js"></script>
+
+</body>
+</html>
