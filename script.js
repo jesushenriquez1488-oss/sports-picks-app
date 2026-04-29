@@ -1,7 +1,6 @@
 const ODDS_API_KEY = "15985f5bc36fcf0d3e08a43ab603cb7a";
 const BALLDONTLIE_API_KEY = "a36cf94f-2589-4f0d-a632-a55b1133fe92";
 
-// false = cliente ve premium bloqueado
 const IS_ADMIN = false;
 
 const MONTHLY_PRICE = 19.99;
@@ -202,13 +201,13 @@ function getConfidence(edge) {
   return Math.round(confidence);
 }
 
-function getModelAnalysis(verdict, pickType) {
+function getModelAnalysis(verdict) {
   if (verdict === "Premium") {
-    return `El modelo detecta una ventaja fuerte contra la línea del mercado. El pick principal proviene del mercado de ${pickType}.`;
+    return `El modelo detecta una ventaja fuerte contra la línea del mercado.`;
   }
 
   if (verdict === "Moderado") {
-    return `El modelo detecta una ventaja moderada. El pick principal proviene del mercado de ${pickType}.`;
+    return `El modelo detecta una ventaja moderada contra la línea del mercado.`;
   }
 
   return `El modelo no detecta suficiente ventaja para recomendar entrada fuerte.`;
@@ -381,20 +380,24 @@ function renderAnalysisResult({
   const totalConfidence = total > 0 ? getConfidence(totalEdge) : 0;
 
   let pick = "";
-  let pickType = "";
   let confidence = 0;
+  let mainEdge = 0;
+  let mainEdgeConfidence = 0;
 
   if (spreadConfidence >= totalConfidence) {
     pick = awaySpreadEdge >= homeSpreadEdge
       ? `${awayTeam} ${awaySpread > 0 ? "+" : ""}${awaySpread} cubre spread`
       : `${homeTeam} ${homeSpread > 0 ? "+" : ""}${homeSpread} cubre spread`;
 
-    pickType = "Spread";
     confidence = spreadConfidence;
+    mainEdge = spreadEdge;
+    mainEdgeConfidence = spreadConfidence;
   } else {
     pick = totalProj > total ? "Over" : "Under";
-    pickType = "Total";
+
     confidence = totalConfidence;
+    mainEdge = totalEdge;
+    mainEdgeConfidence = totalConfidence;
   }
 
   if (confidence < 60) {
@@ -421,7 +424,7 @@ function renderAnalysisResult({
   const isPremium = verdict === "Premium";
   const shouldLockPremium = isPremium && !IS_ADMIN;
 
-  const modelAnalysis = getModelAnalysis(verdict, pickType);
+  const modelAnalysis = getModelAnalysis(verdict);
 
   resultDiv.innerHTML = `
     <div class="${isPremium ? 'premium-result' : 'normal-result'}">
@@ -433,35 +436,21 @@ function renderAnalysisResult({
         <p><strong>🔥 PICK PRINCIPAL:</strong></p>
         <p><strong>Pick:</strong> <span>${shouldLockPremium ? "Pick Premium bloqueado" : pick}</span></p>
 
-        ${shouldLockPremium ? `<p>Desbloquea para ver el pick exacto.</p>` : ""}
+        ${shouldLockPremium ? `<p>Desbloquea para ver el pick completo y el análisis exacto.</p>` : ""}
 
-        <p><strong>Tipo:</strong> <span>${pickType}</span></p>
         <p><strong>Confianza:</strong> <span>${confidence}%</span></p>
         <p><strong>Riesgo:</strong> <span>${risk}</span></p>
         <p><strong>Veredicto:</strong> <span>${verdict}</span></p>
 
         <div class="edge-grid">
           ${
-            spreadConfidence >= 60
+            mainEdgeConfidence >= 60
               ? `
                 <div class="edge-box">
-                  <h4>Spread</h4>
-                  <p>Edge</p>
-                  <div class="edge-number">${spreadEdge.toFixed(1)}</div>
-                  <p>Confianza: <strong>${spreadConfidence}%</strong></p>
-                </div>
-              `
-              : ""
-          }
-
-          ${
-            totalConfidence >= 60
-              ? `
-                <div class="edge-box">
-                  <h4>Total</h4>
-                  <p>Edge</p>
-                  <div class="edge-number">${totalEdge.toFixed(1)}</div>
-                  <p>Confianza: <strong>${totalConfidence}%</strong></p>
+                  <h4>Edge detectado</h4>
+                  <p>Ventaja del modelo</p>
+                  <div class="edge-number">${mainEdge.toFixed(1)}</div>
+                  <p>Confianza: <strong>${mainEdgeConfidence}%</strong></p>
                 </div>
               `
               : ""
@@ -489,7 +478,7 @@ function renderAnalysisResult({
           shouldLockPremium
             ? `
               <button class="unlock-btn" onclick="window.open('https://buy.stripe.com/test_link', '_blank')">
-                Desbloquear pick $${SINGLE_PICK_PRICE}
+                Desbloquear pick completo $${SINGLE_PICK_PRICE}
               </button>
             `
             : ""
@@ -620,11 +609,6 @@ function homeTeamSpreadText(spread) {
 function escapeText(text) {
   return String(text).replace(/'/g, "\\'");
 }
-
-window.loadGames = loadGames;
-window.analyzeAuto = analyzeAuto;
-window.analyzeOtherLeague = analyzeOtherLeague;
-window.selectSport = selectSport;
 
 window.loadGames = loadGames;
 window.analyzeAuto = analyzeAuto;
