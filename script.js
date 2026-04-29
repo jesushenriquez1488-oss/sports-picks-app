@@ -582,10 +582,7 @@ async function loadGames() {
         <div class="card">
           <h2>${game.away_team} vs ${game.home_team}</h2>
 
-          <div class="ai-ready-badge">
-            🤖 AI analysis ready
-          </div>
-
+          
           <p><strong>Fecha:</strong> ${formattedDate}</p>
           <p><strong>Hora:</strong> ${formattedTime}</p>
 
