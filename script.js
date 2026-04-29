@@ -436,18 +436,19 @@ function renderAnalysisResult({
         <p><strong>🔥 PICK PRINCIPAL:</strong></p>
         <p><strong>Pick:</strong> <span>${shouldLockPremium ? "Pick Premium bloqueado" : pick}</span></p>
 
-       ${
-  shouldLockPremium ? `
-    <p>Desbloquea para ver el pick completo y el análisis exacto.</p>
+        ${
+          shouldLockPremium ? `
+            <p>Desbloquea para ver el pick completo y el análisis exacto.</p>
 
-    <br>
-    <p><strong>Factores del modelo:</strong></p>
-    <p>✔ Descanso del equipo evaluado</p>
-    <p>✔ Impacto de lesiones considerado</p>
-    <p>✔ Ritmo reciente analizado</p>
-    <p>✔ Edge detectado contra la línea del mercado</p>
-  ` : ""
-}
+            <br>
+            <p><strong>Factores del modelo:</strong></p>
+            <p>✔ Descanso del equipo evaluado</p>
+            <p>✔ Impacto de lesiones considerado</p>
+            <p>✔ Ritmo reciente analizado</p>
+            <p>✔ Edge detectado contra la línea del mercado</p>
+          ` : ""
+        }
+
         <p><strong>Confianza:</strong> <span>${confidence}%</span></p>
         <p><strong>Riesgo:</strong> <span>${risk}</span></p>
         <p><strong>Veredicto:</strong> <span>${verdict}</span></p>
@@ -580,6 +581,10 @@ async function loadGames() {
       gamesDiv.innerHTML += `
         <div class="card">
           <h2>${game.away_team} vs ${game.home_team}</h2>
+
+          <div class="ai-ready-badge">
+            🤖 AI analysis ready
+          </div>
 
           <p><strong>Fecha:</strong> ${formattedDate}</p>
           <p><strong>Hora:</strong> ${formattedTime}</p>
