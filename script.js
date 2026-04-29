@@ -644,3 +644,26 @@ window.loadGames = loadGames;
 window.analyzeAuto = analyzeAuto;
 window.analyzeOtherLeague = analyzeOtherLeague;
 window.selectSport = selectSport;
+async function goPremiumMonthly() {
+  try {
+    const res = await fetch("/api/create-checkout-session", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ userId: "guest_user" })
+    });
+
+    const data = await res.json();
+
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      alert("Error creando pago: " + data.error);
+    }
+  } catch (error) {
+    alert("Error conectando con Stripe");
+  }
+}
+
+window.goPremiumMonthly = goPremiumMonthly;
