@@ -15,6 +15,8 @@ let allTeams = [];
 let gamesCache = {};
 let lastRequestTime = 0;
 
+const ODDS_CACHE_TIME = 5 * 60 * 1000; // 5 minutos
+
 function selectSport(event, sport, sportName) {
   selectedSport = sport;
   selectedSportName = sportName;
@@ -38,17 +40,10 @@ async function loadTeams() {
     headers: { Authorization: BALLDONTLIE_API_KEY }
   });
 
-  if (!data) {
-  const res = await fetch(url);
   const text = await res.text();
+  if (!res.ok) throw new Error("Error cargando equipos: " + text);
 
-  if (!res.ok) throw new Error("Error cargando odds: " + text);
-
-  data = JSON.parse(text);
-
-  localStorage.setItem(cacheKey, JSON.stringify(data));
-  localStorage.setItem(cacheTimeKey, Date.now().toString());
-}
+  const data = JSON.parse(text);
   allTeams = data.data;
 }
 
@@ -519,27 +514,32 @@ async function loadGames() {
     if (sport === "basketball_nba") {
       await loadTeams();
     }
-const cacheKey = `odds-cache-${sport}`;
-const cacheTimeKey = `odds-cache-time-${sport}`;
-const nowCache = Date.now();
 
-let data = null;
+    const cacheKey = `odds-cache-${sport}`;
+    const cacheTimeKey = `odds-cache-time-${sport}`;
+    const nowCache = Date.now();
 
-const savedData = localStorage.getItem(cacheKey);
-const savedTime = localStorage.getItem(cacheTimeKey);
+    let data = null;
 
-if (savedData && savedTime && (nowCache - Number(savedTime) < 300000)) {
-  data = JSON.parse(savedData);
-  status.innerHTML = `Usando datos recientes de ${selectedSportName}`;
-}
-    const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${ODDS_API_KEY}&regions=us,eu&markets=h2h,spreads,totals&oddsFormat=american`;
+    const savedData = localStorage.getItem(cacheKey);
+    const savedTime = localStorage.getItem(cacheTimeKey);
 
-    const res = await fetch(url);
-    const text = await res.text();
+    if (savedData && savedTime && (nowCache - Number(savedTime) < ODDS_CACHE_TIME)) {
+      data = JSON.parse(savedData);
+      status.innerHTML = `Usando datos recientes de ${selectedSportName}`;
+    } else {
+      const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${ODDS_API_KEY}&regions=us,eu&markets=h2h,spreads,totals&oddsFormat=american`;
 
-    if (!res.ok) throw new Error("Error cargando odds: " + text);
+      const res = await fetch(url);
+      const text = await res.text();
 
-    const data = JSON.parse(text);
+      if (!res.ok) throw new Error("Error cargando odds: " + text);
+
+      data = JSON.parse(text);
+
+      localStorage.setItem(cacheKey, JSON.stringify(data));
+      localStorage.setItem(cacheTimeKey, Date.now().toString());
+    }
 
     const upcomingGames = data.filter(game => {
       const gameTime = new Date(game.commence_time);
@@ -558,7 +558,7 @@ if (savedData && savedTime && (nowCache - Number(savedTime) < 300000)) {
       return;
     }
 
-    upcomingGames.forEach((game, index) => {
+    upcomingGames.slice(0, 8).forEach((game, index) => {
       const gameDate = new Date(game.commence_time);
 
       const formattedDate = gameDate.toLocaleDateString("es-US", {
@@ -601,7 +601,6 @@ if (savedData && savedTime && (nowCache - Number(savedTime) < 300000)) {
         <div class="card">
           <h2>${game.away_team} vs ${game.home_team}</h2>
 
-          
           <p><strong>Fecha:</strong> ${formattedDate}</p>
           <p><strong>Hora:</strong> ${formattedTime}</p>
 
