@@ -436,8 +436,18 @@ function renderAnalysisResult({
         <p><strong>🔥 PICK PRINCIPAL:</strong></p>
         <p><strong>Pick:</strong> <span>${shouldLockPremium ? "Pick Premium bloqueado" : pick}</span></p>
 
-        ${shouldLockPremium ? `<p>Desbloquea para ver el pick completo y el análisis exacto.</p>` : ""}
+       ${
+  shouldLockPremium ? `
+    <p>Desbloquea para ver el pick completo y el análisis exacto.</p>
 
+    <br>
+    <p><strong>Factores del modelo:</strong></p>
+    <p>✔ Descanso del equipo evaluado</p>
+    <p>✔ Impacto de lesiones considerado</p>
+    <p>✔ Ritmo reciente analizado</p>
+    <p>✔ Edge detectado contra la línea del mercado</p>
+  ` : ""
+}
         <p><strong>Confianza:</strong> <span>${confidence}%</span></p>
         <p><strong>Riesgo:</strong> <span>${risk}</span></p>
         <p><strong>Veredicto:</strong> <span>${verdict}</span></p>
