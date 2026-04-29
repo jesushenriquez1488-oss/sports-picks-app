@@ -38,10 +38,17 @@ async function loadTeams() {
     headers: { Authorization: BALLDONTLIE_API_KEY }
   });
 
+  if (!data) {
+  const res = await fetch(url);
   const text = await res.text();
-  if (!res.ok) throw new Error("Error cargando equipos: " + text);
 
-  const data = JSON.parse(text);
+  if (!res.ok) throw new Error("Error cargando odds: " + text);
+
+  data = JSON.parse(text);
+
+  localStorage.setItem(cacheKey, JSON.stringify(data));
+  localStorage.setItem(cacheTimeKey, Date.now().toString());
+}
   allTeams = data.data;
 }
 
@@ -512,7 +519,19 @@ async function loadGames() {
     if (sport === "basketball_nba") {
       await loadTeams();
     }
+const cacheKey = `odds-cache-${sport}`;
+const cacheTimeKey = `odds-cache-time-${sport}`;
+const nowCache = Date.now();
 
+let data = null;
+
+const savedData = localStorage.getItem(cacheKey);
+const savedTime = localStorage.getItem(cacheTimeKey);
+
+if (savedData && savedTime && (nowCache - Number(savedTime) < 300000)) {
+  data = JSON.parse(savedData);
+  status.innerHTML = `Usando datos recientes de ${selectedSportName}`;
+}
     const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${ODDS_API_KEY}&regions=us,eu&markets=h2h,spreads,totals&oddsFormat=american`;
 
     const res = await fetch(url);
