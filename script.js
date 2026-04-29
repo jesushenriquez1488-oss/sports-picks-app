@@ -1,7 +1,8 @@
 const ODDS_API_KEY = "15985f5bc36fcf0d3e08a43ab603cb7a";
 const BALLDONTLIE_API_KEY = "a36cf94f-2589-4f0d-a632-a55b1133fe92";
 
-const IS_ADMIN = true;
+// false = cliente ve premium bloqueado
+const IS_ADMIN = false;
 
 const MONTHLY_PRICE = 19.99;
 const SINGLE_PICK_PRICE = 1.99;
@@ -140,7 +141,10 @@ function calcProjection(teamGames, opponentGames) {
 
 function getRestAdjustment(allGames) {
   if (!allGames || allGames.length < 2) {
-    return { points: 0, note: "Descanso no disponible" };
+    return {
+      points: 0,
+      note: "Descanso no disponible"
+    };
   }
 
   const last = new Date(allGames[0].date);
@@ -161,7 +165,10 @@ function getRestAdjustment(allGames) {
     };
   }
 
-  return { points: 0, note: "Descanso normal" };
+  return {
+    points: 0,
+    note: "Descanso normal"
+  };
 }
 
 function getInjuryAdjustment(teamName) {
@@ -294,9 +301,9 @@ function analyzeOtherLeague(awayTeam, homeTeam, awaySpread, homeSpread, total, i
       index,
       extraHTML: `
         <br>
-        <p><strong>Modelo ${selectedSportName}:</strong></p>
-        <p>Este análisis usa la línea del mercado, spread, total, ventaja de localía y ajuste automático por perfil de equipo.</p>
-        <p>No usa BallDontLie porque esa base está configurada para NBA.</p>
+        <p><strong>Modelo BETA (${selectedSportName})</strong></p>
+        <p>Basado en líneas de mercado y proyección automática.</p>
+        <p>Estadísticas avanzadas próximamente.</p>
       `
     });
   }, 700);
@@ -304,18 +311,38 @@ function analyzeOtherLeague(awayTeam, homeTeam, awaySpread, homeSpread, total, i
 
 function getLeagueProfile(sport) {
   if (sport === "basketball_wnba") {
-    return { baseHomeScore: 82, baseAwayScore: 79, homeCourt: 1.5, volatility: 1.15 };
+    return {
+      baseHomeScore: 82,
+      baseAwayScore: 79,
+      homeCourt: 1.5,
+      volatility: 1.15
+    };
   }
 
   if (sport === "basketball_ncaab") {
-    return { baseHomeScore: 74, baseAwayScore: 70, homeCourt: 2.5, volatility: 1.3 };
+    return {
+      baseHomeScore: 74,
+      baseAwayScore: 70,
+      homeCourt: 2.5,
+      volatility: 1.3
+    };
   }
 
   if (sport === "basketball_euroleague") {
-    return { baseHomeScore: 81, baseAwayScore: 78, homeCourt: 2, volatility: 1.1 };
+    return {
+      baseHomeScore: 81,
+      baseAwayScore: 78,
+      homeCourt: 2,
+      volatility: 1.1
+    };
   }
 
-  return { baseHomeScore: 80, baseAwayScore: 77, homeCourt: 2, volatility: 1.2 };
+  return {
+    baseHomeScore: 80,
+    baseAwayScore: 77,
+    homeCourt: 2,
+    volatility: 1.2
+  };
 }
 
 function getTeamNameAdjustment(teamName, profile) {
@@ -373,8 +400,8 @@ function renderAnalysisResult({
   if (confidence < 60) {
     resultDiv.innerHTML = `
       <div class="normal-result">
-        <p><strong>Pick filtrado</strong></p>
-        <p>Este juego no cumple con el nivel mínimo de confianza requerido.</p>
+        <p><strong>No hay ventaja clara</strong></p>
+        <p>El modelo no encontró suficiente edge para recomendar entrada en este juego.</p>
         <p><strong>Motivo:</strong> baja probabilidad según el modelo.</p>
       </div>
     `;
@@ -398,9 +425,12 @@ function renderAnalysisResult({
 
   resultDiv.innerHTML = `
     <div class="${isPremium ? 'premium-result' : 'normal-result'}">
+
       ${isPremium ? '<div class="shine"></div><div class="hot-badge">🔥 HOT PICK</div>' : ''}
 
       <div class="result-content">
+
+        <p><strong>🔥 PICK PRINCIPAL:</strong></p>
         <p><strong>Pick:</strong> <span>${shouldLockPremium ? "Pick Premium bloqueado" : pick}</span></p>
 
         ${shouldLockPremium ? `<p>Desbloquea para ver el pick exacto.</p>` : ""}
@@ -458,18 +488,13 @@ function renderAnalysisResult({
         ${
           shouldLockPremium
             ? `
-              <button class="unlock-btn" onclick="alert('Aquí irá Stripe Checkout para pagar el pick individual')">
+              <button class="unlock-btn" onclick="window.open('https://buy.stripe.com/test_link', '_blank')">
                 Desbloquear pick $${SINGLE_PICK_PRICE}
               </button>
             `
             : ""
         }
 
-        ${
-          isPremium && IS_ADMIN
-            ? `<p><strong>Modo admin:</strong> estás viendo el pick premium completo.</p>`
-            : ""
-        }
       </div>
     </div>
   `;
@@ -567,10 +592,10 @@ async function loadGames() {
           ${
             isNBA
               ? `<button onclick="analyzeAuto('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index})">
-                  Analizar automático
+                  Ver predicción del modelo
                 </button>`
               : `<button onclick="analyzeOtherLeague('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index})">
-                  Analizar automático
+                  Ver predicción del modelo
                 </button>`
           }
 
@@ -595,6 +620,11 @@ function homeTeamSpreadText(spread) {
 function escapeText(text) {
   return String(text).replace(/'/g, "\\'");
 }
+
+window.loadGames = loadGames;
+window.analyzeAuto = analyzeAuto;
+window.analyzeOtherLeague = analyzeOtherLeague;
+window.selectSport = selectSport;
 
 window.loadGames = loadGames;
 window.analyzeAuto = analyzeAuto;
