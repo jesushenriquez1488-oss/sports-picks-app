@@ -8,6 +8,30 @@ const SINGLE_PICK_PRICE = 1.99;
 const PREMIUM_WIN_RATE = 88;
 const NORMAL_WIN_RATE = 65;
 
+// USER / PREMIUM LOCAL
+let userId = localStorage.getItem("userId");
+
+if (!userId) {
+  userId = "user_" + Math.random().toString(36).substring(2, 12);
+  localStorage.setItem("userId", userId);
+}
+
+let isPremiumUser = localStorage.getItem("isPremiumUser") === "true";
+
+const urlParams = new URLSearchParams(window.location.search);
+
+if (urlParams.get("success") === "true") {
+  localStorage.setItem("isPremiumUser", "true");
+  isPremiumUser = true;
+  alert("✅ Premium activado correctamente");
+  window.history.replaceState({}, document.title, window.location.pathname);
+}
+
+if (urlParams.get("canceled") === "true") {
+  alert("Pago cancelado.");
+  window.history.replaceState({}, document.title, window.location.pathname);
+}
+
 let selectedSport = "basketball_nba";
 let selectedSportName = "NBA";
 
@@ -15,7 +39,7 @@ let allTeams = [];
 let gamesCache = {};
 let lastRequestTime = 0;
 
-const ODDS_CACHE_TIME = 5 * 60 * 1000; // 5 minutos
+const ODDS_CACHE_TIME = 5 * 60 * 1000;
 
 function selectSport(event, sport, sportName) {
   selectedSport = sport;
@@ -31,6 +55,32 @@ function selectSport(event, sport, sportName) {
   });
 
   event.target.classList.add("active");
+}
+
+async function goPremiumMonthly() {
+  try {
+    const res = await fetch("/api/create-checkout-session", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ userId })
+    });
+
+    const data = await res.json();
+
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      alert("Error creando pago: " + data.error);
+    }
+  } catch (error) {
+    alert("Error conectando con Stripe");
+  }
+}
+
+async function unlockPick() {
+  return goPremiumMonthly();
 }
 
 async function loadTeams() {
@@ -424,7 +474,7 @@ function renderAnalysisResult({
     "Alto";
 
   const isPremium = verdict === "Premium";
-  const shouldLockPremium = isPremium && !IS_ADMIN;
+  const shouldLockPremium = isPremium && !IS_ADMIN && !isPremiumUser;
 
   const modelAnalysis = getModelAnalysis(verdict);
 
@@ -490,8 +540,8 @@ function renderAnalysisResult({
         ${
           shouldLockPremium
             ? `
-              <button class="unlock-btn" onclick="window.open('https://buy.stripe.com/test_link', '_blank')">
-                Desbloquear pick completo $${SINGLE_PICK_PRICE}
+              <button class="unlock-btn" onclick="unlockPick()">
+                Desbloquear Premium $${MONTHLY_PRICE}/mes
               </button>
             `
             : ""
@@ -644,26 +694,5 @@ window.loadGames = loadGames;
 window.analyzeAuto = analyzeAuto;
 window.analyzeOtherLeague = analyzeOtherLeague;
 window.selectSport = selectSport;
-async function goPremiumMonthly() {
-  try {
-    const res = await fetch("/api/create-checkout-session", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ userId: "guest_user" })
-    });
-
-    const data = await res.json();
-
-    if (data.url) {
-      window.location.href = data.url;
-    } else {
-      alert("Error creando pago: " + data.error);
-    }
-  } catch (error) {
-    alert("Error conectando con Stripe");
-  }
-}
-
 window.goPremiumMonthly = goPremiumMonthly;
+window.unlockPick = unlockPick;
