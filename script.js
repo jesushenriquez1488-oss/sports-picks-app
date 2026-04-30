@@ -788,8 +788,6 @@ async function loginUser(email, password) {
 
   const user = data.user;
 
-  localStorage.setItem("supabaseUser", JSON.stringify(user));
-
   const { data: profile, error: dbError } = await supabaseClient
     .from("users")
     .upsert({
@@ -810,6 +808,14 @@ async function loginUser(email, password) {
 
   isPremiumUser = profile.is_premium === true;
 
+  localStorage.setItem("supabaseUser", JSON.stringify(user));
+
+  document.getElementById("authBox").style.display = "none";
+  document.getElementById("userBox").style.display = "block";
+  document.getElementById("userEmail").innerText = user.email;
+  document.getElementById("premiumStatus").innerText =
+    isPremiumUser ? "🔥 Premium activo" : "Free account";
+
   alert(
     isPremiumUser
       ? "Login exitoso. Premium activo."
@@ -818,17 +824,7 @@ async function loginUser(email, password) {
 
   refreshResultsAfterUnlock();
 }
-// UI cambio después de login
-document.getElementById("authBox").style.display = "none";
-document.getElementById("userBox").style.display = "block";
 
-document.getElementById("userEmail").innerText = user.email;
-
-document.getElementById("premiumStatus").innerText =
-  isPremiumUser ? "🔥 Premium" : "Free account";
-
-// guardamos sesión
-localStorage.setItem("supabaseUser", JSON.stringify(user));
 async function logoutUser() {
   await supabaseClient.auth.signOut();
 
