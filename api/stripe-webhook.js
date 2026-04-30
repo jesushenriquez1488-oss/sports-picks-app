@@ -1,7 +1,13 @@
 const Stripe = require("stripe");
 const { buffer } = require("micro");
+const { createClient } = require("@supabase/supabase-js");
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
@@ -24,14 +30,38 @@ module.exports = async function handler(req, res) {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // 🔥 EVENTO IMPORTANTE
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
 
-    console.log("💰 Pago exitoso:", session.customer_email);
-    console.log("🧾 Session ID:", session.id);
+    const userId = session.metadata?.userId;
+    const email = session.customer_email;
 
-    // 👉 Aquí luego activamos premium
+    if (!userId) {
+      console.error("❌ No llegó userId en metadata");
+      return res.status(400).json({ error: "Missing userId" });
+    }
+
+    const { error } = await supabaseAdmin
+      .from("users")
+      .upsert(
+        {
+          id: userId,
+          email: email,
+          is_premium: true,
+          subscription_status: "premium",
+          stripe_customer_id: session.customer || null,
+          stripe_subscription_id: session.subscription || null,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: "id" }
+      );
+
+    if (error) {
+      console.error("❌ Error actualizando Supabase:", error);
+      return res.status(500).json({ error: "Supabase update failed" });
+    }
+
+    console.log("✅ Premium activado para:", email);
   }
 
   return res.status(200).json({ received: true });
