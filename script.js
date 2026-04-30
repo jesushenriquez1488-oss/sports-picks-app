@@ -20,21 +20,14 @@ if (!userId) {
   localStorage.setItem("userId", userId);
 }
 
-let isPremiumUser = localStorage.getItem("isPremiumUser") === "true";
+// PREMIUM REAL DESDE SUPABASE, NO LOCALSTORAGE
+let isPremiumUser = false;
 
 const urlParams = new URLSearchParams(window.location.search);
 
 if (urlParams.get("success") === "true") {
-  localStorage.setItem("isPremiumUser", "true");
-  isPremiumUser = true;
-
-  alert("✅ Premium activado correctamente");
-
+  alert("✅ Pago recibido. Verificando suscripción...");
   window.history.replaceState({}, document.title, window.location.pathname);
-
-  setTimeout(() => {
-    refreshResultsAfterUnlock();
-  }, 500);
 }
 
 if (urlParams.get("canceled") === "true") {
@@ -108,8 +101,6 @@ async function unlockPick() {
 }
 
 function refreshResultsAfterUnlock() {
-  isPremiumUser = localStorage.getItem("isPremiumUser") === "true";
-
   const results = document.querySelectorAll("[id^='result']");
 
   results.forEach(div => {
@@ -124,13 +115,30 @@ function refreshResultsAfterUnlock() {
   });
 }
 
-window.addEventListener("load", () => {
-  isPremiumUser = localStorage.getItem("isPremiumUser") === "true";
+window.addEventListener("load", async () => {
+  const { data: sessionData } = await supabaseClient.auth.getSession();
 
-  if (isPremiumUser) {
-    setTimeout(() => {
-      refreshResultsAfterUnlock();
-    }, 500);
+  if (!sessionData.session) {
+    isPremiumUser = false;
+    return;
+  }
+
+  const user = sessionData.session.user;
+
+  const { data: profile, error } = await supabaseClient
+    .from("users")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+
+  if (!error && profile) {
+    isPremiumUser = profile.is_premium === true;
+
+    document.getElementById("authBox").style.display = "none";
+    document.getElementById("userBox").style.display = "block";
+    document.getElementById("userEmail").innerText = user.email;
+    document.getElementById("premiumStatus").innerText =
+      isPremiumUser ? "🔥 Premium activo" : "Free account";
   }
 });
 
@@ -468,8 +476,6 @@ function renderAnalysisResult({
   index,
   extraHTML = ""
 }) {
-  isPremiumUser = localStorage.getItem("isPremiumUser") === "true";
-
   const resultDiv = document.getElementById(`result${index}`);
 
   const totalProj = projA + projB;
@@ -610,13 +616,14 @@ function renderAnalysisResult({
 
 async function loadGames() {
   
-    const { data: sessionData } = await supabaseClient.auth.getSession();
+  const { data: sessionData } = await supabaseClient.auth.getSession();
 
   if (!sessionData.session) {
     alert("Debes registrarte o iniciar sesión para ver los análisis.");
     document.getElementById("authBox").scrollIntoView({ behavior: "smooth" });
     return;
   }
+
   const status = document.getElementById("status");
   const gamesDiv = document.getElementById("games");
   const sport = selectedSport;
@@ -754,14 +761,6 @@ function escapeText(text) {
   return String(text).replace(/'/g, "\\'");
 }
 
-window.loadGames = loadGames;
-window.analyzeAuto = analyzeAuto;
-window.analyzeOtherLeague = analyzeOtherLeague;
-window.selectSport = selectSport;
-window.goPremiumMonthly = goPremiumMonthly;
-window.unlockPick = unlockPick;
-window.refreshResultsAfterUnlock = refreshResultsAfterUnlock;
-window.logoutUser = logoutUser;
 async function registerUser(email, password) {
   const { data, error } = await supabaseClient.auth.signUp({
     email,
@@ -842,6 +841,7 @@ async function logoutUser() {
   await supabaseClient.auth.signOut();
 
   localStorage.removeItem("supabaseUser");
+  localStorage.removeItem("isPremiumUser");
 
   isPremiumUser = false;
 
@@ -855,3 +855,14 @@ async function logoutUser() {
 
   alert("Sesión cerrada");
 }
+
+window.loadGames = loadGames;
+window.analyzeAuto = analyzeAuto;
+window.analyzeOtherLeague = analyzeOtherLeague;
+window.selectSport = selectSport;
+window.goPremiumMonthly = goPremiumMonthly;
+window.unlockPick = unlockPick;
+window.refreshResultsAfterUnlock = refreshResultsAfterUnlock;
+window.logoutUser = logoutUser;
+window.registerUser = registerUser;
+window.loginUser = loginUser;
