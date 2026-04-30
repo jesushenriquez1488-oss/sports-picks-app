@@ -520,8 +520,8 @@ function renderAnalysisResult({
   }
 
   const verdict =
-    confidence >= 71 ? "Premium" :
-    confidence >= 60 ? "Moderado" :
+    confidence >= 60 ? "Premium" :
+    confidence >= 59 ? "Moderado" :
     "Evitar";
 
   const risk =
