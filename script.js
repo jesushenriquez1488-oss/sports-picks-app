@@ -68,7 +68,6 @@ function selectSport(event, sport, sportName) {
 }
 
 async function goPremiumMonthly() {
-  async function goPremiumMonthly() {
 
   const { data: sessionData } = await supabaseClient.auth.getSession();
 
@@ -79,14 +78,15 @@ async function goPremiumMonthly() {
   }
 
   try {
-    // tu código de stripe aquí
-  try {
     const res = await fetch("/api/create-checkout-session", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ userId })
+      body: JSON.stringify({
+        userId: sessionData.session.user.id,
+        email: sessionData.session.user.email
+      })
     });
 
     const data = await res.json();
@@ -94,10 +94,12 @@ async function goPremiumMonthly() {
     if (data.url) {
       window.location.href = data.url;
     } else {
-      alert("Error creando pago: " + data.error);
+      alert("Error creando pago");
     }
+
   } catch (error) {
-    alert("Error conectando con Stripe");
+    console.log(error);
+    alert("Error con Stripe");
   }
 }
 
