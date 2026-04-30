@@ -24,7 +24,7 @@ module.exports = async function handler(req, res) {
       customer_email: email,
       line_items: [
         {
-          price: "price_1TS0loJxhhhZBuV9kvtcPqzx",
+          price: "price_1TS20hJxhhhzBuV9O74jwDkT",
           quantity: 1,
         },
       ],
