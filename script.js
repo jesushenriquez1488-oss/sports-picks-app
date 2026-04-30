@@ -68,6 +68,18 @@ function selectSport(event, sport, sportName) {
 }
 
 async function goPremiumMonthly() {
+  async function goPremiumMonthly() {
+
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+
+  if (!sessionData.session) {
+    alert("Debes registrarte o iniciar sesión antes de comprar Premium.");
+    document.getElementById("authBox").scrollIntoView({ behavior: "smooth" });
+    return;
+  }
+
+  try {
+    // tu código de stripe aquí
   try {
     const res = await fetch("/api/create-checkout-session", {
       method: "POST",
@@ -595,6 +607,13 @@ function renderAnalysisResult({
 }
 
 async function loadGames() {
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+
+  if (!sessionData.session) {
+    alert("Debes registrarte o iniciar sesión para ver los análisis.");
+    document.getElementById("authBox").scrollIntoView({ behavior: "smooth" });
+    return;
+  }
   const status = document.getElementById("status");
   const gamesDiv = document.getElementById("games");
   const sport = selectedSport;
