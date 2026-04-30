@@ -14,6 +14,10 @@ module.exports = async function handler(req, res) {
 
     const { userId, email } = req.body || {};
 
+    if (!userId || !email) {
+      return res.status(400).json({ error: "Falta userId o email" });
+    }
+
     const origin =
       req.headers.origin ||
       `https://${req.headers.host}`;
@@ -31,8 +35,8 @@ module.exports = async function handler(req, res) {
       success_url: `${origin}?success=true`,
       cancel_url: `${origin}?canceled=true`,
       metadata: {
-        userId: userId || "guest",
-        email: email || "",
+        userId: userId,
+        email: email,
       },
     });
 
