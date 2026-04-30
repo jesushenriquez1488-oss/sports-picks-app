@@ -13,7 +13,6 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: "Missing userId" });
     }
 
-    // 🔎 buscar usuario
     const { data: user, error: userError } = await supabase
       .from("users")
       .select("is_premium")
@@ -24,27 +23,8 @@ module.exports = async function handler(req, res) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const isPremium = user.is_premium;
-
-    // 📊 traer picks
-    const { data: picks, error: picksError } = await supabase
-      .from("picks")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (picksError) {
-      return res.status(500).json({ error: "Error loading picks" });
-    }
-
-    // 🔐 filtro real
-    const filtered = picks.filter(pick => {
-      if (pick.is_premium && !isPremium) return false;
-      return true;
-    });
-
     return res.status(200).json({
-      isPremium,
-      picks: filtered
+      isPremium: user.is_premium === true
     });
 
   } catch (err) {
