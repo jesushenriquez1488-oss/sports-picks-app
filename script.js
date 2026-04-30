@@ -766,22 +766,33 @@ async function loginUser(email, password) {
 
   const user = data.user;
 
-  // Guardar sesión local (temporal)
   localStorage.setItem("supabaseUser", JSON.stringify(user));
 
-  // Guardar en tabla users
-  const { error: dbError } = await supabaseClient
+  const { data: profile, error: dbError } = await supabaseClient
     .from("users")
     .upsert({
       id: user.id,
       email: user.email,
-      is_premium: false,
       subscription_status: "free"
-    });
+    }, {
+      onConflict: "id"
+    })
+    .select()
+    .single();
 
   if (dbError) {
     console.log("DB ERROR:", dbError);
+    alert("Login exitoso, pero hubo error leyendo premium.");
+    return;
   }
 
-  alert("Login exitoso");
+  isPremiumUser = profile.is_premium === true;
+
+  alert(
+    isPremiumUser
+      ? "Login exitoso. Premium activo."
+      : "Login exitoso. Cuenta free."
+  );
+
+  refreshResultsAfterUnlock();
 }
