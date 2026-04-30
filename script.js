@@ -599,20 +599,22 @@ function renderAnalysisResult({
           ` : ""
         }
 
-      
-         html += '</div>';
-if (shouldLockPremium) {
-  html += '<button class="unlock-btn" onclick="unlockPick()">';
-  html += 'Desbloquear jugada premium por $' + SINGLE_PICK_PRICE;
-  html += '</button>';
+      ${
+  shouldLockPremium
+    ? `
+      <button class="unlock-btn" onclick="unlockPick()">
+        Desbloquear jugada premium por $${SINGLE_PICK_PRICE}
+      </button>
 
-  html += '<p style="text-align:center; margin-top:10px; font-size:14px; opacity:0.85;">';
-  html += 'O desbloquea el acceso premium por $' + MONTHLY_PRICE + '/mes y obtén todas las jugadas premium del mes.';
-  html += '</p>';
+      <p style="text-align:center; margin-top:10px; font-size:14px; opacity:0.85;">
+        O desbloquea el acceso premium por $${MONTHLY_PRICE}/mes y obtén todas las jugadas premium del mes.
+      </p>
 
-  html += '<button class="unlock-btn" onclick="goPremiumMonthly()">';
-  html += 'Acceso Premium mensual $' + MONTHLY_PRICE + '/mes';
-  html += '</button>';
+      <button class="unlock-btn" onclick="goPremiumMonthly()">
+        Acceso Premium mensual $${MONTHLY_PRICE}/mes
+      </button>
+    `
+    : ""
 }
 async function loadGames() {
   
