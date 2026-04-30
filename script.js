@@ -600,6 +600,7 @@ function renderAnalysisResult({
         }
 
        ${
+${
   shouldLockPremium
     ? `
       <button class="unlock-btn" onclick="unlockPick()">
