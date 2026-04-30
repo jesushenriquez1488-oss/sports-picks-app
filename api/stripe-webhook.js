@@ -36,11 +36,7 @@ module.exports = async function handler(req, res) {
     const userId = session.metadata?.userId;
     const email = session.customer_email || session.metadata?.email || "";
 
-    console.log("💰 Pago recibido:", email);
-    console.log("👤 User ID:", userId);
-
     if (!userId || userId === "guest") {
-      console.error("❌ No llegó userId válido");
       return res.status(400).json({ error: "Missing valid userId" });
     }
 
@@ -52,16 +48,14 @@ module.exports = async function handler(req, res) {
           email: email,
           is_premium: true,
           subscription_status: "premium",
-          stripe_customer_id: session.customer || null,
-          stripe_subscription_id: session.subscription || null,
-          updated_at: new Date().toISOString()
+          stripe_customer_id: session.customer || null
         },
         { onConflict: "id" }
       );
 
     if (error) {
-      console.error("❌ Error actualizando Supabase:", error);
-      return res.status(500).json({ error: "Supabase update failed" });
+      console.error("❌ SUPABASE ERROR:", JSON.stringify(error, null, 2));
+      return res.status(500).json({ error: error.message });
     }
 
     console.log("🔥 PREMIUM ACTIVADO:", email);
