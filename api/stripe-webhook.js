@@ -34,11 +34,14 @@ module.exports = async function handler(req, res) {
     const session = event.data.object;
 
     const userId = session.metadata?.userId;
-    const email = session.customer_email;
+    const email = session.customer_email || session.metadata?.email || "";
 
-    if (!userId) {
-      console.error("❌ No llegó userId en metadata");
-      return res.status(400).json({ error: "Missing userId" });
+    console.log("💰 Pago recibido:", email);
+    console.log("👤 User ID:", userId);
+
+    if (!userId || userId === "guest") {
+      console.error("❌ No llegó userId válido");
+      return res.status(400).json({ error: "Missing valid userId" });
     }
 
     const { error } = await supabaseAdmin
@@ -61,7 +64,7 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ error: "Supabase update failed" });
     }
 
-    console.log("✅ Premium activado para:", email);
+    console.log("🔥 PREMIUM ACTIVADO:", email);
   }
 
   return res.status(200).json({ received: true });
