@@ -9,7 +9,7 @@
 
 <body>
 
-<div style="margin:20px 0;">
+<div id="authBox" style="margin:20px 0;">
   <input id="email" placeholder="Email">
   <input id="password" type="password" placeholder="Password">
 
@@ -24,10 +24,11 @@
   )">Login</button>
 </div>
 
-<div class="app">
-
-<div class="app">
-
+<div id="userBox" style="display:none; margin:20px 0;">
+  <span id="userEmail"></span>
+  <span id="premiumStatus" style="margin-left:10px;"></span>
+  <button onclick="logoutUser()" style="margin-left:10px;">Logout</button>
+</div>
   <div class="hero">
     <span class="badge">AI Sports Picks</span>
     <h1 id="appTitle">NBA Picks App</h1>
