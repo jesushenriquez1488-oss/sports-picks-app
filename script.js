@@ -796,3 +796,14 @@ async function loginUser(email, password) {
 
   refreshResultsAfterUnlock();
 }
+// UI cambio después de login
+document.getElementById("authBox").style.display = "none";
+document.getElementById("userBox").style.display = "block";
+
+document.getElementById("userEmail").innerText = user.email;
+
+document.getElementById("premiumStatus").innerText =
+  isPremiumUser ? "🔥 Premium" : "Free account";
+
+// guardamos sesión
+localStorage.setItem("supabaseUser", JSON.stringify(user));
