@@ -23,8 +23,14 @@ const urlParams = new URLSearchParams(window.location.search);
 if (urlParams.get("success") === "true") {
   localStorage.setItem("isPremiumUser", "true");
   isPremiumUser = true;
+
   alert("✅ Premium activado correctamente");
+
   window.history.replaceState({}, document.title, window.location.pathname);
+
+  setTimeout(() => {
+    refreshResultsAfterUnlock();
+  }, 500);
 }
 
 if (urlParams.get("canceled") === "true") {
@@ -82,6 +88,33 @@ async function goPremiumMonthly() {
 async function unlockPick() {
   return goPremiumMonthly();
 }
+
+function refreshResultsAfterUnlock() {
+  isPremiumUser = localStorage.getItem("isPremiumUser") === "true";
+
+  const results = document.querySelectorAll("[id^='result']");
+
+  results.forEach(div => {
+    if (div.innerHTML.includes("Pick Premium bloqueado")) {
+      const card = div.closest(".card");
+      const analyzeButton = card ? card.querySelector("button") : null;
+
+      if (analyzeButton) {
+        analyzeButton.click();
+      }
+    }
+  });
+}
+
+window.addEventListener("load", () => {
+  isPremiumUser = localStorage.getItem("isPremiumUser") === "true";
+
+  if (isPremiumUser) {
+    setTimeout(() => {
+      refreshResultsAfterUnlock();
+    }, 500);
+  }
+});
 
 async function loadTeams() {
   if (allTeams.length > 0) return;
@@ -417,6 +450,8 @@ function renderAnalysisResult({
   index,
   extraHTML = ""
 }) {
+  isPremiumUser = localStorage.getItem("isPremiumUser") === "true";
+
   const resultDiv = document.getElementById(`result${index}`);
 
   const totalProj = projA + projB;
@@ -696,3 +731,4 @@ window.analyzeOtherLeague = analyzeOtherLeague;
 window.selectSport = selectSport;
 window.goPremiumMonthly = goPremiumMonthly;
 window.unlockPick = unlockPick;
+window.refreshResultsAfterUnlock = refreshResultsAfterUnlock;
