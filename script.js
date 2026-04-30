@@ -134,6 +134,16 @@ window.addEventListener("load", async () => {
   if (!error && profile) {
     isPremiumUser = profile.is_premium === true;
 
+    const premiumBox = document.getElementById("premiumBox");
+
+    if (premiumBox) {
+      if (isPremiumUser) {
+        premiumBox.style.display = "none";
+      } else {
+        premiumBox.style.display = "block";
+      }
+    }
+
     document.getElementById("authBox").style.display = "none";
     document.getElementById("userBox").style.display = "block";
     document.getElementById("userEmail").innerText = user.email;
@@ -481,7 +491,6 @@ function renderAnalysisResult({
   const totalProj = projA + projB;
   const spreadDiff = projA - projB;
 
-  // FIX: cálculo correcto del spread con dirección real
   const projectedMargin = projA - projB;
 
   const awaySpreadEdge = projectedMargin + awaySpread;
@@ -599,7 +608,7 @@ function renderAnalysisResult({
           ` : ""
         }
 
-            ${
+        ${
           shouldLockPremium
             ? `
               <button class="unlock-btn" onclick="unlockPick()">
@@ -621,8 +630,8 @@ function renderAnalysisResult({
     </div>
   `;
 }
+
 async function loadGames() {
-  
   const { data: sessionData } = await supabaseClient.auth.getSession();
 
   if (!sessionData.session) {
@@ -643,8 +652,8 @@ async function loadGames() {
       await loadTeams();
     }
 
-  const cacheKey = `odds-cache-${sport}`;
-const cacheTimeKey = `odds-cache-time-${sport}`;
+    const cacheKey = `odds-cache-${sport}`;
+    const cacheTimeKey = `odds-cache-time-${sport}`;
     const nowCache = Date.now();
 
     let data = null;
@@ -656,7 +665,7 @@ const cacheTimeKey = `odds-cache-time-${sport}`;
       data = JSON.parse(savedData);
       status.innerHTML = `Usando datos recientes de ${selectedSportName}`;
     } else {
-     const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${ODDS_API_KEY}&regions=us,eu&markets=h2h,spreads,totals&oddsFormat=american`;
+      const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${ODDS_API_KEY}&regions=us,eu&markets=h2h,spreads,totals&oddsFormat=american`;
 
       const res = await fetch(url);
       const text = await res.text();
@@ -815,6 +824,16 @@ async function loginUser(email, password) {
 
   isPremiumUser = profile.is_premium === true;
 
+  const premiumBox = document.getElementById("premiumBox");
+
+  if (premiumBox) {
+    if (isPremiumUser) {
+      premiumBox.style.display = "none";
+    } else {
+      premiumBox.style.display = "block";
+    }
+  }
+
   localStorage.setItem("supabaseUser", JSON.stringify(user));
 
   document.getElementById("authBox").style.display = "none";
@@ -851,6 +870,12 @@ async function logoutUser() {
   localStorage.removeItem("isPremiumUser");
 
   isPremiumUser = false;
+
+  const premiumBox = document.getElementById("premiumBox");
+
+  if (premiumBox) {
+    premiumBox.style.display = "block";
+  }
 
   document.getElementById("authBox").style.display = "block";
   document.getElementById("userBox").style.display = "none";
