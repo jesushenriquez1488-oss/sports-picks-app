@@ -609,6 +609,7 @@ function renderAnalysisResult({
 }
 
 async function loadGames() {
+  
     const { data: sessionData } = await supabaseClient.auth.getSession();
 
   if (!sessionData.session) {
@@ -823,6 +824,18 @@ async function loginUser(email, password) {
   );
 
   refreshResultsAfterUnlock();
+}
+
+async function requireLogin(message) {
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+
+  if (!sessionData.session) {
+    alert(message || "Debes registrarte o iniciar sesión para continuar.");
+    document.getElementById("authBox").scrollIntoView({ behavior: "smooth" });
+    return false;
+  }
+
+  return sessionData.session;
 }
 
 async function logoutUser() {
