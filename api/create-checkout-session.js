@@ -14,11 +14,11 @@ module.exports = async function handler(req, res) {
       mode: "subscription",
       payment_method_types: ["card"],
       line_items: [
-        {
-          price: "price_1TRgixJxhhhzBuV90O6Zj8zP",
-          quantity: 1,
-        },
-      ],
+  {
+    price: "price_1TS0loJxhhhzBuV9kvtcPqzx",
+    quantity: 1,
+  },
+],
       success_url: `${req.headers.origin}?success=true`,
       cancel_url: `${req.headers.origin}?canceled=true`,
       metadata: {
