@@ -764,12 +764,24 @@ async function loginUser(email, password) {
     return;
   }
 
-  alert("Login exitoso");
-
   const user = data.user;
 
-  console.log("USER:", user);
-
-  // Guardamos temporalmente
+  // Guardar sesión local (temporal)
   localStorage.setItem("supabaseUser", JSON.stringify(user));
+
+  // Guardar en tabla users
+  const { error: dbError } = await supabaseClient
+    .from("users")
+    .upsert({
+      id: user.id,
+      email: user.email,
+      is_premium: false,
+      subscription_status: "free"
+    });
+
+  if (dbError) {
+    console.log("DB ERROR:", dbError);
+  }
+
+  alert("Login exitoso");
 }
