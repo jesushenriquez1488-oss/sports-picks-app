@@ -457,8 +457,11 @@ function renderAnalysisResult({
   const totalProj = projA + projB;
   const spreadDiff = projA - projB;
 
-  const awaySpreadEdge = Math.abs((projA + awaySpread) - projB);
-  const homeSpreadEdge = Math.abs((projB + homeSpread) - projA);
+  // FIX: cálculo correcto del spread con dirección real
+  const projectedMargin = projA - projB;
+
+  const awaySpreadEdge = projectedMargin + awaySpread;
+  const homeSpreadEdge = -projectedMargin + homeSpread;
 
   const spreadEdge = Math.max(awaySpreadEdge, homeSpreadEdge);
   const totalEdge = total > 0 ? Math.abs(totalProj - total) : 0;
