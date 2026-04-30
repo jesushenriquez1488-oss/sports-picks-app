@@ -739,3 +739,37 @@ window.selectSport = selectSport;
 window.goPremiumMonthly = goPremiumMonthly;
 window.unlockPick = unlockPick;
 window.refreshResultsAfterUnlock = refreshResultsAfterUnlock;
+async function registerUser(email, password) {
+  const { data, error } = await supabaseClient.auth.signUp({
+    email,
+    password
+  });
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  alert("Usuario creado. Revisa tu correo.");
+}
+
+async function loginUser(email, password) {
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  alert("Login exitoso");
+
+  const user = data.user;
+
+  console.log("USER:", user);
+
+  // Guardamos temporalmente
+  localStorage.setItem("supabaseUser", JSON.stringify(user));
+}
