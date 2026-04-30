@@ -1,3 +1,17 @@
+<div style="margin:20px 0;">
+  <input id="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Password">
+
+  <button onclick="registerUser(
+    document.getElementById('email').value,
+    document.getElementById('password').value
+  )">Register</button>
+
+  <button onclick="loginUser(
+    document.getElementById('email').value,
+    document.getElementById('password').value
+  )">Login</button>
+</div>
 <!DOCTYPE html>
 <html lang="es">
 <head>
