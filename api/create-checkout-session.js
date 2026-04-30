@@ -15,7 +15,7 @@ module.exports = async function handler(req, res) {
       payment_method_types: ["card"],
       line_items: [
   {
-    price: "price_1TS0loJxhhhzBuV9kvtcPqzx",
+    price: "price_1TS0loJxhhhZBuV9kvtcPqzx",
     quantity: 1,
   },
 ],
