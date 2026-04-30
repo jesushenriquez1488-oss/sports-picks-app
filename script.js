@@ -638,8 +638,8 @@ async function loadGames() {
       await loadTeams();
     }
 
-    const cacheKey = `odds-cache-${sport}`;
-    const cacheTimeKey = `odds-cache-time-${sport}`;
+  const cacheKey = `odds-cache-${sport}`;
+const cacheTimeKey = `odds-cache-time-${sport}`;
     const nowCache = Date.now();
 
     let data = null;
@@ -651,7 +651,7 @@ async function loadGames() {
       data = JSON.parse(savedData);
       status.innerHTML = `Usando datos recientes de ${selectedSportName}`;
     } else {
-      const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${ODDS_API_KEY}&regions=us,eu&markets=h2h,spreads,totals&oddsFormat=american`;
+     const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${ODDS_API_KEY}&regions=us,eu&markets=h2h,spreads,totals&oddsFormat=american`;
 
       const res = await fetch(url);
       const text = await res.text();
