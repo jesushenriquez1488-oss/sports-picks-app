@@ -739,6 +739,7 @@ window.selectSport = selectSport;
 window.goPremiumMonthly = goPremiumMonthly;
 window.unlockPick = unlockPick;
 window.refreshResultsAfterUnlock = refreshResultsAfterUnlock;
+window.logoutUser = logoutUser;
 async function registerUser(email, password) {
   const { data, error } = await supabaseClient.auth.signUp({
     email,
@@ -807,3 +808,20 @@ document.getElementById("premiumStatus").innerText =
 
 // guardamos sesión
 localStorage.setItem("supabaseUser", JSON.stringify(user));
+async function logoutUser() {
+  await supabaseClient.auth.signOut();
+
+  localStorage.removeItem("supabaseUser");
+
+  isPremiumUser = false;
+
+  document.getElementById("authBox").style.display = "block";
+  document.getElementById("userBox").style.display = "none";
+
+  document.getElementById("email").value = "";
+  document.getElementById("password").value = "";
+  document.getElementById("userEmail").innerText = "";
+  document.getElementById("premiumStatus").innerText = "";
+
+  alert("Sesión cerrada");
+}
