@@ -1183,7 +1183,9 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
 
     const totalEdge = Math.abs(projectedTotal - totalLine);
     const totalPick = projectedTotal > totalLine ? "OVER" : "UNDER";
-    const totalConfidence = Math.min(98, Math.max(50, 50 + totalEdge * 16.67));
+
+    // Total MLB calibrado: diferencia de 2.0 carreras = 70% premium
+    const totalConfidence = Math.min(95, Math.max(50, 50 + totalEdge * 10));
 
     let recommendedPlay = "";
     let recommendedProb = 0;
@@ -1212,7 +1214,7 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
       });
     }
 
-    if (totalEdge >= 1.5) {
+    if (totalConfidence >= 70) {
       recommendedCards.push({
         title: "Total Premium",
         play: `${totalPick} ${totalLine}`,
