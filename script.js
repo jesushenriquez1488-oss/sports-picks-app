@@ -916,12 +916,14 @@ async function loadGames() {
         });
       }
 
-      const useBasketballFormula = [
+     const useBasketballFormula = [
   "basketball_nba",
   "basketball_wnba",
   "basketball_ncaab"
 ].includes(sport);
 
+const useMLBFormula = sport === "baseball_mlb";
+      
       gamesDiv.innerHTML += `
         <div class="card">
           <h2>${game.away_team} vs ${game.home_team}</h2>
@@ -933,12 +935,16 @@ async function loadGames() {
           <p><strong>Spread local:</strong> ${homeTeamSpreadText(homeSpread)}</p>
           <p><strong>Total:</strong> ${total || "No disponible"}</p>
 
-          ${
+        ${
   useBasketballFormula
-    ? `<button onclick="analyzeAuto('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index})">
+    ? `<button onclick="analyzeAuto('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${index})">
         Ver predicción del modelo
       </button>`
-    : `<button onclick="analyzeOtherLeague('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index})">
+    : useMLBFormula
+    ? `<button onclick="analyzeMLB('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${index})">
+        Ver predicción MLB
+      </button>`
+    : `<button onclick="analyzeOtherLeague('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${index})">
         Ver predicción del modelo
       </button>`
 }
@@ -1086,3 +1092,15 @@ window.refreshResultsAfterUnlock = refreshResultsAfterUnlock;
 window.logoutUser = logoutUser;
 window.registerUser = registerUser;
 window.loginUser = loginUser;
+async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
+  const resultDiv = document.getElementById(`result${index}`);
+  resultDiv.innerHTML = "Analizando MLB...";
+
+  resultDiv.innerHTML = `
+    <div class="analysis-box">
+      <h3>MLB conectado ✅</h3>
+      <p><strong>${awayTeam}</strong> vs <strong>${homeTeam}</strong></p>
+      <p>Botón funcionando correctamente</p>
+    </div>
+  `;
+}
