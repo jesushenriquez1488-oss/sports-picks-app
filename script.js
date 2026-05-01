@@ -196,15 +196,12 @@ async function waitBeforeRequest() {
   lastRequestTime = Date.now();
 }
 
-async function getRecentGames(teamName) {
-  const cacheKey = `${teamName}-all`;
+async function getRecentGamesByTeamId(teamId) {
+  const cacheKey = `teamid-${teamId}-raw`;
 
   if (gamesCache[cacheKey]) {
     return gamesCache[cacheKey];
   }
-
-  const teamId = findTeamId(teamName);
-  if (!teamId) throw new Error("No encontré equipo: " + teamName);
 
   await waitBeforeRequest();
 
@@ -226,25 +223,93 @@ async function getRecentGames(teamName) {
 
   const games = data.data
     .filter(g => g.home_team_score > 0 && g.visitor_team_score > 0)
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 10)
-    .map(g => {
-  const isHome = g.home_team.id === teamId;
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  const scored = isHome ? g.home_team_score : g.visitor_team_score;
-  const allowed = isHome ? g.visitor_team_score : g.home_team_score;
+  gamesCache[cacheKey] = games;
+  return games;
+}
+
+function getTeamGameView(g, teamId) {
+  const isHome = g.home_team.id === teamId;
 
   return {
     date: g.date,
     isHome,
-    scored,
-    allowed,
-
-    // 👇 necesarios para tu fórmula nueva
-    opponentAvgAllowed: allowed,
-    opponentAvgScored: scored
+    scored: isHome ? g.home_team_score : g.visitor_team_score,
+    allowed: isHome ? g.visitor_team_score : g.home_team_score,
+    opponentId: isHome ? g.visitor_team.id : g.home_team.id,
+    opponentName: isHome ? g.visitor_team.full_name : g.home_team.full_name
   };
-});
+}
+
+async function getOpponentLast5Averages(opponentId, beforeDate) {
+  const opponentGamesRaw = await getRecentGamesByTeamId(opponentId);
+
+  const before = new Date(beforeDate);
+
+  const previousGames = opponentGamesRaw
+    .filter(g => new Date(g.date) < before)
+    .slice(0, 5)
+    .map(g => getTeamGameView(g, opponentId));
+
+  if (previousGames.length < 5) {
+    return null;
+  }
+
+  const avgScored =
+    previousGames.reduce((sum, g) => sum + g.scored, 0) / previousGames.length;
+
+  const avgAllowed =
+    previousGames.reduce((sum, g) => sum + g.allowed, 0) / previousGames.length;
+
+  return {
+    opponentAvgScored: avgScored,
+    opponentAvgAllowed: avgAllowed
+  };
+}
+
+async function getRecentGames(teamName) {
+  const cacheKey = `${teamName}-formula-real`;
+
+  if (gamesCache[cacheKey]) {
+    return gamesCache[cacheKey];
+  }
+
+  const teamId = findTeamId(teamName);
+  if (!teamId) throw new Error("No encontré equipo: " + teamName);
+
+  const rawGames = await getRecentGamesByTeamId(teamId);
+
+  const lastGames = rawGames
+    .slice(0, 10)
+    .map(g => getTeamGameView(g, teamId));
+
+  const completedGames = [];
+
+  for (const game of lastGames) {
+    const opponentAverages = await getOpponentLast5Averages(
+      game.opponentId,
+      game.date
+    );
+
+    if (!opponentAverages) continue;
+
+    completedGames.push({
+      ...game,
+      opponentAvgAllowed: opponentAverages.opponentAvgAllowed,
+      opponentAvgScored: opponentAverages.opponentAvgScored
+    });
+
+    if (completedGames.length >= 5) break;
+  }
+
+  if (completedGames.length < 5) {
+    throw new Error("No hay suficientes juegos con promedio real del rival.");
+  }
+
+  gamesCache[cacheKey] = completedGames;
+  return completedGames;
+}
 
 function getConditionGames(allGames, condition) {
   const filtered = allGames.filter(g => {
