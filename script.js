@@ -916,14 +916,14 @@ async function loadGames() {
         });
       }
 
-     const useBasketballFormula = [
-  "basketball_nba",
-  "basketball_wnba",
-  "basketball_ncaab"
-].includes(sport);
+      const useBasketballFormula = [
+        "basketball_nba",
+        "basketball_wnba",
+        "basketball_ncaab"
+      ].includes(sport);
 
-const useMLBFormula = sport === "baseball_mlb";
-      
+      const useMLBFormula = sport === "baseball_mlb";
+
       gamesDiv.innerHTML += `
         <div class="card">
           <h2>${game.away_team} vs ${game.home_team}</h2>
@@ -935,19 +935,19 @@ const useMLBFormula = sport === "baseball_mlb";
           <p><strong>Spread local:</strong> ${homeTeamSpreadText(homeSpread)}</p>
           <p><strong>Total:</strong> ${total || "No disponible"}</p>
 
-        ${
-  useBasketballFormula
-    ? `<button onclick="analyzeAuto('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${index})">
-        Ver predicción del modelo
-      </button>`
-    : useMLBFormula
-    ? `<button onclick="analyzeMLB('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${index})">
-        Ver predicción MLB
-      </button>`
-    : `<button onclick="analyzeOtherLeague('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${index})">
-        Ver predicción del modelo
-      </button>`
-}
+          ${
+            useBasketballFormula
+              ? `<button onclick="analyzeAuto('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${index})">
+                  Ver predicción del modelo
+                </button>`
+              : useMLBFormula
+              ? `<button onclick='analyzeMLB("${escapeText(game.away_team)}","${escapeText(game.home_team)}",${awaySpread},${homeSpread},${index},${JSON.stringify((game.bookmakers?.[0]?.markets.find(m => m.key === "h2h")?.outcomes || [])).replace(/"/g, '&quot;')})'>
+                  Ver predicción MLB
+                </button>`
+              : `<button onclick="analyzeOtherLeague('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${index})">
+                  Ver predicción del modelo
+                </button>`
+          }
 
           <div id="result${index}"></div>
         </div>
@@ -958,7 +958,6 @@ const useMLBFormula = sport === "baseball_mlb";
     status.innerHTML = "Error: " + error.message;
   }
 }
-
 function awayTeamSpreadText(spread) {
   return `${spread > 0 ? "+" : ""}${spread}`;
 }
