@@ -1117,19 +1117,27 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
 
     console.log("MLB DATA REAL:", mlbData);
 
-    resultDiv.innerHTML = `
-      <div class="analysis-box">
-        <h3>Data MLB encontrada ✅</h3>
-        <p><strong>${mlbData.away.teamName}</strong> vs <strong>${mlbData.home.teamName}</strong></p>
-        <p><strong>Pitcher visitante:</strong> ${mlbData.away.pitcher?.name || "No disponible"}</p>
-        <p><strong>Pitcher local:</strong> ${mlbData.home.pitcher?.name || "No disponible"}</p>
-        <p><strong>Game PK:</strong> ${mlbData.gamePk}</p>
-      </div>
-    `;
+   resultDiv.innerHTML = `
+  <div class="analysis-box">
+    <h3>Data MLB encontrada ✅</h3>
+    <p><strong>${mlbData.away.teamName}</strong> vs <strong>${mlbData.home.teamName}</strong></p>
 
-    return;
+    <p><strong>Pitcher visitante:</strong> ${mlbData.away.pitcher?.name || "No disponible"}</p>
+    <p>ERA últimos juegos: ${mlbData.away.pitcher?.stats?.era?.toFixed(2) || "No disponible"}</p>
+    <p>Runs/Inning: ${mlbData.away.pitcher?.stats?.runsPerInning?.toFixed(2) || "No disponible"}</p>
+    <p>Hits/Inning: ${mlbData.away.pitcher?.stats?.hitsPerInning?.toFixed(2) || "No disponible"}</p>
+    <p>Walks/Inning: ${mlbData.away.pitcher?.stats?.walksPerInning?.toFixed(2) || "No disponible"}</p>
+    <p>Innings promedio: ${mlbData.away.pitcher?.stats?.innings?.toFixed(1) || "No disponible"}</p>
 
-  } catch (error) {
-    resultDiv.innerHTML = `<p>Error MLB: ${error.message}</p>`;
-  }
-}
+    <hr>
+
+    <p><strong>Pitcher local:</strong> ${mlbData.home.pitcher?.name || "No disponible"}</p>
+    <p>ERA últimos juegos: ${mlbData.home.pitcher?.stats?.era?.toFixed(2) || "No disponible"}</p>
+    <p>Runs/Inning: ${mlbData.home.pitcher?.stats?.runsPerInning?.toFixed(2) || "No disponible"}</p>
+    <p>Hits/Inning: ${mlbData.home.pitcher?.stats?.hitsPerInning?.toFixed(2) || "No disponible"}</p>
+    <p>Walks/Inning: ${mlbData.home.pitcher?.stats?.walksPerInning?.toFixed(2) || "No disponible"}</p>
+    <p>Innings promedio: ${mlbData.home.pitcher?.stats?.innings?.toFixed(1) || "No disponible"}</p>
+
+    <p><strong>Game PK:</strong> ${mlbData.gamePk}</p>
+  </div>
+`;
