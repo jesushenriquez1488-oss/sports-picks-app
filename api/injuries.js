@@ -17,21 +17,31 @@ export default async function handler(req, res) {
     const response = await fetch(url);
     const players = await response.json();
 
-    const injuries = players.filter(player => {
-      const status = String(player.InjuryStatus || "").toLowerCase();
-      return status && status !== "null" && status !== "healthy";
-    });
+    const injuries = players
+      .filter(player => {
+        const status = String(player.InjuryStatus || "").toLowerCase();
+
+        return (
+          status &&
+          status !== "healthy" &&
+          status !== "scrambled"
+        );
+      })
+      .map(player => ({
+        name: `${player.FirstName} ${player.LastName}`,
+        position: player.Position,
+        status: player.InjuryStatus
+      }));
 
     return res.status(200).json({
       team,
-      status: response.status,
+      count: injuries.length,
       injuries
     });
 
   } catch (error) {
     return res.status(500).json({
-      error: "Error fetching injuries",
-      details: error.message
+      error: error.message
     });
   }
 }
