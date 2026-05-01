@@ -264,14 +264,14 @@ function calcTeamFormula(teamGames) {
     teamGames.reduce((sum, g) => sum + g.allowed, 0) / teamGames.length;
 
   const offensiveEdges = teamGames.map(g => {
-    return g.scored - g.opponentAvgAllowed;
+    return g.scored - (g.opponentAvgAllowed || g.allowed);
   });
 
   const offensiveEdgeAvg =
     offensiveEdges.reduce((sum, edge) => sum + edge, 0) / offensiveEdges.length;
 
   const defensiveEdges = teamGames.map(g => {
-    return g.allowed - g.opponentAvgScored;
+    return g.allowed - (g.opponentAvgScored || g.scored);
   });
 
   const defensiveEdgeAvg =
@@ -403,7 +403,7 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
       awayCalc.projection +
       awayRest.points +
       awayInjuries.offenseImpact +
-      homeInjuries.defenseImpact;
+      homeInjuries.defenseImpact +
 
     const projB =
       homeCalc.projection +
