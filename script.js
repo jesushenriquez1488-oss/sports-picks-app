@@ -361,16 +361,20 @@ function calcProjection(teamGames, opponentGames) {
   const team = calcTeamFormula(teamGames);
   const opponent = calcTeamFormula(opponentGames);
 
-  const projection =
-    team.offenseAvg +
-    opponent.defensiveEdgeAvg;
+  // promedio defensivo del rival (lo que permite normalmente)
+  const opponentDefenseAvg = opponent.defenseAllowedAvg;
+
+  const A = team.offensiveEdgeAvg + opponentDefenseAvg;
+
+  const B = team.offenseAvg + opponent.defensiveEdgeAvg;
+
+  const projection = (A + B) / 2;
 
   return {
     projection,
-    avgDifferential: opponent.defensiveEdgeAvg
+    avgDifferential: projection - team.offenseAvg
   };
 }
-
 function getRestAdjustment(allGames) {
   if (!allGames || allGames.length < 2) {
     return {
