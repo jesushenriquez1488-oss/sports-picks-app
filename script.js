@@ -348,13 +348,8 @@ function calcTeamFormula(teamGames) {
   const offensiveEdgeAvg =
     offensiveEdges.reduce((sum, edge) => sum + edge, 0) / offensiveEdges.length;
 
-  const defensiveEdges = teamGames.map(g => {
-    return g.allowed - (g.opponentAvgScored || g.scored);
-  });
-
   const defensiveEdgeAvg =
-    defensiveEdges.reduce((sum, edge) => sum + edge, 0) / defensiveEdges.length;
-
+  defenseAllowedAvg - offenseAvg;
   return {
     offenseAvg,
     defenseAllowedAvg,
