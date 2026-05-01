@@ -4,9 +4,6 @@ export default async function handler(req, res) {
 
     const today = new Date().toISOString().split("T")[0];
 
-    // ===============================
-    // 1. BUSCAR JUEGO
-    // ===============================
     const scheduleUrl =
       `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=probablePitcher,team`;
 
@@ -27,14 +24,10 @@ export default async function handler(req, res) {
     const awayPitcher = game.teams.away.probablePitcher;
     const homePitcher = game.teams.home.probablePitcher;
 
-    // ===============================
-    // 2. STATS PITCHER (ÚLTIMOS JUEGOS)
-    // ===============================
     async function getPitcherStats(pitcherId) {
       if (!pitcherId) return null;
 
       const url = `https://statsapi.mlb.com/api/v1/people/${pitcherId}/stats?stats=gameLog&season=2026`;
-
       const res = await fetch(url);
       const data = await res.json();
 
@@ -66,12 +59,64 @@ export default async function handler(req, res) {
       };
     }
 
+    async function getTeamBattingLast5(teamId) {
+      if (!teamId) return null;
+
+      const url =
+        `https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=${teamId}&season=2026&hydrate=linescore`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      const allGames = [];
+
+      (data?.dates || []).forEach(dateObj => {
+        (dateObj.games || []).forEach(g => {
+          if (g.status?.detailedState === "Final") {
+            allGames.push(g);
+          }
+        });
+      });
+
+      const last5 = allGames.slice(-5);
+
+      if (last5.length === 0) return null;
+
+      let runs = 0;
+      let hits = 0;
+      let walks = 0;
+      let strikeouts = 0;
+      let atBats = 0;
+
+      last5.forEach(g => {
+        const isAway = g.teams.away.team.id === teamId;
+        const side = isAway ? "away" : "home";
+
+        runs += Number(g.teams?.[side]?.score || 0);
+
+        const teamStats = g.linescore?.teams?.[side] || {};
+
+        hits += Number(teamStats.hits || 0);
+        walks += Number(teamStats.baseOnBalls || 0);
+        strikeouts += Number(teamStats.strikeOuts || 0);
+        atBats += Number(teamStats.atBats || 0);
+      });
+
+      return {
+        runs: runs / last5.length,
+        hits: hits / last5.length,
+        walks: walks / last5.length,
+        avg: atBats > 0 ? hits / atBats : 0,
+        k: strikeouts / last5.length
+      };
+    }
+
     const awayPitcherStats = await getPitcherStats(awayPitcher?.id);
     const homePitcherStats = await getPitcherStats(homePitcher?.id);
 
-    // ===============================
-    // RESPUESTA
-    // ===============================
+    const awayBatting = await getTeamBattingLast5(game.teams.away.team.id);
+    const homeBatting = await getTeamBattingLast5(game.teams.home.team.id);
+
     return res.status(200).json({
       gamePk: game.gamePk,
       away: {
@@ -83,7 +128,7 @@ export default async function handler(req, res) {
               stats: awayPitcherStats
             }
           : null,
-        battingLast5: {}
+        battingLast5: awayBatting
       },
       home: {
         teamName: game.teams.home.team.name,
@@ -94,7 +139,7 @@ export default async function handler(req, res) {
               stats: homePitcherStats
             }
           : null,
-        battingLast5: {}
+        battingLast5: homeBatting
       }
     });
 
