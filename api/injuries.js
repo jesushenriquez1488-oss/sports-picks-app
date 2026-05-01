@@ -2,28 +2,36 @@ export default async function handler(req, res) {
   try {
     const { team } = req.query;
 
+    if (!team) {
+      return res.status(400).json({ error: "Missing team parameter" });
+    }
+
     const API_KEY = process.env.SPORTSDATAIO_KEY;
 
     if (!API_KEY) {
-      return res.status(500).json({
-        error: "API KEY NOT FOUND"
-      });
+      return res.status(500).json({ error: "API KEY NOT FOUND" });
     }
 
-    const url = `https://api.sportsdata.io/v3/nba/scores/json/Injuries/${team}?key=${API_KEY}`;
+    const url = `https://api.sportsdata.io/v3/nba/scores/json/Players/${team}?key=${API_KEY}`;
 
     const response = await fetch(url);
-    const text = await response.text();
+    const players = await response.json();
+
+    const injuries = players.filter(player => {
+      const status = String(player.InjuryStatus || "").toLowerCase();
+      return status && status !== "null" && status !== "healthy";
+    });
 
     return res.status(200).json({
-      url,
+      team,
       status: response.status,
-      data: text
+      injuries
     });
 
   } catch (error) {
     return res.status(500).json({
-      error: error.message
+      error: "Error fetching injuries",
+      details: error.message
     });
   }
 }
