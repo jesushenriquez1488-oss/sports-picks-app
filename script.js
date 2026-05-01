@@ -460,7 +460,7 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
     const homeAll = await getRecentGames(homeTeam);
 
     const awayGames = awayAll.slice(0, 5);
-const homeGames = homeAll.slice(0, 5);
+    const homeGames = homeAll.slice(0, 5);
 
     if (awayGames.length < 5 || homeGames.length < 5) {
       throw new Error("No hay suficientes juegos recientes.");
