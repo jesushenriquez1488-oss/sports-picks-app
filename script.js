@@ -1098,108 +1098,36 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
   resultDiv.innerHTML = "Analizando MLB...";
 
   try {
-
-    // 🔥 DATOS TEMPORALES
-    const teamA = {
-      pitcherRecent: {
-        era: 3.5,
-        runsPerInning: 0.45,
-        hitsPerInning: 1.0,
-        walksPerInning: 0.35,
-        innings: 5.5
-      },
-      pitcherSplit: {
-        era: 3.8,
-        runsPerInning: 0.5,
-        hitsPerInning: 1.1,
-        walksPerInning: 0.4
-      },
-      battingLast5: {
-        runs: 5,
-        hits: 9,
-        walks: 3,
-        avg: 0.260,
-        k: 7
-      },
-      battingLocation: {
-        runs: 4.8,
-        hits: 8.5,
-        walks: 2.5,
-        avg: 0.255,
-        k: 7.5
-      },
-      bullpen: {
-        era: 3.8,
-        runsPerInning: 0.5,
-        hitsPerInning: 1.1,
-        walksPerInning: 0.4,
-        fatigue: 3
-      },
-      weather: {
-        direction: "out",
-        speed: 10
-      }
-    };
-
-    const teamB = {
-      pitcherRecent: {
-        era: 4.8,
-        runsPerInning: 0.7,
-        hitsPerInning: 1.3,
-        walksPerInning: 0.5,
-        innings: 5
-      },
-      pitcherSplit: {
-        era: 4.5,
-        runsPerInning: 0.6,
-        hitsPerInning: 1.2,
-        walksPerInning: 0.4
-      },
-      battingLast5: {
-        runs: 4,
-        hits: 8,
-        walks: 2,
-        avg: 0.240,
-        k: 9
-      },
-      battingLocation: {
-        runs: 3.9,
-        hits: 7.5,
-        walks: 2,
-        avg: 0.235,
-        k: 9.5
-      },
-      bullpen: {
-        era: 4.5,
-        runsPerInning: 0.7,
-        hitsPerInning: 1.3,
-        walksPerInning: 0.5,
-        fatigue: 6
-      },
-      weather: {
-        direction: "out",
-        speed: 10
-      }
-    };
-
-    const response = await fetch("/api/mlb-formula", {
+    const dataResponse = await fetch("/api/mlb-data", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ teamA, teamB })
+      body: JSON.stringify({
+        awayTeam,
+        homeTeam
+      })
     });
 
-    const data = await response.json();
+    const mlbData = await dataResponse.json();
+
+    if (!dataResponse.ok) {
+      throw new Error(mlbData.error || "No se pudo cargar data MLB");
+    }
+
+    console.log("MLB DATA REAL:", mlbData);
 
     resultDiv.innerHTML = `
       <div class="analysis-box">
-        <h3>Resultado MLB</h3>
-       <p><strong>Pick:</strong> ${data.pick === "teamA" ? awayTeam : homeTeam}</p>
-        <p><strong>Edge:</strong> ${data.edge.toFixed(2)}</p>
-        <p><strong>Confianza:</strong> ${Number(data.confidence).toFixed(1)}%</p>
+        <h3>Data MLB encontrada ✅</h3>
+        <p><strong>${mlbData.away.teamName}</strong> vs <strong>${mlbData.home.teamName}</strong></p>
+        <p><strong>Pitcher visitante:</strong> ${mlbData.away.pitcher?.name || "No disponible"}</p>
+        <p><strong>Pitcher local:</strong> ${mlbData.home.pitcher?.name || "No disponible"}</p>
+        <p><strong>Game PK:</strong> ${mlbData.gamePk}</p>
       </div>
     `;
+
+    return;
 
   } catch (error) {
     resultDiv.innerHTML = `<p>Error MLB: ${error.message}</p>`;
