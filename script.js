@@ -407,13 +407,57 @@ function getRestAdjustment(allGames) {
   };
 }
 
-function getInjuryAdjustment(teamName) {
-  return {
-    offenseImpact: 0,
-    defenseImpact: 0,
-    severity: "Sin reporte",
-    note: `No hay lesiones clave registradas manualmente para ${teamName}.`
-  };
+async function getInjuryAdjustment(teamAbbr) {
+  try {
+    const res = await fetch(`/api/injuries?team=${teamAbbr}`);
+    const data = await res.json();
+
+    const injuries = data.injuries || [];
+
+    let offenseImpact = 0;
+    let defenseImpact = 0;
+
+    injuries.forEach(player => {
+      const status = String(player.status || "").toLowerCase();
+      const position = String(player.position || "").toLowerCase();
+
+      let impact = 0;
+
+      if (status.includes("out")) impact = 4;
+      else if (status.includes("doubtful")) impact = 3;
+      else if (status.includes("questionable")) impact = 1.5;
+      else if (status.includes("probable")) impact = 0.5;
+
+      offenseImpact -= impact;
+
+      if (
+        position.includes("c") ||
+        position.includes("pf") ||
+        position.includes("sf")
+      ) {
+        defenseImpact += impact * 0.5;
+      }
+    });
+
+    return {
+      offenseImpact,
+      defenseImpact,
+      severity: injuries.length > 0 ? "Lesiones detectadas" : "Sin reporte",
+      note: injuries.length > 0
+        ? injuries.map(p => `${p.name} (${p.status})`).join(", ")
+        : `No se reportan bajas clave para ${teamAbbr}.`
+    };
+
+  } catch (error) {
+    console.error("Error leyendo lesiones:", error);
+
+    return {
+      offenseImpact: 0,
+      defenseImpact: 0,
+      severity: "Sin reporte",
+      note: `No se pudieron leer lesiones para ${teamAbbr}.`
+    };
+  }
 }
 
 function getInjuryPublicMessage(teamName, injury) {
@@ -471,9 +515,8 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
     const awayRest = getRestAdjustment(awayAll);
     const homeRest = getRestAdjustment(homeAll);
 
-    const awayInjuries = getInjuryAdjustment(awayTeam);
-    const homeInjuries = getInjuryAdjustment(homeTeam);
-
+   const awayInjuries = await getInjuryAdjustment(awayTeam);
+const homeInjuries = await getInjuryAdjustment(homeTeam);
     const projA =
       awayCalc.projection +
       awayRest.points +
