@@ -496,8 +496,8 @@ function getInjuryPublicMessage(teamName, injury) {
 }
 
 function getConfidence(edge) {
-  let confidence = 50 + edge * 1.5;
-  confidence = Math.max(50, Math.min(95, confidence));
+  let confidence = 50 + edge * 2.4;
+  confidence = Math.max(50, Math.min(99, confidence));
   return Math.round(confidence);
 }
 
@@ -719,12 +719,12 @@ function renderAnalysisResult({
   }
 
   const verdict =
-    confidence >= 71 ? "Premium" :
+    confidence >= 74 ? "Premium" :
     confidence >= 60 ? "Moderado" :
     "Evitar";
 
   const risk =
-    confidence >= 71 ? "Bajo" :
+    confidence >= 74 ? "Bajo" :
     confidence >= 60 ? "Medio" :
     "Alto";
 
