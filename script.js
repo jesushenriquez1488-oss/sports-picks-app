@@ -1127,7 +1127,6 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
 
     function calculatePitcherRecentRating(stats) {
       if (!stats) return 0;
-
       return (
         (10 - stats.era) * 0.30 +
         (10 - stats.runsPerInning * 10) * 0.25 +
@@ -1139,7 +1138,6 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
 
     function calculateBattingRating(stats) {
       if (!stats) return 0;
-
       return (
         stats.runs * 1.5 * 0.35 +
         stats.hits * 1.2 * 0.25 +
@@ -1151,7 +1149,6 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
 
     function calculateBullpenRating(stats) {
       if (!stats) return 0;
-
       return (
         (10 - stats.era) * 0.30 +
         (10 - stats.runsPerInning * 10) * 0.25 +
@@ -1197,12 +1194,12 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
       bullpenB * 0.20 +
       weatherB * 0.15;
 
-    // 🔥 MODELO → PROBABILIDAD
+    // 🔥 PROBABILIDAD REAL
     const totalProjection = teamAProjection + teamBProjection;
     const modelProbA = teamAProjection / totalProjection;
     const modelProbB = teamBProjection / totalProjection;
 
-    // 🔥 MARKET ODDS (desde botón)
+    // 🔥 MARKET
     let marketProbA = 0.5;
     let marketProbB = 0.5;
 
@@ -1221,25 +1218,47 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
       marketProbB = americanToProb(homeOdds);
     }
 
-    // 🔥 EDGE REAL
+    // 🔥 EDGE
     const edgeA = (modelProbA - marketProbA) * 100;
     const edgeB = (modelProbB - marketProbB) * 100;
 
     const edge = Math.max(edgeA, edgeB);
-    const pick = edgeA > edgeB ? awayTeam : homeTeam;
+
+    // 🔥 PICK REAL (QUIÉN GANA)
+    const pick = modelProbA > modelProbB ? awayTeam : homeTeam;
+
+    // 🔥 FILTRO PRO
+    let play = "❌ NO BET";
+
+    if ((modelProbA > 0.55 && edgeA > 3) || (modelProbB > 0.55 && edgeB > 3)) {
+      play = "✅ BUENA JUGADA";
+    }
+
+    if ((modelProbA > 0.60 && edgeA > 5) || (modelProbB > 0.60 && edgeB > 5)) {
+      play = "🔥 PICK FUERTE";
+    }
+
+    // 🔥 CONFIANZA
     const confidence = Math.min(98, Math.max(50, 50 + edge * 2.4));
 
     resultDiv.innerHTML = `
       <div class="analysis-box">
         <h3>Resultado MLB</h3>
+
         <p><strong>${awayTeam}</strong> vs <strong>${homeTeam}</strong></p>
+
+        <p><strong>Probabilidad ${awayTeam}:</strong> ${(modelProbA * 100).toFixed(1)}%</p>
+        <p><strong>Probabilidad ${homeTeam}:</strong> ${(modelProbB * 100).toFixed(1)}%</p>
 
         <p><strong>ERA ${awayTeam}:</strong> ${mlbData.away.pitcher?.stats?.era?.toFixed(2) || "N/A"}</p>
         <p><strong>ERA ${homeTeam}:</strong> ${mlbData.home.pitcher?.stats?.era?.toFixed(2) || "N/A"}</p>
 
-        <p><strong>Pick:</strong> ${pick}</p>
+        <p><strong>Pick (más probable):</strong> ${pick}</p>
+
         <p><strong>Edge:</strong> ${edge.toFixed(2)}</p>
         <p><strong>Confianza:</strong> ${confidence.toFixed(1)}%</p>
+
+        <p><strong>Recomendación:</strong> ${play}</p>
       </div>
     `;
 
