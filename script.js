@@ -1146,23 +1146,28 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
     const pitcherA = calculatePitcherRecentRating(teamA.pitcherRecent);
     const pitcherB = calculatePitcherRecentRating(teamB.pitcherRecent);
 
+    const edge = pitcherA - pitcherB;
+    const pick = edge > 0 ? awayTeam : homeTeam;
+    const confidence = Math.min(98, 50 + Math.abs(edge) * 2.4);
+
     console.log("TEAM A:", teamA);
     console.log("TEAM B:", teamB);
     console.log("Pitcher A Rating:", pitcherA);
     console.log("Pitcher B Rating:", pitcherB);
-resultDiv.innerHTML = `
-  <div class="analysis-box">
-    <h3>Resultado MLB</h3>
-    <p><strong>${awayTeam}</strong> vs <strong>${homeTeam}</strong></p>
 
-    <p><strong>ERA ${awayTeam}:</strong> ${mlbData.away.pitcher?.stats?.era?.toFixed(2) || "N/A"}</p>
-    <p><strong>ERA ${homeTeam}:</strong> ${mlbData.home.pitcher?.stats?.era?.toFixed(2) || "N/A"}</p>
+    resultDiv.innerHTML = `
+      <div class="analysis-box">
+        <h3>Resultado MLB</h3>
+        <p><strong>${awayTeam}</strong> vs <strong>${homeTeam}</strong></p>
 
-    <p><strong>Pick:</strong> ${pick}</p>
-    <p><strong>Edge:</strong> ${edge.toFixed(2)}</p>
-    <p><strong>Confianza:</strong> ${confidence.toFixed(1)}%</p>
-  </div>
-`;
+        <p><strong>ERA ${awayTeam}:</strong> ${mlbData.away.pitcher?.stats?.era?.toFixed(2) || "N/A"}</p>
+        <p><strong>ERA ${homeTeam}:</strong> ${mlbData.home.pitcher?.stats?.era?.toFixed(2) || "N/A"}</p>
+
+        <p><strong>Pick:</strong> ${pick}</p>
+        <p><strong>Edge:</strong> ${edge.toFixed(2)}</p>
+        <p><strong>Confianza:</strong> ${confidence.toFixed(1)}%</p>
+      </div>
+    `;
   } catch (error) {
     resultDiv.innerHTML = `<p>Error MLB: ${error.message}</p>`;
   }
