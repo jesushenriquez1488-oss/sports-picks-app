@@ -17,22 +17,17 @@ export default async function handler(req, res) {
       league === "ncaab" ? [2026, 2025] :
       [];
 
-    if (seasons.length === 0) {
+    if (!seasons.length) {
       return res.status(400).json({ error: "Invalid league" });
     }
 
     let allGames = [];
 
     for (const season of seasons) {
-      let url = "";
-
-      if (league === "wnba") {
-        url = `https://api.sportsdata.io/v3/wnba/stats/json/Games/${season}`;
-      }
-
-      if (league === "ncaab") {
-        url = `https://api.sportsdata.io/v3/cbb/stats/json/Games/${season}`;
-      }
+      const url =
+        league === "wnba"
+          ? `https://api.sportsdata.io/v3/wnba/stats/json/Games/${season}`
+          : `https://api.sportsdata.io/v3/cbb/stats/json/Games/${season}`;
 
       const response = await fetch(url, {
         headers: {
@@ -42,62 +37,89 @@ export default async function handler(req, res) {
 
       const data = await response.json();
 
-      if (!response.ok) {
-        continue;
-      }
-
-      if (Array.isArray(data)) {
+      if (response.ok && Array.isArray(data)) {
         allGames = allGames.concat(data);
       }
+    }
 
-      const completedForTeam = allGames.filter(g =>
-        (g.HomeTeam === team || g.AwayTeam === team) &&
+    const completedGames = allGames
+      .filter(g =>
         g.HomeTeamScore !== null &&
         g.AwayTeamScore !== null &&
         g.HomeTeamScore !== undefined &&
         g.AwayTeamScore !== undefined
-      );
+      )
+      .sort((a, b) => new Date(b.DateTime) - new Date(a.DateTime));
 
-      if (completedForTeam.length >= 5) {
-        break;
+    function getTeamGameView(g, teamName) {
+      const isHome = g.HomeTeam === teamName;
+
+      return {
+        date: g.DateTime,
+        isHome,
+        scored: isHome ? g.HomeTeamScore : g.AwayTeamScore,
+        allowed: isHome ? g.AwayTeamScore : g.HomeTeamScore,
+        opponent: isHome ? g.AwayTeam : g.HomeTeam
+      };
+    }
+
+    function getOpponentLast5Averages(opponent, beforeDate) {
+      const before = new Date(beforeDate);
+
+      const previousGames = completedGames
+        .filter(g =>
+          (g.HomeTeam === opponent || g.AwayTeam === opponent) &&
+          new Date(g.DateTime) < before
+        )
+        .sort((a, b) => new Date(b.DateTime) - new Date(a.DateTime))
+        .slice(0, 5)
+        .map(g => getTeamGameView(g, opponent));
+
+      if (previousGames.length < 5) {
+        return null;
       }
+
+      const avgScored =
+        previousGames.reduce((sum, g) => sum + g.scored, 0) / previousGames.length;
+
+      const avgAllowed =
+        previousGames.reduce((sum, g) => sum + g.allowed, 0) / previousGames.length;
+
+      return {
+        opponentAvgScored: avgScored,
+        opponentAvgAllowed: avgAllowed
+      };
     }
 
-    const teamGames = allGames
-      .filter(g =>
-        g.HomeTeam === team || g.AwayTeam === team
-      )
-      .filter(g =>
-        g.HomeTeamScore !== null &&
-        g.AwayTeamScore !== null &&
-        g.HomeTeamScore !== undefined &&
-        g.AwayTeamScore !== undefined
-      )
+    const recentTeamGames = completedGames
+      .filter(g => g.HomeTeam === team || g.AwayTeam === team)
       .sort((a, b) => new Date(b.DateTime) - new Date(a.DateTime))
-      .slice(0, 10)
-      .map(g => {
-        const isHome = g.HomeTeam === team;
+      .slice(0, 20)
+      .map(g => getTeamGameView(g, team));
 
-        const scored = isHome ? g.HomeTeamScore : g.AwayTeamScore;
-        const allowed = isHome ? g.AwayTeamScore : g.HomeTeamScore;
+    const finalGames = [];
 
-        return {
-          date: g.DateTime,
-          isHome,
-          scored,
-          allowed,
-          opponentAvgAllowed: allowed,
-          opponentAvgScored: scored
-        };
+    for (const game of recentTeamGames) {
+      const opponentAverages = getOpponentLast5Averages(game.opponent, game.date);
+
+      if (!opponentAverages) continue;
+
+      finalGames.push({
+        ...game,
+        opponentAvgAllowed: opponentAverages.opponentAvgAllowed,
+        opponentAvgScored: opponentAverages.opponentAvgScored
       });
 
-    if (teamGames.length < 5) {
+      if (finalGames.length >= 5) break;
+    }
+
+    if (finalGames.length < 5) {
       return res.status(404).json({
-        error: `No hay suficientes juegos recientes para ${team} en ${league}.`
+        error: `No hay suficientes juegos reales para ${team}. Equipo sin historial completo de últimos 5.`
       });
     }
 
-    return res.status(200).json(teamGames);
+    return res.status(200).json(finalGames);
 
   } catch (error) {
     return res.status(500).json({ error: error.message });
