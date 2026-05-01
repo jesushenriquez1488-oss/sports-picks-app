@@ -469,7 +469,7 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
       awayCalc.projection +
       awayRest.points +
       awayInjuries.offenseImpact +
-      homeInjuries.defenseImpact +
+      homeInjuries.defenseImpact ;
 
     const projB =
       homeCalc.projection +
