@@ -547,11 +547,13 @@ const [awayInjuries, homeInjuries] = await Promise.all([
         <p>${homeTeam}: ${homeRest.note}</p>
 
         <br>
-        <p><strong>Lesiones:</strong></p>
-        <p>${getInjuryPublicMessage(awayTeam, awayInjuries)}</p>
-        <p>${getInjuryPublicMessage(homeTeam, homeInjuries)}</p>
-        <p>${awayInjuries.note}</p>
-        <p>${homeInjuries.note}</p>
+<p><strong>Lesiones:</strong></p>
+
+<p>${getInjuryPublicMessage(awayTeam, awayInjuries)}</p>
+${awayInjuries.note.includes("No se reportan") ? "" : `<p>${awayInjuries.note}</p>`}
+
+<p>${getInjuryPublicMessage(homeTeam, homeInjuries)}</p>
+${homeInjuries.note.includes("No se reportan") ? "" : `<p>${homeInjuries.note}</p>`}
       `
     });
 
