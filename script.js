@@ -11,7 +11,18 @@ const MONTHLY_PRICE = 19.99;
 const SINGLE_PICK_PRICE = 1.99;
 const PREMIUM_WIN_RATE = 88;
 const NORMAL_WIN_RATE = 65;
+const BASKETBALL_STATS_LEAGUES = [
+  "basketball_nba",
+  "basketball_wnba",
+  "basketball_ncaab"
+];
 
+function getLeagueSlug(sport) {
+  if (sport === "basketball_nba") return "nba";
+  if (sport === "basketball_wnba") return "wnba";
+  if (sport === "basketball_ncaab") return "ncaab";
+  return "euroleague";
+}
 // USER / PREMIUM LOCAL
 let userId = localStorage.getItem("userId");
 
@@ -218,19 +229,22 @@ async function getRecentGames(teamName) {
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, 10)
     .map(g => {
-      const isHome = g.home_team.id === teamId;
+  const isHome = g.home_team.id === teamId;
 
-      return {
-        date: g.date,
-        isHome,
-        scored: isHome ? g.home_team_score : g.visitor_team_score,
-        allowed: isHome ? g.visitor_team_score : g.home_team_score
-      };
-    });
+  const scored = isHome ? g.home_team_score : g.visitor_team_score;
+  const allowed = isHome ? g.visitor_team_score : g.home_team_score;
 
-  gamesCache[cacheKey] = games;
-  return games;
-}
+  return {
+    date: g.date,
+    isHome,
+    scored,
+    allowed,
+
+    // 👇 necesarios para tu fórmula nueva
+    opponentAvgAllowed: allowed,
+    opponentAvgScored: scored
+  };
+});
 
 function getConditionGames(allGames, condition) {
   const filtered = allGames.filter(g => {
@@ -242,20 +256,47 @@ function getConditionGames(allGames, condition) {
   return filtered.length >= 5 ? filtered.slice(0, 5) : allGames.slice(0, 5);
 }
 
-function calcProjection(teamGames, opponentGames) {
-  const opponentAvgAllowed =
-    opponentGames.reduce((sum, g) => sum + g.allowed, 0) / opponentGames.length;
+function calcTeamFormula(teamGames) {
+  const offenseAvg =
+    teamGames.reduce((sum, g) => sum + g.scored, 0) / teamGames.length;
 
-  const differentials = teamGames.map(g => {
-    return g.scored - opponentAvgAllowed;
+  const defenseAllowedAvg =
+    teamGames.reduce((sum, g) => sum + g.allowed, 0) / teamGames.length;
+
+  const offensiveEdges = teamGames.map(g => {
+    return g.scored - g.opponentAvgAllowed;
   });
 
-  const avgDifferential =
-    differentials.reduce((sum, d) => sum + d, 0) / differentials.length;
+  const offensiveEdgeAvg =
+    offensiveEdges.reduce((sum, edge) => sum + edge, 0) / offensiveEdges.length;
+
+  const defensiveEdges = teamGames.map(g => {
+    return g.allowed - g.opponentAvgScored;
+  });
+
+  const defensiveEdgeAvg =
+    defensiveEdges.reduce((sum, edge) => sum + edge, 0) / defensiveEdges.length;
 
   return {
-    projection: opponentAvgAllowed + avgDifferential,
-    avgDifferential
+    offenseAvg,
+    defenseAllowedAvg,
+    offensiveEdgeAvg,
+    defensiveEdgeAvg
+  };
+}
+
+function calcProjection(teamGames, opponentGames) {
+  const team = calcTeamFormula(teamGames);
+  const opponent = calcTeamFormula(opponentGames);
+
+  const projection =
+    team.offenseAvg +
+    team.offensiveEdgeAvg +
+    opponent.defensiveEdgeAvg;
+
+  return {
+    projection,
+    avgDifferential: team.offensiveEdgeAvg
   };
 }
 
