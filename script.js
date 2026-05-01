@@ -270,6 +270,18 @@ async function getOpponentLast5Averages(opponentId, beforeDate) {
 }
 
 async function getRecentGames(teamName) {
+  if (selectedSport !== "basketball_nba") {
+  const league = getLeagueSlug(selectedSport);
+
+  const res = await fetch(`/api/basketball-recent-games?team=${encodeURIComponent(teamName)}&league=${league}`);
+ const games = await res.json();
+
+if (!res.ok) {
+  throw new Error(games.error || "Error cargando juegos desde SportsDataIO");
+}
+
+return games;
+}
   const cacheKey = `${teamName}-formula-real`;
 
   if (gamesCache[cacheKey]) {
