@@ -1117,7 +1117,6 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
 
     console.log("MLB DATA REAL:", mlbData);
 
-    // 🔥 NUEVO: construir base para fórmula
     const teamA = {
       pitcherRecent: mlbData.away.pitcher?.stats
     };
@@ -1126,8 +1125,31 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
       pitcherRecent: mlbData.home.pitcher?.stats
     };
 
+    function calculatePitcherRecentRating(stats) {
+      if (!stats) return 0;
+
+      const eraScore = 10 - stats.era;
+      const runsScore = 10 - stats.runsPerInning * 10;
+      const hitsScore = 10 - stats.hitsPerInning * 5;
+      const walksScore = 10 - stats.walksPerInning * 10;
+      const inningsScore = stats.innings;
+
+      return (
+        eraScore * 0.30 +
+        runsScore * 0.25 +
+        hitsScore * 0.20 +
+        walksScore * 0.15 +
+        inningsScore * 0.10
+      );
+    }
+
+    const pitcherA = calculatePitcherRecentRating(teamA.pitcherRecent);
+    const pitcherB = calculatePitcherRecentRating(teamB.pitcherRecent);
+
     console.log("TEAM A:", teamA);
     console.log("TEAM B:", teamB);
+    console.log("Pitcher A Rating:", pitcherA);
+    console.log("Pitcher B Rating:", pitcherB);
 
     resultDiv.innerHTML = `
       <div class="analysis-box">
@@ -1140,6 +1162,7 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
         <p>Hits/Inning: ${mlbData.away.pitcher?.stats?.hitsPerInning?.toFixed(2) || "No disponible"}</p>
         <p>Walks/Inning: ${mlbData.away.pitcher?.stats?.walksPerInning?.toFixed(2) || "No disponible"}</p>
         <p>Innings promedio: ${mlbData.away.pitcher?.stats?.innings?.toFixed(1) || "No disponible"}</p>
+        <p><strong>Pitcher Rating:</strong> ${pitcherA.toFixed(2)}</p>
 
         <hr>
 
@@ -1149,6 +1172,7 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
         <p>Hits/Inning: ${mlbData.home.pitcher?.stats?.hitsPerInning?.toFixed(2) || "No disponible"}</p>
         <p>Walks/Inning: ${mlbData.home.pitcher?.stats?.walksPerInning?.toFixed(2) || "No disponible"}</p>
         <p>Innings promedio: ${mlbData.home.pitcher?.stats?.innings?.toFixed(1) || "No disponible"}</p>
+        <p><strong>Pitcher Rating:</strong> ${pitcherB.toFixed(2)}</p>
 
         <p><strong>Game PK:</strong> ${mlbData.gamePk}</p>
       </div>
