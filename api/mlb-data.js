@@ -47,6 +47,7 @@ export default async function handler(req, res) {
       return {
         era: (runs * 9) / Math.max(innings, 1),
         runsPerInning: runs / Math.max(innings, 1),
+        runsPerGame: runs / last5.length,
         hitsPerInning: hits / Math.max(innings, 1),
         walksPerInning: walks / Math.max(innings, 1),
         innings: innings / last5.length
@@ -117,8 +118,6 @@ export default async function handler(req, res) {
 
         const teamBox = box.teams?.[side];
         const pitcherIds = teamBox?.pitchers || [];
-
-        // Primer pitcher = abridor. El resto = bullpen.
         const bullpenPitchers = pitcherIds.slice(1);
 
         bullpenPitchers.forEach(id => {
@@ -140,6 +139,7 @@ export default async function handler(req, res) {
       return {
         era: (runs * 9) / Math.max(innings, 1),
         runsPerInning: runs / Math.max(innings, 1),
+        runsPerGame: runs / last5.length,
         hitsPerInning: hits / Math.max(innings, 1),
         walksPerInning: walks / Math.max(innings, 1),
         fatigue: Math.min(10, bullpenAppearances / 2)
