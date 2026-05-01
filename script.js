@@ -1190,6 +1190,7 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
 
     const expectedRunsA = Math.max(2.2, Math.min(8.5, (baseRunsA / 10) * 6.5 * weatherFactor));
     const expectedRunsB = Math.max(2.2, Math.min(8.5, (baseRunsB / 10) * 6.5 * weatherFactor));
+
     const projectedTotal = expectedRunsA + expectedRunsB;
 
     const modelProbA = expectedRunsA / projectedTotal;
@@ -1201,6 +1202,7 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
     if (outcomes && outcomes.length) {
       const awayOdds = outcomes.find(o => o.name === awayTeam)?.price;
       const homeOdds = outcomes.find(o => o.name === homeTeam)?.price;
+
       marketProbA = americanToProb(awayOdds);
       marketProbB = americanToProb(homeOdds);
     }
@@ -1217,83 +1219,87 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
 
     const totalEdge = Math.abs(projectedTotal - totalLine);
     const totalPick = projectedTotal > totalLine ? "OVER" : "UNDER";
-    const totalConfidence = Math.min(98, Math.max(50, 50 + totalEdge * 12));
 
-    let recommendedPlay = "";
-    let recommendedProb = 0;
-    let recommendedReason = "";
+    // 1.5 carreras de diferencia = 75%
+    const totalConfidence = Math.min(98, Math.max(50, 50 + totalEdge * 16.67));
+
+    let recommendedCards = [];
 
     if (valueEdge >= 7) {
+      let sidePlay = "";
+      let sideProb = 0;
+      let sideReason = "";
+
       if (valueSpread > 0) {
-        recommendedPlay = `${valueTeam} +${valueSpread}`;
-        recommendedProb = Math.min(92, Math.max(55, 55 + valueEdge * 3));
-        recommendedReason = "Underdog con alto edge para cubrir la línea +1.5.";
+        sidePlay = `${valueTeam} +${valueSpread}`;
+        sideProb = Math.min(92, Math.max(55, 55 + valueEdge * 3));
+        sideReason = "Underdog con alto edge para cubrir +1.5.";
       } else {
-        recommendedPlay = `${valueTeam} ML`;
-        recommendedProb = Math.min(90, Math.max(55, Math.max(modelProbA, modelProbB) * 100));
-        recommendedReason = "Favorito con ventaja fuerte contra el mercado.";
+        sidePlay = `${valueTeam} ML`;
+        sideProb = Math.min(90, Math.max(55, pickProb));
+        sideReason = "Favorito con ventaja fuerte contra el mercado.";
       }
+
+      recommendedCards.push({
+        title: "Jugada recomendada",
+        play: sidePlay,
+        percentage: sideProb,
+        detail: sideReason
+      });
     }
 
-    let totalPlay = "";
     if (totalEdge >= 1.5) {
-      totalPlay = `${totalPick} ${totalLine}`;
+      recommendedCards.push({
+        title: "Total recomendado",
+        play: `${totalPick} ${totalLine}`,
+        percentage: totalConfidence,
+        detail: `Diferencia: ${totalEdge.toFixed(2)} carreras`
+      });
     }
 
-    const isPremiumMLB = totalEdge >= 1.5 || valueEdge >= 7;
+    recommendedCards.sort((a, b) => b.percentage - a.percentage);
+
+    const isPremiumMLB = recommendedCards.length > 0;
     const shouldLockPremium = isPremiumMLB && !IS_ADMIN && !isPremiumUser;
+
+    const cardsHTML = recommendedCards.map(card => `
+      <div class="edge-box">
+        <h4>${card.title}</h4>
+        <p>${shouldLockPremium ? "Pick Premium bloqueado" : card.play}</p>
+        <div class="edge-number">${shouldLockPremium ? "🔒" : card.percentage.toFixed(1) + "%"}</div>
+        <p>${shouldLockPremium ? "Desbloquea para ver la jugada." : card.detail}</p>
+      </div>
+    `).join("");
 
     resultDiv.innerHTML = `
       <div class="${isPremiumMLB ? 'premium-result' : 'normal-result'}">
+
         ${isPremiumMLB ? '<div class="shine"></div><div class="hot-badge">🔥 HOT PICK MLB</div>' : ''}
 
         <div class="result-content">
           <p><strong>⚾ RESULTADO MLB:</strong></p>
           <p><strong>${awayTeam}</strong> vs <strong>${homeTeam}</strong></p>
 
-          <div class="edge-grid">
-            <div class="edge-box">
-              <h4>Pick más probable</h4>
-              <p>${pick} ML</p>
-              <div class="edge-number">${pickProb.toFixed(1)}%</div>
-              <p>Probabilidad de ganar</p>
-            </div>
+          <br>
 
-            ${
-              recommendedPlay
-                ? `
-                  <div class="edge-box">
-                    <h4>Jugada recomendada</h4>
-                    <p>${shouldLockPremium ? "Pick Premium bloqueado" : recommendedPlay}</p>
-                    <div class="edge-number">${shouldLockPremium ? "🔒" : recommendedProb.toFixed(1) + "%"}</div>
-                    <p>${shouldLockPremium ? "Desbloquea para ver la jugada." : recommendedReason}</p>
-                  </div>
-                `
-                : ""
-            }
+          <p><strong>Pick más probable:</strong> ${pick} ML</p>
+          <p><strong>Probabilidad de ganar:</strong> ${pickProb.toFixed(1)}%</p>
 
-            <div class="edge-box">
-              <h4>Over / Under</h4>
-              <p>${projectedTotal.toFixed(2)} carreras proyectadas</p>
-              <div class="edge-number">${totalPick}</div>
-              <p>Línea: <strong>${totalLine}</strong></p>
-            </div>
-
-            <div class="edge-box">
-              <h4>Probabilidad Total</h4>
-              <p>Diferencia: ${totalEdge.toFixed(2)} carreras</p>
-              <div class="edge-number">${totalConfidence.toFixed(1)}%</div>
-            </div>
-          </div>
+          ${
+            recommendedCards.length > 0
+              ? `<div class="edge-grid">${cardsHTML}</div>`
+              : `<p><strong>Recomendación:</strong> No hay jugada fuerte.</p>`
+          }
 
           <br>
 
           <p><strong>Carreras esperadas ${awayTeam}:</strong> ${expectedRunsA.toFixed(2)}</p>
           <p><strong>Carreras esperadas ${homeTeam}:</strong> ${expectedRunsB.toFixed(2)}</p>
+          <p><strong>Total proyectado:</strong> ${projectedTotal.toFixed(2)} carreras</p>
+          <p><strong>Línea total:</strong> ${totalLine}</p>
 
           <p><strong>Probabilidad ${awayTeam} ML:</strong> ${(modelProbA * 100).toFixed(1)}%</p>
           <p><strong>Probabilidad ${homeTeam} ML:</strong> ${(modelProbB * 100).toFixed(1)}%</p>
-
           <p><strong>Edge ML:</strong> ${valueEdge.toFixed(2)}</p>
 
           ${
@@ -1303,10 +1309,7 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
                   Desbloquear jugada premium
                 </button>
               `
-              : `
-                ${recommendedPlay ? `<p><strong>Jugada recomendada:</strong> 🔥 ${recommendedPlay} con ${recommendedProb.toFixed(1)}%</p>` : ""}
-                ${totalPlay ? `<p><strong>Total recomendado:</strong> 🔥 ${totalPlay} con ${totalConfidence.toFixed(1)}%</p>` : ""}
-              `
+              : ""
           }
         </div>
       </div>
