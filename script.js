@@ -1109,60 +1109,6 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
       throw new Error(mlbData.error || "No se pudo cargar data MLB");
     }
 
-    const teamA = {
-      pitcherRecent: mlbData.away.pitcher?.stats,
-      battingLast5: mlbData.away.battingLast5,
-      bullpen: mlbData.away.bullpen,
-      weather: mlbData.weather
-    };
-
-    const teamB = {
-      pitcherRecent: mlbData.home.pitcher?.stats,
-      battingLast5: mlbData.home.battingLast5,
-      bullpen: mlbData.home.bullpen,
-      weather: mlbData.weather
-    };
-
-    function calculatePitcherRecentRating(stats) {
-      if (!stats) return 5;
-      return (
-        (10 - stats.era) * 0.30 +
-        (10 - stats.runsPerInning * 10) * 0.25 +
-        (10 - stats.hitsPerInning * 5) * 0.20 +
-        (10 - stats.walksPerInning * 10) * 0.15 +
-        stats.innings * 0.10
-      );
-    }
-
-    function calculateBattingRating(stats) {
-      if (!stats) return 5;
-      return (
-        stats.runs * 1.5 * 0.35 +
-        stats.hits * 1.2 * 0.25 +
-        stats.walks * 1 * 0.15 +
-        stats.avg * 100 * 0.15 -
-        stats.k * 0.8 * 0.10
-      );
-    }
-
-    function calculateBullpenRating(stats) {
-      if (!stats) return 5;
-      return (
-        (10 - stats.era) * 0.30 +
-        (10 - stats.runsPerInning * 10) * 0.25 +
-        (10 - stats.hitsPerInning * 5) * 0.15 +
-        (10 - stats.walksPerInning * 10) * 0.15 +
-        (10 - stats.fatigue) * 0.15
-      );
-    }
-
-    function calculateWeatherFactor(weather) {
-      if (!weather) return 1;
-      if (weather.direction === "out") return 1.12;
-      if (weather.direction === "in") return 0.88;
-      return 1;
-    }
-
     function americanToProb(odds) {
       if (!odds) return 0.5;
       return odds > 0
@@ -1170,19 +1116,39 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
         : Math.abs(odds) / (Math.abs(odds) + 100);
     }
 
-    const pitcherA = calculatePitcherRecentRating(teamA.pitcherRecent);
-    const pitcherB = calculatePitcherRecentRating(teamB.pitcherRecent);
-    const battingA = calculateBattingRating(teamA.battingLast5);
-    const battingB = calculateBattingRating(teamB.battingLast5);
-    const bullpenA = calculateBullpenRating(teamA.bullpen);
-    const bullpenB = calculateBullpenRating(teamB.bullpen);
-    const weatherFactor = calculateWeatherFactor(teamA.weather);
+    function getWeatherMultiplier(weather) {
+      if (!weather) return 1;
+      if (weather.direction === "out") return 1.06;
+      if (weather.direction === "in") return 0.94;
+      return 1;
+    }
 
-    const baseRunsA = battingA * 0.45 + (10 - pitcherB) * 0.35 + (10 - bullpenB) * 0.20;
-    const baseRunsB = battingB * 0.45 + (10 - pitcherA) * 0.35 + (10 - bullpenA) * 0.20;
+    const awayOffense = mlbData.away.battingLast5?.runs || 4.3;
+    const homeOffense = mlbData.home.battingLast5?.runs || 4.3;
 
-    const expectedRunsA = Math.max(2.2, Math.min(8.5, (baseRunsA / 10) * 6.5 * weatherFactor));
-    const expectedRunsB = Math.max(2.2, Math.min(8.5, (baseRunsB / 10) * 6.5 * weatherFactor));
+    const awayPitcherAllowed = mlbData.away.pitcher?.stats?.runsPerGame || 4.5;
+    const homePitcherAllowed = mlbData.home.pitcher?.stats?.runsPerGame || 4.5;
+
+    const awayBullpenAllowed = mlbData.away.bullpen?.runsPerGame || 4.2;
+    const homeBullpenAllowed = mlbData.home.bullpen?.runsPerGame || 4.2;
+
+    const weatherMultiplier = getWeatherMultiplier(mlbData.weather);
+
+    let expectedRunsA =
+      (awayOffense * 0.40) +
+      (homePitcherAllowed * 0.35) +
+      (homeBullpenAllowed * 0.25);
+
+    let expectedRunsB =
+      (homeOffense * 0.40) +
+      (awayPitcherAllowed * 0.35) +
+      (awayBullpenAllowed * 0.25);
+
+    expectedRunsA *= weatherMultiplier;
+    expectedRunsB *= weatherMultiplier;
+
+    expectedRunsA = Math.max(1.5, Math.min(10, expectedRunsA));
+    expectedRunsB = Math.max(1.5, Math.min(10, expectedRunsB));
 
     const projectedTotal = expectedRunsA + expectedRunsB;
 
@@ -1299,8 +1265,9 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
           <p><strong>Total proyectado:</strong> ${projectedTotal.toFixed(2)} carreras</p>
           <p><strong>Línea total:</strong> ${totalLine}</p>
 
-          <p><strong>Probabilidad ${awayTeam} ML:</strong> ${(modelProbA * 100).toFixed(1)}%</p>
-          <p><strong>Probabilidad ${homeTeam} ML:</strong> ${(modelProbB * 100).toFixed(1)}%</p>
+          <p><strong>Datos reales usados:</strong></p>
+          <p>${awayTeam}: ofensiva ${awayOffense.toFixed(2)}, pitcher rival permite ${homePitcherAllowed.toFixed(2)}, bullpen rival permite ${homeBullpenAllowed.toFixed(2)}</p>
+          <p>${homeTeam}: ofensiva ${homeOffense.toFixed(2)}, pitcher rival permite ${awayPitcherAllowed.toFixed(2)}, bullpen rival permite ${awayBullpenAllowed.toFixed(2)}</p>
 
           ${
             shouldLockPremium
