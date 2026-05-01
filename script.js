@@ -362,19 +362,17 @@ function calcTeamFormula(teamGames) {
     defensiveEdgeAvg
   };
 }
-
 function calcProjection(teamGames, opponentGames) {
   const team = calcTeamFormula(teamGames);
   const opponent = calcTeamFormula(opponentGames);
 
   const projection =
     team.offenseAvg +
-    team.offensiveEdgeAvg +
     opponent.defensiveEdgeAvg;
 
   return {
     projection,
-    avgDifferential: team.offensiveEdgeAvg
+    avgDifferential: opponent.defensiveEdgeAvg
   };
 }
 
