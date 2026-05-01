@@ -407,6 +407,23 @@ function getRestAdjustment(allGames) {
   };
 }
 
+function shouldCountInjury(player) {
+  if (!player.startDate) return true;
+
+  const start = new Date(player.startDate);
+
+  if (isNaN(start.getTime())) return true;
+
+  const today = new Date();
+  const diffDays = Math.floor((today - start) / (1000 * 60 * 60 * 24));
+
+  // Aproximación NBA: 1 juego cada 2 días
+  const estimatedGamesMissed = Math.floor(diffDays / 2);
+
+  // Solo cuenta si lleva 5 juegos o menos lesionado
+  return estimatedGamesMissed <= 5;
+}
+
 async function getInjuryAdjustment(teamAbbr) {
   try {
     const res = await fetch(`/api/injuries?team=${teamAbbr}`);
@@ -417,7 +434,9 @@ async function getInjuryAdjustment(teamAbbr) {
     let offenseImpact = 0;
     let defenseImpact = 0;
 
-    injuries.forEach(player => {
+    const activeInjuries = injuries.filter(player => shouldCountInjury(player));
+
+    activeInjuries.forEach(player => {
       const status = String(player.status || "").toLowerCase();
       const position = String(player.position || "").toLowerCase();
 
@@ -442,9 +461,9 @@ async function getInjuryAdjustment(teamAbbr) {
     return {
       offenseImpact,
       defenseImpact,
-      severity: injuries.length > 0 ? "Lesiones detectadas" : "Sin reporte",
-      note: injuries.length > 0
-        ? injuries.map(p => `${p.name} (${p.status})`).join(", ")
+      severity: activeInjuries.length > 0 ? "Lesiones detectadas" : "Sin reporte",
+      note: activeInjuries.length > 0
+        ? activeInjuries.map(p => `${p.name} (${p.status})`).join(", ")
         : `No se reportan bajas clave para ${teamAbbr}.`
     };
 
