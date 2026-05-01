@@ -1103,10 +1103,7 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        awayTeam,
-        homeTeam
-      })
+      body: JSON.stringify({ awayTeam, homeTeam })
     });
 
     const mlbData = await dataResponse.json();
@@ -1115,16 +1112,18 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
       throw new Error(mlbData.error || "No se pudo cargar data MLB");
     }
 
-    console.log("MLB DATA REAL:", mlbData);
-
     const teamA = {
       pitcherRecent: mlbData.away.pitcher?.stats,
-      battingLast5: mlbData.away.battingLast5
+      battingLast5: mlbData.away.battingLast5,
+      bullpen: mlbData.away.bullpen,
+      weather: mlbData.weather
     };
 
     const teamB = {
       pitcherRecent: mlbData.home.pitcher?.stats,
-      battingLast5: mlbData.home.battingLast5
+      battingLast5: mlbData.home.battingLast5,
+      bullpen: mlbData.home.bullpen,
+      weather: mlbData.weather
     };
 
     function calculatePitcherRecentRating(stats) {
@@ -1163,25 +1162,74 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
       );
     }
 
+    function calculateBullpenRating(stats) {
+      if (!stats) return 0;
+
+      const eraScore = 10 - stats.era;
+      const runsScore = 10 - stats.runsPerInning * 10;
+      const hitsScore = 10 - stats.hitsPerInning * 5;
+      const walksScore = 10 - stats.walksPerInning * 10;
+      const fatigueScore = 10 - stats.fatigue;
+
+      return (
+        eraScore * 0.30 +
+        runsScore * 0.25 +
+        hitsScore * 0.15 +
+        walksScore * 0.15 +
+        fatigueScore * 0.15
+      );
+    }
+
+    function calculateWeatherRating(weather) {
+      if (!weather) return 5;
+
+      let directionScore = 5;
+
+      if (weather.direction === "out") directionScore = 10;
+      if (weather.direction === "in") directionScore = 2;
+      if (weather.direction === "cross") directionScore = 5;
+
+      const speedScore = Math.min(10, weather.speed / 2);
+
+      return directionScore * 0.60 + speedScore * 0.40;
+    }
+
     const pitcherA = calculatePitcherRecentRating(teamA.pitcherRecent);
     const pitcherB = calculatePitcherRecentRating(teamB.pitcherRecent);
 
     const battingA = calculateBattingRating(teamA.battingLast5);
     const battingB = calculateBattingRating(teamB.battingLast5);
 
-    const teamAProjection = pitcherA * 0.60 + battingA * 0.40;
-    const teamBProjection = pitcherB * 0.60 + battingB * 0.40;
+    const bullpenA = calculateBullpenRating(teamA.bullpen);
+    const bullpenB = calculateBullpenRating(teamB.bullpen);
+
+    const weatherA = calculateWeatherRating(teamA.weather);
+    const weatherB = calculateWeatherRating(teamB.weather);
+
+    const teamAProjection =
+      pitcherA * 0.30 +
+      battingA * 0.20 +
+      bullpenA * 0.15 +
+      weatherA * 0.10;
+
+    const teamBProjection =
+      pitcherB * 0.30 +
+      battingB * 0.20 +
+      bullpenB * 0.15 +
+      weatherB * 0.10;
 
     const edge = teamAProjection - teamBProjection;
     const pick = edge > 0 ? awayTeam : homeTeam;
     const confidence = Math.min(98, 50 + Math.abs(edge) * 2.4);
 
-    console.log("TEAM A:", teamA);
-    console.log("TEAM B:", teamB);
+    console.log("MLB DATA REAL:", mlbData);
     console.log("Pitcher A Rating:", pitcherA);
     console.log("Pitcher B Rating:", pitcherB);
     console.log("Batting A Rating:", battingA);
     console.log("Batting B Rating:", battingB);
+    console.log("Bullpen A Rating:", bullpenA);
+    console.log("Bullpen B Rating:", bullpenB);
+    console.log("Weather Rating:", weatherA);
     console.log("Team A Projection:", teamAProjection);
     console.log("Team B Projection:", teamBProjection);
 
