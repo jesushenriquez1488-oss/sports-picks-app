@@ -1206,17 +1206,17 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
     const weatherA = calculateWeatherRating(teamA.weather);
     const weatherB = calculateWeatherRating(teamB.weather);
 
-    const teamAProjection =
-      pitcherA * 0.30 +
-      battingA * 0.20 +
-      bullpenA * 0.15 +
-      weatherA * 0.10;
+  const teamAProjection =
+  pitcherA * 0.40 +
+  battingA * 0.25 +
+  bullpenA * 0.20 +
+  weatherA * 0.15;
 
-    const teamBProjection =
-      pitcherB * 0.30 +
-      battingB * 0.20 +
-      bullpenB * 0.15 +
-      weatherB * 0.10;
+const teamBProjection =
+  pitcherB * 0.40 +
+  battingB * 0.25 +
+  bullpenB * 0.20 +
+  weatherB * 0.15;
 
     const edge = teamAProjection - teamBProjection;
     const pick = edge > 0 ? awayTeam : homeTeam;
