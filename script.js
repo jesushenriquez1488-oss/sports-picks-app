@@ -1195,9 +1195,9 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
     resultDiv.innerHTML = `
       <div class="analysis-box">
         <h3>Resultado MLB</h3>
-        <p><strong>Pick:</strong> ${data.pick}</p>
+       <p><strong>Pick:</strong> ${data.pick === "teamA" ? awayTeam : homeTeam}</p>
         <p><strong>Edge:</strong> ${data.edge.toFixed(2)}</p>
-        <p><strong>Confianza:</strong> ${data.confidence}%</p>
+        <p><strong>Confianza:</strong> ${Number(data.confidence).toFixed(1)}%</p>
       </div>
     `;
 
