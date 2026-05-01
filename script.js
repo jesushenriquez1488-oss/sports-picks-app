@@ -773,7 +773,11 @@ async function loadGames() {
         });
       }
 
-      const isNBA = sport === "basketball_nba";
+      const useBasketballFormula = [
+  "basketball_nba",
+  "basketball_wnba",
+  "basketball_ncaab"
+].includes(sport);
 
       gamesDiv.innerHTML += `
         <div class="card">
@@ -787,14 +791,14 @@ async function loadGames() {
           <p><strong>Total:</strong> ${total || "No disponible"}</p>
 
           ${
-            isNBA
-              ? `<button onclick="analyzeAuto('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index})">
-                  Ver predicción del modelo
-                </button>`
-              : `<button onclick="analyzeOtherLeague('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index})">
-                  Ver predicción del modelo
-                </button>`
-          }
+  useBasketballFormula
+    ? `<button onclick="analyzeAuto('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index})">
+        Ver predicción del modelo
+      </button>`
+    : `<button onclick="analyzeOtherLeague('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index})">
+        Ver predicción del modelo
+      </button>`
+}
 
           <div id="result${index}"></div>
         </div>
