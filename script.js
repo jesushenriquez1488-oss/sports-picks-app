@@ -515,8 +515,10 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
     const awayRest = getRestAdjustment(awayAll);
     const homeRest = getRestAdjustment(homeAll);
 
-   const awayInjuries = await getInjuryAdjustment(awayTeam);
-const homeInjuries = await getInjuryAdjustment(homeTeam);
+const [awayInjuries, homeInjuries] = await Promise.all([
+  getInjuryAdjustment(awayTeam),
+  getInjuryAdjustment(homeTeam)
+]);
     const projA =
       awayCalc.projection +
       awayRest.points +
@@ -548,6 +550,8 @@ const homeInjuries = await getInjuryAdjustment(homeTeam);
         <p><strong>Lesiones:</strong></p>
         <p>${getInjuryPublicMessage(awayTeam, awayInjuries)}</p>
         <p>${getInjuryPublicMessage(homeTeam, homeInjuries)}</p>
+        <p>${awayInjuries.note}</p>
+        <p>${homeInjuries.note}</p>
       `
     });
 
