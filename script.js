@@ -1126,6 +1126,9 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
     const awayOffense = mlbData.away.battingLast5?.runs || 4.3;
     const homeOffense = mlbData.home.battingLast5?.runs || 4.3;
 
+    const awayTeamAllowed = mlbData.away.battingLast5?.runsAllowed || 4.5;
+    const homeTeamAllowed = mlbData.home.battingLast5?.runsAllowed || 4.5;
+
     const awayPitcherAllowed = mlbData.away.pitcher?.stats?.runsPerGame || 4.5;
     const homePitcherAllowed = mlbData.home.pitcher?.stats?.runsPerGame || 4.5;
 
@@ -1135,14 +1138,16 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
     const weatherMultiplier = getWeatherMultiplier(mlbData.weather);
 
     let expectedRunsA =
-      (awayOffense * 0.40) +
-      (homePitcherAllowed * 0.35) +
-      (homeBullpenAllowed * 0.25);
+      (awayOffense * 0.35) +
+      (homeTeamAllowed * 0.30) +
+      (homePitcherAllowed * 0.20) +
+      (homeBullpenAllowed * 0.15);
 
     let expectedRunsB =
-      (homeOffense * 0.40) +
-      (awayPitcherAllowed * 0.35) +
-      (awayBullpenAllowed * 0.25);
+      (homeOffense * 0.35) +
+      (awayTeamAllowed * 0.30) +
+      (awayPitcherAllowed * 0.20) +
+      (awayBullpenAllowed * 0.15);
 
     expectedRunsA *= weatherMultiplier;
     expectedRunsB *= weatherMultiplier;
@@ -1266,8 +1271,8 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
           <p><strong>Línea total:</strong> ${totalLine}</p>
 
           <p><strong>Datos reales usados:</strong></p>
-          <p>${awayTeam}: ofensiva ${awayOffense.toFixed(2)}, pitcher rival permite ${homePitcherAllowed.toFixed(2)}, bullpen rival permite ${homeBullpenAllowed.toFixed(2)}</p>
-          <p>${homeTeam}: ofensiva ${homeOffense.toFixed(2)}, pitcher rival permite ${awayPitcherAllowed.toFixed(2)}, bullpen rival permite ${awayBullpenAllowed.toFixed(2)}</p>
+          <p>${awayTeam}: ofensiva ${awayOffense.toFixed(2)}, defensa rival permite ${homeTeamAllowed.toFixed(2)}, pitcher rival permite ${homePitcherAllowed.toFixed(2)}, bullpen rival permite ${homeBullpenAllowed.toFixed(2)}</p>
+          <p>${homeTeam}: ofensiva ${homeOffense.toFixed(2)}, defensa rival permite ${awayTeamAllowed.toFixed(2)}, pitcher rival permite ${awayPitcherAllowed.toFixed(2)}, bullpen rival permite ${awayBullpenAllowed.toFixed(2)}</p>
 
           ${
             shouldLockPremium
