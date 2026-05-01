@@ -79,13 +79,21 @@ export default async function handler(req, res) {
 
       if (last5.length === 0) return null;
 
-      let runs = 0, hits = 0, walks = 0, strikeouts = 0, atBats = 0;
+      let runs = 0;
+      let runsAllowed = 0;
+      let hits = 0;
+      let walks = 0;
+      let strikeouts = 0;
+      let atBats = 0;
 
       last5.forEach(g => {
         const side = g.teams.away.team.id === teamId ? "away" : "home";
+        const opponentSide = side === "away" ? "home" : "away";
         const teamStats = g.linescore?.teams?.[side] || {};
 
         runs += Number(g.teams?.[side]?.score || 0);
+        runsAllowed += Number(g.teams?.[opponentSide]?.score || 0);
+
         hits += Number(teamStats.hits || 0);
         walks += Number(teamStats.baseOnBalls || 0);
         strikeouts += Number(teamStats.strikeOuts || 0);
@@ -94,6 +102,7 @@ export default async function handler(req, res) {
 
       return {
         runs: runs / last5.length,
+        runsAllowed: runsAllowed / last5.length,
         hits: hits / last5.length,
         walks: walks / last5.length,
         avg: atBats > 0 ? hits / atBats : 0,
