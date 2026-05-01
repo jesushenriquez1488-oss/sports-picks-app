@@ -1169,8 +1169,8 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
     const battingA = calculateBattingRating(teamA.battingLast5);
     const battingB = calculateBattingRating(teamB.battingLast5);
 
-    const teamAProjection = pitcherA * 0.50 + battingA * 0.50;
-    const teamBProjection = pitcherB * 0.50 + battingB * 0.50;
+    const teamAProjection = pitcherA * 0.60 + battingA * 0.40;
+    const teamBProjection = pitcherB * 0.60 + battingB * 0.40;
 
     const edge = teamAProjection - teamBProjection;
     const pick = edge > 0 ? awayTeam : homeTeam;
