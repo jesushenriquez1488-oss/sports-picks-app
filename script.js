@@ -941,7 +941,7 @@ async function loadGames() {
                   Ver predicción del modelo
                 </button>`
               : useMLBFormula
-              ? `<button onclick='analyzeMLB("${escapeText(game.away_team)}","${escapeText(game.home_team)}",${awaySpread},${homeSpread},${index},${JSON.stringify((game.bookmakers?.[0]?.markets.find(m => m.key === "h2h")?.outcomes || [])).replace(/"/g, '&quot;')})'>
+              ? `<button onclick='analyzeMLB("${escapeText(game.away_team)}","${escapeText(game.home_team)}",${awaySpread},${homeSpread},${index},${JSON.stringify((game.bookmakers?.[0]?.markets.find(m => m.key === "h2h")?.outcomes || [])).replace(/"/g, '&quot;')}, ${total})'>
                   Ver predicción MLB
                 </button>`
               : `<button onclick="analyzeOtherLeague('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${index})">
@@ -1092,7 +1092,7 @@ window.logoutUser = logoutUser;
 window.registerUser = registerUser;
 window.loginUser = loginUser;
 
-async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, outcomes) {
+async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, outcomes, totalLine = 8) {
   const resultDiv = document.getElementById(`result${index}`);
   resultDiv.innerHTML = "Analizando MLB...";
 
@@ -1127,47 +1127,26 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
 
     function calculatePitcherRecentRating(stats) {
       if (!stats) return 0;
-      return (
-        (10 - stats.era) * 0.30 +
-        (10 - stats.runsPerInning * 10) * 0.25 +
-        (10 - stats.hitsPerInning * 5) * 0.20 +
-        (10 - stats.walksPerInning * 10) * 0.15 +
-        stats.innings * 0.10
-      );
+      return (10 - stats.era) * 0.5;
     }
 
     function calculateBattingRating(stats) {
       if (!stats) return 0;
-      return (
-        stats.runs * 1.5 * 0.35 +
-        stats.hits * 1.2 * 0.25 +
-        stats.walks * 1 * 0.15 +
-        stats.avg * 100 * 0.15 -
-        stats.k * 0.8 * 0.10
-      );
+      return stats.runs * 0.6 + stats.hits * 0.4;
     }
 
     function calculateBullpenRating(stats) {
       if (!stats) return 0;
-      return (
-        (10 - stats.era) * 0.30 +
-        (10 - stats.runsPerInning * 10) * 0.25 +
-        (10 - stats.hitsPerInning * 5) * 0.15 +
-        (10 - stats.walksPerInning * 10) * 0.15 +
-        (10 - stats.fatigue) * 0.15
-      );
+      return (10 - stats.era) * 0.4;
     }
 
-    function calculateWeatherRating(weather) {
-      if (!weather) return 5;
+    function calculateWeatherFactor(weather) {
+      if (!weather) return 1;
 
-      let directionScore = 5;
-      if (weather.direction === "out") directionScore = 10;
-      if (weather.direction === "in") directionScore = 2;
+      if (weather.direction === "out") return 1.15;
+      if (weather.direction === "in") return 0.85;
 
-      const speedScore = Math.min(10, weather.speed / 2);
-
-      return directionScore * 0.6 + speedScore * 0.4;
+      return 1;
     }
 
     const pitcherA = calculatePitcherRecentRating(teamA.pitcherRecent);
@@ -1179,25 +1158,22 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
     const bullpenA = calculateBullpenRating(teamA.bullpen);
     const bullpenB = calculateBullpenRating(teamB.bullpen);
 
-    const weatherA = calculateWeatherRating(teamA.weather);
-    const weatherB = calculateWeatherRating(teamB.weather);
+    const weatherFactor = calculateWeatherFactor(teamA.weather);
 
-    const teamAProjection =
-      pitcherA * 0.40 +
-      battingA * 0.25 +
-      bullpenA * 0.20 +
-      weatherA * 0.15;
+    // 🔥 BASE RUNS (modelo simple pero efectivo)
+    const baseRunsA = (battingA * 0.6) + ((10 - pitcherB) * 0.4) + ((10 - bullpenB) * 0.2);
+    const baseRunsB = (battingB * 0.6) + ((10 - pitcherA) * 0.4) + ((10 - bullpenA) * 0.2);
 
-    const teamBProjection =
-      pitcherB * 0.40 +
-      battingB * 0.25 +
-      bullpenB * 0.20 +
-      weatherB * 0.15;
+    // 🔥 AJUSTE A ESCALA MLB REAL
+    const expectedRunsA = (baseRunsA / 10) * 5 * weatherFactor;
+    const expectedRunsB = (baseRunsB / 10) * 5 * weatherFactor;
 
-    // 🔥 PROBABILIDAD REAL
-    const totalProjection = teamAProjection + teamBProjection;
-    const modelProbA = teamAProjection / totalProjection;
-    const modelProbB = teamBProjection / totalProjection;
+    const projectedTotal = expectedRunsA + expectedRunsB;
+
+    // 🔥 PROBABILIDAD GANADOR
+    const totalProjection = expectedRunsA + expectedRunsB;
+    const modelProbA = expectedRunsA / totalProjection;
+    const modelProbB = expectedRunsB / totalProjection;
 
     // 🔥 MARKET
     let marketProbA = 0.5;
@@ -1218,28 +1194,27 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
       marketProbB = americanToProb(homeOdds);
     }
 
-    // 🔥 EDGE
     const edgeA = (modelProbA - marketProbA) * 100;
     const edgeB = (modelProbB - marketProbB) * 100;
 
+    const pick = modelProbA > modelProbB ? awayTeam : homeTeam;
     const edge = Math.max(edgeA, edgeB);
 
-    // 🔥 PICK REAL (QUIÉN GANA)
-    const pick = modelProbA > modelProbB ? awayTeam : homeTeam;
+    // 🔥 OVER / UNDER
+    let totalPlay = "";
 
-    // 🔥 FILTRO PRO
-    let play = "❌ NO BET";
-
-    if ((modelProbA > 0.55 && edgeA > 3) || (modelProbB > 0.55 && edgeB > 3)) {
-      play = "✅ BUENA JUGADA";
+    if (projectedTotal > totalLine + 1) {
+      totalPlay = `🔥 OVER ${totalLine}`;
+    } else if (projectedTotal < totalLine - 1) {
+      totalPlay = `🔥 UNDER ${totalLine}`;
     }
+
+    // 🔥 RECOMENDACIÓN SOLO SI ES FUERTE
+    let sidePlay = "";
 
     if ((modelProbA > 0.60 && edgeA > 5) || (modelProbB > 0.60 && edgeB > 5)) {
-      play = "🔥 PICK FUERTE";
+      sidePlay = `🔥 ${pick}`;
     }
-
-    // 🔥 CONFIANZA
-    const confidence = Math.min(98, Math.max(50, 50 + edge * 2.4));
 
     resultDiv.innerHTML = `
       <div class="analysis-box">
@@ -1247,18 +1222,17 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
 
         <p><strong>${awayTeam}</strong> vs <strong>${homeTeam}</strong></p>
 
-        <p><strong>Probabilidad ${awayTeam}:</strong> ${(modelProbA * 100).toFixed(1)}%</p>
-        <p><strong>Probabilidad ${homeTeam}:</strong> ${(modelProbB * 100).toFixed(1)}%</p>
+        <p><strong>Runs esperadas ${awayTeam}:</strong> ${expectedRunsA.toFixed(2)}</p>
+        <p><strong>Runs esperadas ${homeTeam}:</strong> ${expectedRunsB.toFixed(2)}</p>
 
-        <p><strong>ERA ${awayTeam}:</strong> ${mlbData.away.pitcher?.stats?.era?.toFixed(2) || "N/A"}</p>
-        <p><strong>ERA ${homeTeam}:</strong> ${mlbData.home.pitcher?.stats?.era?.toFixed(2) || "N/A"}</p>
+        <p><strong>Total proyectado:</strong> ${projectedTotal.toFixed(2)} (Línea: ${totalLine})</p>
 
         <p><strong>Pick (más probable):</strong> ${pick}</p>
 
-        <p><strong>Edge:</strong> ${edge.toFixed(2)}</p>
-        <p><strong>Confianza:</strong> ${confidence.toFixed(1)}%</p>
+        ${sidePlay ? `<p><strong>Side:</strong> ${sidePlay}</p>` : ""}
+        ${totalPlay ? `<p><strong>Total:</strong> ${totalPlay}</p>` : ""}
 
-        <p><strong>Recomendación:</strong> ${play}</p>
+        <p><strong>Edge:</strong> ${edge.toFixed(2)}</p>
       </div>
     `;
 
