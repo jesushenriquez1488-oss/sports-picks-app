@@ -1227,9 +1227,14 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
     const oddsResponse = await fetch(`https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?apiKey=${ODDS_API_KEY}&regions=us&markets=h2h`);
     const oddsData = await oddsResponse.json();
 
-    const gameOdds = oddsData.find(g =>
-      g.home_team === homeTeam && g.away_team === awayTeam
-    );
+    function normalize(name) {
+  return name.toLowerCase().replace(/[^a-z]/g, "");
+}
+
+const gameOdds = oddsData.find(g =>
+  normalize(g.home_team) === normalize(homeTeam) &&
+  normalize(g.away_team) === normalize(awayTeam)
+);
 
     let marketProbA = 0.5;
     let marketProbB = 0.5;
