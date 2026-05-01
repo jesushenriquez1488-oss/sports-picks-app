@@ -39,7 +39,6 @@ export default async function handler(req, res) {
       const data = await res.json();
 
       const splits = data?.stats?.[0]?.splits || [];
-
       const last5 = splits.slice(-5);
 
       if (last5.length === 0) return null;
@@ -83,7 +82,8 @@ export default async function handler(req, res) {
               name: awayPitcher.fullName,
               stats: awayPitcherStats
             }
-          : null
+          : null,
+        battingLast5: {}
       },
       home: {
         teamName: game.teams.home.team.name,
@@ -93,7 +93,8 @@ export default async function handler(req, res) {
               name: homePitcher.fullName,
               stats: homePitcherStats
             }
-          : null
+          : null,
+        battingLast5: {}
       }
     });
 
