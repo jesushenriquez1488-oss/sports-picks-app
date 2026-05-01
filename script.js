@@ -1150,33 +1150,19 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
     console.log("TEAM B:", teamB);
     console.log("Pitcher A Rating:", pitcherA);
     console.log("Pitcher B Rating:", pitcherB);
+resultDiv.innerHTML = `
+  <div class="analysis-box">
+    <h3>Resultado MLB</h3>
+    <p><strong>${awayTeam}</strong> vs <strong>${homeTeam}</strong></p>
 
-    resultDiv.innerHTML = `
-      <div class="analysis-box">
-        <h3>Data MLB encontrada ✅</h3>
-        <p><strong>${mlbData.away.teamName}</strong> vs <strong>${mlbData.home.teamName}</strong></p>
+    <p><strong>ERA ${awayTeam}:</strong> ${mlbData.away.pitcher?.stats?.era?.toFixed(2) || "N/A"}</p>
+    <p><strong>ERA ${homeTeam}:</strong> ${mlbData.home.pitcher?.stats?.era?.toFixed(2) || "N/A"}</p>
 
-        <p><strong>Pitcher visitante:</strong> ${mlbData.away.pitcher?.name || "No disponible"}</p>
-        <p>ERA: ${mlbData.away.pitcher?.stats?.era?.toFixed(2) || "No disponible"}</p>
-        <p>Runs/Inning: ${mlbData.away.pitcher?.stats?.runsPerInning?.toFixed(2) || "No disponible"}</p>
-        <p>Hits/Inning: ${mlbData.away.pitcher?.stats?.hitsPerInning?.toFixed(2) || "No disponible"}</p>
-        <p>Walks/Inning: ${mlbData.away.pitcher?.stats?.walksPerInning?.toFixed(2) || "No disponible"}</p>
-        <p>Innings promedio: ${mlbData.away.pitcher?.stats?.innings?.toFixed(1) || "No disponible"}</p>
-        <p><strong>Pitcher Rating:</strong> ${pitcherA.toFixed(2)}</p>
-
-        <hr>
-
-        <p><strong>Pitcher local:</strong> ${mlbData.home.pitcher?.name || "No disponible"}</p>
-        <p>ERA: ${mlbData.home.pitcher?.stats?.era?.toFixed(2) || "No disponible"}</p>
-        <p>Runs/Inning: ${mlbData.home.pitcher?.stats?.runsPerInning?.toFixed(2) || "No disponible"}</p>
-        <p>Hits/Inning: ${mlbData.home.pitcher?.stats?.hitsPerInning?.toFixed(2) || "No disponible"}</p>
-        <p>Walks/Inning: ${mlbData.home.pitcher?.stats?.walksPerInning?.toFixed(2) || "No disponible"}</p>
-        <p>Innings promedio: ${mlbData.home.pitcher?.stats?.innings?.toFixed(1) || "No disponible"}</p>
-        <p><strong>Pitcher Rating:</strong> ${pitcherB.toFixed(2)}</p>
-
-        <p><strong>Game PK:</strong> ${mlbData.gamePk}</p>
-      </div>
-    `;
+    <p><strong>Pick:</strong> ${pick}</p>
+    <p><strong>Edge:</strong> ${edge.toFixed(2)}</p>
+    <p><strong>Confianza:</strong> ${confidence.toFixed(1)}%</p>
+  </div>
+`;
   } catch (error) {
     resultDiv.innerHTML = `<p>Error MLB: ${error.message}</p>`;
   }
