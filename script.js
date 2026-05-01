@@ -1093,7 +1093,7 @@ window.logoutUser = logoutUser;
 window.registerUser = registerUser;
 window.loginUser = loginUser;
 
-async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
+async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, outcomes) {
   const resultDiv = document.getElementById(`result${index}`);
   resultDiv.innerHTML = "Analizando MLB...";
 
@@ -1129,54 +1129,36 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
     function calculatePitcherRecentRating(stats) {
       if (!stats) return 0;
 
-      const eraScore = 10 - stats.era;
-      const runsScore = 10 - stats.runsPerInning * 10;
-      const hitsScore = 10 - stats.hitsPerInning * 5;
-      const walksScore = 10 - stats.walksPerInning * 10;
-      const inningsScore = stats.innings;
-
       return (
-        eraScore * 0.30 +
-        runsScore * 0.25 +
-        hitsScore * 0.20 +
-        walksScore * 0.15 +
-        inningsScore * 0.10
+        (10 - stats.era) * 0.30 +
+        (10 - stats.runsPerInning * 10) * 0.25 +
+        (10 - stats.hitsPerInning * 5) * 0.20 +
+        (10 - stats.walksPerInning * 10) * 0.15 +
+        stats.innings * 0.10
       );
     }
 
     function calculateBattingRating(stats) {
       if (!stats) return 0;
 
-      const runsScore = stats.runs * 1.5;
-      const hitsScore = stats.hits * 1.2;
-      const walksScore = stats.walks * 1;
-      const avgScore = stats.avg * 100;
-      const kPenalty = stats.k * 0.8;
-
       return (
-        runsScore * 0.35 +
-        hitsScore * 0.25 +
-        walksScore * 0.15 +
-        avgScore * 0.15 -
-        kPenalty * 0.10
+        stats.runs * 1.5 * 0.35 +
+        stats.hits * 1.2 * 0.25 +
+        stats.walks * 1 * 0.15 +
+        stats.avg * 100 * 0.15 -
+        stats.k * 0.8 * 0.10
       );
     }
 
     function calculateBullpenRating(stats) {
       if (!stats) return 0;
 
-      const eraScore = 10 - stats.era;
-      const runsScore = 10 - stats.runsPerInning * 10;
-      const hitsScore = 10 - stats.hitsPerInning * 5;
-      const walksScore = 10 - stats.walksPerInning * 10;
-      const fatigueScore = 10 - stats.fatigue;
-
       return (
-        eraScore * 0.30 +
-        runsScore * 0.25 +
-        hitsScore * 0.15 +
-        walksScore * 0.15 +
-        fatigueScore * 0.15
+        (10 - stats.era) * 0.30 +
+        (10 - stats.runsPerInning * 10) * 0.25 +
+        (10 - stats.hitsPerInning * 5) * 0.15 +
+        (10 - stats.walksPerInning * 10) * 0.15 +
+        (10 - stats.fatigue) * 0.15
       );
     }
 
@@ -1184,14 +1166,12 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
       if (!weather) return 5;
 
       let directionScore = 5;
-
       if (weather.direction === "out") directionScore = 10;
       if (weather.direction === "in") directionScore = 2;
-      if (weather.direction === "cross") directionScore = 5;
 
       const speedScore = Math.min(10, weather.speed / 2);
 
-      return directionScore * 0.60 + speedScore * 0.40;
+      return directionScore * 0.6 + speedScore * 0.4;
     }
 
     const pitcherA = calculatePitcherRecentRating(teamA.pitcherRecent);
@@ -1218,45 +1198,28 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
       bullpenB * 0.20 +
       weatherB * 0.15;
 
-    // 🔥 NUEVO: MODELO → PROBABILIDAD
+    // 🔥 MODELO → PROBABILIDAD
     const totalProjection = teamAProjection + teamBProjection;
     const modelProbA = teamAProjection / totalProjection;
     const modelProbB = teamBProjection / totalProjection;
 
-    // 🔥 NUEVO: MARKET ODDS
-    const oddsResponse = await fetch(`https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?apiKey=${ODDS_API_KEY}&regions=us&markets=h2h`);
-    const oddsData = await oddsResponse.json();
-
-    function normalize(name) {
-  return name.toLowerCase().replace(/[^a-z]/g, "");
-}
-
-const gameOdds = oddsData.find(g =>
-  normalize(g.home_team) === normalize(homeTeam) &&
-  normalize(g.away_team) === normalize(awayTeam)
-);
-
+    // 🔥 MARKET ODDS (desde botón)
     let marketProbA = 0.5;
     let marketProbB = 0.5;
 
-    if (gameOdds && gameOdds.bookmakers?.length) {
-      const outcomes = gameOdds.bookmakers[0].markets
-        .find(m => m.key === "h2h")?.outcomes;
+    if (outcomes && outcomes.length) {
+      const awayOdds = outcomes.find(o => o.name === awayTeam)?.price;
+      const homeOdds = outcomes.find(o => o.name === homeTeam)?.price;
 
-      if (outcomes) {
-        const awayOdds = outcomes.find(o => o.name === awayTeam)?.price;
-        const homeOdds = outcomes.find(o => o.name === homeTeam)?.price;
-
-        function americanToProb(odds) {
-          if (!odds) return 0.5;
-          return odds > 0
-            ? 100 / (odds + 100)
-            : Math.abs(odds) / (Math.abs(odds) + 100);
-        }
-
-        marketProbA = americanToProb(awayOdds);
-        marketProbB = americanToProb(homeOdds);
+      function americanToProb(odds) {
+        if (!odds) return 0.5;
+        return odds > 0
+          ? 100 / (odds + 100)
+          : Math.abs(odds) / (Math.abs(odds) + 100);
       }
+
+      marketProbA = americanToProb(awayOdds);
+      marketProbB = americanToProb(homeOdds);
     }
 
     // 🔥 EDGE REAL
@@ -1280,6 +1243,7 @@ const gameOdds = oddsData.find(g =>
         <p><strong>Confianza:</strong> ${confidence.toFixed(1)}%</p>
       </div>
     `;
+
   } catch (error) {
     resultDiv.innerHTML = `<p>Error MLB: ${error.message}</p>`;
   }
