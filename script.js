@@ -1117,6 +1117,18 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
 
     console.log("MLB DATA REAL:", mlbData);
 
+    // 🔥 NUEVO: construir base para fórmula
+    const teamA = {
+      pitcherRecent: mlbData.away.pitcher?.stats
+    };
+
+    const teamB = {
+      pitcherRecent: mlbData.home.pitcher?.stats
+    };
+
+    console.log("TEAM A:", teamA);
+    console.log("TEAM B:", teamB);
+
     resultDiv.innerHTML = `
       <div class="analysis-box">
         <h3>Data MLB encontrada ✅</h3>
