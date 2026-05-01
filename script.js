@@ -1206,32 +1206,61 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
     const weatherA = calculateWeatherRating(teamA.weather);
     const weatherB = calculateWeatherRating(teamB.weather);
 
-  const teamAProjection =
-  pitcherA * 0.40 +
-  battingA * 0.25 +
-  bullpenA * 0.20 +
-  weatherA * 0.15;
+    const teamAProjection =
+      pitcherA * 0.40 +
+      battingA * 0.25 +
+      bullpenA * 0.20 +
+      weatherA * 0.15;
 
-const teamBProjection =
-  pitcherB * 0.40 +
-  battingB * 0.25 +
-  bullpenB * 0.20 +
-  weatherB * 0.15;
+    const teamBProjection =
+      pitcherB * 0.40 +
+      battingB * 0.25 +
+      bullpenB * 0.20 +
+      weatherB * 0.15;
 
-    const edge = teamAProjection - teamBProjection;
-    const pick = edge > 0 ? awayTeam : homeTeam;
-    const confidence = Math.min(98, 50 + Math.abs(edge) * 2.4);
+    // 🔥 NUEVO: MODELO → PROBABILIDAD
+    const totalProjection = teamAProjection + teamBProjection;
+    const modelProbA = teamAProjection / totalProjection;
+    const modelProbB = teamBProjection / totalProjection;
 
-    console.log("MLB DATA REAL:", mlbData);
-    console.log("Pitcher A Rating:", pitcherA);
-    console.log("Pitcher B Rating:", pitcherB);
-    console.log("Batting A Rating:", battingA);
-    console.log("Batting B Rating:", battingB);
-    console.log("Bullpen A Rating:", bullpenA);
-    console.log("Bullpen B Rating:", bullpenB);
-    console.log("Weather Rating:", weatherA);
-    console.log("Team A Projection:", teamAProjection);
-    console.log("Team B Projection:", teamBProjection);
+    // 🔥 NUEVO: MARKET ODDS
+    const oddsResponse = await fetch(`https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?apiKey=${ODDS_API_KEY}&regions=us&markets=h2h`);
+    const oddsData = await oddsResponse.json();
+
+    const gameOdds = oddsData.find(g =>
+      g.home_team === homeTeam && g.away_team === awayTeam
+    );
+
+    let marketProbA = 0.5;
+    let marketProbB = 0.5;
+
+    if (gameOdds && gameOdds.bookmakers?.length) {
+      const outcomes = gameOdds.bookmakers[0].markets
+        .find(m => m.key === "h2h")?.outcomes;
+
+      if (outcomes) {
+        const awayOdds = outcomes.find(o => o.name === awayTeam)?.price;
+        const homeOdds = outcomes.find(o => o.name === homeTeam)?.price;
+
+        function americanToProb(odds) {
+          if (!odds) return 0.5;
+          return odds > 0
+            ? 100 / (odds + 100)
+            : Math.abs(odds) / (Math.abs(odds) + 100);
+        }
+
+        marketProbA = americanToProb(awayOdds);
+        marketProbB = americanToProb(homeOdds);
+      }
+    }
+
+    // 🔥 EDGE REAL
+    const edgeA = (modelProbA - marketProbA) * 100;
+    const edgeB = (modelProbB - marketProbB) * 100;
+
+    const edge = Math.max(edgeA, edgeB);
+    const pick = edgeA > edgeB ? awayTeam : homeTeam;
+    const confidence = Math.min(98, Math.max(50, 50 + edge * 2.4));
 
     resultDiv.innerHTML = `
       <div class="analysis-box">
