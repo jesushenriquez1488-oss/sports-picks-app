@@ -1094,14 +1094,12 @@ window.loginUser = loginUser;
 
 async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, outcomes, totalLine = 8) {
   const resultDiv = document.getElementById(`result${index}`);
-  resultDiv.innerHTML = "Analizando MLB...";
+  resultDiv.innerHTML = `<div class="loading-analysis">Analizando MLB...</div>`;
 
   try {
     const dataResponse = await fetch("/api/mlb-data", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ awayTeam, homeTeam })
     });
 
@@ -1126,70 +1124,83 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
     };
 
     function calculatePitcherRecentRating(stats) {
-      if (!stats) return 0;
-      return (10 - stats.era) * 0.5;
+      if (!stats) return 5;
+      return (
+        (10 - stats.era) * 0.30 +
+        (10 - stats.runsPerInning * 10) * 0.25 +
+        (10 - stats.hitsPerInning * 5) * 0.20 +
+        (10 - stats.walksPerInning * 10) * 0.15 +
+        stats.innings * 0.10
+      );
     }
 
     function calculateBattingRating(stats) {
-      if (!stats) return 0;
-      return stats.runs * 0.6 + stats.hits * 0.4;
+      if (!stats) return 5;
+      return (
+        stats.runs * 1.5 * 0.35 +
+        stats.hits * 1.2 * 0.25 +
+        stats.walks * 1 * 0.15 +
+        stats.avg * 100 * 0.15 -
+        stats.k * 0.8 * 0.10
+      );
     }
 
     function calculateBullpenRating(stats) {
-      if (!stats) return 0;
-      return (10 - stats.era) * 0.4;
+      if (!stats) return 5;
+      return (
+        (10 - stats.era) * 0.30 +
+        (10 - stats.runsPerInning * 10) * 0.25 +
+        (10 - stats.hitsPerInning * 5) * 0.15 +
+        (10 - stats.walksPerInning * 10) * 0.15 +
+        (10 - stats.fatigue) * 0.15
+      );
     }
 
     function calculateWeatherFactor(weather) {
       if (!weather) return 1;
-
-      if (weather.direction === "out") return 1.15;
-      if (weather.direction === "in") return 0.85;
-
+      if (weather.direction === "out") return 1.12;
+      if (weather.direction === "in") return 0.88;
       return 1;
+    }
+
+    function americanToProb(odds) {
+      if (!odds) return 0.5;
+      return odds > 0
+        ? 100 / (odds + 100)
+        : Math.abs(odds) / (Math.abs(odds) + 100);
     }
 
     const pitcherA = calculatePitcherRecentRating(teamA.pitcherRecent);
     const pitcherB = calculatePitcherRecentRating(teamB.pitcherRecent);
-
     const battingA = calculateBattingRating(teamA.battingLast5);
     const battingB = calculateBattingRating(teamB.battingLast5);
-
     const bullpenA = calculateBullpenRating(teamA.bullpen);
     const bullpenB = calculateBullpenRating(teamB.bullpen);
-
     const weatherFactor = calculateWeatherFactor(teamA.weather);
 
-    // 🔥 BASE RUNS (modelo simple pero efectivo)
-    const baseRunsA = (battingA * 0.6) + ((10 - pitcherB) * 0.4) + ((10 - bullpenB) * 0.2);
-    const baseRunsB = (battingB * 0.6) + ((10 - pitcherA) * 0.4) + ((10 - bullpenA) * 0.2);
+    const baseRunsA =
+      battingA * 0.45 +
+      (10 - pitcherB) * 0.35 +
+      (10 - bullpenB) * 0.20;
 
-    // 🔥 AJUSTE A ESCALA MLB REAL
-    const expectedRunsA = (baseRunsA / 10) * 5 * weatherFactor;
-    const expectedRunsB = (baseRunsB / 10) * 5 * weatherFactor;
+    const baseRunsB =
+      battingB * 0.45 +
+      (10 - pitcherA) * 0.35 +
+      (10 - bullpenA) * 0.20;
 
+    const expectedRunsA = Math.max(2.2, Math.min(8.5, (baseRunsA / 10) * 6.5 * weatherFactor));
+    const expectedRunsB = Math.max(2.2, Math.min(8.5, (baseRunsB / 10) * 6.5 * weatherFactor));
     const projectedTotal = expectedRunsA + expectedRunsB;
 
-    // 🔥 PROBABILIDAD GANADOR
-    const totalProjection = expectedRunsA + expectedRunsB;
-    const modelProbA = expectedRunsA / totalProjection;
-    const modelProbB = expectedRunsB / totalProjection;
+    const modelProbA = expectedRunsA / projectedTotal;
+    const modelProbB = expectedRunsB / projectedTotal;
 
-    // 🔥 MARKET
     let marketProbA = 0.5;
     let marketProbB = 0.5;
 
     if (outcomes && outcomes.length) {
       const awayOdds = outcomes.find(o => o.name === awayTeam)?.price;
       const homeOdds = outcomes.find(o => o.name === homeTeam)?.price;
-
-      function americanToProb(odds) {
-        if (!odds) return 0.5;
-        return odds > 0
-          ? 100 / (odds + 100)
-          : Math.abs(odds) / (Math.abs(odds) + 100);
-      }
-
       marketProbA = americanToProb(awayOdds);
       marketProbB = americanToProb(homeOdds);
     }
@@ -1198,41 +1209,106 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
     const edgeB = (modelProbB - marketProbB) * 100;
 
     const pick = modelProbA > modelProbB ? awayTeam : homeTeam;
-    const edge = Math.max(edgeA, edgeB);
+    const pickProb = Math.max(modelProbA, modelProbB) * 100;
 
-    // 🔥 OVER / UNDER
+    const valueTeam = edgeA > edgeB ? awayTeam : homeTeam;
+    const valueEdge = Math.max(edgeA, edgeB);
+    const valueSpread = edgeA > edgeB ? awaySpread : homeSpread;
+
+    const totalEdge = Math.abs(projectedTotal - totalLine);
+    const totalPick = projectedTotal > totalLine ? "OVER" : "UNDER";
+    const totalConfidence = Math.min(98, Math.max(50, 50 + totalEdge * 12));
+
+    let recommendedPlay = "";
+    let recommendedProb = 0;
+    let recommendedReason = "";
+
+    if (valueEdge >= 7) {
+      if (valueSpread > 0) {
+        recommendedPlay = `${valueTeam} +${valueSpread}`;
+        recommendedProb = Math.min(92, Math.max(55, 55 + valueEdge * 3));
+        recommendedReason = "Underdog con alto edge para cubrir la línea +1.5.";
+      } else {
+        recommendedPlay = `${valueTeam} ML`;
+        recommendedProb = Math.min(90, Math.max(55, Math.max(modelProbA, modelProbB) * 100));
+        recommendedReason = "Favorito con ventaja fuerte contra el mercado.";
+      }
+    }
+
     let totalPlay = "";
-
-    if (projectedTotal > totalLine + 1) {
-      totalPlay = `🔥 OVER ${totalLine}`;
-    } else if (projectedTotal < totalLine - 1) {
-      totalPlay = `🔥 UNDER ${totalLine}`;
+    if (totalEdge >= 1.5) {
+      totalPlay = `${totalPick} ${totalLine}`;
     }
 
-    // 🔥 RECOMENDACIÓN SOLO SI ES FUERTE
-    let sidePlay = "";
-
-    if ((modelProbA > 0.60 && edgeA > 5) || (modelProbB > 0.60 && edgeB > 5)) {
-      sidePlay = `🔥 ${pick}`;
-    }
+    const isPremiumMLB = totalEdge >= 1.5 || valueEdge >= 7;
+    const shouldLockPremium = isPremiumMLB && !IS_ADMIN && !isPremiumUser;
 
     resultDiv.innerHTML = `
-      <div class="analysis-box">
-        <h3>Resultado MLB</h3>
+      <div class="${isPremiumMLB ? 'premium-result' : 'normal-result'}">
+        ${isPremiumMLB ? '<div class="shine"></div><div class="hot-badge">🔥 HOT PICK MLB</div>' : ''}
 
-        <p><strong>${awayTeam}</strong> vs <strong>${homeTeam}</strong></p>
+        <div class="result-content">
+          <p><strong>⚾ RESULTADO MLB:</strong></p>
+          <p><strong>${awayTeam}</strong> vs <strong>${homeTeam}</strong></p>
 
-        <p><strong>Runs esperadas ${awayTeam}:</strong> ${expectedRunsA.toFixed(2)}</p>
-        <p><strong>Runs esperadas ${homeTeam}:</strong> ${expectedRunsB.toFixed(2)}</p>
+          <div class="edge-grid">
+            <div class="edge-box">
+              <h4>Pick más probable</h4>
+              <p>${pick} ML</p>
+              <div class="edge-number">${pickProb.toFixed(1)}%</div>
+              <p>Probabilidad de ganar</p>
+            </div>
 
-        <p><strong>Total proyectado:</strong> ${projectedTotal.toFixed(2)} (Línea: ${totalLine})</p>
+            ${
+              recommendedPlay
+                ? `
+                  <div class="edge-box">
+                    <h4>Jugada recomendada</h4>
+                    <p>${shouldLockPremium ? "Pick Premium bloqueado" : recommendedPlay}</p>
+                    <div class="edge-number">${shouldLockPremium ? "🔒" : recommendedProb.toFixed(1) + "%"}</div>
+                    <p>${shouldLockPremium ? "Desbloquea para ver la jugada." : recommendedReason}</p>
+                  </div>
+                `
+                : ""
+            }
 
-        <p><strong>Pick (más probable):</strong> ${pick}</p>
+            <div class="edge-box">
+              <h4>Over / Under</h4>
+              <p>${projectedTotal.toFixed(2)} carreras proyectadas</p>
+              <div class="edge-number">${totalPick}</div>
+              <p>Línea: <strong>${totalLine}</strong></p>
+            </div>
 
-        ${sidePlay ? `<p><strong>Side:</strong> ${sidePlay}</p>` : ""}
-        ${totalPlay ? `<p><strong>Total:</strong> ${totalPlay}</p>` : ""}
+            <div class="edge-box">
+              <h4>Probabilidad Total</h4>
+              <p>Diferencia: ${totalEdge.toFixed(2)} carreras</p>
+              <div class="edge-number">${totalConfidence.toFixed(1)}%</div>
+            </div>
+          </div>
 
-        <p><strong>Edge:</strong> ${edge.toFixed(2)}</p>
+          <br>
+
+          <p><strong>Carreras esperadas ${awayTeam}:</strong> ${expectedRunsA.toFixed(2)}</p>
+          <p><strong>Carreras esperadas ${homeTeam}:</strong> ${expectedRunsB.toFixed(2)}</p>
+
+          <p><strong>Probabilidad ${awayTeam} ML:</strong> ${(modelProbA * 100).toFixed(1)}%</p>
+          <p><strong>Probabilidad ${homeTeam} ML:</strong> ${(modelProbB * 100).toFixed(1)}%</p>
+
+          <p><strong>Edge ML:</strong> ${valueEdge.toFixed(2)}</p>
+
+          ${
+            shouldLockPremium
+              ? `
+                <button class="unlock-btn" onclick="unlockPick()">
+                  Desbloquear jugada premium
+                </button>
+              `
+              : `
+                ${recommendedPlay ? `<p><strong>Jugada recomendada:</strong> 🔥 ${recommendedPlay} con ${recommendedProb.toFixed(1)}%</p>` : ""}
+                ${totalPlay ? `<p><strong>Total recomendado:</strong> 🔥 ${totalPlay} con ${totalConfidence.toFixed(1)}%</p>` : ""}
+              `
+          }
+        </div>
       </div>
     `;
 
