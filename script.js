@@ -1118,11 +1118,13 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
     console.log("MLB DATA REAL:", mlbData);
 
     const teamA = {
-      pitcherRecent: mlbData.away.pitcher?.stats
+      pitcherRecent: mlbData.away.pitcher?.stats,
+      battingLast5: mlbData.away.battingLast5
     };
 
     const teamB = {
-      pitcherRecent: mlbData.home.pitcher?.stats
+      pitcherRecent: mlbData.home.pitcher?.stats,
+      battingLast5: mlbData.home.battingLast5
     };
 
     function calculatePitcherRecentRating(stats) {
@@ -1143,10 +1145,34 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
       );
     }
 
+    function calculateBattingRating(stats) {
+      if (!stats) return 0;
+
+      const runsScore = stats.runs * 1.5;
+      const hitsScore = stats.hits * 1.2;
+      const walksScore = stats.walks * 1;
+      const avgScore = stats.avg * 100;
+      const kPenalty = stats.k * 0.8;
+
+      return (
+        runsScore * 0.35 +
+        hitsScore * 0.25 +
+        walksScore * 0.15 +
+        avgScore * 0.15 -
+        kPenalty * 0.10
+      );
+    }
+
     const pitcherA = calculatePitcherRecentRating(teamA.pitcherRecent);
     const pitcherB = calculatePitcherRecentRating(teamB.pitcherRecent);
 
-    const edge = pitcherA - pitcherB;
+    const battingA = calculateBattingRating(teamA.battingLast5);
+    const battingB = calculateBattingRating(teamB.battingLast5);
+
+    const teamAProjection = pitcherA * 0.50 + battingA * 0.50;
+    const teamBProjection = pitcherB * 0.50 + battingB * 0.50;
+
+    const edge = teamAProjection - teamBProjection;
     const pick = edge > 0 ? awayTeam : homeTeam;
     const confidence = Math.min(98, 50 + Math.abs(edge) * 2.4);
 
@@ -1154,6 +1180,10 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index) {
     console.log("TEAM B:", teamB);
     console.log("Pitcher A Rating:", pitcherA);
     console.log("Pitcher B Rating:", pitcherB);
+    console.log("Batting A Rating:", battingA);
+    console.log("Batting B Rating:", battingB);
+    console.log("Team A Projection:", teamAProjection);
+    console.log("Team B Projection:", teamBProjection);
 
     resultDiv.innerHTML = `
       <div class="analysis-box">
