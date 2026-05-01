@@ -879,7 +879,7 @@ async function loadGames() {
       return;
     }
 
-    upcomingGames.slice(0, 8).forEach((game, index) => {
+    upcomingGames.forEach((game, index) => {
       const gameDate = new Date(game.commence_time);
 
       const formattedDate = gameDate.toLocaleDateString("es-US", {
