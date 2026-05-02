@@ -45,6 +45,7 @@ export default async function handler(req, res) {
       });
 
       return {
+        games: last5.length,
         era: (runs * 9) / Math.max(innings, 1),
         runsPerInning: runs / Math.max(innings, 1),
         runsPerGame: runs / last5.length,
@@ -54,7 +55,7 @@ export default async function handler(req, res) {
       };
     }
 
-    async function getTeamRecentGames(teamId) {
+    async function getTeamRecentGames(teamId, limit = 7) {
       const url =
         `https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=${teamId}&season=2026&hydrate=linescore`;
 
@@ -71,13 +72,13 @@ export default async function handler(req, res) {
         });
       });
 
-      return allGames.slice(-5);
+      return allGames.slice(-limit);
     }
 
-    async function getTeamBattingLast5(teamId) {
-      const last5 = await getTeamRecentGames(teamId);
+    async function getTeamBattingLast7(teamId) {
+      const last7 = await getTeamRecentGames(teamId, 7);
 
-      if (last5.length === 0) return null;
+      if (last7.length === 0) return null;
 
       let runs = 0;
       let runsAllowed = 0;
@@ -86,7 +87,7 @@ export default async function handler(req, res) {
       let strikeouts = 0;
       let atBats = 0;
 
-      last5.forEach(g => {
+      last7.forEach(g => {
         const side = g.teams.away.team.id === teamId ? "away" : "home";
         const opponentSide = side === "away" ? "home" : "away";
         const teamStats = g.linescore?.teams?.[side] || {};
@@ -101,24 +102,25 @@ export default async function handler(req, res) {
       });
 
       return {
-        runs: runs / last5.length,
-        runsAllowed: runsAllowed / last5.length,
-        hits: hits / last5.length,
-        walks: walks / last5.length,
+        games: last7.length,
+        runs: runs / last7.length,
+        runsAllowed: runsAllowed / last7.length,
+        hits: hits / last7.length,
+        walks: walks / last7.length,
         avg: atBats > 0 ? hits / atBats : 0,
-        k: strikeouts / last5.length
+        k: strikeouts / last7.length
       };
     }
 
-    async function getBullpenLast5(teamId) {
-      const last5 = await getTeamRecentGames(teamId);
+    async function getBullpenLast7(teamId) {
+      const last7 = await getTeamRecentGames(teamId, 7);
 
-      if (last5.length === 0) return null;
+      if (last7.length === 0) return null;
 
       let innings = 0, runs = 0, hits = 0, walks = 0;
       let bullpenAppearances = 0;
 
-      for (const g of last5) {
+      for (const g of last7) {
         const side = g.teams.away.team.id === teamId ? "away" : "home";
 
         const boxUrl = `https://statsapi.mlb.com/api/v1/game/${g.gamePk}/boxscore`;
@@ -146,9 +148,10 @@ export default async function handler(req, res) {
       if (innings === 0) return null;
 
       return {
+        games: last7.length,
         era: (runs * 9) / Math.max(innings, 1),
         runsPerInning: runs / Math.max(innings, 1),
-        runsPerGame: runs / last5.length,
+        runsPerGame: runs / last7.length,
         hitsPerInning: hits / Math.max(innings, 1),
         walksPerInning: walks / Math.max(innings, 1),
         fatigue: Math.min(10, bullpenAppearances / 2)
@@ -183,7 +186,7 @@ export default async function handler(req, res) {
         return {
           speed,
           direction,
-          temp,
+          temp: temp ? Number(temp) : null,
           condition,
           raw: windText
         };
@@ -201,11 +204,11 @@ export default async function handler(req, res) {
     const awayPitcherStats = await getPitcherStats(awayPitcher?.id);
     const homePitcherStats = await getPitcherStats(homePitcher?.id);
 
-    const awayBatting = await getTeamBattingLast5(game.teams.away.team.id);
-    const homeBatting = await getTeamBattingLast5(game.teams.home.team.id);
+    const awayBatting = await getTeamBattingLast7(game.teams.away.team.id);
+    const homeBatting = await getTeamBattingLast7(game.teams.home.team.id);
 
-    const awayBullpen = await getBullpenLast5(game.teams.away.team.id);
-    const homeBullpen = await getBullpenLast5(game.teams.home.team.id);
+    const awayBullpen = await getBullpenLast7(game.teams.away.team.id);
+    const homeBullpen = await getBullpenLast7(game.teams.home.team.id);
 
     const weather = await getWeather(game.gamePk);
 
@@ -222,6 +225,7 @@ export default async function handler(req, res) {
             }
           : null,
         battingLast5: awayBatting,
+        battingLast7: awayBatting,
         bullpen: awayBullpen
       },
       home: {
@@ -234,6 +238,7 @@ export default async function handler(req, res) {
             }
           : null,
         battingLast5: homeBatting,
+        battingLast7: homeBatting,
         bullpen: homeBullpen
       }
     });
