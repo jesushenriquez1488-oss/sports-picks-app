@@ -2,9 +2,6 @@ export default async function handler(req, res) {
   try {
     const { type = "nba", team, homeTeam, awayTeam } = req.query;
 
-    // =========================
-    // SOCCER DATA
-    // =========================
     if (type === "soccer") {
       if (!homeTeam || !awayTeam) {
         return res.status(400).json({ error: "Missing homeTeam or awayTeam" });
@@ -20,16 +17,38 @@ export default async function handler(req, res) {
         "x-apisports-key": API_KEY
       };
 
+      const LEAGUE_ID = 140; // La Liga
+      const SEASON = 2025;   // Temporada 2025/26
+
       async function getTeamId(name) {
         const url = `https://v3.football.api-sports.io/teams?search=${encodeURIComponent(name)}`;
+
         const response = await fetch(url, { headers });
         const data = await response.json();
 
-        return data.response?.[0]?.team?.id || null;
+        const results = data.response || [];
+
+        const exact =
+          results.find(item =>
+            String(item.team?.name || "").toLowerCase() === String(name).toLowerCase()
+          ) || results[0];
+
+        return {
+          id: exact?.team?.id || null,
+          name: exact?.team?.name || null,
+          country: exact?.team?.country || null,
+          rawCount: results.length
+        };
       }
 
       async function getLastMatches(teamId) {
-        const url = `https://v3.football.api-sports.io/fixtures?team=${teamId}&league=140&season=2025&last=5`;
+        const url =
+          `https://v3.football.api-sports.io/fixtures` +
+          `?team=${teamId}` +
+          `&league=${LEAGUE_ID}` +
+          `&season=${SEASON}` +
+          `&last=5`;
+
         const response = await fetch(url, { headers });
         const data = await response.json();
 
@@ -45,24 +64,43 @@ export default async function handler(req, res) {
         let btts = 0;
         let over25 = 0;
 
-        matches.forEach(match => {
+        const completedMatches = matches.filter(match => {
+          return (
+            match.fixture?.status?.short === "FT" ||
+            match.fixture?.status?.short === "AET" ||
+            match.fixture?.status?.short === "PEN"
+          );
+        });
+
+        completedMatches.forEach(match => {
           const isHome = match.teams.home.id === teamId;
 
           const goalsFor = isHome ? match.goals.home : match.goals.away;
           const goalsAgainst = isHome ? match.goals.away : match.goals.home;
 
-          scored += goalsFor || 0;
-          conceded += goalsAgainst || 0;
+          scored += Number(goalsFor || 0);
+          conceded += Number(goalsAgainst || 0);
 
           if (goalsFor > goalsAgainst) wins++;
           else if (goalsFor === goalsAgainst) draws++;
           else losses++;
 
           if (goalsFor > 0 && goalsAgainst > 0) btts++;
-          if ((goalsFor + goalsAgainst) >= 3) over25++;
+          if ((Number(goalsFor || 0) + Number(goalsAgainst || 0)) >= 3) over25++;
         });
 
-        const games = matches.length || 1;
+        const games = completedMatches.length;
+
+        if (games === 0) {
+          return {
+            games: 0,
+            avgScored: 0,
+            avgConceded: 0,
+            form: { wins: 0, draws: 0, losses: 0 },
+            bttsRate: 0,
+            over25Rate: 0
+          };
+        }
 
         return {
           games,
@@ -74,27 +112,43 @@ export default async function handler(req, res) {
         };
       }
 
-      const homeId = await getTeamId(homeTeam);
-      const awayId = await getTeamId(awayTeam);
+      const homeInfo = await getTeamId(homeTeam);
+      const awayInfo = await getTeamId(awayTeam);
 
-      if (!homeId || !awayId) {
+      if (!homeInfo.id || !awayInfo.id) {
         return res.status(404).json({
           error: "Soccer team not found",
           homeTeam,
-          awayTeam
+          awayTeam,
+          debug: {
+            homeInfo,
+            awayInfo,
+            league: LEAGUE_ID,
+            season: SEASON
+          }
         });
       }
 
       const [homeMatches, awayMatches] = await Promise.all([
-        getLastMatches(homeId),
-        getLastMatches(awayId)
+        getLastMatches(homeInfo.id),
+        getLastMatches(awayInfo.id)
       ]);
 
       return res.status(200).json({
         homeTeam,
         awayTeam,
-        home: analyzeMatches(homeMatches, homeId),
-        away: analyzeMatches(awayMatches, awayId)
+        homeInfo,
+        awayInfo,
+        league: LEAGUE_ID,
+        season: SEASON,
+        debug: {
+          homeMatchesFound: homeMatches.length,
+          awayMatchesFound: awayMatches.length,
+          homeStatuses: homeMatches.map(m => m.fixture?.status?.short),
+          awayStatuses: awayMatches.map(m => m.fixture?.status?.short)
+        },
+        home: analyzeMatches(homeMatches, homeInfo.id),
+        away: analyzeMatches(awayMatches, awayInfo.id)
       });
     }
 
