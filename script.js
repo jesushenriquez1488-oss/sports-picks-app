@@ -204,11 +204,9 @@ async function getRecentGamesByTeamId(teamId) {
 
   await waitBeforeRequest();
 
-  const url = `https://api.balldontlie.io/v1/games?team_ids[]=${teamId}&seasons[]=2025&per_page=100`;
+  const res = await fetch(`/api/nba-data?type=games&teamId=${encodeURIComponent(teamId)}`);
 
-  const res = await fetch(url, {
-    headers: { Authorization: BALLDONTLIE_API_KEY }
-  });
+ 
 
   const text = await res.text();
 
