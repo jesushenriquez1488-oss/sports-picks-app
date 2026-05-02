@@ -1123,39 +1123,54 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
       return 1;
     }
 
-    const awayOffense = mlbData.away.battingLast5?.runs || 4.3;
-    const homeOffense = mlbData.home.battingLast5?.runs || 4.3;
+    function safeNumber(value, fallback) {
+      const num = Number(value);
+      return Number.isFinite(num) && num > 0 ? num : fallback;
+    }
 
-    const awayTeamAllowed = mlbData.away.battingLast5?.runsAllowed || 4.5;
-    const homeTeamAllowed = mlbData.home.battingLast5?.runsAllowed || 4.5;
+    const leagueAvgRuns = 4.55;
 
-    const awayPitcherAllowed = mlbData.away.pitcher?.stats?.runsPerGame || 4.5;
-    const homePitcherAllowed = mlbData.home.pitcher?.stats?.runsPerGame || 4.5;
+    const awayOffense = safeNumber(mlbData.away.battingLast5?.runs, leagueAvgRuns);
+    const homeOffense = safeNumber(mlbData.home.battingLast5?.runs, leagueAvgRuns);
 
-    const awayBullpenAllowed = mlbData.away.bullpen?.runsPerGame || 4.2;
-    const homeBullpenAllowed = mlbData.home.bullpen?.runsPerGame || 4.2;
+    const awayTeamAllowed = safeNumber(mlbData.away.battingLast5?.runsAllowed, leagueAvgRuns);
+    const homeTeamAllowed = safeNumber(mlbData.home.battingLast5?.runsAllowed, leagueAvgRuns);
+
+    const awayPitcherAllowed = safeNumber(mlbData.away.pitcher?.stats?.runsPerGame, leagueAvgRuns);
+    const homePitcherAllowed = safeNumber(mlbData.home.pitcher?.stats?.runsPerGame, leagueAvgRuns);
+
+    const awayBullpenAllowed = safeNumber(mlbData.away.bullpen?.runsPerGame, leagueAvgRuns);
+    const homeBullpenAllowed = safeNumber(mlbData.home.bullpen?.runsPerGame, leagueAvgRuns);
 
     const weatherMultiplier = getWeatherMultiplier(mlbData.weather);
 
+    const awayRunEnvironment =
+      (homeTeamAllowed * 0.35) +
+      (homePitcherAllowed * 0.40) +
+      (homeBullpenAllowed * 0.25);
+
+    const homeRunEnvironment =
+      (awayTeamAllowed * 0.35) +
+      (awayPitcherAllowed * 0.40) +
+      (awayBullpenAllowed * 0.25);
+
     let expectedRunsA =
-      (awayOffense * 0.35) +
-      (homeTeamAllowed * 0.30) +
-      (homePitcherAllowed * 0.20) +
-      (homeBullpenAllowed * 0.15);
+      (awayOffense * 0.55) +
+      (awayRunEnvironment * 0.45);
 
     let expectedRunsB =
-      (homeOffense * 0.35) +
-      (awayTeamAllowed * 0.30) +
-      (awayPitcherAllowed * 0.20) +
-      (awayBullpenAllowed * 0.15);
+      (homeOffense * 0.55) +
+      (homeRunEnvironment * 0.45);
 
     expectedRunsA *= weatherMultiplier;
     expectedRunsB *= weatherMultiplier;
 
     const projectedTotal = expectedRunsA + expectedRunsB;
 
-    const modelProbA = expectedRunsA / projectedTotal;
-    const modelProbB = expectedRunsB / projectedTotal;
+    const runDiff = expectedRunsA - expectedRunsB;
+
+    const modelProbA = Math.max(0.05, Math.min(0.95, 0.5 + (runDiff * 0.085)));
+    const modelProbB = 1 - modelProbA;
 
     let marketProbA = 0.5;
     let marketProbB = 0.5;
@@ -1178,9 +1193,11 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
     const valueEdge = Math.max(edgeA, edgeB);
     const valueSpread = edgeA > edgeB ? awaySpread : homeSpread;
 
-    const totalEdge = Math.abs(projectedTotal - totalLine);
-    const totalPick = projectedTotal > totalLine ? "OVER" : "UNDER";
-    const totalConfidence = Math.min(95, Math.max(50, 50 + totalEdge * 10));
+    const totalDiff = projectedTotal - totalLine;
+    const totalEdge = Math.abs(totalDiff);
+    const totalPick = totalDiff > 0 ? "OVER" : "UNDER";
+
+    const totalConfidence = Math.min(95, Math.max(50, 50 + totalEdge * 8.5));
 
     let recommendedPlay = "";
     let recommendedProb = 0;
@@ -1262,7 +1279,8 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
                   <p><strong>Carreras esperadas ${homeTeam}:</strong> ${expectedRunsB.toFixed(2)}</p>
                   <p><strong>Total proyectado:</strong> ${projectedTotal.toFixed(2)}</p>
                   <p><strong>Línea total:</strong> ${totalLine}</p>
-                  <p><strong>Diferencia vs línea:</strong> ${totalEdge.toFixed(2)} carreras</p>
+                  <p><strong>Diferencia real vs línea:</strong> ${totalDiff.toFixed(2)} carreras</p>
+                  <p><strong>Lectura del total:</strong> ${totalPick} por ${totalEdge.toFixed(2)} carreras de edge</p>
 
                   <br>
 
@@ -1274,6 +1292,12 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
                   <p><strong>Datos reales usados:</strong></p>
                   <p>${awayTeam}: ofensiva ${awayOffense.toFixed(2)}, defensa rival permite ${homeTeamAllowed.toFixed(2)}, pitcher rival permite ${homePitcherAllowed.toFixed(2)}, bullpen rival permite ${homeBullpenAllowed.toFixed(2)}</p>
                   <p>${homeTeam}: ofensiva ${homeOffense.toFixed(2)}, defensa rival permite ${awayTeamAllowed.toFixed(2)}, pitcher rival permite ${awayPitcherAllowed.toFixed(2)}, bullpen rival permite ${awayBullpenAllowed.toFixed(2)}</p>
+
+                  <br>
+
+                  <p><strong>Entorno de carreras:</strong></p>
+                  <p>${awayTeam}: entorno rival ${awayRunEnvironment.toFixed(2)} vs ofensiva reciente ${awayOffense.toFixed(2)}</p>
+                  <p>${homeTeam}: entorno rival ${homeRunEnvironment.toFixed(2)} vs ofensiva reciente ${homeOffense.toFixed(2)}</p>
                 `
             }
           </div>
