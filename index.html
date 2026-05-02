@@ -29,24 +29,15 @@
   <span id="premiumStatus" style="margin-left:10px;"></span>
   <button onclick="logoutUser()" style="margin-left:10px;">Logout</button>
 </div>
-  <div class="hero">
-    <span class="badge">AI Sports Picks</span>
-    <h1 id="appTitle">NBA Picks App</h1>
-    <p id="appSubtitle">Análisis automático con odds y proyección del modelo</p>
-    <p class="disclaimer">
-      Modelo basado en datos, líneas de mercado y proyección automática. No garantiza resultados.
-    </p>
-  </div>
 
-  <div class="league-tabs">
-    <button class="league-btn active" onclick="selectSport(event,'basketball_nba','NBA')">NBA</button>
-    <button class="league-btn" onclick="selectSport(event,'basketball_wnba','WNBA')">WNBA</button>
-    <button class="league-btn" onclick="selectSport(event,'basketball_ncaab','NCAAB')">NCAAB</button>
-    <button class="league-btn" onclick="selectSport(event,'basketball_euroleague','EuroLeague')">EuroLeague</button>
-    <button class="league-btn" onclick="selectSport(event, 'baseball_mlb', 'MLB')">MLB</button>
-  </div>
-
-  <button id="searchBtn" onclick="loadGames()">Buscar juegos NBA</button>
+<div class="hero">
+  <span class="badge">AI Sports Picks</span>
+  <h1 id="appTitle">NBA Picks App</h1>
+  <p id="appSubtitle">Análisis automático con odds y proyección del modelo</p>
+  <p class="disclaimer">
+    Modelo basado en datos, líneas de mercado y proyección automática. No garantiza resultados.
+  </p>
+</div>
 
 <div class="premium-monthly-box" id="premiumBox">
   <h3>🔥 Acceso Premium</h3>
@@ -65,24 +56,32 @@
     Cancela cuando quieras desde tu suscripción.
   </p>
 </div>
-   
 
-  <div class="accuracy-box">
-    <div>
-      <strong>Premium Picks</strong>
-      <span id="premiumRate">88% aciertos</span>
-    </div>
-
-    <div>
-      <strong>Normal Picks</strong>
-      <span id="normalRate">65% aciertos</span>
-    </div>
+<div class="accuracy-box">
+  <div>
+    <strong>Premium Picks</strong>
+    <span id="premiumRate">88% aciertos</span>
   </div>
 
-  <div id="status"></div>
-  <div id="games"></div>
-
+  <div>
+    <strong>Normal Picks</strong>
+    <span id="normalRate">65% aciertos</span>
+  </div>
 </div>
+
+<div class="league-tabs">
+  <button class="league-btn active" onclick="selectSport(event,'basketball_nba','NBA')">NBA</button>
+  <button class="league-btn" onclick="selectSport(event,'basketball_wnba','WNBA')">WNBA</button>
+  <button class="league-btn" onclick="selectSport(event,'basketball_ncaab','NCAAB')">NCAAB</button>
+  <button class="league-btn" onclick="selectSport(event,'basketball_euroleague','EuroLeague')">EuroLeague</button>
+  <button class="league-btn" onclick="selectSport(event, 'baseball_mlb', 'MLB')">MLB</button>
+</div>
+
+<button id="searchBtn" onclick="loadGames()">Buscar juegos NBA</button>
+
+<div id="status"></div>
+<div id="games"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="script.js"></script>
 
