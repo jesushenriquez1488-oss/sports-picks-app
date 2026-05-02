@@ -162,13 +162,15 @@ module.exports = async function handler(req, res) {
     expectedRunsA *= parkFactor * weatherFactor;
     expectedRunsB *= parkFactor * weatherFactor;
 
-    expectedRunsA = clamp(expectedRunsA, 1.5, 9.5);
-    expectedRunsB = clamp(expectedRunsB, 1.5, 9.5);
+    // 🔥 MÁS REALISTA
+    expectedRunsA = clamp(expectedRunsA, 1.8, 10.5);
+    expectedRunsB = clamp(expectedRunsB, 1.8, 10.5);
 
     const projectedTotal = expectedRunsA + expectedRunsB;
     const runDiff = expectedRunsA - expectedRunsB;
 
-    const modelProbA = clamp(0.5 + runDiff * 0.085, 0.05, 0.95);
+    // 🔥 MÁS FUERTE
+    const modelProbA = clamp(0.5 + runDiff * 0.11, 0.05, 0.95);
     const modelProbB = 1 - modelProbA;
 
     let marketProbA = 0.5;
@@ -195,7 +197,9 @@ module.exports = async function handler(req, res) {
     const totalDiff = projectedTotal - totalLine;
     const totalEdge = Math.abs(totalDiff);
 
-    const totalStdDev = 3.05;
+    // 🔥 MENOS CONSERVADOR
+    const totalStdDev = 2.6;
+
     const overProbability = (1 - normalCDF(totalLine + 0.05, projectedTotal, totalStdDev)) * 100;
     const underProbability = normalCDF(totalLine - 0.05, projectedTotal, totalStdDev) * 100;
 
@@ -225,7 +229,8 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    if (totalProbability >= 70 && totalEdge >= 1.25) {
+    // 🔥 MÁS REALISTA
+    if (totalProbability >= 68 && totalEdge >= 1.0) {
       recommendedCards.push({
         title: "Total Premium",
         play: `${totalPick} ${totalLine}`,
