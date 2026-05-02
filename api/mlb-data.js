@@ -46,14 +46,33 @@ export default async function handler(req, res) {
 
     const games = scheduleData?.dates?.[0]?.games || [];
 
-    const game = games.find(g =>
-      normalize(g.teams.away.team.name) === normalize(awayTeam) &&
-      normalize(g.teams.home.team.name) === normalize(homeTeam)
-    );
+   const game = games.find(g => {
+  const awayName = normalize(g.teams.away.team.name);
+  const homeName = normalize(g.teams.home.team.name);
 
-    if (!game) {
-      return res.status(404).json({ error: "Juego no encontrado" });
+  const inputAway = normalize(awayTeam);
+  const inputHome = normalize(homeTeam);
+
+  return (
+    (awayName.includes(inputAway) || inputAway.includes(awayName)) &&
+    (homeName.includes(inputHome) || inputHome.includes(homeName))
+  );
+});
+
+  if (!game) {
+  console.log("❌ GAME NOT FOUND:", awayTeam, "vs", homeTeam);
+
+  return res.status(404).json({
+    error: "Juego no encontrado",
+    debug: {
+      input: { awayTeam, homeTeam },
+      availableGames: games.map(g => ({
+        away: g.teams.away.team.name,
+        home: g.teams.home.team.name
+      }))
     }
+  });
+}
 
     const awayPitcher = game.teams.away.probablePitcher;
     const homePitcher = game.teams.home.probablePitcher;
