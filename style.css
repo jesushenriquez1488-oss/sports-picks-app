@@ -569,3 +569,9 @@ button {
     font-size: 18px;
   }
 }
+.floating-rate small {
+  display: block;
+  font-size: 10px;
+  color: #cfcfcf;
+  margin-top: 2px;
+}
