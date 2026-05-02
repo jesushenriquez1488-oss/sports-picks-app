@@ -1330,3 +1330,123 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
     resultDiv.innerHTML = `<p>Error MLB: ${error.message}</p>`;
   }
 }
+function analyzeSoccer(awayTeam, homeTeam, total, index, marketsRaw) {
+  const resultDiv = document.getElementById(`result${index}`);
+  resultDiv.innerHTML = `<div class="loading-analysis">Analizando fútbol...</div>`;
+
+  try {
+    const markets = typeof marketsRaw === "string" ? JSON.parse(marketsRaw) : marketsRaw;
+
+    let moneyline = null;
+    let totals = null;
+    let btts = null;
+
+    markets.forEach(m => {
+      if (m.key === "h2h") moneyline = m;
+      if (m.key === "totals") totals = m;
+      if (m.key === "btts") btts = m;
+    });
+
+    // ===== MONEYLINE =====
+    let mlPick = "No disponible";
+    let mlConfidence = 0;
+
+    if (moneyline) {
+      const outcomes = moneyline.outcomes;
+
+      const homeOdds = outcomes.find(o => o.name === homeTeam)?.price;
+      const awayOdds = outcomes.find(o => o.name === awayTeam)?.price;
+      const drawOdds = outcomes.find(o => o.name.toLowerCase().includes("draw"))?.price;
+
+      if (homeOdds && awayOdds) {
+        const favorite = Math.min(homeOdds, awayOdds);
+
+        if (favorite === homeOdds) {
+          mlPick = `${homeTeam} gana`;
+        } else {
+          mlPick = `${awayTeam} gana`;
+        }
+
+        mlConfidence = 55 + (Math.abs(homeOdds - awayOdds) / 10);
+      }
+    }
+
+    // ===== OVER/UNDER =====
+    let totalPick = "No disponible";
+    let totalConfidence = 0;
+
+    if (totals) {
+      const line = totals.outcomes[0]?.point;
+
+      if (line >= 2.5) {
+        totalPick = `Over ${line}`;
+        totalConfidence = 52 + (line * 2);
+      }
+    }
+
+    // ===== BTTS =====
+    let bttsPick = "No disponible";
+    let bttsConfidence = 0;
+
+    if (btts) {
+      const yesOdds = btts.outcomes.find(o => o.name === "Yes")?.price;
+      const noOdds = btts.outcomes.find(o => o.name === "No")?.price;
+
+      if (yesOdds && noOdds) {
+        bttsPick = yesOdds < noOdds ? "BTTS: Sí" : "BTTS: No";
+        bttsConfidence = 55 + (Math.abs(yesOdds - noOdds) / 10);
+      }
+    }
+
+    // ===== DOBLE CHANCE =====
+    let doubleChance = "No disponible";
+
+    if (mlConfidence > 60) {
+      if (mlPick.includes(homeTeam)) {
+        doubleChance = `1X (${homeTeam} o empate)`;
+      } else {
+        doubleChance = `X2 (${awayTeam} o empate)`;
+      }
+    }
+
+    // ===== ELEGIR MEJOR PICK =====
+    const bestConfidence = Math.max(mlConfidence, totalConfidence, bttsConfidence);
+
+    let finalPick = "";
+    let confidence = bestConfidence;
+
+    if (bestConfidence === mlConfidence) finalPick = mlPick;
+    else if (bestConfidence === totalConfidence) finalPick = totalPick;
+    else finalPick = bttsPick;
+
+    const verdict = confidence >= 70 ? "Premium" : confidence >= 60 ? "Moderado" : "Evitar";
+
+    resultDiv.innerHTML = `
+      <div class="${verdict === "Premium" ? "premium-result" : "normal-result"}">
+
+        <div class="result-content">
+
+          <p><strong>⚽ ${awayTeam} vs ${homeTeam}</strong></p>
+
+          <p><strong>Pick:</strong> ${finalPick}</p>
+          <p><strong>Confianza:</strong> ${confidence.toFixed(1)}%</p>
+          <p><strong>Veredicto:</strong> ${verdict}</p>
+
+          <br>
+
+          <p><strong>Opciones del modelo:</strong></p>
+          <p>Money Line: ${mlPick}</p>
+          <p>Over/Under: ${totalPick}</p>
+          <p>BTTS: ${bttsPick}</p>
+          <p>Doble oportunidad: ${doubleChance}</p>
+
+        </div>
+      </div>
+    `;
+
+  } catch (error) {
+    resultDiv.innerHTML = "Error fútbol: " + error.message;
+  }
+}
+window.analyzeSoccer = analyzeSoccer;
+window.analyzeMLB = analyzeMLB;
