@@ -1097,237 +1097,46 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
   resultDiv.innerHTML = `<div class="loading-analysis">Analizando MLB...</div>`;
 
   try {
-    const dataResponse = await fetch("/api/mlb-data", {
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+
+    if (!sessionData.session) {
+      alert("Debes iniciar sesión para analizar.");
+      return;
+    }
+
+    const response = await fetch("/api/analyze-mlb", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ awayTeam, homeTeam })
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        userId: sessionData.session.user.id,
+        awayTeam,
+        homeTeam,
+        awaySpread,
+        homeSpread,
+        outcomes,
+        totalLine
+      })
     });
 
-    const mlbData = await dataResponse.json();
+    const data = await response.json();
 
-    if (!dataResponse.ok) {
-      throw new Error(mlbData.error || "No se pudo cargar data MLB");
+    if (!response.ok) {
+      throw new Error(data.error || "Error analizando MLB");
     }
 
-    function americanToProb(odds) {
-      if (!odds) return 0.5;
-      return odds > 0
-        ? 100 / (odds + 100)
-        : Math.abs(odds) / (Math.abs(odds) + 100);
-    }
+    const locked = data.locked;
+    const premium = data.premium;
+    const isPremiumMLB = data.isPremiumPick;
 
-    function safeNumber(value, fallback) {
-      const num = Number(value);
-      return Number.isFinite(num) && num > 0 ? num : fallback;
-    }
-
-    function clamp(value, min, max) {
-      return Math.max(min, Math.min(max, value));
-    }
-
-    function erf(x) {
-      const sign = x >= 0 ? 1 : -1;
-      x = Math.abs(x);
-
-      const a1 = 0.254829592;
-      const a2 = -0.284496736;
-      const a3 = 1.421413741;
-      const a4 = -1.453152027;
-      const a5 = 1.061405429;
-      const p = 0.3275911;
-
-      const t = 1 / (1 + p * x);
-      const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
-
-      return sign * y;
-    }
-
-    function normalCDF(x, mean, stdDev) {
-      return 0.5 * (1 + erf((x - mean) / (stdDev * Math.sqrt(2))));
-    }
-
-    function getWeatherRunFactor(weather, venue) {
-      if (!weather || weather.active === false) return 1;
-
-      let factor = 1;
-
-      const windSpeed = safeNumber(weather.speed, 0);
-      const temp = weather.temp ? Number(weather.temp) : null;
-
-      if (weather.direction === "out") {
-        factor += Math.min(0.08, windSpeed * 0.004);
-      }
-
-      if (weather.direction === "in") {
-        factor -= Math.min(0.08, windSpeed * 0.004);
-      }
-
-      if (weather.direction === "cross") {
-        factor += Math.min(0.02, windSpeed * 0.001);
-      }
-
-      if (temp !== null) {
-        if (temp >= 85) factor += 0.03;
-        else if (temp >= 75) factor += 0.015;
-        else if (temp <= 50) factor -= 0.025;
-        else if (temp <= 60) factor -= 0.01;
-      }
-
-      if (venue?.roof === "retractable" && weather.direction !== "neutral") {
-        factor = 1 + ((factor - 1) * 0.65);
-      }
-
-      return clamp(factor, 0.88, 1.12);
-    }
-
-    function getBullpenFatigueFactor(bullpen) {
-      const fatigue = safeNumber(bullpen?.fatigue, 5);
-
-      if (fatigue >= 8) return 1.05;
-      if (fatigue >= 6) return 1.025;
-      if (fatigue <= 2) return 0.98;
-
-      return 1;
-    }
-
-    const leagueAvgRuns = 4.55;
-    const venue = mlbData.venue || { name: "Unknown Stadium", parkFactor: 1, roof: "unknown" };
-    const parkFactor = safeNumber(venue.parkFactor, 1);
-    const weatherFactor = getWeatherRunFactor(mlbData.weather, venue);
-
-    const awayBatting = mlbData.away.battingLast7 || mlbData.away.battingLast5 || {};
-    const homeBatting = mlbData.home.battingLast7 || mlbData.home.battingLast5 || {};
-
-    const awayOffense = safeNumber(awayBatting.runs, leagueAvgRuns);
-    const homeOffense = safeNumber(homeBatting.runs, leagueAvgRuns);
-
-    const awayTeamAllowed = safeNumber(awayBatting.runsAllowed, leagueAvgRuns);
-    const homeTeamAllowed = safeNumber(homeBatting.runsAllowed, leagueAvgRuns);
-
-    const awayPitcherAllowed = safeNumber(mlbData.away.pitcher?.stats?.runsPerGame, leagueAvgRuns);
-    const homePitcherAllowed = safeNumber(mlbData.home.pitcher?.stats?.runsPerGame, leagueAvgRuns);
-
-    const awayPitcherInnings = safeNumber(mlbData.away.pitcher?.stats?.innings, 5);
-    const homePitcherInnings = safeNumber(mlbData.home.pitcher?.stats?.innings, 5);
-
-    const awayBullpenAllowed = safeNumber(mlbData.away.bullpen?.runsPerGame, leagueAvgRuns);
-    const homeBullpenAllowed = safeNumber(mlbData.home.bullpen?.runsPerGame, leagueAvgRuns);
-
-    const awayBullpenFatigueFactor = getBullpenFatigueFactor(mlbData.away.bullpen);
-    const homeBullpenFatigueFactor = getBullpenFatigueFactor(mlbData.home.bullpen);
-
-    const awayStarterWeight = clamp(awayPitcherInnings / 7, 0.45, 0.75);
-    const homeStarterWeight = clamp(homePitcherInnings / 7, 0.45, 0.75);
-
-    const awayRunEnvironment =
-      (homeTeamAllowed * 0.25) +
-      (homePitcherAllowed * homeStarterWeight * 0.55) +
-      ((homeBullpenAllowed * homeBullpenFatigueFactor) * (1 - homeStarterWeight) * 0.55) +
-      (leagueAvgRuns * 0.20);
-
-    const homeRunEnvironment =
-      (awayTeamAllowed * 0.25) +
-      (awayPitcherAllowed * awayStarterWeight * 0.55) +
-      ((awayBullpenAllowed * awayBullpenFatigueFactor) * (1 - awayStarterWeight) * 0.55) +
-      (leagueAvgRuns * 0.20);
-
-    let expectedRunsA =
-      (awayOffense * 0.52) +
-      (awayRunEnvironment * 0.48);
-
-    let expectedRunsB =
-      (homeOffense * 0.52) +
-      (homeRunEnvironment * 0.48);
-
-    expectedRunsA *= parkFactor;
-    expectedRunsB *= parkFactor;
-
-    expectedRunsA *= weatherFactor;
-    expectedRunsB *= weatherFactor;
-
-    expectedRunsA = clamp(expectedRunsA, 1.5, 9.5);
-    expectedRunsB = clamp(expectedRunsB, 1.5, 9.5);
-
-    const projectedTotal = expectedRunsA + expectedRunsB;
-    const runDiff = expectedRunsA - expectedRunsB;
-
-    const modelProbA = clamp(0.5 + (runDiff * 0.085), 0.05, 0.95);
-    const modelProbB = 1 - modelProbA;
-
-    let marketProbA = 0.5;
-    let marketProbB = 0.5;
-
-    if (outcomes && outcomes.length) {
-      const awayOdds = outcomes.find(o => o.name === awayTeam)?.price;
-      const homeOdds = outcomes.find(o => o.name === homeTeam)?.price;
-
-      marketProbA = americanToProb(awayOdds);
-      marketProbB = americanToProb(homeOdds);
-    }
-
-    const edgeA = (modelProbA - marketProbA) * 100;
-    const edgeB = (modelProbB - marketProbB) * 100;
-
-    const favoriteToWin = modelProbA > modelProbB ? awayTeam : homeTeam;
-    const favoriteProb = Math.max(modelProbA, modelProbB) * 100;
-
-    const valueTeam = edgeA > edgeB ? awayTeam : homeTeam;
-    const valueEdge = Math.max(edgeA, edgeB);
-    const valueSpread = edgeA > edgeB ? awaySpread : homeSpread;
-
-    const totalDiff = projectedTotal - totalLine;
-    const totalEdge = Math.abs(totalDiff);
-
-    const totalStdDev = 3.05;
-    const overProbability = (1 - normalCDF(totalLine + 0.05, projectedTotal, totalStdDev)) * 100;
-    const underProbability = normalCDF(totalLine - 0.05, projectedTotal, totalStdDev) * 100;
-
-    const totalPick = overProbability >= underProbability ? "OVER" : "UNDER";
-    const totalProbability = Math.max(overProbability, underProbability);
-
-    let recommendedPlay = "";
-    let recommendedProb = 0;
-
-    if (valueEdge >= 7) {
-      if (valueSpread > 0) {
-        recommendedPlay = `${valueTeam} +${valueSpread}`;
-        recommendedProb = Math.min(92, 55 + valueEdge * 3);
-      } else {
-        recommendedPlay = `${valueTeam} ML`;
-        recommendedProb = Math.min(90, favoriteProb);
-      }
-    }
-
-    let recommendedCards = [];
-
-    if (recommendedPlay) {
-      recommendedCards.push({
-        title: "Jugada Premium",
-        play: recommendedPlay,
-        percentage: recommendedProb
-      });
-    }
-
-    if (totalProbability >= 70 && totalEdge >= 1.25) {
-      recommendedCards.push({
-        title: "Total Premium",
-        play: `${totalPick} ${totalLine}`,
-        percentage: totalProbability
-      });
-    }
-
-    recommendedCards.sort((a, b) => b.percentage - a.percentage);
-
-    const isPremiumMLB = recommendedCards.length > 0;
-    const shouldLockPremium = isPremiumMLB && !IS_ADMIN && !isPremiumUser;
-
-    const cardsHTML = recommendedCards.map(card => `
+    const cardsHTML = premium?.recommendedCards?.map(card => `
       <div class="edge-box">
         <h4>${card.title}</h4>
-        <p>${shouldLockPremium ? "🔒 Pick Premium" : card.play}</p>
-        <div class="edge-number">${shouldLockPremium ? "🔒" : card.percentage.toFixed(1) + "%"}</div>
+        <p>${card.play}</p>
+        <div class="edge-number">${card.percentage.toFixed(1)}%</div>
       </div>
-    `).join("");
+    `).join("") || "";
 
     resultDiv.innerHTML = `
       <div class="${isPremiumMLB ? 'premium-result' : 'normal-result'}">
@@ -1339,91 +1148,88 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
           <p><strong>⚾ ${awayTeam} vs ${homeTeam}</strong></p>
 
           ${
-            shouldLockPremium
-              ? `<p><strong>🔒 Análisis Premium Detectado</strong></p>`
-              : recommendedPlay
-                ? `<p><strong>Jugada:</strong> ${recommendedPlay} (${recommendedProb.toFixed(1)}%)</p>`
-                : `<p><strong>Favorito:</strong> ${favoriteToWin} (${favoriteProb.toFixed(1)}%)</p>`
-          }
+            locked
+              ? `
+                <p><strong>🔒 Análisis Premium Detectado</strong></p>
+                <p>Este juego tiene pick premium bloqueado.</p>
 
-          ${recommendedCards.length > 0 ? `<div class="edge-grid">${cardsHTML}</div>` : ""}
+                <br>
+                <p><strong>Factores evaluados:</strong></p>
+                <p>✔ Pitcher probable</p>
+                <p>✔ Bullpen</p>
+                <p>✔ Park factor</p>
+                <p>✔ Clima / viento</p>
+                <p>✔ Ofensiva reciente</p>
+                <p>✔ Línea del mercado</p>
 
-          <div class="analysis-section">
-            ${
-              shouldLockPremium
+                <div class="premium-overlay">
+                  <p>🔒 Análisis completo bloqueado</p>
+                  <p>Incluye proyección de carreras, edge real, probabilidad ML y lectura Over/Under.</p>
+                </div>
+              `
+              : premium
                 ? `
-                  <p><strong>Total proyectado:</strong> 🔒 --</p>
-                  <p><strong>Línea:</strong> ${totalLine}</p>
+                  <p><strong>Favorito:</strong> ${premium.favoriteToWin} (${premium.favoriteProb.toFixed(1)}%)</p>
 
-                  <div class="premium-overlay">
-                    <p>🔒 Análisis completo bloqueado</p>
-                    <p>Incluye proyección de carreras, park factor, clima, pitcher, bullpen, edge real y probabilidad Over/Under.</p>
-                  </div>
-                `
-                : `
-                  <p><strong>Carreras esperadas ${awayTeam}:</strong> ${expectedRunsA.toFixed(2)}</p>
-                  <p><strong>Carreras esperadas ${homeTeam}:</strong> ${expectedRunsB.toFixed(2)}</p>
-                  <p><strong>Total proyectado:</strong> ${projectedTotal.toFixed(2)}</p>
-                  <p><strong>Línea total:</strong> ${totalLine}</p>
-                  <p><strong>Diferencia real vs línea:</strong> ${totalDiff.toFixed(2)} carreras</p>
+                  ${cardsHTML ? `<div class="edge-grid">${cardsHTML}</div>` : ""}
 
                   <br>
 
-                  <p><strong>Probabilidad Over:</strong> ${overProbability.toFixed(1)}%</p>
-                  <p><strong>Probabilidad Under:</strong> ${underProbability.toFixed(1)}%</p>
-                  <p><strong>Lectura del total:</strong> ${totalPick} por ${totalEdge.toFixed(2)} carreras de edge</p>
+                  <p><strong>Carreras esperadas ${awayTeam}:</strong> ${premium.expectedRunsA.toFixed(2)}</p>
+                  <p><strong>Carreras esperadas ${homeTeam}:</strong> ${premium.expectedRunsB.toFixed(2)}</p>
+                  <p><strong>Total proyectado:</strong> ${premium.projectedTotal.toFixed(2)}</p>
+                  <p><strong>Línea total:</strong> ${premium.totalLine || totalLine}</p>
+                  <p><strong>Diferencia real vs línea:</strong> ${premium.totalDiff.toFixed(2)} carreras</p>
 
                   <br>
 
-                  <p><strong>Probabilidad ${awayTeam} ML:</strong> ${(modelProbA * 100).toFixed(1)}%</p>
-                  <p><strong>Probabilidad ${homeTeam} ML:</strong> ${(modelProbB * 100).toFixed(1)}%</p>
+                  <p><strong>Probabilidad Over:</strong> ${premium.overProbability.toFixed(1)}%</p>
+                  <p><strong>Probabilidad Under:</strong> ${premium.underProbability.toFixed(1)}%</p>
+                  <p><strong>Lectura del total:</strong> ${premium.totalPick} por ${premium.totalEdge.toFixed(2)} carreras de edge</p>
 
                   <br>
 
                   <p><strong>Estadio / Park Factor:</strong></p>
-                  <p>${venue.name} — factor ${parkFactor.toFixed(2)} — techo: ${venue.roof}</p>
+                  <p>${premium.venue.name} — factor ${premium.venue.parkFactor.toFixed(2)} — techo: ${premium.venue.roof}</p>
 
                   <br>
 
                   <p><strong>Clima:</strong></p>
-                  <p>Viento: ${mlbData.weather?.raw || "No disponible"}</p>
-                  <p>Dirección: ${mlbData.weather?.direction || "neutral"} | Velocidad: ${mlbData.weather?.speed || 0} mph | Temp: ${mlbData.weather?.temp || "N/D"}</p>
-                  <p>Impacto climático aplicado: ${weatherFactor.toFixed(3)}</p>
+                  <p>Viento: ${premium.weather?.raw || "No disponible"}</p>
+                  <p>Dirección: ${premium.weather?.direction || "neutral"} | Velocidad: ${premium.weather?.speed || 0} mph | Temp: ${premium.weather?.temp || "N/D"}</p>
+                  <p>Impacto climático aplicado: ${premium.weatherFactor.toFixed(3)}</p>
 
                   <br>
 
-                  <p><strong>Datos reales usados:</strong></p>
-                  <p>${awayTeam}: ofensiva últimos 7 ${awayOffense.toFixed(2)}, defensa permite ${awayTeamAllowed.toFixed(2)}, pitcher permite ${awayPitcherAllowed.toFixed(2)}, bullpen permite ${awayBullpenAllowed.toFixed(2)}</p>
-                  <p>${homeTeam}: ofensiva últimos 7 ${homeOffense.toFixed(2)}, defensa permite ${homeTeamAllowed.toFixed(2)}, pitcher permite ${homePitcherAllowed.toFixed(2)}, bullpen permite ${homeBullpenAllowed.toFixed(2)}</p>
+                  <p><strong>Datos usados:</strong></p>
+                  <p>${awayTeam}: ofensiva últimos 7 ${premium.awayOffense.toFixed(2)}, defensa permite ${premium.awayTeamAllowed.toFixed(2)}, pitcher permite ${premium.awayPitcherAllowed.toFixed(2)}, bullpen permite ${premium.awayBullpenAllowed.toFixed(2)}</p>
+                  <p>${homeTeam}: ofensiva últimos 7 ${premium.homeOffense.toFixed(2)}, defensa permite ${premium.homeTeamAllowed.toFixed(2)}, pitcher permite ${premium.homePitcherAllowed.toFixed(2)}, bullpen permite ${premium.homeBullpenAllowed.toFixed(2)}</p>
 
                   <br>
 
                   <p><strong>Pitchers probables:</strong></p>
-                  <p>${awayTeam}: ${mlbData.away.pitcher?.name || "No disponible"} — innings prom: ${awayPitcherInnings.toFixed(1)}</p>
-                  <p>${homeTeam}: ${mlbData.home.pitcher?.name || "No disponible"} — innings prom: ${homePitcherInnings.toFixed(1)}</p>
+                  <p>${awayTeam}: ${premium.awayPitcherName} — innings prom: ${premium.awayPitcherInnings.toFixed(1)}</p>
+                  <p>${homeTeam}: ${premium.homePitcherName} — innings prom: ${premium.homePitcherInnings.toFixed(1)}</p>
 
                   <br>
 
                   <p><strong>Bullpen fatigue:</strong></p>
-                  <p>${awayTeam}: fatiga ${safeNumber(mlbData.away.bullpen?.fatigue, 0).toFixed(1)} — factor ${awayBullpenFatigueFactor.toFixed(3)}</p>
-                  <p>${homeTeam}: fatiga ${safeNumber(mlbData.home.bullpen?.fatigue, 0).toFixed(1)} — factor ${homeBullpenFatigueFactor.toFixed(3)}</p>
-
-                  <br>
-
-                  <p><strong>Entorno de carreras:</strong></p>
-                  <p>${awayTeam}: entorno rival ${awayRunEnvironment.toFixed(2)} vs ofensiva reciente ${awayOffense.toFixed(2)}</p>
-                  <p>${homeTeam}: entorno rival ${homeRunEnvironment.toFixed(2)} vs ofensiva reciente ${homeOffense.toFixed(2)}</p>
+                  <p>${awayTeam}: fatiga ${premium.awayBullpenFatigue.toFixed(1)} — factor ${premium.awayBullpenFatigueFactor.toFixed(3)}</p>
+                  <p>${homeTeam}: fatiga ${premium.homeBullpenFatigue.toFixed(1)} — factor ${premium.homeBullpenFatigueFactor.toFixed(3)}</p>
                 `
-            }
-          </div>
+                : `
+                  <p><strong>No hay jugada premium MLB.</strong></p>
+                  <p>El modelo no encontró edge suficiente para una entrada fuerte.</p>
+                `
+          }
 
         </div>
 
         ${
-          shouldLockPremium
+          locked
             ? `
-              <button class="unlock-btn" onclick="unlockPick()">
-                🔓 Desbloquear Pick Premium
+              <button class="unlock-btn" onclick="goPremiumMonthly()">
+                🔓 Desbloquear Premium mensual $${MONTHLY_PRICE}/mes
               </button>
             `
             : ""
