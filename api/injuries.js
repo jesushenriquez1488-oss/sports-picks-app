@@ -54,11 +54,14 @@ export default async function handler(req, res) {
     const response = await fetch(url, { headers });
     const data = await response.json();
 
-    const matches = data.response || [];
+   console.log("SOCCER API URL:", url);
+console.log("SOCCER API DATA:", JSON.stringify(data));
 
-    if (matches.length > 0) {
-      return matches;
-    }
+const matches = data.response || [];
+
+if (matches.length > 0) {
+  return matches;
+}
   }
 
   return [];
