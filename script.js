@@ -1152,9 +1152,6 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
     expectedRunsA *= weatherMultiplier;
     expectedRunsB *= weatherMultiplier;
 
-    expectedRunsA = Math.max(1.5, Math.min(10, expectedRunsA));
-    expectedRunsB = Math.max(1.5, Math.min(10, expectedRunsB));
-
     const projectedTotal = expectedRunsA + expectedRunsB;
 
     const modelProbA = expectedRunsA / projectedTotal;
@@ -1187,17 +1184,14 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
 
     let recommendedPlay = "";
     let recommendedProb = 0;
-    let recommendedReason = "";
 
     if (valueEdge >= 7) {
       if (valueSpread > 0) {
         recommendedPlay = `${valueTeam} +${valueSpread}`;
-        recommendedProb = Math.min(92, Math.max(55, 55 + valueEdge * 3));
-        recommendedReason = "Underdog con alto edge para cubrir +1.5.";
+        recommendedProb = Math.min(92, 55 + valueEdge * 3);
       } else {
         recommendedPlay = `${valueTeam} ML`;
-        recommendedProb = Math.min(90, Math.max(55, favoriteProb));
-        recommendedReason = "Favorito con ventaja fuerte contra el mercado.";
+        recommendedProb = Math.min(90, favoriteProb);
       }
     }
 
@@ -1207,8 +1201,7 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
       recommendedCards.push({
         title: "Jugada Premium",
         play: recommendedPlay,
-        percentage: recommendedProb,
-        detail: recommendedReason
+        percentage: recommendedProb
       });
     }
 
@@ -1216,8 +1209,7 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
       recommendedCards.push({
         title: "Total Premium",
         play: `${totalPick} ${totalLine}`,
-        percentage: totalConfidence,
-        detail: `Diferencia: ${totalEdge.toFixed(2)} carreras`
+        percentage: totalConfidence
       });
     }
 
@@ -1229,7 +1221,7 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
     const cardsHTML = recommendedCards.map(card => `
       <div class="edge-box">
         <h4>${card.title}</h4>
-        <p>${shouldLockPremium ? "🔒 Premium" : card.play}</p>
+        <p>${shouldLockPremium ? "🔒 Pick Premium" : card.play}</p>
         <div class="edge-number">${shouldLockPremium ? "🔒" : card.percentage.toFixed(1) + "%"}</div>
       </div>
     `).join("");
@@ -1239,36 +1231,35 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
 
         ${isPremiumMLB ? '<div class="shine"></div><div class="hot-badge">🔥 HOT PICK MLB</div>' : ''}
 
-        <div class="result-content ${shouldLockPremium ? 'blurred' : ''}">
+        <div class="result-content">
 
           <p><strong>⚾ ${awayTeam} vs ${homeTeam}</strong></p>
 
           ${
-            !shouldLockPremium
-              ? recommendedPlay
+            shouldLockPremium
+              ? `<p><strong>🔒 Análisis Premium Detectado</strong></p>`
+              : recommendedPlay
                 ? `<p><strong>Jugada:</strong> ${recommendedPlay} (${recommendedProb.toFixed(1)}%)</p>`
                 : `<p><strong>Favorito:</strong> ${favoriteToWin} (${favoriteProb.toFixed(1)}%)</p>`
-              : `<p><strong>🔒 Análisis Premium Detectado</strong></p>`
           }
 
-          ${
-            recommendedCards.length > 0
-              ? `<div class="edge-grid">${cardsHTML}</div>`
-              : ``
-          }
+          ${recommendedCards.length > 0 ? `<div class="edge-grid">${cardsHTML}</div>` : ""}
 
-          ${
-            !shouldLockPremium
-              ? `
-                <p><strong>Total proyectado:</strong> ${projectedTotal.toFixed(2)}</p>
-                <p><strong>Línea:</strong> ${totalLine}</p>
-              `
-              : `
-                <div class="premium-overlay">
-                  <p>📊 Incluye proyección avanzada, edge real y jugadas de alto valor.</p>
-                </div>
-              `
-          }
+          <div class="analysis-section">
+            <p><strong>Total proyectado:</strong> ${shouldLockPremium ? "🔒 --" : projectedTotal.toFixed(2)}</p>
+            <p><strong>Línea:</strong> ${totalLine}</p>
+
+            ${
+              shouldLockPremium
+                ? `
+                  <div class="premium-overlay">
+                    <p>🔒 Análisis completo bloqueado</p>
+                    <p>Incluye jugadas premium, edge real y probabilidades avanzadas.</p>
+                  </div>
+                `
+                : ""
+            }
+          </div>
 
         </div>
 
