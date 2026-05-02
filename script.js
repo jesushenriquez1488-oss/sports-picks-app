@@ -3,7 +3,7 @@ const SUPABASE_KEY = "sb_publishable_WLTdeKrWOWO404USqEcqtg_bSfDTzJ3";
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const ODDS_API_KEY = "bce7c087b72953e95406c9215e6d24e7";
-const BALLDONTLIE_API_KEY = "a36cf94f-2589-4f0d-a632-a55b1133fe92";
+
 
 const IS_ADMIN = false;
 
