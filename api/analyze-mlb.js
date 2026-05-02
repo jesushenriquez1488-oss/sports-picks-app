@@ -277,64 +277,70 @@ module.exports = async function handler(req, res) {
         homeTeam,
         totalLine
       },
-     premium: locked
-  ? null
-  : {
-      recommendedCards,
-      favoriteToWin: modelProbA > modelProbB ? awayTeam : homeTeam,
-      favoriteProb: Math.max(modelProbA, modelProbB) * 100,
+           premium: locked
+        ? null
+        : {
+            recommendedCards,
+            favoriteToWin: modelProbA > modelProbB ? awayTeam : homeTeam,
+            favoriteProb: Math.max(modelProbA, modelProbB) * 100,
 
-      expectedRunsA,
-      expectedRunsB,
-      projectedTotal,
-      totalLine,
-      totalDiff: projectedTotal - totalLine,
+            expectedRunsA,
+            expectedRunsB,
+            projectedTotal,
+            totalLine,
+            totalDiff: projectedTotal - totalLine,
 
-      overProbability: overProb,
-      underProbability: underProb,
-      totalPick,
-      totalEdge: Math.abs(projectedTotal - totalLine),
+            overProbability: overProb,
+            underProbability: underProb,
+            totalPick,
+            totalEdge: Math.abs(projectedTotal - totalLine),
 
-      venue: mlbData.venue || {
-        name: "Unknown Stadium",
-        parkFactor: 1,
-        roof: "unknown"
-      },
+            venue: mlbData.venue || {
+              name: "Unknown Stadium",
+              parkFactor: 1,
+              roof: "unknown"
+            },
 
-      weather: mlbData.weather || {
-        raw: "No disponible",
-        direction: "neutral",
-        speed: 0,
-        temp: null,
-        active: false
-      },
+            weather: mlbData.weather || {
+              raw: "No disponible",
+              direction: "neutral",
+              speed: 0,
+              temp: null,
+              active: false
+            },
 
-      weatherFactor,
+            weatherFactor,
 
-      awayOffense,
-      homeOffense,
+            awayOffense,
+            homeOffense,
 
-      awayTeamAllowed: awayBatting?.runsAllowed || 4.55,
-      homeTeamAllowed: homeBatting?.runsAllowed || 4.55,
+            awayTeamAllowed: awayBatting?.runsAllowed || 4.55,
+            homeTeamAllowed: homeBatting?.runsAllowed || 4.55,
 
-      awayPitcherAllowed: awayPitcher,
-      homePitcherAllowed: homePitcher,
+            awayPitcherAllowed: awayPitcher,
+            homePitcherAllowed: homePitcher,
 
-      awayBullpenAllowed: awayBullpen,
-      homeBullpenAllowed: homeBullpen,
+            awayBullpenAllowed: awayBullpen,
+            homeBullpenAllowed: homeBullpen,
 
-      awayPitcherName: mlbData.away?.pitcher?.name || "No disponible",
-      homePitcherName: mlbData.home?.pitcher?.name || "No disponible",
+            awayPitcherName: mlbData.away?.pitcher?.name || "No disponible",
+            homePitcherName: mlbData.home?.pitcher?.name || "No disponible",
 
-      awayPitcherInnings: mlbData.away?.pitcher?.stats?.innings || 0,
-      homePitcherInnings: mlbData.home?.pitcher?.stats?.innings || 0,
+            awayPitcherInnings: mlbData.away?.pitcher?.stats?.innings || 0,
+            homePitcherInnings: mlbData.home?.pitcher?.stats?.innings || 0,
 
-      awayBullpenFatigue: mlbData.away?.bullpen?.fatigue || 0,
-      homeBullpenFatigue: mlbData.home?.bullpen?.fatigue || 0,
+            awayBullpenFatigue: mlbData.away?.bullpen?.fatigue || 0,
+            homeBullpenFatigue: mlbData.home?.bullpen?.fatigue || 0,
 
-      awayBullpenFatigueFactor: 1,
-      homeBullpenFatigueFactor: 1,
+            awayBullpenFatigueFactor: 1,
+            homeBullpenFatigueFactor: 1,
 
-      awayRunEnvironment: expectedRunsA,
-      homeRunEnvironment: expectedRunsB
-    }
+            awayRunEnvironment: expectedRunsA,
+            homeRunEnvironment: expectedRunsB
+          }
+    });
+
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+};
