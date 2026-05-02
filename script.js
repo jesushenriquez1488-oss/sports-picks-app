@@ -934,7 +934,7 @@ async function loadGames() {
     } else {
 const res = await fetch(`/api/odds?sport=${encodeURIComponent(sport)}`);
 const text = await res.text();
-      const text = await res.text();
+      
 
       if (!res.ok) throw new Error("Error cargando odds: " + text);
 
