@@ -116,7 +116,12 @@ module.exports = async function handler(req, res) {
     }
 
     const leagueAvgRuns = 4.55;
-    const venue = mlbData.venue || { name: "Unknown Stadium", parkFactor: 1, roof: "unknown" };
+    const venue = mlbData.venue || {
+      name: "Unknown Stadium",
+      parkFactor: 1,
+      roof: "unknown"
+    };
+
     const parkFactor = safeNumber(venue.parkFactor, 1);
     const weatherFactor = getWeatherRunFactor(mlbData.weather, venue);
 
@@ -129,17 +134,43 @@ module.exports = async function handler(req, res) {
     const awayTeamAllowed = safeNumber(awayBatting.runsAllowed, leagueAvgRuns);
     const homeTeamAllowed = safeNumber(homeBatting.runsAllowed, leagueAvgRuns);
 
-    const awayPitcherAllowed = safeNumber(mlbData.away.pitcher?.stats?.runsPerGame, leagueAvgRuns);
-    const homePitcherAllowed = safeNumber(mlbData.home.pitcher?.stats?.runsPerGame, leagueAvgRuns);
+    const awayPitcherAllowed = safeNumber(
+      mlbData.away.pitcher?.stats?.runsPerGame,
+      leagueAvgRuns
+    );
 
-    const awayPitcherInnings = safeNumber(mlbData.away.pitcher?.stats?.innings, 5);
-    const homePitcherInnings = safeNumber(mlbData.home.pitcher?.stats?.innings, 5);
+    const homePitcherAllowed = safeNumber(
+      mlbData.home.pitcher?.stats?.runsPerGame,
+      leagueAvgRuns
+    );
 
-    const awayBullpenAllowed = safeNumber(mlbData.away.bullpen?.runsPerGame, leagueAvgRuns);
-    const homeBullpenAllowed = safeNumber(mlbData.home.bullpen?.runsPerGame, leagueAvgRuns);
+    const awayPitcherInnings = safeNumber(
+      mlbData.away.pitcher?.stats?.innings,
+      5
+    );
 
-    const awayBullpenFatigueFactor = getBullpenFatigueFactor(mlbData.away.bullpen);
-    const homeBullpenFatigueFactor = getBullpenFatigueFactor(mlbData.home.bullpen);
+    const homePitcherInnings = safeNumber(
+      mlbData.home.pitcher?.stats?.innings,
+      5
+    );
+
+    const awayBullpenAllowed = safeNumber(
+      mlbData.away.bullpen?.runsPerGame,
+      leagueAvgRuns
+    );
+
+    const homeBullpenAllowed = safeNumber(
+      mlbData.home.bullpen?.runsPerGame,
+      leagueAvgRuns
+    );
+
+    const awayBullpenFatigueFactor = getBullpenFatigueFactor(
+      mlbData.away.bullpen
+    );
+
+    const homeBullpenFatigueFactor = getBullpenFatigueFactor(
+      mlbData.home.bullpen
+    );
 
     const awayStarterWeight = clamp(awayPitcherInnings / 7, 0.45, 0.75);
     const homeStarterWeight = clamp(homePitcherInnings / 7, 0.45, 0.75);
@@ -147,13 +178,19 @@ module.exports = async function handler(req, res) {
     const awayRunEnvironment =
       homeTeamAllowed * 0.25 +
       homePitcherAllowed * homeStarterWeight * 0.55 +
-      homeBullpenAllowed * homeBullpenFatigueFactor * (1 - homeStarterWeight) * 0.55 +
+      homeBullpenAllowed *
+        homeBullpenFatigueFactor *
+        (1 - homeStarterWeight) *
+        0.55 +
       leagueAvgRuns * 0.20;
 
     const homeRunEnvironment =
       awayTeamAllowed * 0.25 +
       awayPitcherAllowed * awayStarterWeight * 0.55 +
-      awayBullpenAllowed * awayBullpenFatigueFactor * (1 - awayStarterWeight) * 0.55 +
+      awayBullpenAllowed *
+        awayBullpenFatigueFactor *
+        (1 - awayStarterWeight) *
+        0.55 +
       leagueAvgRuns * 0.20;
 
     let expectedRunsA = awayOffense * 0.52 + awayRunEnvironment * 0.48;
@@ -162,14 +199,12 @@ module.exports = async function handler(req, res) {
     expectedRunsA *= parkFactor * weatherFactor;
     expectedRunsB *= parkFactor * weatherFactor;
 
-    // 🔥 MÁS REALISTA
     expectedRunsA = clamp(expectedRunsA, 1.8, 10.5);
     expectedRunsB = clamp(expectedRunsB, 1.8, 10.5);
 
     const projectedTotal = expectedRunsA + expectedRunsB;
     const runDiff = expectedRunsA - expectedRunsB;
 
-    // 🔥 MÁS FUERTE
     const modelProbA = clamp(0.5 + runDiff * 0.11, 0.05, 0.95);
     const modelProbB = 1 - modelProbA;
 
@@ -177,8 +212,8 @@ module.exports = async function handler(req, res) {
     let marketProbB = 0.5;
 
     if (outcomes && outcomes.length) {
-      const awayOdds = outcomes.find(o => o.name === awayTeam)?.price;
-      const homeOdds = outcomes.find(o => o.name === homeTeam)?.price;
+      const awayOdds = outcomes.find((o) => o.name === awayTeam)?.price;
+      const homeOdds = outcomes.find((o) => o.name === homeTeam)?.price;
 
       marketProbA = americanToProb(awayOdds);
       marketProbB = americanToProb(homeOdds);
@@ -197,11 +232,13 @@ module.exports = async function handler(req, res) {
     const totalDiff = projectedTotal - totalLine;
     const totalEdge = Math.abs(totalDiff);
 
-    // 🔥 MENOS CONSERVADOR
     const totalStdDev = 2.6;
 
-    const overProbability = (1 - normalCDF(totalLine + 0.05, projectedTotal, totalStdDev)) * 100;
-    const underProbability = normalCDF(totalLine - 0.05, projectedTotal, totalStdDev) * 100;
+    const overProbability =
+      (1 - normalCDF(totalLine + 0.05, projectedTotal, totalStdDev)) * 100;
+
+    const underProbability =
+      normalCDF(totalLine - 0.05, projectedTotal, totalStdDev) * 100;
 
     const totalPick = overProbability >= underProbability ? "OVER" : "UNDER";
     const totalProbability = Math.max(overProbability, underProbability);
@@ -211,11 +248,17 @@ module.exports = async function handler(req, res) {
 
     if (valueEdge >= 7) {
       if (valueSpread > 0) {
-        recommendedPlay = `${valueTeam} +${valueSpread}`;
-        recommendedProb = Math.min(92, 55 + valueEdge * 3);
+        // RL +1.5 necesita más edge para ser premium.
+        if (valueEdge >= 9.5) {
+          recommendedPlay = `${valueTeam} +${valueSpread}`;
+          recommendedProb = Math.min(88, 52 + valueEdge * 2.2);
+        }
       } else {
-        recommendedPlay = `${valueTeam} ML`;
-        recommendedProb = Math.min(90, favoriteProb);
+        // ML ahora compite mejor contra el RL.
+        if (favoriteProb >= 58 || valueEdge >= 8) {
+          recommendedPlay = `${valueTeam} ML`;
+          recommendedProb = Math.min(90, 54 + valueEdge * 2.5);
+        }
       }
     }
 
@@ -229,8 +272,14 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 🔥 MÁS REALISTA
-    if (totalProbability >= 68 && totalEdge >= 1.0) {
+    if (
+      totalProbability >= 68 &&
+      totalEdge >= 1.0 &&
+      (
+        totalPick === "OVER" ||
+        (totalPick === "UNDER" && totalEdge >= 1.35 && totalProbability >= 70)
+      )
+    ) {
       recommendedCards.push({
         title: "Total Premium",
         play: `${totalPick} ${totalLine}`,
@@ -260,42 +309,43 @@ module.exports = async function handler(req, res) {
           "Mercado ML / total"
         ]
       },
-      premium: locked ? null : {
-        recommendedCards,
-        favoriteToWin,
-        favoriteProb,
-        expectedRunsA,
-        expectedRunsB,
-        projectedTotal,
-        totalDiff,
-        overProbability,
-        underProbability,
-        totalPick,
-        totalEdge,
-        venue,
-        weather: mlbData.weather,
-        weatherFactor,
-        awayOffense,
-        homeOffense,
-        awayTeamAllowed,
-        homeTeamAllowed,
-        awayPitcherAllowed,
-        homePitcherAllowed,
-        awayBullpenAllowed,
-        homeBullpenAllowed,
-        awayPitcherName: mlbData.away.pitcher?.name || "No disponible",
-        homePitcherName: mlbData.home.pitcher?.name || "No disponible",
-        awayPitcherInnings,
-        homePitcherInnings,
-        awayBullpenFatigue: safeNumber(mlbData.away.bullpen?.fatigue, 0),
-        homeBullpenFatigue: safeNumber(mlbData.home.bullpen?.fatigue, 0),
-        awayBullpenFatigueFactor,
-        homeBullpenFatigueFactor,
-        awayRunEnvironment,
-        homeRunEnvironment
-      }
+      premium: locked
+        ? null
+        : {
+            recommendedCards,
+            favoriteToWin,
+            favoriteProb,
+            expectedRunsA,
+            expectedRunsB,
+            projectedTotal,
+            totalDiff,
+            overProbability,
+            underProbability,
+            totalPick,
+            totalEdge,
+            venue,
+            weather: mlbData.weather,
+            weatherFactor,
+            awayOffense,
+            homeOffense,
+            awayTeamAllowed,
+            homeTeamAllowed,
+            awayPitcherAllowed,
+            homePitcherAllowed,
+            awayBullpenAllowed,
+            homeBullpenAllowed,
+            awayPitcherName: mlbData.away.pitcher?.name || "No disponible",
+            homePitcherName: mlbData.home.pitcher?.name || "No disponible",
+            awayPitcherInnings,
+            homePitcherInnings,
+            awayBullpenFatigue: safeNumber(mlbData.away.bullpen?.fatigue, 0),
+            homeBullpenFatigue: safeNumber(mlbData.home.bullpen?.fatigue, 0),
+            awayBullpenFatigueFactor,
+            homeBullpenFatigueFactor,
+            awayRunEnvironment,
+            homeRunEnvironment
+          }
     });
-
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
