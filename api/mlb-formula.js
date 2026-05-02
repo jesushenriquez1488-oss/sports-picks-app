@@ -2,91 +2,63 @@ export default function handler(req, res) {
   try {
     const { teamA, teamB } = req.body;
 
-    // ===============================
-    // HELPERS
-    // ===============================
-
     const clamp = (value, min = 0, max = 100) =>
       Math.max(min, Math.min(max, value));
 
+    const safe = (value, fallback) => {
+      const num = Number(value);
+      return Number.isFinite(num) ? num : fallback;
+    };
+
     const lowerIsBetter = (value, excellent, terrible) => {
+      value = safe(value, terrible);
+
       if (value <= excellent) return 100;
       if (value >= terrible) return 0;
+
       return clamp(100 - ((value - excellent) / (terrible - excellent)) * 100);
     };
 
     const higherIsBetter = (value, terrible, excellent) => {
+      value = safe(value, terrible);
+
       if (value >= excellent) return 100;
       if (value <= terrible) return 0;
+
       return clamp(((value - terrible) / (excellent - terrible)) * 100);
     };
 
-    // ===============================
-    // PITCHER
-    // ===============================
-
-    function pitcherRecent(stats) {
+    function pitcherRecent(stats = {}) {
       return clamp(
-        lowerIsBetter(stats.era, 2, 7) * 0.30 +
-        lowerIsBetter(stats.runsPerInning, 0.2, 1.0) * 0.25 +
-        lowerIsBetter(stats.hitsPerInning, 0.7, 1.5) * 0.20 +
-        lowerIsBetter(stats.walksPerInning, 0.2, 0.8) * 0.15 +
+        lowerIsBetter(stats.era, 2.50, 7.00) * 0.30 +
+        lowerIsBetter(stats.runsPerInning, 0.25, 1.00) * 0.25 +
+        lowerIsBetter(stats.hitsPerInning, 0.75, 1.60) * 0.20 +
+        lowerIsBetter(stats.walksPerInning, 0.20, 0.80) * 0.15 +
         higherIsBetter(stats.innings, 3.5, 6.5) * 0.10
       );
     }
 
-    function pitcherSplit(stats) {
+    function battingRecent(stats = {}) {
       return clamp(
-        lowerIsBetter(stats.era, 2, 7) * 0.35 +
-        lowerIsBetter(stats.runsPerInning, 0.2, 1.0) * 0.30 +
-        lowerIsBetter(stats.hitsPerInning, 0.7, 1.5) * 0.20 +
-        lowerIsBetter(stats.walksPerInning, 0.2, 0.8) * 0.15
+        higherIsBetter(stats.runs, 2.5, 7.0) * 0.35 +
+        higherIsBetter(stats.hits, 6.0, 11.0) * 0.25 +
+        higherIsBetter(stats.walks, 1.5, 5.0) * 0.15 +
+        higherIsBetter(stats.avg, 0.210, 0.320) * 0.15 +
+        lowerIsBetter(stats.k, 11.0, 5.0) * 0.10
       );
     }
 
-    // ===============================
-    // BATEO
-    // ===============================
-
-    function battingLast5(stats) {
+    function bullpen(stats = {}) {
       return clamp(
-        higherIsBetter(stats.runs, 2, 7) * 0.35 +
-        higherIsBetter(stats.hits, 5, 11) * 0.25 +
-        higherIsBetter(stats.walks, 1.5, 5) * 0.15 +
-        higherIsBetter(stats.avg, 0.2, 0.32) * 0.15 +
-        lowerIsBetter(stats.k, 5, 11) * 0.10
-      );
-    }
-
-    function battingLocation(stats) {
-      return clamp(
-        higherIsBetter(stats.runs, 2, 7) * 0.40 +
-        higherIsBetter(stats.hits, 5, 11) * 0.25 +
-        higherIsBetter(stats.avg, 0.2, 0.32) * 0.20 +
-        higherIsBetter(stats.walks, 1.5, 5) * 0.10 +
-        lowerIsBetter(stats.k, 5, 11) * 0.05
-      );
-    }
-
-    // ===============================
-    // BULLPEN
-    // ===============================
-
-    function bullpen(stats) {
-      return clamp(
-        lowerIsBetter(stats.era, 2.5, 6.5) * 0.30 +
-        lowerIsBetter(stats.runsPerInning, 0.2, 1.0) * 0.25 +
-        lowerIsBetter(stats.hitsPerInning, 0.7, 1.5) * 0.15 +
-        lowerIsBetter(stats.walksPerInning, 0.2, 0.8) * 0.15 +
+        lowerIsBetter(stats.era, 2.75, 6.75) * 0.30 +
+        lowerIsBetter(stats.runsPerInning, 0.25, 1.00) * 0.25 +
+        lowerIsBetter(stats.hitsPerInning, 0.75, 1.60) * 0.15 +
+        lowerIsBetter(stats.walksPerInning, 0.20, 0.80) * 0.15 +
         lowerIsBetter(stats.fatigue, 0, 10) * 0.15
       );
     }
 
-    // ===============================
-    // CLIMA
-    // ===============================
-
-    function weather(stats) {
+    function weather(stats = {}) {
       let directionScore = 50;
 
       if (stats.direction === "out") directionScore = 100;
@@ -95,25 +67,28 @@ export default function handler(req, res) {
 
       const speedScore = higherIsBetter(stats.speed, 0, 20);
 
+      const tempScore = stats.temp
+        ? higherIsBetter(Number(stats.temp), 45, 90)
+        : 50;
+
       return clamp(
         directionScore * 0.50 +
         speedScore * 0.30 +
-        directionScore * 0.20
+        tempScore * 0.20
       );
     }
 
-    // ===============================
-    // TEAM PROJECTION
-    // ===============================
+    function teamProjection(team = {}) {
+      const pitcherScore = pitcherRecent(team.pitcherRecent || team.pitcher?.stats);
+      const battingScore = battingRecent(team.battingLast7 || team.battingLast5);
+      const bullpenScore = bullpen(team.bullpen);
+      const weatherScore = weather(team.weather);
 
-    function teamProjection(team) {
       return clamp(
-        pitcherRecent(team.pitcherRecent) * 0.28 +
-        pitcherSplit(team.pitcherSplit) * 0.18 +
-        battingLast5(team.battingLast5) * 0.20 +
-        battingLocation(team.battingLocation) * 0.10 +
-        bullpen(team.bullpen) * 0.14 +
-        weather(team.weather) * 0.10
+        pitcherScore * 0.32 +
+        battingScore * 0.30 +
+        bullpenScore * 0.25 +
+        weatherScore * 0.13
       );
     }
 
@@ -122,7 +97,7 @@ export default function handler(req, res) {
 
     const edge = teamAProjection - teamBProjection;
     const pick = edge > 0 ? "teamA" : "teamB";
-    const confidence = Math.min(98, 50 + Math.abs(edge) * 2.4);
+    const confidence = Math.min(98, 50 + Math.abs(edge) * 2.1);
 
     return res.status(200).json({
       pick,
