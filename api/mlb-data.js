@@ -57,6 +57,7 @@ export default async function handler(req, res) {
 
     const awayPitcher = game.teams.away.probablePitcher;
     const homePitcher = game.teams.home.probablePitcher;
+
     const venueName = game.venue?.name || "Unknown Stadium";
     const parkInfo = PARK_FACTORS[venueName] || { factor: 1.00, roof: "unknown" };
 
@@ -64,40 +65,63 @@ export default async function handler(req, res) {
       if (!pitcherId) return null;
 
       const url = `https://statsapi.mlb.com/api/v1/people/${pitcherId}/stats?stats=gameLog&season=2026`;
-      const res = await fetch(url);
-      const data = await res.json();
+      const response = await fetch(url);
+      const data = await response.json();
 
       const splits = data?.stats?.[0]?.splits || [];
       const last5 = splits.slice(-5);
 
       if (last5.length === 0) return null;
 
-      let innings = 0, runs = 0, hits = 0, walks = 0;
+      let innings = 0;
+      let runs = 0;
+      let earnedRuns = 0;
+      let hits = 0;
+      let walks = 0;
+      let strikeouts = 0;
+      let homeRuns = 0;
 
       last5.forEach(g => {
-        innings += parseIP(g.stat.inningsPitched);
-        runs += Number(g.stat.runs || 0);
-        hits += Number(g.stat.hits || 0);
-        walks += Number(g.stat.baseOnBalls || 0);
+        const stat = g.stat || {};
+
+        innings += parseIP(stat.inningsPitched);
+        runs += Number(stat.runs || 0);
+        earnedRuns += Number(stat.earnedRuns || stat.runs || 0);
+        hits += Number(stat.hits || 0);
+        walks += Number(stat.baseOnBalls || 0);
+        strikeouts += Number(stat.strikeOuts || 0);
+        homeRuns += Number(stat.homeRuns || 0);
       });
 
+      const safeInnings = Math.max(innings, 1);
+      const games = last5.length;
+
       return {
-        games: last5.length,
-        era: (runs * 9) / Math.max(innings, 1),
-        runsPerInning: runs / Math.max(innings, 1),
-        runsPerGame: runs / last5.length,
-        hitsPerInning: hits / Math.max(innings, 1),
-        walksPerInning: walks / Math.max(innings, 1),
-        innings: innings / last5.length
+        games,
+        innings: innings / games,
+        totalInnings: innings,
+        runs,
+        hits,
+        walks,
+        strikeouts,
+        homeRuns,
+        era: (earnedRuns * 9) / safeInnings,
+        runsPerInning: runs / safeInnings,
+        runsPerGame: runs / games,
+        hitsPerInning: hits / safeInnings,
+        walksPerInning: walks / safeInnings,
+        strikeoutsPerInning: strikeouts / safeInnings,
+        homeRunsPerInning: homeRuns / safeInnings,
+        whip: (hits + walks) / safeInnings
       };
     }
 
-    async function getTeamRecentGames(teamId, limit = 7) {
+    async function getTeamRecentGames(teamId, limit = 10) {
       const url =
         `https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=${teamId}&season=2026&hydrate=linescore`;
 
-      const res = await fetch(url);
-      const data = await res.json();
+      const response = await fetch(url);
+      const data = await response.json();
 
       const allGames = [];
 
@@ -112,14 +136,17 @@ export default async function handler(req, res) {
       return allGames.slice(-limit);
     }
 
-    async function getTeamBattingLast7(teamId) {
-      const last7 = await getTeamRecentGames(teamId, 7);
+    function summarizeTeamGames(games, teamId) {
+      if (!games || games.length === 0) return null;
 
-      if (last7.length === 0) return null;
+      let runs = 0;
+      let runsAllowed = 0;
+      let hits = 0;
+      let walks = 0;
+      let strikeouts = 0;
+      let atBats = 0;
 
-      let runs = 0, runsAllowed = 0, hits = 0, walks = 0, strikeouts = 0, atBats = 0;
-
-      last7.forEach(g => {
+      games.forEach(g => {
         const side = g.teams.away.team.id === teamId ? "away" : "home";
         const opponentSide = side === "away" ? "home" : "away";
         const teamStats = g.linescore?.teams?.[side] || {};
@@ -133,65 +160,155 @@ export default async function handler(req, res) {
       });
 
       return {
-        games: last7.length,
-        runs: runs / last7.length,
-        runsAllowed: runsAllowed / last7.length,
-        hits: hits / last7.length,
-        walks: walks / last7.length,
-        avg: atBats > 0 ? hits / atBats : 0,
-        k: strikeouts / last7.length
+        games: games.length,
+        runs: runs / games.length,
+        runsAllowed: runsAllowed / games.length,
+        hits: hits / games.length,
+        walks: walks / games.length,
+        k: strikeouts / games.length,
+        avg: atBats > 0 ? hits / atBats : 0
       };
     }
 
-    async function getBullpenLast7(teamId) {
-      const last7 = await getTeamRecentGames(teamId, 7);
+    async function getTeamBattingProfile(teamId, expectedSide) {
+      const last10 = await getTeamRecentGames(teamId, 10);
 
-      if (last7.length === 0) return null;
+      if (last10.length === 0) return null;
 
-      let innings = 0, runs = 0, hits = 0, walks = 0;
-      let bullpenAppearances = 0;
+      const last7 = last10.slice(-7);
+      const last5 = last10.slice(-5);
+      const last3 = last10.slice(-3);
 
-      for (const g of last7) {
+      const sideGames = last10.filter(g => {
         const side = g.teams.away.team.id === teamId ? "away" : "home";
-        const boxUrl = `https://statsapi.mlb.com/api/v1/game/${g.gamePk}/boxscore`;
-        const boxRes = await fetch(boxUrl);
-        const box = await boxRes.json();
+        return side === expectedSide;
+      }).slice(-5);
 
-        const teamBox = box.teams?.[side];
-        const pitcherIds = teamBox?.pitchers || [];
-        const bullpenPitchers = pitcherIds.slice(1);
+      const profile = summarizeTeamGames(last7, teamId);
+      const profile5 = summarizeTeamGames(last5, teamId);
+      const profile3 = summarizeTeamGames(last3, teamId);
+      const splitProfile = summarizeTeamGames(sideGames, teamId);
 
-        bullpenPitchers.forEach(id => {
-          const player = teamBox.players?.[`ID${id}`];
-          const p = player?.stats?.pitching;
-          if (!p) return;
-
-          bullpenAppearances++;
-          innings += parseIP(p.inningsPitched);
-          runs += Number(p.runs || 0);
-          hits += Number(p.hits || 0);
-          walks += Number(p.baseOnBalls || 0);
-        });
-      }
-
-      if (innings === 0) return null;
+      if (!profile) return null;
 
       return {
-        games: last7.length,
-        era: (runs * 9) / Math.max(innings, 1),
-        runsPerInning: runs / Math.max(innings, 1),
-        runsPerGame: runs / last7.length,
-        hitsPerInning: hits / Math.max(innings, 1),
-        walksPerInning: walks / Math.max(innings, 1),
-        fatigue: Math.min(10, bullpenAppearances / 2)
+        ...profile,
+        last5: profile5,
+        last3: profile3,
+        split: splitProfile,
+        expectedSide,
+        weightedRuns:
+          (profile3?.runs || profile.runs) * 0.45 +
+          (profile5?.runs || profile.runs) * 0.30 +
+          profile.runs * 0.25,
+        weightedRunsAllowed:
+          (profile3?.runsAllowed || profile.runsAllowed) * 0.45 +
+          (profile5?.runsAllowed || profile.runsAllowed) * 0.30 +
+          profile.runsAllowed * 0.25,
+        splitRuns: splitProfile?.runs || profile.runs,
+        splitRunsAllowed: splitProfile?.runsAllowed || profile.runsAllowed
+      };
+    }
+
+    async function getBullpenProfile(teamId) {
+      const last10 = await getTeamRecentGames(teamId, 10);
+
+      if (last10.length === 0) return null;
+
+      const last7 = last10.slice(-7);
+      const last3 = last10.slice(-3);
+
+      async function summarizeBullpen(games) {
+        let innings = 0;
+        let runs = 0;
+        let hits = 0;
+        let walks = 0;
+        let strikeouts = 0;
+        let appearances = 0;
+
+        for (const g of games) {
+          const side = g.teams.away.team.id === teamId ? "away" : "home";
+
+          const boxUrl = `https://statsapi.mlb.com/api/v1/game/${g.gamePk}/boxscore`;
+          const boxResponse = await fetch(boxUrl);
+          const box = await boxResponse.json();
+
+          const teamBox = box.teams?.[side];
+          const pitcherIds = teamBox?.pitchers || [];
+
+          const bullpenPitchers = pitcherIds.slice(1);
+
+          bullpenPitchers.forEach(id => {
+            const player = teamBox.players?.[`ID${id}`];
+            const pitching = player?.stats?.pitching;
+
+            if (!pitching) return;
+
+            appearances++;
+            innings += parseIP(pitching.inningsPitched);
+            runs += Number(pitching.runs || 0);
+            hits += Number(pitching.hits || 0);
+            walks += Number(pitching.baseOnBalls || 0);
+            strikeouts += Number(pitching.strikeOuts || 0);
+          });
+        }
+
+        if (innings === 0) return null;
+
+        return {
+          games: games.length,
+          innings,
+          runs,
+          hits,
+          walks,
+          strikeouts,
+          appearances,
+          era: (runs * 9) / Math.max(innings, 1),
+          runsPerInning: runs / Math.max(innings, 1),
+          runsPerGame: runs / games.length,
+          hitsPerInning: hits / Math.max(innings, 1),
+          walksPerInning: walks / Math.max(innings, 1),
+          strikeoutsPerInning: strikeouts / Math.max(innings, 1),
+          whip: (hits + walks) / Math.max(innings, 1)
+        };
+      }
+
+      const bullpen7 = await summarizeBullpen(last7);
+      const bullpen3 = await summarizeBullpen(last3);
+
+      if (!bullpen7 && !bullpen3) return null;
+
+      const recent = bullpen3 || bullpen7;
+      const base = bullpen7 || bullpen3;
+
+      const fatigue =
+        Math.min(
+          10,
+          (recent.appearances || 0) * 0.9 +
+          (recent.innings || 0) * 0.65 +
+          (recent.walks || 0) * 0.25
+        );
+
+      return {
+        games: base.games,
+        era: base.era,
+        runsPerInning: base.runsPerInning,
+        runsPerGame: base.runsPerGame,
+        hitsPerInning: base.hitsPerInning,
+        walksPerInning: base.walksPerInning,
+        strikeoutsPerInning: base.strikeoutsPerInning,
+        whip: base.whip,
+        fatigue,
+        last3: bullpen3,
+        last7: bullpen7
       };
     }
 
     async function getWeather(gamePk, roofType) {
       try {
         const url = `https://statsapi.mlb.com/api/v1.1/game/${gamePk}/feed/live`;
-        const res = await fetch(url);
-        const data = await res.json();
+        const response = await fetch(url);
+        const data = await response.json();
 
         const weather = data?.gameData?.weather || {};
         const windText = weather.wind || "";
@@ -202,13 +319,23 @@ export default async function handler(req, res) {
         const speed = speedMatch ? Number(speedMatch[1]) : 0;
 
         let direction = "neutral";
-        const w = windText.toLowerCase();
+        const wind = windText.toLowerCase();
 
-        if (w.includes("out") || w.includes("to cf") || w.includes("to lf") || w.includes("to rf")) {
+        if (
+          wind.includes("out") ||
+          wind.includes("to cf") ||
+          wind.includes("to lf") ||
+          wind.includes("to rf")
+        ) {
           direction = "out";
-        } else if (w.includes("in") || w.includes("from cf") || w.includes("from lf") || w.includes("from rf")) {
+        } else if (
+          wind.includes("in") ||
+          wind.includes("from cf") ||
+          wind.includes("from lf") ||
+          wind.includes("from rf")
+        ) {
           direction = "in";
-        } else if (w.includes("cross")) {
+        } else if (wind.includes("cross")) {
           direction = "cross";
         }
 
@@ -237,11 +364,18 @@ export default async function handler(req, res) {
     const awayPitcherStats = await getPitcherStats(awayPitcher?.id);
     const homePitcherStats = await getPitcherStats(homePitcher?.id);
 
-    const awayBatting = await getTeamBattingLast7(game.teams.away.team.id);
-    const homeBatting = await getTeamBattingLast7(game.teams.home.team.id);
+    const awayBatting = await getTeamBattingProfile(
+      game.teams.away.team.id,
+      "away"
+    );
 
-    const awayBullpen = await getBullpenLast7(game.teams.away.team.id);
-    const homeBullpen = await getBullpenLast7(game.teams.home.team.id);
+    const homeBatting = await getTeamBattingProfile(
+      game.teams.home.team.id,
+      "home"
+    );
+
+    const awayBullpen = await getBullpenProfile(game.teams.away.team.id);
+    const homeBullpen = await getBullpenProfile(game.teams.home.team.id);
 
     const weather = await getWeather(game.gamePk, parkInfo.roof);
 
@@ -262,8 +396,9 @@ export default async function handler(req, res) {
               stats: awayPitcherStats
             }
           : null,
-        battingLast5: awayBatting,
+        battingLast5: awayBatting?.last5 || awayBatting,
         battingLast7: awayBatting,
+        battingProfile: awayBatting,
         bullpen: awayBullpen
       },
       home: {
@@ -275,8 +410,9 @@ export default async function handler(req, res) {
               stats: homePitcherStats
             }
           : null,
-        battingLast5: homeBatting,
+        battingLast5: homeBatting?.last5 || homeBatting,
         battingLast7: homeBatting,
+        battingProfile: homeBatting,
         bullpen: homeBullpen
       }
     });
