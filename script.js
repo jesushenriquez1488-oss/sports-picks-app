@@ -1005,7 +1005,7 @@ const text = await res.text();
       ].includes(sport);
 
       const useMLBFormula = sport === "baseball_mlb";
-
+      const useSoccerFormula = sport.startsWith("soccer_");
       gamesDiv.innerHTML += `
         <div class="card">
           <h2>${game.away_team} vs ${game.home_team}</h2>
@@ -1017,19 +1017,23 @@ const text = await res.text();
           <p><strong>Spread local:</strong> ${homeTeamSpreadText(homeSpread)}</p>
           <p><strong>Total:</strong> ${total || "No disponible"}</p>
 
-          ${
-            useBasketballFormula
-              ? `<button onclick="analyzeAuto('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index})">
-                  Ver predicción del modelo
-                </button>`
-              : useMLBFormula
-              ? `<button onclick='analyzeMLB("${escapeText(game.away_team)}","${escapeText(game.home_team)}",${awaySpread},${homeSpread},${index},${JSON.stringify((game.bookmakers?.[0]?.markets.find(m => m.key === "h2h")?.outcomes || [])).replace(/"/g, '&quot;')}, ${total})'>
-                  Ver predicción MLB
-                </button>`
-              : `<button onclick="analyzeOtherLeague('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index})">
-                  Ver predicción del modelo
-                </button>`
-          }
+         ${
+  useBasketballFormula
+    ? `<button onclick="analyzeAuto('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index})">
+        Ver predicción del modelo
+      </button>`
+    : useMLBFormula
+    ? `<button onclick='analyzeMLB("${escapeText(game.away_team)}","${escapeText(game.home_team)}",${awaySpread},${homeSpread},${index},${JSON.stringify((game.bookmakers?.[0]?.markets.find(m => m.key === "h2h")?.outcomes || [])).replace(/"/g, '&quot;')}, ${total})'>
+        Ver predicción MLB
+      </button>`
+    : useSoccerFormula
+    ? `<button onclick="analyzeSoccer('${escapeText(game.away_team)}','${escapeText(game.home_team)}', ${total}, ${index}, ${JSON.stringify(game.bookmakers?.[0]?.markets || []).replace(/"/g, '&quot;')})">
+        Ver predicción Fútbol
+      </button>`
+    : `<button onclick="analyzeOtherLeague('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index})">
+        Ver predicción del modelo
+      </button>`
+}
 
           <div id="result${index}"></div>
         </div>
