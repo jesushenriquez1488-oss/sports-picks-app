@@ -1183,8 +1183,6 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
 
     const totalEdge = Math.abs(projectedTotal - totalLine);
     const totalPick = projectedTotal > totalLine ? "OVER" : "UNDER";
-
-    // Total MLB calibrado: diferencia de 2.0 carreras = 70% premium
     const totalConfidence = Math.min(95, Math.max(50, 50 + totalEdge * 10));
 
     let recommendedPlay = "";
@@ -1231,61 +1229,59 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
     const cardsHTML = recommendedCards.map(card => `
       <div class="edge-box">
         <h4>${card.title}</h4>
-        <p>${shouldLockPremium ? "Pick Premium bloqueado" : card.play}</p>
+        <p>${shouldLockPremium ? "🔒 Premium" : card.play}</p>
         <div class="edge-number">${shouldLockPremium ? "🔒" : card.percentage.toFixed(1) + "%"}</div>
-        <p>${shouldLockPremium ? "Desbloquea para ver la jugada." : card.detail}</p>
       </div>
     `).join("");
 
     resultDiv.innerHTML = `
       <div class="${isPremiumMLB ? 'premium-result' : 'normal-result'}">
+
         ${isPremiumMLB ? '<div class="shine"></div><div class="hot-badge">🔥 HOT PICK MLB</div>' : ''}
 
-        <div class="result-content">
-          <p><strong>⚾ RESULTADO MLB:</strong></p>
-          <p><strong>${awayTeam}</strong> vs <strong>${homeTeam}</strong></p>
+        <div class="result-content ${shouldLockPremium ? 'blurred' : ''}">
 
-          <br>
+          <p><strong>⚾ ${awayTeam} vs ${homeTeam}</strong></p>
 
           ${
-            recommendedPlay
-              ? `
-                <p><strong>Jugada recomendada:</strong> ${shouldLockPremium ? "Pick Premium bloqueado" : recommendedPlay}</p>
-                <p><strong>Probabilidad estimada:</strong> ${shouldLockPremium ? "🔒" : recommendedProb.toFixed(1) + "%"}</p>
-              `
-              : `
-                <p><strong>Favorito a ganar:</strong> ${favoriteToWin} ML</p>
-                <p><strong>Probabilidad de ganar:</strong> ${favoriteProb.toFixed(1)}%</p>
-              `
+            !shouldLockPremium
+              ? recommendedPlay
+                ? `<p><strong>Jugada:</strong> ${recommendedPlay} (${recommendedProb.toFixed(1)}%)</p>`
+                : `<p><strong>Favorito:</strong> ${favoriteToWin} (${favoriteProb.toFixed(1)}%)</p>`
+              : `<p><strong>🔒 Análisis Premium Detectado</strong></p>`
           }
 
           ${
             recommendedCards.length > 0
               ? `<div class="edge-grid">${cardsHTML}</div>`
-              : `<p><strong>Recomendación:</strong> No hay jugada fuerte.</p>`
+              : ``
           }
-
-          <br>
-
-          <p><strong>Carreras esperadas ${awayTeam}:</strong> ${expectedRunsA.toFixed(2)}</p>
-          <p><strong>Carreras esperadas ${homeTeam}:</strong> ${expectedRunsB.toFixed(2)}</p>
-          <p><strong>Total proyectado:</strong> ${projectedTotal.toFixed(2)} carreras</p>
-          <p><strong>Línea total:</strong> ${totalLine}</p>
-
-          <p><strong>Datos reales usados:</strong></p>
-          <p>${awayTeam}: ofensiva ${awayOffense.toFixed(2)}, defensa rival permite ${homeTeamAllowed.toFixed(2)}, pitcher rival permite ${homePitcherAllowed.toFixed(2)}, bullpen rival permite ${homeBullpenAllowed.toFixed(2)}</p>
-          <p>${homeTeam}: ofensiva ${homeOffense.toFixed(2)}, defensa rival permite ${awayTeamAllowed.toFixed(2)}, pitcher rival permite ${awayPitcherAllowed.toFixed(2)}, bullpen rival permite ${awayBullpenAllowed.toFixed(2)}</p>
 
           ${
-            shouldLockPremium
+            !shouldLockPremium
               ? `
-                <button class="unlock-btn" onclick="unlockPick()">
-                  Desbloquear jugada premium
-                </button>
+                <p><strong>Total proyectado:</strong> ${projectedTotal.toFixed(2)}</p>
+                <p><strong>Línea:</strong> ${totalLine}</p>
               `
-              : ""
+              : `
+                <div class="premium-overlay">
+                  <p>📊 Incluye proyección avanzada, edge real y jugadas de alto valor.</p>
+                </div>
+              `
           }
+
         </div>
+
+        ${
+          shouldLockPremium
+            ? `
+              <button class="unlock-btn" onclick="unlockPick()">
+                🔓 Desbloquear Pick Premium
+              </button>
+            `
+            : ""
+        }
+
       </div>
     `;
 
