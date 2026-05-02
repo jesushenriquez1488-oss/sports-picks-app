@@ -1246,18 +1246,35 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
           ${recommendedCards.length > 0 ? `<div class="edge-grid">${cardsHTML}</div>` : ""}
 
           <div class="analysis-section">
-            <p><strong>Total proyectado:</strong> ${shouldLockPremium ? "🔒 --" : projectedTotal.toFixed(2)}</p>
-            <p><strong>Línea:</strong> ${totalLine}</p>
-
             ${
               shouldLockPremium
                 ? `
+                  <p><strong>Total proyectado:</strong> 🔒 --</p>
+                  <p><strong>Línea:</strong> ${totalLine}</p>
+
                   <div class="premium-overlay">
                     <p>🔒 Análisis completo bloqueado</p>
-                    <p>Incluye jugadas premium, edge real y probabilidades avanzadas.</p>
+                    <p>Incluye proyección de carreras, edge real, jugada recomendada, porcentajes y datos avanzados.</p>
                   </div>
                 `
-                : ""
+                : `
+                  <p><strong>Carreras esperadas ${awayTeam}:</strong> ${expectedRunsA.toFixed(2)}</p>
+                  <p><strong>Carreras esperadas ${homeTeam}:</strong> ${expectedRunsB.toFixed(2)}</p>
+                  <p><strong>Total proyectado:</strong> ${projectedTotal.toFixed(2)}</p>
+                  <p><strong>Línea total:</strong> ${totalLine}</p>
+                  <p><strong>Diferencia vs línea:</strong> ${totalEdge.toFixed(2)} carreras</p>
+
+                  <br>
+
+                  <p><strong>Probabilidad ${awayTeam} ML:</strong> ${(modelProbA * 100).toFixed(1)}%</p>
+                  <p><strong>Probabilidad ${homeTeam} ML:</strong> ${(modelProbB * 100).toFixed(1)}%</p>
+
+                  <br>
+
+                  <p><strong>Datos reales usados:</strong></p>
+                  <p>${awayTeam}: ofensiva ${awayOffense.toFixed(2)}, defensa rival permite ${homeTeamAllowed.toFixed(2)}, pitcher rival permite ${homePitcherAllowed.toFixed(2)}, bullpen rival permite ${homeBullpenAllowed.toFixed(2)}</p>
+                  <p>${homeTeam}: ofensiva ${homeOffense.toFixed(2)}, defensa rival permite ${awayTeamAllowed.toFixed(2)}, pitcher rival permite ${awayPitcherAllowed.toFixed(2)}, bullpen rival permite ${awayBullpenAllowed.toFixed(2)}</p>
+                `
             }
           </div>
 
