@@ -29,7 +29,7 @@ export default async function handler(req, res) {
       }
 
       async function getLastMatches(teamId) {
-        const url = `https://v3.football.api-sports.io/fixtures?team=${teamId}&league=140&season=2024&last=5`;
+        const url = `https://v3.football.api-sports.io/fixtures?team=${teamId}&league=140&season=2025&last=5`;
         const response = await fetch(url, { headers });
         const data = await response.json();
 
