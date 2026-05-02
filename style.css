@@ -513,3 +513,59 @@ button {
 .edge-box {
   backdrop-filter: blur(6px);
 }
+.floating-accuracy {
+  position: fixed;
+  right: 12px;
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 9999;
+}
+
+.floating-rate {
+  width: 82px;
+  padding: 9px 8px;
+  border-radius: 16px;
+  text-align: center;
+  background: rgba(10, 10, 10, 0.88);
+  border: 1px solid rgba(255, 215, 120, 0.8);
+  box-shadow: 0 0 14px rgba(255, 190, 80, 0.35);
+  backdrop-filter: blur(10px);
+}
+
+.floating-rate strong {
+  display: block;
+  font-size: 11px;
+  color: #ffd36a;
+  line-height: 1.1;
+}
+
+.floating-rate span {
+  display: block;
+  font-size: 20px;
+  font-weight: 900;
+  color: #fff4b8;
+  line-height: 1.1;
+}
+
+.normal-rate {
+  opacity: 0.9;
+}
+
+@media (max-width: 600px) {
+  .floating-accuracy {
+    right: 8px;
+    bottom: 12px;
+  }
+
+  .floating-rate {
+    width: 72px;
+    padding: 7px 6px;
+    border-radius: 14px;
+  }
+
+  .floating-rate span {
+    font-size: 18px;
+  }
+}
