@@ -166,9 +166,7 @@ window.addEventListener("load", async () => {
 async function loadTeams() {
   if (allTeams.length > 0) return;
 
-  const res = await fetch("https://api.balldontlie.io/v1/teams", {
-    headers: { Authorization: BALLDONTLIE_API_KEY }
-  });
+  const res = await fetch("/api/nba-data?type=teams");
 
   const text = await res.text();
   if (!res.ok) throw new Error("Error cargando equipos: " + text);
