@@ -42,19 +42,27 @@ export default async function handler(req, res) {
       }
 
       async function getLastMatches(teamId) {
-        const url =
-          `https://v3.football.api-sports.io/fixtures` +
-          `?team=${teamId}` +
-          `&league=${LEAGUE_ID}` +
-          `&season=${SEASON}` +
-          `&last=5`;
+  const urls = [
+    `https://v3.football.api-sports.io/fixtures?team=${teamId}&league=140&season=2025&last=5`,
+    `https://v3.football.api-sports.io/fixtures?team=${teamId}&league=140&season=2024&last=5`,
+    `https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2025&last=5`,
+    `https://v3.football.api-sports.io/fixtures?team=${teamId}&season=2024&last=5`,
+    `https://v3.football.api-sports.io/fixtures?team=${teamId}&last=5`
+  ];
 
-        const response = await fetch(url, { headers });
-        const data = await response.json();
+  for (const url of urls) {
+    const response = await fetch(url, { headers });
+    const data = await response.json();
 
-        return data.response || [];
-      }
+    const matches = data.response || [];
 
+    if (matches.length > 0) {
+      return matches;
+    }
+  }
+
+  return [];
+}
       function analyzeMatches(matches, teamId) {
         let scored = 0;
         let conceded = 0;
