@@ -2,7 +2,7 @@ const SUPABASE_URL = "https://chwuftiqbxqjbhdixdwk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_WLTdeKrWOWO404USqEcqtg_bSfDTzJ3";
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const ODDS_API_KEY = "bce7c087b72953e95406c9215e6d24e7";
+
 
 
 const IS_ADMIN = false;
@@ -932,9 +932,8 @@ async function loadGames() {
       data = JSON.parse(savedData);
       status.innerHTML = `Usando datos recientes de ${selectedSportName}`;
     } else {
-      const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${ODDS_API_KEY}&regions=us,eu&markets=h2h,spreads,totals&oddsFormat=american`;
-
-      const res = await fetch(url);
+const res = await fetch(`/api/odds?sport=${encodeURIComponent(sport)}`);
+const text = await res.text();
       const text = await res.text();
 
       if (!res.ok) throw new Error("Error cargando odds: " + text);
