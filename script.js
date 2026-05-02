@@ -515,69 +515,156 @@ function getModelAnalysis(verdict) {
 
 async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, index) {
   const resultDiv = document.getElementById(`result${index}`);
-  resultDiv.innerHTML = `<div class="loading-analysis">Analizando...</div>`;
+  resultDiv.innerHTML = `<div class="loading-analysis">Analizando NBA...</div>`;
 
   try {
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+
+    if (!sessionData.session) {
+      alert("Debes iniciar sesión para analizar.");
+      return;
+    }
+
     const awayAll = await getRecentGames(awayTeam);
     const homeAll = await getRecentGames(homeTeam);
 
     const awayGames = awayAll.slice(0, 5);
     const homeGames = homeAll.slice(0, 5);
 
-    if (awayGames.length < 5 || homeGames.length < 5) {
-      throw new Error("No hay suficientes juegos recientes.");
-    }
+    const [awayInjuries, homeInjuries] = await Promise.all([
+      getInjuryAdjustment(awayTeam),
+      getInjuryAdjustment(homeTeam)
+    ]);
 
-    const awayCalc = calcProjection(awayGames, homeGames);
-    const homeCalc = calcProjection(homeGames, awayGames);
-
-    const awayRest = getRestAdjustment(awayAll);
-    const homeRest = getRestAdjustment(homeAll);
-
-const [awayInjuries, homeInjuries] = await Promise.all([
-  getInjuryAdjustment(awayTeam),
-  getInjuryAdjustment(homeTeam)
-]);
-    const projA =
-      awayCalc.projection +
-      awayRest.points +
-      awayInjuries.offenseImpact +
-      homeInjuries.defenseImpact ;
-
-    const projB =
-      homeCalc.projection +
-      homeRest.points +
-      homeInjuries.offenseImpact +
-      awayInjuries.defenseImpact;
-
-    renderAnalysisResult({
-      awayTeam,
-      homeTeam,
-      awaySpread,
-      homeSpread,
-      total,
-      projA,
-      projB,
-      index,
-      extraHTML: `
-        <br>
-        <p><strong>Descanso:</strong></p>
-        <p>${awayTeam}: ${awayRest.note}</p>
-        <p>${homeTeam}: ${homeRest.note}</p>
-
-        <br>
-<p><strong>Lesiones:</strong></p>
-
-<p>${getInjuryPublicMessage(awayTeam, awayInjuries)}</p>
-${awayInjuries.note.includes("No se reportan") ? "" : `<p>${awayInjuries.note}</p>`}
-
-<p>${getInjuryPublicMessage(homeTeam, homeInjuries)}</p>
-${homeInjuries.note.includes("No se reportan") ? "" : `<p>${homeInjuries.note}</p>`}
-      `
+    const response = await fetch("/api/analyze-nba", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        userId: sessionData.session.user.id,
+        awayTeam,
+        homeTeam,
+        awaySpread,
+        homeSpread,
+        total,
+        awayGames,
+        homeGames,
+        awayAll,
+        homeAll,
+        awayInjuries,
+        homeInjuries
+      })
     });
 
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Error analizando NBA");
+    }
+
+    if (data.noPlay) {
+      resultDiv.innerHTML = `
+        <div class="normal-result">
+          <p><strong>${data.public.title}</strong></p>
+          <p>${data.public.message}</p>
+          <p><strong>Motivo:</strong> ${data.public.reason}</p>
+        </div>
+      `;
+      return;
+    }
+
+    const locked = data.locked;
+    const premium = data.premium;
+    const isPremium = data.isPremiumPick;
+
+    resultDiv.innerHTML = `
+      <div class="${isPremium ? 'premium-result' : 'normal-result'}">
+
+        ${isPremium ? '<div class="shine"></div><div class="hot-badge">🔥 HOT PICK</div>' : ''}
+
+        <div class="result-content">
+
+          <p><strong>🔥 PICK PRINCIPAL:</strong></p>
+
+          ${
+            locked
+              ? `
+                <p><strong>Pick:</strong> <span>Pick Premium bloqueado</span></p>
+                <p>Desbloquea para ver el pick completo y el análisis exacto.</p>
+
+                <br>
+                <p><strong>Factores del modelo:</strong></p>
+                <p>✔ Forma reciente evaluada</p>
+                <p>✔ Condición local/visitante</p>
+                <p>✔ Descanso del equipo</p>
+                <p>✔ Impacto de lesiones considerado</p>
+                <p>✔ Edge detectado contra la línea del mercado</p>
+              `
+              : `
+                <p><strong>Pick:</strong> <span>${premium.pick}</span></p>
+              `
+          }
+
+          <p><strong>Confianza:</strong> <span>${data.public.confidence}%</span></p>
+          <p><strong>Riesgo:</strong> <span>${data.public.risk}</span></p>
+          <p><strong>Veredicto:</strong> <span>${data.public.verdict}</span></p>
+
+          ${
+            !locked && premium
+              ? `
+                <div class="edge-grid">
+                  <div class="edge-box">
+                    <h4>Edge detectado</h4>
+                    <p>Ventaja del modelo</p>
+                    <div class="edge-number">${premium.mainEdge.toFixed(1)}</div>
+                    <p>Confianza: <strong>${premium.mainEdgeConfidence}%</strong></p>
+                  </div>
+                </div>
+
+                <br>
+                <p><strong>Explicación:</strong></p>
+                <p>Diferencial proyectado: ${premium.spreadDiff.toFixed(1)}</p>
+                <p>Proyección ${awayTeam}: ${premium.projA.toFixed(1)}</p>
+                <p>Proyección ${homeTeam}: ${premium.projB.toFixed(1)}</p>
+                <p>Total proyectado: ${premium.totalProj.toFixed(1)}</p>
+
+                <br>
+                <p><strong>Descanso:</strong></p>
+                <p>${awayTeam}: ${premium.awayRestNote}</p>
+                <p>${homeTeam}: ${premium.homeRestNote}</p>
+
+                <br>
+                <p><strong>Lesiones:</strong></p>
+                <p>${premium.awayInjuryPublic}</p>
+                ${premium.awayInjuryNote.includes("No se reportan") ? "" : `<p>${premium.awayInjuryNote}</p>`}
+
+                <p>${premium.homeInjuryPublic}</p>
+                ${premium.homeInjuryNote.includes("No se reportan") ? "" : `<p>${premium.homeInjuryNote}</p>`}
+
+                <br>
+                <p><strong>Análisis del modelo:</strong></p>
+                <p>${premium.modelAnalysis}</p>
+              `
+              : ""
+          }
+
+          ${
+            locked
+              ? `
+                <button class="unlock-btn" onclick="goPremiumMonthly()">
+                  Acceso Premium mensual $${MONTHLY_PRICE}/mes
+                </button>
+              `
+              : ""
+          }
+
+        </div>
+      </div>
+    `;
+
   } catch (error) {
-    resultDiv.innerHTML = "Error: " + error.message;
+    resultDiv.innerHTML = "Error NBA: " + error.message;
   }
 }
 
