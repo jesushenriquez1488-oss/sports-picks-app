@@ -255,8 +255,8 @@ module.exports = async function handler(req, res) {
     }
 
     if (
-      totalProb >= 68 &&
-      (totalPick === "OVER" || (totalPick === "UNDER" && totalProb >= 70))
+      totalProb >= 64 &&
+      (totalPick === "OVER" || (totalPick === "UNDER" && totalProb >= 65))
     ) {
       recommendedCards.push({
         title: "Total Premium",
