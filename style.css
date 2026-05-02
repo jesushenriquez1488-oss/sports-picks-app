@@ -498,3 +498,18 @@ button {
     padding: 15px;
   }
 }
+.blurred {
+  filter: blur(6px);
+  pointer-events: none;
+  user-select: none;
+}
+
+.premium-overlay {
+  text-align: center;
+  margin-top: 15px;
+  opacity: 0.9;
+}
+
+.edge-box {
+  backdrop-filter: blur(6px);
+}
