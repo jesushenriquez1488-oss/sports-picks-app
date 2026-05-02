@@ -1334,8 +1334,34 @@ function analyzeSoccer(awayTeam, homeTeam, total, index, marketsRaw) {
   const resultDiv = document.getElementById(`result${index}`);
   resultDiv.innerHTML = `<div class="loading-analysis">Analizando fútbol...</div>`;
 
+  const americanToProbability = (odds) => {
+    odds = Number(odds);
+
+    if (!odds || isNaN(odds)) return null;
+
+    if (odds > 0) {
+      return 100 / (odds + 100);
+    }
+
+    return Math.abs(odds) / (Math.abs(odds) + 100);
+  };
+
+  const clamp = (value, min = 0, max = 100) => {
+    return Math.max(min, Math.min(max, value));
+  };
+
+  const formatPercent = (value) => {
+    return `${Number(value || 0).toFixed(1)}%`;
+  };
+
   try {
-    const markets = typeof marketsRaw === "string" ? JSON.parse(marketsRaw) : marketsRaw;
+    const markets = typeof marketsRaw === "string"
+      ? JSON.parse(marketsRaw)
+      : marketsRaw;
+
+    if (!markets || !Array.isArray(markets)) {
+      throw new Error("No hay mercados disponibles para este juego.");
+    }
 
     let moneyline = null;
     let totals = null;
@@ -1347,98 +1373,325 @@ function analyzeSoccer(awayTeam, homeTeam, total, index, marketsRaw) {
       if (m.key === "btts") btts = m;
     });
 
-    // ===== MONEYLINE =====
+    const plays = [];
+
+    // =========================
+    // MONEYLINE / 1X2
+    // =========================
     let mlPick = "No disponible";
     let mlConfidence = 0;
+    let mlDetails = "Mercado no disponible.";
 
-    if (moneyline) {
+    if (moneyline && Array.isArray(moneyline.outcomes)) {
       const outcomes = moneyline.outcomes;
 
-      const homeOdds = outcomes.find(o => o.name === homeTeam)?.price;
-      const awayOdds = outcomes.find(o => o.name === awayTeam)?.price;
-      const drawOdds = outcomes.find(o => o.name.toLowerCase().includes("draw"))?.price;
+      const homeOutcome = outcomes.find(o => o.name === homeTeam);
+      const awayOutcome = outcomes.find(o => o.name === awayTeam);
+      const drawOutcome = outcomes.find(o =>
+        String(o.name).toLowerCase().includes("draw")
+      );
 
-      if (homeOdds && awayOdds) {
-        const favorite = Math.min(homeOdds, awayOdds);
+      const homeProbRaw = americanToProbability(homeOutcome?.price);
+      const awayProbRaw = americanToProbability(awayOutcome?.price);
+      const drawProbRaw = americanToProbability(drawOutcome?.price);
 
-        if (favorite === homeOdds) {
-          mlPick = `${homeTeam} gana`;
-        } else {
-          mlPick = `${awayTeam} gana`;
+      const totalProbRaw =
+        (homeProbRaw || 0) + (awayProbRaw || 0) + (drawProbRaw || 0);
+
+      if (homeProbRaw && awayProbRaw && drawProbRaw && totalProbRaw > 0) {
+        const homeProb = (homeProbRaw / totalProbRaw) * 100;
+        const awayProb = (awayProbRaw / totalProbRaw) * 100;
+        const drawProb = (drawProbRaw / totalProbRaw) * 100;
+
+        const best = [
+          { team: homeTeam, pick: `${homeTeam} gana`, prob: homeProb },
+          { team: awayTeam, pick: `${awayTeam} gana`, prob: awayProb },
+          { team: "Empate", pick: "Empate", prob: drawProb }
+        ].sort((a, b) => b.prob - a.prob)[0];
+
+        mlPick = best.pick;
+
+        // Fútbol es más volátil: no dejamos que ML sea premium fácil solo por odds.
+        mlConfidence = clamp(best.prob, 0, 72);
+
+        mlDetails = `
+          ${homeTeam}: ${formatPercent(homeProb)} |
+          Empate: ${formatPercent(drawProb)} |
+          ${awayTeam}: ${formatPercent(awayProb)}
+        `;
+
+        if (mlConfidence >= 52) {
+          plays.push({
+            market: "Money Line",
+            pick: mlPick,
+            confidence: mlConfidence,
+            details: mlDetails
+          });
         }
-
-        mlConfidence = 55 + (Math.abs(homeOdds - awayOdds) / 10);
       }
     }
 
-    // ===== OVER/UNDER =====
+    // =========================
+    // OVER / UNDER 2.5+
+    // =========================
     let totalPick = "No disponible";
     let totalConfidence = 0;
+    let totalDetails = "Mercado no disponible.";
 
-    if (totals) {
-      const line = totals.outcomes[0]?.point;
+    if (totals && Array.isArray(totals.outcomes)) {
+      const validTotals = totals.outcomes.filter(o => Number(o.point) >= 2.5);
 
-      if (line >= 2.5) {
-        totalPick = `Over ${line}`;
-        totalConfidence = 52 + (line * 2);
+      if (validTotals.length > 0) {
+        const line = Number(validTotals[0].point);
+
+        const overOutcome = validTotals.find(o =>
+          String(o.name).toLowerCase() === "over"
+        );
+
+        const underOutcome = validTotals.find(o =>
+          String(o.name).toLowerCase() === "under"
+        );
+
+        const overProbRaw = americanToProbability(overOutcome?.price);
+        const underProbRaw = americanToProbability(underOutcome?.price);
+
+        const totalProbRaw = (overProbRaw || 0) + (underProbRaw || 0);
+
+        if (overProbRaw && underProbRaw && totalProbRaw > 0) {
+          const overProb = (overProbRaw / totalProbRaw) * 100;
+          const underProb = (underProbRaw / totalProbRaw) * 100;
+
+          if (overProb >= underProb) {
+            totalPick = `Over ${line}`;
+            totalConfidence = clamp(overProb, 0, 74);
+          } else {
+            totalPick = `Under ${line}`;
+            totalConfidence = clamp(underProb, 0, 74);
+          }
+
+          totalDetails = `
+            Línea ${line} |
+            Over: ${formatPercent(overProb)} |
+            Under: ${formatPercent(underProb)}
+          `;
+
+          if (totalConfidence >= 52) {
+            plays.push({
+              market: "Over/Under",
+              pick: totalPick,
+              confidence: totalConfidence,
+              details: totalDetails
+            });
+          }
+        }
+      } else {
+        totalDetails = "No se analizaron líneas menores de 2.5.";
       }
     }
 
-    // ===== BTTS =====
+    // =========================
+    // BTTS
+    // =========================
     let bttsPick = "No disponible";
     let bttsConfidence = 0;
+    let bttsDetails = "BTTS no disponible en este endpoint.";
 
-    if (btts) {
-      const yesOdds = btts.outcomes.find(o => o.name === "Yes")?.price;
-      const noOdds = btts.outcomes.find(o => o.name === "No")?.price;
+    if (btts && Array.isArray(btts.outcomes)) {
+      const yesOutcome = btts.outcomes.find(o =>
+        String(o.name).toLowerCase() === "yes"
+      );
 
-      if (yesOdds && noOdds) {
-        bttsPick = yesOdds < noOdds ? "BTTS: Sí" : "BTTS: No";
-        bttsConfidence = 55 + (Math.abs(yesOdds - noOdds) / 10);
+      const noOutcome = btts.outcomes.find(o =>
+        String(o.name).toLowerCase() === "no"
+      );
+
+      const yesProbRaw = americanToProbability(yesOutcome?.price);
+      const noProbRaw = americanToProbability(noOutcome?.price);
+
+      const totalProbRaw = (yesProbRaw || 0) + (noProbRaw || 0);
+
+      if (yesProbRaw && noProbRaw && totalProbRaw > 0) {
+        const yesProb = (yesProbRaw / totalProbRaw) * 100;
+        const noProb = (noProbRaw / totalProbRaw) * 100;
+
+        if (yesProb >= noProb) {
+          bttsPick = "BTTS: Sí";
+          bttsConfidence = clamp(yesProb, 0, 72);
+        } else {
+          bttsPick = "BTTS: No";
+          bttsConfidence = clamp(noProb, 0, 72);
+        }
+
+        bttsDetails = `
+          Sí: ${formatPercent(yesProb)} |
+          No: ${formatPercent(noProb)}
+        `;
+
+        if (bttsConfidence >= 52) {
+          plays.push({
+            market: "BTTS",
+            pick: bttsPick,
+            confidence: bttsConfidence,
+            details: bttsDetails
+          });
+        }
       }
     }
 
-    // ===== DOBLE CHANCE =====
+    // =========================
+    // DOBLE OPORTUNIDAD
+    // =========================
     let doubleChance = "No disponible";
+    let doubleChanceConfidence = 0;
+    let doubleChanceDetails = "Calculado desde Money Line cuando hay empate disponible.";
 
-    if (mlConfidence > 60) {
-      if (mlPick.includes(homeTeam)) {
-        doubleChance = `1X (${homeTeam} o empate)`;
-      } else {
-        doubleChance = `X2 (${awayTeam} o empate)`;
+    if (moneyline && Array.isArray(moneyline.outcomes)) {
+      const outcomes = moneyline.outcomes;
+
+      const homeOutcome = outcomes.find(o => o.name === homeTeam);
+      const awayOutcome = outcomes.find(o => o.name === awayTeam);
+      const drawOutcome = outcomes.find(o =>
+        String(o.name).toLowerCase().includes("draw")
+      );
+
+      const homeProbRaw = americanToProbability(homeOutcome?.price);
+      const awayProbRaw = americanToProbability(awayOutcome?.price);
+      const drawProbRaw = americanToProbability(drawOutcome?.price);
+
+      const totalProbRaw =
+        (homeProbRaw || 0) + (awayProbRaw || 0) + (drawProbRaw || 0);
+
+      if (homeProbRaw && awayProbRaw && drawProbRaw && totalProbRaw > 0) {
+        const homeProb = (homeProbRaw / totalProbRaw) * 100;
+        const awayProb = (awayProbRaw / totalProbRaw) * 100;
+        const drawProb = (drawProbRaw / totalProbRaw) * 100;
+
+        const dc1x = homeProb + drawProb;
+        const dcx2 = awayProb + drawProb;
+        const dc12 = homeProb + awayProb;
+
+        const bestDC = [
+          { pick: `1X (${homeTeam} o empate)`, prob: dc1x },
+          { pick: `X2 (${awayTeam} o empate)`, prob: dcx2 },
+          { pick: `12 (${homeTeam} o ${awayTeam})`, prob: dc12 }
+        ].sort((a, b) => b.prob - a.prob)[0];
+
+        doubleChance = bestDC.pick;
+
+        // Doble chance suele ser más segura, pero no la hacemos premium automática.
+        doubleChanceConfidence = clamp(bestDC.prob - 8, 0, 74);
+
+        doubleChanceDetails = `
+          1X: ${formatPercent(dc1x)} |
+          X2: ${formatPercent(dcx2)} |
+          12: ${formatPercent(dc12)}
+        `;
+
+        if (doubleChanceConfidence >= 60) {
+          plays.push({
+            market: "Doble oportunidad",
+            pick: doubleChance,
+            confidence: doubleChanceConfidence,
+            details: doubleChanceDetails
+          });
+        }
       }
     }
 
-    // ===== ELEGIR MEJOR PICK =====
-    const bestConfidence = Math.max(mlConfidence, totalConfidence, bttsConfidence);
+    if (plays.length === 0) {
+      resultDiv.innerHTML = `
+        <div class="normal-result">
+          <div class="result-content">
+            <p><strong>⚽ ${awayTeam} vs ${homeTeam}</strong></p>
+            <p><strong>No hay jugada clara.</strong></p>
+            <p>El modelo no encontró suficiente información útil en las líneas disponibles.</p>
+          </div>
+        </div>
+      `;
+      return;
+    }
 
-    let finalPick = "";
-    let confidence = bestConfidence;
+    plays.sort((a, b) => b.confidence - a.confidence);
 
-    if (bestConfidence === mlConfidence) finalPick = mlPick;
-    else if (bestConfidence === totalConfidence) finalPick = totalPick;
-    else finalPick = bttsPick;
+    const bestPlay = plays[0];
 
-    const verdict = confidence >= 70 ? "Premium" : confidence >= 60 ? "Moderado" : "Evitar";
+    const verdict =
+      bestPlay.confidence >= 75 ? "Premium" :
+      bestPlay.confidence >= 62 ? "Moderado" :
+      "Evitar";
+
+    const risk =
+      bestPlay.confidence >= 75 ? "Bajo" :
+      bestPlay.confidence >= 62 ? "Medio" :
+      "Alto";
+
+    const isPremiumSoccer = verdict === "Premium";
+    const locked = isPremiumSoccer && !IS_ADMIN && !isPremiumUser;
 
     resultDiv.innerHTML = `
-      <div class="${verdict === "Premium" ? "premium-result" : "normal-result"}">
+      <div class="${isPremiumSoccer ? "premium-result" : "normal-result"}">
+
+        ${isPremiumSoccer ? '<div class="shine"></div><div class="hot-badge">🔥 HOT PICK FÚTBOL</div>' : ''}
 
         <div class="result-content">
 
           <p><strong>⚽ ${awayTeam} vs ${homeTeam}</strong></p>
 
-          <p><strong>Pick:</strong> ${finalPick}</p>
-          <p><strong>Confianza:</strong> ${confidence.toFixed(1)}%</p>
-          <p><strong>Veredicto:</strong> ${verdict}</p>
+          ${
+            locked
+              ? `
+                <p><strong>🔒 Pick Premium bloqueado</strong></p>
+                <p>Desbloquea para ver el pick exacto y el análisis completo.</p>
+
+                <br>
+                <p><strong>Factores evaluados:</strong></p>
+                <p>✔ Money Line / 1X2</p>
+                <p>✔ Over/Under desde 2.5+</p>
+                <p>✔ Doble oportunidad</p>
+                <p>✔ Probabilidad implícita normalizada</p>
+                <p>✔ Sin líneas de 1.5 goles como premium</p>
+              `
+              : `
+                <p><strong>Pick:</strong> ${bestPlay.pick}</p>
+                <p><strong>Mercado:</strong> ${bestPlay.market}</p>
+                <p><strong>Confianza:</strong> ${formatPercent(bestPlay.confidence)}</p>
+                <p><strong>Riesgo:</strong> ${risk}</p>
+                <p><strong>Veredicto:</strong> ${verdict}</p>
+
+                <br>
+
+                <p><strong>Detalle principal:</strong></p>
+                <p>${bestPlay.details}</p>
+              `
+          }
 
           <br>
 
           <p><strong>Opciones del modelo:</strong></p>
-          <p>Money Line: ${mlPick}</p>
-          <p>Over/Under: ${totalPick}</p>
-          <p>BTTS: ${bttsPick}</p>
-          <p>Doble oportunidad: ${doubleChance}</p>
+          <p><strong>Money Line:</strong> ${mlPick} ${mlConfidence ? `(${formatPercent(mlConfidence)})` : ""}</p>
+          <p><strong>Over/Under:</strong> ${totalPick} ${totalConfidence ? `(${formatPercent(totalConfidence)})` : ""}</p>
+          <p><strong>BTTS:</strong> ${bttsPick} ${bttsConfidence ? `(${formatPercent(bttsConfidence)})` : ""}</p>
+          <p><strong>Doble oportunidad:</strong> ${doubleChance} ${doubleChanceConfidence ? `(${formatPercent(doubleChanceConfidence)})` : ""}</p>
+
+          ${
+            !locked
+              ? `
+                <br>
+                <p><strong>Nota del modelo:</strong></p>
+                <p>Este análisis usa probabilidades implícitas de mercado normalizadas. No usa estadísticas inventadas.</p>
+              `
+              : ""
+          }
+
+          ${
+            locked
+              ? `
+                <button class="unlock-btn" onclick="goPremiumMonthly()">
+                  🔓 Acceso Premium mensual $${MONTHLY_PRICE}/mes
+                </button>
+              `
+              : ""
+          }
 
         </div>
       </div>
@@ -1448,5 +1701,5 @@ function analyzeSoccer(awayTeam, homeTeam, total, index, marketsRaw) {
     resultDiv.innerHTML = "Error fútbol: " + error.message;
   }
 }
+
 window.analyzeSoccer = analyzeSoccer;
-window.analyzeMLB = analyzeMLB;
