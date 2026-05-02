@@ -1178,6 +1178,8 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
   const resultDiv = document.getElementById(`result${index}`);
   resultDiv.innerHTML = `<div class="loading-analysis">Analizando MLB...</div>`;
 
+  const safe = (v, d = 0) => (typeof v === "number" && !isNaN(v) ? v : d);
+
   try {
     const { data: sessionData } = await supabaseClient.auth.getSession();
 
@@ -1216,7 +1218,7 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
       <div class="edge-box">
         <h4>${card.title}</h4>
         <p>${card.play}</p>
-        <div class="edge-number">${card.percentage.toFixed(1)}%</div>
+        <div class="edge-number">${safe(card.percentage).toFixed(1)}%</div>
       </div>
     `).join("") || "";
 
@@ -1251,57 +1253,57 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
               `
               : premium
                 ? `
-                  <p><strong>Favorito:</strong> ${premium.favoriteToWin} (${premium.favoriteProb.toFixed(1)}%)</p>
+                  <p><strong>Favorito:</strong> ${premium.favoriteToWin} (${safe(premium.favoriteProb).toFixed(1)}%)</p>
 
                   ${cardsHTML ? `<div class="edge-grid">${cardsHTML}</div>` : ""}
 
                   <br>
 
-                  <p><strong>Carreras esperadas ${awayTeam}:</strong> ${premium.expectedRunsA.toFixed(2)}</p>
-                  <p><strong>Carreras esperadas ${homeTeam}:</strong> ${premium.expectedRunsB.toFixed(2)}</p>
-                  <p><strong>Total proyectado:</strong> ${premium.projectedTotal.toFixed(2)}</p>
-                  <p><strong>Línea total:</strong> ${premium.totalLine || totalLine}</p>
-                  <p><strong>Diferencia real vs línea:</strong> ${premium.totalDiff.toFixed(2)} carreras</p>
+                  <p><strong>Carreras esperadas ${awayTeam}:</strong> ${safe(premium.expectedRunsA).toFixed(2)}</p>
+                  <p><strong>Carreras esperadas ${homeTeam}:</strong> ${safe(premium.expectedRunsB).toFixed(2)}</p>
+                  <p><strong>Total proyectado:</strong> ${safe(premium.projectedTotal).toFixed(2)}</p>
+                  <p><strong>Línea total:</strong> ${safe(premium.totalLine, totalLine)}</p>
+                  <p><strong>Diferencia real vs línea:</strong> ${safe(premium.totalDiff).toFixed(2)} carreras</p>
 
                   <br>
 
-                  <p><strong>Probabilidad Over:</strong> ${premium.overProbability.toFixed(1)}%</p>
-                  <p><strong>Probabilidad Under:</strong> ${premium.underProbability.toFixed(1)}%</p>
-                  <p><strong>Lectura del total:</strong> ${premium.totalPick} por ${premium.totalEdge.toFixed(2)} carreras de edge</p>
+                  <p><strong>Probabilidad Over:</strong> ${safe(premium.overProbability).toFixed(1)}%</p>
+                  <p><strong>Probabilidad Under:</strong> ${safe(premium.underProbability).toFixed(1)}%</p>
+                  <p><strong>Lectura del total:</strong> ${premium.totalPick} por ${safe(premium.totalEdge).toFixed(2)} carreras de edge</p>
 
                   <br>
 
                   <p><strong>Estadio / Park Factor:</strong></p>
-                  <p>${premium.venue.name} — factor ${premium.venue.parkFactor.toFixed(2)} — techo: ${premium.venue.roof}</p>
+                  <p>${premium.venue?.name || "N/A"} — factor ${safe(premium.venue?.parkFactor).toFixed(2)} — techo: ${premium.venue?.roof || "N/A"}</p>
 
                   <br>
 
                   <p><strong>Clima:</strong></p>
                   <p>Viento: ${premium.weather?.raw || "No disponible"}</p>
-                  <p>Dirección: ${premium.weather?.direction || "neutral"} | Velocidad: ${premium.weather?.speed || 0} mph | Temp: ${premium.weather?.temp || "N/D"}</p>
-                  <p>Impacto climático aplicado: ${premium.weatherFactor.toFixed(3)}</p>
+                  <p>Dirección: ${premium.weather?.direction || "neutral"} | Velocidad: ${safe(premium.weather?.speed)} mph | Temp: ${premium.weather?.temp || "N/D"}</p>
+                  <p>Impacto climático aplicado: ${safe(premium.weatherFactor, 1).toFixed(3)}</p>
 
                   <br>
 
                   <p><strong>Datos usados:</strong></p>
-                  <p>${awayTeam}: ofensiva últimos 7 ${premium.awayOffense.toFixed(2)}, defensa permite ${premium.awayTeamAllowed.toFixed(2)}, pitcher permite ${premium.awayPitcherAllowed.toFixed(2)}, bullpen permite ${premium.awayBullpenAllowed.toFixed(2)}</p>
-                  <p>${homeTeam}: ofensiva últimos 7 ${premium.homeOffense.toFixed(2)}, defensa permite ${premium.homeTeamAllowed.toFixed(2)}, pitcher permite ${premium.homePitcherAllowed.toFixed(2)}, bullpen permite ${premium.homeBullpenAllowed.toFixed(2)}</p>
+                  <p>${awayTeam}: ofensiva ${safe(premium.awayOffense).toFixed(2)}, defensa ${safe(premium.awayTeamAllowed).toFixed(2)}, pitcher ${safe(premium.awayPitcherAllowed).toFixed(2)}, bullpen ${safe(premium.awayBullpenAllowed).toFixed(2)}</p>
+                  <p>${homeTeam}: ofensiva ${safe(premium.homeOffense).toFixed(2)}, defensa ${safe(premium.homeTeamAllowed).toFixed(2)}, pitcher ${safe(premium.homePitcherAllowed).toFixed(2)}, bullpen ${safe(premium.homeBullpenAllowed).toFixed(2)}</p>
 
                   <br>
 
                   <p><strong>Pitchers probables:</strong></p>
-                  <p>${awayTeam}: ${premium.awayPitcherName} — innings prom: ${premium.awayPitcherInnings.toFixed(1)}</p>
-                  <p>${homeTeam}: ${premium.homePitcherName} — innings prom: ${premium.homePitcherInnings.toFixed(1)}</p>
+                  <p>${awayTeam}: ${premium.awayPitcherName || "N/A"} — innings: ${safe(premium.awayPitcherInnings).toFixed(1)}</p>
+                  <p>${homeTeam}: ${premium.homePitcherName || "N/A"} — innings: ${safe(premium.homePitcherInnings).toFixed(1)}</p>
 
                   <br>
 
                   <p><strong>Bullpen fatigue:</strong></p>
-                  <p>${awayTeam}: fatiga ${premium.awayBullpenFatigue.toFixed(1)} — factor ${premium.awayBullpenFatigueFactor.toFixed(3)}</p>
-                  <p>${homeTeam}: fatiga ${premium.homeBullpenFatigue.toFixed(1)} — factor ${premium.homeBullpenFatigueFactor.toFixed(3)}</p>
+                  <p>${awayTeam}: ${safe(premium.awayBullpenFatigue).toFixed(1)} — factor ${safe(premium.awayBullpenFatigueFactor,1).toFixed(3)}</p>
+                  <p>${homeTeam}: ${safe(premium.homeBullpenFatigue).toFixed(1)} — factor ${safe(premium.homeBullpenFatigueFactor,1).toFixed(3)}</p>
                 `
                 : `
                   <p><strong>No hay jugada premium MLB.</strong></p>
-                  <p>El modelo no encontró edge suficiente para una entrada fuerte.</p>
+                  <p>El modelo no encontró edge suficiente.</p>
                 `
           }
 
