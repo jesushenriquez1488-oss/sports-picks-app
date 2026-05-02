@@ -17,7 +17,7 @@ module.exports = async function handler(req, res) {
     const isSoccer = sport.startsWith("soccer_");
 
     const markets = isSoccer
-      ? "h2h,totals,spreads,btts"
+      ? "h2h,totals,spreads"
       : "h2h,spreads,totals";
 
     const url =
