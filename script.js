@@ -1375,10 +1375,16 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
         ? -projectedSpread + homeLine
         : 0;
 
-      const bestSpreadEdge = Math.max(awayEdge, homeEdge);
-      const confidence = Math.max(50, Math.min(99, 50 + Math.abs(bestSpreadEdge) * 2.5));
+      const bestSpreadEdge = Math.abs(awayEdge) >= Math.abs(homeEdge)
+        ? awayEdge
+        : homeEdge;
 
-      spreadPick = awayEdge >= homeEdge
+      const confidence = Math.max(
+        50,
+        Math.min(99, 50 + Math.abs(bestSpreadEdge) * 2.5)
+      );
+
+      spreadPick = Math.abs(awayEdge) >= Math.abs(homeEdge)
         ? {
             pick: `${awayTeam} ${awayLine > 0 ? "+" : ""}${awayLine}`,
             side: awayTeam,
@@ -1393,6 +1399,9 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
             confidence: Math.round(confidence),
             isPremium: Math.abs(homeEdge) >= 10
           };
+    } else {
+      spreadPick.edge = Math.abs(Number(spreadPick.edge || 0));
+      spreadPick.isPremium = spreadPick.confidence >= 75 && spreadPick.edge >= 10;
     }
 
     if (!totalPick && Number.isFinite(odds.totalLine)) {
@@ -1406,6 +1415,9 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
         confidence: Math.round(confidence),
         isPremium: totalEdge >= 10
       };
+    } else if (totalPick) {
+      totalPick.edge = Math.abs(Number(totalPick.edge || 0));
+      totalPick.isPremium = totalPick.confidence >= 75 && totalPick.edge >= 10;
     }
 
     const bestPick =
@@ -1438,7 +1450,7 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
               : `
                 <p><strong>🔥 Pick principal:</strong> ${bestPick?.pick || "No disponible"}</p>
                 <p><strong>Confianza:</strong> ${bestPick?.confidence || 0}%</p>
-                <p><strong>Edge:</strong> ${Number(bestPick?.edge || 0).toFixed(1)}</p>
+                <p><strong>Edge:</strong> ${Math.abs(Number(bestPick?.edge || 0)).toFixed(1)}</p>
                 <p><strong>Tipo:</strong> ${isPremium ? "🔥 PREMIUM" : "Normal"}</p>
               `
           }
@@ -1450,7 +1462,8 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
               const visibleCards = [];
 
               if (spreadPick) {
-                const isPremiumCard = spreadPick.confidence >= 75 && spreadPick.edge >= 10;
+                const spreadEdge = Math.abs(Number(spreadPick.edge || 0));
+                const isPremiumCard = spreadPick.confidence >= 75 && spreadEdge >= 10;
                 const isNormalCard = spreadPick.confidence >= 65 && spreadPick.confidence < 75;
 
                 if ((isPremium && isPremiumCard) || (!isPremium && isNormalCard)) {
@@ -1459,14 +1472,15 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
                       <h4>Spread</h4>
                       <p>${locked && isPremiumCard ? "Pick Premium bloqueado" : spreadPick.pick}</p>
                       <div class="edge-number">${spreadPick.confidence}%</div>
-                      <p>Edge: <strong>${spreadPick.edge.toFixed(1)}</strong></p>
+                      <p>Edge: <strong>${spreadEdge.toFixed(1)}</strong></p>
                     </div>
                   `);
                 }
               }
 
               if (totalPick) {
-                const isPremiumCard = totalPick.confidence >= 75 && totalPick.edge >= 10;
+                const totalEdge = Math.abs(Number(totalPick.edge || 0));
+                const isPremiumCard = totalPick.confidence >= 75 && totalEdge >= 10;
                 const isNormalCard = totalPick.confidence >= 65 && totalPick.confidence < 75;
 
                 if ((isPremium && isPremiumCard) || (!isPremium && isNormalCard)) {
@@ -1475,7 +1489,7 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
                       <h4>Total</h4>
                       <p>${locked && isPremiumCard ? "Pick Premium bloqueado" : totalPick.pick}</p>
                       <div class="edge-number">${totalPick.confidence}%</div>
-                      <p>Edge: <strong>${totalPick.edge.toFixed(1)}</strong></p>
+                      <p>Edge: <strong>${totalEdge.toFixed(1)}</strong></p>
                     </div>
                   `);
                 }
