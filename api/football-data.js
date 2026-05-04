@@ -513,30 +513,31 @@ function buildFootballPicks({
     ? -projectedSpread + odds.spreadLineB
     : null;
 
-  if (Number.isFinite(spreadEdgeA) && Number.isFinite(spreadEdgeB)) {
-    if (spreadEdgeA >= spreadEdgeB) {
-      const edge = round(spreadEdgeA);
-      const confidence = getConfidenceFromEdge(edge);
+  let chosenSide = null;
+  let chosenEdge = 0;
+  let chosenLine = 0;
 
-      spreadPick = {
-        side: teamA,
-        pick: `${teamA} ${odds.spreadLineA > 0 ? "+" : ""}${odds.spreadLineA}`,
-        edge,
-        confidence,
-        isPremium: Math.abs(edge) >= 10 && confidence >= 75
-      };
-    } else {
-      const edge = round(spreadEdgeB);
-      const confidence = getConfidenceFromEdge(edge);
+  if (Number.isFinite(spreadEdgeA) && spreadEdgeA > 0 && spreadEdgeA >= spreadEdgeB) {
+    chosenSide = teamA;
+    chosenEdge = spreadEdgeA;
+    chosenLine = odds.spreadLineA;
+  } else if (Number.isFinite(spreadEdgeB) && spreadEdgeB > 0) {
+    chosenSide = teamB;
+    chosenEdge = spreadEdgeB;
+    chosenLine = odds.spreadLineB;
+  }
 
-      spreadPick = {
-        side: teamB,
-        pick: `${teamB} ${odds.spreadLineB > 0 ? "+" : ""}${odds.spreadLineB}`,
-        edge,
-        confidence,
-        isPremium: Math.abs(edge) >= 10 && confidence >= 75
-      };
-    }
+  if (chosenSide) {
+    const edge = round(chosenEdge);
+    const confidence = getConfidenceFromEdge(edge);
+
+    spreadPick = {
+      side: chosenSide,
+      pick: `${chosenSide} ${chosenLine > 0 ? "+" : ""}${chosenLine}`,
+      edge,
+      confidence,
+      isPremium: edge >= 10 && confidence >= 75
+    };
   }
 
   let totalPick = null;
@@ -544,15 +545,18 @@ function buildFootballPicks({
   if (Number.isFinite(odds.totalLine)) {
     const rawEdge = projectedTotal - odds.totalLine;
     const edge = round(Math.abs(rawEdge));
-    const confidence = getConfidenceFromEdge(edge);
 
-    totalPick = {
-      pick: rawEdge >= 0 ? `OVER ${odds.totalLine}` : `UNDER ${odds.totalLine}`,
-      edge,
-      rawEdge: round(rawEdge),
-      confidence,
-      isPremium: edge >= 10 && confidence >= 75
-    };
+    if (edge > 0) {
+      const confidence = getConfidenceFromEdge(edge);
+
+      totalPick = {
+        pick: rawEdge >= 0 ? `OVER ${odds.totalLine}` : `UNDER ${odds.totalLine}`,
+        edge,
+        rawEdge: round(rawEdge),
+        confidence,
+        isPremium: edge >= 10 && confidence >= 75
+      };
+    }
   }
 
   return {
