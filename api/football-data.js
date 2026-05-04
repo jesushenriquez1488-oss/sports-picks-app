@@ -6,6 +6,7 @@ const SPORT_PATHS = {
 };
 
 const TEAM_ALIASES = {
+  // NFL
   chiefs: "kc",
   "kansas city chiefs": "kc",
   kc: "kc",
@@ -22,18 +23,45 @@ const TEAM_ALIASES = {
   "buffalo bills": "buf",
   buf: "buf",
 
-  clemson: "clemson",
-  "north carolina": "north-carolina",
-  unc: "north-carolina",
-  alabama: "alabama",
-  georgia: "georgia",
-  ohio: "ohio-state",
-  "ohio state": "ohio-state",
-  texas: "texas",
-  oregon: "oregon",
-  michigan: "michigan",
-  "florida state": "florida-state",
-  fsu: "florida-state"
+  ravens: "bal",
+  "baltimore ravens": "bal",
+  bal: "bal",
+
+  bengals: "cin",
+  "cincinnati bengals": "cin",
+  cin: "cin",
+
+  lions: "det",
+  "detroit lions": "det",
+  det: "det",
+
+  niners: "sf",
+  "49ers": "sf",
+  "san francisco 49ers": "sf",
+  sf: "sf",
+
+  // NCAAF
+  clemson: "clemson-tigers",
+
+  "north carolina": "north-carolina-tar-heels",
+  unc: "north-carolina-tar-heels",
+  "north-carolina": "north-carolina-tar-heels",
+  "north-carolina-tar-heels": "north-carolina-tar-heels",
+
+  alabama: "alabama-crimson-tide",
+  georgia: "georgia-bulldogs",
+
+  "ohio state": "ohio-state-buckeyes",
+  ohio: "ohio-state-buckeyes",
+  "ohio-state": "ohio-state-buckeyes",
+
+  texas: "texas-longhorns",
+  oregon: "oregon-ducks",
+  michigan: "michigan-wolverines",
+
+  "florida state": "florida-state-seminoles",
+  fsu: "florida-state-seminoles",
+  "florida-state": "florida-state-seminoles"
 };
 
 function normalizeTeam(team) {
@@ -55,10 +83,30 @@ function round(num, decimals = 1) {
 
 async function fetchJson(url) {
   const response = await fetch(url);
+
   if (!response.ok) {
     throw new Error(`ESPN error ${response.status}: ${url}`);
   }
+
   return response.json();
+}
+
+function getCompetitorMatch(competitors, teamSlug) {
+  const cleanSlug = String(teamSlug).toLowerCase();
+
+  return competitors.find((c) => {
+    const abbr = c.team?.abbreviation?.toLowerCase();
+    const slug = c.team?.slug?.toLowerCase();
+    const name = c.team?.displayName?.toLowerCase()?.replaceAll(" ", "-");
+    const shortName = c.team?.shortDisplayName?.toLowerCase()?.replaceAll(" ", "-");
+
+    return (
+      abbr === cleanSlug ||
+      slug === cleanSlug ||
+      name === cleanSlug ||
+      shortName === cleanSlug
+    );
+  });
 }
 
 async function getTeamSchedule(type, teamSlug) {
@@ -77,17 +125,7 @@ async function getTeamSchedule(type, teamSlug) {
       const comp = event.competitions[0];
       const competitors = comp.competitors;
 
-      const team = competitors.find((c) => {
-        const abbr = c.team?.abbreviation?.toLowerCase();
-        const slug = c.team?.slug?.toLowerCase();
-        const name = c.team?.displayName?.toLowerCase();
-        return (
-          abbr === teamSlug ||
-          slug === teamSlug ||
-          name?.replaceAll(" ", "-") === teamSlug
-        );
-      });
-
+      const team = getCompetitorMatch(competitors, teamSlug);
       const opponent = competitors.find((c) => c !== team);
 
       if (!team || !opponent) return null;
@@ -135,7 +173,10 @@ async function getOpponentAverages(type, opponentSlug, beforeDate) {
 async function buildTeamGames(type, teamSlug) {
   const schedule = await getTeamSchedule(type, teamSlug);
 
-  const recentGames = schedule.slice(0, Math.min(MAX_GAMES_USED, schedule.length));
+  const recentGames = schedule.slice(
+    0,
+    Math.min(MAX_GAMES_USED, schedule.length)
+  );
 
   const games = [];
 
@@ -161,7 +202,10 @@ async function buildTeamGames(type, teamSlug) {
 }
 
 function calculateFootballEdges(games = []) {
-  const recentGames = games.slice(0, Math.min(MAX_GAMES_USED, games.length));
+  const recentGames = games.slice(
+    0,
+    Math.min(MAX_GAMES_USED, games.length)
+  );
 
   const offensiveEdges = recentGames.map((game) => {
     return Number(game.teamPoints) - Number(game.opponentAvgPointsAllowed);
