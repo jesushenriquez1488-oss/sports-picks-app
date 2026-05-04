@@ -10,67 +10,22 @@ const TEAM_IDS = {
   kc: "12",
   chiefs: "12",
   "kansas city chiefs": "12",
-
   phi: "21",
   eagles: "21",
   "philadelphia eagles": "21",
 
-  dal: "6",
-  cowboys: "6",
-  "dallas cowboys": "6",
-
-  buf: "2",
-  bills: "2",
-  "buffalo bills": "2",
-
-  bal: "33",
-  ravens: "33",
-  "baltimore ravens": "33",
-
-  cin: "4",
-  bengals: "4",
-  "cincinnati bengals": "4",
-
-  sf: "25",
-  "49ers": "25",
-  "san francisco 49ers": "25",
-
-  det: "8",
-  lions: "8",
-  "detroit lions": "8",
-
   // NCAAF
   clemson: "228",
   "clemson tigers": "228",
-
   unc: "153",
   "north carolina": "153",
   "north-carolina": "153",
-  "north carolina tar heels": "153",
+  "north carolina tar heels": "153"
+};
 
-  alabama: "333",
-  "alabama crimson tide": "333",
-
-  georgia: "61",
-  "georgia bulldogs": "61",
-
-  "ohio state": "194",
-  "ohio-state": "194",
-  "ohio state buckeyes": "194",
-
-  texas: "251",
-  "texas longhorns": "251",
-
-  oregon: "2483",
-  "oregon ducks": "2483",
-
-  michigan: "130",
-  "michigan wolverines": "130",
-
-  fsu: "52",
-  "florida state": "52",
-  "florida-state": "52",
-  "florida state seminoles": "52"
+const MAX_WEEKS = {
+  nfl: 22,
+  ncaaf: 16
 };
 
 function getDefaultSeason() {
@@ -104,126 +59,143 @@ async function fetchJson(url) {
   return response.json();
 }
 
-async function getTeamSchedule(type, teamId, season) {
+async function getSeasonGames(type, season) {
   const sportPath = SPORT_PATHS[type];
+  const weeks = MAX_WEEKS[type];
 
-  const urls = [
-    `https://site.web.api.espn.com/apis/site/v2/sports/${sportPath}/teams/${teamId}/schedule?season=${season}&seasontype=2`,
-    `https://site.web.api.espn.com/apis/site/v2/sports/${sportPath}/teams/${teamId}/schedule?season=${season}&seasontype=3`
-  ];
+  const allGames = [];
 
-  let allEvents = [];
+  for (let week = 1; week <= weeks; week++) {
+    const url =
+      `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard?dates=${season}&seasontype=2&week=${week}`;
 
-  for (const url of urls) {
     try {
       const data = await fetchJson(url);
-      const events = data.events || data.team?.events || [];
-      allEvents = allEvents.concat(events);
+      const events = data.events || [];
+
+      for (const event of events) {
+        const comp = event.competitions?.[0];
+        const competitors = comp?.competitors || [];
+
+        if (competitors.length !== 2) continue;
+
+        const statusType = comp.status?.type || event.status?.type;
+        const completed =
+          statusType?.completed === true ||
+          statusType?.name === "STATUS_FINAL";
+
+        if (!completed) continue;
+
+        const c1 = competitors[0];
+        const c2 = competitors[1];
+
+        const score1 = Number(c1.score);
+        const score2 = Number(c2.score);
+
+        if (!Number.isFinite(score1) || !Number.isFinite(score2)) continue;
+
+        allGames.push({
+          id: event.id,
+          date: event.date,
+          week,
+          team1Id: String(c1.team?.id),
+          team1Name: c1.team?.displayName,
+          team1Score: score1,
+          team2Id: String(c2.team?.id),
+          team2Name: c2.team?.displayName,
+          team2Score: score2
+        });
+      }
     } catch (err) {
-      console.log("Schedule fetch falló:", url);
+      console.log(`No se pudo cargar ${type} week ${week}`, err.message);
     }
   }
 
-  return allEvents
-    .filter((event) => event.competitions?.[0]?.competitors?.length === 2)
-    .map((event) => {
-      const comp = event.competitions[0];
-      const competitors = comp.competitors;
+  return allGames.sort((a, b) => new Date(b.date) - new Date(a.date));
+}
 
-      const team = competitors.find((c) => String(c.team?.id) === String(teamId));
-      const opponent = competitors.find((c) => String(c.team?.id) !== String(teamId));
-
-      if (!team || !opponent) return null;
-
-      const teamScore = Number(team.score);
-      const opponentScore = Number(opponent.score);
-
-      if (!Number.isFinite(teamScore) || !Number.isFinite(opponentScore)) {
-        return null;
-      }
+function getTeamGamesFromSeason(allGames, teamId) {
+  return allGames
+    .filter((game) => game.team1Id === String(teamId) || game.team2Id === String(teamId))
+    .map((game) => {
+      const isTeam1 = game.team1Id === String(teamId);
 
       return {
-        date: event.date,
-        teamPoints: teamScore,
-        pointsAllowed: opponentScore,
-        opponentId: opponent.team?.id,
-        opponentName: opponent.team?.displayName || "Opponent"
+        date: game.date,
+        week: game.week,
+        teamPoints: isTeam1 ? game.team1Score : game.team2Score,
+        pointsAllowed: isTeam1 ? game.team2Score : game.team1Score,
+        opponentId: isTeam1 ? game.team2Id : game.team1Id,
+        opponentName: isTeam1 ? game.team2Name : game.team1Name
       };
     })
-    .filter(Boolean)
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 }
 
-async function getOpponentAverages(type, opponentId, beforeDate, season) {
-  const games = await getTeamSchedule(type, opponentId, season);
+function getOpponentAveragesFromSeason(allGames, opponentId, beforeDate) {
+  const games = getTeamGamesFromSeason(allGames, opponentId);
 
   const previousGames = games
     .filter((game) => new Date(game.date) < new Date(beforeDate))
     .slice(0, MAX_GAMES_USED);
 
   return {
-    opponentAvgPointsAllowed: round(
-      average(previousGames.map((g) => g.pointsAllowed))
-    ),
-    opponentAvgPointsScored: round(
-      average(previousGames.map((g) => g.teamPoints))
-    ),
+    opponentAvgPointsAllowed: round(average(previousGames.map((g) => g.pointsAllowed))),
+    opponentAvgPointsScored: round(average(previousGames.map((g) => g.teamPoints))),
     gamesUsedForOpponent: previousGames.length
   };
 }
 
-async function buildTeamGames(type, teamId, season) {
-  const schedule = await getTeamSchedule(type, teamId, season);
+function buildTeamGamesFromSeason(allGames, teamId) {
+  const schedule = getTeamGamesFromSeason(allGames, teamId);
+  const recentGames = schedule.slice(0, Math.min(MAX_GAMES_USED, schedule.length));
 
-  const recentGames = schedule.slice(
-    0,
-    Math.min(MAX_GAMES_USED, schedule.length)
-  );
-
-  const games = [];
-
-  for (const game of recentGames) {
-    const opponentAvg = await getOpponentAverages(
-      type,
+  return recentGames.map((game) => {
+    const opponentAvg = getOpponentAveragesFromSeason(
+      allGames,
       game.opponentId,
-      game.date,
-      season
+      game.date
     );
 
-    games.push({
+    return {
       date: game.date,
+      week: game.week,
       opponent: game.opponentName,
       teamPoints: game.teamPoints,
       pointsAllowed: game.pointsAllowed,
       opponentAvgPointsAllowed: opponentAvg.opponentAvgPointsAllowed,
       opponentAvgPointsScored: opponentAvg.opponentAvgPointsScored,
       opponentGamesUsed: opponentAvg.gamesUsedForOpponent
-    });
-  }
-
-  return games;
+    };
+  });
 }
 
 function calculateFootballEdges(games = []) {
   const recentGames = games.slice(0, Math.min(MAX_GAMES_USED, games.length));
 
-  const offensiveEdges = recentGames.map((game) => {
+  const usableGames = recentGames.filter(
+    (game) => Number(game.opponentGamesUsed) > 0
+  );
+
+  const gamesForCalc = usableGames.length ? usableGames : recentGames;
+
+  const offensiveEdges = gamesForCalc.map((game) => {
     return Number(game.teamPoints) - Number(game.opponentAvgPointsAllowed);
   });
 
-  const defensiveEdges = recentGames.map((game) => {
+  const defensiveEdges = gamesForCalc.map((game) => {
     return Number(game.opponentAvgPointsScored) - Number(game.pointsAllowed);
   });
 
   return {
-    gamesUsed: recentGames.length,
-    avgPointsScored: round(average(recentGames.map((g) => g.teamPoints))),
-    avgPointsAllowed: round(average(recentGames.map((g) => g.pointsAllowed))),
+    gamesUsed: gamesForCalc.length,
+    avgPointsScored: round(average(gamesForCalc.map((g) => g.teamPoints))),
+    avgPointsAllowed: round(average(gamesForCalc.map((g) => g.pointsAllowed))),
     avgOffensiveEdge: round(average(offensiveEdges)),
     avgDefensiveEdge: round(average(defensiveEdges)),
     offensiveEdges: offensiveEdges.map((n) => round(n)),
     defensiveEdges: defensiveEdges.map((n) => round(n)),
-    games: recentGames
+    games: gamesForCalc
   };
 }
 
@@ -251,7 +223,7 @@ module.exports = async function handler(req, res) {
     if (!teamA || !teamB) {
       return res.status(400).json({
         error: "Faltan teamA y teamB",
-        example: "/api/football-data?type=nfl&teamA=KC&teamB=PHI"
+        example: "/api/football-data?type=nfl&teamA=KC&teamB=PHI&season=2024"
       });
     }
 
@@ -262,14 +234,13 @@ module.exports = async function handler(req, res) {
     }
 
     const selectedSeason = Number(season) || getDefaultSeason();
-
     const teamAId = normalizeTeamId(teamA);
     const teamBId = normalizeTeamId(teamB);
 
-    const [teamAGames, teamBGames] = await Promise.all([
-      buildTeamGames(type, teamAId, selectedSeason),
-      buildTeamGames(type, teamBId, selectedSeason)
-    ]);
+    const allGames = await getSeasonGames(type, selectedSeason);
+
+    const teamAGames = buildTeamGamesFromSeason(allGames, teamAId);
+    const teamBGames = buildTeamGamesFromSeason(allGames, teamBId);
 
     const teamAEdges = calculateFootballEdges(teamAGames);
     const teamBEdges = calculateFootballEdges(teamBGames);
@@ -283,6 +254,7 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({
       sport: type,
       season: selectedSeason,
+      totalSeasonGamesLoaded: allGames.length,
       teamA: {
         name: teamA,
         id: teamAId,
