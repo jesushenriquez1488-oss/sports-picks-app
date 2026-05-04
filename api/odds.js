@@ -15,15 +15,20 @@ module.exports = async function handler(req, res) {
     }
 
     const isSoccer = sport.startsWith("soccer_");
+    const isFootball =
+      sport === "americanfootball_nfl" ||
+      sport === "americanfootball_ncaaf";
 
     const markets = isSoccer
       ? "h2h,totals,spreads"
       : "h2h,spreads,totals";
 
+    const regions = isFootball ? "us" : "us,eu";
+
     const url =
       `https://api.the-odds-api.com/v4/sports/${sport}/odds/` +
       `?apiKey=${process.env.ODDS_API_KEY}` +
-      `&regions=us,eu` +
+      `&regions=${regions}` +
       `&markets=${markets}` +
       `&oddsFormat=american`;
 
@@ -41,38 +46,56 @@ module.exports = async function handler(req, res) {
 
     const games = JSON.parse(text);
 
-    const cleanGames = games.map(game => {
-      const bookmakers = game.bookmakers?.map(book => {
-        const markets = book.markets?.map(market => {
-          if (isSoccer && market.key === "totals") {
-            return {
-              ...market,
-              outcomes: market.outcomes?.filter(outcome => {
-                return Number(outcome.point) >= 2.5;
-              })
-            };
-          }
+    const cleanGames = games
+      .map(game => {
+        const bookmakers = game.bookmakers?.map(book => {
+          const markets = book.markets?.map(market => {
+            if (isSoccer && market.key === "totals") {
+              return {
+                ...market,
+                outcomes: market.outcomes?.filter(outcome => {
+                  return Number(outcome.point) >= 2.5;
+                })
+              };
+            }
 
-          return market;
-        }).filter(market => {
-          if (isSoccer && market.key === "totals") {
-            return market.outcomes && market.outcomes.length > 0;
-          }
+            return market;
+          }).filter(market => {
+            if (isSoccer && market.key === "totals") {
+              return market.outcomes && market.outcomes.length > 0;
+            }
 
-          return true;
+            return true;
+          });
+
+          return {
+            ...book,
+            markets
+          };
+        }).filter(book => {
+          return book.markets && book.markets.length > 0;
         });
 
         return {
-          ...book,
-          markets
+          ...game,
+          bookmakers
         };
-      });
+      })
+      .filter(game => {
+        if (!game.bookmakers || game.bookmakers.length === 0) return false;
 
-      return {
-        ...game,
-        bookmakers
-      };
-    });
+        if (isFootball) {
+          const hasSpreadOrTotal = game.bookmakers.some(book =>
+            book.markets?.some(market =>
+              market.key === "spreads" || market.key === "totals"
+            )
+          );
+
+          return hasSpreadOrTotal;
+        }
+
+        return true;
+      });
 
     return res.status(200).json(cleanGames);
 
