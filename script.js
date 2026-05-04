@@ -1537,8 +1537,3 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
     resultDiv.innerHTML = "Error Football: " + err.message;
   }
 }
-
-  } catch (err) {
-    resultDiv.innerHTML = "Error Football: " + err.message;
-  }
-}
