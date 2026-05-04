@@ -8,6 +8,8 @@ const supabaseAdmin = createClient(
 const cache = global.__NBA_ANALYZE_CACHE__ || {};
 global.__NBA_ANALYZE_CACHE__ = cache;
 
+const CACHE_TIME = 30 * 60 * 1000;
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -30,13 +32,7 @@ module.exports = async function handler(req, res) {
 
     const user = authData.user;
 
-    const {
-      awayTeam,
-      homeTeam,
-      awaySpread,
-      homeSpread,
-      total
-    } = req.body || {};
+    const { awayTeam, homeTeam, awaySpread, homeSpread, total } = req.body || {};
 
     if (!awayTeam || !homeTeam) {
       return res.status(400).json({ error: "Faltan equipos" });
@@ -201,7 +197,7 @@ function getOrigin(req) {
 async function fetchJson(url) {
   const cached = cache[url];
 
-  if (cached && Date.now() - cached.time < 5 * 60 * 1000) {
+  if (cached && Date.now() - cached.time < CACHE_TIME) {
     return cached.data;
   }
 
