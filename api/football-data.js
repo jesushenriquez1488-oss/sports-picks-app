@@ -5,69 +5,84 @@ const SPORT_PATHS = {
   ncaaf: "football/college-football"
 };
 
-const TEAM_ALIASES = {
+const TEAM_IDS = {
   // NFL
-  chiefs: "kc",
-  "kansas city chiefs": "kc",
-  kc: "kc",
+  kc: "12",
+  chiefs: "12",
+  "kansas city chiefs": "12",
 
-  eagles: "phi",
-  "philadelphia eagles": "phi",
-  phi: "phi",
+  phi: "21",
+  eagles: "21",
+  "philadelphia eagles": "21",
 
-  cowboys: "dal",
-  "dallas cowboys": "dal",
-  dal: "dal",
+  dal: "6",
+  cowboys: "6",
+  "dallas cowboys": "6",
 
-  bills: "buf",
-  "buffalo bills": "buf",
-  buf: "buf",
+  buf: "2",
+  bills: "2",
+  "buffalo bills": "2",
 
-  ravens: "bal",
-  "baltimore ravens": "bal",
-  bal: "bal",
+  bal: "33",
+  ravens: "33",
+  "baltimore ravens": "33",
 
-  bengals: "cin",
-  "cincinnati bengals": "cin",
-  cin: "cin",
+  cin: "4",
+  bengals: "4",
+  "cincinnati bengals": "4",
 
-  lions: "det",
-  "detroit lions": "det",
-  det: "det",
+  sf: "25",
+  "49ers": "25",
+  "san francisco 49ers": "25",
 
-  niners: "sf",
-  "49ers": "sf",
-  "san francisco 49ers": "sf",
-  sf: "sf",
+  det: "8",
+  lions: "8",
+  "detroit lions": "8",
 
   // NCAAF
-  clemson: "clemson-tigers",
+  clemson: "228",
+  "clemson tigers": "228",
 
-  "north carolina": "north-carolina-tar-heels",
-  unc: "north-carolina-tar-heels",
-  "north-carolina": "north-carolina-tar-heels",
-  "north-carolina-tar-heels": "north-carolina-tar-heels",
+  unc: "153",
+  "north carolina": "153",
+  "north-carolina": "153",
+  "north carolina tar heels": "153",
 
-  alabama: "alabama-crimson-tide",
-  georgia: "georgia-bulldogs",
+  alabama: "333",
+  "alabama crimson tide": "333",
 
-  "ohio state": "ohio-state-buckeyes",
-  ohio: "ohio-state-buckeyes",
-  "ohio-state": "ohio-state-buckeyes",
+  georgia: "61",
+  "georgia bulldogs": "61",
 
-  texas: "texas-longhorns",
-  oregon: "oregon-ducks",
-  michigan: "michigan-wolverines",
+  "ohio state": "194",
+  "ohio-state": "194",
+  "ohio state buckeyes": "194",
 
-  "florida state": "florida-state-seminoles",
-  fsu: "florida-state-seminoles",
-  "florida-state": "florida-state-seminoles"
+  texas: "251",
+  "texas longhorns": "251",
+
+  oregon: "2483",
+  "oregon ducks": "2483",
+
+  michigan: "130",
+  "michigan wolverines": "130",
+
+  fsu: "52",
+  "florida state": "52",
+  "florida-state": "52",
+  "florida state seminoles": "52"
 };
 
-function normalizeTeam(team) {
-  if (!team) return "";
-  const key = String(team).trim().toLowerCase();
-  return TEAM_ALIASES[key] || key.replaceAll(" ", "-");
+function getDefaultSeason() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  return month >= 8 ? year : year - 1;
+}
+
+function normalizeTeamId(team) {
+  const key = String(team || "").trim().toLowerCase();
+  return TEAM_IDS[key] || key;
 }
 
 function average(numbers) {
@@ -83,50 +98,40 @@ function round(num, decimals = 1) {
 
 async function fetchJson(url) {
   const response = await fetch(url);
-
   if (!response.ok) {
     throw new Error(`ESPN error ${response.status}: ${url}`);
   }
-
   return response.json();
 }
 
-function getCompetitorMatch(competitors, teamSlug) {
-  const cleanSlug = String(teamSlug).toLowerCase();
-
-  return competitors.find((c) => {
-    const abbr = c.team?.abbreviation?.toLowerCase();
-    const slug = c.team?.slug?.toLowerCase();
-    const name = c.team?.displayName?.toLowerCase()?.replaceAll(" ", "-");
-    const shortName = c.team?.shortDisplayName?.toLowerCase()?.replaceAll(" ", "-");
-
-    return (
-      abbr === cleanSlug ||
-      slug === cleanSlug ||
-      name === cleanSlug ||
-      shortName === cleanSlug
-    );
-  });
-}
-
-async function getTeamSchedule(type, teamSlug) {
+async function getTeamSchedule(type, teamId, season) {
   const sportPath = SPORT_PATHS[type];
 
-  const url =
-    `https://site.web.api.espn.com/apis/site/v2/sports/${sportPath}/teams/${teamSlug}/schedule`;
+  const urls = [
+    `https://site.web.api.espn.com/apis/site/v2/sports/${sportPath}/teams/${teamId}/schedule?season=${season}&seasontype=2`,
+    `https://site.web.api.espn.com/apis/site/v2/sports/${sportPath}/teams/${teamId}/schedule?season=${season}&seasontype=3`
+  ];
 
-  const data = await fetchJson(url);
+  let allEvents = [];
 
-  const events = data.events || data.team?.events || [];
+  for (const url of urls) {
+    try {
+      const data = await fetchJson(url);
+      const events = data.events || data.team?.events || [];
+      allEvents = allEvents.concat(events);
+    } catch (err) {
+      console.log("Schedule fetch falló:", url);
+    }
+  }
 
-  return events
+  return allEvents
     .filter((event) => event.competitions?.[0]?.competitors?.length === 2)
     .map((event) => {
       const comp = event.competitions[0];
       const competitors = comp.competitors;
 
-      const team = getCompetitorMatch(competitors, teamSlug);
-      const opponent = competitors.find((c) => c !== team);
+      const team = competitors.find((c) => String(c.team?.id) === String(teamId));
+      const opponent = competitors.find((c) => String(c.team?.id) !== String(teamId));
 
       if (!team || !opponent) return null;
 
@@ -141,10 +146,7 @@ async function getTeamSchedule(type, teamSlug) {
         date: event.date,
         teamPoints: teamScore,
         pointsAllowed: opponentScore,
-        opponentSlug:
-          opponent.team?.slug ||
-          opponent.team?.abbreviation?.toLowerCase() ||
-          opponent.team?.displayName?.toLowerCase().replaceAll(" ", "-"),
+        opponentId: opponent.team?.id,
         opponentName: opponent.team?.displayName || "Opponent"
       };
     })
@@ -152,8 +154,8 @@ async function getTeamSchedule(type, teamSlug) {
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 }
 
-async function getOpponentAverages(type, opponentSlug, beforeDate) {
-  const games = await getTeamSchedule(type, opponentSlug);
+async function getOpponentAverages(type, opponentId, beforeDate, season) {
+  const games = await getTeamSchedule(type, opponentId, season);
 
   const previousGames = games
     .filter((game) => new Date(game.date) < new Date(beforeDate))
@@ -170,8 +172,8 @@ async function getOpponentAverages(type, opponentSlug, beforeDate) {
   };
 }
 
-async function buildTeamGames(type, teamSlug) {
-  const schedule = await getTeamSchedule(type, teamSlug);
+async function buildTeamGames(type, teamId, season) {
+  const schedule = await getTeamSchedule(type, teamId, season);
 
   const recentGames = schedule.slice(
     0,
@@ -183,8 +185,9 @@ async function buildTeamGames(type, teamSlug) {
   for (const game of recentGames) {
     const opponentAvg = await getOpponentAverages(
       type,
-      game.opponentSlug,
-      game.date
+      game.opponentId,
+      game.date,
+      season
     );
 
     games.push({
@@ -202,10 +205,7 @@ async function buildTeamGames(type, teamSlug) {
 }
 
 function calculateFootballEdges(games = []) {
-  const recentGames = games.slice(
-    0,
-    Math.min(MAX_GAMES_USED, games.length)
-  );
+  const recentGames = games.slice(0, Math.min(MAX_GAMES_USED, games.length));
 
   const offensiveEdges = recentGames.map((game) => {
     return Number(game.teamPoints) - Number(game.opponentAvgPointsAllowed);
@@ -246,7 +246,7 @@ function projectFootballTeam(team, opponent) {
 
 module.exports = async function handler(req, res) {
   try {
-    const { type = "nfl", teamA, teamB } = req.query;
+    const { type = "nfl", teamA, teamB, season } = req.query;
 
     if (!teamA || !teamB) {
       return res.status(400).json({
@@ -261,12 +261,14 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const teamASlug = normalizeTeam(teamA);
-    const teamBSlug = normalizeTeam(teamB);
+    const selectedSeason = Number(season) || getDefaultSeason();
+
+    const teamAId = normalizeTeamId(teamA);
+    const teamBId = normalizeTeamId(teamB);
 
     const [teamAGames, teamBGames] = await Promise.all([
-      buildTeamGames(type, teamASlug),
-      buildTeamGames(type, teamBSlug)
+      buildTeamGames(type, teamAId, selectedSeason),
+      buildTeamGames(type, teamBId, selectedSeason)
     ]);
 
     const teamAEdges = calculateFootballEdges(teamAGames);
@@ -280,15 +282,16 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({
       sport: type,
+      season: selectedSeason,
       teamA: {
         name: teamA,
-        slug: teamASlug,
+        id: teamAId,
         ...teamAEdges,
         projection: teamAProjection
       },
       teamB: {
         name: teamB,
-        slug: teamBSlug,
+        id: teamBId,
         ...teamBEdges,
         projection: teamBProjection
       },
