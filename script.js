@@ -1358,68 +1358,15 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
     const projectedSpread = Number(data.projectedSpread || 0);
 
     const odds = data.odds || {};
+    const picks = data.picks || {};
 
-    // IMPORTANTE:
-    // No usamos picks del backend aquí porque todavía pueden venir con lógica vieja.
-    // Recalculamos spread y total desde la línea real + proyección.
-    let spreadPick = null;
-    let totalPick = null;
-
-    const awayLine = Number(odds.spreadLineA);
-    const homeLine = Number(odds.spreadLineB);
-
-    if (Number.isFinite(awayLine) && Number.isFinite(homeLine)) {
-      const awayEdge = projectedSpread + awayLine;
-      const homeEdge = -projectedSpread + homeLine;
-
-      let chosenSide = null;
-      let chosenEdge = 0;
-      let chosenLine = 0;
-
-      if (awayEdge > 0 && awayEdge >= homeEdge) {
-        chosenSide = awayTeam;
-        chosenEdge = awayEdge;
-        chosenLine = awayLine;
-      } else if (homeEdge > 0) {
-        chosenSide = homeTeam;
-        chosenEdge = homeEdge;
-        chosenLine = homeLine;
-      }
-
-      if (chosenSide) {
-        const confidence = Math.max(
-          50,
-          Math.min(99, 50 + chosenEdge * 2.5)
-        );
-
-        spreadPick = {
-          pick: `${chosenSide} ${chosenLine > 0 ? "+" : ""}${chosenLine}`,
-          side: chosenSide,
-          edge: Number(chosenEdge.toFixed(1)),
-          confidence: Math.round(confidence),
-          isPremium: confidence >= 75 && chosenEdge >= 10
-        };
-      }
-    }
-
-    if (Number.isFinite(Number(odds.totalLine))) {
-      const totalLine = Number(odds.totalLine);
-      const totalEdgeRaw = projectedTotal - totalLine;
-      const totalEdge = Math.abs(totalEdgeRaw);
-      const confidence = Math.max(50, Math.min(99, 50 + totalEdge * 2.5));
-
-      totalPick = {
-        pick: totalEdgeRaw >= 0 ? `OVER ${totalLine}` : `UNDER ${totalLine}`,
-        edge: Number(totalEdge.toFixed(1)),
-        confidence: Math.round(confidence),
-        isPremium: confidence >= 75 && totalEdge >= 10
-      };
-    }
+    let spreadPick = picks.spreadPick || null;
+    let totalPick = picks.totalPick || null;
 
     const validPicks = [spreadPick, totalPick].filter(Boolean);
 
     const bestPick = validPicks.length
-      ? validPicks.sort((a, b) => b.confidence - a.confidence)[0]
+      ? validPicks.sort((a, b) => Number(b.confidence || 0) - Number(a.confidence || 0))[0]
       : null;
 
     const isPremium = bestPick?.isPremium === true;
@@ -1446,9 +1393,9 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
               `
               : bestPick
               ? `
-                <p><strong>🔥 Pick principal:</strong> ${bestPick.pick}</p>
-                <p><strong>Confianza:</strong> ${bestPick.confidence}%</p>
-                <p><strong>Edge:</strong> ${bestPick.edge.toFixed(1)}</p>
+                <p><strong>🔥 Pick principal:</strong> ${bestPick.pick || "No disponible"}</p>
+                <p><strong>Confianza:</strong> ${bestPick.confidence || 0}%</p>
+                <p><strong>Edge:</strong> ${Number(bestPick.edge || 0).toFixed(1)}</p>
                 <p><strong>Tipo:</strong> ${isPremium ? "🔥 PREMIUM" : "Normal"}</p>
               `
               : `
@@ -1463,17 +1410,42 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
             (() => {
               const visibleCards = [];
 
-              if (spreadPick) {
-                const spreadEdge = Number(spreadPick.edge || 0);
-                const isPremiumCard = spreadPick.confidence >= 75 && spreadEdge >= 10;
-                const isNormalCard = spreadPick.confidence >= 65 && spreadPick.confidence < 75;
+              if (locked && bestPick?.isPremium) {
+                return `
+                  <div class="edge-grid">
+                    <div class="edge-box">
+                      <h4>Jugada Premium</h4>
+                      <p>Pick Premium bloqueado</p>
+                      <div class="edge-number">${bestPick.confidence}%</div>
+                      <p>Edge: <strong>${Number(bestPick.edge || 0).toFixed(1)}</strong></p>
+                    </div>
+                  </div>
+                `;
+              }
 
-                if ((isPremium && isPremiumCard) || (!isPremium && isNormalCard)) {
+              if (!locked && isPremium && bestPick) {
+                return `
+                  <div class="edge-grid">
+                    <div class="edge-box">
+                      <h4>Jugada Premium</h4>
+                      <p>${bestPick.pick}</p>
+                      <div class="edge-number">${bestPick.confidence}%</div>
+                      <p>Edge: <strong>${Number(bestPick.edge || 0).toFixed(1)}</strong></p>
+                    </div>
+                  </div>
+                `;
+              }
+
+              if (spreadPick) {
+                const spreadConfidence = Number(spreadPick.confidence || 0);
+                const spreadEdge = Number(spreadPick.edge || 0);
+
+                if (spreadConfidence >= 65 && spreadConfidence < 75) {
                   visibleCards.push(`
                     <div class="edge-box">
                       <h4>Spread</h4>
-                      <p>${locked && isPremiumCard ? "Pick Premium bloqueado" : spreadPick.pick}</p>
-                      <div class="edge-number">${spreadPick.confidence}%</div>
+                      <p>${spreadPick.pick || "No disponible"}</p>
+                      <div class="edge-number">${spreadConfidence}%</div>
                       <p>Edge: <strong>${spreadEdge.toFixed(1)}</strong></p>
                     </div>
                   `);
@@ -1481,16 +1453,15 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
               }
 
               if (totalPick) {
+                const totalConfidence = Number(totalPick.confidence || 0);
                 const totalEdge = Number(totalPick.edge || 0);
-                const isPremiumCard = totalPick.confidence >= 75 && totalEdge >= 10;
-                const isNormalCard = totalPick.confidence >= 65 && totalPick.confidence < 75;
 
-                if ((isPremium && isPremiumCard) || (!isPremium && isNormalCard)) {
+                if (totalConfidence >= 65 && totalConfidence < 75) {
                   visibleCards.push(`
                     <div class="edge-box">
                       <h4>Total</h4>
-                      <p>${locked && isPremiumCard ? "Pick Premium bloqueado" : totalPick.pick}</p>
-                      <div class="edge-number">${totalPick.confidence}%</div>
+                      <p>${totalPick.pick || "No disponible"}</p>
+                      <div class="edge-number">${totalConfidence}%</div>
                       <p>Edge: <strong>${totalEdge.toFixed(1)}</strong></p>
                     </div>
                   `);
@@ -1501,7 +1472,7 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
                 ? `<div class="edge-grid">${visibleCards.join("")}</div>`
                 : `
                   <p><strong>Jugadas:</strong></p>
-                  <p>No hay picks entre 65% y 74%, ni premium de 75%+ con edge 10+</p>
+                  <p>No hay picks normales entre 65% y 74%.</p>
                 `;
             })()
           }
