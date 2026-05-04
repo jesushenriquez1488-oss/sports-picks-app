@@ -26,18 +26,30 @@ const TEAM_MAP = {
   buf: { id: "2", keys: ["buf", "bills", "buffalo bills", "buffalo"] },
   bills: { id: "2", keys: ["buf", "bills", "buffalo bills", "buffalo"] },
 
+  bal: { id: "33", keys: ["bal", "ravens", "baltimore ravens", "baltimore"] },
+  ravens: { id: "33", keys: ["bal", "ravens", "baltimore ravens", "baltimore"] },
+
+  cin: { id: "4", keys: ["cin", "bengals", "cincinnati bengals", "cincinnati"] },
+  bengals: { id: "4", keys: ["cin", "bengals", "cincinnati bengals", "cincinnati"] },
+
+  sf: { id: "25", keys: ["sf", "49ers", "san francisco 49ers", "san francisco"] },
+  "49ers": { id: "25", keys: ["sf", "49ers", "san francisco 49ers", "san francisco"] },
+
+  det: { id: "8", keys: ["det", "lions", "detroit lions", "detroit"] },
+  lions: { id: "8", keys: ["det", "lions", "detroit lions", "detroit"] },
+
   // NCAAF
   clemson: { id: "228", keys: ["clemson", "clemson tigers", "tigers"] },
   "clemson tigers": { id: "228", keys: ["clemson", "clemson tigers", "tigers"] },
 
-  unc: { id: "153", keys: ["unc", "north carolina", "north carolina tar heels", "tar heels"] },
-  "north carolina": { id: "153", keys: ["unc", "north carolina", "north carolina tar heels", "tar heels"] },
-  "north-carolina": { id: "153", keys: ["unc", "north carolina", "north carolina tar heels", "tar heels"] },
-  "north carolina tar heels": { id: "153", keys: ["unc", "north carolina", "north carolina tar heels", "tar heels"] },
+  unc: { id: "153", keys: ["unc", "north carolina", "north carolina tar heels", "tar heels", "carolina"] },
+  "north carolina": { id: "153", keys: ["unc", "north carolina", "north carolina tar heels", "tar heels", "carolina"] },
+  "north-carolina": { id: "153", keys: ["unc", "north carolina", "north carolina tar heels", "tar heels", "carolina"] },
+  "north carolina tar heels": { id: "153", keys: ["unc", "north carolina", "north carolina tar heels", "tar heels", "carolina"] },
 
   alabama: { id: "333", keys: ["alabama", "alabama crimson tide", "crimson tide"] },
   georgia: { id: "61", keys: ["georgia", "georgia bulldogs", "bulldogs"] },
-  "ohio state": { id: "194", keys: ["ohio state", "ohio state buckeyes", "osu"] },
+  "ohio state": { id: "194", keys: ["ohio state", "ohio state buckeyes", "osu", "buckeyes"] },
   texas: { id: "251", keys: ["texas", "texas longhorns", "longhorns"] },
   oregon: { id: "2483", keys: ["oregon", "oregon ducks", "ducks"] },
   michigan: { id: "130", keys: ["michigan", "michigan wolverines", "wolverines"] },
@@ -50,6 +62,8 @@ function cleanText(value) {
     .toLowerCase()
     .replaceAll("-", " ")
     .replaceAll(".", "")
+    .replaceAll("'", "")
+    .replaceAll("&", "and")
     .trim();
 }
 
@@ -64,9 +78,7 @@ function normalizeTeam(team) {
   const key = cleanText(team);
   const mapped = TEAM_MAP[key];
 
-  if (mapped) {
-    return mapped;
-  }
+  if (mapped) return mapped;
 
   return {
     id: key,
@@ -113,7 +125,7 @@ function competitorMatchesTeam(competitor, teamRef) {
   const location = cleanText(competitor.team?.location);
   const name = cleanText(competitor.team?.name);
 
-  if (String(teamRef.id) === id) return true;
+  if (teamRef.id && String(teamRef.id) === id) return true;
 
   return teamRef.keys.some((key) => {
     const cleanKey = cleanText(key);
@@ -124,7 +136,12 @@ function competitorMatchesTeam(competitor, teamRef) {
       shortName === cleanKey ||
       location === cleanKey ||
       name === cleanKey ||
-      displayName.includes(cleanKey)
+      displayName.includes(cleanKey) ||
+      cleanKey.includes(displayName) ||
+      location.includes(cleanKey) ||
+      cleanKey.includes(location) ||
+      name.includes(cleanKey) ||
+      cleanKey.includes(name)
     );
   });
 }
@@ -217,9 +234,7 @@ function gameSideMatches(game, side, teamRef) {
 
 function getTeamGamesFromSeason(allGames, teamRef) {
   return allGames
-    .filter((game) => {
-      return gameSideMatches(game, 1, teamRef) || gameSideMatches(game, 2, teamRef);
-    })
+    .filter((game) => gameSideMatches(game, 1, teamRef) || gameSideMatches(game, 2, teamRef))
     .map((game) => {
       const isTeam1 = gameSideMatches(game, 1, teamRef);
 
@@ -391,12 +406,14 @@ module.exports = async function handler(req, res) {
       teamA: {
         name: teamA,
         ref: teamARef,
+        rawGamesFound: teamAGames.length,
         ...teamAEdges,
         projection: teamAProjection
       },
       teamB: {
         name: teamB,
         ref: teamBRef,
+        rawGamesFound: teamBGames.length,
         ...teamBEdges,
         projection: teamBProjection
       },
