@@ -5,137 +5,79 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+const cache = global.__NBA_ANALYZE_CACHE__ || {};
+global.__NBA_ANALYZE_CACHE__ = cache;
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.replace("Bearer ", "");
+
+    if (!token) {
+      return res.status(401).json({ error: "No autorizado" });
+    }
+
+    const { data: authData, error: authError } =
+      await supabaseAdmin.auth.getUser(token);
+
+    if (authError || !authData?.user) {
+      return res.status(401).json({ error: "Sesión inválida" });
+    }
+
+    const user = authData.user;
+
     const {
-      userId,
       awayTeam,
       homeTeam,
       awaySpread,
       homeSpread,
-      total,
-      awayGames,
-      homeGames,
-      awayAll,
-      homeAll,
-      awayInjuries,
-      homeInjuries
+      total
     } = req.body || {};
+
+    if (!awayTeam || !homeTeam) {
+      return res.status(400).json({ error: "Faltan equipos" });
+    }
 
     const { data: profile } = await supabaseAdmin
       .from("users")
       .select("is_premium")
-      .eq("id", userId)
+      .eq("id", user.id)
       .single();
 
     const isPremiumUser = profile?.is_premium === true;
 
-    const clamp = (value, min = 0, max = 100) =>
-      Math.max(min, Math.min(max, value));
+    const origin = getOrigin(req);
 
-    function calcTeamFormula(teamGames) {
-      const offenseAvg =
-        teamGames.reduce((sum, g) => sum + g.scored, 0) / teamGames.length;
+    const allTeams = await fetchJson(`${origin}/api/nba-data?type=teams`);
+    const teams = allTeams.data || [];
 
-      const defenseAllowedAvg =
-        teamGames.reduce((sum, g) => sum + g.allowed, 0) / teamGames.length;
+    const awayId = findTeamId(teams, awayTeam);
+    const homeId = findTeamId(teams, homeTeam);
 
-      const offensiveEdges = teamGames.map(g => {
-        return g.scored - (g.opponentAvgAllowed || g.allowed);
+    if (!awayId || !homeId) {
+      return res.status(400).json({ error: "No encontré uno de los equipos." });
+    }
+
+    const awayAll = await getRecentGames(origin, awayId);
+    const homeAll = await getRecentGames(origin, homeId);
+
+    const awayGames = await buildFormulaGames(origin, awayId, awayAll);
+    const homeGames = await buildFormulaGames(origin, homeId, homeAll);
+
+    if (awayGames.length < 5 || homeGames.length < 5) {
+      return res.status(400).json({
+        error: "No hay suficientes juegos recientes con data completa."
       });
-
-      const offensiveEdgeAvg =
-        offensiveEdges.reduce((sum, edge) => sum + edge, 0) / offensiveEdges.length;
-
-      const defensiveEdgeAvg = defenseAllowedAvg - offenseAvg;
-
-      return {
-        offenseAvg,
-        defenseAllowedAvg,
-        offensiveEdgeAvg,
-        defensiveEdgeAvg
-      };
     }
 
-    function calcProjection(teamGames, opponentGames) {
-      const team = calcTeamFormula(teamGames);
-      const opponent = calcTeamFormula(opponentGames);
-
-      const opponentDefenseAvg = opponent.defenseAllowedAvg;
-
-      const A = team.offensiveEdgeAvg + opponentDefenseAvg;
-      const B = team.offenseAvg + opponent.defensiveEdgeAvg;
-
-      const projection = (A + B) / 2;
-
-      return {
-        projection,
-        avgDifferential: projection - team.offenseAvg
-      };
-    }
-
-    function getRestAdjustment(allGames) {
-      if (!allGames || allGames.length < 2) {
-        return {
-          points: 0,
-          note: "Descanso no disponible"
-        };
-      }
-
-      const last = new Date(allGames[0].date);
-      const prev = new Date(allGames[1].date);
-      const diffDays = Math.round((last - prev) / (1000 * 60 * 60 * 24));
-
-      if (diffDays <= 1) {
-        return {
-          points: -3,
-          note: "Back-to-back detectado. El equipo podría mostrar menor energía y eficiencia."
-        };
-      }
-
-      if (diffDays >= 3) {
-        return {
-          points: 2,
-          note: "Buen descanso. El equipo llega con mejor recuperación física."
-        };
-      }
-
-      return {
-        points: 0,
-        note: "Descanso normal"
-      };
-    }
-
-    function getConfidence(edge) {
-      let confidence = 50 + edge * 2.4;
-      confidence = Math.max(50, Math.min(99, confidence));
-      return Math.round(confidence);
-    }
-
-    function getModelAnalysis(verdict) {
-      if (verdict === "Premium") {
-        return "El modelo detecta una ventaja fuerte contra la línea del mercado.";
-      }
-
-      if (verdict === "Moderado") {
-        return "El modelo detecta una ventaja moderada contra la línea del mercado.";
-      }
-
-      return "El modelo no detecta suficiente ventaja para recomendar entrada fuerte.";
-    }
-
-    if (
-      !Array.isArray(awayGames) ||
-      !Array.isArray(homeGames) ||
-      awayGames.length < 5 ||
-      homeGames.length < 5
-    ) {
-      return res.status(400).json({ error: "No hay suficientes juegos recientes." });
-    }
+    const [awayInjuries, homeInjuries] = await Promise.all([
+      getInjuryAdjustment(origin, awayTeam),
+      getInjuryAdjustment(origin, homeTeam)
+    ]);
 
     const awayCalc = calcProjection(awayGames, homeGames);
     const homeCalc = calcProjection(homeGames, awayGames);
@@ -143,54 +85,46 @@ module.exports = async function handler(req, res) {
     const awayRest = getRestAdjustment(awayAll);
     const homeRest = getRestAdjustment(homeAll);
 
-    const awayOffenseImpact = Number(awayInjuries?.offenseImpact || 0);
-    const homeOffenseImpact = Number(homeInjuries?.offenseImpact || 0);
-    const awayDefenseImpact = Number(awayInjuries?.defenseImpact || 0);
-    const homeDefenseImpact = Number(homeInjuries?.defenseImpact || 0);
-
     const projA =
       awayCalc.projection +
       awayRest.points +
-      awayOffenseImpact +
-      homeDefenseImpact;
+      Number(awayInjuries.offenseImpact || 0) +
+      Number(homeInjuries.defenseImpact || 0);
 
     const projB =
       homeCalc.projection +
       homeRest.points +
-      homeOffenseImpact +
-      awayDefenseImpact;
+      Number(homeInjuries.offenseImpact || 0) +
+      Number(awayInjuries.defenseImpact || 0);
 
     const totalProj = projA + projB;
-    const spreadDiff = projA - projB;
     const projectedMargin = projA - projB;
 
-    const awaySpreadEdge = projectedMargin + awaySpread;
-    const homeSpreadEdge = -projectedMargin + homeSpread;
+    const awaySpreadEdge = projectedMargin + Number(awaySpread || 0);
+    const homeSpreadEdge = -projectedMargin + Number(homeSpread || 0);
 
     const spreadEdge = Math.max(awaySpreadEdge, homeSpreadEdge);
-    const totalEdge = total > 0 ? Math.abs(totalProj - total) : 0;
+    const totalEdge = Number(total || 0) > 0 ? Math.abs(totalProj - Number(total)) : 0;
 
     const spreadConfidence = getConfidence(spreadEdge);
-    const totalConfidence = total > 0 ? getConfidence(totalEdge) : 0;
+    const totalConfidence = Number(total || 0) > 0 ? getConfidence(totalEdge) : 0;
 
     let pick = "";
     let confidence = 0;
     let mainEdge = 0;
-    let mainEdgeConfidence = 0;
 
     if (spreadConfidence >= totalConfidence) {
-      pick = awaySpreadEdge >= homeSpreadEdge
-        ? `${awayTeam} ${awaySpread > 0 ? "+" : ""}${awaySpread} cubre spread`
-        : `${homeTeam} ${homeSpread > 0 ? "+" : ""}${homeSpread} cubre spread`;
+      pick =
+        awaySpreadEdge >= homeSpreadEdge
+          ? `${awayTeam} ${Number(awaySpread) > 0 ? "+" : ""}${awaySpread} cubre spread`
+          : `${homeTeam} ${Number(homeSpread) > 0 ? "+" : ""}${homeSpread} cubre spread`;
 
       confidence = spreadConfidence;
       mainEdge = spreadEdge;
-      mainEdgeConfidence = spreadConfidence;
     } else {
-      pick = totalProj > total ? "Over" : "Under";
+      pick = totalProj > Number(total) ? "Over" : "Under";
       confidence = totalConfidence;
       mainEdge = totalEdge;
-      mainEdgeConfidence = totalConfidence;
     }
 
     if (confidence < 60) {
@@ -207,15 +141,8 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const verdict =
-      confidence >= 74 ? "Premium" :
-      confidence >= 60 ? "Moderado" :
-      "Evitar";
-
-    const risk =
-      confidence >= 74 ? "Bajo" :
-      confidence >= 60 ? "Medio" :
-      "Alto";
+    const verdict = confidence >= 74 ? "Premium" : "Moderado";
+    const risk = confidence >= 74 ? "Bajo" : "Medio";
 
     const isPremiumPick = verdict === "Premium";
     const locked = isPremiumPick && !isPremiumUser;
@@ -225,8 +152,6 @@ module.exports = async function handler(req, res) {
       isPremiumPick,
       noPlay: false,
       public: {
-        awayTeam,
-        homeTeam,
         confidence,
         risk,
         verdict,
@@ -239,31 +164,281 @@ module.exports = async function handler(req, res) {
           "Edge contra spread/total"
         ]
       },
-      premium: locked ? null : {
-        pick,
-        confidence,
-        risk,
-        verdict,
-        mainEdge,
-        mainEdgeConfidence,
-        spreadDiff,
-        projA,
-        projB,
-        totalProj,
-        modelAnalysis: getModelAnalysis(verdict),
-        awayRestNote: awayRest.note,
-        homeRestNote: homeRest.note,
-        awayInjuryNote: awayInjuries?.note || "",
-        homeInjuryNote: homeInjuries?.note || "",
-        awayInjuryPublic: getInjuryPublicMessage(awayTeam, awayInjuries),
-        homeInjuryPublic: getInjuryPublicMessage(homeTeam, homeInjuries)
-      }
+      premium: locked
+        ? null
+        : {
+            pick,
+            confidence,
+            risk,
+            verdict,
+            mainEdge,
+            mainEdgeConfidence: confidence,
+            spreadDiff: projectedMargin,
+            projA,
+            projB,
+            totalProj,
+            modelAnalysis: getModelAnalysis(verdict),
+            awayRestNote: awayRest.note,
+            homeRestNote: homeRest.note,
+            awayInjuryNote: awayInjuries.note || "",
+            homeInjuryNote: homeInjuries.note || "",
+            awayInjuryPublic: getInjuryPublicMessage(awayTeam, awayInjuries),
+            homeInjuryPublic: getInjuryPublicMessage(homeTeam, homeInjuries)
+          }
     });
-
   } catch (error) {
+    console.error("ANALYZE NBA ERROR:", error);
     return res.status(500).json({ error: error.message });
   }
 };
+
+function getOrigin(req) {
+  const protocol = req.headers["x-forwarded-proto"] || "https";
+  const host = req.headers.host;
+  return `${protocol}://${host}`;
+}
+
+async function fetchJson(url) {
+  const cached = cache[url];
+
+  if (cached && Date.now() - cached.time < 5 * 60 * 1000) {
+    return cached.data;
+  }
+
+  const res = await fetch(url);
+  const text = await res.text();
+
+  if (!res.ok) {
+    throw new Error(text);
+  }
+
+  const data = JSON.parse(text);
+
+  cache[url] = {
+    data,
+    time: Date.now()
+  };
+
+  return data;
+}
+
+function findTeamId(teams, teamName) {
+  const team = teams.find(t =>
+    String(t.full_name).toLowerCase() === String(teamName).toLowerCase()
+  );
+
+  return team ? team.id : null;
+}
+
+async function getRecentGames(origin, teamId) {
+  const data = await fetchJson(
+    `${origin}/api/nba-data?type=games&teamId=${encodeURIComponent(teamId)}`
+  );
+
+  return (data.data || [])
+    .filter(g => g.home_team_score > 0 && g.visitor_team_score > 0)
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+}
+
+function getTeamGameView(g, teamId) {
+  const isHome = g.home_team.id === teamId;
+
+  return {
+    date: g.date,
+    isHome,
+    scored: isHome ? g.home_team_score : g.visitor_team_score,
+    allowed: isHome ? g.visitor_team_score : g.home_team_score,
+    opponentId: isHome ? g.visitor_team.id : g.home_team.id,
+    opponentName: isHome ? g.visitor_team.full_name : g.home_team.full_name
+  };
+}
+
+async function buildFormulaGames(origin, teamId, rawGames) {
+  const lastGames = rawGames
+    .slice(0, 10)
+    .map(g => getTeamGameView(g, teamId));
+
+  const completed = [];
+
+  for (const game of lastGames) {
+    const opponentRaw = await getRecentGames(origin, game.opponentId);
+    const before = new Date(game.date);
+
+    const previousGames = opponentRaw
+      .filter(g => new Date(g.date) < before)
+      .slice(0, 5)
+      .map(g => getTeamGameView(g, game.opponentId));
+
+    if (previousGames.length < 5) continue;
+
+    const opponentAvgScored =
+      previousGames.reduce((sum, g) => sum + g.scored, 0) / previousGames.length;
+
+    const opponentAvgAllowed =
+      previousGames.reduce((sum, g) => sum + g.allowed, 0) / previousGames.length;
+
+    completed.push({
+      ...game,
+      opponentAvgScored,
+      opponentAvgAllowed
+    });
+
+    if (completed.length >= 5) break;
+  }
+
+  return completed;
+}
+
+function calcTeamFormula(teamGames) {
+  const offenseAvg =
+    teamGames.reduce((sum, g) => sum + g.scored, 0) / teamGames.length;
+
+  const defenseAllowedAvg =
+    teamGames.reduce((sum, g) => sum + g.allowed, 0) / teamGames.length;
+
+  const offensiveEdges = teamGames.map(g => {
+    return g.scored - (g.opponentAvgAllowed || g.allowed);
+  });
+
+  const offensiveEdgeAvg =
+    offensiveEdges.reduce((sum, edge) => sum + edge, 0) / offensiveEdges.length;
+
+  const defensiveEdgeAvg = defenseAllowedAvg - offenseAvg;
+
+  return {
+    offenseAvg,
+    defenseAllowedAvg,
+    offensiveEdgeAvg,
+    defensiveEdgeAvg
+  };
+}
+
+function calcProjection(teamGames, opponentGames) {
+  const team = calcTeamFormula(teamGames);
+  const opponent = calcTeamFormula(opponentGames);
+
+  const A = team.offensiveEdgeAvg + opponent.defenseAllowedAvg;
+  const B = team.offenseAvg + opponent.defensiveEdgeAvg;
+
+  return {
+    projection: (A + B) / 2
+  };
+}
+
+function getRestAdjustment(allGames) {
+  if (!allGames || allGames.length < 2) {
+    return {
+      points: 0,
+      note: "Descanso no disponible"
+    };
+  }
+
+  const last = new Date(allGames[0].date);
+  const prev = new Date(allGames[1].date);
+  const diffDays = Math.round((last - prev) / (1000 * 60 * 60 * 24));
+
+  if (diffDays <= 1) {
+    return {
+      points: -3,
+      note: "Back-to-back detectado. El equipo podría mostrar menor energía y eficiencia."
+    };
+  }
+
+  if (diffDays >= 3) {
+    return {
+      points: 2,
+      note: "Buen descanso. El equipo llega con mejor recuperación física."
+    };
+  }
+
+  return {
+    points: 0,
+    note: "Descanso normal"
+  };
+}
+
+async function getInjuryAdjustment(origin, teamName) {
+  try {
+    const data = await fetchJson(
+      `${origin}/api/injuries?team=${encodeURIComponent(teamName)}`
+    );
+
+    const injuries = data.injuries || [];
+
+    let offenseImpact = 0;
+    let defenseImpact = 0;
+
+    const activeInjuries = injuries.filter(player => shouldCountInjury(player));
+
+    activeInjuries.forEach(player => {
+      const status = String(player.status || "").toLowerCase();
+      const position = String(player.position || "").toLowerCase();
+
+      let impact = 0;
+
+      if (status.includes("out")) impact = 4;
+      else if (status.includes("doubtful")) impact = 3;
+      else if (status.includes("questionable")) impact = 1.5;
+      else if (status.includes("probable")) impact = 0.5;
+
+      offenseImpact -= impact;
+
+      if (
+        position.includes("c") ||
+        position.includes("pf") ||
+        position.includes("sf")
+      ) {
+        defenseImpact += impact * 0.5;
+      }
+    });
+
+    return {
+      offenseImpact,
+      defenseImpact,
+      note:
+        activeInjuries.length > 0
+          ? activeInjuries.map(p => `${p.name} (${p.status})`).join(", ")
+          : `No se reportan bajas clave para ${teamName}.`
+    };
+  } catch {
+    return {
+      offenseImpact: 0,
+      defenseImpact: 0,
+      note: `No se pudieron leer lesiones para ${teamName}.`
+    };
+  }
+}
+
+function shouldCountInjury(player) {
+  if (!player.startDate) return true;
+
+  const start = new Date(player.startDate);
+  if (isNaN(start.getTime())) return true;
+
+  const today = new Date();
+  const diffDays = Math.floor((today - start) / (1000 * 60 * 60 * 24));
+  const estimatedGamesMissed = Math.floor(diffDays / 2);
+
+  return estimatedGamesMissed <= 5;
+}
+
+function getConfidence(edge) {
+  let confidence = 50 + Number(edge || 0) * 2.4;
+  confidence = Math.max(50, Math.min(99, confidence));
+  return Math.round(confidence);
+}
+
+function getModelAnalysis(verdict) {
+  if (verdict === "Premium") {
+    return "El modelo detecta una ventaja fuerte contra la línea del mercado.";
+  }
+
+  if (verdict === "Moderado") {
+    return "El modelo detecta una ventaja moderada contra la línea del mercado.";
+  }
+
+  return "El modelo no detecta suficiente ventaja para recomendar entrada fuerte.";
+}
 
 function getInjuryPublicMessage(teamName, injury = {}) {
   if (injury.offenseImpact < 0 && injury.defenseImpact > 0) {
