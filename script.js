@@ -1431,14 +1431,6 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
                 <p><strong>🔒 Pick Premium bloqueado</strong></p>
                 <p>El modelo detectó edge premium de 10+ puntos.</p>
 
-                <br>
-                <p><strong>Factores evaluados:</strong></p>
-                <p>✔ Últimos 7 juegos reales</p>
-                <p>✔ Edge ofensivo promedio</p>
-                <p>✔ Edge defensivo promedio</p>
-                <p>✔ Promedio permitido por rivales anteriores</p>
-                <p>✔ Comparación contra línea del mercado</p>
-
                 <button class="unlock-btn" onclick="goPremiumMonthly()">
                   🔓 Desbloquear Premium mensual $${MONTHLY_PRICE}/mes
                 </button>
@@ -1453,33 +1445,50 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
 
           <br>
 
-          <div class="edge-grid">
-            ${
-              spreadPick
-                ? `
-                  <div class="edge-box">
-                    <h4>Spread</h4>
-                    <p>${locked && spreadPick.isPremium ? "Pick Premium bloqueado" : spreadPick.pick}</p>
-                    <div class="edge-number">${spreadPick.confidence}%</div>
-                    <p>Edge: <strong>${Number(spreadPick.edge).toFixed(1)}</strong></p>
-                  </div>
-                `
-                : ""
-            }
+          ${
+            (() => {
+              const visibleCards = [];
 
-            ${
-              totalPick
-                ? `
-                  <div class="edge-box">
-                    <h4>Total</h4>
-                    <p>${locked && totalPick.isPremium ? "Pick Premium bloqueado" : totalPick.pick}</p>
-                    <div class="edge-number">${totalPick.confidence}%</div>
-                    <p>Edge: <strong>${Number(totalPick.edge).toFixed(1)}</strong></p>
-                  </div>
-                `
-                : ""
-            }
-          </div>
+              if (spreadPick) {
+                const isPremiumCard = spreadPick.confidence >= 75 && spreadPick.edge >= 10;
+                const isNormalCard = spreadPick.confidence >= 65 && spreadPick.confidence < 75;
+
+                if ((isPremium && isPremiumCard) || (!isPremium && isNormalCard)) {
+                  visibleCards.push(`
+                    <div class="edge-box">
+                      <h4>Spread</h4>
+                      <p>${locked && isPremiumCard ? "Pick Premium bloqueado" : spreadPick.pick}</p>
+                      <div class="edge-number">${spreadPick.confidence}%</div>
+                      <p>Edge: <strong>${spreadPick.edge.toFixed(1)}</strong></p>
+                    </div>
+                  `);
+                }
+              }
+
+              if (totalPick) {
+                const isPremiumCard = totalPick.confidence >= 75 && totalPick.edge >= 10;
+                const isNormalCard = totalPick.confidence >= 65 && totalPick.confidence < 75;
+
+                if ((isPremium && isPremiumCard) || (!isPremium && isNormalCard)) {
+                  visibleCards.push(`
+                    <div class="edge-box">
+                      <h4>Total</h4>
+                      <p>${locked && isPremiumCard ? "Pick Premium bloqueado" : totalPick.pick}</p>
+                      <div class="edge-number">${totalPick.confidence}%</div>
+                      <p>Edge: <strong>${totalPick.edge.toFixed(1)}</strong></p>
+                    </div>
+                  `);
+                }
+              }
+
+              return visibleCards.length
+                ? `<div class="edge-grid">${visibleCards.join("")}</div>`
+                : `
+                  <p><strong>Jugadas:</strong></p>
+                  <p>No hay picks entre 65% y 74%, ni premium de 75%+ con edge 10+</p>
+                `;
+            })()
+          }
 
           ${
             !locked
@@ -1490,16 +1499,6 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
                 <p>${homeTeam}: ${projHome.toFixed(1)}</p>
                 <p><strong>Total proyectado:</strong> ${projectedTotal.toFixed(1)}</p>
                 <p><strong>Spread modelo:</strong> ${projectedSpread.toFixed(1)}</p>
-
-                <br>
-                <p><strong>Líneas del mercado:</strong></p>
-                <p>${awayTeam}: ${Number.isFinite(odds.spreadLineA) ? odds.spreadLineA : "No disponible"}</p>
-                <p>${homeTeam}: ${Number.isFinite(odds.spreadLineB) ? odds.spreadLineB : "No disponible"}</p>
-                <p>Total: ${Number.isFinite(odds.totalLine) ? odds.totalLine : "No disponible"}</p>
-
-                <br>
-                <p><strong>Lectura:</strong></p>
-                <p>El modelo proyecta ventaja de spread y total usando tu fórmula de edge promedio en los últimos 7 juegos.</p>
               `
               : ""
           }
