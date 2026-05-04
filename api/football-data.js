@@ -5,28 +5,53 @@ const SPORT_PATHS = {
   ncaaf: "football/college-football"
 };
 
-const TEAM_IDS = {
-  // NFL
-  kc: "12",
-  chiefs: "12",
-  "kansas city chiefs": "12",
-  phi: "21",
-  eagles: "21",
-  "philadelphia eagles": "21",
-
-  // NCAAF
-  clemson: "228",
-  "clemson tigers": "228",
-  unc: "153",
-  "north carolina": "153",
-  "north-carolina": "153",
-  "north carolina tar heels": "153"
-};
-
 const MAX_WEEKS = {
   nfl: 22,
   ncaaf: 16
 };
+
+const TEAM_MAP = {
+  // NFL
+  kc: { id: "12", keys: ["kc", "chiefs", "kansas city chiefs", "kansas city"] },
+  chiefs: { id: "12", keys: ["kc", "chiefs", "kansas city chiefs", "kansas city"] },
+  "kansas city chiefs": { id: "12", keys: ["kc", "chiefs", "kansas city chiefs", "kansas city"] },
+
+  phi: { id: "21", keys: ["phi", "eagles", "philadelphia eagles", "philadelphia"] },
+  eagles: { id: "21", keys: ["phi", "eagles", "philadelphia eagles", "philadelphia"] },
+  "philadelphia eagles": { id: "21", keys: ["phi", "eagles", "philadelphia eagles", "philadelphia"] },
+
+  dal: { id: "6", keys: ["dal", "cowboys", "dallas cowboys", "dallas"] },
+  cowboys: { id: "6", keys: ["dal", "cowboys", "dallas cowboys", "dallas"] },
+
+  buf: { id: "2", keys: ["buf", "bills", "buffalo bills", "buffalo"] },
+  bills: { id: "2", keys: ["buf", "bills", "buffalo bills", "buffalo"] },
+
+  // NCAAF
+  clemson: { id: "228", keys: ["clemson", "clemson tigers", "tigers"] },
+  "clemson tigers": { id: "228", keys: ["clemson", "clemson tigers", "tigers"] },
+
+  unc: { id: "153", keys: ["unc", "north carolina", "north carolina tar heels", "tar heels"] },
+  "north carolina": { id: "153", keys: ["unc", "north carolina", "north carolina tar heels", "tar heels"] },
+  "north-carolina": { id: "153", keys: ["unc", "north carolina", "north carolina tar heels", "tar heels"] },
+  "north carolina tar heels": { id: "153", keys: ["unc", "north carolina", "north carolina tar heels", "tar heels"] },
+
+  alabama: { id: "333", keys: ["alabama", "alabama crimson tide", "crimson tide"] },
+  georgia: { id: "61", keys: ["georgia", "georgia bulldogs", "bulldogs"] },
+  "ohio state": { id: "194", keys: ["ohio state", "ohio state buckeyes", "osu"] },
+  texas: { id: "251", keys: ["texas", "texas longhorns", "longhorns"] },
+  oregon: { id: "2483", keys: ["oregon", "oregon ducks", "ducks"] },
+  michigan: { id: "130", keys: ["michigan", "michigan wolverines", "wolverines"] },
+  fsu: { id: "52", keys: ["fsu", "florida state", "florida state seminoles", "seminoles"] },
+  "florida state": { id: "52", keys: ["fsu", "florida state", "florida state seminoles", "seminoles"] }
+};
+
+function cleanText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replaceAll("-", " ")
+    .replaceAll(".", "")
+    .trim();
+}
 
 function getDefaultSeason() {
   const now = new Date();
@@ -35,9 +60,18 @@ function getDefaultSeason() {
   return month >= 8 ? year : year - 1;
 }
 
-function normalizeTeamId(team) {
-  const key = String(team || "").trim().toLowerCase();
-  return TEAM_IDS[key] || key;
+function normalizeTeam(team) {
+  const key = cleanText(team);
+  const mapped = TEAM_MAP[key];
+
+  if (mapped) {
+    return mapped;
+  }
+
+  return {
+    id: key,
+    keys: [key]
+  };
 }
 
 function average(numbers) {
@@ -53,10 +87,46 @@ function round(num, decimals = 1) {
 
 async function fetchJson(url) {
   const response = await fetch(url);
+
   if (!response.ok) {
     throw new Error(`ESPN error ${response.status}: ${url}`);
   }
+
   return response.json();
+}
+
+function isCompletedGame(event, comp) {
+  const statusType = comp?.status?.type || event?.status?.type;
+
+  return (
+    statusType?.completed === true ||
+    statusType?.name === "STATUS_FINAL" ||
+    statusType?.state === "post"
+  );
+}
+
+function competitorMatchesTeam(competitor, teamRef) {
+  const id = String(competitor.team?.id || "");
+  const abbreviation = cleanText(competitor.team?.abbreviation);
+  const displayName = cleanText(competitor.team?.displayName);
+  const shortName = cleanText(competitor.team?.shortDisplayName);
+  const location = cleanText(competitor.team?.location);
+  const name = cleanText(competitor.team?.name);
+
+  if (String(teamRef.id) === id) return true;
+
+  return teamRef.keys.some((key) => {
+    const cleanKey = cleanText(key);
+
+    return (
+      abbreviation === cleanKey ||
+      displayName === cleanKey ||
+      shortName === cleanKey ||
+      location === cleanKey ||
+      name === cleanKey ||
+      displayName.includes(cleanKey)
+    );
+  });
 }
 
 async function getSeasonGames(type, season) {
@@ -78,13 +148,7 @@ async function getSeasonGames(type, season) {
         const competitors = comp?.competitors || [];
 
         if (competitors.length !== 2) continue;
-
-        const statusType = comp.status?.type || event.status?.type;
-        const completed =
-          statusType?.completed === true ||
-          statusType?.name === "STATUS_FINAL";
-
-        if (!completed) continue;
+        if (!isCompletedGame(event, comp)) continue;
 
         const c1 = competitors[0];
         const c2 = competitors[1];
@@ -98,62 +162,127 @@ async function getSeasonGames(type, season) {
           id: event.id,
           date: event.date,
           week,
-          team1Id: String(c1.team?.id),
-          team1Name: c1.team?.displayName,
+
+          team1Id: String(c1.team?.id || ""),
+          team1Abbr: c1.team?.abbreviation || "",
+          team1Name: c1.team?.displayName || "",
+          team1ShortName: c1.team?.shortDisplayName || "",
+          team1Location: c1.team?.location || "",
+          team1Mascot: c1.team?.name || "",
           team1Score: score1,
-          team2Id: String(c2.team?.id),
-          team2Name: c2.team?.displayName,
+
+          team2Id: String(c2.team?.id || ""),
+          team2Abbr: c2.team?.abbreviation || "",
+          team2Name: c2.team?.displayName || "",
+          team2ShortName: c2.team?.shortDisplayName || "",
+          team2Location: c2.team?.location || "",
+          team2Mascot: c2.team?.name || "",
           team2Score: score2
         });
       }
     } catch (err) {
-      console.log(`No se pudo cargar ${type} week ${week}`, err.message);
+      console.log(`No se pudo cargar ${type} week ${week}:`, err.message);
     }
   }
 
   return allGames.sort((a, b) => new Date(b.date) - new Date(a.date));
 }
 
-function getTeamGamesFromSeason(allGames, teamId) {
+function gameSideMatches(game, side, teamRef) {
+  const fakeCompetitor =
+    side === 1
+      ? {
+          team: {
+            id: game.team1Id,
+            abbreviation: game.team1Abbr,
+            displayName: game.team1Name,
+            shortDisplayName: game.team1ShortName,
+            location: game.team1Location,
+            name: game.team1Mascot
+          }
+        }
+      : {
+          team: {
+            id: game.team2Id,
+            abbreviation: game.team2Abbr,
+            displayName: game.team2Name,
+            shortDisplayName: game.team2ShortName,
+            location: game.team2Location,
+            name: game.team2Mascot
+          }
+        };
+
+  return competitorMatchesTeam(fakeCompetitor, teamRef);
+}
+
+function getTeamGamesFromSeason(allGames, teamRef) {
   return allGames
-    .filter((game) => game.team1Id === String(teamId) || game.team2Id === String(teamId))
+    .filter((game) => {
+      return gameSideMatches(game, 1, teamRef) || gameSideMatches(game, 2, teamRef);
+    })
     .map((game) => {
-      const isTeam1 = game.team1Id === String(teamId);
+      const isTeam1 = gameSideMatches(game, 1, teamRef);
 
       return {
         date: game.date,
         week: game.week,
+
         teamPoints: isTeam1 ? game.team1Score : game.team2Score,
         pointsAllowed: isTeam1 ? game.team2Score : game.team1Score,
+
         opponentId: isTeam1 ? game.team2Id : game.team1Id,
-        opponentName: isTeam1 ? game.team2Name : game.team1Name
+        opponentName: isTeam1 ? game.team2Name : game.team1Name,
+        opponentAbbr: isTeam1 ? game.team2Abbr : game.team1Abbr,
+        opponentKeys: [
+          isTeam1 ? game.team2Name : game.team1Name,
+          isTeam1 ? game.team2Abbr : game.team1Abbr,
+          isTeam1 ? game.team2Location : game.team1Location,
+          isTeam1 ? game.team2Mascot : game.team1Mascot
+        ].map(cleanText)
       };
     })
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 }
 
-function getOpponentAveragesFromSeason(allGames, opponentId, beforeDate) {
-  const games = getTeamGamesFromSeason(allGames, opponentId);
+function getOpponentRefFromGame(game) {
+  return {
+    id: String(game.opponentId || ""),
+    keys: game.opponentKeys || []
+  };
+}
+
+function getOpponentAveragesFromSeason(allGames, opponentRef, beforeDate) {
+  const games = getTeamGamesFromSeason(allGames, opponentRef);
 
   const previousGames = games
     .filter((game) => new Date(game.date) < new Date(beforeDate))
     .slice(0, MAX_GAMES_USED);
 
   return {
-    opponentAvgPointsAllowed: round(average(previousGames.map((g) => g.pointsAllowed))),
-    opponentAvgPointsScored: round(average(previousGames.map((g) => g.teamPoints))),
+    opponentAvgPointsAllowed: round(
+      average(previousGames.map((g) => g.pointsAllowed))
+    ),
+    opponentAvgPointsScored: round(
+      average(previousGames.map((g) => g.teamPoints))
+    ),
     gamesUsedForOpponent: previousGames.length
   };
 }
 
-function buildTeamGamesFromSeason(allGames, teamId) {
-  const schedule = getTeamGamesFromSeason(allGames, teamId);
-  const recentGames = schedule.slice(0, Math.min(MAX_GAMES_USED, schedule.length));
+function buildTeamGamesFromSeason(allGames, teamRef) {
+  const schedule = getTeamGamesFromSeason(allGames, teamRef);
+
+  const recentGames = schedule.slice(
+    0,
+    Math.min(MAX_GAMES_USED, schedule.length)
+  );
 
   return recentGames.map((game) => {
+    const opponentRef = getOpponentRefFromGame(game);
+
     const opponentAvg = getOpponentAveragesFromSeason(
       allGames,
-      game.opponentId,
+      opponentRef,
       game.date
     );
 
@@ -171,7 +300,10 @@ function buildTeamGamesFromSeason(allGames, teamId) {
 }
 
 function calculateFootballEdges(games = []) {
-  const recentGames = games.slice(0, Math.min(MAX_GAMES_USED, games.length));
+  const recentGames = games.slice(
+    0,
+    Math.min(MAX_GAMES_USED, games.length)
+  );
 
   const usableGames = recentGames.filter(
     (game) => Number(game.opponentGamesUsed) > 0
@@ -234,13 +366,14 @@ module.exports = async function handler(req, res) {
     }
 
     const selectedSeason = Number(season) || getDefaultSeason();
-    const teamAId = normalizeTeamId(teamA);
-    const teamBId = normalizeTeamId(teamB);
+
+    const teamARef = normalizeTeam(teamA);
+    const teamBRef = normalizeTeam(teamB);
 
     const allGames = await getSeasonGames(type, selectedSeason);
 
-    const teamAGames = buildTeamGamesFromSeason(allGames, teamAId);
-    const teamBGames = buildTeamGamesFromSeason(allGames, teamBId);
+    const teamAGames = buildTeamGamesFromSeason(allGames, teamARef);
+    const teamBGames = buildTeamGamesFromSeason(allGames, teamBRef);
 
     const teamAEdges = calculateFootballEdges(teamAGames);
     const teamBEdges = calculateFootballEdges(teamBGames);
@@ -257,13 +390,13 @@ module.exports = async function handler(req, res) {
       totalSeasonGamesLoaded: allGames.length,
       teamA: {
         name: teamA,
-        id: teamAId,
+        ref: teamARef,
         ...teamAEdges,
         projection: teamAProjection
       },
       teamB: {
         name: teamB,
-        id: teamBId,
+        ref: teamBRef,
         ...teamBEdges,
         projection: teamBProjection
       },
