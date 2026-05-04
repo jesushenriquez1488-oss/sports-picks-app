@@ -164,8 +164,10 @@ async function getSeasonGames(type, season) {
   const allGames = [];
 
   for (let week = 1; week <= weeks; week++) {
+    const groupParam = type === "ncaaf" ? "&groups=80" : "";
+
     const url =
-      `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard?dates=${season}&seasontype=2&week=${week}`;
+      `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard?dates=${season}&seasontype=2&week=${week}${groupParam}`;
 
     try {
       const data = await fetchJson(url);
@@ -348,10 +350,7 @@ function calculateFootballEdges(games = []) {
     avgPointsScored: round(average(gamesForCalc.map((g) => g.teamPoints))),
     avgPointsAllowed: round(average(gamesForCalc.map((g) => g.pointsAllowed))),
     avgOffensiveEdge: round(average(offensiveEdges)),
-    avgDefensiveEdge: round(average(defensiveEdges)),
-    offensiveEdges: offensiveEdges.map((n) => round(n)),
-    defensiveEdges: defensiveEdges.map((n) => round(n)),
-    games: gamesForCalc
+    avgDefensiveEdge: round(average(defensiveEdges))
   };
 }
 
@@ -366,8 +365,6 @@ function projectFootballTeam(team, opponent) {
     (projectionFromOffense + projectionFromOpponentDefense) / 2;
 
   return {
-    projectionFromOffense: round(projectionFromOffense),
-    projectionFromOpponentDefense: round(projectionFromOpponentDefense),
     finalProjection: round(finalProjection)
   };
 }
@@ -433,7 +430,6 @@ async function getFootballOdds(type, teamARef, teamBRef) {
     let spreadLineA = null;
     let spreadLineB = null;
     let totalLine = null;
-    let bookmakerUsed = null;
 
     for (const bookmaker of game.bookmakers || []) {
       const spreadMarket = bookmaker.markets?.find((m) => m.key === "spreads");
@@ -466,7 +462,6 @@ async function getFootballOdds(type, teamARef, teamBRef) {
         Number.isFinite(spreadLineB) &&
         Number.isFinite(totalLine)
       ) {
-        bookmakerUsed = bookmaker.title;
         break;
       }
     }
@@ -476,7 +471,6 @@ async function getFootballOdds(type, teamARef, teamBRef) {
       homeTeam: game.home_team,
       awayTeam: game.away_team,
       commenceTime: game.commence_time,
-      bookmakerUsed,
       spreadLineA,
       spreadLineB,
       totalLine
@@ -532,6 +526,7 @@ function buildFootballPicks({
     const confidence = getConfidenceFromEdge(edge);
 
     spreadPick = {
+      type: "spread",
       side: chosenSide,
       pick: `${chosenSide} ${chosenLine > 0 ? "+" : ""}${chosenLine}`,
       edge,
@@ -550,9 +545,9 @@ function buildFootballPicks({
       const confidence = getConfidenceFromEdge(edge);
 
       totalPick = {
+        type: "total",
         pick: rawEdge >= 0 ? `OVER ${odds.totalLine}` : `UNDER ${odds.totalLine}`,
         edge,
-        rawEdge: round(rawEdge),
         confidence,
         isPremium: edge >= 10 && confidence >= 75
       };
@@ -563,6 +558,31 @@ function buildFootballPicks({
     available: true,
     spreadPick,
     totalPick
+  };
+}
+
+function sanitizePicksForPublic(picks) {
+  if (!picks || !picks.available) return picks;
+
+  const sanitizePick = (pick) => {
+    if (!pick) return null;
+
+    return {
+      available: true,
+      isPremium: pick.isPremium,
+      confidence: pick.confidence,
+      edge: pick.edge,
+      locked: pick.isPremium,
+      type: pick.isPremium ? "premium" : pick.type,
+      pick: pick.isPremium ? null : pick.pick,
+      side: pick.isPremium ? null : pick.side || null
+    };
+  };
+
+  return {
+    available: true,
+    spreadPick: sanitizePick(picks.spreadPick),
+    totalPick: sanitizePick(picks.totalPick)
   };
 }
 
@@ -607,7 +627,7 @@ module.exports = async function handler(req, res) {
 
     const odds = await getFootballOdds(type, teamARef, teamBRef);
 
-    const picks = buildFootballPicks({
+    const rawPicks = buildFootballPicks({
       teamA,
       teamB,
       projectedSpread,
@@ -615,26 +635,12 @@ module.exports = async function handler(req, res) {
       odds
     });
 
+    const picks = sanitizePicksForPublic(rawPicks);
+
     return res.status(200).json({
       sport: type,
-      season: selectedSeason,
-      totalSeasonGamesLoaded: allGames.length,
       odds,
       picks,
-      teamA: {
-        name: teamA,
-        ref: teamARef,
-        rawGamesFound: teamAGames.length,
-        ...teamAEdges,
-        projection: teamAProjection
-      },
-      teamB: {
-        name: teamB,
-        ref: teamBRef,
-        rawGamesFound: teamBGames.length,
-        ...teamBEdges,
-        projection: teamBProjection
-      },
       projectedScore: {
         [teamA]: projectedTeamA,
         [teamB]: projectedTeamB
