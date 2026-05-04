@@ -1339,13 +1339,10 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
   resultDiv.innerHTML = `<div class="loading-analysis">Analizando ${selectedSportName}...</div>`;
 
   try {
-    const type =
-      selectedSport === "americanfootball_nfl" ? "nfl" : "ncaaf";
+    const type = selectedSport === "americanfootball_nfl" ? "nfl" : "ncaaf";
 
     const res = await fetch(
-      `/api/football-data?type=${type}&teamA=${encodeURIComponent(
-        awayTeam
-      )}&teamB=${encodeURIComponent(homeTeam)}&season=2024`
+      `/api/football-data?type=${type}&teamA=${encodeURIComponent(awayTeam)}&teamB=${encodeURIComponent(homeTeam)}`
     );
 
     const data = await res.json();
@@ -1354,41 +1351,158 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
       throw new Error(data.error || "Error football");
     }
 
-    const projA = data.projectedScore[awayTeam] || 0;
-    const projB = data.projectedScore[homeTeam] || 0;
+    const projAway = Number(data.projectedScore?.[awayTeam] || 0);
+    const projHome = Number(data.projectedScore?.[homeTeam] || 0);
 
-    const totalProj = data.projectedTotal;
-    const spread = data.projectedSpread;
+    const projectedTotal = Number(data.projectedTotal || 0);
+    const projectedSpread = Number(data.projectedSpread || 0);
 
-    const edge = Math.abs(spread);
+    const odds = data.odds || {};
+    const picks = data.picks || {};
 
-    // 🔥 NUEVA LÓGICA QUE PEDISTE
-    let confidence = 50 + edge * 2.5;
-    confidence = Math.max(50, Math.min(95, confidence));
+    let spreadPick = picks.spreadPick;
+    let totalPick = picks.totalPick;
 
-    const isPremium = edge >= 10;
+    if (!spreadPick) {
+      const awayLine = odds.spreadLineA;
+      const homeLine = odds.spreadLineB;
+
+      const awayEdge = Number.isFinite(awayLine)
+        ? projectedSpread + awayLine
+        : 0;
+
+      const homeEdge = Number.isFinite(homeLine)
+        ? -projectedSpread + homeLine
+        : 0;
+
+      const bestSpreadEdge = Math.max(awayEdge, homeEdge);
+      const confidence = Math.max(50, Math.min(99, 50 + Math.abs(bestSpreadEdge) * 2.5));
+
+      spreadPick = awayEdge >= homeEdge
+        ? {
+            pick: `${awayTeam} ${awayLine > 0 ? "+" : ""}${awayLine}`,
+            side: awayTeam,
+            edge: Math.abs(awayEdge),
+            confidence: Math.round(confidence),
+            isPremium: Math.abs(awayEdge) >= 10
+          }
+        : {
+            pick: `${homeTeam} ${homeLine > 0 ? "+" : ""}${homeLine}`,
+            side: homeTeam,
+            edge: Math.abs(homeEdge),
+            confidence: Math.round(confidence),
+            isPremium: Math.abs(homeEdge) >= 10
+          };
+    }
+
+    if (!totalPick && Number.isFinite(odds.totalLine)) {
+      const totalEdgeRaw = projectedTotal - odds.totalLine;
+      const totalEdge = Math.abs(totalEdgeRaw);
+      const confidence = Math.max(50, Math.min(99, 50 + totalEdge * 2.5));
+
+      totalPick = {
+        pick: totalEdgeRaw >= 0 ? `OVER ${odds.totalLine}` : `UNDER ${odds.totalLine}`,
+        edge: totalEdge,
+        confidence: Math.round(confidence),
+        isPremium: totalEdge >= 10
+      };
+    }
+
+    const bestPick =
+      totalPick && (!spreadPick || totalPick.confidence > spreadPick.confidence)
+        ? totalPick
+        : spreadPick;
+
+    const isPremium = bestPick?.isPremium === true;
+    const locked = isPremium && !IS_ADMIN && !isPremiumUser;
 
     resultDiv.innerHTML = `
-      <div class="${isPremium ? 'premium-result' : 'normal-result'}">
+      <div class="${isPremium ? "premium-result" : "normal-result"}">
 
-        ${isPremium ? '<div class="shine"></div><div class="hot-badge">🔥 PREMIUM NFL</div>' : ''}
+        ${isPremium ? '<div class="shine"></div><div class="hot-badge">🔥 HOT PICK FOOTBALL</div>' : ""}
 
         <div class="result-content">
 
-          <p><strong>${awayTeam} vs ${homeTeam}</strong></p>
+          <p><strong>🏈 ${awayTeam} vs ${homeTeam}</strong></p>
 
-          <p><strong>Proyección:</strong></p>
-          <p>${awayTeam}: ${projA.toFixed(1)}</p>
-          <p>${homeTeam}: ${projB.toFixed(1)}</p>
+          ${
+            locked
+              ? `
+                <p><strong>🔒 Pick Premium bloqueado</strong></p>
+                <p>El modelo detectó edge premium de 10+ puntos.</p>
 
-          <p><strong>Total proyectado:</strong> ${totalProj.toFixed(1)}</p>
-          <p><strong>Spread modelo:</strong> ${spread.toFixed(1)}</p>
+                <br>
+                <p><strong>Factores evaluados:</strong></p>
+                <p>✔ Últimos 7 juegos reales</p>
+                <p>✔ Edge ofensivo promedio</p>
+                <p>✔ Edge defensivo promedio</p>
+                <p>✔ Promedio permitido por rivales anteriores</p>
+                <p>✔ Comparación contra línea del mercado</p>
+
+                <button class="unlock-btn" onclick="goPremiumMonthly()">
+                  🔓 Desbloquear Premium mensual $${MONTHLY_PRICE}/mes
+                </button>
+              `
+              : `
+                <p><strong>🔥 Pick principal:</strong> ${bestPick?.pick || "No disponible"}</p>
+                <p><strong>Confianza:</strong> ${bestPick?.confidence || 0}%</p>
+                <p><strong>Edge:</strong> ${Number(bestPick?.edge || 0).toFixed(1)}</p>
+                <p><strong>Tipo:</strong> ${isPremium ? "🔥 PREMIUM" : "Normal"}</p>
+              `
+          }
 
           <br>
 
-          <p><strong>Edge:</strong> ${edge.toFixed(1)}</p>
-          <p><strong>Confianza:</strong> ${confidence.toFixed(0)}%</p>
-          <p><strong>Tipo:</strong> ${isPremium ? "🔥 PREMIUM" : "Normal"}</p>
+          <div class="edge-grid">
+            ${
+              spreadPick
+                ? `
+                  <div class="edge-box">
+                    <h4>Spread</h4>
+                    <p>${locked && spreadPick.isPremium ? "Pick Premium bloqueado" : spreadPick.pick}</p>
+                    <div class="edge-number">${spreadPick.confidence}%</div>
+                    <p>Edge: <strong>${Number(spreadPick.edge).toFixed(1)}</strong></p>
+                  </div>
+                `
+                : ""
+            }
+
+            ${
+              totalPick
+                ? `
+                  <div class="edge-box">
+                    <h4>Total</h4>
+                    <p>${locked && totalPick.isPremium ? "Pick Premium bloqueado" : totalPick.pick}</p>
+                    <div class="edge-number">${totalPick.confidence}%</div>
+                    <p>Edge: <strong>${Number(totalPick.edge).toFixed(1)}</strong></p>
+                  </div>
+                `
+                : ""
+            }
+          </div>
+
+          ${
+            !locked
+              ? `
+                <br>
+                <p><strong>Proyección del modelo:</strong></p>
+                <p>${awayTeam}: ${projAway.toFixed(1)}</p>
+                <p>${homeTeam}: ${projHome.toFixed(1)}</p>
+                <p><strong>Total proyectado:</strong> ${projectedTotal.toFixed(1)}</p>
+                <p><strong>Spread modelo:</strong> ${projectedSpread.toFixed(1)}</p>
+
+                <br>
+                <p><strong>Líneas del mercado:</strong></p>
+                <p>${awayTeam}: ${Number.isFinite(odds.spreadLineA) ? odds.spreadLineA : "No disponible"}</p>
+                <p>${homeTeam}: ${Number.isFinite(odds.spreadLineB) ? odds.spreadLineB : "No disponible"}</p>
+                <p>Total: ${Number.isFinite(odds.totalLine) ? odds.totalLine : "No disponible"}</p>
+
+                <br>
+                <p><strong>Lectura:</strong></p>
+                <p>El modelo proyecta ventaja de spread y total usando tu fórmula de edge promedio en los últimos 7 juegos.</p>
+              `
+              : ""
+          }
 
         </div>
       </div>
