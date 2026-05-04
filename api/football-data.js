@@ -5,13 +5,17 @@ const SPORT_PATHS = {
   ncaaf: "football/college-football"
 };
 
+const ODDS_SPORT_KEYS = {
+  nfl: "americanfootball_nfl",
+  ncaaf: "americanfootball_ncaaf"
+};
+
 const MAX_WEEKS = {
   nfl: 22,
   ncaaf: 16
 };
 
 const TEAM_MAP = {
-  // NFL
   kc: { id: "12", keys: ["kc", "chiefs", "kansas city chiefs", "kansas city"] },
   chiefs: { id: "12", keys: ["kc", "chiefs", "kansas city chiefs", "kansas city"] },
   "kansas city chiefs": { id: "12", keys: ["kc", "chiefs", "kansas city chiefs", "kansas city"] },
@@ -38,7 +42,6 @@ const TEAM_MAP = {
   det: { id: "8", keys: ["det", "lions", "detroit lions", "detroit"] },
   lions: { id: "8", keys: ["det", "lions", "detroit lions", "detroit"] },
 
-  // NCAAF
   clemson: { id: "228", keys: ["clemson", "clemson tigers", "tigers"] },
   "clemson tigers": { id: "228", keys: ["clemson", "clemson tigers", "tigers"] },
 
@@ -97,11 +100,19 @@ function round(num, decimals = 1) {
   return Number(Number(num).toFixed(decimals));
 }
 
+function clamp(value, min = 0, max = 100) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function getConfidenceFromEdge(edge) {
+  return round(clamp(50 + Math.abs(edge) * 2.5));
+}
+
 async function fetchJson(url) {
   const response = await fetch(url);
 
   if (!response.ok) {
-    throw new Error(`ESPN error ${response.status}: ${url}`);
+    throw new Error(`API error ${response.status}: ${url}`);
   }
 
   return response.json();
@@ -241,10 +252,8 @@ function getTeamGamesFromSeason(allGames, teamRef) {
       return {
         date: game.date,
         week: game.week,
-
         teamPoints: isTeam1 ? game.team1Score : game.team2Score,
         pointsAllowed: isTeam1 ? game.team2Score : game.team1Score,
-
         opponentId: isTeam1 ? game.team2Id : game.team1Id,
         opponentName: isTeam1 ? game.team2Name : game.team1Name,
         opponentAbbr: isTeam1 ? game.team2Abbr : game.team1Abbr,
@@ -363,6 +372,196 @@ function projectFootballTeam(team, opponent) {
   };
 }
 
+function oddsTeamMatches(oddsName, teamRef) {
+  const cleanOddsName = cleanText(oddsName);
+
+  return teamRef.keys.some((key) => {
+    const cleanKey = cleanText(key);
+    return (
+      cleanOddsName === cleanKey ||
+      cleanOddsName.includes(cleanKey) ||
+      cleanKey.includes(cleanOddsName)
+    );
+  });
+}
+
+async function getFootballOdds(type, teamARef, teamBRef) {
+  const apiKey = process.env.ODDS_API_KEY;
+
+  if (!apiKey) {
+    return {
+      available: false,
+      message: "Falta ODDS_API_KEY en Vercel"
+    };
+  }
+
+  const sportKey = ODDS_SPORT_KEYS[type];
+
+  if (!sportKey) {
+    return {
+      available: false,
+      message: "Sport no soportado para odds"
+    };
+  }
+
+  const url =
+    `https://api.the-odds-api.com/v4/sports/${sportKey}/odds` +
+    `?apiKey=${apiKey}` +
+    `&regions=us` +
+    `&markets=spreads,totals` +
+    `&oddsFormat=american`;
+
+  try {
+    const data = await fetchJson(url);
+
+    const game = data.find((g) => {
+      const homeMatchesA = oddsTeamMatches(g.home_team, teamARef);
+      const awayMatchesA = oddsTeamMatches(g.away_team, teamARef);
+      const homeMatchesB = oddsTeamMatches(g.home_team, teamBRef);
+      const awayMatchesB = oddsTeamMatches(g.away_team, teamBRef);
+
+      return (homeMatchesA || awayMatchesA) && (homeMatchesB || awayMatchesB);
+    });
+
+    if (!game) {
+      return {
+        available: false,
+        message: "No se encontraron odds para este matchup"
+      };
+    }
+
+    let spreadLineA = null;
+    let spreadLineB = null;
+    let totalLine = null;
+    let bookmakerUsed = null;
+
+    for (const bookmaker of game.bookmakers || []) {
+      const spreadMarket = bookmaker.markets?.find((m) => m.key === "spreads");
+      const totalMarket = bookmaker.markets?.find((m) => m.key === "totals");
+
+      if (spreadMarket) {
+        for (const outcome of spreadMarket.outcomes || []) {
+          if (oddsTeamMatches(outcome.name, teamARef)) {
+            spreadLineA = Number(outcome.point);
+          }
+
+          if (oddsTeamMatches(outcome.name, teamBRef)) {
+            spreadLineB = Number(outcome.point);
+          }
+        }
+      }
+
+      if (totalMarket) {
+        const over = totalMarket.outcomes?.find(
+          (o) => cleanText(o.name) === "over"
+        );
+
+        if (over) {
+          totalLine = Number(over.point);
+        }
+      }
+
+      if (
+        Number.isFinite(spreadLineA) &&
+        Number.isFinite(spreadLineB) &&
+        Number.isFinite(totalLine)
+      ) {
+        bookmakerUsed = bookmaker.title;
+        break;
+      }
+    }
+
+    return {
+      available: true,
+      homeTeam: game.home_team,
+      awayTeam: game.away_team,
+      commenceTime: game.commence_time,
+      bookmakerUsed,
+      spreadLineA,
+      spreadLineB,
+      totalLine
+    };
+  } catch (error) {
+    return {
+      available: false,
+      message: error.message
+    };
+  }
+}
+
+function buildFootballPicks({
+  teamA,
+  teamB,
+  projectedSpread,
+  projectedTotal,
+  odds
+}) {
+  if (!odds || !odds.available) {
+    return {
+      available: false,
+      message: odds?.message || "Odds no disponibles"
+    };
+  }
+
+  let spreadPick = null;
+
+  const spreadEdgeA = Number.isFinite(odds.spreadLineA)
+    ? projectedSpread + odds.spreadLineA
+    : null;
+
+  const spreadEdgeB = Number.isFinite(odds.spreadLineB)
+    ? -projectedSpread + odds.spreadLineB
+    : null;
+
+  if (Number.isFinite(spreadEdgeA) && Number.isFinite(spreadEdgeB)) {
+    if (spreadEdgeA >= spreadEdgeB) {
+      const edge = round(spreadEdgeA);
+      const confidence = getConfidenceFromEdge(edge);
+
+      spreadPick = {
+        side: teamA,
+        pick: `${teamA} ${odds.spreadLineA > 0 ? "+" : ""}${odds.spreadLineA}`,
+        edge,
+        confidence,
+        isPremium: Math.abs(edge) >= 10 && confidence >= 75
+      };
+    } else {
+      const edge = round(spreadEdgeB);
+      const confidence = getConfidenceFromEdge(edge);
+
+      spreadPick = {
+        side: teamB,
+        pick: `${teamB} ${odds.spreadLineB > 0 ? "+" : ""}${odds.spreadLineB}`,
+        edge,
+        confidence,
+        isPremium: Math.abs(edge) >= 10 && confidence >= 75
+      };
+    }
+  }
+
+  let totalPick = null;
+
+  if (Number.isFinite(odds.totalLine)) {
+    const rawEdge = projectedTotal - odds.totalLine;
+    const edge = round(Math.abs(rawEdge));
+    const confidence = getConfidenceFromEdge(edge);
+
+    totalPick = {
+      pick: rawEdge >= 0 ? `OVER ${odds.totalLine}` : `UNDER ${odds.totalLine}`,
+      edge,
+      rawEdge: round(rawEdge),
+      confidence,
+      isPremium: edge >= 10 && confidence >= 75
+    };
+  }
+
+  return {
+    available: true,
+    spreadPick,
+    totalPick
+  };
+}
+
 module.exports = async function handler(req, res) {
   try {
     const { type = "nfl", teamA, teamB, season } = req.query;
@@ -399,10 +598,25 @@ module.exports = async function handler(req, res) {
     const projectedTeamA = teamAProjection.finalProjection;
     const projectedTeamB = teamBProjection.finalProjection;
 
+    const projectedTotal = round(projectedTeamA + projectedTeamB);
+    const projectedSpread = round(projectedTeamA - projectedTeamB);
+
+    const odds = await getFootballOdds(type, teamARef, teamBRef);
+
+    const picks = buildFootballPicks({
+      teamA,
+      teamB,
+      projectedSpread,
+      projectedTotal,
+      odds
+    });
+
     return res.status(200).json({
       sport: type,
       season: selectedSeason,
       totalSeasonGamesLoaded: allGames.length,
+      odds,
+      picks,
       teamA: {
         name: teamA,
         ref: teamARef,
@@ -421,8 +635,8 @@ module.exports = async function handler(req, res) {
         [teamA]: projectedTeamA,
         [teamB]: projectedTeamB
       },
-      projectedTotal: round(projectedTeamA + projectedTeamB),
-      projectedSpread: round(projectedTeamA - projectedTeamB)
+      projectedTotal,
+      projectedSpread
     });
   } catch (error) {
     console.error("ERROR FOOTBALL DATA:", error);
