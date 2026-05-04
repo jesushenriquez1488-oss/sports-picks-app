@@ -1358,22 +1358,19 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
     const projectedSpread = Number(data.projectedSpread || 0);
 
     const odds = data.odds || {};
-    const picks = data.picks || {};
 
-    let spreadPick = picks.spreadPick;
-    let totalPick = picks.totalPick;
+    // IMPORTANTE:
+    // No usamos picks del backend aquí porque todavía pueden venir con lógica vieja.
+    // Recalculamos spread y total desde la línea real + proyección.
+    let spreadPick = null;
+    let totalPick = null;
 
-    if (!spreadPick) {
-      const awayLine = odds.spreadLineA;
-      const homeLine = odds.spreadLineB;
+    const awayLine = Number(odds.spreadLineA);
+    const homeLine = Number(odds.spreadLineB);
 
-      const awayEdge = Number.isFinite(awayLine)
-        ? projectedSpread + awayLine
-        : 0;
-
-      const homeEdge = Number.isFinite(homeLine)
-        ? -projectedSpread + homeLine
-        : 0;
+    if (Number.isFinite(awayLine) && Number.isFinite(homeLine)) {
+      const awayEdge = projectedSpread + awayLine;
+      const homeEdge = -projectedSpread + homeLine;
 
       let chosenSide = null;
       let chosenEdge = 0;
@@ -1389,9 +1386,7 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
         chosenLine = homeLine;
       }
 
-      if (!chosenSide) {
-        spreadPick = null;
-      } else {
+      if (chosenSide) {
         const confidence = Math.max(
           50,
           Math.min(99, 50 + chosenEdge * 2.5)
@@ -1405,25 +1400,20 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
           isPremium: confidence >= 75 && chosenEdge >= 10
         };
       }
-    } else {
-      spreadPick.edge = Number(Math.abs(Number(spreadPick.edge || 0)).toFixed(1));
-      spreadPick.isPremium = spreadPick.confidence >= 75 && spreadPick.edge >= 10;
     }
 
-    if (!totalPick && Number.isFinite(odds.totalLine)) {
-      const totalEdgeRaw = projectedTotal - odds.totalLine;
+    if (Number.isFinite(Number(odds.totalLine))) {
+      const totalLine = Number(odds.totalLine);
+      const totalEdgeRaw = projectedTotal - totalLine;
       const totalEdge = Math.abs(totalEdgeRaw);
       const confidence = Math.max(50, Math.min(99, 50 + totalEdge * 2.5));
 
       totalPick = {
-        pick: totalEdgeRaw >= 0 ? `OVER ${odds.totalLine}` : `UNDER ${odds.totalLine}`,
+        pick: totalEdgeRaw >= 0 ? `OVER ${totalLine}` : `UNDER ${totalLine}`,
         edge: Number(totalEdge.toFixed(1)),
         confidence: Math.round(confidence),
         isPremium: confidence >= 75 && totalEdge >= 10
       };
-    } else if (totalPick) {
-      totalPick.edge = Number(Math.abs(Number(totalPick.edge || 0)).toFixed(1));
-      totalPick.isPremium = totalPick.confidence >= 75 && totalPick.edge >= 10;
     }
 
     const validPicks = [spreadPick, totalPick].filter(Boolean);
