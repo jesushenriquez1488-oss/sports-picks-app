@@ -1006,6 +1006,10 @@ const text = await res.text();
 
       const useMLBFormula = sport === "baseball_mlb";
       const useSoccerFormula = sport.startsWith("soccer_");
+      const useFootballFormula = [
+  "americanfootball_nfl",
+  "americanfootball_ncaaf"
+].includes(sport);
       gamesDiv.innerHTML += `
         <div class="card">
           <h2>${game.away_team} vs ${game.home_team}</h2>
@@ -1026,7 +1030,10 @@ const text = await res.text();
     ? `<button onclick='analyzeMLB("${escapeText(game.away_team)}","${escapeText(game.home_team)}",${awaySpread},${homeSpread},${index},${JSON.stringify((game.bookmakers?.[0]?.markets.find(m => m.key === "h2h")?.outcomes || [])).replace(/"/g, '&quot;')}, ${total})'>
         Ver predicción MLB
       </button>`
-   
+    : useFootballFormula
+    ? `<button onclick="analyzeFootball('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${index})">
+        Ver predicción ${selectedSportName}
+      </button>`
     : `<button onclick="analyzeOtherLeague('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index})">
         Ver predicción del modelo
       </button>`
@@ -1327,4 +1334,67 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
     resultDiv.innerHTML = `<p>Error MLB: ${error.message}</p>`;
   }
 }
+async function analyzeFootball(awayTeam, homeTeam, index) {
+  const resultDiv = document.getElementById(`result${index}`);
+  resultDiv.innerHTML = `<div class="loading-analysis">Analizando ${selectedSportName}...</div>`;
 
+  try {
+    const type =
+      selectedSport === "americanfootball_nfl" ? "nfl" : "ncaaf";
+
+    const res = await fetch(
+      `/api/football-data?type=${type}&teamA=${encodeURIComponent(
+        awayTeam
+      )}&teamB=${encodeURIComponent(homeTeam)}&season=2024`
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || "Error football");
+    }
+
+    const projA = data.projectedScore[awayTeam] || 0;
+    const projB = data.projectedScore[homeTeam] || 0;
+
+    const totalProj = data.projectedTotal;
+    const spread = data.projectedSpread;
+
+    const edge = Math.abs(spread);
+
+    // 🔥 NUEVA LÓGICA QUE PEDISTE
+    let confidence = 50 + edge * 2.5;
+    confidence = Math.max(50, Math.min(95, confidence));
+
+    const isPremium = edge >= 10;
+
+    resultDiv.innerHTML = `
+      <div class="${isPremium ? 'premium-result' : 'normal-result'}">
+
+        ${isPremium ? '<div class="shine"></div><div class="hot-badge">🔥 PREMIUM NFL</div>' : ''}
+
+        <div class="result-content">
+
+          <p><strong>${awayTeam} vs ${homeTeam}</strong></p>
+
+          <p><strong>Proyección:</strong></p>
+          <p>${awayTeam}: ${projA.toFixed(1)}</p>
+          <p>${homeTeam}: ${projB.toFixed(1)}</p>
+
+          <p><strong>Total proyectado:</strong> ${totalProj.toFixed(1)}</p>
+          <p><strong>Spread modelo:</strong> ${spread.toFixed(1)}</p>
+
+          <br>
+
+          <p><strong>Edge:</strong> ${edge.toFixed(1)}</p>
+          <p><strong>Confianza:</strong> ${confidence.toFixed(0)}%</p>
+          <p><strong>Tipo:</strong> ${isPremium ? "🔥 PREMIUM" : "Normal"}</p>
+
+        </div>
+      </div>
+    `;
+
+  } catch (err) {
+    resultDiv.innerHTML = "Error Football: " + err.message;
+  }
+}
