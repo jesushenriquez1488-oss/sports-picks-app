@@ -521,35 +521,18 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
       return;
     }
 
-    const awayAll = await getRecentGames(awayTeam);
-    const homeAll = await getRecentGames(homeTeam);
-
-    const awayGames = awayAll.slice(0, 5);
-    const homeGames = homeAll.slice(0, 5);
-
-    const [awayInjuries, homeInjuries] = await Promise.all([
-      getInjuryAdjustment(awayTeam),
-      getInjuryAdjustment(homeTeam)
-    ]);
-
     const response = await fetch("/api/analyze-nba", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${sessionData.session.access_token}`
       },
       body: JSON.stringify({
-        userId: sessionData.session.user.id,
         awayTeam,
         homeTeam,
         awaySpread,
         homeSpread,
-        total,
-        awayGames,
-        homeGames,
-        awayAll,
-        homeAll,
-        awayInjuries,
-        homeInjuries
+        total
       })
     });
 
@@ -663,7 +646,6 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
     resultDiv.innerHTML = "Error NBA: " + error.message;
   }
 }
-
 function analyzeOtherLeague(awayTeam, homeTeam, awaySpread, homeSpread, total, index) {
   const resultDiv = document.getElementById(`result${index}`);
   resultDiv.innerHTML = `<div class="loading-analysis">Analizando ${selectedSportName}...</div>`;
