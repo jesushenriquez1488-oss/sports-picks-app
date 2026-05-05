@@ -25,8 +25,7 @@ module.exports = async function handler(req, res) {
     const season = getCurrentNBASportsDataSeason();
 
     if (type === "teams") {
-      const teamsUrl = `https://api.sportsdata.io/v3/nba/scores/json/teams`;
-
+      const teamsUrl = "https://api.sportsdata.io/v3/nba/scores/json/teams";
       const teams = await fetchSportsData(teamsUrl, API_KEY);
 
       const formattedTeams = teams
@@ -39,9 +38,7 @@ module.exports = async function handler(req, res) {
           full_name: `${team.City} ${team.Name}`
         }));
 
-      return res.status(200).json({
-        data: formattedTeams
-      });
+      return res.status(200).json({ data: formattedTeams });
     }
 
     if (type === "games") {
@@ -49,43 +46,85 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: "Falta teamId" });
       }
 
-      const gamesUrl = `https://api.sportsdata.io/v3/nba/scores/json/Games/${season}`;
-
-      const games = await fetchSportsData(gamesUrl, API_KEY);
-
-      const filteredGames = games
-        .filter(game =>
-          Number(game.HomeTeamID) === Number(teamId) ||
-          Number(game.AwayTeamID) === Number(teamId)
+      const [teams, teamStats] = await Promise.all([
+        fetchSportsData("https://api.sportsdata.io/v3/nba/scores/json/teams", API_KEY),
+        fetchSportsData(
+          `https://api.sportsdata.io/v3/nba/stats/json/TeamGameStatsBySeason/${season}`,
+          API_KEY
         )
-        .filter(game =>
-          Number(game.HomeTeamScore || 0) > 0 &&
-          Number(game.AwayTeamScore || 0) > 0
-        )
-        .map(game => ({
-          id: game.GameID,
-          date: game.DateTime || game.Day,
-          status: game.Status,
+      ]);
 
-          home_team_score: Number(game.HomeTeamScore || 0),
-          visitor_team_score: Number(game.AwayTeamScore || 0),
+      const teamMap = {};
+      teams
+        .filter(team => team.Active === true)
+        .forEach(team => {
+          teamMap[team.TeamID] = {
+            id: team.TeamID,
+            abbreviation: team.Key,
+            full_name: `${team.City} ${team.Name}`
+          };
+        });
 
-          home_team: {
-            id: game.HomeTeamID,
-            abbreviation: game.HomeTeam,
-            full_name: game.HomeTeamName || game.HomeTeam
-          },
+      const gamesById = {};
 
-          visitor_team: {
-            id: game.AwayTeamID,
-            abbreviation: game.AwayTeam,
-            full_name: game.AwayTeamName || game.AwayTeam
-          }
-        }));
+      teamStats.forEach(row => {
+        const gameId = row.GameID;
+        if (!gameId) return;
 
-      return res.status(200).json({
-        data: filteredGames
+        const points = getPoints(row);
+        if (!Number.isFinite(points) || points <= 0) return;
+
+        if (!gamesById[gameId]) {
+          gamesById[gameId] = [];
+        }
+
+        gamesById[gameId].push(row);
       });
+
+      const games = Object.values(gamesById)
+        .filter(rows => rows.length >= 2)
+        .map(rows => {
+          const teamA = rows[0];
+          const teamB = rows[1];
+
+          const homeRow = isHomeTeam(teamA) ? teamA : teamB;
+          const awayRow = isHomeTeam(teamA) ? teamB : teamA;
+
+          const homeTeamInfo = teamMap[homeRow.TeamID] || {
+            id: homeRow.TeamID,
+            abbreviation: homeRow.Team,
+            full_name: homeRow.Team
+          };
+
+          const awayTeamInfo = teamMap[awayRow.TeamID] || {
+            id: awayRow.TeamID,
+            abbreviation: awayRow.Team,
+            full_name: awayRow.Team
+          };
+
+          return {
+            id: homeRow.GameID,
+            date: homeRow.Day || homeRow.DateTime || homeRow.Date,
+            status: "Final",
+
+            home_team_score: getPoints(homeRow),
+            visitor_team_score: getPoints(awayRow),
+
+            home_team: homeTeamInfo,
+            visitor_team: awayTeamInfo
+          };
+        })
+        .filter(game =>
+          Number(game.home_team.id) === Number(teamId) ||
+          Number(game.visitor_team.id) === Number(teamId)
+        )
+        .filter(game =>
+          Number(game.home_team_score) > 0 &&
+          Number(game.visitor_team_score) > 0
+        )
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      return res.status(200).json({ data: games });
     }
 
     return res.status(400).json({
@@ -110,6 +149,26 @@ function getCurrentNBASportsDataSeason() {
   if (month >= 10) return year + 1;
 
   return year;
+}
+
+function getPoints(row) {
+  return Number(
+    row.Points ??
+    row.Score ??
+    row.TeamScore ??
+    row.TotalPoints ??
+    0
+  );
+}
+
+function isHomeTeam(row) {
+  const value = String(row.HomeOrAway || row.HomeAway || "").toLowerCase();
+
+  return (
+    value === "home" ||
+    value === "h" ||
+    row.IsHome === true
+  );
 }
 
 async function fetchSportsData(url, apiKey) {
