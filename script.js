@@ -1480,3 +1480,21 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
     resultDiv.innerHTML = "Error Football: " + err.message;
   }
 }
+async function loadStats() {
+  try {
+    const res = await fetch("/api/analyze-nba?mode=stats");
+    const data = await res.json();
+
+    if (data.premiumRate) {
+      document.getElementById("premiumRate").innerText = `${data.premiumRate}%`;
+    }
+
+    if (data.normalRate) {
+      document.getElementById("normalRate").innerText = `${data.normalRate}%`;
+    }
+  } catch (error) {
+    console.log("Error cargando stats:", error);
+  }
+}
+
+window.addEventListener("load", loadStats);
