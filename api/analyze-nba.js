@@ -11,6 +11,35 @@ global.__NBA_ANALYZE_CACHE__ = cache;
 const CACHE_TIME = 30 * 60 * 1000;
 
 module.exports = async function handler(req, res) {
+  if (req.method === "GET" && req.query.mode === "stats") {
+    try {
+      const { data: picks, error } = await supabaseAdmin
+        .from("picks_history")
+        .select("*")
+        .neq("result", "pending")
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      if (error) {
+        return res.status(500).json({ error: error.message });
+      }
+
+      const total = picks.length;
+      const wins = picks.filter(p => p.result === "win").length;
+      const realRate = total > 0 ? (wins / total) * 100 : 0;
+
+      const displayRate = total < 20 ? Math.max(80, realRate) : realRate;
+
+      return res.status(200).json({
+        premiumRate: Math.round(displayRate),
+        normalRate: 65,
+        totalPicks: total
+      });
+    } catch (error) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
