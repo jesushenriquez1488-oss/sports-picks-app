@@ -57,23 +57,47 @@ module.exports = async function handler(req, res) {
         .select("*")
         .neq("result", "pending")
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(100);
 
       if (error) {
         return res.status(500).json({ error: error.message });
       }
 
-      const total = picks.length;
-      const wins = picks.filter(p => p.result === "win").length;
-      const realRate = total > 0 ? (wins / total) * 100 : 0;
+      const last20 = picks.slice(0, 20);
 
-      const displayRate = total < 20 ? Math.max(80, realRate) : realRate;
+      const calcRate = (arr) => {
+        if (!arr.length) return null;
+        const wins = arr.filter(p => p.result === "win").length;
+        return Math.round((wins / arr.length) * 100);
+      };
+
+      const globalRateRaw = calcRate(last20);
+
+      const sports = ["nba", "mlb", "nfl", "ncaaf"];
+      const sportRates = {};
+
+      sports.forEach(sport => {
+        const sportPicks = last20.filter(p => p.sport === sport);
+        const rate = calcRate(sportPicks);
+
+        if (rate !== null && sportPicks.length >= 3) {
+          sportRates[sport] = rate;
+        }
+      });
+
+      const displayGlobal =
+        last20.length < 20
+          ? Math.max(80, globalRateRaw || 0)
+          : globalRateRaw;
 
       return res.status(200).json({
-        premiumRate: Math.round(displayRate),
+        globalRate: Math.round(displayGlobal),
+        premiumRate: Math.round(displayGlobal),
         normalRate: 65,
-        totalPicks: total
+        totalPicks: last20.length,
+        sportRates
       });
+
     } catch (error) {
       return res.status(500).json({ error: error.message });
     }
