@@ -85,6 +85,7 @@ module.exports = async function handler(req, res) {
       const games = await fetchSportsData(gamesUrl, API_KEY);
 
       const filteredGames = games
+        .filter(game => game.SeasonType === 2)
         .filter(game =>
           Number(game.HomeTeamID) === Number(teamId) ||
           Number(game.AwayTeamID) === Number(teamId)
