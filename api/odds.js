@@ -1,3 +1,8 @@
+const oddsCache = global.__ODDS_CACHE__ || {};
+global.__ODDS_CACHE__ = oddsCache;
+
+const ODDS_CACHE_TIME = 10 * 60 * 1000; // 10 minutos
+
 module.exports = async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -12,6 +17,15 @@ module.exports = async function handler(req, res) {
 
     if (!process.env.ODDS_API_KEY) {
       return res.status(500).json({ error: "ODDS_API_KEY no configurada" });
+    }
+
+    const cacheKey = `odds-${sport}`;
+
+    if (
+      oddsCache[cacheKey] &&
+      Date.now() - oddsCache[cacheKey].time < ODDS_CACHE_TIME
+    ) {
+      return res.status(200).json(oddsCache[cacheKey].data);
     }
 
     const isSoccer = sport.startsWith("soccer_");
@@ -97,9 +111,16 @@ module.exports = async function handler(req, res) {
         return true;
       });
 
+    oddsCache[cacheKey] = {
+      data: cleanGames,
+      time: Date.now()
+    };
+
     return res.status(200).json(cleanGames);
 
   } catch (error) {
     return res.status(500).json({ error: error.message });
+  }
+};
   }
 };
