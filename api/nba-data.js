@@ -22,9 +22,6 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: "Falta type" });
     }
 
-    // =========================
-    // TEST ENDPOINTS (DEBUG)
-    // =========================
     if (type === "test") {
       const today = new Date().toISOString().split("T")[0];
       const season = getCurrentNBASportsDataSeason();
@@ -85,7 +82,11 @@ module.exports = async function handler(req, res) {
       const games = await fetchSportsData(gamesUrl, API_KEY);
 
       const filteredGames = games
-        .filter(game => game.SeasonType === 2)
+        .filter(game => Number(game.SeasonType) === 2)
+        .filter(game =>
+          String(game.Status || "").toLowerCase().includes("final") ||
+          game.IsClosed === true
+        )
         .filter(game =>
           Number(game.HomeTeamID) === Number(teamId) ||
           Number(game.AwayTeamID) === Number(teamId)
@@ -113,7 +114,8 @@ module.exports = async function handler(req, res) {
             abbreviation: game.AwayTeam,
             full_name: game.AwayTeamName || game.AwayTeam
           }
-        }));
+        }))
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
 
       return res.status(200).json({ data: filteredGames });
     }
@@ -133,12 +135,7 @@ module.exports = async function handler(req, res) {
 };
 
 function getCurrentNBASportsDataSeason() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
-
-  if (month >= 10) return year + 1;
-  return year;
+  return 2025;
 }
 
 async function fetchSportsData(url, apiKey) {
