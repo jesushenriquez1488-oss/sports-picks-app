@@ -574,7 +574,7 @@ function sanitizePicksForPublic(picks) {
       edge: pick.edge,
       locked: pick.isPremium,
       type: pick.isPremium ? "premium" : pick.type,
-      pick: pick.isPremium ? null : pick.pick,
+     pick: isPremiumUser ? pick.pick : (pick.isPremium ? null : pick.pick),
       side: pick.isPremium ? null : pick.side || null
     };
   };
