@@ -1,3 +1,10 @@
+const { createClient } = require("@supabase/supabase-js");
+
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
 const MAX_GAMES_USED = 7;
 
 const SPORT_PATHS = {
@@ -561,21 +568,23 @@ function buildFootballPicks({
   };
 }
 
-function sanitizePicksForPublic(picks) {
+function sanitizePicksForPublic(picks, isPremiumUser) {
   if (!picks || !picks.available) return picks;
 
   const sanitizePick = (pick) => {
     if (!pick) return null;
+
+    const shouldHide = pick.isPremium && !isPremiumUser;
 
     return {
       available: true,
       isPremium: pick.isPremium,
       confidence: pick.confidence,
       edge: pick.edge,
-      locked: pick.isPremium,
+      locked: shouldHide,
       type: pick.isPremium ? "premium" : pick.type,
-    pick: pick.isPremium ? null : pick.pick,
-      side: pick.isPremium ? null : pick.side || null
+      pick: shouldHide ? null : pick.pick,
+      side: shouldHide ? null : pick.side || null
     };
   };
 
@@ -601,6 +610,29 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({
         error: "type inválido. Usa nfl o ncaaf"
       });
+    }
+
+    let isPremiumUser = false;
+
+    try {
+      const authHeader = req.headers.authorization || "";
+      const token = authHeader.replace("Bearer ", "");
+
+      if (token) {
+        const { data: authData } = await supabaseAdmin.auth.getUser(token);
+
+        if (authData?.user) {
+          const { data: profile } = await supabaseAdmin
+            .from("users")
+            .select("is_premium")
+            .eq("id", authData.user.id)
+            .single();
+
+          isPremiumUser = profile?.is_premium === true;
+        }
+      }
+    } catch (error) {
+      console.log("No se pudo validar premium football:", error.message);
     }
 
     const selectedSeason = Number(season) || getDefaultSeason();
@@ -635,10 +667,11 @@ module.exports = async function handler(req, res) {
       odds
     });
 
-    const picks = sanitizePicksForPublic(rawPicks);
+    const picks = sanitizePicksForPublic(rawPicks, isPremiumUser);
 
     return res.status(200).json({
       sport: type,
+      isPremiumUser,
       odds,
       picks,
       projectedScore: {
