@@ -1,20 +1,17 @@
 const cache = global.__NBA_DATA_CACHE__ || {};
 global.__NBA_DATA_CACHE__ = cache;
 
-const CACHE_TIME = 30 * 60 * 1000;
-const TIMEOUT_MS = 8000;
+const CACHE_TIME = 30 * 60 * 1000; // 30 min
+const TIMEOUT_MS = 10000;
+const SEASON = 2025;
 
 module.exports = async function handler(req, res) {
   try {
     const { type, teamId } = req.query;
 
-    const API_KEY =
-      process.env.SPORTSDATAIO_KEY ||
-      process.env.SPORTSDATA_API_KEY;
-
-    if (!API_KEY) {
+    if (!process.env.BALLDONTLIE_API_KEY) {
       return res.status(500).json({
-        error: "SPORTSDATAIO_KEY no configurada en Vercel"
+        error: "BALLDONTLIE_API_KEY no configurada"
       });
     }
 
@@ -22,102 +19,39 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: "Falta type" });
     }
 
-    if (type === "test") {
-      const today = new Date().toISOString().split("T")[0];
-      const season = getCurrentNBASportsDataSeason();
-
-      const endpoints = {
-        gamesBySeason: `https://api.sportsdata.io/v3/nba/scores/json/Games/${season}`,
-        gamesByDate: `https://api.sportsdata.io/v3/nba/scores/json/GamesByDate/${today}`,
-        boxScoreByDate: `https://api.sportsdata.io/v3/nba/stats/json/BoxScoresByDate/${today}`,
-        teamStats: `https://api.sportsdata.io/v3/nba/stats/json/TeamGameStatsBySeason/${season}`
-      };
-
-      const results = {};
-
-      for (const key in endpoints) {
-        try {
-          const data = await fetchSportsData(endpoints[key], API_KEY);
-
-          results[key] = {
-            ok: true,
-            sample: Array.isArray(data) ? data.slice(0, 2) : data
-          };
-        } catch (err) {
-          results[key] = {
-            ok: false,
-            error: err.message
-          };
-        }
-      }
-
-      return res.status(200).json(results);
-    }
-
-    const season = getCurrentNBASportsDataSeason();
-
+    // =========================
+    // TEAMS
+    // =========================
     if (type === "teams") {
-      const teamsUrl = "https://api.sportsdata.io/v3/nba/scores/json/teams";
-      const teams = await fetchSportsData(teamsUrl, API_KEY);
+      const teams = await getTeams();
 
-      const formattedTeams = teams
-        .filter(team => team.Active === true)
-        .map(team => ({
-          id: team.TeamID,
-          abbreviation: team.Key,
-          city: team.City,
-          name: team.Name,
-          full_name: `${team.City} ${team.Name}`
-        }));
-
-      return res.status(200).json({ data: formattedTeams });
+      return res.status(200).json({ data: teams });
     }
 
+    // =========================
+    // GAMES (desde cache global)
+    // =========================
     if (type === "games") {
       if (!teamId) {
         return res.status(400).json({ error: "Falta teamId" });
       }
 
-      const gamesUrl = `https://api.sportsdata.io/v3/nba/scores/json/Games/${season}`;
-      const games = await fetchSportsData(gamesUrl, API_KEY);
+      const allGames = await getAllSeasonGames();
 
-      const filteredGames = games
-        .filter(game => Number(game.SeasonType) === 2)
+      const filteredGames = allGames
         .filter(game =>
-          String(game.Status || "").toLowerCase().includes("final") ||
-          game.IsClosed === true
+          Number(game.home_team?.id) === Number(teamId) ||
+          Number(game.visitor_team?.id) === Number(teamId)
         )
         .filter(game =>
-          Number(game.HomeTeamID) === Number(teamId) ||
-          Number(game.AwayTeamID) === Number(teamId)
+          Number(game.home_team_score || 0) > 0 &&
+          Number(game.visitor_team_score || 0) > 0
         )
-        .filter(game =>
-          Number(game.HomeTeamScore || 0) > 0 &&
-          Number(game.AwayTeamScore || 0) > 0
-        )
-        .map(game => ({
-          id: game.GameID,
-          date: game.DateTime || game.Day,
-          status: game.Status,
-
-          home_team_score: Number(game.HomeTeamScore || 0),
-          visitor_team_score: Number(game.AwayTeamScore || 0),
-
-          home_team: {
-            id: game.HomeTeamID,
-            abbreviation: game.HomeTeam,
-            full_name: game.HomeTeamName || game.HomeTeam
-          },
-
-          visitor_team: {
-            id: game.AwayTeamID,
-            abbreviation: game.AwayTeam,
-            full_name: game.AwayTeamName || game.AwayTeam
-          }
-        }))
         .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-      return res.status(200).json({ data: filteredGames });
+      return res.status(200).json({
+        data: filteredGames
+      });
     }
 
     return res.status(400).json({
@@ -134,24 +68,96 @@ module.exports = async function handler(req, res) {
   }
 };
 
-function getCurrentNBASportsDataSeason() {
-  return 2025;
-}
+// =========================
+// TEAMS
+// =========================
+async function getTeams() {
+  const key = "teams";
 
-async function fetchSportsData(url, apiKey) {
-  const cached = cache[url];
-
-  if (cached && Date.now() - cached.time < CACHE_TIME) {
-    return cached.data;
+  if (isCacheValid(key)) {
+    return cache[key].data;
   }
 
+  const data = await fetchBalldontlie(
+    "https://api.balldontlie.io/v1/teams"
+  );
+
+  const teams = (data.data || []).map(team => ({
+    id: team.id,
+    abbreviation: team.abbreviation,
+    city: team.city,
+    name: team.name,
+    full_name: team.full_name
+  }));
+
+  cache[key] = {
+    data: teams,
+    time: Date.now()
+  };
+
+  return teams;
+}
+
+// =========================
+// ALL GAMES (UNA SOLA CARGA)
+// =========================
+async function getAllSeasonGames() {
+  const key = `games-${SEASON}`;
+
+  if (isCacheValid(key)) {
+    return cache[key].data;
+  }
+
+  let allGames = [];
+  let cursor = null;
+  let pageCount = 0;
+
+  do {
+    let url = `https://api.balldontlie.io/v1/games?seasons[]=${SEASON}&per_page=100`;
+
+    if (cursor) {
+      url += `&cursor=${cursor}`;
+    }
+
+    const data = await fetchBalldontlie(url);
+
+    const games = data.data || [];
+    allGames = allGames.concat(games);
+
+    cursor = data.meta?.next_cursor || null;
+    pageCount++;
+
+    if (pageCount > 20) break;
+
+  } while (cursor);
+
+  cache[key] = {
+    data: allGames,
+    time: Date.now()
+  };
+
+  return allGames;
+}
+
+// =========================
+// HELPERS
+// =========================
+function isCacheValid(key) {
+  return (
+    cache[key] &&
+    cache[key].data &&
+    Date.now() - cache[key].time < CACHE_TIME
+  );
+}
+
+async function fetchBalldontlie(url) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
     const response = await fetch(url, {
       headers: {
-        "Ocp-Apim-Subscription-Key": apiKey
+        Authorization: process.env.BALLDONTLIE_API_KEY
       },
       signal: controller.signal
     });
@@ -159,26 +165,14 @@ async function fetchSportsData(url, apiKey) {
     const text = await response.text();
 
     if (!response.ok) {
-      throw new Error(`SportsDataIO error ${response.status}: ${text}`);
+      throw new Error(`BallDontLie error ${response.status}: ${text}`);
     }
 
-    const data = JSON.parse(text);
-
-    cache[url] = {
-      data,
-      time: Date.now()
-    };
-
-    return data;
+    return JSON.parse(text);
 
   } catch (error) {
-    if (cached?.data) {
-      console.warn("Usando cache viejo NBA por error API:", error.message);
-      return cached.data;
-    }
-
     if (error.name === "AbortError") {
-      throw new Error("SportsDataIO tardó demasiado y fue cancelado");
+      throw new Error("Timeout BallDontLie");
     }
 
     throw error;
