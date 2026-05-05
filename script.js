@@ -1498,3 +1498,22 @@ async function loadStats() {
 }
 
 window.addEventListener("load", loadStats);
+async function isAdmin() {
+  const { data } = await supabaseClient.auth.getUser();
+  return data?.user?.email === "jesushenriquez1488@gmail.com";
+}
+
+async function updatePickResult(pickId, result) {
+  const { data: session } = await supabaseClient.auth.getSession();
+
+  await fetch("/api/analyze-nba?mode=update-result", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${session.session.access_token}`
+    },
+    body: JSON.stringify({ pickId, result })
+  });
+
+  alert("Resultado actualizado");
+}
