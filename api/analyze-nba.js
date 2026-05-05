@@ -143,6 +143,16 @@ module.exports = async function handler(req, res) {
     const isPremiumPick = verdict === "Premium";
     const locked = isPremiumPick && !isPremiumUser;
 
+    if (!locked) {
+      await supabaseAdmin.from("picks_history").insert({
+        game_id: `${awayTeam}-${homeTeam}`,
+        sport: "nba",
+        pick,
+        confidence,
+        result: "pending"
+      });
+    }
+
     return res.status(200).json({
       locked,
       isPremiumPick,
