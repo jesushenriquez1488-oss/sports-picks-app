@@ -9,7 +9,7 @@ const cache = global.__NBA_ANALYZE_CACHE__ || {};
 global.__NBA_ANALYZE_CACHE__ = cache;
 
 const CACHE_TIME = 30 * 60 * 1000;
-
+const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
 module.exports = async function handler(req, res) {
   if (req.method === "GET" && req.query.mode === "stats") {
     try {
