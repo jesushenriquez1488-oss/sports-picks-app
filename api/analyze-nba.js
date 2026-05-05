@@ -19,9 +19,7 @@ module.exports = async function handler(req, res) {
     const authHeader = req.headers.authorization || "";
     const token = authHeader.replace("Bearer ", "");
 
-    if (!token) {
-      return res.status(401).json({ error: "No autorizado" });
-    }
+    if (!token) return res.status(401).json({ error: "No autorizado" });
 
     const { data: authData, error: authError } =
       await supabaseAdmin.auth.getUser(token);
@@ -31,7 +29,6 @@ module.exports = async function handler(req, res) {
     }
 
     const user = authData.user;
-
     const { awayTeam, homeTeam, awaySpread, homeSpread, total } = req.body || {};
 
     if (!awayTeam || !homeTeam) {
@@ -45,6 +42,28 @@ module.exports = async function handler(req, res) {
       .single();
 
     const isPremiumUser = profile?.is_premium === true;
+
+    const gameId = `${awayTeam}-${homeTeam}`;
+
+    const { data: existing } = await supabaseAdmin
+      .from("daily_picks")
+      .select("analysis_json")
+      .eq("sport", "nba")
+      .eq("game_id", gameId)
+      .maybeSingle();
+
+    if (existing?.analysis_json) {
+      const cachedAnalysis = existing.analysis_json;
+      const locked = cachedAnalysis.isPremiumPick && !isPremiumUser;
+
+      return res.status(200).json({
+        locked,
+        isPremiumPick: cachedAnalysis.isPremiumPick,
+        noPlay: cachedAnalysis.noPlay,
+        public: cachedAnalysis.public,
+        premium: locked ? null : cachedAnalysis.premium
+      });
+    }
 
     const origin = getOrigin(req);
 
@@ -100,10 +119,12 @@ module.exports = async function handler(req, res) {
     const homeSpreadEdge = -projectedMargin + Number(homeSpread || 0);
 
     const spreadEdge = Math.max(awaySpreadEdge, homeSpreadEdge);
-    const totalEdge = Number(total || 0) > 0 ? Math.abs(totalProj - Number(total)) : 0;
+    const totalEdge =
+      Number(total || 0) > 0 ? Math.abs(totalProj - Number(total)) : 0;
 
     const spreadConfidence = getConfidence(spreadEdge);
-    const totalConfidence = Number(total || 0) > 0 ? getConfidence(totalEdge) : 0;
+    const totalConfidence =
+      Number(total || 0) > 0 ? getConfidence(totalEdge) : 0;
 
     let pick = "";
     let confidence = 0;
@@ -124,7 +145,7 @@ module.exports = async function handler(req, res) {
     }
 
     if (confidence < 60) {
-      return res.status(200).json({
+      const noPlayData = {
         locked: false,
         isPremiumPick: false,
         noPlay: true,
@@ -134,27 +155,27 @@ module.exports = async function handler(req, res) {
           reason: "Baja probabilidad según el modelo."
         },
         premium: null
+      };
+
+      await supabaseAdmin.from("daily_picks").upsert({
+        sport: "nba",
+        game_id: gameId,
+        away_team: awayTeam,
+        home_team: homeTeam,
+        analysis_json: noPlayData,
+        updated_at: new Date().toISOString()
       });
+
+      return res.status(200).json(noPlayData);
     }
 
     const verdict = confidence >= 74 ? "Premium" : "Moderado";
     const risk = confidence >= 74 ? "Bajo" : "Medio";
-
     const isPremiumPick = verdict === "Premium";
     const locked = isPremiumPick && !isPremiumUser;
 
-    if (!locked) {
-      await supabaseAdmin.from("picks_history").insert({
-        game_id: `${awayTeam}-${homeTeam}`,
-        sport: "nba",
-        pick,
-        confidence,
-        result: "pending"
-      });
-    }
-
-    return res.status(200).json({
-      locked,
+    const fullAnalysis = {
+      locked: false,
       isPremiumPick,
       noPlay: false,
       public: {
@@ -170,28 +191,52 @@ module.exports = async function handler(req, res) {
           "Edge contra spread/total"
         ]
       },
-      premium: locked
-        ? null
-        : {
-            pick,
-            confidence,
-            risk,
-            verdict,
-            mainEdge,
-            mainEdgeConfidence: confidence,
-            spreadDiff: projectedMargin,
-            projA,
-            projB,
-            totalProj,
-            modelAnalysis: getModelAnalysis(verdict),
-            awayRestNote: awayRest.note,
-            homeRestNote: homeRest.note,
-            awayInjuryNote: awayInjuries.note || "",
-            homeInjuryNote: homeInjuries.note || "",
-            awayInjuryPublic: getInjuryPublicMessage(awayTeam, awayInjuries),
-            homeInjuryPublic: getInjuryPublicMessage(homeTeam, homeInjuries)
-          }
+      premium: {
+        pick,
+        confidence,
+        risk,
+        verdict,
+        mainEdge,
+        mainEdgeConfidence: confidence,
+        spreadDiff: projectedMargin,
+        projA,
+        projB,
+        totalProj,
+        modelAnalysis: getModelAnalysis(verdict),
+        awayRestNote: awayRest.note,
+        homeRestNote: homeRest.note,
+        awayInjuryNote: awayInjuries.note || "",
+        homeInjuryNote: homeInjuries.note || "",
+        awayInjuryPublic: getInjuryPublicMessage(awayTeam, awayInjuries),
+        homeInjuryPublic: getInjuryPublicMessage(homeTeam, homeInjuries)
+      }
+    };
+
+    await supabaseAdmin.from("daily_picks").upsert({
+      sport: "nba",
+      game_id: gameId,
+      away_team: awayTeam,
+      home_team: homeTeam,
+      analysis_json: fullAnalysis,
+      updated_at: new Date().toISOString()
     });
+
+    await supabaseAdmin.from("picks_history").insert({
+      game_id: gameId,
+      sport: "nba",
+      pick,
+      confidence,
+      result: "pending"
+    });
+
+    return res.status(200).json({
+      locked,
+      isPremiumPick,
+      noPlay: false,
+      public: fullAnalysis.public,
+      premium: locked ? null : fullAnalysis.premium
+    });
+
   } catch (error) {
     console.error("ANALYZE NBA ERROR:", error);
     return res.status(500).json({ error: error.message });
@@ -214,9 +259,7 @@ async function fetchJson(url) {
   const res = await fetch(url);
   const text = await res.text();
 
-  if (!res.ok) {
-    throw new Error(text);
-  }
+  if (!res.ok) throw new Error(text);
 
   const data = JSON.parse(text);
 
