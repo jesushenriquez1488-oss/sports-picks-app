@@ -1,7 +1,7 @@
 const oddsCache = global.__ODDS_CACHE__ || {};
 global.__ODDS_CACHE__ = oddsCache;
 
-const ODDS_CACHE_TIME = 10 * 60 * 1000; // 10 minutos
+const ODDS_CACHE_TIME = 10 * 60 * 1000;
 
 module.exports = async function handler(req, res) {
   if (req.method !== "GET") {
@@ -29,6 +29,7 @@ module.exports = async function handler(req, res) {
     }
 
     const isSoccer = sport.startsWith("soccer_");
+
     const isFootball =
       sport === "americanfootball_nfl" ||
       sport === "americanfootball_ncaaf";
@@ -40,7 +41,7 @@ module.exports = async function handler(req, res) {
     const regions = isFootball ? "us" : "us,eu";
 
     const url =
-      `https://api.the-odds-api.com/v4/sports/${sport}/odds/` +
+      `https://api.the-odds-api.com/v4/sports/${encodeURIComponent(sport)}/odds/` +
       `?apiKey=${process.env.ODDS_API_KEY}` +
       `&regions=${regions}` +
       `&markets=${markets}` +
@@ -60,56 +61,19 @@ module.exports = async function handler(req, res) {
 
     const games = JSON.parse(text);
 
-    const cleanGames = games
-      .map(game => {
-        const bookmakers = game.bookmakers?.map(book => {
-          const markets = book.markets?.map(market => {
-            if (isSoccer && market.key === "totals") {
-              return {
-                ...market,
-                outcomes: market.outcomes?.filter(outcome => {
-                  return Number(outcome.point) >= 2.5;
-                })
-              };
-            }
+    const cleanGames = games.filter(game => {
+      if (!game.bookmakers || game.bookmakers.length === 0) return false;
 
-            return market;
-          }).filter(market => {
-            if (isSoccer && market.key === "totals") {
-              return market.outcomes && market.outcomes.length > 0;
-            }
+      if (isFootball) {
+        return game.bookmakers.some(book =>
+          book.markets?.some(market =>
+            market.key === "spreads" || market.key === "totals"
+          )
+        );
+      }
 
-            return true;
-          });
-
-          return {
-            ...book,
-            markets
-          };
-        }).filter(book => {
-          return book.markets && book.markets.length > 0;
-        });
-
-        return {
-          ...game,
-          bookmakers
-        };
-      })
-      .filter(game => {
-        if (!game.bookmakers || game.bookmakers.length === 0) return false;
-
-        if (isFootball) {
-          const hasSpreadOrTotal = game.bookmakers.some(book =>
-            book.markets?.some(market =>
-              market.key === "spreads" || market.key === "totals"
-            )
-          );
-
-          return hasSpreadOrTotal;
-        }
-
-        return true;
-      });
+      return true;
+    });
 
     oddsCache[cacheKey] = {
       data: cleanGames,
@@ -117,9 +81,11 @@ module.exports = async function handler(req, res) {
     };
 
     return res.status(200).json(cleanGames);
-
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    console.error("ODDS ERROR:", error);
+    return res.status(500).json({
+      error: "Error interno cargando odds",
+      details: error.message
+    });
   }
 };
-  
