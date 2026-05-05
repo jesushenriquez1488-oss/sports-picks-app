@@ -521,6 +521,9 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
       return;
     }
 
+    const isAdminUser =
+      sessionData.session.user.email === "jesushenriquez1488@gmail.com";
+
     const response = await fetch("/api/analyze-nba", {
       method: "POST",
       headers: {
@@ -634,6 +637,19 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
                 <button class="unlock-btn" onclick="goPremiumMonthly()">
                   Acceso Premium mensual $${MONTHLY_PRICE}/mes
                 </button>
+              `
+              : ""
+          }
+
+          ${
+            isAdminUser && data.pickId
+              ? `
+                <div style="margin-top:15px; padding:12px; border:1px solid #d4af37; border-radius:10px;">
+                  <p><strong>Panel Admin</strong></p>
+                  <button onclick="updatePickResult('${data.pickId}', 'win')">✅ Win</button>
+                  <button onclick="updatePickResult('${data.pickId}', 'loss')">❌ Loss</button>
+                  <button onclick="updatePickResult('${data.pickId}', 'pending')">⏳ Pending</button>
+                </div>
               `
               : ""
           }
