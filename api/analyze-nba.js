@@ -289,18 +289,27 @@ module.exports = async function handler(req, res) {
       updated_at: new Date().toISOString()
     });
 
-    await supabaseAdmin.from("picks_history").insert({
-      game_id: gameId,
-      sport: "nba",
-      pick,
-      confidence,
-      result: "pending"
-    });
+    const { data: insertedPick, error: insertError } = await supabaseAdmin
+      .from("picks_history")
+      .insert({
+        game_id: gameId,
+        sport: "nba",
+        pick,
+        confidence,
+        result: "pending"
+      })
+      .select("id")
+      .single();
+
+    if (insertError) {
+      console.error("Error insertando pick:", insertError.message);
+    }
 
     return res.status(200).json({
       locked,
       isPremiumPick,
       noPlay: false,
+      pickId: insertedPick?.id || null,
       public: fullAnalysis.public,
       premium: locked ? null : fullAnalysis.premium
     });
