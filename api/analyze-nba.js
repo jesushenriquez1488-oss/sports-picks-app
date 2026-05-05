@@ -10,7 +10,46 @@ global.__NBA_ANALYZE_CACHE__ = cache;
 
 const CACHE_TIME = 30 * 60 * 1000;
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
+
 module.exports = async function handler(req, res) {
+  if (req.method === "POST" && req.query.mode === "update-result") {
+    try {
+      const authHeader = req.headers.authorization || "";
+      const token = authHeader.replace("Bearer ", "");
+
+      if (!token) return res.status(401).json({ error: "No autorizado" });
+
+      const { data: authData, error: authError } =
+        await supabaseAdmin.auth.getUser(token);
+
+      if (authError || !authData?.user) {
+        return res.status(401).json({ error: "Sesión inválida" });
+      }
+
+      if (authData.user.email !== ADMIN_EMAIL) {
+        return res.status(403).json({ error: "Solo admin puede actualizar resultados" });
+      }
+
+      const { pickId, result } = req.body || {};
+
+      if (!pickId || !["win", "loss", "pending"].includes(result)) {
+        return res.status(400).json({ error: "Datos inválidos" });
+      }
+
+      const { error } = await supabaseAdmin
+        .from("picks_history")
+        .update({ result })
+        .eq("id", pickId);
+
+      if (error) return res.status(500).json({ error: error.message });
+
+      return res.status(200).json({ ok: true });
+
+    } catch (error) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
   if (req.method === "GET" && req.query.mode === "stats") {
     try {
       const { data: picks, error } = await supabaseAdmin
