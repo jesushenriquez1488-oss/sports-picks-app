@@ -1339,9 +1339,21 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
   try {
     const type = selectedSport === "americanfootball_nfl" ? "nfl" : "ncaaf";
 
-    const res = await fetch(
-      `/api/football-data?type=${type}&teamA=${encodeURIComponent(awayTeam)}&teamB=${encodeURIComponent(homeTeam)}`
-    );
+   const { data: sessionData } = await supabaseClient.auth.getSession();
+
+if (!sessionData.session) {
+  alert("Debes iniciar sesión para analizar.");
+  return;
+}
+
+const res = await fetch(
+  `/api/football-data?type=${type}&teamA=${encodeURIComponent(awayTeam)}&teamB=${encodeURIComponent(homeTeam)}`,
+  {
+    headers: {
+      "Authorization": `Bearer ${sessionData.session.access_token}`
+    }
+  }
+);
 
     const data = await res.json();
 
