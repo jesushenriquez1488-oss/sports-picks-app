@@ -29,13 +29,15 @@ module.exports = async function handler(req, res) {
 
       const teams = await fetchSportsData(teamsUrl, API_KEY);
 
-      const formattedTeams = teams.map(team => ({
-        id: team.TeamID,
-        abbreviation: team.Key,
-        city: team.City,
-        name: team.Name,
-        full_name: `${team.City} ${team.Name}`
-      }));
+      const formattedTeams = teams
+        .filter(team => team.Active === true)
+        .map(team => ({
+          id: team.TeamID,
+          abbreviation: team.Key,
+          city: team.City,
+          name: team.Name,
+          full_name: `${team.City} ${team.Name}`
+        }));
 
       return res.status(200).json({
         data: formattedTeams
@@ -105,9 +107,6 @@ function getCurrentNBASportsDataSeason() {
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
 
-  // NBA season format en SportsDataIO:
-  // Oct-Dic pertenece al season del próximo año.
-  // Ejemplo: Oct 2025 => season 2026
   if (month >= 10) return year + 1;
 
   return year;
