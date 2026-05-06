@@ -12,6 +12,13 @@ const CACHE_TIME = 30 * 60 * 1000;
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
 
 module.exports = async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+if (req.method === "OPTIONS") {
+  return res.status(200).end();
+}
   if (req.method === "POST" && req.query.mode === "update-result") {
     try {
       const authHeader = req.headers.authorization || "";
