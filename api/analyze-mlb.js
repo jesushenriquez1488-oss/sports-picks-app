@@ -36,8 +36,7 @@ if (req.method === "OPTIONS") {
 
     const isPremiumUser = profile?.is_premium === true;
 
-    const origin = req.headers.origin || `https://${req.headers.host}`;
-
+    const origin = "https://sports-picks-app-two.vercel.app";
     const dataResponse = await fetch(`${origin}/api/mlb-data`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
