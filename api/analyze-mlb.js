@@ -524,7 +524,7 @@ module.exports = async function handler(req, res) {
         ? null
         : {
             recommendedCards,
-            allCandidates: candidates.sort((a, b) => b.percentage - a.percentage),
+            
 
             favoriteToWin: modelProbA > modelProbB ? awayTeam : homeTeam,
             favoriteProb: Math.max(modelProbA, modelProbB) * 100,
