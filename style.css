@@ -575,3 +575,94 @@ button {
   color: #cfcfcf;
   margin-top: 2px;
 }
+/* PROFESSIONAL FOOTER */
+.site-footer {
+  margin-top: 45px;
+  padding: 28px 16px;
+  border-top: 1px solid rgba(255, 215, 120, 0.25);
+  background:
+    radial-gradient(circle at top, rgba(255, 209, 102, 0.08), transparent 45%),
+    rgba(5, 8, 15, 0.92);
+  color: white;
+}
+
+.footer-inner {
+  max-width: 780px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.site-footer h3 {
+  margin: 0 0 8px;
+  color: #ffd166;
+  font-size: 20px;
+}
+
+.footer-description {
+  max-width: 560px;
+  margin: 0 auto 16px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 18px 0;
+}
+
+.footer-links a {
+  color: #fff3b0;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.footer-links a:hover {
+  color: #ffd166;
+  text-decoration: underline;
+}
+
+.footer-disclaimer {
+  max-width: 650px;
+  margin: 14px auto;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.footer-copy {
+  margin-top: 14px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 12px;
+}
+
+@media (max-width: 600px) {
+  .site-footer {
+    margin-top: 35px;
+    padding: 24px 12px 90px;
+  }
+
+  .site-footer h3 {
+    font-size: 18px;
+  }
+
+  .footer-description {
+    font-size: 13px;
+  }
+
+  .footer-links {
+    gap: 10px;
+  }
+
+  .footer-links a {
+    font-size: 13px;
+  }
+
+  .footer-disclaimer {
+    font-size: 11px;
+  }
+}
