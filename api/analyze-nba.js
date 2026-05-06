@@ -352,9 +352,7 @@ if (req.method === "OPTIONS") {
 };
 
 function getOrigin(req) {
-  const protocol = req.headers["x-forwarded-proto"] || "https";
-  const host = req.headers.host;
-  return `${protocol}://${host}`;
+  return "https://sports-picks-app-two.vercel.app";
 }
 
 async function fetchJson(url) {
