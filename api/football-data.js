@@ -583,8 +583,8 @@ function sanitizePicksForPublic(picks, isPremiumUser) {
       edge: pick.edge,
       locked: shouldHide,
       type: pick.isPremium ? "premium" : pick.type,
-      pick: shouldHide ? null : pick.pick,
-      side: shouldHide ? null : pick.side || null
+      pick: shouldHide ? "🔒 Premium Pick" : pick.pick,
+side: shouldHide ? "Suscríbete para desbloquear" : pick.side || null
     };
   };
 
