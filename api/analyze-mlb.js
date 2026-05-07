@@ -37,7 +37,7 @@ module.exports = async function handler(req, res) {
 
     const isPremiumUser = profile?.is_premium === true;
 
-    const origin = "https://sports-picks-app-two.vercel.app";
+    const origin = "https://www.cashedgeapp.com";
 
     const dataResponse = await fetch(`${origin}/api/mlb-data`, {
       method: "POST",
