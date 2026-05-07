@@ -13,12 +13,13 @@ const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
-if (req.method === "OPTIONS") {
-  return res.status(200).end();
-}
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
   if (req.method === "POST" && req.query.mode === "update-result") {
     try {
       const authHeader = req.headers.authorization || "";
@@ -115,32 +116,43 @@ if (req.method === "OPTIONS") {
   }
 
   try {
-    const authHeader = req.headers.authorization || "";
-    const token = authHeader.replace("Bearer ", "");
+    let user = null;
+    let isPremiumUser = false;
 
-    if (!token) return res.status(401).json({ error: "No autorizado" });
+    try {
+      const authHeader = req.headers.authorization || "";
+      const token = authHeader.replace("Bearer ", "");
 
-    const { data: authData, error: authError } =
-      await supabaseAdmin.auth.getUser(token);
+      if (
+        token &&
+        token !== "null" &&
+        token !== "undefined"
+      ) {
+        const { data: authData, error: authError } =
+          await supabaseAdmin.auth.getUser(token);
 
-    if (authError || !authData?.user) {
-      return res.status(401).json({ error: "Sesión inválida" });
+        if (!authError && authData?.user) {
+          user = authData.user;
+
+          const { data: profile } = await supabaseAdmin
+            .from("users")
+            .select("is_premium")
+            .eq("id", user.id)
+            .single();
+
+          isPremiumUser = profile?.is_premium === true;
+        }
+      }
+
+    } catch (error) {
+      console.log("NBA auth ignorado:", error.message);
     }
 
-    const user = authData.user;
     const { awayTeam, homeTeam, awaySpread, homeSpread, total } = req.body || {};
 
     if (!awayTeam || !homeTeam) {
       return res.status(400).json({ error: "Faltan equipos" });
     }
-
-    const { data: profile } = await supabaseAdmin
-      .from("users")
-      .select("is_premium")
-      .eq("id", user.id)
-      .single();
-
-    const isPremiumUser = profile?.is_premium === true;
 
     const gameId = `${awayTeam}-${homeTeam}`;
 
