@@ -15,7 +15,9 @@ module.exports = async function handler(req, res) {
 
   try {
     if (!process.env.STRIPE_SECRET_KEY) {
-      return res.status(500).json({ error: "STRIPE_SECRET_KEY no está configurada" });
+      return res.status(500).json({
+        error: "STRIPE_SECRET_KEY no está configurada"
+      });
     }
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -23,27 +25,38 @@ module.exports = async function handler(req, res) {
     const { userId, email } = req.body || {};
 
     if (!userId || !email) {
-      return res.status(400).json({ error: "Falta userId o email" });
+      return res.status(400).json({
+        error: "Falta userId o email"
+      });
     }
 
     const APP_URL = "https://www.cashedgeapp.com";
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
+
       payment_method_types: ["card"],
+
       customer_email: email,
+
+      client_reference_id: userId,
+
       line_items: [
         {
           price: "price_1TS20hJxhhhzBuV9O74jwDkT",
           quantity: 1,
         },
       ],
+
       success_url: `${APP_URL}?success=true`,
+
       cancel_url: `${APP_URL}?canceled=true`,
+
       metadata: {
         userId: userId,
         email: email,
       },
+
       subscription_data: {
         metadata: {
           userId: userId,
@@ -52,10 +65,15 @@ module.exports = async function handler(req, res) {
       },
     });
 
-    return res.status(200).json({ url: session.url });
+    return res.status(200).json({
+      url: session.url
+    });
 
   } catch (error) {
-    console.error("STRIPE CHECKOUT ERROR:", error.message);
-    return res.status(500).json({ error: error.message });
+    console.error("❌ STRIPE CHECKOUT ERROR:", error);
+
+    return res.status(500).json({
+      error: error.message
+    });
   }
 };
