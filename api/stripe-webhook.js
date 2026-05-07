@@ -32,22 +32,39 @@ module.exports = async function handler(req, res) {
       process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (err) {
-    console.error("❌ Error de firma:", err.message);
+    console.error("❌ Error de firma Stripe:", err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
   try {
+    console.log("✅ STRIPE EVENT:", event.type);
+
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
 
-      const userId = session.metadata?.userId;
-      const email = session.customer_email || session.metadata?.email || "";
+      const userId =
+        session.metadata?.userId ||
+        session.subscription_data?.metadata?.userId ||
+        session.client_reference_id;
+
+      const email =
+        session.customer_email ||
+        session.metadata?.email ||
+        "";
+
+      console.log("🔥 CHECKOUT COMPLETED:", {
+        userId,
+        email,
+        customer: session.customer,
+        subscription: session.subscription
+      });
 
       if (!userId || userId === "guest") {
-        return res.status(400).json({ error: "Missing valid userId" });
+        console.error("❌ Missing valid userId:", userId);
+        return res.status(200).json({ received: true, warning: "Missing userId" });
       }
 
-      await supabaseAdmin
+      const { data, error } = await supabaseAdmin
         .from("users")
         .upsert(
           {
@@ -56,12 +73,19 @@ module.exports = async function handler(req, res) {
             is_premium: true,
             subscription_status: "premium",
             stripe_customer_id: session.customer || null,
-            stripe_subscription_id: session.subscription || null
+            stripe_subscription_id: session.subscription || null,
+            updated_at: new Date().toISOString()
           },
           { onConflict: "id" }
-        );
+        )
+        .select();
 
-      console.log("🔥 PREMIUM ACTIVADO:", email);
+      if (error) {
+        console.error("❌ SUPABASE PREMIUM ERROR:", error.message);
+        return res.status(500).json({ error: error.message });
+      }
+
+      console.log("✅ PREMIUM ACTIVADO EN SUPABASE:", data);
     }
 
     if (
@@ -71,15 +95,18 @@ module.exports = async function handler(req, res) {
       const subscription = event.data.object;
       const customerId = subscription.customer;
 
-      await supabaseAdmin
+      const { error } = await supabaseAdmin
         .from("users")
         .update({
           is_premium: false,
-          subscription_status: "canceled"
+          subscription_status: "canceled",
+          updated_at: new Date().toISOString()
         })
         .eq("stripe_customer_id", customerId);
 
-      console.log("🔒 PREMIUM DESACTIVADO:", customerId);
+      if (error) {
+        console.error("❌ ERROR DESACTIVANDO PREMIUM:", error.message);
+      }
     }
 
     if (event.type === "customer.subscription.updated") {
@@ -90,19 +117,24 @@ module.exports = async function handler(req, res) {
         subscription.status === "active" ||
         subscription.status === "trialing";
 
-      await supabaseAdmin
+      const { error } = await supabaseAdmin
         .from("users")
         .update({
           is_premium: active,
-          subscription_status: active ? "premium" : subscription.status
+          subscription_status: active ? "premium" : subscription.status,
+          updated_at: new Date().toISOString()
         })
         .eq("stripe_customer_id", customerId);
+
+      if (error) {
+        console.error("❌ ERROR ACTUALIZANDO SUBSCRIPCIÓN:", error.message);
+      }
     }
 
     return res.status(200).json({ received: true });
 
   } catch (error) {
-    console.error("❌ WEBHOOK ERROR:", error.message);
+    console.error("❌ WEBHOOK GENERAL ERROR:", error.message);
     return res.status(500).json({ error: error.message });
   }
 };
