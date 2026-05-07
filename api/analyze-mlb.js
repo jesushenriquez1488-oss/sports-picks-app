@@ -29,14 +29,22 @@ module.exports = async function handler(req, res) {
       totalLine = 8
     } = req.body || {};
 
-    const { data: profile } = await supabaseAdmin
-      .from("users")
-      .select("is_premium")
-      .eq("id", userId)
-      .single();
+    let isPremiumUser = false;
 
-    const isPremiumUser = profile?.is_premium === true;
+if (
+  userId &&
+  userId !== "null" &&
+  userId !== "undefined" &&
+  userId !== "guest"
+) {
+  const { data: profile } = await supabaseAdmin
+    .from("users")
+    .select("is_premium")
+    .eq("id", userId)
+    .maybeSingle();
 
+  isPremiumUser = profile?.is_premium === true;
+}
     const origin = "https://www.cashedgeapp.com";
 
     const dataResponse = await fetch(`${origin}/api/mlb-data`, {
