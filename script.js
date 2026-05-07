@@ -114,19 +114,7 @@ async function goPremiumMonthly() {
   }
 }
 
-    const data = await res.json();
-
-    if (data.url) {
-      window.location.href = data.url;
-    } else {
-      alert("Error creando pago");
-    }
-
-  } catch (error) {
-    console.log(error);
-    alert("Error con Stripe");
-  }
-}
+    
 
 async function unlockPick() {
   return goPremiumMonthly();
