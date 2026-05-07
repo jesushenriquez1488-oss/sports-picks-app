@@ -26,7 +26,7 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: "Falta userId o email" });
     }
 
-    const APP_URL = "https://sports-picks-app-two.vercel.app";
+    const APP_URL = "https://www.cashedgeapp.com";
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
