@@ -44,7 +44,6 @@ module.exports = async function handler(req, res) {
 
       const userId =
         session.metadata?.userId ||
-        session.subscription_data?.metadata?.userId ||
         session.client_reference_id;
 
       const email =
@@ -52,16 +51,9 @@ module.exports = async function handler(req, res) {
         session.metadata?.email ||
         "";
 
-      console.log("🔥 CHECKOUT COMPLETED:", {
-        userId,
-        email,
-        customer: session.customer,
-        subscription: session.subscription
-      });
-
       if (!userId || userId === "guest") {
         console.error("❌ Missing valid userId:", userId);
-        return res.status(200).json({ received: true, warning: "Missing userId" });
+        return res.status(200).json({ received: true });
       }
 
       const { data, error } = await supabaseAdmin
@@ -69,12 +61,10 @@ module.exports = async function handler(req, res) {
         .upsert(
           {
             id: userId,
-            email,
+            email: email,
             is_premium: true,
             subscription_status: "premium",
-            stripe_customer_id: session.customer || null,
-            stripe_subscription_id: session.subscription || null,
-            updated_at: new Date().toISOString()
+            stripe_customer_id: session.customer || null
           },
           { onConflict: "id" }
         )
@@ -85,7 +75,7 @@ module.exports = async function handler(req, res) {
         return res.status(500).json({ error: error.message });
       }
 
-      console.log("✅ PREMIUM ACTIVADO EN SUPABASE:", data);
+      console.log("✅ PREMIUM ACTIVADO:", data);
     }
 
     if (
@@ -99,8 +89,7 @@ module.exports = async function handler(req, res) {
         .from("users")
         .update({
           is_premium: false,
-          subscription_status: "canceled",
-          updated_at: new Date().toISOString()
+          subscription_status: "canceled"
         })
         .eq("stripe_customer_id", customerId);
 
@@ -121,8 +110,7 @@ module.exports = async function handler(req, res) {
         .from("users")
         .update({
           is_premium: active,
-          subscription_status: active ? "premium" : subscription.status,
-          updated_at: new Date().toISOString()
+          subscription_status: active ? "premium" : subscription.status
         })
         .eq("stripe_customer_id", customerId);
 
