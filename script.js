@@ -72,11 +72,13 @@ function selectSport(event, sport, sportName) {
 }
 
 async function goPremiumMonthly() {
+  const {
+    data: { user },
+    error
+  } = await supabaseClient.auth.getUser();
 
-  const { data: sessionData } = await supabaseClient.auth.getSession();
-
-  if (!sessionData.session) {
-    alert("Debes registrarte o iniciar sesión antes de comprar Premium.");
+  if (error || !user || !user.id || !user.email) {
+    alert("Debes iniciar sesión antes de comprar Premium.");
     document.getElementById("authBox").scrollIntoView({ behavior: "smooth" });
     return;
   }
@@ -88,10 +90,29 @@ async function goPremiumMonthly() {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        userId: sessionData.session.user.id,
-        email: sessionData.session.user.email
+        userId: user.id,
+        email: user.email
       })
     });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "Error creando pago");
+      return;
+    }
+
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      alert("Error creando pago");
+    }
+
+  } catch (error) {
+    console.log(error);
+    alert("Error con Stripe");
+  }
+}
 
     const data = await res.json();
 
