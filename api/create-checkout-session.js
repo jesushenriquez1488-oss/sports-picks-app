@@ -2,12 +2,13 @@ const Stripe = require("stripe");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
-if (req.method === "OPTIONS") {
-  return res.status(200).end();
-}
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -25,9 +26,7 @@ if (req.method === "OPTIONS") {
       return res.status(400).json({ error: "Falta userId o email" });
     }
 
-    const origin =
-      req.headers.origin ||
-      `https://${req.headers.host}`;
+    const APP_URL = "https://sports-picks-app-two.vercel.app";
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -39,11 +38,17 @@ if (req.method === "OPTIONS") {
           quantity: 1,
         },
       ],
-      success_url: `${origin}?success=true`,
-      cancel_url: `${origin}?canceled=true`,
+      success_url: `${APP_URL}?success=true`,
+      cancel_url: `${APP_URL}?canceled=true`,
       metadata: {
         userId: userId,
         email: email,
+      },
+      subscription_data: {
+        metadata: {
+          userId: userId,
+          email: email,
+        },
       },
     });
 
