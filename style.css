@@ -681,3 +681,16 @@ button {
 .auth-link-btn:hover {
   background: rgba(0, 255, 204, 0.12);
 }
+.auth-switch {
+  margin-top: 18px;
+  text-align: center;
+  opacity: 0.85;
+}
+
+.auth-link-btn {
+  transition: 0.2s ease;
+}
+
+.auth-link-btn:hover {
+  transform: scale(1.01);
+}
