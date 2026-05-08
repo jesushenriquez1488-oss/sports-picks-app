@@ -45,7 +45,34 @@ if (urlParams.get("canceled") === "true") {
   alert("Pago cancelado.");
   window.history.replaceState({}, document.title, window.location.pathname);
 }
+function showAuthMessage(message, type = "success") {
+  const authMessage = document.getElementById("authMessage");
 
+  if (!authMessage) return;
+
+  authMessage.innerText = message;
+
+  authMessage.style.color =
+    type === "success" ? "#00ff99" : "#ff4d4d";
+
+  authMessage.style.marginTop = "15px";
+  authMessage.style.fontWeight = "600";
+  authMessage.style.textAlign = "center";
+
+  setTimeout(() => {
+    authMessage.innerText = "";
+  }, 4000);
+}
+
+function showSignup() {
+  document.getElementById("loginView").style.display = "none";
+  document.getElementById("signupView").style.display = "block";
+}
+
+function showLogin() {
+  document.getElementById("signupView").style.display = "none";
+  document.getElementById("loginView").style.display = "block";
+}
 let selectedSport = "basketball_nba";
 let selectedSportName = "NBA";
 
@@ -1068,27 +1095,50 @@ function escapeText(text) {
 }
 
 async function registerUser(email, password) {
+  if (!email || !password) {
+    showAuthMessage("Completa email y password", "error");
+    return;
+  }
+
   const { data, error } = await supabaseClient.auth.signUp({
     email,
     password
   });
 
   if (error) {
-    alert(error.message);
+    if (
+      error.message.toLowerCase().includes("already") ||
+      error.message.toLowerCase().includes("registered")
+    ) {
+      showAuthMessage("Esta cuenta ya existe. Inicia sesión.", "error");
+    } else {
+      showAuthMessage(error.message, "error");
+    }
+
     return;
   }
 
-  alert("Usuario creado. Revisa tu correo.");
+  showAuthMessage("Cuenta creada correctamente. Ahora inicia sesión.");
+
+  showLogin();
+
+  document.getElementById("loginEmail").value = email;
+  document.getElementById("loginPassword").value = password;
 }
 
 async function loginUser(email, password) {
+  if (!email || !password) {
+    showAuthMessage("Completa email y password", "error");
+    return;
+  }
+
   const { data, error } = await supabaseClient.auth.signInWithPassword({
     email,
     password
   });
 
   if (error) {
-    alert(error.message);
+    showAuthMessage("Email o password incorrecto", "error");
     return;
   }
 
@@ -1108,39 +1158,28 @@ async function loginUser(email, password) {
 
   if (dbError) {
     console.log("DB ERROR:", dbError);
-    alert("Login exitoso, pero hubo error leyendo premium.");
-    return;
   }
 
-  isPremiumUser = profile.is_premium === true;
+  isPremiumUser = profile?.is_premium === true;
 
   const premiumBox = document.getElementById("premiumBox");
 
   if (premiumBox) {
-    if (isPremiumUser) {
-      premiumBox.style.display = "none";
-    } else {
-      premiumBox.style.display = "block";
-    }
+    premiumBox.style.display = isPremiumUser ? "none" : "block";
   }
 
   localStorage.setItem("supabaseUser", JSON.stringify(user));
 
   document.getElementById("authBox").style.display = "none";
   document.getElementById("userBox").style.display = "block";
+
   document.getElementById("userEmail").innerText = user.email;
+
   document.getElementById("premiumStatus").innerText =
     isPremiumUser ? "🔥 Premium activo" : "Free account";
 
-  alert(
-    isPremiumUser
-      ? "Login exitoso. Premium activo."
-      : "Login exitoso. Cuenta free."
-  );
-
   refreshResultsAfterUnlock();
 }
-
 async function requireLogin(message) {
   const { data: sessionData } = await supabaseClient.auth.getSession();
 
@@ -1170,12 +1209,17 @@ async function logoutUser() {
   document.getElementById("authBox").style.display = "block";
   document.getElementById("userBox").style.display = "none";
 
-  document.getElementById("email").value = "";
-  document.getElementById("password").value = "";
+ document.getElementById("loginEmail").value = "";
+document.getElementById("loginPassword").value = "";
+
+document.getElementById("signupEmail").value = "";
+document.getElementById("signupPassword").value = "";
+
+showLogin();
   document.getElementById("userEmail").innerText = "";
   document.getElementById("premiumStatus").innerText = "";
 
-  alert("Sesión cerrada");
+ 
 }
 
 window.loadGames = loadGames;
