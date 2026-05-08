@@ -666,3 +666,18 @@ button {
     font-size: 11px;
   }
 }
+.auth-link-btn {
+  width: 100%;
+  margin-top: 10px;
+  background: transparent;
+  border: 1px solid #00ffcc;
+  color: #00ffcc;
+  padding: 12px;
+  border-radius: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auth-link-btn:hover {
+  background: rgba(0, 255, 204, 0.12);
+}
