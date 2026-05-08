@@ -1598,3 +1598,4 @@ async function updatePickResult(pickId, result) {
 
   alert("Resultado actualizado");
 }
+// update auth ui
