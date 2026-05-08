@@ -10,6 +10,8 @@
 <body>
 
 <div id="authBox" class="auth-box">
+
+  <!-- LOGIN -->
   <div id="loginView">
     <h3>Login</h3>
 
@@ -19,14 +21,24 @@
     <button onclick="loginUser(
       document.getElementById('loginEmail').value,
       document.getElementById('loginPassword').value
-    )">Login</button>
+    )">
+      Login
+    </button>
 
     <p class="auth-switch">
       Don’t have an account?
-      <span onclick="showSignup()">Sign up</span>
     </p>
+
+    <button
+      type="button"
+      class="auth-link-btn"
+      onclick="showSignup()"
+    >
+      Create account
+    </button>
   </div>
 
+  <!-- SIGNUP -->
   <div id="signupView" style="display:none;">
     <h3>Create account</h3>
 
@@ -36,15 +48,25 @@
     <button onclick="registerUser(
       document.getElementById('signupEmail').value,
       document.getElementById('signupPassword').value
-    )">Create account</button>
+    )">
+      Create account
+    </button>
 
     <p class="auth-switch">
       Already have an account?
-      <span onclick="showLogin()">Login</span>
     </p>
+
+    <button
+      type="button"
+      class="auth-link-btn"
+      onclick="showLogin()"
+    >
+      Back to login
+    </button>
   </div>
 
   <div id="authMessage"></div>
+
 </div>
 
 <div id="userBox" style="display:none; margin:20px 0;">
@@ -55,10 +77,16 @@
 
 <div class="hero">
   <span class="badge">AI Sports Picks</span>
+
   <h1 id="appTitle">NBA Picks App</h1>
-  <p id="appSubtitle">Análisis automático con odds y proyección del modelo</p>
+
+  <p id="appSubtitle">
+    Análisis automático con odds y proyección del modelo
+  </p>
+
   <p class="disclaimer">
-    Modelo basado en datos, líneas de mercado y proyección automática. No garantiza resultados.
+    Modelo basado en datos, líneas de mercado y proyección automática.
+    No garantiza resultados.
   </p>
 </div>
 
@@ -91,27 +119,39 @@
   <span id="normalRate">65%</span>
   <small>aciertos</small>
 </div>
+
 <div class="league-tabs">
   <button class="league-btn active" onclick="selectSport(event,'basketball_nba','NBA')">NBA</button>
+
   <button class="league-btn" onclick="selectSport(event,'basketball_wnba','WNBA')">WNBA</button>
+
   <button class="league-btn" onclick="selectSport(event,'basketball_ncaab','NCAAB')">NCAAB</button>
+
   <button class="league-btn" onclick="selectSport(event,'basketball_euroleague','EuroLeague')">EuroLeague</button>
+
   <button class="league-btn" onclick="selectSport(event, 'baseball_mlb', 'MLB')">MLB</button>
+
   <button class="league-btn" onclick="selectSport(event, 'americanfootball_nfl', 'NFL')">NFL</button>
+
   <button class="league-btn" onclick="selectSport(event, 'americanfootball_ncaaf', 'NCAAF')">NCAAF</button>
- 
 </div>
 
-<button id="searchBtn" onclick="loadGames()">Buscar juegos NBA</button>
+<button id="searchBtn" onclick="loadGames()">
+  Buscar juegos NBA
+</button>
 
 <div id="status"></div>
+
 <div id="games"></div>
+
 <footer class="site-footer">
   <div class="footer-inner">
+
     <h3>CashEdge AI Sports Picks</h3>
 
     <p class="footer-description">
-      AI-powered sports analytics, statistical projections, and premium picks for informational purposes only.
+      AI-powered sports analytics, statistical projections,
+      and premium picks for informational purposes only.
     </p>
 
     <div class="footer-links">
@@ -121,15 +161,20 @@
     </div>
 
     <p class="footer-disclaimer">
-      CashEdge does not guarantee winnings, profits, or betting outcomes. Sports betting involves risk.
-      Users are responsible for complying with local laws and must be 18+ or the legal age in their jurisdiction.
+      CashEdge does not guarantee winnings, profits, or betting outcomes.
+      Sports betting involves risk.
+
+      Users are responsible for complying with local laws
+      and must be 18+ or the legal age in their jurisdiction.
     </p>
 
     <p class="footer-copy">
       © 2026 CashEdge. All rights reserved.
     </p>
+
   </div>
 </footer>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="script.js"></script>
 
