@@ -9,19 +9,42 @@
 
 <body>
 
-<div id="authBox" style="margin:20px 0;">
-  <input id="email" placeholder="Email">
-  <input id="password" type="password" placeholder="Password">
+<div id="authBox" class="auth-box">
+  <div id="loginView">
+    <h3>Login</h3>
 
-  <button onclick="registerUser(
-    document.getElementById('email').value,
-    document.getElementById('password').value
-  )">Register</button>
+    <input id="loginEmail" placeholder="Email">
+    <input id="loginPassword" type="password" placeholder="Password">
 
-  <button onclick="loginUser(
-    document.getElementById('email').value,
-    document.getElementById('password').value
-  )">Login</button>
+    <button onclick="loginUser(
+      document.getElementById('loginEmail').value,
+      document.getElementById('loginPassword').value
+    )">Login</button>
+
+    <p class="auth-switch">
+      Don’t have an account?
+      <span onclick="showSignup()">Sign up</span>
+    </p>
+  </div>
+
+  <div id="signupView" style="display:none;">
+    <h3>Create account</h3>
+
+    <input id="signupEmail" placeholder="Email">
+    <input id="signupPassword" type="password" placeholder="Password">
+
+    <button onclick="registerUser(
+      document.getElementById('signupEmail').value,
+      document.getElementById('signupPassword').value
+    )">Create account</button>
+
+    <p class="auth-switch">
+      Already have an account?
+      <span onclick="showLogin()">Login</span>
+    </p>
+  </div>
+
+  <div id="authMessage"></div>
 </div>
 
 <div id="userBox" style="display:none; margin:20px 0;">
