@@ -5,7 +5,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 
 
-const IS_ADMIN = false; 
+const IS_ADMIN = false;
 
 const MONTHLY_PRICE = 19.99;
 const SINGLE_PICK_PRICE = 1.99;
