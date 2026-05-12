@@ -2527,3 +2527,278 @@ button:active,
     font-size: 38px !important;
   }
 }
+/* =============================== */
+/* FUTURISTIC SPORTS CARDS V2 */
+/* =============================== */
+
+.league-tabs {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit,minmax(420px,1fr));
+  gap: 26px;
+  margin-top: 50px;
+}
+
+/* CARD */
+.league-btn {
+  position: relative;
+  overflow: hidden;
+
+  min-height: 150px;
+
+  border: 1px solid rgba(255,255,255,0.08) !important;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(7,16,32,0.96),
+      rgba(3,8,20,0.98)
+    ) !important;
+
+  clip-path: polygon(
+    5% 0,
+    95% 0,
+    100% 20%,
+    100% 80%,
+    95% 100%,
+    5% 100%,
+    0 80%,
+    0 20%
+  );
+
+  border-radius: 0 !important;
+
+  padding: 28px 34px !important;
+
+  text-align: left !important;
+
+  transition: all 0.28s ease;
+
+  box-shadow:
+    inset 0 0 40px rgba(0,255,255,0.03),
+    0 0 25px rgba(0,0,0,0.45);
+}
+
+/* glow borde */
+.league-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+
+  border: 1px solid rgba(0,255,255,0.22);
+
+  clip-path: inherit;
+
+  pointer-events: none;
+}
+
+/* línea scanning */
+.league-btn::after {
+  content: "";
+
+  position: absolute;
+  top: -40%;
+  left: -35%;
+
+  width: 40%;
+  height: 220%;
+
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0,255,255,0.18),
+    rgba(255,255,255,0.10),
+    transparent
+  );
+
+  transform: rotate(18deg);
+
+  opacity: 0;
+}
+
+/* HOVER */
+.league-btn:hover {
+  transform: translateY(-5px) scale(1.015);
+
+  border-color: rgba(0,255,255,0.4) !important;
+
+  box-shadow:
+    0 0 30px rgba(0,255,255,0.12),
+    0 0 70px rgba(0,180,255,0.10),
+    inset 0 0 60px rgba(0,255,255,0.04);
+}
+
+.league-btn:hover::after {
+  opacity: 1;
+  animation: leagueScan 1s linear;
+}
+
+/* ACTIVO */
+.league-btn.active {
+  background:
+    linear-gradient(
+      145deg,
+      rgba(14,32,65,0.98),
+      rgba(6,14,30,1)
+    ) !important;
+
+  box-shadow:
+    0 0 40px rgba(0,255,255,0.18),
+    inset 0 0 50px rgba(0,255,255,0.08);
+}
+
+/* TITULOS */
+.league-btn {
+  font-size: 48px !important;
+  font-weight: 900 !important;
+  letter-spacing: 1px;
+
+  color: #ffffff !important;
+}
+
+/* subtitulo */
+.league-btn small {
+  display: block;
+  margin-top: 8px;
+
+  font-size: 20px;
+  color: rgba(255,255,255,0.55);
+  font-weight: 600;
+}
+
+/* FLECHA */
+.league-btn span {
+  position: absolute;
+  right: 32px;
+  top: 50%;
+
+  transform: translateY(-50%);
+
+  font-size: 52px;
+  font-weight: 900;
+
+  color: rgba(0,255,255,0.45);
+
+  transition: all 0.25s ease;
+}
+
+.league-btn:hover span {
+  transform: translateY(-50%) translateX(8px);
+
+  color: rgba(255,255,255,0.9);
+
+  text-shadow:
+    0 0 18px rgba(0,255,255,0.6);
+}
+
+/* PANEL HERO */
+.ai-hero,
+.hero {
+  position: relative;
+
+  background:
+    radial-gradient(circle at left, rgba(0,255,255,0.08), transparent 38%),
+    radial-gradient(circle at right, rgba(124,58,237,0.10), transparent 35%),
+    linear-gradient(
+      145deg,
+      rgba(4,10,22,0.98),
+      rgba(1,4,14,1)
+    ) !important;
+
+  border: 1px solid rgba(0,255,255,0.14);
+
+  box-shadow:
+    inset 0 0 80px rgba(0,255,255,0.03),
+    0 0 60px rgba(0,0,0,0.45);
+
+  overflow: hidden;
+}
+
+/* lineas HUD */
+.ai-hero::before,
+.hero::before {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  background-image:
+    linear-gradient(rgba(0,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,255,0.03) 1px, transparent 1px);
+
+  background-size: 40px 40px;
+
+  pointer-events: none;
+}
+
+/* TITULO */
+.hero h1 {
+  font-size: 92px !important;
+  font-weight: 900 !important;
+
+  background:
+    linear-gradient(
+      90deg,
+      #ffffff,
+      #8cf7ff,
+      #d6d6ff
+    );
+
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+
+  text-shadow:
+    0 0 30px rgba(0,255,255,0.12);
+}
+
+/* subtitulo */
+.hero p {
+  color: rgba(255,255,255,0.72) !important;
+}
+
+/* badge */
+.badge {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(0,255,255,0.12),
+      rgba(0,132,255,0.12)
+    ) !important;
+
+  border: 1px solid rgba(0,255,255,0.25);
+
+  color: #7df9ff !important;
+
+  box-shadow:
+    0 0 25px rgba(0,255,255,0.08);
+}
+
+/* ANIMATION */
+
+@keyframes leagueScan {
+  0% {
+    left: -40%;
+  }
+
+  100% {
+    left: 140%;
+  }
+}
+
+/* MOBILE */
+
+@media (max-width: 900px) {
+
+  .league-tabs {
+    grid-template-columns: 1fr !important;
+  }
+
+  .hero h1 {
+    font-size: 52px !important;
+  }
+
+  .league-btn {
+    min-height: 120px;
+    font-size: 34px !important;
+  }
+
+}
