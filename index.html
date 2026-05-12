@@ -75,19 +75,33 @@
   <button onclick="logoutUser()" style="margin-left:10px;">Logout</button>
 </div>
 
-<div class="hero">
-  <span class="badge">AI Sports Picks</span>
+<div class="hero ai-hero">
 
-  <h1 id="appTitle">NBA Picks App</h1>
+  <div class="hero-orb">
+    <div class="basketball-orb">🏀</div>
+  </div>
 
-  <p id="appSubtitle">
-    Análisis automático con odds y proyección del modelo
-  </p>
+  <div class="hero-content">
 
-  <p class="disclaimer">
-    Modelo basado en datos, líneas de mercado y proyección automática.
-    No garantiza resultados.
-  </p>
+    <span class="badge">
+      ✾ AI SPORTS PICKS
+    </span>
+
+    <h1 id="appTitle">
+      NBA Picks App
+    </h1>
+
+    <p id="appSubtitle">
+      Análisis automático con odds y proyección del modelo
+    </p>
+
+    <p class="disclaimer">
+      Modelo basado en datos, líneas de mercado y proyección automática.
+      No garantiza resultados.
+    </p>
+
+  </div>
+
 </div>
 
 <div class="premium-monthly-box" id="premiumBox">
@@ -121,21 +135,110 @@
 </div>
 
 <div class="league-tabs">
-  <button class="league-btn active" onclick="selectSport(event,'basketball_nba','NBA')">NBA</button>
 
-  <button class="league-btn" onclick="selectSport(event,'basketball_wnba','WNBA')">WNBA</button>
+  <button class="league-btn active" onclick="selectSport(event,'basketball_nba','NBA')">
+    <div class="league-icon">🏀</div>
 
-  <button class="league-btn" onclick="selectSport(event,'basketball_ncaab','NCAAB')">NCAAB</button>
+    <div class="league-info">
+      <strong>NBA</strong>
+      <small>Análisis completo</small>
+    </div>
 
-  <button class="league-btn" onclick="selectSport(event,'basketball_euroleague','EuroLeague')">EuroLeague</button>
+    <span class="league-arrow">»</span>
+  </button>
 
-  <button class="league-btn" onclick="selectSport(event, 'baseball_mlb', 'MLB')">MLB</button>
+  <button class="league-btn" onclick="selectSport(event,'basketball_wnba','WNBA')">
+    <div class="league-icon">🏀</div>
 
-  <button class="league-btn" onclick="selectSport(event, 'americanfootball_nfl', 'NFL')">NFL</button>
+    <div class="league-info">
+      <strong>WNBA</strong>
+      <small>Women's League</small>
+    </div>
 
-  <button class="league-btn" onclick="selectSport(event, 'americanfootball_ncaaf', 'NCAAF')">NCAAF</button>
+    <span class="league-arrow">»</span>
+  </button>
+
+  <button class="league-btn" onclick="selectSport(event,'basketball_ncaab','NCAAB')">
+    <div class="league-icon">NCAA</div>
+
+    <div class="league-info">
+      <strong>NCAAB</strong>
+      <small>College Basketball</small>
+    </div>
+
+    <span class="league-arrow">»</span>
+  </button>
+
+  <button class="league-btn" onclick="selectSport(event,'basketball_euroleague','EuroLeague')">
+    <div class="league-icon">🌐</div>
+
+    <div class="league-info">
+      <strong>EuroLeague</strong>
+      <small>European Basketball</small>
+    </div>
+
+    <span class="league-arrow">»</span>
+  </button>
+
+  <button class="league-btn" onclick="selectSport(event,'baseball_mlb','MLB')">
+    <div class="league-icon">⚾</div>
+
+    <div class="league-info">
+      <strong>MLB</strong>
+      <small>Baseball model</small>
+    </div>
+
+    <span class="league-arrow">»</span>
+  </button>
+
+  <button class="league-btn" onclick="selectSport(event,'americanfootball_nfl','NFL')">
+    <div class="league-icon">🏈</div>
+
+    <div class="league-info">
+      <strong>NFL</strong>
+      <small>Football model</small>
+    </div>
+
+    <span class="league-arrow">»</span>
+  </button>
+
+  <button class="league-btn" onclick="selectSport(event,'americanfootball_ncaaf','NCAAF')">
+    <div class="league-icon">NCAA</div>
+
+    <div class="league-info">
+      <strong>NCAAF</strong>
+      <small>College Football</small>
+    </div>
+
+    <span class="league-arrow">»</span>
+  </button>
+
 </div>
+<div class="ai-stats-bar">
+  <div>
+    <span>🧠</span>
+    <strong>MODELO IA</strong>
+    <small>Deep Learning Avanzado</small>
+  </div>
 
+  <div>
+    <span>🎯</span>
+    <strong>PRECISIÓN</strong>
+    <small>Histórico 30d</small>
+  </div>
+
+  <div>
+    <span>〽️</span>
+    <strong>ACTUALIZACIÓN</strong>
+    <small>En tiempo real 24/7</small>
+  </div>
+
+  <div>
+    <span>🛡️</span>
+    <strong>CONFIANZA</strong>
+    <small>Sistema verificado</small>
+  </div>
+</div>
 <button id="searchBtn" onclick="loadGames()">
   Buscar juegos NBA
 </button>
