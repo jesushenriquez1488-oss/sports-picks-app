@@ -1321,109 +1321,153 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
     `).join("") || "";
 
     resultDiv.innerHTML = `
-      <div class="${isPremiumMLB ? 'premium-result' : 'normal-result'}">
+  <div class="${isPremiumMLB ? 'premium-result mlb-premium-dashboard' : 'normal-result'}">
 
-        ${isPremiumMLB ? '<div class="shine"></div><div class="hot-badge">🔥 HOT PICK MLB</div>' : ''}
+    ${
+      isPremiumMLB
+        ? `
+          <div class="mlb-premium-badge">
+            <span>👑</span>
+            <strong>🔥 HOT PICK MLB</strong>
+          </div>
+        `
+        : ""
+    }
 
-        <div class="result-content">
+    <div class="result-content mlb-premium-content">
 
-          <p><strong>⚾ ${awayTeam} vs ${homeTeam}</strong></p>
+      ${
+        locked
+          ? `
+            <div class="mlb-premium-title">
+              <h2>⚾ ${awayTeam} vs ${homeTeam}</h2>
+              <p>🔒 Análisis Premium Detectado</p>
+            </div>
 
-          ${
-            locked
-              ? `
-                <p><strong>🔒 Análisis Premium Detectado</strong></p>
-                <p>Este juego tiene pick premium bloqueado.</p>
+            <div class="mlb-lock-panel">
+              <h3>Pick Premium Bloqueado</h3>
+              <p>Este juego tiene edge premium detectado.</p>
 
-                <br>
-                <p><strong>Factores evaluados:</strong></p>
-                <p>✔ Pitcher probable</p>
-                <p>✔ Bullpen</p>
-                <p>✔ Park factor</p>
-                <p>✔ Clima / viento</p>
-                <p>✔ Ofensiva reciente</p>
-                <p>✔ Línea del mercado</p>
-
-                <div class="premium-overlay">
-                  <p>🔒 Análisis completo bloqueado</p>
-                  <p>Incluye proyección de carreras, edge real, probabilidad ML y lectura Over/Under.</p>
-                </div>
-              `
-              : premium
-                ? `
+              <div class="mlb-factor-grid">
+                <span>✔ Pitcher probable</span>
+                <span>✔ Bullpen</span>
+                <span>✔ Park factor</span>
+                <span>✔ Clima / viento</span>
+                <span>✔ Ofensiva reciente</span>
+                <span>✔ Línea del mercado</span>
+              </div>
+            </div>
+          `
+          : premium
+            ? `
+              <div class="mlb-premium-title">
+                <div>
+                  <span class="mlb-report-label">AI PREDICTIVE REPORT</span>
+                  <h2>⚾ ${awayTeam} vs ${homeTeam}</h2>
                   <p><strong>Favorito:</strong> ${premium.favoriteToWin} (${safe(premium.favoriteProb).toFixed(1)}%)</p>
+                </div>
 
-                  ${cardsHTML ? `<div class="edge-grid">${cardsHTML}</div>` : ""}
+                <div class="mlb-gold-shield">★</div>
+              </div>
 
-                  <br>
+              <div class="mlb-top-grid">
 
+                <div class="mlb-main-pick-box">
+                  <span>Total Premium</span>
+                  <strong>${premium.totalPick} ${safe(premium.totalLine, totalLine)}</strong>
+                  <h3>${Math.max(
+                    safe(premium.overProbability),
+                    safe(premium.underProbability)
+                  ).toFixed(1)}%</h3>
+                  <small>PROBABILIDAD DE ÉXITO</small>
+                </div>
+
+                <div class="mlb-projection-box">
                   <p><strong>Carreras esperadas ${awayTeam}:</strong> ${safe(premium.expectedRunsA).toFixed(2)}</p>
                   <p><strong>Carreras esperadas ${homeTeam}:</strong> ${safe(premium.expectedRunsB).toFixed(2)}</p>
                   <p><strong>Total proyectado:</strong> ${safe(premium.projectedTotal).toFixed(2)}</p>
                   <p><strong>Línea total:</strong> ${safe(premium.totalLine, totalLine)}</p>
                   <p><strong>Diferencia real vs línea:</strong> ${safe(premium.totalDiff).toFixed(2)} carreras</p>
+                </div>
 
-                  <br>
+              </div>
 
-                  <p><strong>Probabilidad Over:</strong> ${safe(premium.overProbability).toFixed(1)}%</p>
-                  <p><strong>Probabilidad Under:</strong> ${safe(premium.underProbability).toFixed(1)}%</p>
-                  <p><strong>Lectura del total:</strong> ${premium.totalPick} por ${safe(premium.totalEdge).toFixed(2)} carreras de edge</p>
+              <div class="mlb-premium-metrics">
+                <div>
+                  <small>OVER PROBABILITY</small>
+                  <strong>${safe(premium.overProbability).toFixed(1)}%</strong>
+                </div>
 
-                  <br>
+                <div>
+                  <small>UNDER PROBABILITY</small>
+                  <strong>${safe(premium.underProbability).toFixed(1)}%</strong>
+                </div>
 
-                  <p><strong>Estadio / Park Factor:</strong></p>
+                <div>
+                  <small>EDGE DEL MODELO</small>
+                  <strong>${safe(premium.totalEdge).toFixed(2)}</strong>
+                </div>
+
+                <div>
+                  <small>CONFIANZA</small>
+                  <strong>ALTA</strong>
+                </div>
+              </div>
+
+              <div class="mlb-info-grid">
+
+                <div>
+                  <h4>🏟️ Estadio / Park Factor</h4>
                   <p>${premium.venue?.name || "N/A"} — factor ${safe(premium.venue?.parkFactor).toFixed(2)} — techo: ${premium.venue?.roof || "N/A"}</p>
+                </div>
 
-                  <br>
-
-                  <p><strong>Clima:</strong></p>
+                <div>
+                  <h4>🌦️ Clima</h4>
                   <p>Viento: ${premium.weather?.raw || "No disponible"}</p>
                   <p>Dirección: ${premium.weather?.direction || "neutral"} | Velocidad: ${safe(premium.weather?.speed)} mph | Temp: ${premium.weather?.temp || "N/D"}</p>
                   <p>Impacto climático aplicado: ${safe(premium.weatherFactor, 1).toFixed(3)}</p>
+                </div>
 
-                  <br>
-
-                  <p><strong>Datos usados:</strong></p>
+                <div>
+                  <h4>📊 Datos usados</h4>
                   <p>${awayTeam}: ofensiva ${safe(premium.awayOffense).toFixed(2)}, defensa ${safe(premium.awayTeamAllowed).toFixed(2)}, pitcher ${safe(premium.awayPitcherAllowed).toFixed(2)}, bullpen ${safe(premium.awayBullpenAllowed).toFixed(2)}</p>
                   <p>${homeTeam}: ofensiva ${safe(premium.homeOffense).toFixed(2)}, defensa ${safe(premium.homeTeamAllowed).toFixed(2)}, pitcher ${safe(premium.homePitcherAllowed).toFixed(2)}, bullpen ${safe(premium.homeBullpenAllowed).toFixed(2)}</p>
+                </div>
 
-                  <br>
-
-                  <p><strong>Pitchers probables:</strong></p>
+                <div>
+                  <h4>⚾ Pitchers / Bullpen</h4>
                   <p>${awayTeam}: ${premium.awayPitcherName || "N/A"} — innings: ${safe(premium.awayPitcherInnings).toFixed(1)}</p>
                   <p>${homeTeam}: ${premium.homePitcherName || "N/A"} — innings: ${safe(premium.homePitcherInnings).toFixed(1)}</p>
+                  <p>${awayTeam} bullpen fatigue: ${safe(premium.awayBullpenFatigue).toFixed(1)}</p>
+                  <p>${homeTeam} bullpen fatigue: ${safe(premium.homeBullpenFatigue).toFixed(1)}</p>
+                </div>
 
-                  <br>
+              </div>
 
-                  <p><strong>Bullpen fatigue:</strong></p>
-                  <p>${awayTeam}: ${safe(premium.awayBullpenFatigue).toFixed(1)} — factor ${safe(premium.awayBullpenFatigueFactor,1).toFixed(3)}</p>
-                  <p>${homeTeam}: ${safe(premium.homeBullpenFatigue).toFixed(1)} — factor ${safe(premium.homeBullpenFatigueFactor,1).toFixed(3)}</p>
-                `
-                : `
-                  <p><strong>No hay jugada premium MLB.</strong></p>
-                  <p>El modelo no encontró edge suficiente.</p>
-                `
-          }
-
-        </div>
-
-        ${
-          locked
-            ? `
-              <button class="unlock-btn" onclick="goPremiumMonthly()">
-                🔓 Desbloquear Premium mensual $${MONTHLY_PRICE}/mes
-              </button>
+              <div class="mlb-complete-bar">
+                ANÁLISIS IA COMPLETO
+              </div>
             `
-            : ""
-        }
+            : `
+              <p><strong>No hay jugada premium MLB.</strong></p>
+              <p>El modelo no encontró edge suficiente.</p>
+            `
+      }
 
-      </div>
-    `;
+    </div>
 
-  } catch (error) {
-    resultDiv.innerHTML = `<p>Error MLB: ${error.message}</p>`;
-  }
-}
+    ${
+      locked
+        ? `
+          <button class="unlock-btn" onclick="goPremiumMonthly()">
+            🔓 Desbloquear Premium mensual $${MONTHLY_PRICE}/mes
+          </button>
+        `
+        : ""
+    }
+
+  </div>
+`;
 async function analyzeFootball(awayTeam, homeTeam, index) {
   const resultDiv = document.getElementById(`result${index}`);
   resultDiv.innerHTML = `<div class="loading-analysis">Analizando ${selectedSportName}...</div>`;
