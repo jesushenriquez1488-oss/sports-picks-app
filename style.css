@@ -926,3 +926,227 @@ body::before {
     height: 58px;
   }
 }
+/* =============================== */
+/* FULL AI HUD BACKGROUND UPGRADE */
+/* =============================== */
+
+body {
+  padding: 0;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 12% 48%, rgba(0, 140, 255, 0.18), transparent 22%),
+    radial-gradient(circle at 80% 18%, rgba(140, 70, 255, 0.18), transparent 25%),
+    radial-gradient(circle at 50% 45%, rgba(0, 255, 220, 0.12), transparent 32%),
+    linear-gradient(180deg, #020713 0%, #05081c 45%, #02030a 100%);
+}
+
+/* fondo con líneas tipo pantalla IA */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -5;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(0, 255, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 255, 0.055) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+/* puntos y partículas */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -4;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle, rgba(0,255,255,0.65) 1px, transparent 1.5px),
+    radial-gradient(circle, rgba(160,90,255,0.55) 1px, transparent 1.5px);
+  background-size: 90px 90px, 140px 140px;
+  background-position: 20px 40px, 70px 10px;
+  opacity: 0.28;
+}
+
+/* contenedor general más ancho */
+body > .hero,
+.league-tabs,
+.ai-stats-bar,
+#searchBtn,
+#status,
+#games,
+.premium-monthly-box,
+#authBox,
+#userBox,
+.site-footer {
+  max-width: 1180px;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* HUD decorativo izquierdo */
+.hero::before {
+  content: "AI ANALYSIS\A ███████░░░\A MODEL SCAN";
+  white-space: pre;
+  position: fixed;
+  left: 28px;
+  top: 70px;
+  color: rgba(0, 255, 255, 0.55);
+  font-size: 12px;
+  letter-spacing: 1px;
+  line-height: 1.8;
+  text-align: left;
+  text-shadow: 0 0 14px rgba(0,255,255,0.5);
+  pointer-events: none;
+}
+
+/* HUD panel derecho */
+.hero::after {
+  content: "PREDICTIVE MODEL\A\A╱╲╱╲╱╲╱╲\A\A WIN PROBABILITY\A 78.6%\A\A CONFIDENCE LEVEL\A ████████░░";
+  white-space: pre;
+  position: fixed;
+  right: 28px;
+  top: 320px;
+  width: 155px;
+  padding: 18px;
+  color: #00ffe7;
+  font-size: 12px;
+  line-height: 1.7;
+  text-align: left;
+  border-left: 1px solid rgba(0,255,255,0.35);
+  background: rgba(2, 8, 22, 0.55);
+  box-shadow: 0 0 28px rgba(0,255,255,0.12);
+  pointer-events: none;
+}
+
+/* Hero más parecido a la imagen */
+.ai-hero {
+  margin-top: 42px !important;
+  min-height: 270px;
+  padding: 40px 54px;
+  border: 1px solid rgba(0, 210, 255, 0.65);
+  background:
+    linear-gradient(115deg, rgba(3, 16, 38, 0.98), rgba(4, 7, 24, 0.98)),
+    radial-gradient(circle at 18% 55%, rgba(0,255,255,0.22), transparent 28%),
+    radial-gradient(circle at 78% 25%, rgba(150,80,255,0.16), transparent 30%);
+  box-shadow:
+    0 0 35px rgba(0, 210, 255, 0.25),
+    0 0 90px rgba(100, 70, 255, 0.16),
+    inset 0 0 55px rgba(0,255,255,0.06);
+}
+
+/* detalles de esquinas */
+.ai-hero .hero-content::before {
+  content: "";
+  position: absolute;
+  right: 52px;
+  top: 45px;
+  width: 230px;
+  height: 120px;
+  border-top: 2px solid rgba(170,100,255,0.8);
+  border-right: 2px solid rgba(170,100,255,0.8);
+  opacity: 0.8;
+}
+
+.ai-hero .hero-content::after {
+  content: "";
+  position: absolute;
+  right: 70px;
+  bottom: 45px;
+  width: 260px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,255,255,0.5));
+}
+
+/* pelota más premium */
+.basketball-orb {
+  position: relative;
+  font-size: 76px;
+}
+
+.basketball-orb::after {
+  content: "";
+  position: absolute;
+  bottom: -38px;
+  width: 185px;
+  height: 38px;
+  border-radius: 50%;
+  border: 2px solid rgba(0,255,255,0.65);
+  box-shadow:
+    0 0 25px rgba(0,255,255,0.75),
+    inset 0 0 25px rgba(0,255,255,0.35);
+}
+
+/* título más futurista */
+.hero h1 {
+  font-size: 62px;
+  text-transform: none;
+  letter-spacing: -1px;
+  background: linear-gradient(90deg, #ffffff 10%, #9effff 45%, #b492ff 75%);
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/* botones más grandes tipo dashboard */
+.league-btn {
+  min-height: 128px;
+  border-color: rgba(0, 220, 255, 0.55);
+  background:
+    linear-gradient(120deg, rgba(5, 20, 48, 0.98), rgba(3, 7, 24, 0.98)),
+    radial-gradient(circle at 20% 50%, rgba(0,255,255,0.24), transparent 32%);
+}
+
+.league-btn.active {
+  background:
+    linear-gradient(120deg, rgba(0,255,234,0.35), rgba(92,35,200,0.52)),
+    linear-gradient(145deg, rgba(5, 18, 44, 0.98), rgba(4, 7, 24, 0.98));
+}
+
+.league-btn::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 18px;
+  border-top: 1px solid rgba(255,255,255,0.18);
+  border-bottom: 1px solid rgba(0,255,255,0.18);
+  pointer-events: none;
+}
+
+.league-icon {
+  border-radius: 26px;
+  background:
+    radial-gradient(circle, rgba(0,255,255,0.38), transparent 64%),
+    linear-gradient(145deg, rgba(0,255,255,0.16), rgba(125,70,255,0.35));
+}
+
+/* barra inferior más como la imagen */
+.ai-stats-bar {
+  min-height: 88px;
+  background:
+    linear-gradient(135deg, rgba(5,18,40,0.9), rgba(3,7,22,0.92));
+  border-color: rgba(0, 220, 255, 0.45);
+  box-shadow:
+    0 0 32px rgba(0,255,255,0.12),
+    inset 0 0 30px rgba(0,255,255,0.04);
+}
+
+/* esconder HUD lateral en móvil */
+@media (max-width: 900px) {
+  .hero::before,
+  .hero::after {
+    display: none;
+  }
+
+  body {
+    padding: 12px;
+  }
+
+  .ai-hero {
+    margin-top: 18px !important;
+  }
+
+  .hero h1 {
+    font-size: 38px;
+  }
+}
