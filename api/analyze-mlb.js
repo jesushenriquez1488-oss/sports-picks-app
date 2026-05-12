@@ -31,20 +31,21 @@ module.exports = async function handler(req, res) {
 
     let isPremiumUser = false;
 
-if (
-  userId &&
-  userId !== "null" &&
-  userId !== "undefined" &&
-  userId !== "guest"
-) {
-  const { data: profile } = await supabaseAdmin
-    .from("users")
-    .select("is_premium")
-    .eq("id", userId)
-    .maybeSingle();
+    if (
+      userId &&
+      userId !== "null" &&
+      userId !== "undefined" &&
+      userId !== "guest"
+    ) {
+      const { data: profile } = await supabaseAdmin
+        .from("users")
+        .select("is_premium")
+        .eq("id", userId)
+        .maybeSingle();
 
-  isPremiumUser = profile?.is_premium === true;
-}
+      isPremiumUser = profile?.is_premium === true;
+    }
+
     const origin = "https://www.cashedgeapp.com";
 
     const dataResponse = await fetch(`${origin}/api/mlb-data`, {
@@ -109,27 +110,27 @@ if (
       const temp = weather.temp ? Number(weather.temp) : null;
 
       if (weather.direction === "out") {
-        factor += Math.min(0.08, windSpeed * 0.004);
+        factor += Math.min(0.18, windSpeed * 0.008);
       }
 
       if (weather.direction === "in") {
-        factor -= Math.min(0.08, windSpeed * 0.004);
+        factor -= Math.min(0.18, windSpeed * 0.008);
       }
 
       if (temp !== null) {
-        if (temp >= 85) factor += 0.03;
-        else if (temp <= 50) factor -= 0.025;
+        if (temp >= 90) factor += 0.05;
+        else if (temp >= 85) factor += 0.04;
+        else if (temp <= 45) factor -= 0.04;
+        else if (temp <= 50) factor -= 0.03;
       }
 
-      return clamp(factor, 0.9, 1.1);
+      return clamp(factor, 0.82, 1.22);
     }
 
     function adjustOffense(batting) {
       if (!batting) return 4.55;
 
-      const leagueAvg = 4.55;
-
-      const base = safeNumber(batting.runs, leagueAvg);
+      const base = safeNumber(batting.runs, 4.55);
       const weighted = safeNumber(batting.weightedRuns, base);
       const split = safeNumber(batting.splitRuns, base);
 
@@ -138,59 +139,63 @@ if (
         weighted * 0.35 +
         split * 0.20;
 
-      if (batting.last3?.runs >= 5) score *= 1.035;
-      if (batting.last3?.runs <= 3) score *= 0.965;
+      if (batting.last3?.runs >= 7) score *= 1.08;
+      else if (batting.last3?.runs >= 5.5) score *= 1.045;
 
-      score = score * 0.82 + leagueAvg * 0.18;
+      if (batting.last3?.runs <= 2.5) score *= 0.91;
+      else if (batting.last3?.runs <= 3.2) score *= 0.955;
 
-      return clamp(score, 3.3, 6.5);
+      return clamp(score, 1.8, 9.5);
     }
 
     function adjustBullpen(bullpen) {
       if (!bullpen) return 4.55;
 
-      const leagueAvg = 4.55;
-
-      let score = safeNumber(bullpen.runsPerGame, leagueAvg);
+      let score = safeNumber(bullpen.runsPerGame, 4.55);
       const whip = safeNumber(bullpen.whip, 1.3);
 
-      score = score * 0.68 + leagueAvg * 0.32;
+      if (bullpen.fatigue >= 9) score *= 1.10;
+      else if (bullpen.fatigue >= 7) score *= 1.06;
 
-      if (bullpen.fatigue >= 8) score *= 1.05;
-      if (bullpen.fatigue <= 2) score *= 0.97;
+      if (bullpen.fatigue <= 2) score *= 0.96;
 
-      if (whip >= 1.55) score *= 1.035;
-      if (whip <= 1.1) score *= 0.97;
+      if (whip >= 1.65) score *= 1.08;
+      else if (whip >= 1.5) score *= 1.045;
 
-      return clamp(score, 3.4, 5.9);
+      if (whip <= 1.05) score *= 0.94;
+      else if (whip <= 1.15) score *= 0.97;
+
+      return clamp(score, 1.8, 9.5);
     }
 
     function adjustPitcher(stats) {
       if (!stats) return 4.55;
 
-      const leagueAvg = 4.55;
-
       const innings = safeNumber(stats.innings, 0);
 
       if (innings < 3) {
-        return 5.15;
+        return 5.35;
       }
 
-      let score = safeNumber(stats.runsPerGame, leagueAvg);
+      let score = safeNumber(stats.runsPerGame, 4.55);
 
       const whip = safeNumber(stats.whip, 1.3);
       const homeRunsPerInning = safeNumber(stats.homeRunsPerInning, 0.12);
       const walksPerInning = safeNumber(stats.walksPerInning, 0.35);
 
-      score = score * 0.76 + leagueAvg * 0.24;
+      if (whip >= 1.65) score *= 1.10;
+      else if (whip >= 1.5) score *= 1.06;
 
-      if (whip >= 1.5) score *= 1.045;
-      if (whip <= 1.1) score *= 0.955;
+      if (whip <= 1.0) score *= 0.91;
+      else if (whip <= 1.1) score *= 0.95;
 
-      if (homeRunsPerInning >= 0.18) score *= 1.025;
-      if (walksPerInning >= 0.45) score *= 1.025;
+      if (homeRunsPerInning >= 0.22) score *= 1.07;
+      else if (homeRunsPerInning >= 0.18) score *= 1.04;
 
-      return clamp(score, 3.0, 6.5);
+      if (walksPerInning >= 0.5) score *= 1.06;
+      else if (walksPerInning >= 0.45) score *= 1.035;
+
+      return clamp(score, 1.8, 9.5);
     }
 
     function getTeamTrendScore(batting) {
@@ -213,8 +218,6 @@ if (
       return clamp(score, 20, 80);
     }
 
-    const leagueAvgRuns = 4.55;
-
     const venue = mlbData.venue || { parkFactor: 1 };
     const parkFactor = safeNumber(venue.parkFactor, 1);
     const weatherFactor = getWeatherRunFactor(mlbData.weather);
@@ -233,23 +236,20 @@ if (
     const homeBullpen = adjustBullpen(mlbData.home?.bullpen);
 
     let expectedRunsA =
-      awayOffense * 0.56 +
-      homePitcher * 0.29 +
+      awayOffense * 0.45 +
+      homePitcher * 0.40 +
       homeBullpen * 0.15;
 
     let expectedRunsB =
-      homeOffense * 0.56 +
-      awayPitcher * 0.29 +
+      homeOffense * 0.45 +
+      awayPitcher * 0.40 +
       awayBullpen * 0.15;
 
     expectedRunsA *= runEnvironmentFactor;
     expectedRunsB *= runEnvironmentFactor;
 
-    expectedRunsA = expectedRunsA * 0.86 + leagueAvgRuns * 0.14;
-    expectedRunsB = expectedRunsB * 0.86 + leagueAvgRuns * 0.14;
-
-    expectedRunsA = clamp(expectedRunsA, 2.4, 9.8);
-    expectedRunsB = clamp(expectedRunsB, 2.4, 9.8);
+    expectedRunsA = clamp(expectedRunsA, 1.2, 11.5);
+    expectedRunsB = clamp(expectedRunsB, 1.2, 11.5);
 
     const projectedTotal = expectedRunsA + expectedRunsB;
     const runDiff = expectedRunsA - expectedRunsB;
@@ -532,7 +532,6 @@ if (
         ? null
         : {
             recommendedCards,
-            
 
             favoriteToWin: modelProbA > modelProbB ? awayTeam : homeTeam,
             favoriteProb: Math.max(modelProbA, modelProbB) * 100,
