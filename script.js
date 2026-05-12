@@ -596,103 +596,200 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
     const premium = data.premium;
     const isPremium = data.isPremiumPick;
 
-    resultDiv.innerHTML = `
-      <div class="${isPremium ? 'premium-result' : 'normal-result'}">
+   resultDiv.innerHTML = `
+  <div class="${isPremium ? 'premium-result mlb-premium-dashboard' : 'normal-result'}">
 
-        ${isPremium ? '<div class="shine"></div><div class="hot-badge">🔥 HOT PICK</div>' : ''}
+    ${
+      isPremium
+        ? `
+          <div class="premium-top-line">
+            <span class="premium-crown">👑</span>
+            <span class="premium-fire">🔥 HOT PICK PREMIUM</span>
+          </div>
+        `
+        : ""
+    }
 
-        <div class="result-content">
+    <div class="result-content premium-layout">
 
-          <p><strong>🔥 PICK PRINCIPAL:</strong></p>
+      <div class="premium-header">
 
-          ${
-            locked
-              ? `
-                <p><strong>Pick:</strong> <span>Pick Premium bloqueado</span></p>
-                <p>Desbloquea para ver el pick completo y el análisis exacto.</p>
+        <div>
+          <p class="premium-label">AI PREDICTIVE REPORT</p>
 
-                <br>
-                <p><strong>Factores del modelo:</strong></p>
-                <p>✔ Forma reciente evaluada</p>
-                <p>✔ Condición local/visitante</p>
-                <p>✔ Descanso del equipo</p>
-                <p>✔ Impacto de lesiones considerado</p>
-                <p>✔ Edge detectado contra la línea del mercado</p>
-              `
-              : `
-                <p><strong>Pick:</strong> <span>${premium.pick}</span></p>
-              `
-          }
+          <h3>🏀 PICK PRINCIPAL</h3>
 
-          <p><strong>Confianza:</strong> <span>${data.public.confidence}%</span></p>
-          <p><strong>Riesgo:</strong> <span>${data.public.risk}</span></p>
-          <p><strong>Veredicto:</strong> <span>${data.public.verdict}</span></p>
+          <p class="premium-game-pick">
+            ${
+              locked
+                ? "Pick Premium bloqueado"
+                : premium.pick
+            }
+          </p>
 
-          ${
-            !locked && premium
-              ? `
-                <div class="edge-grid">
-                  <div class="edge-box">
-                    <h4>Edge detectado</h4>
-                    <p>Ventaja del modelo</p>
-                    <div class="edge-number">${premium.mainEdge.toFixed(1)}</div>
-                    <p>Confianza: <strong>${premium.mainEdgeConfidence}%</strong></p>
-                  </div>
+          <div class="premium-meta-row">
+
+            <div class="premium-chip">
+              ⚡ ${data.public.confidence}%
+            </div>
+
+            <div class="premium-chip">
+              🧠 ${data.public.risk}
+            </div>
+
+            <div class="premium-chip premium-chip-gold">
+              ${data.public.verdict}
+            </div>
+
+          </div>
+        </div>
+
+        <div class="premium-score-box">
+          <span>MODEL</span>
+          <strong>${data.public.confidence}%</strong>
+          <small>AI CONFIDENCE</small>
+        </div>
+
+      </div>
+
+      ${
+        locked
+          ? `
+            <div class="premium-lock-box">
+
+              <h4>🔒 Premium Analysis Locked</h4>
+
+              <p>
+                El modelo detectó edge premium basado en:
+              </p>
+
+              <div class="premium-lock-grid">
+
+                <div>✔ Forma reciente</div>
+                <div>✔ Descanso</div>
+                <div>✔ Lesiones</div>
+                <div>✔ Matchup ofensivo</div>
+                <div>✔ Matchup defensivo</div>
+                <div>✔ Edge vs mercado</div>
+
+              </div>
+
+              <button class="unlock-btn" onclick="goPremiumMonthly()">
+                🔓 Desbloquear Premium $${MONTHLY_PRICE}/mes
+              </button>
+
+            </div>
+          `
+          : `
+            <div class="premium-analysis-grid">
+
+              <div class="premium-analysis-card">
+
+                <h4>📊 Edge Detectado</h4>
+
+                <div class="premium-big-number">
+                  ${premium.mainEdge.toFixed(1)}
                 </div>
 
-                <br>
-                <p><strong>Explicación:</strong></p>
-                <p>Diferencial proyectado: ${premium.spreadDiff.toFixed(1)}</p>
-                <p>Proyección ${awayTeam}: ${premium.projA.toFixed(1)}</p>
-                <p>Proyección ${homeTeam}: ${premium.projB.toFixed(1)}</p>
-                <p>Total proyectado: ${premium.totalProj.toFixed(1)}</p>
+                <p>
+                  Confianza:
+                  <strong>${premium.mainEdgeConfidence}%</strong>
+                </p>
 
-                <br>
-                <p><strong>Descanso:</strong></p>
+              </div>
+
+              <div class="premium-analysis-card">
+
+                <h4>📈 Proyección</h4>
+
+                <p>${awayTeam}: ${premium.projA.toFixed(1)}</p>
+                <p>${homeTeam}: ${premium.projB.toFixed(1)}</p>
+
+                <div class="premium-total">
+                  ${premium.totalProj.toFixed(1)}
+                </div>
+
+              </div>
+
+              <div class="premium-analysis-card">
+
+                <h4>🧠 Modelo IA</h4>
+
+                <p>${premium.modelAnalysis}</p>
+
+              </div>
+
+            </div>
+
+            <div class="premium-data-section">
+
+              <div class="premium-data-box">
+
+                <h4>😴 Descanso</h4>
+
                 <p>${awayTeam}: ${premium.awayRestNote}</p>
                 <p>${homeTeam}: ${premium.homeRestNote}</p>
 
-                <br>
-                <p><strong>Lesiones:</strong></p>
+              </div>
+
+              <div class="premium-data-box">
+
+                <h4>🚑 Lesiones</h4>
+
                 <p>${premium.awayInjuryPublic}</p>
-                ${premium.awayInjuryNote.includes("No se reportan") ? "" : `<p>${premium.awayInjuryNote}</p>`}
+                ${
+                  premium.awayInjuryNote.includes("No se reportan")
+                    ? ""
+                    : `<p>${premium.awayInjuryNote}</p>`
+                }
+
+                <br>
 
                 <p>${premium.homeInjuryPublic}</p>
-                ${premium.homeInjuryNote.includes("No se reportan") ? "" : `<p>${premium.homeInjuryNote}</p>`}
 
-                <br>
-                <p><strong>Análisis del modelo:</strong></p>
-                <p>${premium.modelAnalysis}</p>
-              `
-              : ""
-          }
+                ${
+                  premium.homeInjuryNote.includes("No se reportan")
+                    ? ""
+                    : `<p>${premium.homeInjuryNote}</p>`
+                }
 
-          ${
-            locked
-              ? `
-                <button class="unlock-btn" onclick="goPremiumMonthly()">
-                  Acceso Premium mensual $${MONTHLY_PRICE}/mes
+              </div>
+
+            </div>
+          `
+      }
+
+      ${
+        isAdminUser && data.pickId
+          ? `
+            <div class="admin-panel-pro">
+
+              <h4>🛠 ADMIN PANEL</h4>
+
+              <div class="admin-buttons">
+
+                <button onclick="updatePickResult('${data.pickId}', 'win')">
+                  ✅ WIN
                 </button>
-              `
-              : ""
-          }
 
-          ${
-            isAdminUser && data.pickId
-              ? `
-                <div style="margin-top:15px; padding:12px; border:1px solid #d4af37; border-radius:10px;">
-                  <p><strong>Panel Admin</strong></p>
-                  <button onclick="updatePickResult('${data.pickId}', 'win')">✅ Win</button>
-                  <button onclick="updatePickResult('${data.pickId}', 'loss')">❌ Loss</button>
-                  <button onclick="updatePickResult('${data.pickId}', 'pending')">⏳ Pending</button>
-                </div>
-              `
-              : ""
-          }
+                <button onclick="updatePickResult('${data.pickId}', 'loss')">
+                  ❌ LOSS
+                </button>
 
-        </div>
-      </div>
-    `;
+                <button onclick="updatePickResult('${data.pickId}', 'pending')">
+                  ⏳ PENDING
+                </button>
+
+              </div>
+
+            </div>
+          `
+          : ""
+      }
+
+    </div>
+  </div>
+`;
 
   } catch (error) {
     resultDiv.innerHTML = "Error NBA: " + error.message;
