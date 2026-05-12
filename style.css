@@ -2802,3 +2802,158 @@ button:active,
   }
 
 }
+/* =============================== */
+/* FIX FINAL BOTONES LIGAS CLEAN AI */
+/* =============================== */
+
+.league-tabs {
+  max-width: 1450px !important;
+  margin: 40px auto !important;
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 22px !important;
+}
+
+.league-btn {
+  clip-path: none !important;
+  border-radius: 24px !important;
+  min-height: 118px !important;
+  padding: 24px 70px 24px 120px !important;
+
+  display: flex !important;
+  align-items: center !important;
+
+  background:
+    radial-gradient(circle at 15% 50%, rgba(0,255,234,0.18), transparent 28%),
+    linear-gradient(135deg, rgba(4,16,38,0.98), rgba(4,7,20,0.98)) !important;
+
+  border: 1px solid rgba(0,255,234,0.32) !important;
+
+  box-shadow:
+    0 0 28px rgba(0,255,234,0.10),
+    inset 0 0 38px rgba(0,255,234,0.04) !important;
+
+  color: white !important;
+  text-align: left !important;
+  overflow: hidden !important;
+}
+
+/* elimina formas feas anteriores */
+.league-btn::before,
+.league-btn::after {
+  display: none !important;
+}
+
+/* icono bien colocado */
+.league-icon {
+  position: absolute !important;
+  left: 28px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+
+  width: 68px !important;
+  height: 68px !important;
+  border-radius: 20px !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  font-size: 30px !important;
+  font-weight: 900 !important;
+
+  background:
+    radial-gradient(circle, rgba(0,255,234,0.30), transparent 65%),
+    linear-gradient(145deg, rgba(0,255,234,0.12), rgba(70,110,255,0.18)) !important;
+
+  border: 1px solid rgba(0,255,234,0.45) !important;
+
+  box-shadow:
+    0 0 24px rgba(0,255,234,0.28),
+    inset 0 0 18px rgba(0,255,234,0.12) !important;
+}
+
+.league-icon::before,
+.league-icon::after {
+  display: none !important;
+}
+
+.league-info {
+  position: relative !important;
+  z-index: 3 !important;
+}
+
+.league-info strong {
+  display: block !important;
+  font-size: 34px !important;
+  line-height: 1 !important;
+  color: #ffffff !important;
+  letter-spacing: 1px !important;
+  text-shadow: 0 0 18px rgba(0,255,234,0.22) !important;
+}
+
+.league-info small {
+  display: block !important;
+  margin-top: 10px !important;
+  font-size: 16px !important;
+  color: rgba(230,255,255,0.68) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.6px !important;
+}
+
+.league-arrow {
+  position: absolute !important;
+  right: 32px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+
+  font-size: 42px !important;
+  color: rgba(0,255,234,0.55) !important;
+  text-shadow: 0 0 18px rgba(0,255,234,0.4) !important;
+}
+
+/* activo premium */
+.league-btn.active {
+  background:
+    radial-gradient(circle at 18% 50%, rgba(0,255,234,0.28), transparent 32%),
+    linear-gradient(135deg, rgba(6,28,58,0.98), rgba(8,12,32,0.98)) !important;
+
+  border-color: rgba(0,255,234,0.75) !important;
+
+  box-shadow:
+    0 0 35px rgba(0,255,234,0.28),
+    0 0 70px rgba(0,140,255,0.15),
+    inset 0 0 45px rgba(0,255,234,0.08) !important;
+}
+
+/* hover */
+.league-btn:hover {
+  transform: translateY(-3px) scale(1.01) !important;
+  border-color: rgba(0,255,234,0.85) !important;
+}
+
+/* mobile */
+@media (max-width: 700px) {
+  .league-tabs {
+    grid-template-columns: 1fr !important;
+  }
+
+  .league-btn {
+    min-height: 100px !important;
+    padding-left: 105px !important;
+  }
+
+  .league-info strong {
+    font-size: 26px !important;
+  }
+
+  .league-info small {
+    font-size: 14px !important;
+  }
+
+  .league-icon {
+    width: 58px !important;
+    height: 58px !important;
+    left: 22px !important;
+  }
+}
