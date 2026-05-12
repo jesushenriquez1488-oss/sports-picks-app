@@ -3781,3 +3781,108 @@ button:active,
   text-shadow:
     0 0 18px rgba(77,227,255,0.45);
 }
+/* =========================
+   MOBILE PREMIUM FIX
+========================= */
+
+@media (max-width: 768px) {
+
+  .premium-layout,
+  .premium-grid,
+  .edge-grid,
+  .premium-stats-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+
+  .premium-result,
+  .normal-result,
+  .mlb-premium-dashboard {
+    padding: 14px !important;
+    border-radius: 22px !important;
+    overflow: hidden !important;
+  }
+
+  .premium-content,
+  .result-content {
+    padding: 0 !important;
+  }
+
+  .premium-main-card,
+  .premium-stat-card,
+  .edge-box {
+    width: 100% !important;
+    min-width: unset !important;
+    padding: 18px !important;
+    border-radius: 22px !important;
+  }
+
+  .premium-main-card .big-confidence,
+  .edge-number {
+    font-size: 58px !important;
+    line-height: 1 !important;
+  }
+
+  .premium-game-pick,
+  .premium-result h1,
+  .premium-result h2,
+  .premium-result h3 {
+    font-size: 36px !important;
+    line-height: 1.1 !important;
+  }
+
+  .premium-badges {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+  }
+
+  .premium-badge {
+    width: auto !important;
+    font-size: 14px !important;
+    padding: 10px 14px !important;
+  }
+
+  .hero h1,
+  .hero-title {
+    font-size: 52px !important;
+    line-height: 0.95 !important;
+  }
+
+  .hero,
+  .ai-hero {
+    padding: 30px 20px !important;
+    min-height: auto !important;
+  }
+
+  .basketball-orb {
+    width: 120px !important;
+    height: 120px !important;
+    margin: 0 auto 20px auto !important;
+  }
+
+  .unlock-btn,
+  .analyze-btn,
+  button {
+    width: 100% !important;
+    min-height: 58px !important;
+    font-size: 16px !important;
+  }
+
+  .premium-top-line,
+  .hot-badge {
+    transform: scale(.88);
+    transform-origin: left top;
+  }
+
+  .premium-logo,
+  .mlb-gold-shield {
+    display: none !important;
+  }
+
+  .premium-result::before,
+  .premium-result::after {
+    opacity: .4 !important;
+  }
+}
