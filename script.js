@@ -1620,126 +1620,158 @@ const res = await fetch(
     const locked = isPremium && !IS_ADMIN && !isPremiumUser;
 
     resultDiv.innerHTML = `
-      <div class="${isPremium ? "premium-result" : "normal-result"}">
+  <div class="${isPremium ? 'premium-result mlb-premium-dashboard' : 'normal-result'}">
 
-        ${isPremium ? '<div class="shine"></div><div class="hot-badge">🔥 HOT PICK FOOTBALL</div>' : ""}
+    ${
+      isPremium
+        ? `
+          <div class="premium-top-line">
+            <span>👑</span>
+            <span>🔥 HOT PICK FOOTBALL</span>
+          </div>
+        `
+        : ""
+    }
 
-        <div class="result-content">
+    <div class="result-content premium-layout">
 
-          <p><strong>🏈 ${awayTeam} vs ${homeTeam}</strong></p>
+      <div class="premium-header">
 
-          ${
-            locked
-              ? `
-                <p><strong>🔒 Pick Premium bloqueado</strong></p>
-                <p>El modelo detectó edge premium de 10+ puntos.</p>
+        <div>
+          <p class="premium-label">AI FOOTBALL REPORT</p>
 
-                <button class="unlock-btn" onclick="goPremiumMonthly()">
-                  🔓 Desbloquear Premium mensual $${MONTHLY_PRICE}/mes
-                </button>
-              `
-              : bestPick
-              ? `
-                <p><strong>🔥 Pick principal:</strong> ${bestPick.pick || "No disponible"}</p>
-                <p><strong>Confianza:</strong> ${bestPick.confidence || 0}%</p>
-                <p><strong>Edge:</strong> ${Number(bestPick.edge || 0).toFixed(1)}</p>
-                <p><strong>Tipo:</strong> ${isPremium ? "🔥 PREMIUM" : "Normal"}</p>
-              `
-              : `
-                <p><strong>Sin jugada recomendada</strong></p>
+          <h3>🏈 ${awayTeam} vs ${homeTeam}</h3>
+
+          <p class="premium-game-pick">
+            ${
+              locked
+                ? "Pick Premium bloqueado"
+                : bestPick
+                  ? bestPick.pick || "No disponible"
+                  : "Sin jugada recomendada"
+            }
+          </p>
+
+          <div class="premium-meta-row">
+            <div class="premium-chip">
+              ⚡ ${bestPick ? bestPick.confidence || 0 : 0}%
+            </div>
+
+            <div class="premium-chip">
+              📊 Edge ${bestPick ? Number(bestPick.edge || 0).toFixed(1) : "0.0"}
+            </div>
+
+            <div class="premium-chip premium-chip-gold">
+              ${isPremium ? "PREMIUM" : "NORMAL"}
+            </div>
+          </div>
+        </div>
+
+        <div class="premium-score-box">
+          <span>FOOTBALL MODEL</span>
+          <strong>${bestPick ? bestPick.confidence || 0 : 0}%</strong>
+          <small>AI CONFIDENCE</small>
+        </div>
+
+      </div>
+
+      ${
+        locked
+          ? `
+            <div class="premium-lock-box">
+              <h4>🔒 Pick Premium Bloqueado</h4>
+
+              <p>El modelo detectó edge premium de 10+ puntos.</p>
+
+              <div class="premium-lock-grid">
+                <div>✔ Últimos juegos</div>
+                <div>✔ Matchup ofensivo</div>
+                <div>✔ Matchup defensivo</div>
+                <div>✔ Spread del mercado</div>
+                <div>✔ Edge estadístico</div>
+                <div>✔ Proyección IA</div>
+              </div>
+
+              <button class="unlock-btn" onclick="goPremiumMonthly()">
+                🔓 Desbloquear Premium mensual $${MONTHLY_PRICE}/mes
+              </button>
+            </div>
+          `
+          : bestPick
+            ? `
+              <div class="premium-analysis-grid">
+
+                <div class="premium-analysis-card">
+                  <h4>🔥 Jugada Premium</h4>
+                  <p>${bestPick.pick || "No disponible"}</p>
+
+                  <div class="premium-big-number">
+                    ${bestPick.confidence || 0}%
+                  </div>
+
+                  <p>Edge: <strong>${Number(bestPick.edge || 0).toFixed(1)}</strong></p>
+                </div>
+
+                <div class="premium-analysis-card">
+                  <h4>📈 Proyección</h4>
+
+                  <p>${awayTeam}: ${projAway.toFixed(1)}</p>
+                  <p>${homeTeam}: ${projHome.toFixed(1)}</p>
+
+                  <div class="premium-total">
+                    ${projectedTotal.toFixed(1)}
+                  </div>
+
+                  <p>Total proyectado</p>
+                </div>
+
+                <div class="premium-analysis-card">
+                  <h4>🧠 Spread Modelo</h4>
+
+                  <div class="premium-big-number">
+                    ${projectedSpread.toFixed(1)}
+                  </div>
+
+                  <p>Lectura contra línea del mercado</p>
+                </div>
+
+              </div>
+            `
+            : `
+              <div class="premium-lock-box">
+                <h4>Sin jugada recomendada</h4>
                 <p>El modelo no detectó edge positivo suficiente contra la línea.</p>
-              `
-          }
+              </div>
+            `
+      }
 
-          <br>
+      ${
+        !locked
+          ? `
+            <div class="premium-data-section">
 
-          ${
-            (() => {
-              const visibleCards = [];
-
-              if (locked && bestPick?.isPremium) {
-                return `
-                  <div class="edge-grid">
-                    <div class="edge-box">
-                      <h4>Jugada Premium</h4>
-                      <p>Pick Premium bloqueado</p>
-                      <div class="edge-number">${bestPick.confidence}%</div>
-                      <p>Edge: <strong>${Number(bestPick.edge || 0).toFixed(1)}</strong></p>
-                    </div>
-                  </div>
-                `;
-              }
-
-              if (!locked && isPremium && bestPick) {
-                return `
-                  <div class="edge-grid">
-                    <div class="edge-box">
-                      <h4>Jugada Premium</h4>
-                      <p>${bestPick.pick}</p>
-                      <div class="edge-number">${bestPick.confidence}%</div>
-                      <p>Edge: <strong>${Number(bestPick.edge || 0).toFixed(1)}</strong></p>
-                    </div>
-                  </div>
-                `;
-              }
-
-              if (spreadPick) {
-                const spreadConfidence = Number(spreadPick.confidence || 0);
-                const spreadEdge = Number(spreadPick.edge || 0);
-
-                if (spreadConfidence >= 65 && spreadConfidence < 75) {
-                  visibleCards.push(`
-                    <div class="edge-box">
-                      <h4>Spread</h4>
-                      <p>${spreadPick.pick || "No disponible"}</p>
-                      <div class="edge-number">${spreadConfidence}%</div>
-                      <p>Edge: <strong>${spreadEdge.toFixed(1)}</strong></p>
-                    </div>
-                  `);
-                }
-              }
-
-              if (totalPick) {
-                const totalConfidence = Number(totalPick.confidence || 0);
-                const totalEdge = Number(totalPick.edge || 0);
-
-                if (totalConfidence >= 65 && totalConfidence < 75) {
-                  visibleCards.push(`
-                    <div class="edge-box">
-                      <h4>Total</h4>
-                      <p>${totalPick.pick || "No disponible"}</p>
-                      <div class="edge-number">${totalConfidence}%</div>
-                      <p>Edge: <strong>${totalEdge.toFixed(1)}</strong></p>
-                    </div>
-                  `);
-                }
-              }
-
-              return visibleCards.length
-                ? `<div class="edge-grid">${visibleCards.join("")}</div>`
-                : `
-                  <p><strong>Jugadas:</strong></p>
-                  <p>No hay picks normales entre 65% y 74%.</p>
-                `;
-            })()
-          }
-
-          ${
-            !locked
-              ? `
-                <br>
-                <p><strong>Proyección del modelo:</strong></p>
+              <div class="premium-data-box">
+                <h4>📊 Proyección del modelo</h4>
                 <p>${awayTeam}: ${projAway.toFixed(1)}</p>
                 <p>${homeTeam}: ${projHome.toFixed(1)}</p>
                 <p><strong>Total proyectado:</strong> ${projectedTotal.toFixed(1)}</p>
                 <p><strong>Spread modelo:</strong> ${projectedSpread.toFixed(1)}</p>
-              `
-              : ""
-          }
+              </div>
 
-        </div>
-      </div>
-    `;
+              <div class="premium-data-box">
+                <h4>🎯 Lectura IA</h4>
+                <p>El sistema compara la proyección del modelo contra la línea del mercado.</p>
+                <p>Solo marca premium cuando el edge supera el umbral establecido.</p>
+              </div>
+
+            </div>
+          `
+          : ""
+      }
+
+    </div>
+  </div>
+`;
 
   } catch (err) {
     resultDiv.innerHTML = "Error Football: " + err.message;
