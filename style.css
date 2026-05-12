@@ -2331,3 +2331,199 @@ body::after {
     background-position: 300% 50%;
   }
 }
+/* =============================== */
+/* FIX HERO + AI BUTTONS UPGRADE */
+/* =============================== */
+
+/* Quita el panel cortado del lado derecho */
+.ai-hero::after,
+.hero::after {
+  display: none !important;
+}
+
+/* Banner más limpio y sin cortes */
+.ai-hero {
+  overflow: hidden !important;
+  grid-template-columns: 260px 1fr !important;
+  max-width: 1450px !important;
+  width: calc(100% - 40px) !important;
+  border-radius: 0 !important;
+
+  clip-path: polygon(
+    4% 0%,
+    96% 0%,
+    100% 18%,
+    100% 82%,
+    96% 100%,
+    4% 100%,
+    0% 82%,
+    0% 18%
+  ) !important;
+}
+
+/* Botones IA futuristas */
+button,
+.card button,
+#searchBtn,
+.unlock-btn,
+.monthly-btn {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+
+  border: 1px solid rgba(0,255,234,0.55) !important;
+  border-radius: 18px !important;
+
+  background:
+    linear-gradient(135deg, #00ffe7, #008cff, #7c3cff) !important;
+
+  color: white !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+
+  box-shadow:
+    0 0 24px rgba(0,255,234,0.35),
+    0 0 55px rgba(124,58,237,0.25),
+    inset 0 0 18px rgba(255,255,255,0.15);
+
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Línea de escaneo */
+button::before,
+.card button::before,
+#searchBtn::before,
+.unlock-btn::before {
+  content: "";
+  position: absolute;
+  top: -80%;
+  left: -60%;
+  width: 45%;
+  height: 260%;
+
+  background: linear-gradient(
+    120deg,
+    transparent,
+    rgba(255,255,255,0.55),
+    rgba(0,255,234,0.35),
+    transparent
+  );
+
+  transform: rotate(25deg);
+  z-index: -1;
+}
+
+/* Hover pro */
+button:hover,
+.card button:hover,
+#searchBtn:hover,
+.unlock-btn:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow:
+    0 0 35px rgba(0,255,234,0.55),
+    0 0 80px rgba(124,58,237,0.35),
+    inset 0 0 25px rgba(255,255,255,0.20);
+}
+
+button:hover::before,
+.card button:hover::before,
+#searchBtn:hover::before,
+.unlock-btn:hover::before {
+  animation: aiButtonScan 0.9s ease forwards;
+}
+
+/* Efecto cuando haces click */
+button:active,
+.card button:active,
+#searchBtn:active,
+.unlock-btn:active {
+  transform: scale(0.97);
+  box-shadow:
+    0 0 45px rgba(0,255,234,0.8),
+    0 0 100px rgba(124,58,237,0.45);
+}
+
+/* Estado de análisis */
+.loading-analysis {
+  position: relative;
+  overflow: hidden;
+  padding: 18px 22px !important;
+  margin-top: 18px;
+  border-radius: 18px !important;
+
+  background:
+    linear-gradient(145deg, rgba(5,18,42,0.96), rgba(3,7,22,0.98)) !important;
+
+  border: 1px solid rgba(0,255,234,0.45);
+  color: #00ffe7 !important;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+
+  box-shadow:
+    0 0 30px rgba(0,255,234,0.22),
+    inset 0 0 28px rgba(0,255,234,0.06);
+}
+
+.loading-analysis::before {
+  content: "AI MODEL SCANNING";
+  display: block;
+  margin-bottom: 8px;
+  color: #ffd166;
+  font-size: 12px;
+  letter-spacing: 2px;
+}
+
+.loading-analysis::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -40%;
+  width: 35%;
+  height: 100%;
+
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0,255,234,0.25),
+    transparent
+  );
+
+  animation: aiLoadingScan 1.2s linear infinite;
+}
+
+/* Animaciones */
+@keyframes aiButtonScan {
+  0% {
+    left: -60%;
+  }
+
+  100% {
+    left: 130%;
+  }
+}
+
+@keyframes aiLoadingScan {
+  0% {
+    left: -40%;
+  }
+
+  100% {
+    left: 120%;
+  }
+}
+
+/* Mobile */
+@media (max-width: 700px) {
+  .ai-hero {
+    grid-template-columns: 1fr !important;
+    clip-path: none !important;
+    border-radius: 24px !important;
+    width: calc(100% - 20px) !important;
+  }
+
+  .hero h1 {
+    font-size: 38px !important;
+  }
+}
