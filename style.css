@@ -3525,7 +3525,7 @@ button:active,
 
 .premium-result > * {
   position: relative !important;
-  z-index: 3 !important;
+ z-index: 5 !important;
 }
 
 .premium-layout {
@@ -3572,4 +3572,55 @@ button:active,
   0% { left: -70%; }
   55% { left: 130%; }
   100% { left: 130%; }
+}
+/* ===================================
+   MOVING PREMIUM LIGHT EFFECT
+=================================== */
+
+.premium-result {
+  overflow: hidden !important;
+}
+
+.premium-result::after {
+  content: "" !important;
+  position: absolute !important;
+
+  top: -40% !important;
+  left: -120% !important;
+
+  width: 45% !important;
+  height: 220% !important;
+
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(255,255,255,0.02) 20%,
+    rgba(255,255,255,0.18) 45%,
+    rgba(255,240,180,0.35) 50%,
+    rgba(255,255,255,0.18) 55%,
+    transparent 100%
+  ) !important;
+
+  transform: rotate(18deg) !important;
+
+  animation: premiumSweep 3.8s linear infinite !important;
+
+  z-index: 2 !important;
+  pointer-events: none !important;
+}
+
+.premium-layout,
+.premium-layout * {
+  position: relative;
+  z-index: 5;
+}
+
+@keyframes premiumSweep {
+  0% {
+    left: -120%;
+  }
+
+  100% {
+    left: 160%;
+  }
 }
