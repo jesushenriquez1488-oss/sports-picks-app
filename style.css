@@ -4094,3 +4094,90 @@ button:active,
     0 0 35px rgba(255,170,0,.22),
     inset 0 1px 0 rgba(255,255,255,.45) !important;
 }
+/* ELECTRIC PREMIUM EFFECT */
+
+.hot-badge::after,
+.mlb-premium-badge::after,
+.premium-top-line::after,
+.premium-badge-top::after{
+  content:"";
+  position:absolute;
+  inset:-2px;
+
+  border-radius:999px;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(0,255,255,.9),
+      rgba(140,0,255,.9),
+      rgba(255,255,255,.95),
+      rgba(0,255,255,.9),
+      transparent
+    );
+
+  background-size:300% 100%;
+
+  filter:blur(10px);
+
+  opacity:.85;
+
+  animation:electricFlow 2.2s linear infinite;
+
+  z-index:0;
+}
+
+/* rayos internos */
+.hot-badge::before,
+.mlb-premium-badge::before,
+.premium-top-line::before,
+.premium-badge-top::before{
+  content:"";
+  position:absolute;
+  top:0;
+  left:-150%;
+  width:80%;
+  height:100%;
+
+  background:
+    linear-gradient(
+      120deg,
+      transparent,
+      rgba(255,255,255,.95),
+      rgba(0,255,255,.8),
+      transparent
+    );
+
+  transform:skewX(-25deg);
+
+  animation:electricStrike 1.8s linear infinite;
+
+  z-index:1;
+}
+
+@keyframes electricFlow{
+  0%{
+    background-position:0% 50%;
+  }
+
+  100%{
+    background-position:300% 50%;
+  }
+}
+
+@keyframes electricStrike{
+  0%{
+    left:-150%;
+    opacity:0;
+  }
+
+  20%{
+    opacity:1;
+  }
+
+  100%{
+    left:220%;
+    opacity:0;
+  }
+}
