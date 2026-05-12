@@ -851,85 +851,124 @@ function renderAnalysisResult({
   const modelAnalysis = getModelAnalysis(verdict);
 
   resultDiv.innerHTML = `
-    <div class="${isPremium ? 'premium-result' : 'normal-result'}">
+  <div class="${isPremium ? 'premium-result premium-ai-card' : 'normal-result'}">
 
-      ${isPremium ? '<div class="shine"></div><div class="hot-badge">🔥 HOT PICK</div>' : ''}
+    ${
+      isPremium
+        ? `
+          <div class="premium-top-line">
+            <span class="premium-crown">👑</span>
+            <span>🔥 HOT PICK PREMIUM</span>
+          </div>
+        `
+        : ""
+    }
 
-      <div class="result-content">
+    <div class="result-content premium-layout">
 
-        <p><strong>🔥 PICK PRINCIPAL:</strong></p>
-        <p><strong>Pick:</strong> <span>${shouldLockPremium ? "Pick Premium bloqueado" : pick}</span></p>
-
-        ${
-          shouldLockPremium ? `
-            <p>Desbloquea para ver el pick completo y el análisis exacto.</p>
-
-            <br>
-            <p><strong>Factores del modelo:</strong></p>
-            <p>✔ Descanso del equipo evaluado</p>
-            <p>✔ Impacto de lesiones considerado</p>
-            <p>✔ Ritmo reciente analizado</p>
-            <p>✔ Edge detectado contra la línea del mercado</p>
-          ` : ""
-        }
-
-        <p><strong>Confianza:</strong> <span>${confidence}%</span></p>
-        <p><strong>Riesgo:</strong> <span>${risk}</span></p>
-        <p><strong>Veredicto:</strong> <span>${verdict}</span></p>
-
-        <div class="edge-grid">
-          ${
-            mainEdgeConfidence >= 60
-              ? `
-                <div class="edge-box">
-                  <h4>Edge detectado</h4>
-                  <p>Ventaja del modelo</p>
-                  <div class="edge-number">${mainEdge.toFixed(1)}</div>
-                  <p>Confianza: <strong>${mainEdgeConfidence}%</strong></p>
-                </div>
-              `
-              : ""
-          }
+      <div class="premium-header">
+        <div>
+          <p class="premium-label">AI PREDICTIVE REPORT</p>
+          <h3>🔥 PICK PRINCIPAL</h3>
+          <p class="premium-game-pick">
+            ${shouldLockPremium ? "Pick Premium bloqueado" : pick}
+          </p>
         </div>
 
-        ${
-          !shouldLockPremium ? `
-            <br>
-            <p><strong>Explicación:</strong></p>
-            <p>Diferencial proyectado: ${spreadDiff.toFixed(1)}</p>
-            <p>Proyección ${awayTeam}: ${projA.toFixed(1)}</p>
-            <p>Proyección ${homeTeam}: ${projB.toFixed(1)}</p>
-            <p>Total proyectado: ${totalProj.toFixed(1)}</p>
+        <div class="premium-score-box">
+          <small>CONFIANZA</small>
+          <strong>${confidence}%</strong>
+          <span>${risk}</span>
+        </div>
+      </div>
 
-            ${extraHTML}
+      ${
+        shouldLockPremium ? `
+          <div class="premium-lock-box">
+            <p>🔒 Desbloquea para ver el pick completo y el análisis exacto.</p>
 
-            <br>
-            <p><strong>Análisis del modelo:</strong></p>
-            <p>${modelAnalysis}</p>
-          ` : ""
-        }
+            <div class="premium-factor-grid">
+              <span>✔ Descanso evaluado</span>
+              <span>✔ Lesiones consideradas</span>
+              <span>✔ Ritmo reciente</span>
+              <span>✔ Edge vs mercado</span>
+            </div>
+          </div>
+        ` : ""
+      }
 
-        ${
-          shouldLockPremium
-            ? `
-              <button class="unlock-btn" onclick="unlockPick()">
-                Desbloquear jugada premium por $${SINGLE_PICK_PRICE}
-              </button>
+      <div class="premium-verdict-box">
+        <strong>VEREDICTO DEL MODELO</strong>
+        <span>${verdict}</span>
+      </div>
 
-              <p style="text-align:center; margin-top:10px; font-size:14px; opacity:0.85;">
-                O desbloquea el acceso premium por $${MONTHLY_PRICE}/mes y obtén todas las jugadas premium del mes.
-              </p>
+      <div class="premium-metrics-grid">
 
-              <button class="unlock-btn" onclick="goPremiumMonthly()">
-                Acceso Premium mensual $${MONTHLY_PRICE}/mes
-              </button>
-            `
-            : ""
-        }
+        <div class="premium-metric">
+          <small>EDGE DEL MODELO</small>
+          <strong>${mainEdge.toFixed(1)}</strong>
+          <span>Ventaja detectada</span>
+        </div>
+
+        <div class="premium-metric">
+          <small>EDGE CONFIDENCE</small>
+          <strong>${mainEdgeConfidence}%</strong>
+          <span>Lectura estadística</span>
+        </div>
+
+        <div class="premium-metric">
+          <small>RIESGO</small>
+          <strong>${risk}</strong>
+          <span>Perfil de jugada</span>
+        </div>
 
       </div>
+
+      ${
+        !shouldLockPremium ? `
+          <div class="premium-analysis-grid">
+
+            <div class="premium-main-analysis">
+              <p><strong>Diferencial proyectado:</strong> ${spreadDiff.toFixed(1)}</p>
+              <p><strong>Proyección ${awayTeam}:</strong> ${projA.toFixed(1)}</p>
+              <p><strong>Proyección ${homeTeam}:</strong> ${projB.toFixed(1)}</p>
+              <p><strong>Total proyectado:</strong> ${totalProj.toFixed(1)}</p>
+            </div>
+
+            <div class="premium-extra-analysis">
+              ${extraHTML}
+            </div>
+
+          </div>
+
+          <div class="premium-model-text">
+            <strong>ANÁLISIS IA COMPLETO</strong>
+            <p>${modelAnalysis}</p>
+          </div>
+        ` : ""
+      }
+
+      ${
+        shouldLockPremium
+          ? `
+            <button class="unlock-btn premium-unlock" onclick="unlockPick()">
+              Desbloquear jugada premium por $${SINGLE_PICK_PRICE}
+            </button>
+
+            <p class="premium-small-text">
+              O desbloquea el acceso premium por $${MONTHLY_PRICE}/mes y obtén todas las jugadas premium del mes.
+            </p>
+
+            <button class="unlock-btn premium-unlock" onclick="goPremiumMonthly()">
+              Acceso Premium mensual $${MONTHLY_PRICE}/mes
+            </button>
+          `
+          : ""
+      }
+
     </div>
-  `;
+  </div>
+`;
 }
 
 async function loadGames() {
