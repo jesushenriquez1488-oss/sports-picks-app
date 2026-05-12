@@ -4029,3 +4029,68 @@ button:active,
   background: linear-gradient(135deg, #fff3b0, #ffd166, #ff9f1c) !important;
   border: 1px solid rgba(255, 220, 120, 0.8) !important;
 }
+/* GLOBAL PREMIUM BADGE FIX */
+
+.hot-badge,
+.mlb-premium-badge,
+.premium-top-line,
+.premium-badge-top{
+  position: relative !important;
+  overflow: hidden !important;
+
+  color:#140900 !important;
+  -webkit-text-fill-color:#140900 !important;
+
+  text-shadow:none !important;
+
+  z-index:20 !important;
+}
+
+/* TODO el texto dentro */
+.hot-badge *,
+.mlb-premium-badge *,
+.premium-top-line *,
+.premium-badge-top *{
+  position:relative !important;
+  z-index:30 !important;
+
+  color:#140900 !important;
+  -webkit-text-fill-color:#140900 !important;
+
+  opacity:1 !important;
+  text-shadow:none !important;
+}
+
+/* glow por debajo */
+.hot-badge::before,
+.hot-badge::after,
+.mlb-premium-badge::before,
+.mlb-premium-badge::after,
+.premium-top-line::before,
+.premium-top-line::after,
+.premium-badge-top::before,
+.premium-badge-top::after{
+  z-index:1 !important;
+  opacity:.35 !important;
+}
+
+/* fondo premium */
+.hot-badge,
+.mlb-premium-badge,
+.premium-top-line,
+.premium-badge-top{
+  background:
+    linear-gradient(
+      135deg,
+      #fff0a8,
+      #ffd166,
+      #ffb703
+    ) !important;
+
+  border:1px solid rgba(255,220,120,.9) !important;
+
+  box-shadow:
+    0 0 12px rgba(255,190,40,.35),
+    0 0 35px rgba(255,170,0,.22),
+    inset 0 1px 0 rgba(255,255,255,.45) !important;
+}
