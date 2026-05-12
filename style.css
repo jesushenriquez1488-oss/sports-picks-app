@@ -3886,3 +3886,66 @@ button:active,
     opacity: .4 !important;
   }
 }
+/* MOBILE SMALLER PREMIUM/NORMAL RESULT */
+@media (max-width: 600px) {
+
+  .mlb-premium-content,
+  .premium-layout,
+  .result-content {
+    padding: 16px !important;
+  }
+
+  .mlb-top-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  .mlb-main-pick-box {
+    padding: 18px !important;
+    max-width: 100% !important;
+  }
+
+  .mlb-main-pick-box strong {
+    font-size: 22px !important;
+  }
+
+  .mlb-main-pick-box h3 {
+    font-size: 42px !important;
+  }
+
+  .mlb-main-pick-box span,
+  .mlb-main-pick-box small {
+    font-size: 13px !important;
+  }
+
+  .mlb-projection-box p,
+  .mlb-info-grid p,
+  .premium-result p,
+  .normal-result p {
+    font-size: 14px !important;
+    line-height: 1.35 !important;
+  }
+
+  .mlb-premium-title h2,
+  .premium-header h3 {
+    font-size: 24px !important;
+  }
+
+  .mlb-premium-metrics {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+    padding: 12px !important;
+  }
+
+  .mlb-premium-metrics strong {
+    font-size: 24px !important;
+  }
+
+  .mlb-info-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .mlb-info-grid div {
+    padding: 14px !important;
+  }
+}
