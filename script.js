@@ -1702,7 +1702,7 @@ const res = await fetch(
               <div class="premium-analysis-grid">
 
                 <div class="premium-analysis-card">
-                  <h4>🔥 Jugada Premium</h4>
+                  <h4>${isPremium ? "🔥 Jugada Premium" : "📊 Jugada Normal"}</h4>
                   <p>${bestPick.pick || "No disponible"}</p>
 
                   <div class="premium-big-number">
@@ -1761,7 +1761,7 @@ const res = await fetch(
               <div class="premium-data-box">
                 <h4>🎯 Lectura IA</h4>
                 <p>El sistema compara la proyección del modelo contra la línea del mercado.</p>
-                <p>Solo marca premium cuando el edge supera el umbral establecido.</p>
+                <p>Esta jugada se clasifica como ${isPremium ? "premium" : "normal"} según la confianza y el edge detectado.</p>
               </div>
 
             </div>
