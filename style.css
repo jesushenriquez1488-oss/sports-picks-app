@@ -3755,3 +3755,29 @@ button:active,
   0% { left: -70%; }
   100% { left: 150%; }
 }
+.normal-blue-theme h1,
+.normal-blue-theme h2,
+.normal-blue-theme h3,
+.normal-blue-theme h4,
+.normal-blue-theme strong,
+.normal-blue-theme .edge-number {
+  color: #4de3ff !important;
+  text-shadow:
+    0 0 10px rgba(77,227,255,0.35);
+}
+
+.normal-blue-theme .edge-box,
+.normal-blue-theme .premium-main-card,
+.normal-blue-theme .premium-stat-card {
+  border-color: rgba(77,227,255,0.25) !important;
+
+  box-shadow:
+    0 0 18px rgba(77,227,255,0.12);
+}
+
+.normal-blue-theme .premium-main-card .big-confidence {
+  color: #4de3ff !important;
+
+  text-shadow:
+    0 0 18px rgba(77,227,255,0.45);
+}
