@@ -1468,6 +1468,10 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
 
   </div>
 `;
+      } catch (error) {
+    resultDiv.innerHTML = `<p>Error MLB: ${error.message}</p>`;
+  }
+}
 async function analyzeFootball(awayTeam, homeTeam, index) {
   const resultDiv = document.getElementById(`result${index}`);
   resultDiv.innerHTML = `<div class="loading-analysis">Analizando ${selectedSportName}...</div>`;
