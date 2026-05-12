@@ -121,7 +121,21 @@
     Cancela cuando quieras desde tu suscripción.
   </p>
 </div>
+<div class="ai-layout">
 
+  <aside class="game-side-panel">
+    <div class="side-row">📅 <strong>Fecha:</strong> <span id="sideDate">martes, 12 de mayo de 2026</span></div>
+    <div class="side-row">🕒 <strong>Hora:</strong> <span id="sideTime">5:11 p.m.</span></div>
+    <div class="side-row">📈 <strong>Spread visitante:</strong> <span id="sideAwaySpread">-1.5</span></div>
+    <div class="side-row">📊 <strong>Spread local:</strong> <span id="sideHomeSpread">+1.5</span></div>
+    <div class="side-row">🎯 <strong>Total:</strong> <span id="sideTotal">8.5</span></div>
+
+    <button class="side-action-btn" onclick="loadGames()">
+      VER PREDICCIÓN
+    </button>
+  </aside>
+
+  <main class="ai-main-area">
 <div class="floating-rate premium-rate">
   <strong>Premium</strong>
   <span id="premiumRate">88%</span>
@@ -245,7 +259,9 @@
 
 <div id="status"></div>
 
-<div id="games"></div>
+<div id="games"></div> 
+  </main>
+</div>
 
 <footer class="site-footer">
   <div class="footer-inner">
