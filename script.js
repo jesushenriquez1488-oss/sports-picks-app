@@ -1472,7 +1472,7 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
               <div class="mlb-top-grid">
 
                 <div class="mlb-main-pick-box">
-                  <span>Total Premium</span>
+                  <span>${isPremiumMLB ? "Total Premium" : "Total Normal"}</span>
                   <strong>${premium.totalPick} ${safe(premium.totalLine, totalLine)}</strong>
                   <h3>${Math.max(
                     safe(premium.overProbability),
