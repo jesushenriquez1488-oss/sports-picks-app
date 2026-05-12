@@ -1464,7 +1464,9 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
                   <p><strong>Favorito:</strong> ${premium.favoriteToWin} (${safe(premium.favoriteProb).toFixed(1)}%)</p>
                 </div>
 
-                <div class="mlb-gold-shield">★</div>
+               ${isPremiumMLB ? `
+  <div class="mlb-gold-shield">★</div>
+` : ``}
               </div>
 
               <div class="mlb-top-grid">
