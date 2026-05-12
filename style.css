@@ -3949,3 +3949,56 @@ button:active,
     padding: 14px !important;
   }
 }
+/* FIX HOT BADGE TOP */
+
+.hot-badge{
+  color:#111 !important;
+
+  font-weight:900 !important;
+  font-size:28px !important;
+  letter-spacing:1px !important;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255,210,90,1),
+      rgba(255,170,30,0.98)
+    ) !important;
+
+  box-shadow:
+    0 0 12px rgba(255,190,40,0.35),
+    0 0 35px rgba(255,170,0,0.22),
+    inset 0 1px 0 rgba(255,255,255,0.45) !important;
+
+  overflow:hidden !important;
+}
+
+.hot-badge::before{
+  content:"";
+  position:absolute;
+  top:-50%;
+  left:-120%;
+  width:60%;
+  height:220%;
+
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255,255,255,0.55),
+    transparent
+  );
+
+  transform: rotate(20deg);
+
+  animation: hotBadgeShine 3s linear infinite;
+}
+
+@keyframes hotBadgeShine{
+  0%{
+    left:-120%;
+  }
+
+  100%{
+    left:180%;
+  }
+}
