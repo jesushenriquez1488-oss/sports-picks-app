@@ -1418,7 +1418,7 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
     `).join("") || "";
 
     resultDiv.innerHTML = `
-  <div class="${isPremiumMLB ? 'premium-result mlb-premium-dashboard' : 'normal-result'}">
+ <div class="${isPremiumMLB ? 'premium-result mlb-premium-dashboard' : 'normal-result normal-blue-theme'}">
 
     ${
       isPremiumMLB
