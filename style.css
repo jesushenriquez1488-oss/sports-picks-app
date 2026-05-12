@@ -3624,3 +3624,134 @@ button:active,
     left: 160%;
   }
 }
+/* ===============================
+   BANNER FUTURISTA FINAL
+================================ */
+
+.ai-hero,
+.hero {
+  position: relative !important;
+  overflow: hidden !important;
+  min-height: 360px !important;
+  padding: 60px 70px !important;
+
+  background:
+    radial-gradient(circle at 18% 50%, rgba(0, 229, 255, 0.28), transparent 28%),
+    radial-gradient(circle at 82% 20%, rgba(190, 40, 255, 0.32), transparent 30%),
+    radial-gradient(circle at 60% 85%, rgba(50, 80, 255, 0.22), transparent 38%),
+    linear-gradient(135deg, #020816 0%, #030b1d 48%, #08051d 100%) !important;
+
+  border: 1px solid rgba(0, 229, 255, 0.35) !important;
+
+  box-shadow:
+    0 0 35px rgba(0, 229, 255, 0.18),
+    0 0 90px rgba(180, 40, 255, 0.16),
+    inset 0 0 70px rgba(0, 229, 255, 0.06) !important;
+
+  clip-path: none !important;
+  border-radius: 28px !important;
+}
+
+/* grid tech */
+.ai-hero::before,
+.hero::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+
+  background-image:
+    linear-gradient(rgba(0,255,255,0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,255,0.045) 1px, transparent 1px);
+
+  background-size: 48px 48px !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
+/* luz animada */
+.ai-hero::after,
+.hero::after {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+
+  top: -40% !important;
+  left: -70% !important;
+  width: 45% !important;
+  height: 200% !important;
+
+  background: linear-gradient(
+    120deg,
+    transparent,
+    rgba(255,255,255,0.10),
+    rgba(0,229,255,0.22),
+    rgba(190,40,255,0.20),
+    transparent
+  ) !important;
+
+  transform: rotate(22deg) !important;
+  animation: heroLightMove 5s linear infinite !important;
+  pointer-events: none !important;
+  z-index: 1 !important;
+}
+
+.hero-content,
+.hero-orb,
+.badge,
+.hero h1,
+.hero p {
+  position: relative !important;
+  z-index: 3 !important;
+}
+
+/* titulo mas pro */
+.hero h1 {
+  font-size: clamp(52px, 7vw, 110px) !important;
+  font-weight: 1000 !important;
+  letter-spacing: -3px !important;
+
+  background: linear-gradient(
+    90deg,
+    #ffffff,
+    #8ffcff,
+    #5f7cff,
+    #ff4dff
+  ) !important;
+
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+
+  text-shadow:
+    0 0 20px rgba(0,229,255,0.35),
+    0 0 50px rgba(180,40,255,0.25) !important;
+}
+
+/* badge */
+.badge {
+  padding: 12px 26px !important;
+  border-radius: 999px !important;
+
+  background: rgba(0, 229, 255, 0.08) !important;
+  border: 1px solid rgba(0, 229, 255, 0.45) !important;
+  color: #8ffcff !important;
+
+  box-shadow:
+    0 0 24px rgba(0,229,255,0.22),
+    inset 0 0 18px rgba(0,229,255,0.08) !important;
+}
+
+/* orb mas parecido al ejemplo */
+.basketball-orb {
+  background:
+    radial-gradient(circle, rgba(0,229,255,0.42), transparent 62%),
+    linear-gradient(145deg, rgba(0,229,255,0.16), rgba(190,40,255,0.28)) !important;
+
+  box-shadow:
+    0 0 45px rgba(0,229,255,0.70),
+    0 0 95px rgba(190,40,255,0.45) !important;
+}
+
+@keyframes heroLightMove {
+  0% { left: -70%; }
+  100% { left: 150%; }
+}
