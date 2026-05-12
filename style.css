@@ -1296,3 +1296,333 @@ body > .hero,
     font-size: 16px;
   }
 }
+/* =============================== */
+/* PREMIUM GOLD AI DASHBOARD FINAL */
+/* =============================== */
+
+body {
+  padding: 0;
+  background:
+    radial-gradient(circle at 15% 45%, rgba(0, 170, 255, 0.14), transparent 24%),
+    radial-gradient(circle at 82% 20%, rgba(160, 80, 255, 0.18), transparent 26%),
+    radial-gradient(circle at 50% 55%, rgba(0, 255, 220, 0.10), transparent 34%),
+    linear-gradient(180deg, #020814 0%, #050816 55%, #010309 100%);
+  overflow-x: hidden;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -5;
+  background-image:
+    linear-gradient(rgba(0,255,255,0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,255,0.055) 1px, transparent 1px);
+  background-size: 62px 62px;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -4;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle, rgba(0,255,255,.55) 1px, transparent 2px),
+    radial-gradient(circle, rgba(160,90,255,.50) 1px, transparent 2px);
+  background-size: 120px 120px, 180px 180px;
+  opacity: .20;
+}
+
+/* FIX BANNER CORTADO */
+.ai-hero {
+  width: calc(100% - 60px);
+  max-width: 1560px;
+  min-height: 300px;
+  margin: 38px auto 26px !important;
+  padding: 42px 70px;
+  overflow: visible;
+
+  display: grid;
+  grid-template-columns: 280px 1fr 260px;
+  align-items: center;
+
+  background:
+    radial-gradient(circle at 18% 55%, rgba(0,255,255,.20), transparent 25%),
+    radial-gradient(circle at 88% 20%, rgba(170,80,255,.18), transparent 28%),
+    linear-gradient(135deg, rgba(5,16,38,.98), rgba(4,8,25,.98));
+
+  border: 1px solid rgba(0,255,255,.65);
+  box-shadow:
+    0 0 55px rgba(0,255,255,.16),
+    inset 0 0 70px rgba(0,255,255,.05);
+
+  clip-path: polygon(
+    3% 0,
+    96% 0,
+    100% 17%,
+    100% 83%,
+    96% 100%,
+    3% 100%,
+    0 83%,
+    0 17%
+  );
+}
+
+.hero-content {
+  text-align: center;
+}
+
+.hero h1 {
+  font-size: 68px;
+  margin: 22px 0 18px;
+  background: linear-gradient(90deg, #ffffff, #87fff4, #ae99ff);
+  -webkit-background-clip: text;
+  color: transparent;
+  letter-spacing: -2px;
+}
+
+.basketball-orb {
+  width: 145px;
+  height: 145px;
+  font-size: 76px;
+  background:
+    radial-gradient(circle, rgba(0,255,255,.45), transparent 62%),
+    linear-gradient(145deg, rgba(0,255,255,.20), rgba(125,70,255,.35));
+  box-shadow:
+    0 0 45px rgba(0,255,255,.65),
+    0 0 95px rgba(125,70,255,.45);
+}
+
+.basketball-orb::after {
+  content: "";
+  position: absolute;
+  bottom: -42px;
+  width: 210px;
+  height: 45px;
+  border-radius: 50%;
+  border: 2px solid rgba(0,255,255,.70);
+  box-shadow: 0 0 35px rgba(0,255,255,.75);
+}
+
+.ai-hero::after {
+  content: "PREDICTIVE MODEL\A╱╲╱╲╱╲╱╲╱\A\A WIN PROBABILITY\A 78.6%\A\A CONFIDENCE LEVEL\A ███████░░";
+  white-space: pre;
+  justify-self: end;
+  color: #00ffe7;
+  font-size: 14px;
+  line-height: 1.7;
+  padding: 22px 24px;
+  border-left: 1px solid rgba(0,255,255,.45);
+  background: rgba(2,8,22,.55);
+}
+
+/* LAYOUT */
+.ai-layout {
+  width: calc(100% - 60px);
+  max-width: 1560px;
+  margin: 24px auto;
+  display: grid;
+  grid-template-columns: 310px 1fr;
+  gap: 26px;
+}
+
+.ai-main-area {
+  min-width: 0;
+}
+
+/* PANEL IZQUIERDO */
+.game-side-panel {
+  align-self: start;
+  padding: 24px;
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(5,18,40,.96), rgba(3,8,24,.98));
+  border: 1px solid rgba(0,255,255,.35);
+  box-shadow:
+    0 0 35px rgba(0,255,255,.12),
+    inset 0 0 35px rgba(0,255,255,.04);
+}
+
+.side-row {
+  padding: 15px 0;
+  border-bottom: 1px solid rgba(0,255,255,.12);
+  font-size: 15px;
+  color: white;
+}
+
+.side-row strong {
+  color: #00ffe7;
+}
+
+.side-action-btn {
+  width: 100%;
+  margin-top: 26px;
+  padding: 17px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #00ffe7, #008cff, #7c3cff);
+  color: white;
+  font-weight: 900;
+  box-shadow: 0 0 30px rgba(0,255,255,.28);
+}
+
+/* PREMIUM RESULT DORADO PRO */
+.premium-result {
+  position: relative;
+  padding: 34px !important;
+  border-radius: 24px !important;
+  overflow: hidden;
+
+  background:
+    radial-gradient(circle at 82% 22%, rgba(255,190,40,.22), transparent 24%),
+    radial-gradient(circle at 15% 20%, rgba(255,210,80,.16), transparent 28%),
+    linear-gradient(145deg, #120c02 0%, #050402 100%) !important;
+
+  border: 1px solid rgba(255, 195, 55, .95) !important;
+
+  box-shadow:
+    0 0 42px rgba(255, 190, 55, .38),
+    0 0 90px rgba(255, 165, 0, .14),
+    inset 0 0 55px rgba(255, 210, 80, .10) !important;
+}
+
+.premium-result::before {
+  content: "👑  🔥 HOT PICK PREMIUM";
+  display: inline-block;
+  position: relative;
+  z-index: 5;
+  margin-bottom: 22px;
+  padding: 10px 22px;
+  border-radius: 14px;
+  color: #1a1000;
+  font-size: 18px;
+  font-weight: 1000;
+  background: linear-gradient(135deg, #fff3b0, #ffd166, #ff9f1c);
+  box-shadow: 0 0 28px rgba(255,190,55,.45);
+}
+
+.premium-result::after {
+  content: "★";
+  position: absolute;
+  right: 70px;
+  top: 70px;
+  width: 145px;
+  height: 145px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 72px;
+  color: #ffd166;
+  border: 2px solid rgba(255, 209, 102, .55);
+  box-shadow:
+    0 0 40px rgba(255,209,102,.45),
+    inset 0 0 35px rgba(255,209,102,.16);
+  opacity: .95;
+}
+
+.premium-result .result-content,
+.premium-result > div {
+  position: relative;
+  z-index: 4;
+}
+
+/* textos premium */
+.premium-result h3,
+.premium-result h2,
+.premium-result strong {
+  color: #ffd166 !important;
+  text-shadow: 0 0 18px rgba(255,209,102,.35);
+}
+
+.premium-result p {
+  color: #f8f4e8 !important;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+/* caja jugada premium */
+.edge-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+}
+
+.edge-box {
+  background:
+    linear-gradient(145deg, rgba(30,24,12,.95), rgba(7,5,2,.98)) !important;
+  border: 1px solid rgba(255,209,102,.65) !important;
+  box-shadow:
+    0 0 28px rgba(255,209,102,.20),
+    inset 0 0 24px rgba(255,209,102,.08);
+}
+
+.edge-number {
+  font-size: 44px !important;
+  color: #ffd166 !important;
+}
+
+/* RESULTADOS NORMALES DIFERENTES */
+.normal-result {
+  background:
+    linear-gradient(145deg, rgba(7,20,45,.96), rgba(3,8,24,.98)) !important;
+  border: 1px solid rgba(0,255,255,.28) !important;
+  box-shadow: 0 0 30px rgba(0,255,255,.10);
+}
+
+/* floating accuracy izquierda como premium */
+.floating-rate {
+  position: relative;
+  width: auto;
+  min-width: 220px;
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.premium-rate {
+  background: linear-gradient(145deg, rgba(40,28,8,.98), rgba(7,5,2,.98));
+  border: 1px solid rgba(255,209,102,.75);
+  box-shadow: 0 0 28px rgba(255,209,102,.22);
+}
+
+.normal-rate {
+  background: linear-gradient(145deg, rgba(5,20,42,.96), rgba(3,8,24,.98));
+  border: 1px solid rgba(0,255,255,.35);
+}
+
+.floating-accuracy {
+  position: fixed;
+  left: 28px;
+  bottom: 28px;
+  right: auto;
+}
+
+/* MOBILE */
+@media (max-width: 900px) {
+  .ai-hero {
+    width: calc(100% - 24px);
+    grid-template-columns: 1fr;
+    padding: 28px 18px;
+    clip-path: none;
+    border-radius: 24px;
+  }
+
+  .ai-hero::after {
+    display: none;
+  }
+
+  .hero h1 {
+    font-size: 40px;
+  }
+
+  .ai-layout {
+    width: calc(100% - 24px);
+    grid-template-columns: 1fr;
+  }
+
+  .premium-result::after {
+    display: none;
+  }
+
+  .floating-accuracy {
+    display: none;
+  }
+}
