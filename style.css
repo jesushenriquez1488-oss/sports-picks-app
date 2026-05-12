@@ -1626,3 +1626,87 @@ body::after {
     display: none;
   }
 }
+/* FIX: REMOVE SIDE PANEL LAYOUT */
+.ai-layout {
+  display: block !important;
+  width: auto !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
+
+.game-side-panel {
+  display: none !important;
+}
+
+.ai-main-area {
+  display: block !important;
+}
+
+/* FIX PREMIUM CLEAN GOLD */
+.premium-result {
+  padding: 26px !important;
+  border-radius: 24px !important;
+  background:
+    radial-gradient(circle at 85% 15%, rgba(255, 209, 102, 0.18), transparent 28%),
+    linear-gradient(145deg, #130d03, #050401) !important;
+  border: 1px solid rgba(255, 209, 102, 0.85) !important;
+  box-shadow:
+    0 0 34px rgba(255, 209, 102, 0.28),
+    inset 0 0 35px rgba(255, 209, 102, 0.08) !important;
+}
+
+/* QUITA EL HOT PICK PREMIUM DUPLICADO */
+.premium-result::before {
+  display: none !important;
+}
+
+/* QUITA EL ESCUDO GRANDE QUE ESTORBABA */
+.premium-result::after {
+  display: none !important;
+}
+
+/* HOT BADGE BONITO */
+.hot-badge {
+  display: inline-block;
+  margin-bottom: 18px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fff3b0, #ffd166, #ff9f1c);
+  color: #120800;
+  font-weight: 900;
+  box-shadow: 0 0 24px rgba(255, 209, 102, 0.35);
+}
+
+/* CAJA INTERNA PREMIUM */
+.premium-result .result-content {
+  background:
+    linear-gradient(145deg, rgba(8, 18, 38, 0.96), rgba(3, 7, 20, 0.98)) !important;
+  border: 1px solid rgba(0, 255, 234, 0.22) !important;
+  border-radius: 22px !important;
+  padding: 26px !important;
+}
+
+/* TEXTOS PREMIUM */
+.premium-result strong,
+.premium-result h3,
+.premium-result h4 {
+  color: #ffd166 !important;
+}
+
+.premium-result p {
+  color: white !important;
+}
+
+/* PICK BOX PREMIUM */
+.edge-box {
+  background:
+    linear-gradient(145deg, rgba(20, 16, 8, 0.96), rgba(5, 4, 2, 0.98)) !important;
+  border: 1px solid rgba(255, 209, 102, 0.55) !important;
+  box-shadow:
+    0 0 22px rgba(255, 209, 102, 0.18),
+    inset 0 0 20px rgba(255, 209, 102, 0.06);
+}
+
+.edge-number {
+  color: #ffd166 !important;
+}
