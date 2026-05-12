@@ -3471,3 +3471,105 @@ button:active,
   box-shadow:
     0 0 35px rgba(0,229,255,0.55);
 }
+/* ===============================
+   PREMIUM GLOW FORCE FIX
+================================ */
+
+.premium-result {
+  box-shadow:
+    0 0 35px rgba(255, 209, 102, 0.45),
+    0 0 90px rgba(255, 170, 0, 0.22),
+    inset 0 0 55px rgba(255, 209, 102, 0.12) !important;
+}
+
+.premium-result::before {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  inset: -3px !important;
+  border-radius: 34px !important;
+  background: linear-gradient(
+    120deg,
+    #ffd166,
+    #ff9f1c,
+    #fff3b0,
+    #ffb703,
+    #ffd166
+  ) !important;
+  background-size: 300% 300% !important;
+  animation: premiumGoldBorder 5s linear infinite !important;
+  z-index: 0 !important;
+  opacity: 0.9 !important;
+}
+
+.premium-result::after {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  top: -60% !important;
+  left: -70% !important;
+  width: 45% !important;
+  height: 220% !important;
+  background: linear-gradient(
+    120deg,
+    transparent,
+    rgba(255,255,255,0.18),
+    rgba(255,231,150,0.28),
+    transparent
+  ) !important;
+  transform: rotate(24deg) !important;
+  animation: premiumBigShine 3.8s infinite !important;
+  z-index: 2 !important;
+  pointer-events: none !important;
+}
+
+.premium-result > * {
+  position: relative !important;
+  z-index: 3 !important;
+}
+
+.premium-layout {
+  box-shadow:
+    0 0 30px rgba(0,255,234,0.18),
+    inset 0 0 45px rgba(0,255,234,0.08),
+    inset 0 0 70px rgba(255,209,102,0.04) !important;
+}
+
+.premium-top-line {
+  box-shadow:
+    0 0 28px rgba(255,209,102,0.75),
+    0 0 65px rgba(255,170,0,0.35) !important;
+}
+
+.premium-score-box,
+.premium-analysis-card {
+  box-shadow:
+    0 0 25px rgba(255,209,102,0.35),
+    0 0 60px rgba(255,170,0,0.13),
+    inset 0 0 30px rgba(255,209,102,0.08) !important;
+}
+
+.premium-score-box strong,
+.premium-big-number {
+  text-shadow:
+    0 0 16px rgba(255,209,102,0.85),
+    0 0 38px rgba(255,170,0,0.45) !important;
+}
+
+.premium-game-pick,
+.premium-header h3 {
+  text-shadow:
+    0 0 18px rgba(255,209,102,0.45),
+    0 0 34px rgba(255,209,102,0.18) !important;
+}
+
+@keyframes premiumGoldBorder {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
+}
+
+@keyframes premiumBigShine {
+  0% { left: -70%; }
+  55% { left: 130%; }
+  100% { left: 130%; }
+}
