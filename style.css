@@ -1150,3 +1150,149 @@ body > .hero,
     font-size: 38px;
   }
 }
+/* =============================== */
+/* GAME CARDS + RESULTS AI STYLE */
+/* =============================== */
+
+.card {
+  position: relative;
+  overflow: hidden;
+  padding: 28px;
+  margin-top: 24px;
+  border-radius: 28px;
+
+  background:
+    linear-gradient(145deg, rgba(5, 18, 42, 0.96), rgba(3, 7, 22, 0.98));
+
+  border: 1px solid rgba(0, 255, 234, 0.32);
+
+  box-shadow:
+    0 0 36px rgba(0, 255, 234, 0.12),
+    0 0 80px rgba(124, 58, 237, 0.10),
+    inset 0 0 42px rgba(0, 255, 234, 0.04);
+}
+
+.card::before {
+  content: "LIVE DATA SCAN";
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: rgba(0,255,234,0.55);
+}
+
+.card h2 {
+  font-size: 30px;
+  margin-bottom: 24px;
+  color: #ffffff;
+  text-shadow: 0 0 24px rgba(0,255,234,0.25);
+}
+
+.card p {
+  font-size: 18px;
+  margin: 13px 0;
+}
+
+.card p strong {
+  color: #00ffe7;
+  text-shadow: 0 0 12px rgba(0,255,234,0.35);
+}
+
+.card button {
+  margin-top: 22px;
+  padding: 16px 24px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #00ffe7, #008cff, #7c3cff);
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  box-shadow:
+    0 0 24px rgba(0,255,234,0.35),
+    0 0 55px rgba(124,58,237,0.25);
+}
+
+/* RESULT BOX FUTURISTIC */
+.normal-result,
+.result-content {
+  position: relative;
+  overflow: hidden;
+  padding: 26px !important;
+  border-radius: 26px !important;
+
+  background:
+    linear-gradient(145deg, rgba(8, 22, 48, 0.96), rgba(4, 8, 24, 0.98)) !important;
+
+  border: 1px solid rgba(0,255,234,0.30);
+
+  box-shadow:
+    0 0 35px rgba(0,255,234,0.11),
+    inset 0 0 40px rgba(0,255,234,0.035);
+}
+
+.normal-result::before {
+  content: "AI PREDICTIVE REPORT";
+  display: block;
+  margin-bottom: 18px;
+  color: #00ffe7;
+  font-size: 12px;
+  letter-spacing: 1.8px;
+  font-weight: 900;
+}
+
+.normal-result::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -40%;
+  width: 35%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0,255,234,0.12),
+    transparent
+  );
+  animation: resultScan 4s infinite;
+}
+
+.normal-result p {
+  font-size: 18px;
+  line-height: 1.45;
+  margin: 10px 0;
+}
+
+.normal-result strong {
+  color: #ffd166;
+  text-shadow: 0 0 14px rgba(255,209,102,0.28);
+}
+
+@keyframes resultScan {
+  0% { left: -45%; }
+  55% { left: 120%; }
+  100% { left: 120%; }
+}
+
+/* PREMIUM RESULT EXTRA FUTURE */
+.premium-result {
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 210, 80, 0.22), transparent 35%),
+    linear-gradient(145deg, rgba(45, 27, 4, 0.98), rgba(7, 5, 2, 0.98));
+}
+
+/* MOBILE */
+@media (max-width: 600px) {
+  .card {
+    padding: 20px;
+  }
+
+  .card h2 {
+    font-size: 23px;
+  }
+
+  .card p,
+  .normal-result p {
+    font-size: 16px;
+  }
+}
