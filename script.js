@@ -1472,14 +1472,28 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
               <div class="mlb-top-grid">
 
                 <div class="mlb-main-pick-box">
-                  <span>${isPremiumMLB ? "Total Premium" : "Total Normal"}</span>
-                  <strong>${premium.totalPick} ${safe(premium.totalLine, totalLine)}</strong>
-                  <h3>${Math.max(
-                    safe(premium.overProbability),
-                    safe(premium.underProbability)
-                  ).toFixed(1)}%</h3>
-                  <small>PROBABILIDAD DE ÉXITO</small>
-                </div>
+
+${premium.recommendedCards?.[0] ? `
+
+  <span>${premium.recommendedCards[0].title}</span>
+
+  <strong>
+    ${premium.recommendedCards[0].play}
+  </strong>
+
+  <h3>
+    ${safe(premium.recommendedCards[0].percentage).toFixed(1)}%
+  </h3>
+
+  <small>PROBABILIDAD DE ÉXITO</small>
+
+` : `
+
+  <span>Sin jugada premium</span>
+
+`}
+
+</div>
 
                 <div class="mlb-projection-box">
                   <p><strong>Carreras esperadas ${awayTeam}:</strong> ${safe(premium.expectedRunsA).toFixed(2)}</p>
