@@ -565,13 +565,7 @@ module.exports = async function handler(req, res) {
       .filter(c => c.isPremium)
       .sort((a, b) => b.percentage - a.percentage);
 
-    const recommendedCards = [];
-
-   const bestOverallPlay = premiumCandidates[0];
-
-if (bestOverallPlay) {
-  recommendedCards.push(bestOverallPlay);
-}
+    const recommendedCards = premiumCandidates.slice(0, 2);
 
     const locked = recommendedCards.length > 0 && !isPremiumUser;
 
