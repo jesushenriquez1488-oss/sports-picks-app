@@ -567,18 +567,11 @@ module.exports = async function handler(req, res) {
 
     const recommendedCards = [];
 
-    const bestSidePlay = premiumCandidates.find(c =>
-      c.type === "ML" || c.type === "RUNLINE"
-    );
+   const bestOverallPlay = premiumCandidates[0];
 
-    const bestTotalPlay = premiumCandidates.find(c =>
-      c.type === "OVER" || c.type === "UNDER"
-    );
-
-    if (bestSidePlay) recommendedCards.push(bestSidePlay);
-    if (bestTotalPlay) recommendedCards.push(bestTotalPlay);
-
-    recommendedCards.sort((a, b) => b.percentage - a.percentage);
+if (bestOverallPlay) {
+  recommendedCards.push(bestOverallPlay);
+}
 
     const locked = recommendedCards.length > 0 && !isPremiumUser;
 
