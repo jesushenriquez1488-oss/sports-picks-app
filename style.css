@@ -4181,3 +4181,53 @@ button:active,
     opacity:0;
   }
 }
+.mlb-extra-pick{
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 215, 0, 0.08);
+  border: 1px solid rgba(255, 215, 0, 0.35);
+  box-shadow: 0 0 22px rgba(255, 215, 0, 0.16);
+}
+
+.extra-pick-label{
+  color: #ffcc33;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+.extra-pick-play{
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.extra-pick-percent{
+  color: #ffd75a;
+  font-size: 28px;
+  font-weight: 900;
+  margin-top: 6px;
+  text-shadow: 0 0 14px rgba(255, 215, 90, 0.55);
+}
+
+@media (max-width: 600px){
+  .mlb-extra-pick{
+    padding: 12px 14px;
+    margin-top: 12px;
+  }
+
+  .extra-pick-label{
+    font-size: 11px;
+  }
+
+  .extra-pick-play{
+    font-size: 16px;
+  }
+
+  .extra-pick-percent{
+    font-size: 23px;
+  }
+}
