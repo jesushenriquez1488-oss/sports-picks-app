@@ -1494,7 +1494,27 @@ ${premium.recommendedCards?.[0] ? `
 `}
 
 </div>
+</div>
 
+${premium.recommendedCards?.[1] ? `
+
+<div class="mlb-extra-pick">
+
+  <div class="extra-pick-label">
+    🔥 EXTRA PREMIUM
+  </div>
+
+  <div class="extra-pick-play">
+    ${premium.recommendedCards[1].play}
+  </div>
+
+  <div class="extra-pick-percent">
+    ${safe(premium.recommendedCards[1].percentage).toFixed(1)}%
+  </div>
+
+</div>
+
+` : ``}
                 <div class="mlb-projection-box">
                   <p><strong>Carreras esperadas ${awayTeam}:</strong> ${safe(premium.expectedRunsA).toFixed(2)}</p>
                   <p><strong>Carreras esperadas ${homeTeam}:</strong> ${safe(premium.expectedRunsB).toFixed(2)}</p>
