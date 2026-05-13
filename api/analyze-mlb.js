@@ -270,8 +270,19 @@ module.exports = async function handler(req, res) {
     const awayBullpenRaw = adjustBullpen(mlbData.away?.bullpen);
     const homeBullpenRaw = adjustBullpen(mlbData.home?.bullpen);
 
-    const fallbackA = avgValid(awayOffenseRaw, homePitcherRaw, homeBullpenRaw, safeNumber(totalLine) / 2);
-    const fallbackB = avgValid(homeOffenseRaw, awayPitcherRaw, awayBullpenRaw, safeNumber(totalLine) / 2);
+    const fallbackA = avgValid(
+      awayOffenseRaw,
+      homePitcherRaw,
+      homeBullpenRaw,
+      safeNumber(totalLine) / 2
+    );
+
+    const fallbackB = avgValid(
+      homeOffenseRaw,
+      awayPitcherRaw,
+      awayBullpenRaw,
+      safeNumber(totalLine) / 2
+    );
 
     const awayOffense = fillMissing(awayOffenseRaw, fallbackA);
     const homePitcher = fillMissing(homePitcherRaw, fallbackA);
@@ -281,15 +292,31 @@ module.exports = async function handler(req, res) {
     const awayPitcher = fillMissing(awayPitcherRaw, fallbackB);
     const awayBullpen = fillMissing(awayBullpenRaw, fallbackB);
 
+    const awayTeamAllowedRaw = safeNumber(
+      awayBatting?.weightedRunsAllowed,
+      awayBatting?.runsAllowed
+    );
+
+    const homeTeamAllowedRaw = safeNumber(
+      homeBatting?.weightedRunsAllowed,
+      homeBatting?.runsAllowed
+    );
+
+    const awayTeamAllowed = fillMissing(awayTeamAllowedRaw, awayPitcher);
+    const homeTeamAllowed = fillMissing(homeTeamAllowedRaw, homePitcher);
+
     let expectedRunsA =
-      awayOffense * 0.50 +
-      homePitcher * 0.35 +
-      homeBullpen * 0.15;
+      awayOffense * 0.55 +
+      homePitcher * 0.30 +
+      homeTeamAllowed * 0.15;
 
     let expectedRunsB =
-      homeOffense * 0.50 +
-      awayPitcher * 0.35 +
-      awayBullpen * 0.15;
+      homeOffense * 0.55 +
+      awayPitcher * 0.30 +
+      awayTeamAllowed * 0.15;
+
+    expectedRunsA += homeBullpen * 0.25;
+    expectedRunsB += awayBullpen * 0.25;
 
     expectedRunsA *= runEnvironmentFactor;
     expectedRunsB *= runEnvironmentFactor;
@@ -601,8 +628,8 @@ module.exports = async function handler(req, res) {
             awayOffense,
             homeOffense,
 
-            awayTeamAllowed: awayBatting?.runsAllowed ?? null,
-            homeTeamAllowed: homeBatting?.runsAllowed ?? null,
+            awayTeamAllowed,
+            homeTeamAllowed,
 
             awayPitcherAllowed: awayPitcher,
             homePitcherAllowed: homePitcher,
