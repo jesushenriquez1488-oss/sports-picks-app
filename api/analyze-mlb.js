@@ -460,7 +460,7 @@ module.exports = async function handler(req, res) {
         0;
 
       confidence += safety;
-      confidence = clamp(confidence, 0, 86);
+      confidence = clamp(confidence, 0, 97);
 
       const label =
         marketType === "ML"
@@ -541,7 +541,7 @@ module.exports = async function handler(req, res) {
         isPremium:
           confidence >= 75 &&
           support >= 56 &&
-          totalEdge >= 0.75
+          totalEdge >= 1.2
       };
     }
 
