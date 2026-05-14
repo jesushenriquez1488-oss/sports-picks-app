@@ -527,7 +527,7 @@ module.exports = async function handler(req, res) {
       if (totalEdge >= 1.25) confidence += 3;
       if (totalEdge >= 1.75) confidence += 3;
 
-      confidence = clamp(confidence, 0, 86);
+      confidence = clamp(confidence, 0, 97);
 
       return {
         title: "Total Premium",
