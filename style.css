@@ -4231,3 +4231,55 @@ button:active,
     font-size: 23px;
   }
 }
+/* ===============================
+   MOBILE SPORTS GRID FIX
+================================= */
+
+@media (max-width: 700px) {
+
+  .league-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+    width: 100% !important;
+  }
+
+  .league-btn {
+    min-height: 92px !important;
+    padding: 14px 45px 14px 78px !important;
+
+    border-radius: 22px !important;
+
+    display: flex !important;
+    align-items: center !important;
+
+    overflow: hidden !important;
+  }
+
+  .league-icon {
+    width: 46px !important;
+    height: 46px !important;
+
+    left: 20px !important;
+
+    border-radius: 16px !important;
+    font-size: 22px !important;
+  }
+
+  .league-info strong {
+    font-size: 20px !important;
+    line-height: 1 !important;
+  }
+
+  .league-info small {
+    font-size: 10px !important;
+    margin-top: 4px !important;
+    opacity: .7 !important;
+  }
+
+  .league-arrow {
+    right: 16px !important;
+    font-size: 28px !important;
+  }
+
+}
