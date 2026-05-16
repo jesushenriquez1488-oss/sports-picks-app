@@ -626,32 +626,97 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
                 : premium.pick
             }
           </p>
-<div class="premium-hero-card">
+<div class="premium-pro-card ${data.public.verdict === "Premium" ? "is-premium" : "is-normal"}">
 
-  <div class="premium-hero-badge">
-    🔥 HOT PICK PREMIUM
+  <div class="premium-pro-top-badge">
+    ${data.public.verdict === "Premium" ? "👑 🔥 HOT PICK PREMIUM" : "📊 PICK NORMAL"}
   </div>
 
-  <div class="premium-hero-pick">
-    ${locked ? "Pick Premium bloqueado" : premium.pick}
-  </div>
+  <div class="premium-pro-main">
 
-  <div class="premium-hero-confidence">
-    ${data.public.confidence}% CONFIDENCE
-  </div>
+    <div class="premium-pro-label">
+      ${data.public.verdict === "Premium" ? "🔥 JUGADA PREMIUM" : "📊 JUGADA NORMAL"}
+    </div>
 
-  <div class="premium-hero-description">
-    El modelo detecta una ventaja fuerte contra la línea del mercado basada en matchup, forma reciente y edge estadístico.
-  </div>
+    <div class="premium-pro-pick">
+      ${locked ? "Pick bloqueado" : premium.pick}
+    </div>
 
-</div>
-          
-        </div>
+    ${
+      data.public.verdict === "Premium"
+        ? `<div class="premium-pro-shield">👑</div>`
+        : ""
+    }
 
-       
+    <div class="premium-pro-message">
+      ${
+        data.public.verdict === "Premium"
+          ? "VENTAJA FUERTE DETECTADA CONTRA LA LÍNEA DEL MERCADO"
+          : "Jugada con valor moderado según el modelo"
+      }
+    </div>
 
+    <div class="premium-pro-confidence-box">
+
+      <div class="premium-pro-circle">
+        ${data.public.confidence}%
       </div>
 
+      <div>
+        <strong>PROBABILIDAD</strong>
+
+        <span>
+          ${data.public.verdict === "Premium"
+            ? "ALTA CONFIANZA"
+            : "CONFIANZA MODERADA"}
+        </span>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="premium-pro-grid">
+
+    <div class="premium-pro-mini">
+      <small>EDGE</small>
+      <strong>${premium.mainEdge.toFixed(1)}</strong>
+      <span>vs mercado</span>
+    </div>
+
+    <div class="premium-pro-mini">
+      <small>PROYECCIÓN TOTAL</small>
+      <strong>${premium.totalProj.toFixed(1)}</strong>
+      <span>Total modelo</span>
+    </div>
+
+    <div class="premium-pro-mini team">
+      <small>${awayTeam}</small>
+      <strong>${premium.projA.toFixed(1)}</strong>
+      <span>puntos proyectados</span>
+    </div>
+
+    <div class="premium-pro-mini team">
+      <small>${homeTeam}</small>
+      <strong>${premium.projB.toFixed(1)}</strong>
+      <span>puntos proyectados</span>
+    </div>
+
+  </div>
+
+  <div class="premium-pro-note">
+    🧠 ${premium.modelAnalysis}
+  </div>
+
+  ${
+    data.public.verdict === "Premium"
+      ? `<div class="premium-pro-footer">
+          🔒 ANÁLISIS PREMIUM GENERADO POR IA
+        </div>`
+      : ""
+  }
+
+</div>
       ${
         locked
           ? `
