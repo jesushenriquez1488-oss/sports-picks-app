@@ -661,10 +661,14 @@ if (innings < 2) {
         totalProbability: Number(probability.toFixed(1)),
         totalEdge: Number(totalEdge.toFixed(2)),
         projectedTotal: Number(projectedTotal.toFixed(2)),
-        isPremium:
-          confidence >= 75 &&
-          support >= 56 &&
-          totalEdge >= 1.2
+       isPremium:
+  confidence >= 75 &&
+  support >= 56 &&
+  (
+    venue?.name === "Coors Field" && direction === "UNDER"
+      ? totalEdge >= 2.0
+      : totalEdge >= 1.2
+  )
       };
     }
 
