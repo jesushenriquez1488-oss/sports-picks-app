@@ -635,7 +635,9 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
       : "📊 JUGADA DESTACADA"
   }
 </div>
-
+<div class="premium-shield">
+    👑
+  </div>
   <div class="premium-pro-main">
 
     <div class="premium-pro-label">
