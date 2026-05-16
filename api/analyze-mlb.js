@@ -530,11 +530,28 @@ module.exports = async function handler(req, res) {
       let confidence;
       let runlineProb = null;
 
-      if (marketType === "ML") {
-        confidence =
-          supportData.modelProb * 100 * 0.72 +
-          supportData.support * 0.28;
-      } else {
+     if (marketType === "ML") {
+
+  const margin = Math.abs(supportData.projectedMargin);
+
+  // Fórmula basada en diferencia real proyectada
+
+  const marginConfidence = 60 + margin * 10;
+
+  confidence =
+    marginConfidence * 0.70 +
+    supportData.modelProb * 100 * 0.20 +
+    supportData.support * 0.10;
+
+  // Penalizar juegos cerrados
+
+  if (margin < 1.0) {
+    confidence -= 10;
+  } else if (margin < 1.5) {
+    confidence -= 5;
+  }
+
+} else {
         runlineProb = estimateRunlineProb(side, spread);
 
         confidence =
@@ -548,11 +565,7 @@ module.exports = async function handler(req, res) {
       const protectedEdge =
         isRunline ? supportData.projectedMargin + Number(spread || 0) : null;
 
-      if (marketType === "ML") {
-        if (Math.abs(supportData.projectedMargin) >= 1.5) confidence += 4;
-        else if (Math.abs(supportData.projectedMargin) >= 1.0) confidence += 2;
-      }
-
+     
       if (isNegativeRunline) {
         if (supportData.projectedMargin >= 2.2) confidence += 5;
         else if (supportData.projectedMargin >= 1.7) confidence += 3;
