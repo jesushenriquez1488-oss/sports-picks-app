@@ -5408,3 +5408,98 @@ button:active,
     display: none !important;
   }
 }
+/* FINAL CLEANUP PREMIUM CARD */
+@media (max-width:700px){
+
+  /* Quita la corona flotante fea */
+  .premium-shield{
+    display:none !important;
+  }
+
+  /* Centra y acomoda la tarjeta interna */
+  .premium-pro-main{
+    margin-top:8px !important;
+    width:100% !important;
+    box-sizing:border-box !important;
+    overflow:hidden !important;
+  }
+
+  /* Evita que el badge se corte */
+  .premium-pro-top-badge{
+    max-width:calc(100% - 24px) !important;
+    margin-left:0 !important;
+  }
+
+  /* La jugada más limpia */
+  .premium-pro-pick{
+    font-size:22px !important;
+    line-height:1.12 !important;
+    margin-bottom:10px !important;
+  }
+
+  /* Círculo más compacto */
+  .premium-pro-confidence-box{
+    width:100% !important;
+    box-sizing:border-box !important;
+  }
+}
+@media (max-width:700px){
+
+  /* Compacta toda la tarjeta */
+  .premium-pro-card{
+    padding:14px !important;
+    gap:10px !important;
+  }
+
+  /* Menos espacio interno */
+  .premium-pro-main{
+    padding:12px !important;
+  }
+
+  /* Reduce separación entre bloques */
+  .premium-compact-grid{
+    gap:8px !important;
+    margin-top:10px !important;
+  }
+
+  /* Cuadros estadísticos más compactos */
+  .premium-compact-grid div{
+    min-height:auto !important;
+    padding:12px !important;
+  }
+
+  /* Descanso / lesiones */
+  .premium-data-section{
+    gap:10px !important;
+    margin-top:12px !important;
+  }
+
+  .premium-data-box{
+    padding:14px !important;
+    min-height:auto !important;
+    margin-bottom:0 !important;
+  }
+
+  .premium-data-box p{
+    margin:6px 0 !important;
+    line-height:1.35 !important;
+  }
+
+  /* Menos espacio debajo del pick */
+  .premium-pro-pick{
+    margin-bottom:8px !important;
+  }
+
+  /* Compacta la caja verde */
+  .premium-pro-confidence-box{
+    padding:12px !important;
+    margin-top:10px !important;
+  }
+
+  /* Reduce altura del círculo */
+  .premium-pro-circle{
+    width:95px !important;
+    height:95px !important;
+    font-size:28px !important;
+  }
+}
