@@ -251,17 +251,15 @@ module.exports = async function handler(req, res) {
       const whip = safeNumber(stats.whip);
       const homeRunsPerInning = safeNumber(stats.homeRunsPerInning);
       const walksPerInning = safeNumber(stats.walksPerInning);
-
-      if (innings < 2) {
-        score *= 1.40;
-      } else if (innings < 3) {
-        score *= 1.28;
-      } else if (innings < 4) {
-        score *= 1.15;
-      } else if (innings >= 6) {
-        score *= 0.96;
-      }
-
+if (innings < 2) {
+  score *= 2.10;
+} else if (innings < 3) {
+  score *= 1.70;
+} else if (innings < 4) {
+  score *= 1.35;
+} else if (innings >= 6) {
+  score *= 0.96;
+}
       if (whip !== null) {
         if (whip >= 1.65) score *= 1.12;
         else if (whip >= 1.50) score *= 1.08;
