@@ -4544,3 +4544,42 @@ button:active,
     letter-spacing: 4px !important;
   }
 }
+/* FINAL MOBILE SPORTS BUTTONS COMPACT OVERRIDE */
+@media (max-width: 700px) {
+  .league-tabs {
+    gap: 7px !important;
+    margin: 8px auto 12px !important;
+  }
+
+  .league-btn {
+    min-height: 56px !important;
+    padding: 7px 20px 7px 50px !important;
+    border-radius: 14px !important;
+    clip-path: none !important;
+  }
+
+  .league-icon {
+    left: 10px !important;
+    width: 34px !important;
+    height: 34px !important;
+    font-size: 16px !important;
+    border-radius: 10px !important;
+  }
+
+  .league-info strong {
+    font-size: 15px !important;
+    line-height: 1 !important;
+    margin: 0 !important;
+  }
+
+  .league-info small {
+    font-size: 8px !important;
+    line-height: 1.05 !important;
+    margin-top: 2px !important;
+  }
+
+  .league-arrow {
+    right: 8px !important;
+    font-size: 18px !important;
+  }
+}
