@@ -111,116 +111,177 @@ module.exports = async function handler(req, res) {
     function getWeatherRunFactor(weather) {
       if (!weather || weather.active === false) return 1;
 
+      const raw = String(weather.raw || "").trim();
+      const hasRealWeather =
+        raw.length > 0 ||
+        weather.temp !== null ||
+        Number(weather.speed) > 0;
+
+      if (!hasRealWeather) return 1;
+
       let factor = 1;
 
       const windSpeed = safeNumber(weather.speed, 0);
       const temp = weather.temp ? Number(weather.temp) : null;
 
       if (weather.direction === "out") {
-        factor += Math.min(0.18, windSpeed * 0.008);
+        factor += Math.min(0.22, windSpeed * 0.01);
       }
 
       if (weather.direction === "in") {
-        factor -= Math.min(0.18, windSpeed * 0.008);
+        factor -= Math.min(0.22, windSpeed * 0.01);
+      }
+
+      if (weather.direction === "cross") {
+        factor += Math.min(0.04, windSpeed * 0.002);
       }
 
       if (temp !== null) {
-        if (temp >= 90) factor += 0.05;
-        else if (temp >= 85) factor += 0.04;
-        else if (temp <= 45) factor -= 0.04;
-        else if (temp <= 50) factor -= 0.03;
+        if (temp >= 92) factor += 0.07;
+        else if (temp >= 85) factor += 0.045;
+        else if (temp <= 45) factor -= 0.055;
+        else if (temp <= 52) factor -= 0.035;
       }
 
-      return clamp(factor, 0.82, 1.22);
+      return clamp(factor, 0.78, 1.28);
     }
 
     function adjustOffense(batting) {
       if (!batting) return null;
 
-      const base = safeNumber(batting.runs);
-      const weighted = safeNumber(batting.weightedRuns);
-      const split = safeNumber(batting.splitRuns);
+      const last7Runs = safeNumber(batting.runs);
+      const splitRuns = safeNumber(batting.splitRuns);
 
-      const fallback = avgValid(base, weighted, split);
-      if (fallback === null) return null;
+      const last7Allowed = safeNumber(batting.runsAllowed);
+      const splitAllowed = safeNumber(batting.splitRunsAllowed);
 
-      let score =
-        fillMissing(base, fallback) * 0.45 +
-        fillMissing(weighted, fallback) * 0.35 +
-        fillMissing(split, fallback) * 0.20;
+      const fallbackRuns = avgValid(last7Runs, splitRuns, batting.weightedRuns);
+      const fallbackAllowed = avgValid(last7Allowed, splitAllowed, batting.weightedRunsAllowed);
+
+      if (fallbackRuns === null || fallbackAllowed === null) return null;
+
+      let offense =
+        fillMissing(last7Runs, fallbackRuns) * 0.60 +
+        fillMissing(splitRuns, fallbackRuns) * 0.40;
+
+      let defense =
+        fillMissing(last7Allowed, fallbackAllowed) * 0.60 +
+        fillMissing(splitAllowed, fallbackAllowed) * 0.40;
 
       const last3Runs = safeNumber(batting.last3?.runs);
+      const last3Allowed = safeNumber(batting.last3?.runsAllowed);
 
       if (last3Runs !== null) {
-        if (last3Runs >= 7) score *= 1.08;
-        else if (last3Runs >= 5.5) score *= 1.045;
+        if (last3Runs >= 7.5) offense *= 1.12;
+        else if (last3Runs >= 6.5) offense *= 1.08;
+        else if (last3Runs >= 5.5) offense *= 1.04;
 
-        if (last3Runs <= 2.5) score *= 0.91;
-        else if (last3Runs <= 3.2) score *= 0.955;
+        if (last3Runs <= 2.5) offense *= 0.88;
+        else if (last3Runs <= 3.2) offense *= 0.93;
       }
 
-      return clamp(score, 1.2, 10.5);
+      if (last3Allowed !== null) {
+        if (last3Allowed >= 7.5) defense *= 1.10;
+        else if (last3Allowed >= 6.5) defense *= 1.06;
+        else if (last3Allowed >= 5.5) defense *= 1.03;
+
+        if (last3Allowed <= 2.5) defense *= 0.90;
+        else if (last3Allowed <= 3.2) defense *= 0.95;
+      }
+
+      return {
+        offense: clamp(offense, 1.2, 12.5),
+        defense: clamp(defense, 1.2, 12.5)
+      };
     }
 
     function adjustBullpen(bullpen) {
       if (!bullpen) return null;
 
-      let score = safeNumber(bullpen.runsPerGame);
-      if (score === null) return null;
+      const last7 = bullpen.last7 || null;
+      const last3 = bullpen.last3 || null;
+
+      const baseRuns = safeNumber(bullpen.runsPerGame);
+      const last7Runs = safeNumber(last7?.runsPerGame);
+      const last3Runs = safeNumber(last3?.runsPerGame);
+
+      const fallback = avgValid(baseRuns, last7Runs, last3Runs);
+      if (fallback === null) return null;
+
+      let score =
+        fillMissing(last7Runs, fallback) * 0.55 +
+        fillMissing(last3Runs, fallback) * 0.45;
 
       const whip = safeNumber(bullpen.whip);
+      const last3Whip = safeNumber(last3?.whip);
       const fatigue = safeNumber(bullpen.fatigue, 0);
 
-      if (fatigue >= 9) score *= 1.10;
-      else if (fatigue >= 7) score *= 1.06;
-      else if (fatigue <= 2) score *= 0.96;
+      if (fatigue >= 9) score *= 1.18;
+      else if (fatigue >= 7) score *= 1.10;
+      else if (fatigue <= 2) score *= 0.94;
 
-      if (whip !== null) {
-        if (whip >= 1.65) score *= 1.08;
-        else if (whip >= 1.5) score *= 1.045;
+      const bullpenWhip = avgValid(whip, last3Whip);
 
-        if (whip <= 1.05) score *= 0.94;
-        else if (whip <= 1.15) score *= 0.97;
+      if (bullpenWhip !== null) {
+        if (bullpenWhip >= 1.70) score *= 1.14;
+        else if (bullpenWhip >= 1.55) score *= 1.08;
+        else if (bullpenWhip >= 1.40) score *= 1.04;
+
+        if (bullpenWhip <= 1.05) score *= 0.92;
+        else if (bullpenWhip <= 1.15) score *= 0.96;
       }
 
-      return clamp(score, 1.2, 10.5);
+      return clamp(score, 1.0, 12.5);
     }
 
-    function adjustPitcher(stats) {
+    function adjustPitcher(stats, sideStats = null) {
       if (!stats) return null;
 
+      const recentRuns = safeNumber(stats.runsPerGame);
+      const sideRuns = safeNumber(sideStats?.runsPerGame);
       const innings = safeNumber(stats.innings, 0);
-      let score = safeNumber(stats.runsPerGame);
 
-      if (score === null) return null;
+      if (recentRuns === null) return null;
 
-      if (innings > 0 && innings < 3) {
-        score *= 1.08;
-      }
+      let score =
+        sideRuns !== null
+          ? recentRuns * 0.60 + sideRuns * 0.40
+          : recentRuns;
 
       const whip = safeNumber(stats.whip);
       const homeRunsPerInning = safeNumber(stats.homeRunsPerInning);
       const walksPerInning = safeNumber(stats.walksPerInning);
 
-      if (whip !== null) {
-        if (whip >= 1.65) score *= 1.10;
-        else if (whip >= 1.5) score *= 1.06;
+      if (innings < 2) {
+        score *= 1.40;
+      } else if (innings < 3) {
+        score *= 1.28;
+      } else if (innings < 4) {
+        score *= 1.15;
+      } else if (innings >= 6) {
+        score *= 0.96;
+      }
 
-        if (whip <= 1.0) score *= 0.91;
-        else if (whip <= 1.1) score *= 0.95;
+      if (whip !== null) {
+        if (whip >= 1.65) score *= 1.12;
+        else if (whip >= 1.50) score *= 1.08;
+        else if (whip >= 1.35) score *= 1.04;
+
+        if (whip <= 1.00) score *= 0.92;
+        else if (whip <= 1.10) score *= 0.96;
       }
 
       if (homeRunsPerInning !== null) {
-        if (homeRunsPerInning >= 0.22) score *= 1.07;
-        else if (homeRunsPerInning >= 0.18) score *= 1.04;
+        if (homeRunsPerInning >= 0.24) score *= 1.10;
+        else if (homeRunsPerInning >= 0.18) score *= 1.05;
       }
 
       if (walksPerInning !== null) {
-        if (walksPerInning >= 0.5) score *= 1.06;
-        else if (walksPerInning >= 0.45) score *= 1.035;
+        if (walksPerInning >= 0.55) score *= 1.08;
+        else if (walksPerInning >= 0.45) score *= 1.04;
       }
 
-      return clamp(score, 1.2, 10.5);
+      return clamp(score, 1.0, 12.5);
     }
 
     function getTeamTrendScore(batting) {
@@ -228,13 +289,11 @@ module.exports = async function handler(req, res) {
 
       const offense = avgValid(
         batting.runs,
-        batting.weightedRuns,
         batting.splitRuns
       );
 
       const allowed = avgValid(
         batting.runsAllowed,
-        batting.weightedRunsAllowed,
         batting.splitRunsAllowed
       );
 
@@ -243,14 +302,14 @@ module.exports = async function handler(req, res) {
       let score = 50;
 
       if (offense !== null && allowed !== null) {
-        score += (offense - allowed) * 7;
+        score += (offense - allowed) * 8;
       } else if (offense !== null) {
         score += offense * 2;
       } else if (allowed !== null) {
         score -= allowed * 2;
       }
 
-      return clamp(score, 20, 80);
+      return clamp(score, 10, 90);
     }
 
     const venue = mlbData.venue || { parkFactor: 1 };
@@ -261,11 +320,23 @@ module.exports = async function handler(req, res) {
     const awayBatting = mlbData.away?.battingProfile || {};
     const homeBatting = mlbData.home?.battingProfile || {};
 
-    const awayOffenseRaw = adjustOffense(awayBatting);
-    const homeOffenseRaw = adjustOffense(homeBatting);
+    const awayOffenseData = adjustOffense(awayBatting);
+    const homeOffenseData = adjustOffense(homeBatting);
 
-    const awayPitcherRaw = adjustPitcher(mlbData.away?.pitcher?.stats);
-    const homePitcherRaw = adjustPitcher(mlbData.home?.pitcher?.stats);
+    const awayOffenseRaw = awayOffenseData?.offense;
+    const homeOffenseRaw = homeOffenseData?.offense;
+
+    const awayDefenseRaw = awayOffenseData?.defense;
+    const homeDefenseRaw = homeOffenseData?.defense;
+
+    const awayPitcherStats = mlbData.away?.pitcher?.stats || null;
+    const homePitcherStats = mlbData.home?.pitcher?.stats || null;
+
+    const awayPitcherRaw = adjustPitcher(awayPitcherStats);
+    const homePitcherRaw = adjustPitcher(homePitcherStats);
+
+    const awayPitcherInnings = safeNumber(awayPitcherStats?.innings, 0);
+    const homePitcherInnings = safeNumber(homePitcherStats?.innings, 0);
 
     const awayBullpenRaw = adjustBullpen(mlbData.away?.bullpen);
     const homeBullpenRaw = adjustBullpen(mlbData.home?.bullpen);
@@ -292,31 +363,39 @@ module.exports = async function handler(req, res) {
     const awayPitcher = fillMissing(awayPitcherRaw, fallbackB);
     const awayBullpen = fillMissing(awayBullpenRaw, fallbackB);
 
-    const awayTeamAllowedRaw = safeNumber(
-      awayBatting?.weightedRunsAllowed,
-      awayBatting?.runsAllowed
-    );
+    const awayTeamAllowed = fillMissing(awayDefenseRaw, awayPitcher);
+    const homeTeamAllowed = fillMissing(homeDefenseRaw, homePitcher);
 
-    const homeTeamAllowedRaw = safeNumber(
-      homeBatting?.weightedRunsAllowed,
-      homeBatting?.runsAllowed
-    );
+    const homeStarterShort =
+      homePitcherInnings > 0 && homePitcherInnings < 4;
 
-    const awayTeamAllowed = fillMissing(awayTeamAllowedRaw, awayPitcher);
-    const homeTeamAllowed = fillMissing(homeTeamAllowedRaw, homePitcher);
+    const awayStarterShort =
+      awayPitcherInnings > 0 && awayPitcherInnings < 4;
+
+    const awayVsHomeStarterWeight = homeStarterShort ? 0.20 : 0.30;
+    const awayVsHomeBullpenWeight = homeStarterShort ? 0.38 : 0.25;
+    const awayVsHomeDefenseWeight = homeStarterShort ? 0.17 : 0.15;
+    const awayOffenseWeight = homeStarterShort ? 0.25 : 0.55;
+
+    const homeVsAwayStarterWeight = awayStarterShort ? 0.20 : 0.30;
+    const homeVsAwayBullpenWeight = awayStarterShort ? 0.38 : 0.25;
+    const homeVsAwayDefenseWeight = awayStarterShort ? 0.17 : 0.15;
+    const homeOffenseWeight = awayStarterShort ? 0.25 : 0.55;
 
     let expectedRunsA =
-      awayOffense * 0.55 +
-      homePitcher * 0.30 +
-      homeTeamAllowed * 0.15;
+      awayOffense * awayOffenseWeight +
+      homePitcher * awayVsHomeStarterWeight +
+      homeTeamAllowed * awayVsHomeDefenseWeight +
+      homeBullpen * awayVsHomeBullpenWeight;
 
     let expectedRunsB =
-      homeOffense * 0.55 +
-      awayPitcher * 0.30 +
-      awayTeamAllowed * 0.15;
+      homeOffense * homeOffenseWeight +
+      awayPitcher * homeVsAwayStarterWeight +
+      awayTeamAllowed * homeVsAwayDefenseWeight +
+      awayBullpen * homeVsAwayBullpenWeight;
 
-    expectedRunsA += homeBullpen * 0.25;
-    expectedRunsB += awayBullpen * 0.25;
+    if (homeStarterShort) expectedRunsA += 0.35;
+    if (awayStarterShort) expectedRunsB += 0.35;
 
     expectedRunsA *= runEnvironmentFactor;
     expectedRunsB *= runEnvironmentFactor;
@@ -333,17 +412,19 @@ module.exports = async function handler(req, res) {
     const pitcherAdvAway = awayPitcher - homePitcher;
     const bullpenAdvAway = awayBullpen - homeBullpen;
     const offenseAdvAway = awayOffense - homeOffense;
+    const defenseAdvAway = homeTeamAllowed - awayTeamAllowed;
     const trendAdvAway = awayTrendScore - homeTrendScore;
 
     const rawAwayWin =
       0.5 +
-      runDiff * 0.075 +
-      offenseAdvAway * 0.018 -
-      pitcherAdvAway * 0.022 -
-      bullpenAdvAway * 0.016 +
-      trendAdvAway * 0.0015;
+      runDiff * 0.085 +
+      offenseAdvAway * 0.020 -
+      pitcherAdvAway * 0.024 -
+      bullpenAdvAway * 0.022 +
+      defenseAdvAway * 0.014 +
+      trendAdvAway * 0.0018;
 
-    const modelProbA = clamp(rawAwayWin, 0.18, 0.82);
+    const modelProbA = clamp(rawAwayWin, 0.08, 0.94);
     const modelProbB = 1 - modelProbA;
 
     let awayOdds = null;
@@ -357,7 +438,7 @@ module.exports = async function handler(req, res) {
     const marketProbA = americanToProb(awayOdds);
     const marketProbB = americanToProb(homeOdds);
 
-    const totalStdDev = 2.75;
+    const totalStdDev = 2.65;
 
     const overProb =
       (1 - normalCDF(totalLine + 0.05, projectedTotal, totalStdDev)) * 100;
@@ -385,6 +466,9 @@ module.exports = async function handler(req, res) {
       const teamBullpenAllowed = isAway ? awayBullpen : homeBullpen;
       const opponentBullpenAllowed = isAway ? homeBullpen : awayBullpen;
 
+      const teamDefenseAllowed = isAway ? awayTeamAllowed : homeTeamAllowed;
+      const opponentDefenseAllowed = isAway ? homeTeamAllowed : awayTeamAllowed;
+
       const teamTrend = isAway ? awayTrendScore : homeTrendScore;
       const opponentTrend = isAway ? homeTrendScore : awayTrendScore;
 
@@ -396,14 +480,15 @@ module.exports = async function handler(req, res) {
 
       let support = 50;
 
-      support += projectedMargin * 9;
-      support += (teamOffense - opponentOffense) * 4;
-      support += (opponentPitcherAllowed - teamPitcherAllowed) * 4;
-      support += (opponentBullpenAllowed - teamBullpenAllowed) * 3;
-      support += (teamTrend - opponentTrend) * 0.25;
-      support += edge * 1.15;
+      support += projectedMargin * 10;
+      support += (teamOffense - opponentOffense) * 4.5;
+      support += (opponentPitcherAllowed - teamPitcherAllowed) * 4.2;
+      support += (opponentBullpenAllowed - teamBullpenAllowed) * 4.0;
+      support += (opponentDefenseAllowed - teamDefenseAllowed) * 2.2;
+      support += (teamTrend - opponentTrend) * 0.30;
+      support += edge * 1.05;
 
-      if (!isAway) support += 1.5;
+      if (!isAway) support += 1.2;
 
       support = clamp(support, 0, 100);
 
@@ -422,6 +507,8 @@ module.exports = async function handler(req, res) {
         opponentPitcherAllowed,
         teamBullpenAllowed,
         opponentBullpenAllowed,
+        teamDefenseAllowed,
+        opponentDefenseAllowed,
         teamTrend,
         opponentTrend
       };
@@ -431,7 +518,7 @@ module.exports = async function handler(req, res) {
       const isAway = side === "away";
       const meanMargin = isAway ? runDiff : -runDiff;
       const spreadNumber = safeNumber(spread, 0);
-      const marginStdDev = 3.15;
+      const marginStdDev = 2.15;
 
       return (1 - normalCDF(-spreadNumber, meanMargin, marginStdDev)) * 100;
     }
@@ -441,26 +528,43 @@ module.exports = async function handler(req, res) {
       const isRunline = marketType === "RUNLINE";
 
       let confidence;
+      let runlineProb = null;
 
       if (marketType === "ML") {
         confidence =
           supportData.modelProb * 100 * 0.72 +
           supportData.support * 0.28;
       } else {
-        const runlineProb = estimateRunlineProb(side, spread);
+        runlineProb = estimateRunlineProb(side, spread);
 
         confidence =
-          runlineProb * 0.74 +
-          supportData.support * 0.26;
+          runlineProb * 0.68 +
+          supportData.support * 0.32;
       }
 
-      const safety =
-        Math.abs(supportData.projectedMargin) >= 1.2 ? 4 :
-        Math.abs(supportData.projectedMargin) >= 0.8 ? 2 :
-        0;
+      const isPositiveRunline = isRunline && Number(spread) > 0;
+      const isNegativeRunline = isRunline && Number(spread) < 0;
 
-      confidence += safety;
-      confidence = clamp(confidence, 0, 97);
+      const protectedEdge =
+        isRunline ? supportData.projectedMargin + Number(spread || 0) : null;
+
+      if (marketType === "ML") {
+        if (Math.abs(supportData.projectedMargin) >= 1.5) confidence += 4;
+        else if (Math.abs(supportData.projectedMargin) >= 1.0) confidence += 2;
+      }
+
+      if (isNegativeRunline) {
+        if (supportData.projectedMargin >= 2.2) confidence += 5;
+        else if (supportData.projectedMargin >= 1.7) confidence += 3;
+      }
+
+      if (isPositiveRunline) {
+        if (protectedEdge >= 3) confidence += 4;
+        else if (protectedEdge >= 2.4) confidence += 2;
+        else confidence -= 6;
+      }
+
+      confidence = clamp(confidence, 0, 99);
 
       const label =
         marketType === "ML"
@@ -471,6 +575,15 @@ module.exports = async function handler(req, res) {
         marketType === "ML"
           ? "Jugada Premium ML"
           : "Jugada Premium Runline";
+
+      const premiumRule =
+        marketType === "ML"
+          ? supportData.modelProb >= 0.56
+          : (
+              Number(spread) > 0
+                ? protectedEdge >= 3
+                : supportData.projectedMargin >= 1.5
+            );
 
       return {
         title,
@@ -483,13 +596,12 @@ module.exports = async function handler(req, res) {
         marketProbability: Number((supportData.marketProb * 100).toFixed(1)),
         edge: Number(supportData.edge.toFixed(1)),
         projectedMargin: Number(supportData.projectedMargin.toFixed(2)),
+        protectedEdge: protectedEdge === null ? null : Number(protectedEdge.toFixed(2)),
+        runlineProbability: runlineProb === null ? null : Number(runlineProb.toFixed(1)),
         isPremium:
           confidence >= 75 &&
           supportData.support >= 55 &&
-          (
-            supportData.modelProb >= 0.56 ||
-            isRunline
-          )
+          premiumRule
       };
     }
 
@@ -511,13 +623,13 @@ module.exports = async function handler(req, res) {
         support += (runEnvironmentFactor - 1) * 100;
         support += (offensePressure - expectedPressure) * 1.5;
         support += (pitchingPressure - expectedPressure) * 1.2;
-        support += (bullpenPressure - expectedPressure) * 1.1;
+        support += (bullpenPressure - expectedPressure) * 1.4;
       } else {
         support += -diff * 11;
         support += (1 - runEnvironmentFactor) * 100;
         support += (expectedPressure - offensePressure) * 1.5;
         support += (expectedPressure - pitchingPressure) * 1.2;
-        support += (expectedPressure - bullpenPressure) * 1.1;
+        support += (expectedPressure - bullpenPressure) * 1.4;
       }
 
       support = clamp(support, 0, 100);
@@ -527,7 +639,7 @@ module.exports = async function handler(req, res) {
       if (totalEdge >= 1.25) confidence += 3;
       if (totalEdge >= 1.75) confidence += 3;
 
-      confidence = clamp(confidence, 0, 97);
+      confidence = clamp(confidence, 0, 99);
 
       return {
         title: "Total Premium",
@@ -627,8 +739,8 @@ module.exports = async function handler(req, res) {
             awayPitcherName: mlbData.away?.pitcher?.name || "No disponible",
             homePitcherName: mlbData.home?.pitcher?.name || "No disponible",
 
-            awayPitcherInnings: mlbData.away?.pitcher?.stats?.innings || 0,
-            homePitcherInnings: mlbData.home?.pitcher?.stats?.innings || 0,
+            awayPitcherInnings,
+            homePitcherInnings,
 
             awayBullpenFatigue: mlbData.away?.bullpen?.fatigue || 0,
             homeBullpenFatigue: mlbData.home?.bullpen?.fatigue || 0,
@@ -637,7 +749,10 @@ module.exports = async function handler(req, res) {
             homeBullpenFatigueFactor: 1,
 
             awayRunEnvironment: expectedRunsA,
-            homeRunEnvironment: expectedRunsB
+            homeRunEnvironment: expectedRunsB,
+
+            runEnvironmentFactor,
+            parkFactor
           }
     });
 
