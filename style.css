@@ -4583,3 +4583,180 @@ button:active,
     font-size: 18px !important;
   }
 }
+/* FINAL MOBILE COMPACT ANALYSIS CARDS - ALL SPORTS */
+@media (max-width: 700px) {
+
+  /* Botones de predicción */
+  .card button,
+  #searchBtn {
+    padding: 9px 12px !important;
+    font-size: 12px !important;
+    border-radius: 14px !important;
+    min-height: 0 !important;
+  }
+
+  /* Card general de juego */
+  .card {
+    padding: 13px !important;
+    margin-top: 12px !important;
+    border-radius: 16px !important;
+  }
+
+  .card h2 {
+    font-size: 20px !important;
+    line-height: 1.1 !important;
+    margin: 6px 0 10px !important;
+  }
+
+  .card p {
+    font-size: 13px !important;
+    line-height: 1.18 !important;
+    margin: 6px 0 !important;
+  }
+
+  /* Resultados NBA / Football / Normal */
+  .normal-result,
+  .result-content,
+  .premium-result .result-content {
+    padding: 13px !important;
+    border-radius: 16px !important;
+  }
+
+  .normal-result::before {
+    font-size: 9px !important;
+    margin-bottom: 8px !important;
+    letter-spacing: 1px !important;
+  }
+
+  .normal-result p,
+  .result-content p,
+  .premium-result p {
+    font-size: 13px !important;
+    line-height: 1.2 !important;
+    margin: 6px 0 !important;
+  }
+
+  /* Premium wrapper */
+  .premium-result,
+  .mlb-premium-dashboard,
+  .premium-ai-card {
+    padding: 11px !important;
+    margin-top: 12px !important;
+    border-radius: 16px !important;
+  }
+
+  /* Badges */
+  .mlb-premium-badge,
+  .premium-top-line,
+  .hot-badge {
+    font-size: 12px !important;
+    padding: 6px 12px !important;
+    margin-bottom: 9px !important;
+  }
+
+  /* Títulos internos */
+  .mlb-premium-title h2,
+  .premium-header h3,
+  .premium-result h2,
+  .premium-result h3 {
+    font-size: 20px !important;
+    line-height: 1.1 !important;
+    margin: 5px 0 8px !important;
+  }
+
+  .mlb-report-label,
+  .premium-label {
+    font-size: 9px !important;
+    letter-spacing: 1.2px !important;
+  }
+
+  /* Caja pick principal */
+  .mlb-main-pick-box,
+  .premium-score-box,
+  .edge-box {
+    padding: 11px !important;
+    border-radius: 14px !important;
+  }
+
+  .mlb-main-pick-box strong,
+  .premium-game-pick {
+    font-size: 18px !important;
+    line-height: 1.1 !important;
+    margin: 6px 0 !important;
+  }
+
+  .mlb-main-pick-box h3,
+  .premium-score-box strong,
+  .edge-number {
+    font-size: 34px !important;
+    line-height: 1 !important;
+    margin: 5px 0 !important;
+  }
+
+  /* Métricas */
+  .mlb-premium-metrics,
+  .edge-grid,
+  .premium-metrics-grid {
+    gap: 7px !important;
+    margin: 10px 0 !important;
+  }
+
+  .mlb-premium-metrics {
+    padding: 8px !important;
+    border-radius: 14px !important;
+  }
+
+  .mlb-premium-metrics div,
+  .premium-metric {
+    padding: 9px !important;
+    border-radius: 13px !important;
+  }
+
+  .mlb-premium-metrics small,
+  .premium-metric small,
+  .edge-box h4 {
+    font-size: 9px !important;
+    line-height: 1.05 !important;
+  }
+
+  .mlb-premium-metrics strong,
+  .premium-metric strong {
+    font-size: 23px !important;
+    line-height: 1 !important;
+  }
+
+  /* Info adicional MLB / NBA / Football */
+  .mlb-info-grid {
+    gap: 8px !important;
+  }
+
+  .mlb-info-grid div,
+  .premium-main-analysis,
+  .premium-extra-analysis,
+  .premium-model-text,
+  .premium-lock-box {
+    padding: 11px !important;
+    border-radius: 14px !important;
+  }
+
+  .mlb-info-grid h4 {
+    font-size: 15px !important;
+    margin: 0 0 7px !important;
+  }
+
+  .mlb-info-grid p,
+  .premium-main-analysis p,
+  .premium-extra-analysis p,
+  .premium-model-text p {
+    font-size: 12.5px !important;
+    line-height: 1.18 !important;
+    margin: 5px 0 !important;
+  }
+
+  .mlb-complete-bar {
+    margin-top: 10px !important;
+    padding: 8px !important;
+    font-size: 12px !important;
+    letter-spacing: 3px !important;
+  }
+}
