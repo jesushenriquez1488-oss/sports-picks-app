@@ -4960,3 +4960,214 @@ button:active,
   }
 
 }
+/* PREMIUM PRO CARD */
+
+.premium-pro-card {
+  margin-top: 18px;
+  padding: 18px;
+  border-radius: 24px;
+  background: linear-gradient(145deg, #06080d, #020305);
+  border: 1px solid rgba(0,255,234,.18);
+}
+
+.premium-pro-card.is-premium {
+  border: 1px solid rgba(255,209,102,.9);
+  box-shadow: 0 0 40px rgba(255,209,102,.24);
+}
+
+.premium-pro-top-badge {
+  display: inline-block;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: linear-gradient(135deg,#fff3b0,#ffd166,#ff9f1c);
+  color: #120700;
+  font-weight: 900;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.premium-pro-main {
+  position: relative;
+  padding: 22px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 85% 20%, rgba(255,209,102,.15), transparent 28%),
+    linear-gradient(145deg, #130c02, #040301);
+  border: 1px solid rgba(255,209,102,.55);
+}
+
+.premium-pro-label {
+  display: inline-block;
+  padding: 7px 18px;
+  border-radius: 999px;
+  background: rgba(255,209,102,.12);
+  color: #ffd166;
+  font-size: 12px;
+  font-weight: 900;
+  margin-bottom: 16px;
+}
+
+.premium-pro-pick {
+  color: #ffd166;
+  font-size: 44px;
+  line-height: 1.02;
+  font-weight: 1000;
+  max-width: 75%;
+  text-shadow: 0 0 20px rgba(255,209,102,.2);
+}
+
+.premium-pro-shield {
+  position: absolute;
+  right: 22px;
+  top: 48px;
+  width: 82px;
+  height: 82px;
+  border-radius: 24px;
+  display: grid;
+  place-items: center;
+  font-size: 42px;
+  background: linear-gradient(145deg,#fff3b0,#d99a16,#7a4b00);
+  box-shadow: 0 0 24px rgba(255,209,102,.45);
+}
+
+.premium-pro-message {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255,209,102,.25);
+  color: #ffe8a3;
+  font-size: 13px;
+  letter-spacing: 1.3px;
+  text-align: center;
+  font-weight: 800;
+}
+
+.premium-pro-confidence-box {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: rgba(0,255,120,.06);
+  border: 1px solid rgba(0,255,120,.18);
+}
+
+.premium-pro-circle {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 8px solid #22e66b;
+  color: #22e66b;
+  font-size: 28px;
+  font-weight: 1000;
+  box-shadow: 0 0 18px rgba(34,230,107,.3);
+}
+
+.premium-pro-confidence-box strong {
+  display: block;
+  color: white;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.premium-pro-confidence-box span {
+  color: #22e66b;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.premium-pro-grid {
+  display: grid;
+  grid-template-columns: repeat(2,1fr);
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.premium-pro-mini {
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,209,102,.24);
+}
+
+.premium-pro-mini small {
+  display: block;
+  color: #ffd166;
+  font-size: 11px;
+  font-weight: 900;
+  margin-bottom: 6px;
+}
+
+.premium-pro-mini strong {
+  display: block;
+  color: #ffd166;
+  font-size: 42px;
+  line-height: 1;
+}
+
+.premium-pro-mini span {
+  color: rgba(255,255,255,.72);
+  font-size: 13px;
+}
+
+.premium-pro-mini.team small {
+  color: #00ffe7;
+}
+
+.premium-pro-mini.team strong {
+  color: #00ffe7;
+}
+
+.premium-pro-note {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(0,255,234,.05);
+  border: 1px solid rgba(0,255,234,.14);
+  color: white;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.premium-pro-footer {
+  text-align: center;
+  color: #ffd166;
+  font-size: 12px;
+  letter-spacing: 2px;
+  margin-top: 16px;
+  font-weight: 900;
+}
+
+/* MOBILE */
+
+@media (max-width: 700px) {
+
+  .premium-pro-pick {
+    font-size: 30px;
+    max-width: 100%;
+  }
+
+  .premium-pro-shield {
+    position: static;
+    margin-top: 14px;
+    width: 64px;
+    height: 64px;
+    font-size: 32px;
+  }
+
+  .premium-pro-confidence-box {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .premium-pro-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .premium-pro-mini strong {
+    font-size: 28px;
+  }
+
+}
