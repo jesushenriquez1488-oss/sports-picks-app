@@ -4283,3 +4283,71 @@ button:active,
   }
 
 }
+/* MOBILE COMPACT HERO + ACCURACY ONLY */
+@media (max-width: 700px) {
+
+  .ai-hero {
+    min-height: auto !important;
+    padding: 14px 12px !important;
+    margin: 10px auto 12px !important;
+    border-radius: 18px !important;
+    clip-path: none !important;
+  }
+
+  .basketball-orb {
+    width: 64px !important;
+    height: 64px !important;
+    font-size: 34px !important;
+  }
+
+  .basketball-orb::after {
+    width: 90px !important;
+    height: 18px !important;
+    bottom: -16px !important;
+  }
+
+  .hero h1,
+  .ai-hero h1 {
+    font-size: 28px !important;
+    margin: 14px 0 6px !important;
+    line-height: 1 !important;
+  }
+
+  .hero p,
+  .ai-hero p,
+  .disclaimer {
+    font-size: 11px !important;
+    line-height: 1.2 !important;
+    margin: 4px auto !important;
+  }
+
+  .badge {
+    font-size: 10px !important;
+    padding: 5px 10px !important;
+  }
+
+  .accuracy-box {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    margin: 8px auto 12px !important;
+  }
+
+  .accuracy-box div {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    padding: 8px 6px !important;
+    border-radius: 13px !important;
+  }
+
+  .accuracy-box strong {
+    font-size: 10px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .accuracy-box span {
+    font-size: 20px !important;
+    line-height: 1 !important;
+  }
+}
