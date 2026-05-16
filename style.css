@@ -5503,3 +5503,103 @@ button:active,
     font-size:28px !important;
   }
 }
+/* ===== MOBILE PREMIUM CLEANUP ===== */
+
+@media (max-width:700px){
+
+  /* elimina corona fea */
+  .premium-shield{
+    display:none !important;
+  }
+
+  /* compacta tarjeta premium */
+  .premium-pro-card{
+    padding:14px !important;
+    gap:10px !important;
+  }
+
+  /* elimina hueco superior */
+  .premium-pro-main{
+    margin-top:0 !important;
+    padding:12px !important;
+  }
+
+  /* badge superior */
+  .premium-pro-top-badge{
+    margin-bottom:10px !important;
+    padding:10px 16px !important;
+    font-size:15px !important;
+    width:fit-content !important;
+    max-width:100% !important;
+  }
+
+  /* tarjeta interna */
+  .premium-pro-main{
+    border-radius:24px !important;
+  }
+
+  /* titulo pick */
+  .premium-pro-pick{
+    font-size:22px !important;
+    line-height:1.08 !important;
+    margin-bottom:14px !important;
+  }
+
+  /* caja verde */
+  .premium-pro-confidence-box{
+    padding:12px !important;
+    margin-top:8px !important;
+    border-radius:20px !important;
+    gap:12px !important;
+    align-items:center !important;
+  }
+
+  /* circulo */
+  .premium-pro-circle{
+    width:95px !important;
+    height:95px !important;
+    min-width:95px !important;
+    font-size:28px !important;
+  }
+
+  /* grid stats */
+  .premium-compact-grid{
+    gap:8px !important;
+    margin-top:10px !important;
+  }
+
+  .premium-compact-grid div{
+    padding:12px !important;
+    min-height:auto !important;
+    border-radius:18px !important;
+  }
+
+  /* descanso lesiones */
+  .premium-data-section{
+    gap:10px !important;
+    margin-top:14px !important;
+  }
+
+  .premium-data-box{
+    padding:14px !important;
+    min-height:auto !important;
+    border-radius:20px !important;
+  }
+
+  .premium-data-box h4{
+    margin-bottom:10px !important;
+  }
+
+  .premium-data-box p{
+    margin:6px 0 !important;
+    line-height:1.35 !important;
+    font-size:15px !important;
+  }
+
+  /* elimina espacios gigantes */
+  .premium-analysis-card,
+  .premium-mini-note{
+    display:none !important;
+  }
+
+}
