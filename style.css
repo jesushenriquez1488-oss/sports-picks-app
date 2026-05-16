@@ -4874,3 +4874,89 @@ button:active,
     line-height: 1.25;
   }
 }
+/* PREMIUM HERO */
+
+.premium-hero-card{
+  margin-top: 24px;
+  padding: 28px;
+  border-radius: 28px;
+
+  background:
+    radial-gradient(circle at top right,
+    rgba(255,209,102,.18),
+    transparent 28%),
+
+    linear-gradient(145deg,
+    rgba(22,16,7,.98),
+    rgba(5,4,2,.98));
+
+  border: 1px solid rgba(255,209,102,.42);
+
+  box-shadow:
+    0 0 38px rgba(255,209,102,.16),
+    inset 0 0 40px rgba(255,209,102,.05);
+}
+
+.premium-hero-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+
+  padding:8px 18px;
+  border-radius:999px;
+
+  background:rgba(255,209,102,.10);
+
+  border:1px solid rgba(255,209,102,.22);
+
+  color:#ffd166;
+
+  font-size:14px;
+  font-weight:900;
+
+  margin-bottom:20px;
+}
+
+.premium-hero-pick{
+  font-size:46px;
+  line-height:1.05;
+  font-weight:1000;
+  color:#ffd166;
+  margin-bottom:18px;
+}
+
+.premium-hero-confidence{
+  font-size:30px;
+  font-weight:1000;
+  color:#00ffe7;
+  margin-bottom:16px;
+}
+
+.premium-hero-description{
+  color:rgba(255,255,255,.82);
+  line-height:1.55;
+  font-size:15px;
+}
+
+/* MOBILE */
+
+@media (max-width:700px){
+
+  .premium-hero-card{
+    padding:18px;
+    border-radius:22px;
+  }
+
+  .premium-hero-pick{
+    font-size:32px;
+  }
+
+  .premium-hero-confidence{
+    font-size:22px;
+  }
+
+  .premium-hero-description{
+    font-size:13px;
+  }
+
+}
