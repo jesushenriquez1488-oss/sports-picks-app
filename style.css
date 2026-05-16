@@ -4760,3 +4760,33 @@ button:active,
     letter-spacing: 3px !important;
   }
 }
+/* NBA + FOOTBALL PREMIUM METRICS COMPACT */
+@media (max-width: 700px) {
+
+  .premium-metrics-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    margin: 10px 0 !important;
+  }
+
+  .premium-metric {
+    padding: 10px !important;
+    border-radius: 14px !important;
+  }
+
+  .premium-metric small {
+    font-size: 9px !important;
+    line-height: 1.05 !important;
+  }
+
+  .premium-metric strong {
+    font-size: 22px !important;
+    margin: 4px 0 !important;
+    line-height: 1 !important;
+  }
+
+  .premium-metric span {
+    font-size: 11px !important;
+    line-height: 1.1 !important;
+  }
+}
