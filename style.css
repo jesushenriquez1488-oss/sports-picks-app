@@ -5171,3 +5171,104 @@ button:active,
   }
 
 }
+.premium-pro-card{
+  position:relative;
+  overflow:hidden;
+  padding:24px;
+  border-radius:34px;
+}
+
+.premium-shield{
+  position:absolute;
+  top:22px;
+  right:22px;
+  width:78px;
+  height:78px;
+  border-radius:24px;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  font-size:40px;
+
+  background:
+    radial-gradient(circle at top,#ffe082,#b8860b);
+
+  border:2px solid rgba(255,215,0,.45);
+
+  box-shadow:
+    0 0 35px rgba(255,215,0,.45),
+    inset 0 0 22px rgba(255,255,255,.22);
+}
+
+.premium-pro-pick{
+  font-size:48px;
+  line-height:1.02;
+  max-width:75%;
+}
+
+.premium-pro-top-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+
+  padding:12px 22px;
+  border-radius:999px;
+
+  background:
+    linear-gradient(135deg,#fff3b0,#ffd166);
+
+  color:#111;
+  font-weight:900;
+  font-size:15px;
+
+  margin-bottom:24px;
+
+  box-shadow:
+    0 0 25px rgba(255,215,0,.35);
+}
+
+.premium-circle-label{
+  margin-top:18px;
+  text-align:center;
+  font-size:16px;
+  font-weight:900;
+  color:#ffd166;
+  letter-spacing:1px;
+}
+
+.premium-pro-confidence-box{
+  margin-top:26px;
+}
+
+.premium-pro-circle{
+  width:140px;
+  height:140px;
+  font-size:42px;
+}
+
+.premium-pro-description{
+  display:none;
+}
+
+@media(max-width:700px){
+
+  .premium-pro-pick{
+    font-size:34px;
+    max-width:100%;
+  }
+
+  .premium-shield{
+    width:64px;
+    height:64px;
+    font-size:32px;
+  }
+
+  .premium-pro-circle{
+    width:120px;
+    height:120px;
+    font-size:34px;
+  }
+
+}
