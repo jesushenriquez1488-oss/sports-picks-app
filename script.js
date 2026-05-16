@@ -626,29 +626,29 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
                 : premium.pick
             }
           </p>
+<div class="premium-hero-card">
 
-          <div class="premium-meta-row">
+  <div class="premium-hero-badge">
+    🔥 HOT PICK PREMIUM
+  </div>
 
-            <div class="premium-chip">
-              ⚡ ${data.public.confidence}%
-            </div>
+  <div class="premium-hero-pick">
+    ${locked ? "Pick Premium bloqueado" : premium.pick}
+  </div>
 
-            <div class="premium-chip">
-              🧠 ${data.public.risk}
-            </div>
+  <div class="premium-hero-confidence">
+    ${data.public.confidence}% CONFIDENCE
+  </div>
 
-            <div class="premium-chip premium-chip-gold">
-              ${data.public.verdict}
-            </div>
+  <div class="premium-hero-description">
+    El modelo detecta una ventaja fuerte contra la línea del mercado basada en matchup, forma reciente y edge estadístico.
+  </div>
 
-          </div>
+</div>
+          
         </div>
 
-        <div class="premium-score-box">
-          <span>MODEL</span>
-          <strong>${data.public.confidence}%</strong>
-          <small>AI CONFIDENCE</small>
-        </div>
+       
 
       </div>
 
