@@ -5272,3 +5272,139 @@ button:active,
   }
 
 }
+/* FIX NBA/FOOTBALL PREMIUM CARD - COMPACT MOBILE */
+@media (max-width:700px){
+
+  .premium-pro-card{
+    padding: 12px !important;
+    border-radius: 18px !important;
+    margin-top: 10px !important;
+  }
+
+  .premium-pro-main{
+    padding: 13px !important;
+    border-radius: 17px !important;
+  }
+
+  .premium-pro-top-badge{
+    padding: 6px 12px !important;
+    font-size: 10px !important;
+    margin-bottom: 8px !important;
+    max-width: 80% !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+  }
+
+  .premium-shield{
+    width: 42px !important;
+    height: 42px !important;
+    font-size: 24px !important;
+    border-radius: 14px !important;
+    top: 10px !important;
+    right: 12px !important;
+  }
+
+  .premium-pro-label{
+    padding: 5px 10px !important;
+    font-size: 9px !important;
+    margin-bottom: 7px !important;
+  }
+
+  .premium-pro-pick{
+    font-size: 22px !important;
+    line-height: 1.05 !important;
+    max-width: 100% !important;
+    margin-bottom: 8px !important;
+  }
+
+  .premium-pro-message{
+    display: none !important;
+  }
+
+  .premium-pro-confidence-box{
+    margin-top: 8px !important;
+    padding: 8px 10px !important;
+    border-radius: 14px !important;
+    flex-direction: row !important;
+    gap: 10px !important;
+  }
+
+  .premium-pro-circle{
+    width: 62px !important;
+    height: 62px !important;
+    min-width: 62px !important;
+    border-width: 5px !important;
+    font-size: 18px !important;
+  }
+
+  .premium-circle-label{
+    margin-top: 0 !important;
+    font-size: 12px !important;
+    text-align: left !important;
+    letter-spacing: .4px !important;
+  }
+
+  .premium-pro-confidence-box span{
+    font-size: 10px !important;
+    display: block !important;
+    margin-top: 2px !important;
+  }
+
+  .premium-pro-grid{
+    gap: 7px !important;
+    margin-top: 8px !important;
+  }
+
+  .premium-pro-mini{
+    padding: 9px !important;
+    border-radius: 13px !important;
+    min-height: 0 !important;
+  }
+
+  .premium-pro-mini small{
+    font-size: 8px !important;
+    margin-bottom: 3px !important;
+    line-height: 1.05 !important;
+  }
+
+  .premium-pro-mini strong{
+    font-size: 22px !important;
+    line-height: 1 !important;
+  }
+
+  .premium-pro-mini span{
+    font-size: 9px !important;
+    line-height: 1.05 !important;
+  }
+
+  .premium-pro-note,
+  .premium-pro-footer{
+    display: none !important;
+  }
+
+  .premium-data-section{
+    margin-top: 8px !important;
+    gap: 7px !important;
+  }
+
+  .premium-data-box{
+    padding: 10px !important;
+    border-radius: 14px !important;
+    margin: 7px 0 !important;
+  }
+
+  .premium-data-box h4{
+    font-size: 14px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .premium-data-box p{
+    font-size: 11px !important;
+    line-height: 1.18 !important;
+    margin: 4px 0 !important;
+  }
+
+  .premium-data-box br{
+    display: none !important;
+  }
+}
