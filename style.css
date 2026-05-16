@@ -5603,3 +5603,145 @@ button:active,
   }
 
 }
+/* ===== PREMIUM CARD FINAL MOBILE FIX ===== */
+
+@media (max-width:700px){
+
+  /* contenedor general */
+  .premium-layout{
+    padding:12px !important;
+  }
+
+  /* tarjeta principal */
+  .premium-pro-card{
+    margin-top:14px !important;
+    padding:12px !important;
+    border-radius:24px !important;
+    overflow:hidden !important;
+  }
+
+  /* badge HOT PICK */
+  .premium-pro-top-badge{
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    width:auto !important;
+    max-width:100% !important;
+    padding:10px 18px !important;
+    border-radius:999px !important;
+    font-size:14px !important;
+    font-weight:800 !important;
+    margin-bottom:12px !important;
+  }
+
+  /* tarjeta interna */
+  .premium-pro-main{
+    padding:14px !important;
+    border-radius:22px !important;
+    overflow:hidden !important;
+  }
+
+  /* texto PREMIUM/NORMAL */
+  .premium-pro-label{
+    font-size:13px !important;
+    padding:8px 14px !important;
+    border-radius:999px !important;
+    width:fit-content !important;
+    margin-bottom:14px !important;
+  }
+
+  /* pick principal */
+  .premium-pro-pick{
+    font-size:20px !important;
+    line-height:1.1 !important;
+    font-weight:900 !important;
+    margin-bottom:14px !important;
+    word-break:break-word !important;
+  }
+
+  /* caja verde */
+  .premium-pro-confidence-box{
+    display:flex !important;
+    align-items:center !important;
+    justify-content:flex-start !important;
+    gap:14px !important;
+    padding:14px !important;
+    border-radius:20px !important;
+    margin-top:10px !important;
+  }
+
+  /* circulo */
+  .premium-pro-circle{
+    width:90px !important;
+    height:90px !important;
+    min-width:90px !important;
+    border-width:8px !important;
+    font-size:28px !important;
+  }
+
+  /* texto probabilidad */
+  .premium-circle-label{
+    font-size:14px !important;
+    line-height:1.1 !important;
+    font-weight:800 !important;
+  }
+
+  /* alta confianza */
+  .premium-pro-confidence-box span{
+    font-size:14px !important;
+    line-height:1.1 !important;
+    font-weight:800 !important;
+  }
+
+  /* grid stats */
+  .premium-pro-grid{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:10px !important;
+    margin-top:14px !important;
+  }
+
+  /* mini stats */
+  .premium-pro-mini{
+    padding:12px !important;
+    border-radius:18px !important;
+    min-height:auto !important;
+  }
+
+  .premium-pro-mini small{
+    font-size:12px !important;
+  }
+
+  .premium-pro-mini strong{
+    font-size:18px !important;
+    line-height:1.1 !important;
+  }
+
+  .premium-pro-mini span{
+    font-size:13px !important;
+  }
+
+  /* descanso lesiones */
+  .premium-data-section{
+    margin-top:14px !important;
+    gap:10px !important;
+  }
+
+  .premium-data-box{
+    padding:14px !important;
+    border-radius:20px !important;
+    min-height:auto !important;
+  }
+
+  .premium-data-box h4{
+    font-size:18px !important;
+    margin-bottom:10px !important;
+  }
+
+  .premium-data-box p{
+    font-size:14px !important;
+    line-height:1.35 !important;
+    margin:6px 0 !important;
+  }
+
+}
