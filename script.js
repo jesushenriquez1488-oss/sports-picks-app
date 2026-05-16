@@ -661,9 +661,11 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
       <div class="premium-pro-circle">
         ${data.public.confidence}%
       </div>
-
-      <div>
-        <strong>PROBABILIDAD</strong>
+<div class="premium-circle-label">
+  ${data.public.confidence}% PROBABILIDAD
+</div>
+      
+       
 
         <span>
           ${data.public.verdict === "Premium"
@@ -746,57 +748,7 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
             </div>
           `
           : `
-           <div class="premium-compact-dashboard">
-
-  <div class="premium-main-play-box">
-    <span>🔥 JUGADA ${data.public.verdict}</span>
-    <strong>${locked ? "Pick Premium bloqueado" : premium.pick}</strong>
-    <em>${data.public.confidence}% confianza</em>
-  </div>
-
-  <div class="premium-compact-grid">
-
-    <div>
-      <small>EDGE</small>
-      <strong>${premium.mainEdge.toFixed(1)}</strong>
-      <span>vs mercado</span>
-    </div>
-
-    <div>
-      <small>PROYECCIÓN</small>
-      <strong>${premium.totalProj.toFixed(1)}</strong>
-      <span>Total modelo</span>
-    </div>
-
-    <div>
-      <small>${awayTeam}</small>
-      <strong>${premium.projA.toFixed(1)}</strong>
-      <span>puntos</span>
-    </div>
-
-    <div>
-      <small>${homeTeam}</small>
-      <strong>${premium.projB.toFixed(1)}</strong>
-      <span>puntos</span>
-    </div>
-
-  </div>
-
-  <div class="premium-mini-note">
-    🧠 ${premium.modelAnalysis}
-  </div>
-
-</div>
-
-              <div class="premium-analysis-card">
-
-                <h4>🧠 Modelo IA</h4>
-
-                <p>${premium.modelAnalysis}</p>
-
-              </div>
-
-            </div>
+   </div>
 
             <div class="premium-data-section">
 
