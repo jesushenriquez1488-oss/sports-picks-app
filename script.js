@@ -596,67 +596,46 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
     const premium = data.premium;
     const isPremium = data.isPremiumPick;
 
-   resultDiv.innerHTML = `
+  resultDiv.innerHTML = `
   <div class="${isPremium ? 'premium-result mlb-premium-dashboard' : 'normal-result'}">
-
-    ${
-      isPremium
-        ? `
-          <div class="premium-top-line">
-            <span class="premium-crown">👑</span>
-            <span class="premium-fire">🔥 HOT PICK PREMIUM</span>
-          </div>
-        `
-        : ""
-    }
 
     <div class="result-content premium-layout">
 
       <div class="premium-header">
 
         <div>
+
           <p class="premium-label">AI PREDICTIVE REPORT</p>
 
           <h3>🏀 PICK PRINCIPAL</h3>
 
-          <p class="premium-game-pick">
-            ${
-              locked
-                ? "Pick Premium bloqueado"
-                : premium.pick
-            }
-          </p>
 <div class="premium-pro-card ${data.public.verdict === "Premium" ? "is-premium" : "is-normal"}">
 
- <div class="premium-pro-top-badge">
-  ${
-    data.public.confidence >= 75
-      ? "👑 HOT PICK PREMIUM"
-      : "📊 JUGADA DESTACADA"
-  }
-</div>
+  <div class="premium-pro-top-badge">
+    ${
+      data.public.confidence >= 75
+        ? "🔥 HOT PICK PREMIUM"
+        : "📊 JUGADA DESTACADA"
+    }
+  </div>
 
   <div class="premium-pro-main">
 
     <div class="premium-pro-label">
-      ${data.public.verdict === "Premium" ? "🔥 JUGADA PREMIUM" : "📊 JUGADA NORMAL"}
+      ${
+        data.public.verdict === "Premium"
+          ? "🔥 JUGADA PREMIUM"
+          : "📊 JUGADA NORMAL"
+      }
     </div>
 
     <div class="premium-pro-pick">
-      ${locked ? "Pick bloqueado" : premium.pick}
-    </div>
-
-    ${
-      data.public.verdict === "Premium"
-        ? `<div class="premium-pro-shield">👑</div>`
-        : ""
-    }
-
-    <div class="premium-pro-message">
       ${
-        data.public.verdict === "Premium"
-          ? "VENTAJA FUERTE DETECTADA CONTRA LA LÍNEA DEL MERCADO"
-          : "Jugada con valor moderado según el modelo"
+        locked
+          ? "Pick bloqueado"
+          : premium.pick
+              .replace(" cubre spread", "")
+              .replace(" cubre", "")
       }
     </div>
 
@@ -665,18 +644,18 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
       <div class="premium-pro-circle">
         ${data.public.confidence}%
       </div>
-<div class="premium-circle-label">
-  ${data.public.confidence}% PROBABILIDAD
-</div>
-      
-       
 
-        <span>
-          ${data.public.verdict === "Premium"
-            ? "ALTA CONFIANZA"
-            : "CONFIANZA MODERADA"}
-        </span>
+      <div class="premium-circle-label">
+        ${data.public.confidence}% PROBABILIDAD
       </div>
+
+      <span>
+        ${
+          data.public.verdict === "Premium"
+            ? "ALTA CONFIANZA"
+            : "CONFIANZA MODERADA"
+        }
+      </span>
 
     </div>
 
@@ -710,19 +689,8 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
 
   </div>
 
-  <div class="premium-pro-note">
-    🧠 ${premium.modelAnalysis}
-  </div>
-
-  ${
-    data.public.verdict === "Premium"
-      ? `<div class="premium-pro-footer">
-          🔒 ANÁLISIS PREMIUM GENERADO POR IA
-        </div>`
-      : ""
-  }
-
 </div>
+
       ${
         locked
           ? `
@@ -752,7 +720,6 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
             </div>
           `
           : `
-   </div>
 
             <div class="premium-data-section">
 
@@ -770,13 +737,12 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
                 <h4>🚑 Lesiones</h4>
 
                 <p>${premium.awayInjuryPublic}</p>
+
                 ${
                   premium.awayInjuryNote.includes("No se reportan")
                     ? ""
                     : `<p>${premium.awayInjuryNote}</p>`
                 }
-
-                <br>
 
                 <p>${premium.homeInjuryPublic}</p>
 
@@ -789,6 +755,7 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
               </div>
 
             </div>
+
           `
       }
 
