@@ -628,9 +628,13 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
           </p>
 <div class="premium-pro-card ${data.public.verdict === "Premium" ? "is-premium" : "is-normal"}">
 
-  <div class="premium-pro-top-badge">
-    ${data.public.verdict === "Premium" ? "👑 🔥 HOT PICK PREMIUM" : "📊 PICK NORMAL"}
-  </div>
+ <div class="premium-pro-top-badge">
+  ${
+    data.public.confidence >= 75
+      ? "👑 HOT PICK PREMIUM"
+      : "📊 JUGADA DESTACADA"
+  }
+</div>
 
   <div class="premium-pro-main">
 
