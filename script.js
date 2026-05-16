@@ -681,35 +681,47 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
             </div>
           `
           : `
-            <div class="premium-analysis-grid">
+           <div class="premium-compact-dashboard">
 
-              <div class="premium-analysis-card">
+  <div class="premium-main-play-box">
+    <span>🔥 JUGADA ${data.public.verdict}</span>
+    <strong>${locked ? "Pick Premium bloqueado" : premium.pick}</strong>
+    <em>${data.public.confidence}% confianza</em>
+  </div>
 
-                <h4>📊 Edge Detectado</h4>
+  <div class="premium-compact-grid">
 
-                <div class="premium-big-number">
-                  ${premium.mainEdge.toFixed(1)}
-                </div>
+    <div>
+      <small>EDGE</small>
+      <strong>${premium.mainEdge.toFixed(1)}</strong>
+      <span>vs mercado</span>
+    </div>
 
-                <p>
-                  Confianza:
-                  <strong>${premium.mainEdgeConfidence}%</strong>
-                </p>
+    <div>
+      <small>PROYECCIÓN</small>
+      <strong>${premium.totalProj.toFixed(1)}</strong>
+      <span>Total modelo</span>
+    </div>
 
-              </div>
+    <div>
+      <small>${awayTeam}</small>
+      <strong>${premium.projA.toFixed(1)}</strong>
+      <span>puntos</span>
+    </div>
 
-              <div class="premium-analysis-card">
+    <div>
+      <small>${homeTeam}</small>
+      <strong>${premium.projB.toFixed(1)}</strong>
+      <span>puntos</span>
+    </div>
 
-                <h4>📈 Proyección</h4>
+  </div>
 
-                <p>${awayTeam}: ${premium.projA.toFixed(1)}</p>
-                <p>${homeTeam}: ${premium.projB.toFixed(1)}</p>
+  <div class="premium-mini-note">
+    🧠 ${premium.modelAnalysis}
+  </div>
 
-                <div class="premium-total">
-                  ${premium.totalProj.toFixed(1)}
-                </div>
-
-              </div>
+</div>
 
               <div class="premium-analysis-card">
 
