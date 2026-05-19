@@ -1851,3 +1851,40 @@ async function updatePickResult(pickId, result) {
   alert("Resultado actualizado");
 }
 // update auth ui
+async function openCustomerPortal() {
+  try {
+
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      alert("Please log in first.");
+      return;
+    }
+
+    const response = await fetch("/api/create-checkout-session", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        userId: user.id,
+        action: "portal"
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(data.error || "Could not open subscription portal.");
+      return;
+    }
+
+    window.location.href = data.url;
+
+  } catch (error) {
+    console.error("Customer portal error:", error);
+    alert("Error opening subscription portal.");
+  }
+}
