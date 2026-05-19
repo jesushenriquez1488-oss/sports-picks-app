@@ -1874,15 +1874,24 @@ async function openCustomerPortal() {
       })
     });
 
-    const data = await response.json();
+  const text = await response.text();
 
-   if (!response.ok) {
+let data = {};
+try {
+  data = JSON.parse(text);
+} catch (e) {
+  console.log("Respuesta no JSON:", text);
+  alert("Respuesta no JSON: " + text.slice(0, 300));
+  return;
+}
+
+if (!response.ok) {
   console.log(data);
   alert(JSON.stringify(data));
   return;
 }
 
-    window.location.href = data.url;
+window.location.href = data.url;
 
   } catch (error) {
     console.error("Customer portal error:", error);
