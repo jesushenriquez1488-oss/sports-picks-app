@@ -540,12 +540,18 @@ if (innings < 2) {
   const spreadNumber = Number(spread || 0);
   const protectedEdgeForPercent = supportData.projectedMargin + spreadNumber;
 
-  if (spreadNumber > 0) {
-    confidence = edgeToPercent(protectedEdgeForPercent, 3.0, 6.0);
-  } else {
-    confidence = edgeToPercent(protectedEdgeForPercent, 2.0, 5.5);
-  }
+ if (spreadNumber > 0) {
+  // RL +1.5 debe valer más que ML porque tiene protección extra
+  const baseRlConfidence = edgeToPercent(protectedEdgeForPercent, 3.0, 6.0);
 
+  const protectionBonus = Math.min(10, spreadNumber * 6);
+
+  confidence = clamp(baseRlConfidence + protectionBonus, 0, 99);
+
+} else {
+  // RL -1.5 es más difícil que ML
+  confidence = edgeToPercent(protectedEdgeForPercent, 2.0, 5.5);
+}
   if (runlineProb < 65) confidence = 0;
 }
 
