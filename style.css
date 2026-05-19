@@ -1540,3 +1540,181 @@ body > .hero,
     transition-duration: .01ms !important;
   }
 }
+/* ============================= */
+/* MOBILE CLEAN FIX - CASHEDGE */
+/* ============================= */
+
+@media (max-width: 700px) {
+
+  body {
+    padding: 0 !important;
+    font-size: 15px !important;
+  }
+
+  .ai-hero {
+    width: calc(100% - 24px) !important;
+    padding: 22px 16px !important;
+    min-height: auto !important;
+    margin-top: 16px !important;
+  }
+
+  .hero h1 {
+    font-size: 34px !important;
+    line-height: 1.1 !important;
+  }
+
+  .hero p {
+    font-size: 16px !important;
+    line-height: 1.45 !important;
+  }
+
+  /* 3 deportes por línea */
+  .league-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 10px !important;
+    width: calc(100% - 24px) !important;
+    margin: 18px auto !important;
+  }
+
+  .league-btn {
+    min-height: 92px !important;
+    padding: 10px 6px !important;
+    border-radius: 18px !important;
+    clip-path: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  .league-icon {
+    position: static !important;
+    width: 42px !important;
+    height: 42px !important;
+    font-size: 22px !important;
+    margin-bottom: 6px !important;
+    border-radius: 14px !important;
+  }
+
+  .league-info strong {
+    font-size: 15px !important;
+    line-height: 1.1 !important;
+  }
+
+  .league-info small {
+    display: none !important;
+  }
+
+  .league-arrow {
+    display: none !important;
+  }
+
+  /* Quitar o compactar 80% / 65% */
+  .accuracy-box,
+  .floating-accuracy {
+    display: none !important;
+  }
+
+  /* Cards más pequeñas */
+  .card,
+  .normal-result,
+  .premium-result,
+  .mlb-premium-dashboard {
+    width: calc(100% - 24px) !important;
+    margin: 16px auto !important;
+    padding: 18px !important;
+    border-radius: 22px !important;
+  }
+
+  .mlb-premium-content,
+  .premium-layout,
+  .result-content {
+    padding: 18px !important;
+    border-radius: 18px !important;
+  }
+
+  .card h2,
+  .mlb-premium-title h2 {
+    font-size: 28px !important;
+    line-height: 1.15 !important;
+  }
+
+  .card p,
+  .normal-result p,
+  .premium-result p,
+  .mlb-projection-box p,
+  .mlb-info-grid p {
+    font-size: 16px !important;
+    line-height: 1.45 !important;
+  }
+
+  /* Caja principal premium */
+  .mlb-top-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  .mlb-main-pick-box {
+    padding: 20px !important;
+  }
+
+  .mlb-main-pick-box strong {
+    font-size: 22px !important;
+  }
+
+  .mlb-main-pick-box h3 {
+    font-size: 48px !important;
+  }
+
+  /* Extra premium con box */
+  .extra-premium,
+  .premium-extra-pick,
+  .extra-pick-box {
+    margin: 18px 0 !important;
+    padding: 16px !important;
+    border-radius: 18px !important;
+    background: rgba(255, 209, 102, 0.08) !important;
+    border: 1px solid rgba(255, 209, 102, 0.45) !important;
+    box-shadow: 0 0 20px rgba(255, 209, 102, 0.14) !important;
+  }
+
+  /* Métricas más compactas */
+  .mlb-premium-metrics {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+    padding: 12px !important;
+  }
+
+  .mlb-premium-metrics div {
+    padding: 12px !important;
+    border-right: none !important;
+  }
+
+  .mlb-premium-metrics strong {
+    font-size: 24px !important;
+  }
+
+  .mlb-info-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  .mlb-info-grid div {
+    padding: 16px !important;
+  }
+
+  .mlb-premium-badge {
+    font-size: 13px !important;
+    padding: 8px 14px !important;
+    max-width: 260px !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+  }
+
+  .mlb-complete-bar {
+    font-size: 15px !important;
+    letter-spacing: 4px !important;
+  }
+}
