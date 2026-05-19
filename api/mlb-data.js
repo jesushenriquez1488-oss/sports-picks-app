@@ -32,7 +32,39 @@ const PARK_FACTORS = {
   "Oracle Park": { factor: 0.92, roof: "open" },
   "Petco Park": { factor: 0.91, roof: "open" }
 };
-
+const STADIUM_COORDS = {
+  "Coors Field": { lat: 39.7559, lon: -104.9942 },
+  "Great American Ball Park": { lat: 39.0974, lon: -84.5066 },
+  "Fenway Park": { lat: 42.3467, lon: -71.0972 },
+  "Yankee Stadium": { lat: 40.8296, lon: -73.9262 },
+  "Citizens Bank Park": { lat: 39.9061, lon: -75.1665 },
+  "Wrigley Field": { lat: 41.9484, lon: -87.6553 },
+  "Globe Life Field": { lat: 32.7473, lon: -97.0842 },
+  "Chase Field": { lat: 33.4455, lon: -112.0667 },
+  "Minute Maid Park": { lat: 29.7573, lon: -95.3555 },
+  "Truist Park": { lat: 33.8908, lon: -84.4678 },
+  "Oriole Park at Camden Yards": { lat: 39.2840, lon: -76.6217 },
+  "Kauffman Stadium": { lat: 39.0517, lon: -94.4803 },
+  "Angel Stadium": { lat: 33.8003, lon: -117.8827 },
+  "Comerica Park": { lat: 42.3390, lon: -83.0485 },
+  "Dodger Stadium": { lat: 34.0739, lon: -118.2400 },
+  "Busch Stadium": { lat: 38.6226, lon: -90.1928 },
+  "Progressive Field": { lat: 41.4962, lon: -81.6852 },
+  "Nationals Park": { lat: 38.8730, lon: -77.0074 },
+  "Target Field": { lat: 44.9817, lon: -93.2776 },
+  "American Family Field": { lat: 43.0280, lon: -87.9712 },
+  "Rogers Centre": { lat: 43.6414, lon: -79.3894 },
+  "LoanDepot Park": { lat: 25.7781, lon: -80.2197 },
+  "Citi Field": { lat: 40.7571, lon: -73.8458 },
+  "PNC Park": { lat: 40.4469, lon: -80.0057 },
+  "Guaranteed Rate Field": { lat: 41.8300, lon: -87.6339 },
+  "Rate Field": { lat: 41.8300, lon: -87.6339 },
+  "Tropicana Field": { lat: 27.7682, lon: -82.6534 },
+  "Sutter Health Park": { lat: 38.5804, lon: -121.5133 },
+  "T-Mobile Park": { lat: 47.5914, lon: -122.3325 },
+  "Oracle Park": { lat: 37.7786, lon: -122.3893 },
+  "Petco Park": { lat: 32.7073, lon: -117.1573 }
+};
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
 res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -329,63 +361,128 @@ if (req.method === "OPTIONS") {
         last7: bullpen7
       };
     }
+async function getWeather(venueName, roofType, gameDate) {
+  try {
+    const apiKey = process.env.VISUAL_CROSSING_API_KEY;
 
-    async function getWeather(gamePk, roofType) {
-      try {
-        const url = `https://statsapi.mlb.com/api/v1.1/game/${gamePk}/feed/live`;
-        const response = await fetch(url);
-        const data = await response.json();
-
-        const weather = data?.gameData?.weather || {};
-        const windText = weather.wind || "";
-        const temp = weather.temp || null;
-        const condition = weather.condition || "";
-
-        const speedMatch = windText.match(/(\d+)/);
-        const speed = speedMatch ? Number(speedMatch[1]) : 0;
-
-        let direction = "neutral";
-        const wind = windText.toLowerCase();
-
-        if (
-          wind.includes("out") ||
-          wind.includes("to cf") ||
-          wind.includes("to lf") ||
-          wind.includes("to rf")
-        ) {
-          direction = "out";
-        } else if (
-          wind.includes("in") ||
-          wind.includes("from cf") ||
-          wind.includes("from lf") ||
-          wind.includes("from rf")
-        ) {
-          direction = "in";
-        } else if (wind.includes("cross")) {
-          direction = "cross";
-        }
-
-        const weatherActive = roofType !== "dome";
-
-        return {
-          speed: weatherActive ? speed : 0,
-          direction: weatherActive ? direction : "neutral",
-          temp: temp ? Number(temp) : null,
-          condition,
-          raw: roofType === "dome" ? "Dome / clima neutralizado" : windText,
-          active: weatherActive
-        };
-      } catch {
-        return {
-          speed: 0,
-          direction: "neutral",
-          temp: null,
-          condition: "No disponible",
-          raw: "No disponible",
-          active: false
-        };
-      }
+    if (!apiKey) {
+      return {
+        speed: 0,
+        direction: "neutral",
+        temp: null,
+        humidity: null,
+        condition: "API key no configurada",
+        raw: "VISUAL_CROSSING_API_KEY missing",
+        active: false,
+        source: "visual_crossing"
+      };
     }
+
+    if (roofType === "dome") {
+      return {
+        speed: 0,
+        direction: "neutral",
+        temp: null,
+        humidity: null,
+        condition: "Dome",
+        raw: "Dome / clima neutralizado",
+        active: false,
+        source: "visual_crossing"
+      };
+    }
+
+    const coords = STADIUM_COORDS[venueName];
+
+    if (!coords) {
+      return {
+        speed: 0,
+        direction: "neutral",
+        temp: null,
+        humidity: null,
+        condition: "Coordenadas no encontradas",
+        raw: `No coords for ${venueName}`,
+        active: false,
+        source: "visual_crossing"
+      };
+    }
+
+    const date = gameDate || new Date().toISOString().split("T")[0];
+
+    const url =
+      `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/` +
+      `${coords.lat},${coords.lon}/${date}?unitGroup=us&include=hours,current&key=${apiKey}&contentType=json`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    const current = data?.currentConditions || {};
+    const day = data?.days?.[0] || {};
+    const hours = day?.hours || [];
+
+    const targetHour =
+      hours.find(h => Number(h.datetime?.split(":")?.[0]) >= 18) ||
+      hours.find(h => Number(h.datetime?.split(":")?.[0]) >= 15) ||
+      current ||
+      day;
+
+    const windSpeed = Number(targetHour?.windspeed || current?.windspeed || day?.windspeed || 0);
+    const windDir = Number(targetHour?.winddir || current?.winddir || day?.winddir || 0);
+    const temp = Number(targetHour?.temp || current?.temp || day?.temp || 0);
+    const humidity = Number(targetHour?.humidity || current?.humidity || day?.humidity || 0);
+    const condition = targetHour?.conditions || current?.conditions || day?.conditions || "No disponible";
+
+    const direction = classifyWindDirection(windDir);
+
+    const roofClosedLikely =
+      roofType === "retractable" &&
+      (
+        temp >= 90 ||
+        temp <= 45 ||
+        String(condition).toLowerCase().includes("rain") ||
+        String(condition).toLowerCase().includes("storm")
+      );
+
+    return {
+      speed: roofClosedLikely ? 0 : windSpeed,
+      direction: roofClosedLikely ? "neutral" : direction,
+      degrees: windDir,
+      temp,
+      humidity,
+      condition,
+      raw: roofClosedLikely
+        ? `Retractable roof likely closed: ${condition}, ${temp}F`
+        : `${windSpeed} mph, ${windDir} degrees, ${condition}`,
+      active: !roofClosedLikely,
+      source: "visual_crossing"
+    };
+
+  } catch (error) {
+    return {
+      speed: 0,
+      direction: "neutral",
+      temp: null,
+      humidity: null,
+      condition: "No disponible",
+      raw: error.message,
+      active: false,
+      source: "visual_crossing"
+    };
+  }
+}
+
+function classifyWindDirection(degrees) {
+  if (degrees === null || degrees === undefined || Number.isNaN(degrees)) {
+    return "neutral";
+  }
+
+  const d = Number(degrees);
+
+  if ((d >= 315 && d <= 360) || (d >= 0 && d <= 45)) return "out";
+  if (d >= 135 && d <= 225) return "in";
+  if ((d > 45 && d < 135) || (d > 225 && d < 315)) return "cross";
+
+  return "neutral";
+}
 
     const awayPitcherStats = await getPitcherStats(awayPitcher?.id);
     const homePitcherStats = await getPitcherStats(homePitcher?.id);
@@ -403,8 +500,7 @@ if (req.method === "OPTIONS") {
     const awayBullpen = await getBullpenProfile(game.teams.away.team.id);
     const homeBullpen = await getBullpenProfile(game.teams.home.team.id);
 
-    const weather = await getWeather(game.gamePk, parkInfo.roof);
-
+    const weather = await getWeather(venueName, parkInfo.roof, today);
     return res.status(200).json({
       gamePk: game.gamePk,
       venue: {
