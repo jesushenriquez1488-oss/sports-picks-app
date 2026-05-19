@@ -6048,21 +6048,3 @@ button:active,
 .account-dropdown button:hover{
   background:rgba(255,255,255,.08) !important;
 }
-@media (min-width: 701px){
-
-  .user-box{
-    width:auto !important;
-    max-width:360px !important;
-    margin:18px 40px 10px auto !important;
-    padding:10px 14px !important;
-    text-align:left !important;
-  }
-
-  .user-left{
-    align-items:flex-start !important;
-  }
-
-  .account-links{
-    justify-content:flex-start !important;
-  }
-}
