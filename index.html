@@ -76,23 +76,17 @@
     <span id="premiumStatus"></span>
   </div>
 
- <div class="account-menu">
+ <div class="account-links">
 
-  <button class="account-menu-btn" onclick="toggleAccountMenu()">
-    ☰ Cuenta
-  </button>
+  <a href="#" onclick="openCustomerPortal(); return false;">
+    Manage subscription
+  </a>
 
-  <div id="accountDropdown" class="account-dropdown">
+  <span>•</span>
 
-    <button onclick="openCustomerPortal()">
-      Manage Subscription
-    </button>
-
-    <button onclick="logoutUser()">
-      Logout
-    </button>
-
-  </div>
+  <a href="#" onclick="logoutUser(); return false;">
+    Logout
+  </a>
 
 </div>
 
