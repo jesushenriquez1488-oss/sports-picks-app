@@ -1876,10 +1876,11 @@ async function openCustomerPortal() {
 
     const data = await response.json();
 
-    if (!response.ok) {
-      alert(data.error || "Could not open subscription portal.");
-      return;
-    }
+   if (!response.ok) {
+  console.log(data);
+  alert(JSON.stringify(data));
+  return;
+}
 
     window.location.href = data.url;
 
