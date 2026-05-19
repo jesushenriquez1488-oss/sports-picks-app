@@ -775,10 +775,16 @@ function getBullpenFatigueFactor(bullpen) {
 
   if (!Number.isFinite(fatigue)) return 1;
 
-  if (fatigue >= 9) return 1.18;
-  if (fatigue >= 7) return 1.10;
-  if (fatigue >= 5) return 1.04;
-  if (fatigue <= 2) return 0.94;
+  if (fatigue >= 28) return 1.34;
+  if (fatigue >= 24) return 1.28;
+  if (fatigue >= 20) return 1.23;
+  if (fatigue >= 16) return 1.18;
+  if (fatigue >= 12) return 1.12;
+  if (fatigue >= 8) return 1.07;
+  if (fatigue >= 5) return 1.03;
+
+  if (fatigue <= 2.5) return 0.93;
+  if (fatigue <= 4) return 0.97;
 
   return 1;
 }
