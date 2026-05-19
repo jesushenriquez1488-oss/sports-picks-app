@@ -5956,37 +5956,4 @@ button:active,
     flex:1;
   }
 }
-.account-menu{position:relative}
-.account-menu-btn{
-  padding:10px 16px;
-  border-radius:999px;
-  background:linear-gradient(135deg,#00ffe7,#7c3cff);
-  color:white;
-  font-weight:900;
-}
-.account-dropdown{
-  display:none;
-  position:absolute;
-  right:0;
-  top:48px;
-  min-width:220px;
-  background:#07101f;
-  border:1px solid rgba(0,255,255,.25);
-  border-radius:16px;
-  overflow:hidden;
-  z-index:9999;
-  box-shadow:0 18px 40px rgba(0,0,0,.35);
-}
-.account-dropdown.active{display:block}
-.account-dropdown button{
-  width:100%;
-  padding:14px 16px;
-  text-align:left;
-  background:transparent;
-  color:white;
-  border:none;
-  border-bottom:1px solid rgba(255,255,255,.08);
-}
-.account-dropdown button:hover{
-  background:rgba(0,255,234,.09);
-}
+
