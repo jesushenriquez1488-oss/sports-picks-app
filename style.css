@@ -5878,3 +5878,81 @@ button:active,
     margin:4px 0 !important;
   }
 }
+.user-box{
+  width:min(1100px,92%);
+  margin:18px auto;
+  padding:14px 18px;
+  border-radius:18px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:14px;
+  background:rgba(7,12,28,.92);
+  border:1px solid rgba(0,255,255,.18);
+  box-shadow:0 0 24px rgba(0,255,255,.08);
+}
+
+.user-left{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+#userEmail{
+  color:#fff;
+  font-weight:700;
+  font-size:15px;
+}
+
+#premiumStatus{
+  color:#ffd166;
+  font-size:13px;
+  font-weight:600;
+}
+
+.user-actions{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.user-btn{
+  border:none;
+  cursor:pointer;
+  border-radius:12px;
+  padding:10px 16px;
+  font-weight:700;
+  transition:.2s;
+}
+
+.premium-manage-btn{
+  background:linear-gradient(135deg,#ffd166,#ff9f1c);
+  color:#111;
+  box-shadow:0 0 18px rgba(255,209,102,.28);
+}
+
+.logout-btn{
+  background:#111827;
+  color:#fff;
+  border:1px solid rgba(255,255,255,.12);
+}
+
+.user-btn:hover{
+  transform:translateY(-1px);
+}
+
+@media(max-width:700px){
+
+  .user-box{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+
+  .user-actions{
+    width:100%;
+  }
+
+  .user-btn{
+    flex:1;
+  }
+}
