@@ -588,13 +588,13 @@ if (innings < 2) {
           : "Jugada Premium Runline";
 
       const premiumRule =
-        marketType === "ML"
-          ? supportData.modelProb >= 0.56
-          : (
-              Number(spread) > 0
-                ? protectedEdge >= 3
-                : supportData.projectedMargin >= 1.5
-            );
+  marketType === "ML"
+    ? Math.abs(supportData.projectedMargin) >= 2.0
+    : (
+        Number(spread) > 0
+          ? protectedEdge >= 3.0
+          : protectedEdge >= 2.0
+      );
 
       return {
         title,
@@ -645,12 +645,13 @@ if (innings < 2) {
 
       support = clamp(support, 0, 100);
 
-      let confidence = probability * 0.72 + support * 0.28;
+     let confidence = isOver
+  ? edgeToPercent(totalEdge, 2.0, 4.5)
+  : edgeToPercent(totalEdge, 2.5, 4.8);
 
-      if (totalEdge >= 1.25) confidence += 3;
-      if (totalEdge >= 1.75) confidence += 3;
+if (probability < 62) confidence = 0;
 
-      confidence = clamp(confidence, 0, 99);
+confidence = clamp(confidence, 0, 99);
 
       return {
         title: "Total Premium",
@@ -661,13 +662,13 @@ if (innings < 2) {
         totalProbability: Number(probability.toFixed(1)),
         totalEdge: Number(totalEdge.toFixed(2)),
         projectedTotal: Number(projectedTotal.toFixed(2)),
-       isPremium:
+     isPremium:
   confidence >= 75 &&
   support >= 56 &&
   (
-    venue?.name === "Coors Field" && direction === "UNDER"
+    isOver
       ? totalEdge >= 2.0
-      : totalEdge >= 1.2
+      : totalEdge >= 2.5
   )
       };
     }
@@ -695,7 +696,36 @@ if (innings < 2) {
     const recommendedCards = premiumCandidates.slice(0, 2);
 
     const locked = recommendedCards.length > 0 && !isPremiumUser;
+function edgeToPercent(edge, minEdge, eliteEdge) {
+  const e = Math.abs(Number(edge));
 
+  if (!Number.isFinite(e) || e < minEdge) return 0;
+
+  const progress = Math.max(
+    0,
+    Math.min(
+      1,
+      (e - minEdge) / (eliteEdge - minEdge)
+    )
+  );
+
+  return Number((75 + progress * 24).toFixed(1));
+}
+
+function getBullpenFatigueFactor(bullpen) {
+  if (!bullpen) return 1;
+
+  const fatigue = Number(bullpen.fatigue);
+
+  if (!Number.isFinite(fatigue)) return 1;
+
+  if (fatigue >= 9) return 1.18;
+  if (fatigue >= 7) return 1.10;
+  if (fatigue >= 5) return 1.04;
+  if (fatigue <= 2) return 0.94;
+
+  return 1;
+}
     return res.status(200).json({
       locked,
       isPremiumPick: recommendedCards.length > 0,
@@ -760,8 +790,8 @@ if (innings < 2) {
             awayBullpenFatigue: mlbData.away?.bullpen?.fatigue || 0,
             homeBullpenFatigue: mlbData.home?.bullpen?.fatigue || 0,
 
-            awayBullpenFatigueFactor: 1,
-            homeBullpenFatigueFactor: 1,
+            awayBullpenFatigueFactor: getBullpenFatigueFactor(mlbData.away?.bullpen),
+homeBullpenFatigueFactor: getBullpenFatigueFactor(mlbData.home?.bullpen),
 
             awayRunEnvironment: expectedRunsA,
             homeRunEnvironment: expectedRunsB,
