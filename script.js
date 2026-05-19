@@ -1856,7 +1856,7 @@ async function openCustomerPortal() {
 
     const {
       data: { user }
-    } = await supabase.auth.getUser();
+   } = await supabaseClient.auth.getUser();
 
     if (!user) {
       alert("Please log in first.");
