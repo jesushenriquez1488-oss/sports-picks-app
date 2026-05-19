@@ -1898,3 +1898,9 @@ window.location.href = data.url;
   alert("ERROR REAL: " + error.message);
 }
 }
+function toggleAccountMenu() {
+  const menu = document.getElementById("accountDropdown");
+  if (menu) menu.classList.toggle("active");
+}
+
+window.toggleAccountMenu = toggleAccountMenu;
