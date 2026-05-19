@@ -414,15 +414,15 @@ if (innings < 2) {
     const trendAdvAway = awayTrendScore - homeTrendScore;
 
     const rawAwayWin =
-      0.5 +
-      runDiff * 0.085 +
-      offenseAdvAway * 0.020 -
-      pitcherAdvAway * 0.024 -
-      bullpenAdvAway * 0.022 +
-      defenseAdvAway * 0.014 +
-      trendAdvAway * 0.0018;
+  0.5 +
+  runDiff * 0.060 +
+  offenseAdvAway * 0.014 -
+  pitcherAdvAway * 0.017 -
+  bullpenAdvAway * 0.016 +
+  defenseAdvAway * 0.010 +
+  trendAdvAway * 0.0012;
 
-    const modelProbA = clamp(rawAwayWin, 0.08, 0.94);
+    const modelProbA = clamp(rawAwayWin, 0.10, 0.90);
     const modelProbB = 1 - modelProbA;
 
     let awayOdds = null;
