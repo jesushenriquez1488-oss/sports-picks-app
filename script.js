@@ -1893,8 +1893,8 @@ if (!response.ok) {
 
 window.location.href = data.url;
 
-  } catch (error) {
-    console.error("Customer portal error:", error);
-    alert("Error opening subscription portal.");
-  }
+} catch (error) {
+  console.error("Customer portal error:", error);
+  alert("ERROR REAL: " + error.message);
+}
 }
