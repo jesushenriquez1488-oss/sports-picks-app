@@ -529,33 +529,26 @@ if (innings < 2) {
       let runlineProb = null;
 
      if (marketType === "ML") {
-
   const margin = Math.abs(supportData.projectedMargin);
 
-  // Fórmula basada en diferencia real proyectada
+  confidence = edgeToPercent(margin, 2.0, 5.5);
 
-  const marginConfidence = 60 + margin * 10;
-
-  confidence =
-    marginConfidence * 0.70 +
-    supportData.modelProb * 100 * 0.20 +
-    supportData.support * 0.10;
-
-  // Penalizar juegos cerrados
-
-  if (margin < 1.0) {
-    confidence -= 10;
-  } else if (margin < 1.5) {
-    confidence -= 5;
-  }
+  if (supportData.modelProb < 0.55) confidence = 0;
 
 } else {
-        runlineProb = estimateRunlineProb(side, spread);
+  runlineProb = estimateRunlineProb(side, spread);
 
-        confidence =
-          runlineProb * 0.68 +
-          supportData.support * 0.32;
-      }
+  const spreadNumber = Number(spread || 0);
+  const protectedEdgeForPercent = supportData.projectedMargin + spreadNumber;
+
+  if (spreadNumber > 0) {
+    confidence = edgeToPercent(protectedEdgeForPercent, 3.0, 6.0);
+  } else {
+    confidence = edgeToPercent(protectedEdgeForPercent, 2.0, 5.5);
+  }
+
+  if (runlineProb < 65) confidence = 0;
+}
 
       const isPositiveRunline = isRunline && Number(spread) > 0;
       const isNegativeRunline = isRunline && Number(spread) < 0;
@@ -564,16 +557,16 @@ if (innings < 2) {
         isRunline ? supportData.projectedMargin + Number(spread || 0) : null;
 
      
-      if (isNegativeRunline) {
-        if (supportData.projectedMargin >= 2.2) confidence += 5;
-        else if (supportData.projectedMargin >= 1.7) confidence += 3;
-      }
+     if (isNegativeRunline) {
+  if (supportData.projectedMargin >= 3.5) confidence += 3;
+  else if (supportData.projectedMargin >= 2.8) confidence += 1.5;
+}
 
-      if (isPositiveRunline) {
-        if (protectedEdge >= 3) confidence += 4;
-        else if (protectedEdge >= 2.4) confidence += 2;
-        else confidence -= 6;
-      }
+if (isPositiveRunline) {
+  if (protectedEdge >= 4.5) confidence += 2;
+  else if (protectedEdge >= 3.8) confidence += 1;
+  else confidence -= 4;
+}
 
       confidence = clamp(confidence, 0, 99);
 
@@ -646,8 +639,8 @@ if (innings < 2) {
       support = clamp(support, 0, 100);
 
      let confidence = isOver
-  ? edgeToPercent(totalEdge, 2.0, 4.5)
-  : edgeToPercent(totalEdge, 2.5, 4.8);
+  ? edgeToPercent(totalEdge, 2.0, 5.5)
+: edgeToPercent(totalEdge, 2.5, 6.0);
 
 if (probability < 62) confidence = 0;
 
