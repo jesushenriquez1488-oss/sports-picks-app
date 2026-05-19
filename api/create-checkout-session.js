@@ -1,4 +1,10 @@
 const Stripe = require("stripe");
+const { createClient } = require("@supabase/supabase-js");
+
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -22,15 +28,48 @@ module.exports = async function handler(req, res) {
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-    const { userId, email } = req.body || {};
+    const {
+      userId,
+      email,
+      action = "checkout"
+    } = req.body || {};
 
-    if (!userId || !email) {
+    const APP_URL = "https://www.cashedgeapp.com";
+
+    if (!userId || userId === "guest") {
       return res.status(400).json({
-        error: "Falta userId o email"
+        error: "Falta userId válido"
       });
     }
 
-    const APP_URL = "https://www.cashedgeapp.com";
+    if (action === "portal") {
+      const { data: user, error } = await supabaseAdmin
+        .from("users")
+        .select("stripe_customer_id")
+        .eq("id", userId)
+        .single();
+
+      if (error || !user?.stripe_customer_id) {
+        return res.status(404).json({
+          error: "No se encontró cliente de Stripe para este usuario"
+        });
+      }
+
+      const portalSession = await stripe.billingPortal.sessions.create({
+        customer: user.stripe_customer_id,
+        return_url: APP_URL
+      });
+
+      return res.status(200).json({
+        url: portalSession.url
+      });
+    }
+
+    if (!email) {
+      return res.status(400).json({
+        error: "Falta email"
+      });
+    }
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -44,8 +83,8 @@ module.exports = async function handler(req, res) {
       line_items: [
         {
           price: "price_1TS20hJxhhhzBuV9O74jwDkT",
-          quantity: 1,
-        },
+          quantity: 1
+        }
       ],
 
       success_url: `${APP_URL}?success=true`,
@@ -53,16 +92,16 @@ module.exports = async function handler(req, res) {
       cancel_url: `${APP_URL}?canceled=true`,
 
       metadata: {
-        userId: userId,
-        email: email,
+        userId,
+        email
       },
 
       subscription_data: {
         metadata: {
-          userId: userId,
-          email: email,
-        },
-      },
+          userId,
+          email
+        }
+      }
     });
 
     return res.status(200).json({
@@ -70,7 +109,7 @@ module.exports = async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error("❌ STRIPE CHECKOUT ERROR:", error);
+    console.error("❌ STRIPE SESSION ERROR:", error);
 
     return res.status(500).json({
       error: error.message
