@@ -216,9 +216,8 @@ module.exports = async function handler(req, res) {
       const last3Whip = safeNumber(last3?.whip);
       const fatigue = safeNumber(bullpen.fatigue, 0);
 
-      if (fatigue >= 9) score *= 1.18;
-      else if (fatigue >= 7) score *= 1.10;
-      else if (fatigue <= 2) score *= 0.94;
+      const fatigueFactor = getBullpenFatigueFactor(bullpen);
+score *= fatigueFactor;
 
       const bullpenWhip = avgValid(whip, last3Whip);
 
