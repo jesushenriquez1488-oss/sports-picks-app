@@ -108,44 +108,102 @@ module.exports = async function handler(req, res) {
       return 0.5 * (1 + erf((x - mean) / (stdDev * Math.sqrt(2))));
     }
 
-    function getWeatherRunFactor(weather) {
-      if (!weather || weather.active === false) return 1;
+   function getWeatherRunFactor(weather) {
+  if (!weather || weather.active === false) return 1;
 
-      const raw = String(weather.raw || "").trim();
-      const hasRealWeather =
-        raw.length > 0 ||
-        weather.temp !== null ||
-        Number(weather.speed) > 0;
+  const raw = String(weather.raw || "").trim();
 
-      if (!hasRealWeather) return 1;
+  const hasRealWeather =
+    raw.length > 0 ||
+    weather.temp !== null ||
+    Number(weather.speed) > 0;
 
-      let factor = 1;
+  if (!hasRealWeather) return 1;
 
-      const windSpeed = safeNumber(weather.speed, 0);
-      const temp = weather.temp ? Number(weather.temp) : null;
+  let factor = 1;
 
-      if (weather.direction === "out") {
-        factor += Math.min(0.22, windSpeed * 0.01);
-      }
+  const windSpeed = safeNumber(weather.speed, 0);
+  const temp = weather.temp ? Number(weather.temp) : null;
 
-      if (weather.direction === "in") {
-        factor -= Math.min(0.22, windSpeed * 0.01);
-      }
+  // =========================
+  // WIND DIRECTION IMPACT
+  // =========================
 
-      if (weather.direction === "cross") {
-        factor += Math.min(0.04, windSpeed * 0.002);
-      }
+  if (weather.direction === "out") {
+    if (windSpeed >= 18) factor += 0.18;
+    else if (windSpeed >= 14) factor += 0.14;
+    else if (windSpeed >= 10) factor += 0.10;
+    else if (windSpeed >= 6) factor += 0.06;
+  }
 
-      if (temp !== null) {
-        if (temp >= 92) factor += 0.07;
-        else if (temp >= 85) factor += 0.045;
-        else if (temp <= 45) factor -= 0.055;
-        else if (temp <= 52) factor -= 0.035;
-      }
+  if (weather.direction === "in") {
+    if (windSpeed >= 18) factor -= 0.16;
+    else if (windSpeed >= 14) factor -= 0.13;
+    else if (windSpeed >= 10) factor -= 0.09;
+    else if (windSpeed >= 6) factor -= 0.05;
+  }
 
-      return clamp(factor, 0.78, 1.28);
+  if (weather.direction === "cross") {
+    if (windSpeed >= 18) factor += 0.05;
+    else if (windSpeed >= 14) factor += 0.04;
+    else if (windSpeed >= 10) factor += 0.03;
+  }
+
+  // =========================
+  // TEMPERATURE IMPACT
+  // =========================
+
+  if (temp !== null) {
+
+    // HOT WEATHER BOOST
+    if (temp >= 100) factor += 0.11;
+    else if (temp >= 95) factor += 0.09;
+    else if (temp >= 90) factor += 0.07;
+    else if (temp >= 84) factor += 0.05;
+    else if (temp >= 78) factor += 0.03;
+
+    // COLD WEATHER SUPPRESSION
+    else if (temp <= 38) factor -= 0.11;
+    else if (temp <= 45) factor -= 0.08;
+    else if (temp <= 52) factor -= 0.05;
+    else if (temp <= 58) factor -= 0.03;
+  }
+
+  // =========================
+  // HUMIDITY
+  // =========================
+
+  const humidity = safeNumber(weather.humidity);
+
+  if (humidity !== null) {
+    if (humidity >= 80 && temp >= 85) {
+      factor += 0.03;
     }
 
+    if (humidity <= 30 && temp <= 60) {
+      factor -= 0.02;
+    }
+  }
+
+  // =========================
+  // STORM / RAIN EFFECTS
+  // =========================
+
+  const condition = String(weather.condition || "").toLowerCase();
+
+  if (
+    condition.includes("storm") ||
+    condition.includes("heavy rain")
+  ) {
+    factor -= 0.04;
+  }
+
+  // =========================
+  // FINAL CLAMP
+  // =========================
+
+  return clamp(factor, 0.82, 1.38);
+}
     function adjustOffense(batting) {
       if (!batting) return null;
 
