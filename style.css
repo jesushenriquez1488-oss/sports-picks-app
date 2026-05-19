@@ -1718,3 +1718,118 @@ body > .hero,
     letter-spacing: 4px !important;
   }
 }
+/* ============================= */
+/* MOBILE COMPACT HORIZONTAL FIX */
+/* ============================= */
+
+@media (max-width: 700px) {
+
+  .card,
+  .premium-result,
+  .mlb-premium-dashboard {
+    max-width: 92% !important;
+    padding: 14px !important;
+  }
+
+  .mlb-premium-content,
+  .result-content {
+    padding: 14px !important;
+  }
+
+  .card h2,
+  .mlb-premium-title h2 {
+    font-size: 24px !important;
+    line-height: 1.15 !important;
+  }
+
+  .card p,
+  .premium-result p,
+  .mlb-info-grid p,
+  .mlb-projection-box p {
+    font-size: 14px !important;
+    line-height: 1.35 !important;
+  }
+
+  .mlb-top-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  .mlb-main-pick-box {
+    padding: 14px !important;
+  }
+
+  .mlb-main-pick-box strong {
+    font-size: 19px !important;
+  }
+
+  .mlb-main-pick-box h3 {
+    font-size: 38px !important;
+  }
+
+  .mlb-premium-metrics {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .mlb-info-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .mlb-info-grid div {
+    padding: 12px !important;
+  }
+
+  .mlb-premium-metrics strong {
+    font-size: 22px !important;
+  }
+
+  .mlb-premium-metrics small {
+    font-size: 10px !important;
+  }
+
+  .mlb-complete-bar {
+    font-size: 13px !important;
+    letter-spacing: 3px !important;
+  }
+
+  /* EXTRA PREMIUM BOX */
+  .mlb-extra-premium,
+  .extra-premium,
+  .premium-extra-pick,
+  .extra-pick-box {
+    display: block !important;
+    margin: 12px 0 !important;
+    padding: 12px 14px !important;
+    border-radius: 16px !important;
+    background: linear-gradient(145deg, rgba(25,18,6,.95), rgba(5,4,2,.98)) !important;
+    border: 1px solid rgba(255,209,102,.55) !important;
+    box-shadow: 0 0 22px rgba(255,209,102,.22) !important;
+    font-size: 14px !important;
+  }
+
+  /* PREMIUM GLOW REAL */
+  .mlb-premium-dashboard,
+  .premium-result {
+    box-shadow:
+      0 0 28px rgba(255, 209, 102, 0.42),
+      0 0 65px rgba(255, 150, 0, 0.22),
+      inset 0 0 35px rgba(255, 209, 102, 0.12) !important;
+    border: 1px solid rgba(255, 209, 102, 0.95) !important;
+  }
+
+  .mlb-main-pick-box {
+    box-shadow:
+      0 0 24px rgba(255,209,102,.30),
+      inset 0 0 24px rgba(255,209,102,.10) !important;
+  }
+
+  .mlb-premium-badge {
+    box-shadow:
+      0 0 18px rgba(255,209,102,.50),
+      0 0 36px rgba(255,170,0,.25) !important;
+  }
+}
