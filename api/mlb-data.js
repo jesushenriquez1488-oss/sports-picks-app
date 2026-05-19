@@ -339,13 +339,31 @@ if (req.method === "OPTIONS") {
       const recent = bullpen3 || bullpen7;
       const base = bullpen7 || bullpen3;
 
-      const fatigue =
-        Math.min(
-          10,
-          (recent.appearances || 0) * 0.9 +
-          (recent.innings || 0) * 0.65 +
-          (recent.walks || 0) * 0.25
-        );
+      const recentInnings = Number(recent.innings || 0);
+const recentAppearances = Number(recent.appearances || 0);
+const recentWalks = Number(recent.walks || 0);
+const recentRuns = Number(recent.runs || 0);
+
+let fatigue =
+  recentInnings * 0.85 +
+  recentAppearances * 0.35 +
+  recentWalks * 0.20 +
+  recentRuns * 0.18;
+
+// Penaliza bullpens muy usados en los últimos 3 juegos
+if (recentInnings >= 12) fatigue += 2.0;
+else if (recentInnings >= 10) fatigue += 1.4;
+else if (recentInnings >= 8) fatigue += 0.8;
+
+// Penaliza demasiadas apariciones
+if (recentAppearances >= 12) fatigue += 1.2;
+else if (recentAppearances >= 9) fatigue += 0.7;
+
+// Bullpen fresco
+if (recentInnings <= 5 && recentAppearances <= 7) fatigue -= 1.0;
+if (recentInnings <= 3.5) fatigue -= 0.8;
+
+fatigue = Math.max(0, Number(fatigue.toFixed(2)));
 
       return {
         games: base.games,
