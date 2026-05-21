@@ -502,7 +502,7 @@ async function buildFormulaGames(origin, teamId, rawGames) {
       opponentAvgAllowed
     });
 
-    if (completed.length >= 5) break;
+    if (completed.length >= 3) break;
   }
 
   return completed;
