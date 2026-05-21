@@ -321,7 +321,7 @@ if (
       };
 
       await supabaseAdmin.from("daily_picks").upsert({
-        sport: "nba",
+      sport: selectedLeague,
         game_id: gameId,
         away_team: awayTeam,
         home_team: homeTeam,
