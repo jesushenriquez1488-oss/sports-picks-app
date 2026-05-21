@@ -168,7 +168,7 @@ const selectedLeague = league || "nba";
     const { data: existing } = await supabaseAdmin
       .from("daily_picks")
       .select("analysis_json")
-      .eq("sport", "nba")
+      .eq("sport", selectedLeague)
       .eq("game_id", gameId)
       .maybeSingle();
 
