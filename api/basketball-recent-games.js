@@ -99,7 +99,7 @@ const teamKey = normalizeSportsDataTeam(team);
     }
 
     const recentTeamGames = completedGames
-      .filter(g => g.HomeTeam === team || g.AwayTeam === team)
+      .filter(g => g.HomeTeam === teamKey || g.AwayTeam === teamKey)
       .sort((a, b) => new Date(b.DateTime) - new Date(a.DateTime))
       .slice(0, 20)
       .map(g => getTeamGameView(g, team));
