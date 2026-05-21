@@ -574,13 +574,13 @@ if (window.currentSport === "ncaab") {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${sessionData.session.access_token}`
       },
-      body: JSON.stringify({
+   body: JSON.stringify({
   awayTeam,
   homeTeam,
   awaySpread,
   homeSpread,
   total,
-  league
+  league: window.currentSport || "nba"
 })
     });
 
