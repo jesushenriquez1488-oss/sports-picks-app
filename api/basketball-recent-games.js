@@ -97,13 +97,12 @@ const teamKey = normalizeSportsDataTeam(team);
         opponentAvgAllowed: avgAllowed
       };
     }
-
+const teamKey = normalizeSportsDataTeam(team);
     const recentTeamGames = completedGames
       .filter(g => g.HomeTeam === teamKey || g.AwayTeam === teamKey)
       .sort((a, b) => new Date(b.DateTime) - new Date(a.DateTime))
       .slice(0, 20)
-      .map(g => getTeamGameView(g, team));
-
+     .map(g => getTeamGameView(g, teamKey));
     const finalGames = [];
 
     for (const game of recentTeamGames) {
