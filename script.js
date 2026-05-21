@@ -559,7 +559,15 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
 
     const isAdminUser =
       sessionData.session.user.email === "jesushenriquez1488@gmail.com";
+let league = "nba";
 
+if (window.currentSport === "wnba") {
+  league = "wnba";
+}
+
+if (window.currentSport === "ncaab") {
+  league = "ncaab";
+}
     const response = await fetch("/api/analyze-nba", {
       method: "POST",
       headers: {
@@ -567,12 +575,13 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
         "Authorization": `Bearer ${sessionData.session.access_token}`
       },
       body: JSON.stringify({
-        awayTeam,
-        homeTeam,
-        awaySpread,
-        homeSpread,
-        total
-      })
+  awayTeam,
+  homeTeam,
+  awaySpread,
+  homeSpread,
+  total,
+  league
+})
     });
 
     const data = await response.json();
