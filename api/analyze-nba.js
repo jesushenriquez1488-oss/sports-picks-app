@@ -186,8 +186,7 @@ const selectedLeague = league || "nba";
     }
 
     const origin = getOrigin(req);
-const { league } = req.body || {};
-const selectedLeague = league || "nba";
+
 
 let awayGames = [];
 let homeGames = [];
