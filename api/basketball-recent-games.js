@@ -7,7 +7,7 @@ if (req.method === "OPTIONS") {
   return res.status(200).end();
 }
   const { team, league } = req.query;
-
+const teamKey = normalizeSportsDataTeam(team);
   if (!team || !league) {
     return res.status(400).json({ error: "Missing params" });
   }
