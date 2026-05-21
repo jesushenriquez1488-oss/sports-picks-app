@@ -209,11 +209,11 @@ if (
 ) {
 
   awayGames = await fetchJson(
-    `${origin}/api/basketball-data?league=${selectedLeague}&team=${encodeURIComponent(awayTeam)}`
+    `${origin}/api/basketball-recent-games?league=${selectedLeague}&team=${encodeURIComponent(awayTeam)}`
   );
 
   homeGames = await fetchJson(
-    `${origin}/api/basketball-data?league=${selectedLeague}&team=${encodeURIComponent(homeTeam)}`
+    `${origin}/api/basketball-recent-games?league=${selectedLeague}&team=${encodeURIComponent(homeTeam)}`
   );
 
   awayAll = awayGames;
