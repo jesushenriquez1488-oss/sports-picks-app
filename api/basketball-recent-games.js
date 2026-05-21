@@ -122,7 +122,7 @@ if (req.method === "OPTIONS") {
 
     if (finalGames.length < 3) {
       return res.status(404).json({
-        error: `No hay suficientes juegos reales para ${team}. Equipo sin historial completo de últimos 5.`
+        error: `No hay suficientes juegos reales para ${team}. Equipo sin historial completo de últimos 3.`
       });
     }
 
