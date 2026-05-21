@@ -154,7 +154,7 @@ module.exports = async function handler(req, res) {
   awaySpread,
   homeSpread,
   total,
-  league: currentSport
+  league
 } = req.body || {};
 
 const selectedLeague = league || "nba";
