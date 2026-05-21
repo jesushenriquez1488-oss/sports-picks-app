@@ -148,7 +148,16 @@ module.exports = async function handler(req, res) {
       console.log("NBA auth ignorado:", error.message);
     }
 
-    const { awayTeam, homeTeam, awaySpread, homeSpread, total } = req.body || {};
+   const {
+  awayTeam,
+  homeTeam,
+  awaySpread,
+  homeSpread,
+  total,
+  league
+} = req.body || {};
+
+const selectedLeague = league || "nba";
 
     if (!awayTeam || !homeTeam) {
       return res.status(400).json({ error: "Faltan equipos" });
