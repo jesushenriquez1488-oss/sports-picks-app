@@ -157,7 +157,17 @@ module.exports = async function handler(req, res) {
   league
 } = req.body || {};
 
-const selectedLeague = league || "nba";
+let selectedLeague = league || "nba";
+
+if (
+  selectedLeague === "nba" &&
+  (
+    isWnbaTeam(awayTeam) ||
+    isWnbaTeam(homeTeam)
+  )
+) {
+  selectedLeague = "wnba";
+}
 
     if (!awayTeam || !homeTeam) {
       return res.status(400).json({ error: "Faltan equipos" });
@@ -672,4 +682,26 @@ function getInjuryPublicMessage(teamName, injury = {}) {
   }
 
   return `No se reportan bajas clave que afecten significativamente el rendimiento de ${teamName}.`;
+}
+function isWnbaTeam(teamName) {
+  const name = String(teamName || "").toLowerCase();
+
+  const wnbaTeams = [
+    "atlanta dream",
+    "chicago sky",
+    "connecticut sun",
+    "dallas wings",
+    "golden state valkyries",
+    "indiana fever",
+    "las vegas aces",
+    "los angeles sparks",
+    "minnesota lynx",
+    "new york liberty",
+    "phoenix mercury",
+    "seattle storm",
+    "washington mystics",
+    "toronto tempo"
+  ];
+
+  return wnbaTeams.some(team => name.includes(team));
 }
