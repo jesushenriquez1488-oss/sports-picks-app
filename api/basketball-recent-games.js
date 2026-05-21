@@ -79,10 +79,10 @@ if (req.method === "OPTIONS") {
           new Date(g.DateTime) < before
         )
         .sort((a, b) => new Date(b.DateTime) - new Date(a.DateTime))
-        .slice(0, 5)
+        .slice(0, 3)
         .map(g => getTeamGameView(g, opponent));
 
-      if (previousGames.length < 5) {
+      if (previousGames.length < 3) {
         return null;
       }
 
@@ -117,10 +117,10 @@ if (req.method === "OPTIONS") {
         opponentAvgScored: opponentAverages.opponentAvgScored
       });
 
-      if (finalGames.length >= 5) break;
+      if (finalGames.length >= 3) break;
     }
 
-    if (finalGames.length < 5) {
+    if (finalGames.length < 3) {
       return res.status(404).json({
         error: `No hay suficientes juegos reales para ${team}. Equipo sin historial completo de últimos 5.`
       });
