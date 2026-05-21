@@ -376,7 +376,7 @@ if (
     };
 
     await supabaseAdmin.from("daily_picks").upsert({
-      sport: "nba",
+      sport: selectedLeague,
       game_id: gameId,
       away_team: awayTeam,
       home_team: homeTeam,
@@ -388,7 +388,7 @@ if (
       .from("picks_history")
       .insert({
         game_id: gameId,
-        sport: "nba",
+       sport: selectedLeague,
         pick,
         confidence,
         result: "pending"
