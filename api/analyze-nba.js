@@ -186,29 +186,72 @@ const selectedLeague = league || "nba";
     }
 
     const origin = getOrigin(req);
+const { league } = req.body || {};
+const selectedLeague = league || "nba";
 
-    const allTeams = await fetchJson(`${origin}/api/nba-data?type=teams`);
-    const teams = allTeams.data || [];
+let awayGames = [];
+let homeGames = [];
+let awayAll = [];
+let homeAll = [];
 
-    const awayId = findTeamId(teams, awayTeam);
-    const homeId = findTeamId(teams, homeTeam);
+if (
+  selectedLeague === "wnba" ||
+  selectedLeague === "ncaab"
+) {
 
-    if (!awayId || !homeId) {
-      return res.status(400).json({ error: "No encontré uno de los equipos." });
-    }
+  awayGames = await fetchJson(
+    `${origin}/api/basketball-data?league=${selectedLeague}&team=${encodeURIComponent(awayTeam)}`
+  );
 
-    const awayAll = await getRecentGames(origin, awayId);
-    const homeAll = await getRecentGames(origin, homeId);
+  homeGames = await fetchJson(
+    `${origin}/api/basketball-data?league=${selectedLeague}&team=${encodeURIComponent(homeTeam)}`
+  );
 
-    const awayGames = await buildFormulaGames(origin, awayId, awayAll);
-    const homeGames = await buildFormulaGames(origin, homeId, homeAll);
+  awayAll = awayGames;
+  homeAll = homeGames;
 
-    if (awayGames.length < 5 || homeGames.length < 5) {
-      return res.status(400).json({
-        error: "No hay suficientes juegos recientes con data completa."
-      });
-    }
+} else {
 
+  const allTeams = await fetchJson(
+    `${origin}/api/nba-data?type=teams`
+  );
+
+  const teams = allTeams.data || [];
+
+  const awayId = findTeamId(teams, awayTeam);
+  const homeId = findTeamId(teams, homeTeam);
+
+  if (!awayId || !homeId) {
+    return res.status(400).json({
+      error: "No encontré uno de los equipos."
+    });
+  }
+
+  awayAll = await getRecentGames(origin, awayId);
+  homeAll = await getRecentGames(origin, homeId);
+
+  awayGames = await buildFormulaGames(
+    origin,
+    awayId,
+    awayAll
+  );
+
+  homeGames = await buildFormulaGames(
+    origin,
+    homeId,
+    homeAll
+  );
+}
+    const minGamesRequired = 3;
+
+if (
+  awayGames.length < minGamesRequired ||
+  homeGames.length < minGamesRequired
+) {
+  return res.status(400).json({
+    error: "No hay suficientes juegos recientes con data completa."
+  });
+}
     const [awayInjuries, homeInjuries] = await Promise.all([
       getInjuryAdjustment(origin, awayTeam),
       getInjuryAdjustment(origin, homeTeam)
