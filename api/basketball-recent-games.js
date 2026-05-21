@@ -109,7 +109,16 @@ if (req.method === "OPTIONS") {
     for (const game of recentTeamGames) {
       const opponentAverages = getOpponentLast5Averages(game.opponent, game.date);
 
-      if (!opponentAverages) continue;
+      if (!opponentAverages) {
+
+  finalGames.push({
+    ...game,
+    opponentAvgAllowed: game.allowed,
+    opponentAvgScored: game.scored
+  });
+
+  continue;
+}
 
       finalGames.push({
         ...game,
