@@ -6312,3 +6312,74 @@ button:active,
     0 0 25px rgba(255,190,0,.22),
     0 0 50px rgba(255,190,0,.10);
 }
+@media (max-width: 768px) {
+
+  .parlay-premium-card {
+    padding: 16px 12px !important;
+    border-radius: 24px !important;
+  }
+
+  .parlay-premium-header h2 {
+    font-size: 18px !important;
+    line-height: 1.15 !important;
+    margin: 12px 0 6px !important;
+  }
+
+  .parlay-premium-header p {
+    font-size: 13px !important;
+    line-height: 1.35 !important;
+    margin-bottom: 12px !important;
+  }
+
+  .parlay-pill {
+    font-size: 11px !important;
+    padding: 8px 14px !important;
+  }
+
+  .parlay-picks-grid {
+    gap: 10px !important;
+  }
+
+  .parlay-pick-card {
+    min-height: auto !important;
+    padding: 14px 12px !important;
+    border-radius: 18px !important;
+  }
+
+  .parlay-play {
+    margin-top: 12px !important;
+    font-size: 14px !important;
+    line-height: 1.2 !important;
+  }
+
+  .parlay-game {
+    margin-top: 6px !important;
+    font-size: 12px !important;
+    line-height: 1.25 !important;
+  }
+
+  .parlay-percent {
+    margin-top: 10px !important;
+    font-size: 28px !important;
+    line-height: 1 !important;
+  }
+
+  .parlay-sport {
+    margin-top: 4px !important;
+    font-size: 11px !important;
+  }
+
+  .parlay-footer-note {
+    margin-top: 14px !important;
+    padding-top: 12px !important;
+    font-size: 10px !important;
+    line-height: 1.4 !important;
+  }
+
+  .parlay-leg-number {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 13px !important;
+  }
+
+}
