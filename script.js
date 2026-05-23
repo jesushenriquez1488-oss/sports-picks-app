@@ -2146,3 +2146,9 @@ box.innerHTML = `
 
   </div>
 `;
+  } catch (error) {
+    box.innerHTML = `<p>Error Parlay: ${error.message}</p>`;
+  }
+}
+
+window.loadParlayToday = loadParlayToday;
