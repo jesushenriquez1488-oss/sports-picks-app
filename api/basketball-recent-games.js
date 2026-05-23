@@ -3,9 +3,7 @@ module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
+  if (req.method === "OPTIONS") return res.status(200).end();
 
   const { team, league } = req.query;
 
@@ -13,174 +11,70 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: "Missing params" });
   }
 
-  const API_KEY = process.env.SPORTSDATA_API_KEY;
-
-  if (!API_KEY) {
-    return res.status(500).json({ error: "Missing SPORTSDATA_API_KEY" });
-  }
-
   try {
-    const teamKey = normalizeSportsDataTeam(team);
-const currentYear = new Date().getFullYear();
-
-const seasons =
-  league === "wnba"
-    ? [currentYear, currentYear - 1]
-    : league === "ncaab"
-      ? [currentYear, currentYear - 1]
-      : [];
-
-    if (!seasons.length) {
-      return res.status(400).json({ error: "Invalid league" });
+    if (league !== "wnba") {
+      return res.status(400).json({ error: "Solo WNBA por ahora en este endpoint." });
     }
 
-    let allGames = [];
+    const games = await getEspnWnbaGames();
 
-    for (const season of seasons) {
-      const url =
-        league === "wnba"
-          ? `https://api.sportsdata.io/v3/wnba/stats/json/Games/${season}`
-          : `https://api.sportsdata.io/v3/cbb/stats/json/Games/${season}`;
+    const completedGames = games
+      .filter(g => g.completed)
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-      const response = await fetch(url, {
-  headers: {
-    "Ocp-Apim-Subscription-Key": API_KEY
-  }
-});
-
-const text = await response.text();
-
-let data;
-
-try {
-  data = JSON.parse(text);
-} catch (e) {
-  return res.status(500).json({
-    error: "SportsData no devolvió JSON",
-    season,
-    status: response.status,
-    body: text.slice(0, 300)
-  });
-}
-
-if (!response.ok) {
-  return res.status(response.status).json({
-    error: "SportsData error",
-    season,
-    status: response.status,
-    body: data
-  });
-}
-
-if (Array.isArray(data)) {
-  allGames = allGames.concat(data);
-}
-    }
-
-    const completedGames = allGames
-      .filter(g =>
-        g.HomeTeamScore !== null &&
-        g.AwayTeamScore !== null &&
-        g.HomeTeamScore !== undefined &&
-        g.AwayTeamScore !== undefined
-      )
-      .sort((a, b) => new Date(b.DateTime) - new Date(a.DateTime));
-console.log("TEAM ORIGINAL:", team);
-console.log("TEAM KEY:", teamKey);
-console.log("LEAGUE:", league);
-console.log("ALL GAMES:", allGames.length);
-console.log("COMPLETED GAMES:", completedGames.length);
-console.log("SAMPLE GAME:", completedGames[0]);
-console.log(
-  "TEAMS FOUND:",
-  [...new Set(completedGames.flatMap(g => [g.HomeTeam, g.AwayTeam]))]
-);
-    function getTeamGameView(g, code) {
-      const isHome = g.HomeTeam === code;
-
-      return {
-        date: g.DateTime,
-        isHome,
-        scored: isHome ? g.HomeTeamScore : g.AwayTeamScore,
-        allowed: isHome ? g.AwayTeamScore : g.HomeTeamScore,
-        opponent: isHome ? g.AwayTeam : g.HomeTeam
-      };
-    }
-
-    function getOpponentLastAverages(opponent, beforeDate) {
-      const before = new Date(beforeDate);
-
-      const previousGames = completedGames
-        .filter(g =>
-          (g.HomeTeam === opponent || g.AwayTeam === opponent) &&
-          new Date(g.DateTime) < before
-        )
-        .sort((a, b) => new Date(b.DateTime) - new Date(a.DateTime))
-        .slice(0, 3)
-        .map(g => getTeamGameView(g, opponent));
-
-      if (previousGames.length < 3) {
-        return null;
-      }
-
-      const avgScored =
-        previousGames.reduce((sum, g) => sum + g.scored, 0) / previousGames.length;
-
-      const avgAllowed =
-        previousGames.reduce((sum, g) => sum + g.allowed, 0) / previousGames.length;
-
-      return {
-        opponentAvgScored: avgScored,
-        opponentAvgAllowed: avgAllowed
-      };
-    }
-return res.status(200).json({
-  team,
-  teamKey,
-  league,
-  allGamesCount: allGames.length,
-  completedGamesCount: completedGames.length,
-  sample: completedGames.slice(0, 2).map(g => ({
-    DateTime: g.DateTime,
-    HomeTeam: g.HomeTeam,
-    AwayTeam: g.AwayTeam,
-    HomeTeamScore: g.HomeTeamScore,
-    AwayTeamScore: g.AwayTeamScore
-  }))
-});
-
-const recentTeamGames = completedGames
-
-      .filter(g => g.HomeTeam === teamKey || g.AwayTeam === teamKey)
-      .sort((a, b) => new Date(b.DateTime) - new Date(a.DateTime))
-      .slice(0, 20)
-      .map(g => getTeamGameView(g, teamKey));
+    const teamGames = completedGames
+      .filter(g => teamMatches(g.homeTeam, team) || teamMatches(g.awayTeam, team))
+      .slice(0, 10);
 
     const finalGames = [];
 
-    for (const game of recentTeamGames) {
-      const opponentAverages = getOpponentLastAverages(game.opponent, game.date);
+    for (const game of teamGames) {
+      const isHome = teamMatches(game.homeTeam, team);
+      const scored = isHome ? game.homeScore : game.awayScore;
+      const allowed = isHome ? game.awayScore : game.homeScore;
+      const opponent = isHome ? game.awayTeam : game.homeTeam;
 
-      if (!opponentAverages) {
-        finalGames.push({
-          ...game,
-          opponentAvgAllowed: game.allowed,
-          opponentAvgScored: game.scored
+      const opponentPrevious = completedGames
+        .filter(g =>
+          new Date(g.date) < new Date(game.date) &&
+          (teamMatches(g.homeTeam, opponent) || teamMatches(g.awayTeam, opponent))
+        )
+        .slice(0, 3)
+        .map(g => {
+          const oppIsHome = teamMatches(g.homeTeam, opponent);
+          return {
+            scored: oppIsHome ? g.homeScore : g.awayScore,
+            allowed: oppIsHome ? g.awayScore : g.homeScore
+          };
         });
-      } else {
-        finalGames.push({
-          ...game,
-          opponentAvgAllowed: opponentAverages.opponentAvgAllowed,
-          opponentAvgScored: opponentAverages.opponentAvgScored
-        });
+
+      let opponentAvgScored = allowed;
+      let opponentAvgAllowed = scored;
+
+      if (opponentPrevious.length > 0) {
+        opponentAvgScored =
+          opponentPrevious.reduce((sum, g) => sum + g.scored, 0) / opponentPrevious.length;
+
+        opponentAvgAllowed =
+          opponentPrevious.reduce((sum, g) => sum + g.allowed, 0) / opponentPrevious.length;
       }
+
+      finalGames.push({
+        date: game.date,
+        isHome,
+        scored,
+        allowed,
+        opponent,
+        opponentAvgScored,
+        opponentAvgAllowed
+      });
 
       if (finalGames.length >= 3) break;
     }
 
     if (finalGames.length < 3) {
       return res.status(404).json({
-        error: `No hay suficientes juegos reales para ${team}.`
+        error: `No hay suficientes juegos reales 2026 para ${team}.`
       });
     }
 
@@ -189,26 +83,64 @@ const recentTeamGames = completedGames
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
+};
+
+async function getEspnWnbaGames() {
+  const year = new Date().getFullYear();
+
+  const start = `${year}0501`;
+  const end = `${year}1231`;
+
+  const url =
+    `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${start}-${end}&limit=1000`;
+
+  const response = await fetch(url);
+  const data = await response.json();
+
+  const events = data.events || [];
+
+  return events.map(event => {
+    const competition = event.competitions?.[0];
+    const competitors = competition?.competitors || [];
+
+    const home = competitors.find(c => c.homeAway === "home");
+    const away = competitors.find(c => c.homeAway === "away");
+
+    return {
+      date: event.date,
+      completed: competition?.status?.type?.completed === true,
+      homeTeam: getTeamNames(home),
+      awayTeam: getTeamNames(away),
+      homeScore: Number(home?.score || 0),
+      awayScore: Number(away?.score || 0)
+    };
+  });
 }
 
-function normalizeSportsDataTeam(teamName) {
-  const name = String(teamName || "").toLowerCase().trim();
+function getTeamNames(competitor) {
+  const team = competitor?.team || {};
 
-  const map = {
-    "atlanta dream": "ATL",
-    "chicago sky": "CHI",
-    "connecticut sun": "CON",
-    "dallas wings": "DAL",
-    "golden state valkyries": "GS",
-    "indiana fever": "IND",
-    "las vegas aces": "LV",
-    "los angeles sparks": "LA",
-    "minnesota lynx": "MIN",
-    "new york liberty": "NY",
-    "phoenix mercury": "PHO",
-    "seattle storm": "SEA",
-    "washington mystics": "WAS"
+  return {
+    displayName: team.displayName || "",
+    shortDisplayName: team.shortDisplayName || "",
+    name: team.name || "",
+    abbreviation: team.abbreviation || ""
   };
+}
 
-  return map[name] || teamName;
+function normalize(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function teamMatches(teamObj, target) {
+  const t = normalize(target);
+
+  return [
+    teamObj.displayName,
+    teamObj.shortDisplayName,
+    teamObj.name,
+    teamObj.abbreviation
+  ].some(name => normalize(name) === t);
 }
