@@ -10,7 +10,12 @@ global.__NBA_ANALYZE_CACHE__ = cache;
 
 const CACHE_TIME = 30 * 60 * 1000;
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
+const USER_REQUESTS = global.__USER_REQUESTS__ || {};
+global.__USER_REQUESTS__ = USER_REQUESTS;
 
+const FREE_COOLDOWN = 10 * 1000;
+
+const PREMIUM_MAX_PER_MINUTE = 40;
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
