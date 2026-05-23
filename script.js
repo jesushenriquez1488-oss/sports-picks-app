@@ -705,7 +705,7 @@ if (
 
     <div class="premium-pro-mini">
       <small>EDGE</small>
-      <strong>${premium.mainEdge.toFixed(1)}</strong>
+      <strong>${locked ? "Premium" : premium.mainEdge.toFixed(1)}</strong>
       <span>vs mercado</span>
     </div>
 
