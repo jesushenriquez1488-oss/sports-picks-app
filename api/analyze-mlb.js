@@ -32,18 +32,21 @@ module.exports = async function handler(req, res) {
       totalLine = 8
     } = req.body || {};
 
-    let isPremiumUser = false;
+   let isPremiumUser = false;
+let isAdmin = false;
+let profile = null;
 
-    if (userId && userId !== "null" && userId !== "undefined" && userId !== "guest") {
-      const { data: profile } = await supabaseAdmin
-        .from("users")
-        .select("is_premium")
-        .eq("id", userId)
-        .maybeSingle();
+if (userId && userId !== "null" && userId !== "undefined" && userId !== "guest") {
+  const { data } = await supabaseAdmin
+    .from("users")
+    .select("is_premium, email")
+    .eq("id", userId)
+    .maybeSingle();
 
-      isPremiumUser = profile?.is_premium === true;
-      const isAdmin =
-  sessionData?.user?.email === ADMIN_EMAIL;
+  profile = data;
+  isPremiumUser = profile?.is_premium === true;
+  isAdmin = profile?.email === ADMIN_EMAIL;
+}
 
 const userKey =
   userId || req.headers["x-forwarded-for"] || "guest";
@@ -60,9 +63,7 @@ if (!USER_REQUESTS[userKey]) {
 const userData = USER_REQUESTS[userKey];
 
 userData.minuteRequests =
-  userData.minuteRequests.filter(
-    t => now - t < 60000
-  );
+  userData.minuteRequests.filter(t => now - t < 60000);
 
 if (
   !isPremiumUser &&
@@ -86,9 +87,6 @@ if (
 
 userData.lastRequest = now;
 userData.minuteRequests.push(now);
-    }
-
-    const origin = "https://www.cashedgeapp.com";
 
     const dataResponse = await fetch(`${origin}/api/mlb-data`, {
       method: "POST",
