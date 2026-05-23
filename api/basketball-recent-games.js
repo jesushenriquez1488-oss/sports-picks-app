@@ -1,13 +1,14 @@
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
-if (req.method === "OPTIONS") {
-  return res.status(200).end();
-}
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
   const { team, league } = req.query;
-const teamKey = normalizeSportsDataTeam(team);
+
   if (!team || !league) {
     return res.status(400).json({ error: "Missing params" });
   }
@@ -19,6 +20,8 @@ const teamKey = normalizeSportsDataTeam(team);
   }
 
   try {
+    const teamKey = normalizeSportsDataTeam(team);
+
     const seasons =
       league === "wnba" ? [2026, 2025] :
       league === "ncaab" ? [2026, 2025] :
@@ -58,8 +61,8 @@ const teamKey = normalizeSportsDataTeam(team);
       )
       .sort((a, b) => new Date(b.DateTime) - new Date(a.DateTime));
 
-    function getTeamGameView(g, teamName) {
-      const isHome = g.HomeTeam === teamName;
+    function getTeamGameView(g, code) {
+      const isHome = g.HomeTeam === code;
 
       return {
         date: g.DateTime,
@@ -70,7 +73,7 @@ const teamKey = normalizeSportsDataTeam(team);
       };
     }
 
-    function getOpponentLast5Averages(opponent, beforeDate) {
+    function getOpponentLastAverages(opponent, beforeDate) {
       const before = new Date(beforeDate);
 
       const previousGames = completedGames
@@ -97,40 +100,38 @@ const teamKey = normalizeSportsDataTeam(team);
         opponentAvgAllowed: avgAllowed
       };
     }
-const teamKey = normalizeSportsDataTeam(team);
+
     const recentTeamGames = completedGames
       .filter(g => g.HomeTeam === teamKey || g.AwayTeam === teamKey)
       .sort((a, b) => new Date(b.DateTime) - new Date(a.DateTime))
       .slice(0, 20)
-     .map(g => getTeamGameView(g, teamKey));
+      .map(g => getTeamGameView(g, teamKey));
+
     const finalGames = [];
 
     for (const game of recentTeamGames) {
-      const opponentAverages = getOpponentLast5Averages(game.opponent, game.date);
+      const opponentAverages = getOpponentLastAverages(game.opponent, game.date);
 
       if (!opponentAverages) {
-
-  finalGames.push({
-    ...game,
-    opponentAvgAllowed: game.allowed,
-    opponentAvgScored: game.scored
-  });
-
-  continue;
-}
-
-      finalGames.push({
-        ...game,
-        opponentAvgAllowed: opponentAverages.opponentAvgAllowed,
-        opponentAvgScored: opponentAverages.opponentAvgScored
-      });
+        finalGames.push({
+          ...game,
+          opponentAvgAllowed: game.allowed,
+          opponentAvgScored: game.scored
+        });
+      } else {
+        finalGames.push({
+          ...game,
+          opponentAvgAllowed: opponentAverages.opponentAvgAllowed,
+          opponentAvgScored: opponentAverages.opponentAvgScored
+        });
+      }
 
       if (finalGames.length >= 3) break;
     }
 
     if (finalGames.length < 3) {
       return res.status(404).json({
-        error: `No hay suficientes juegos reales para ${team}. Equipo sin historial completo de últimos 3.`
+        error: `No hay suficientes juegos reales para ${team}.`
       });
     }
 
@@ -139,4 +140,27 @@ const teamKey = normalizeSportsDataTeam(team);
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
+}
+
+function normalizeSportsDataTeam(teamName) {
+  const name = String(teamName || "").toLowerCase().trim();
+
+  const map = {
+    "atlanta dream": "ATL",
+    "chicago sky": "CHI",
+    "connecticut sun": "CON",
+    "dallas wings": "DAL",
+    "golden state valkyries": "GSV",
+    "indiana fever": "IND",
+    "las vegas aces": "LVA",
+    "los angeles sparks": "LAS",
+    "minnesota lynx": "MIN",
+    "new york liberty": "NYL",
+    "phoenix mercury": "PHO",
+    "seattle storm": "SEA",
+    "washington mystics": "WAS",
+    "toronto tempo": "TOR"
+  };
+
+  return map[name] || teamName;
 }
