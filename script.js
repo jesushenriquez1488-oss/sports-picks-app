@@ -1122,6 +1122,8 @@ async function loadGames() {
 
   const status = document.getElementById("status");
   const gamesDiv = document.getElementById("games");
+  const parlayBox = document.getElementById("parlayTodayBox");
+if (parlayBox) parlayBox.innerHTML = "";
   const sport = selectedSport;
 
   status.innerHTML = "Cargando juegos...";
