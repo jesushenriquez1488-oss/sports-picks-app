@@ -6175,3 +6175,140 @@ button:active,
     letter-spacing: .08em;
   }
 }
+.parlay-premium-btn {
+  position: relative;
+  overflow: hidden;
+
+  width: 100%;
+  margin: 18px 0 22px;
+  padding: 20px 24px;
+
+  border: 1px solid rgba(255,215,120,.9);
+  border-radius: 22px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #00f0ff,
+      #3b82ff 45%,
+      #7a4cff
+    );
+
+  color: white;
+
+  font-size: 20px;
+  font-weight: 950;
+
+  letter-spacing: .08em;
+  text-transform: uppercase;
+
+  box-shadow:
+    0 0 22px rgba(0,255,255,.22),
+    0 0 50px rgba(124,76,255,.18);
+
+  cursor: pointer;
+
+  transition: .25s ease;
+}
+
+.parlay-premium-btn:hover {
+  transform: translateY(-2px) scale(1.01);
+
+  box-shadow:
+    0 0 30px rgba(0,255,255,.30),
+    0 0 60px rgba(124,76,255,.25);
+}
+
+.parlay-premium-card {
+  position: relative;
+  overflow: hidden;
+  margin: 24px auto;
+  padding: 30px;
+  border-radius: 34px;
+  border: 1px solid rgba(255, 215, 100, .9);
+
+  background:
+    radial-gradient(circle at top right,
+      rgba(255, 196, 50, .24),
+      transparent 28%),
+
+    radial-gradient(circle at bottom left,
+      rgba(255, 180, 0, .12),
+      transparent 22%),
+
+    linear-gradient(
+      145deg,
+      rgba(18,12,0,.98),
+      rgba(5,5,5,.98)
+    );
+
+  box-shadow:
+    0 0 20px rgba(255,180,0,.25),
+    0 0 45px rgba(255,190,0,.18),
+    inset 0 0 30px rgba(255,215,120,.05);
+}
+
+.parlay-premium-card::before {
+  content: "";
+  position: absolute;
+  top: -120%;
+  left: -40%;
+  width: 60%;
+  height: 320%;
+
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255,255,255,.12),
+    transparent
+  );
+
+  transform: rotate(18deg);
+
+  animation: parlayShine 6s linear infinite;
+}
+
+@keyframes parlayShine {
+  0% {
+    left: -60%;
+  }
+
+  100% {
+    left: 160%;
+  }
+}
+
+.parlay-pick-card {
+  position: relative;
+  overflow: hidden;
+
+  padding: 24px 18px;
+  border-radius: 24px;
+
+  border: 1px solid rgba(255, 215, 100, .55);
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255,215,100,.08),
+      rgba(0,0,0,.5)
+    );
+
+  text-align: center;
+
+  min-height: 220px;
+
+  transition: .25s ease;
+
+  box-shadow:
+    0 0 18px rgba(255,190,0,.10),
+    inset 0 0 18px rgba(255,220,120,.04);
+}
+
+.parlay-pick-card:hover {
+  transform: translateY(-4px) scale(1.01);
+
+  box-shadow:
+    0 0 25px rgba(255,190,0,.22),
+    0 0 50px rgba(255,190,0,.10);
+}
