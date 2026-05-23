@@ -1435,6 +1435,7 @@ window.loginUser = loginUser;
 
 async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, outcomes, totalLine = 8) {
   const resultDiv = document.getElementById(`result${index}`);
+  if (!startAnalysisLock(index, "Analizando MLB...")) return;
   resultDiv.innerHTML = `<div class="loading-analysis">Analizando MLB...</div>`;
 
   const safe = (v, d = 0) => (typeof v === "number" && !isNaN(v) ? v : d);
