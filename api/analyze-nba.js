@@ -62,7 +62,125 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ error: error.message });
     }
   }
+if (req.method === "GET" && req.query.mode === "parlay-today") {
+  try {
 
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.replace("Bearer ", "");
+
+    let isPremiumUser = false;
+
+    if (
+      token &&
+      token !== "null" &&
+      token !== "undefined"
+    ) {
+
+      const { data: authData, error: authError } =
+        await supabaseAdmin.auth.getUser(token);
+
+      if (!authError && authData?.user) {
+
+        const { data: profile } = await supabaseAdmin
+          .from("users")
+          .select("is_premium")
+          .eq("id", authData.user.id)
+          .single();
+
+        isPremiumUser = profile?.is_premium === true;
+      }
+    }
+
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    const { data: picks, error } = await supabaseAdmin
+      .from("daily_picks")
+      .select("*")
+      .gte("updated_at", today.toISOString());
+
+    if (error) {
+      return res.status(500).json({
+        error: error.message
+      });
+    }
+
+    let candidates = [];
+
+    picks.forEach(pick => {
+
+      const analysis = pick.analysis_json;
+
+      if (
+        !analysis ||
+        !analysis.isPremiumPick ||
+        !analysis.premium
+      ) return;
+
+      // MLB
+      if (analysis.premium.recommendedCards) {
+
+        analysis.premium.recommendedCards.forEach(card => {
+
+          if ((card.percentage || 0) >= 85) {
+
+            candidates.push({
+              sport: pick.sport,
+              game: `${pick.away_team} vs ${pick.home_team}`,
+              play: card.play,
+              percentage: card.percentage,
+              title: card.title
+            });
+
+          }
+
+        });
+
+      }
+
+      // NBA / WNBA / NCAAB
+      else if (
+        analysis.premium.pick &&
+        (analysis.premium.confidence || 0) >= 85
+      ) {
+
+        candidates.push({
+          sport: pick.sport,
+          game: `${pick.away_team} vs ${pick.home_team}`,
+          play: analysis.premium.pick,
+          percentage: analysis.premium.confidence,
+          title: "Jugada Premium"
+        });
+
+      }
+
+    });
+
+    candidates.sort((a, b) => b.percentage - a.percentage);
+
+    const best = candidates.slice(0, 3);
+
+    if (best.length < 2) {
+      return res.status(200).json({
+        available: false,
+        message: "Hoy no hay suficientes jugadas premium para un parlay recomendado."
+      });
+    }
+
+    return res.status(200).json({
+      available: true,
+      locked: !isPremiumUser,
+      picks: isPremiumUser ? best : null
+    });
+
+  } catch (error) {
+
+    return res.status(500).json({
+      error: error.message
+    });
+
+  }
+}
   if (req.method === "GET" && req.query.mode === "stats") {
     try {
       const { data: picks, error } = await supabaseAdmin
