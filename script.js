@@ -1986,3 +1986,37 @@ function resetInactivityTimer() {
 });
 
 resetInactivityTimer();
+const activeAnalysis = {};
+
+function setAnalysisButtonLoading(index, isLoading, text = "Analizando...") {
+  const resultDiv = document.getElementById(`result${index}`);
+  const card = resultDiv ? resultDiv.closest(".card") : null;
+  const button = card ? card.querySelector("button") : null;
+
+  if (!button) return;
+
+  if (isLoading) {
+    button.dataset.originalText = button.innerText;
+    button.innerText = text;
+    button.disabled = true;
+    button.style.opacity = "0.6";
+    button.style.cursor = "not-allowed";
+  } else {
+    button.innerText = button.dataset.originalText || "Ver predicción del modelo";
+    button.disabled = false;
+    button.style.opacity = "1";
+    button.style.cursor = "pointer";
+  }
+}
+
+function startAnalysisLock(index, text) {
+  if (activeAnalysis[index]) return false;
+  activeAnalysis[index] = true;
+  setAnalysisButtonLoading(index, true, text);
+  return true;
+}
+
+function endAnalysisLock(index) {
+  activeAnalysis[index] = false;
+  setAnalysisButtonLoading(index, false);
+}
