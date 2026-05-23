@@ -831,7 +831,7 @@ if (
     </div>
   </div>
 `;
-
+endAnalysisLock(index);
   } catch (error) {
     resultDiv.innerHTML = "Error NBA: " + error.message;
     endAnalysisLock(index);
