@@ -112,7 +112,17 @@ console.log(
         opponentAvgAllowed: avgAllowed
       };
     }
+return res.status(200).json({
+  team,
+  teamKey,
+  league,
+  allGamesCount: allGames.length,
+  completedGamesCount: completedGames.length,
+  sample: completedGames.slice(0, 5),
+  teamsFound: [...new Set(completedGames.flatMap(g => [g.HomeTeam, g.AwayTeam]))]
+});
 
+const recentTeamGames = completedGames
     const recentTeamGames = completedGames
       .filter(g => g.HomeTeam === teamKey || g.AwayTeam === teamKey)
       .sort((a, b) => new Date(b.DateTime) - new Date(a.DateTime))
