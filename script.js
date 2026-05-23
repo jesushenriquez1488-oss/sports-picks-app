@@ -547,6 +547,7 @@ function getModelAnalysis(verdict) {
 
 async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, index) {
   const resultDiv = document.getElementById(`result${index}`);
+  if (!startAnalysisLock(index, "Analizando...")) return;
   resultDiv.innerHTML = `<div class="loading-analysis">Analizando NBA...</div>`;
 
   try {
