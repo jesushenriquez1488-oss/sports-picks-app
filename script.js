@@ -717,7 +717,7 @@ if (
 
     <div class="premium-pro-mini team">
       <small>${awayTeam}</small>
-      <strong>${premium.projA.toFixed(1)}</strong>
+    <strong>${locked ? "--" : premium.projA.toFixed(1)}</strong>
       <span>puntos proyectados</span>
     </div>
 
