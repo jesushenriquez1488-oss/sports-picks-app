@@ -122,7 +122,7 @@ if (req.method === "GET" && req.query.mode === "parlay-today") {
 
         analysis.premium.recommendedCards.forEach(card => {
 
-          if ((card.percentage || 0) >= 85) {
+          if ((card.percentage || 0) >= 77) {
 
             candidates.push({
               sport: pick.sport,
@@ -141,7 +141,7 @@ if (req.method === "GET" && req.query.mode === "parlay-today") {
       // NBA / WNBA / NCAAB
       else if (
         analysis.premium.pick &&
-        (analysis.premium.confidence || 0) >= 85
+        (analysis.premium.confidence || 0) >= 77
       ) {
 
         candidates.push({
