@@ -43,16 +43,38 @@ const seasons =
           : `https://api.sportsdata.io/v3/cbb/stats/json/Games/${season}`;
 
       const response = await fetch(url, {
-        headers: {
-          "Ocp-Apim-Subscription-Key": API_KEY
-        }
-      });
+  headers: {
+    "Ocp-Apim-Subscription-Key": API_KEY
+  }
+});
 
-      const data = await response.json();
-console.log("SEASON", season, "GAMES:", Array.isArray(data) ? data.length : data);
-      if (response.ok && Array.isArray(data)) {
-        allGames = allGames.concat(data);
-      }
+const text = await response.text();
+
+let data;
+
+try {
+  data = JSON.parse(text);
+} catch (e) {
+  return res.status(500).json({
+    error: "SportsData no devolvió JSON",
+    season,
+    status: response.status,
+    body: text.slice(0, 300)
+  });
+}
+
+if (!response.ok) {
+  return res.status(response.status).json({
+    error: "SportsData error",
+    season,
+    status: response.status,
+    body: data
+  });
+}
+
+if (Array.isArray(data)) {
+  allGames = allGames.concat(data);
+}
     }
 
     const completedGames = allGames
