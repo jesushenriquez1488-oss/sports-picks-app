@@ -2100,43 +2100,49 @@ async function loadParlayToday() {
     }
 
     const picksHTML = data.picks.map((pick, index) => `
-      <div class="edge-box">
-        <h4>${index + 1}. ${pick.play}</h4>
-        <p>${pick.game}</p>
-        <div class="edge-number">${Number(pick.percentage).toFixed(1)}%</div>
-        <small>${String(pick.sport).toUpperCase()}</small>
+  <div class="parlay-pick-card">
+    <div class="parlay-leg-number">${index + 1}</div>
+
+    <div class="parlay-play">
+      ${pick.play}
+    </div>
+
+    <div class="parlay-game">
+      ${pick.game}
+    </div>
+
+    <div class="parlay-percent">
+      ${Number(pick.percentage).toFixed(1)}%
+    </div>
+
+    <div class="parlay-sport">
+      ${String(pick.sport).toUpperCase()}
+    </div>
+  </div>
+`).join("");
+
+box.innerHTML = `
+  <div class="parlay-premium-card">
+
+    <div class="parlay-premium-header">
+      <div class="parlay-pill">
+        👑 🔥 CASHEDGE PARLAY AI DEL DÍA
       </div>
-    `).join("");
 
-    box.innerHTML = `
-      <div class="premium-result mlb-premium-dashboard">
-        <div class="mlb-premium-badge">
-          <span>👑</span>
-          <strong>🔥 CASHEDGE PARLAY AI DEL DÍA</strong>
-        </div>
+      <h2>Parlay recomendado de ${data.picks.length} jugadas</h2>
 
-        <div class="mlb-premium-title">
-          <div>
-            <span class="mlb-report-label">AI PARLAY REPORT</span>
-            <h2>Parlay recomendado de ${data.picks.length} jugadas</h2>
-            <p>Seleccionado automáticamente con los picks premium más altos del día.</p>
-          </div>
-          <div class="mlb-gold-shield">★</div>
-        </div>
+      <p>
+        Seleccionado automáticamente con los picks premium más altos del día.
+      </p>
+    </div>
 
-        <div class="mlb-top-grid">
-          ${picksHTML}
-        </div>
+    <div class="parlay-picks-grid">
+      ${picksHTML}
+    </div>
 
-        <div class="mlb-complete-bar">
-          SOLO SE GENERA CUANDO HAY MÍNIMO 2 PICKS PREMIUM DE 85%+
-        </div>
-      </div>
-    `;
+    <div class="parlay-footer-note">
+      Solo se genera cuando hay mínimo 2 picks premium de 77%+
+    </div>
 
-  } catch (error) {
-    box.innerHTML = `<p>Error Parlay: ${error.message}</p>`;
-  }
-}
-
-window.loadParlayToday = loadParlayToday;
+  </div>
+`;
