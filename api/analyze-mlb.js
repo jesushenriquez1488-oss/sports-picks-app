@@ -792,6 +792,58 @@ function getBullpenFatigueFactor(bullpen) {
 
   return 1;
 }
+    const fullMlbAnalysis = {
+  locked: false,
+  isPremiumPick: recommendedCards.length > 0,
+  noPlay: recommendedCards.length === 0,
+  public: {
+    awayTeam,
+    homeTeam,
+    totalLine
+  },
+  premium: {
+    recommendedCards,
+
+    favoriteToWin: modelProbA > modelProbB ? awayTeam : homeTeam,
+    favoriteProb: Math.max(modelProbA, modelProbB) * 100,
+
+    expectedRunsA,
+    expectedRunsB,
+    projectedTotal,
+    totalLine,
+    totalDiff: projectedTotal - totalLine,
+
+    overProbability: overProb,
+    underProbability: underProb,
+    totalPick,
+    totalEdge,
+
+    venue: mlbData.venue || {
+      name: "Unknown Stadium",
+      parkFactor: 1,
+      roof: "unknown"
+    },
+
+    weather: mlbData.weather || {
+      raw: "No disponible",
+      direction: "neutral",
+      speed: 0,
+      temp: null,
+      active: false
+    },
+
+    weatherFactor
+  }
+};
+
+await supabaseAdmin.from("daily_picks").upsert({
+  sport: "mlb",
+  game_id: `${awayTeam}-${homeTeam}`,
+  away_team: awayTeam,
+  home_team: homeTeam,
+  analysis_json: fullMlbAnalysis,
+  updated_at: new Date().toISOString()
+});
     return res.status(200).json({
       locked,
       isPremiumPick: recommendedCards.length > 0,
