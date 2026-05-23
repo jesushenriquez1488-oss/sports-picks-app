@@ -40,48 +40,8 @@ if (userId && userId !== "null" && userId !== "undefined" && userId !== "guest")
   isPremiumUser = profile?.is_premium === true;
   isAdmin = profile?.email === ADMIN_EMAIL;
 }
-
-const userKey =
-  userId || req.headers["x-forwarded-for"] || "guest";
-
-const now = Date.now();
-
-if (!USER_REQUESTS[userKey]) {
-  USER_REQUESTS[userKey] = {
-    lastRequest: 0,
-    minuteRequests: [],
-  };
-}
-
-const userData = USER_REQUESTS[userKey];
-
-userData.minuteRequests =
-  userData.minuteRequests.filter(t => now - t < 60000);
-
-if (
-  !isPremiumUser &&
-  !isAdmin &&
-  now - userData.lastRequest < FREE_COOLDOWN
-) {
-  return res.status(429).json({
-    error: "Espera 10 segundos antes de analizar nuevamente."
-  });
-}
-
-if (
-  isPremiumUser &&
-  !isAdmin &&
-  userData.minuteRequests.length >= PREMIUM_MAX_PER_MINUTE
-) {
-  return res.status(429).json({
-    error: "Too many requests"
-  });
-}
-
-userData.lastRequest = now;
-userData.minuteRequests.push(now);
-
-    const dataResponse = await fetch(`${origin}/api/mlb-data`, {
+    const origin = "https://www.cashedgeapp.com";
+const dataResponse = await fetch(`${origin}/api/mlb-data`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ awayTeam, homeTeam })
