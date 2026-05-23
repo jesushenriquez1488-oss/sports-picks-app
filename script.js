@@ -1965,3 +1965,24 @@ function toggleAccountMenu() {
 }
 
 window.toggleAccountMenu = toggleAccountMenu;
+const INACTIVITY_LIMIT = 30 * 60 * 1000;
+let inactivityTimer = null;
+
+function resetInactivityTimer() {
+  clearTimeout(inactivityTimer);
+
+  inactivityTimer = setTimeout(async () => {
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+
+    if (sessionData.session) {
+      await logoutUser();
+      alert("Tu sesión se cerró por inactividad.");
+    }
+  }, INACTIVITY_LIMIT);
+}
+
+["click", "mousemove", "keydown", "scroll", "touchstart"].forEach(eventName => {
+  window.addEventListener(eventName, resetInactivityTimer);
+});
+
+resetInactivityTimer();
