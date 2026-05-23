@@ -150,7 +150,7 @@ return res.status(200).json({
 });
 
 const recentTeamGames = completedGames
-    const recentTeamGames = completedGames
+
       .filter(g => g.HomeTeam === teamKey || g.AwayTeam === teamKey)
       .sort((a, b) => new Date(b.DateTime) - new Date(a.DateTime))
       .slice(0, 20)
