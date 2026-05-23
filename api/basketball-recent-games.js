@@ -63,7 +63,16 @@ console.log("SEASON", season, "GAMES:", Array.isArray(data) ? data.length : data
         g.AwayTeamScore !== undefined
       )
       .sort((a, b) => new Date(b.DateTime) - new Date(a.DateTime));
-
+console.log("TEAM ORIGINAL:", team);
+console.log("TEAM KEY:", teamKey);
+console.log("LEAGUE:", league);
+console.log("ALL GAMES:", allGames.length);
+console.log("COMPLETED GAMES:", completedGames.length);
+console.log("SAMPLE GAME:", completedGames[0]);
+console.log(
+  "TEAMS FOUND:",
+  [...new Set(completedGames.flatMap(g => [g.HomeTeam, g.AwayTeam]))]
+);
     function getTeamGameView(g, code) {
       const isHome = g.HomeTeam === code;
 
