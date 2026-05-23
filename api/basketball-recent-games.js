@@ -21,11 +21,14 @@ export default async function handler(req, res) {
 
   try {
     const teamKey = normalizeSportsDataTeam(team);
+const currentYear = new Date().getFullYear();
 
-    const seasons =
-      league === "wnba" ? [2026, 2025] :
-      league === "ncaab" ? [2026, 2025] :
-      [];
+const seasons =
+  league === "wnba"
+    ? [currentYear, currentYear - 1]
+    : league === "ncaab"
+      ? [currentYear, currentYear - 1]
+      : [];
 
     if (!seasons.length) {
       return res.status(400).json({ error: "Invalid league" });
@@ -46,7 +49,7 @@ export default async function handler(req, res) {
       });
 
       const data = await response.json();
-
+console.log("SEASON", season, "GAMES:", Array.isArray(data) ? data.length : data);
       if (response.ok && Array.isArray(data)) {
         allGames = allGames.concat(data);
       }
