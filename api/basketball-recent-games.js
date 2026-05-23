@@ -162,16 +162,15 @@ function normalizeSportsDataTeam(teamName) {
     "chicago sky": "CHI",
     "connecticut sun": "CON",
     "dallas wings": "DAL",
-    "golden state valkyries": "GSV",
+    "golden state valkyries": "GS",
     "indiana fever": "IND",
-    "las vegas aces": "LVA",
-    "los angeles sparks": "LAS",
+    "las vegas aces": "LV",
+    "los angeles sparks": "LA",
     "minnesota lynx": "MIN",
-    "new york liberty": "NYL",
+    "new york liberty": "NY",
     "phoenix mercury": "PHO",
     "seattle storm": "SEA",
-    "washington mystics": "WAS",
-    "toronto tempo": "TOR"
+    "washington mystics": "WAS"
   };
 
   return map[name] || teamName;
