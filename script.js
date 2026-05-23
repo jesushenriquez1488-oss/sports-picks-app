@@ -568,6 +568,37 @@ if (window.currentSport === "wnba") {
 if (window.currentSport === "ncaab") {
   league = "ncaab";
 }
+    const validWnbaTeams = [
+  "Atlanta Dream",
+  "Chicago Sky",
+  "Connecticut Sun",
+  "Dallas Wings",
+  "Golden State Valkyries",
+  "Indiana Fever",
+  "Las Vegas Aces",
+  "Los Angeles Sparks",
+  "Minnesota Lynx",
+  "New York Liberty",
+  "Phoenix Mercury",
+  "Seattle Storm",
+  "Washington Mystics"
+];
+
+if (
+  window.currentSport === "wnba" &&
+  (
+    !validWnbaTeams.includes(awayTeam) ||
+    !validWnbaTeams.includes(homeTeam)
+  )
+) {
+  resultDiv.innerHTML = `
+    <div class="normal-result">
+      <p><strong>Juego no disponible para análisis WNBA.</strong></p>
+      <p>Este equipo no tiene data válida en el modelo.</p>
+    </div>
+  `;
+  return;
+}
     const response = await fetch("/api/analyze-nba", {
       method: "POST",
       headers: {
