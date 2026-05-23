@@ -711,7 +711,7 @@ if (
 
     <div class="premium-pro-mini">
       <small>PROYECCIÓN TOTAL</small>
-      <strong>${premium.totalProj.toFixed(1)}</strong>
+     <strong>${locked ? "Bloqueado" : premium.totalProj.toFixed(1)}</strong>
       <span>Total modelo</span>
     </div>
 
