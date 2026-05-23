@@ -2026,3 +2026,117 @@ function endAnalysisLock(index) {
   activeAnalysis[index] = false;
   setAnalysisButtonLoading(index, false);
 }
+async function loadParlayToday() {
+  const box = document.getElementById("parlayTodayBox");
+
+  if (!box) return;
+
+  box.innerHTML = `<div class="loading-analysis">Buscando Parlay Premium del Día...</div>`;
+
+  try {
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+
+    if (!sessionData.session) {
+      box.innerHTML = `
+        <div class="premium-result mlb-premium-dashboard">
+          <h3>🔥 CashEdge Parlay AI del Día</h3>
+          <p>Debes iniciar sesión para ver esta sección premium.</p>
+        </div>
+      `;
+      return;
+    }
+
+    const response = await fetch("/api/analyze-nba?mode=parlay-today", {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${sessionData.session.access_token}`
+      }
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Error cargando parlay");
+    }
+
+    if (!data.available) {
+      box.innerHTML = `
+        <div class="normal-result">
+          <h3>🔥 CashEdge Parlay AI del Día</h3>
+          <p>${data.message}</p>
+        </div>
+      `;
+      return;
+    }
+
+    if (data.locked) {
+      box.innerHTML = `
+        <div class="premium-result mlb-premium-dashboard">
+          <div class="mlb-premium-badge">
+            <span>👑</span>
+            <strong>🔥 PARLAY PREMIUM DEL DÍA</strong>
+          </div>
+
+          <div class="mlb-lock-panel">
+            <h3>🔒 Parlay Premium Bloqueado</h3>
+            <p>CashEdge detectó una combinación premium del día con jugadas de 85%+.</p>
+
+            <div class="mlb-factor-grid">
+              <span>✔ Picks premium del día</span>
+              <span>✔ Confianza 85%+</span>
+              <span>✔ Top 2 o 3 jugadas</span>
+              <span>✔ Selección automática IA</span>
+              <span>✔ Edge contra mercado</span>
+              <span>✔ Filtro premium estricto</span>
+            </div>
+
+            <button class="unlock-btn" onclick="goPremiumMonthly()">
+              🔓 Desbloquear Premium $${MONTHLY_PRICE}/mes
+            </button>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    const picksHTML = data.picks.map((pick, index) => `
+      <div class="edge-box">
+        <h4>${index + 1}. ${pick.play}</h4>
+        <p>${pick.game}</p>
+        <div class="edge-number">${Number(pick.percentage).toFixed(1)}%</div>
+        <small>${String(pick.sport).toUpperCase()}</small>
+      </div>
+    `).join("");
+
+    box.innerHTML = `
+      <div class="premium-result mlb-premium-dashboard">
+        <div class="mlb-premium-badge">
+          <span>👑</span>
+          <strong>🔥 CASHEDGE PARLAY AI DEL DÍA</strong>
+        </div>
+
+        <div class="mlb-premium-title">
+          <div>
+            <span class="mlb-report-label">AI PARLAY REPORT</span>
+            <h2>Parlay recomendado de ${data.picks.length} jugadas</h2>
+            <p>Seleccionado automáticamente con los picks premium más altos del día.</p>
+          </div>
+          <div class="mlb-gold-shield">★</div>
+        </div>
+
+        <div class="mlb-top-grid">
+          ${picksHTML}
+        </div>
+
+        <div class="mlb-complete-bar">
+          SOLO SE GENERA CUANDO HAY MÍNIMO 2 PICKS PREMIUM DE 85%+
+        </div>
+      </div>
+    `;
+
+  } catch (error) {
+    box.innerHTML = `<p>Error Parlay: ${error.message}</p>`;
+  }
+}
+
+window.loadParlayToday = loadParlayToday;
