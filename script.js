@@ -630,6 +630,7 @@ if (
           <p><strong>Motivo:</strong> ${data.public.reason}</p>
         </div>
       `;
+      endAnalysisLock(index);
       return;
     }
 
