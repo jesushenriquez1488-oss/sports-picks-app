@@ -118,8 +118,13 @@ return res.status(200).json({
   league,
   allGamesCount: allGames.length,
   completedGamesCount: completedGames.length,
-  sample: completedGames.slice(0, 5),
-  teamsFound: [...new Set(completedGames.flatMap(g => [g.HomeTeam, g.AwayTeam]))]
+  sample: completedGames.slice(0, 2).map(g => ({
+    DateTime: g.DateTime,
+    HomeTeam: g.HomeTeam,
+    AwayTeam: g.AwayTeam,
+    HomeTeamScore: g.HomeTeamScore,
+    AwayTeamScore: g.AwayTeamScore
+  }))
 });
 
 const recentTeamGames = completedGames
