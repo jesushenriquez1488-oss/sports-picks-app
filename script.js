@@ -2028,7 +2028,11 @@ function endAnalysisLock(index) {
 }
 async function loadParlayToday() {
   const box = document.getElementById("parlayTodayBox");
+const gamesDiv = document.getElementById("games");
+const status = document.getElementById("status");
 
+if (gamesDiv) gamesDiv.innerHTML = "";
+if (status) status.innerHTML = "";
   if (!box) return;
 
   box.innerHTML = `<div class="loading-analysis">Buscando Parlay Premium del Día...</div>`;
