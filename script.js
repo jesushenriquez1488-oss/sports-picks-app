@@ -1666,8 +1666,10 @@ ${premium.recommendedCards?.[1] ? `
 
   </div>
 `;
+    endAnalysisLock(index);
       } catch (error) {
     resultDiv.innerHTML = `<p>Error MLB: ${error.message}</p>`;
+    endAnalysisLock(index);
   }
 }
 async function analyzeFootball(awayTeam, homeTeam, index) {
