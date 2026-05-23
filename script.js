@@ -1123,12 +1123,33 @@ const text = await res.text();
       localStorage.setItem(cacheTimeKey, Date.now().toString());
     }
 
-    const upcomingGames = data.filter(game => {
-      const gameTime = new Date(game.commence_time);
-      const now = new Date();
-      return gameTime > now;
-    });
+    let upcomingGames = data.filter(game => {
+  const gameTime = new Date(game.commence_time);
+  const now = new Date();
+  return gameTime > now;
+});
+const validWnbaTeams = [
+  "Atlanta Dream",
+  "Chicago Sky",
+  "Connecticut Sun",
+  "Dallas Wings",
+  "Golden State Valkyries",
+  "Indiana Fever",
+  "Las Vegas Aces",
+  "Los Angeles Sparks",
+  "Minnesota Lynx",
+  "New York Liberty",
+  "Phoenix Mercury",
+  "Seattle Storm",
+  "Washington Mystics"
+];
 
+if (window.currentSport === "wnba") {
+  upcomingGames = upcomingGames.filter(game =>
+    validWnbaTeams.includes(game.home_team) &&
+    validWnbaTeams.includes(game.away_team)
+  );
+}
     status.innerHTML = `Juegos encontrados: ${upcomingGames.length}`;
 
     if (upcomingGames.length === 0) {
