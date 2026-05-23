@@ -1,6 +1,14 @@
 const { createClient } = require("@supabase/supabase-js");
 
 const supabaseAdmin = createClient(
+  const USER_REQUESTS = global.__USER_REQUESTS__ || {};
+global.__USER_REQUESTS__ = USER_REQUESTS;
+
+const FREE_COOLDOWN = 10 * 1000;
+
+const PREMIUM_MAX_PER_MINUTE = 40;
+
+const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
