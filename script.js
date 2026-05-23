@@ -834,6 +834,7 @@ if (
 
   } catch (error) {
     resultDiv.innerHTML = "Error NBA: " + error.message;
+    endAnalysisLock(index);
   }
 }
 function analyzeOtherLeague(awayTeam, homeTeam, awaySpread, homeSpread, total, index) {
