@@ -91,18 +91,12 @@ if (req.method === "GET" && req.query.mode === "parlay-today") {
       }
     }
 
-    const today = new Date();
-today.setHours(0, 0, 0, 0);
-
-const tomorrow = new Date(today);
-tomorrow.setDate(tomorrow.getDate() + 1);
+   const todayDate = new Date().toISOString().split("T")[0];
 
 const { data: picks, error } = await supabaseAdmin
   .from("daily_picks")
   .select("*")
-  .gte("updated_at", today.toISOString())
-  .lt("updated_at", tomorrow.toISOString());
-
+  .eq("game_date", todayDate);
     if (error) {
       return res.status(500).json({
         error: error.message
