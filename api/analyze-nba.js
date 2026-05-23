@@ -565,7 +565,8 @@ game_date: new Date().toISOString().split("T")[0]
       away_team: awayTeam,
       home_team: homeTeam,
       analysis_json: fullAnalysis,
-      updated_at: new Date().toISOString()
+updated_at: new Date().toISOString(),
+game_date: new Date().toISOString().split("T")[0]
     });
 
     const { data: insertedPick, error: insertError } = await supabaseAdmin
