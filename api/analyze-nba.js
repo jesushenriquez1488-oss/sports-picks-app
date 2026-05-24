@@ -110,11 +110,35 @@ const selectedSports = onlySport
           continue;
         }
 
-        const games = JSON.parse(oddsText);
+        cconst games = JSON.parse(oddsText);
+
+function getKansasDate(dateValue) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date(dateValue));
+}
+
+const todayKansas = getKansasDate(new Date());
+
+const todayGames = games.filter(game => {
+  const gameTime =
+    game.commence_time ||
+    game.game_time ||
+    game.start_time ||
+    game.date;
+
+  if (!gameTime) return true;
+
+  return getKansasDate(gameTime) === todayKansas;
+});
+
 const limit = Math.max(1, Number(req.query.limit || 4));
 const offset = Math.max(0, Number(req.query.offset || 0));
 
-const selectedGames = games.slice(offset, offset + limit);
+const selectedGames = todayGames.slice(offset, offset + limit);
         for (const game of selectedGames) {
           const awayTeam = game.away_team || game.awayTeam;
           const homeTeam = game.home_team || game.homeTeam;
