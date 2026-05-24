@@ -47,7 +47,11 @@ if (req.method === "GET" && req.query.mode === "generate-daily") {
       { key: "basketball_wnba", league: "wnba", endpoint: "/api/analyze-nba" },
       { key: "baseball_mlb", league: "mlb", endpoint: "/api/analyze-mlb" }
     ];
+const onlySport = req.query.sport;
 
+const selectedSports = onlySport
+  ? sports.filter(s => s.key === onlySport)
+  : sports;
     const results = [];
 
     function getMarket(game, marketKey) {
@@ -78,7 +82,7 @@ if (req.method === "GET" && req.query.mode === "generate-daily") {
       return market?.outcomes || [];
     }
 
-    for (const sport of sports) {
+   for (const sport of selectedSports) {
       try {
         const oddsRes = await fetch(
           `${origin}/api/odds?sport=${encodeURIComponent(sport.key)}`
