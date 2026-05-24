@@ -100,8 +100,11 @@ const selectedSports = onlySport
         }
 
         const games = JSON.parse(oddsText);
+const limit = Math.max(1, Number(req.query.limit || 4));
+const offset = Math.max(0, Number(req.query.offset || 0));
 
-        for (const game of games) {
+const selectedGames = games.slice(offset, offset + limit);
+        for (const game of selectedGames) {
           const awayTeam = game.away_team || game.awayTeam;
           const homeTeam = game.home_team || game.homeTeam;
 
