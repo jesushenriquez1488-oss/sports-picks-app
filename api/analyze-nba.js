@@ -110,7 +110,7 @@ const selectedSports = onlySport
           continue;
         }
 
-        cconst games = JSON.parse(oddsText);
+        const games = JSON.parse(oddsText);
 
 function getKansasDate(dateValue) {
   return new Intl.DateTimeFormat("en-CA", {
