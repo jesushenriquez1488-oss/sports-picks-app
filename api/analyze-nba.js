@@ -351,6 +351,16 @@ if (
       .maybeSingle();
 
     if (existing?.analysis_json) {
+      if (!existing.game_date) {
+  await supabaseAdmin
+    .from("daily_picks")
+    .update({
+      game_date: new Date().toISOString().split("T")[0],
+      updated_at: new Date().toISOString()
+    })
+    .eq("sport", selectedLeague)
+    .eq("game_id", gameId);
+}
       const cachedAnalysis = existing.analysis_json;
       const locked = cachedAnalysis.isPremiumPick && !isPremiumUser;
 
