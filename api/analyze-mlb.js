@@ -835,10 +835,14 @@ function getBullpenFatigueFactor(bullpen) {
     weatherFactor
   }
 };
+const teamsSorted = [awayTeam, homeTeam]
+  .map(t => String(t).trim())
+  .sort();
 
+const gameId = teamsSorted.join("-");
 await supabaseAdmin.from("daily_picks").upsert({
   sport: "mlb",
-  game_id: `${awayTeam}-${homeTeam}`,
+  game_id: gameId,
   away_team: awayTeam,
   home_team: homeTeam,
   analysis_json: fullMlbAnalysis,
