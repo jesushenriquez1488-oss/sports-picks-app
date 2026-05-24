@@ -1,1 +1,99 @@
+{
+  "crons": [
 
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_nba&limit=4&offset=0",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_nba&limit=4&offset=4",
+      "schedule": "5 14 * * *"
+    },
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_nba&limit=4&offset=8",
+      "schedule": "10 14 * * *"
+    },
+
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_wnba&limit=4&offset=0",
+      "schedule": "15 14 * * *"
+    },
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_wnba&limit=4&offset=4",
+      "schedule": "20 14 * * *"
+    },
+
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=0",
+      "schedule": "25 14 * * *"
+    },
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=4",
+      "schedule": "30 14 * * *"
+    },
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=8",
+      "schedule": "35 14 * * *"
+    },
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=12",
+      "schedule": "40 14 * * *"
+    },
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=16",
+      "schedule": "45 14 * * *"
+    },
+
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=americanfootball_nfl&limit=4&offset=0",
+      "schedule": "50 14 * * *"
+    },
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=americanfootball_nfl&limit=4&offset=4",
+      "schedule": "55 14 * * *"
+    },
+
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=americanfootball_ncaaf&limit=4&offset=0",
+      "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=americanfootball_ncaaf&limit=4&offset=4",
+      "schedule": "5 15 * * *"
+    },
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=americanfootball_ncaaf&limit=4&offset=8",
+      "schedule": "10 15 * * *"
+    },
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=americanfootball_ncaaf&limit=4&offset=12",
+      "schedule": "15 15 * * *"
+    },
+
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_ncaab&limit=4&offset=0",
+      "schedule": "20 15 * * *"
+    },
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_ncaab&limit=4&offset=4",
+      "schedule": "25 15 * * *"
+    },
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_ncaab&limit=4&offset=8",
+      "schedule": "30 15 * * *"
+    },
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_ncaab&limit=4&offset=12",
+      "schedule": "35 15 * * *"
+    },
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_ncaab&limit=4&offset=16",
+      "schedule": "40 15 * * *"
+    },
+    {
+      "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_ncaab&limit=4&offset=20",
+      "schedule": "45 15 * * *"
+    }
+
+  ]
+}
