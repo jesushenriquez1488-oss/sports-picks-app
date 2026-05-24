@@ -345,7 +345,7 @@ if (
 
     const { data: existing } = await supabaseAdmin
       .from("daily_picks")
-      .select("analysis_json")
+     .select("analysis_json, game_date")
       .eq("sport", selectedLeague)
       .eq("game_id", gameId)
       .maybeSingle();
