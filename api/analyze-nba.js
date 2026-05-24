@@ -26,19 +26,30 @@ module.exports = async function handler(req, res) {
   }
 if (req.method === "GET" && req.query.mode === "generate-daily") {
   try {
-    const secret = req.query.secret;
+   const authHeader = req.headers.authorization || "";
+const cronToken = authHeader.replace("Bearer ", "");
+const manualSecret = req.query.secret;
 
-    if (!process.env.GENERATE_DAILY_SECRET) {
-      return res.status(500).json({
-        error: "Falta configurar GENERATE_DAILY_SECRET en Vercel"
-      });
-    }
+const validSecret =
+  process.env.CRON_SECRET ||
+  process.env.GENERATE_DAILY_SECRET;
 
-    if (secret !== process.env.GENERATE_DAILY_SECRET) {
-      return res.status(401).json({
-        error: "No autorizado"
-      });
-    }
+if (!validSecret) {
+  return res.status(500).json({
+    error: "Falta configurar CRON_SECRET en Vercel"
+  });
+}
+
+if (
+  cronToken !== validSecret &&
+  manualSecret !== validSecret
+) {
+  return res.status(401).json({
+    error: "No autorizado"
+  });
+}
+
+   
 
     const origin = getOrigin(req);
 
