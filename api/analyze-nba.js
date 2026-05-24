@@ -24,7 +24,163 @@ module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
+if (req.method === "GET" && req.query.mode === "generate-daily") {
+  try {
+    const secret = req.query.secret;
 
+    if (!process.env.GENERATE_DAILY_SECRET) {
+      return res.status(500).json({
+        error: "Falta configurar GENERATE_DAILY_SECRET en Vercel"
+      });
+    }
+
+    if (secret !== process.env.GENERATE_DAILY_SECRET) {
+      return res.status(401).json({
+        error: "No autorizado"
+      });
+    }
+
+    const origin = getOrigin(req);
+
+    const sports = [
+      { key: "basketball_nba", league: "nba", endpoint: "/api/analyze-nba" },
+      { key: "basketball_wnba", league: "wnba", endpoint: "/api/analyze-nba" },
+      { key: "baseball_mlb", league: "mlb", endpoint: "/api/analyze-mlb" }
+    ];
+
+    const results = [];
+
+    function getMarket(game, marketKey) {
+      const bookmakers = game.bookmakers || [];
+
+      for (const book of bookmakers) {
+        const market = (book.markets || []).find(m => m.key === marketKey);
+        if (market) return market;
+      }
+
+      return null;
+    }
+
+    function getSpread(game, teamName) {
+      const market = getMarket(game, "spreads");
+      const outcome = market?.outcomes?.find(o => o.name === teamName);
+      return outcome?.point ?? 0;
+    }
+
+    function getTotal(game) {
+      const market = getMarket(game, "totals");
+      const outcome = market?.outcomes?.[0];
+      return outcome?.point ?? null;
+    }
+
+    function getH2HOutcomes(game) {
+      const market = getMarket(game, "h2h");
+      return market?.outcomes || [];
+    }
+
+    for (const sport of sports) {
+      try {
+        const oddsRes = await fetch(
+          `${origin}/api/odds?sport=${encodeURIComponent(sport.key)}`
+        );
+
+        const oddsText = await oddsRes.text();
+
+        if (!oddsRes.ok) {
+          results.push({
+            sport: sport.key,
+            ok: false,
+            error: oddsText
+          });
+          continue;
+        }
+
+        const games = JSON.parse(oddsText);
+
+        for (const game of games) {
+          const awayTeam = game.away_team || game.awayTeam;
+          const homeTeam = game.home_team || game.homeTeam;
+
+          if (!awayTeam || !homeTeam) {
+            results.push({
+              sport: sport.key,
+              ok: false,
+              error: "Juego sin away/home team"
+            });
+            continue;
+          }
+
+          const awaySpread = getSpread(game, awayTeam);
+          const homeSpread = getSpread(game, homeTeam);
+          const totalLine = getTotal(game);
+          const outcomes = getH2HOutcomes(game);
+
+          const analyzeBody =
+            sport.league === "mlb"
+              ? {
+                  userId: "system-generate-daily",
+                  awayTeam,
+                  homeTeam,
+                  awaySpread,
+                  homeSpread,
+                  outcomes,
+                  totalLine: totalLine || 8
+                }
+              : {
+                  awayTeam,
+                  homeTeam,
+                  awaySpread,
+                  homeSpread,
+                  total: totalLine,
+                  league: sport.league
+                };
+
+          const analyzeRes = await fetch(`${origin}${sport.endpoint}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(analyzeBody)
+          });
+
+          const analyzeData = await analyzeRes.json().catch(() => null);
+
+          results.push({
+            sport: sport.key,
+            game: `${awayTeam} vs ${homeTeam}`,
+            ok: analyzeRes.ok,
+            isPremiumPick: analyzeData?.isPremiumPick || false,
+            noPlay: analyzeData?.noPlay || false,
+            error: analyzeRes.ok ? null : analyzeData?.error || "Error analizando"
+          });
+        }
+
+      } catch (error) {
+        results.push({
+          sport: sport.key,
+          ok: false,
+          error: error.message
+        });
+      }
+    }
+
+    const summary = {
+      ok: true,
+      totalGames: results.length,
+      analyzed: results.filter(r => r.ok).length,
+      premium: results.filter(r => r.isPremiumPick).length,
+      errors: results.filter(r => !r.ok).length,
+      results
+    };
+
+    return res.status(200).json(summary);
+
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message
+    });
+  }
+}
   if (req.method === "POST" && req.query.mode === "update-result") {
     try {
       const authHeader = req.headers.authorization || "";
