@@ -341,7 +341,11 @@ if (
       return res.status(400).json({ error: "Faltan equipos" });
     }
 
-    const gameId = `${awayTeam}-${homeTeam}`;
+    const teamsSorted = [awayTeam, homeTeam]
+  .map(t => String(t).trim())
+  .sort();
+
+const gameId = teamsSorted.join("-");
 
     const { data: existing } = await supabaseAdmin
       .from("daily_picks")
