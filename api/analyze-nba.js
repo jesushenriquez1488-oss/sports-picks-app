@@ -285,7 +285,9 @@ if (req.method === "GET" && req.query.mode === "parlay-today") {
           .eq("id", authData.user.id)
           .single();
 
-        isPremiumUser = profile?.is_premium === true;
+        isPremiumUser =
+  profile?.is_premium === true ||
+  authData.user.email === ADMIN_EMAIL;
       }
     }
 
