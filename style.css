@@ -7596,3 +7596,9 @@ button:active,
     height:1px !important;
   }
 }
+/* OCULTAR CAJAS DE PORCENTAJES EN APP */
+.floating-rate,
+.premium-rate,
+.normal-rate{
+  display:none !important;
+}
