@@ -7330,3 +7330,269 @@ button:active,
     background-position:-220% 0;
   }
 }
+/* ===== CASHEDGE LOGIN COMPACT + MOVING STARS FINAL ===== */
+
+#authBox{
+  max-width:1180px !important;
+  margin:22px auto !important;
+  padding:22px 26px !important;
+}
+
+#authBox::before{
+  font-size:36px !important;
+  margin-bottom:10px !important;
+}
+
+#authBox h3{
+  font-size:20px !important;
+  margin-bottom:12px !important;
+}
+
+#authBox input{
+  height:44px !important;
+  margin-bottom:10px !important;
+}
+
+#authBox button{
+  height:44px !important;
+  margin-top:8px !important;
+}
+
+.auth-switch{
+  margin:8px 0 0 !important;
+}
+
+.auth-landing-info{
+  margin-top:16px !important;
+  padding-top:16px !important;
+  min-height:0 !important;
+}
+
+.auth-brand{
+  font-size:15px !important;
+  margin-bottom:4px !important;
+}
+
+.auth-landing-info h2::before{
+  font-size:30px !important;
+}
+
+.auth-landing-info p{
+  font-size:13px !important;
+  line-height:1.35 !important;
+  margin-bottom:12px !important;
+}
+
+.auth-ai-card{
+  min-height:150px !important;
+  padding:12px 12px 26px !important;
+}
+
+.feature-icon{
+  width:46px !important;
+  height:46px !important;
+  margin-bottom:6px !important;
+}
+
+.feature-icon svg{
+  width:42px !important;
+  height:42px !important;
+}
+
+.auth-ai-card strong{
+  font-size:13px !important;
+}
+
+.rotating-text{
+  font-size:10.5px !important;
+  height:18px !important;
+  margin-top:5px !important;
+}
+
+/* fuerza movimiento de estrellas */
+.login-effects{
+  position:absolute !important;
+  inset:0 !important;
+  z-index:1 !important;
+  pointer-events:none !important;
+  overflow:hidden !important;
+}
+
+.shooting-star{
+  position:absolute !important;
+  display:block !important;
+  height:2px !important;
+  border-radius:999px !important;
+  background:linear-gradient(90deg,transparent,#00ffe7,transparent) !important;
+  box-shadow:0 0 10px #00ffe7,0 0 24px rgba(0,255,231,.9) !important;
+  opacity:0;
+}
+
+.star1{
+  width:140px !important;
+  top:36px !important;
+  left:-180px !important;
+  animation:cashShootLeft 3.2s linear infinite !important;
+}
+
+.star2{
+  width:100px !important;
+  top:88px !important;
+  left:-160px !important;
+  animation:cashShootLeft 4.2s linear infinite !important;
+  animation-delay:1.2s !important;
+}
+
+.star3{
+  width:120px !important;
+  top:138px !important;
+  left:-180px !important;
+  animation:cashShootLeft 3.7s linear infinite !important;
+  animation-delay:2.1s !important;
+}
+
+.star4{
+  width:130px !important;
+  top:60px !important;
+  right:-180px !important;
+  background:linear-gradient(90deg,transparent,#9b7cff,transparent) !important;
+  box-shadow:0 0 10px #9b7cff,0 0 24px rgba(155,124,255,.9) !important;
+  animation:cashShootRight 4s linear infinite !important;
+  animation-delay:.7s !important;
+}
+
+.star5{
+  width:95px !important;
+  top:120px !important;
+  right:-150px !important;
+  background:linear-gradient(90deg,transparent,#9b7cff,transparent) !important;
+  box-shadow:0 0 10px #9b7cff,0 0 24px rgba(155,124,255,.9) !important;
+  animation:cashShootRight 3.5s linear infinite !important;
+  animation-delay:2.5s !important;
+}
+
+@keyframes cashShootLeft{
+  0%{
+    transform:translateX(0) translateY(0) rotate(-12deg);
+    opacity:0;
+  }
+  12%{
+    opacity:1;
+  }
+  100%{
+    transform:translateX(1350px) translateY(80px) rotate(-12deg);
+    opacity:0;
+  }
+}
+
+@keyframes cashShootRight{
+  0%{
+    transform:translateX(0) translateY(0) rotate(12deg);
+    opacity:0;
+  }
+  12%{
+    opacity:1;
+  }
+  100%{
+    transform:translateX(-1350px) translateY(80px) rotate(12deg);
+    opacity:0;
+  }
+}
+
+/* MOBILE: todo más compacto */
+@media(max-width:700px){
+  #authBox{
+    width:calc(100% - 18px) !important;
+    margin:8px auto !important;
+    padding:12px !important;
+    border-radius:20px !important;
+  }
+
+  #authBox::before{
+    font-size:24px !important;
+    margin-bottom:6px !important;
+  }
+
+  #authBox h3{
+    font-size:16px !important;
+    margin-bottom:8px !important;
+  }
+
+  #authBox input{
+    height:38px !important;
+    margin-bottom:7px !important;
+    font-size:12px !important;
+  }
+
+  #authBox button{
+    height:38px !important;
+    font-size:12px !important;
+    margin-top:7px !important;
+  }
+
+  .auth-switch{
+    font-size:11px !important;
+    margin:6px 0 0 !important;
+  }
+
+  .auth-landing-info{
+    margin-top:10px !important;
+    padding-top:10px !important;
+  }
+
+  .auth-brand{
+    font-size:12px !important;
+  }
+
+  .auth-landing-info h2::before{
+    font-size:21px !important;
+  }
+
+  .auth-landing-info p{
+    font-size:10px !important;
+    line-height:1.25 !important;
+    margin-bottom:8px !important;
+  }
+
+  .premium-animated-grid{
+    grid-template-columns:repeat(3,1fr) !important;
+    gap:6px !important;
+  }
+
+  .auth-ai-card{
+    min-height:82px !important;
+    padding:7px 4px 16px !important;
+    border-radius:14px !important;
+  }
+
+  .feature-icon{
+    width:30px !important;
+    height:30px !important;
+    margin-bottom:3px !important;
+  }
+
+  .feature-icon svg{
+    width:28px !important;
+    height:28px !important;
+  }
+
+  .auth-ai-card strong{
+    font-size:8.5px !important;
+  }
+
+  .rotating-text{
+    font-size:7.5px !important;
+    height:14px !important;
+  }
+
+  .auth-ai-card .mini-progress{
+    left:7px !important;
+    right:7px !important;
+    bottom:5px !important;
+    height:3px !important;
+  }
+
+  .shooting-star{
+    height:1px !important;
+  }
+}
