@@ -6383,3 +6383,310 @@ button:active,
   }
 
 }
+/* ========================= */
+/* NEW LANDING PREMIUM */
+/* ========================= */
+
+.top-navbar{
+  width:calc(100% - 60px);
+  max-width:1560px;
+  margin:24px auto 10px;
+  padding:18px 26px;
+
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+
+  border:1px solid rgba(0,255,255,.22);
+
+  background:
+    linear-gradient(145deg,
+    rgba(5,18,42,.92),
+    rgba(2,6,18,.96));
+
+  border-radius:22px;
+
+  box-shadow:
+    0 0 30px rgba(0,255,255,.10),
+    inset 0 0 22px rgba(0,255,255,.04);
+
+  backdrop-filter:blur(12px);
+}
+
+.nav-logo{
+  font-size:28px;
+  font-weight:1000;
+
+  background:linear-gradient(90deg,#ffffff,#8ffff5,#b38cff);
+  -webkit-background-clip:text;
+  color:transparent;
+
+  letter-spacing:-1px;
+}
+
+.nav-actions{
+  display:flex;
+  gap:14px;
+}
+
+.nav-login-btn,
+.nav-premium-btn{
+  padding:12px 20px;
+  border:none;
+  border-radius:14px;
+  font-weight:900;
+  cursor:pointer;
+}
+
+.nav-login-btn{
+  background:rgba(255,255,255,.06);
+  color:white;
+  border:1px solid rgba(255,255,255,.12);
+}
+
+.nav-premium-btn{
+  background:
+    linear-gradient(135deg,
+    #fff3b0,
+    #ffd166,
+    #ff9f1c);
+
+  color:#120800;
+
+  box-shadow:
+    0 0 24px rgba(255,209,102,.30);
+}
+
+/* HERO */
+
+.landing-hero{
+  width:calc(100% - 60px);
+  max-width:1560px;
+
+  margin:28px auto 40px;
+
+  display:grid;
+  grid-template-columns:1.1fr .9fr;
+  gap:40px;
+  align-items:center;
+}
+
+.landing-left h1{
+  font-size:72px;
+  line-height:1.02;
+  margin:22px 0;
+
+  letter-spacing:-3px;
+
+  background:
+    linear-gradient(90deg,
+    #ffffff,
+    #8ffff5,
+    #b38cff);
+
+  -webkit-background-clip:text;
+  color:transparent;
+}
+
+.landing-subtitle{
+  max-width:720px;
+
+  color:rgba(255,255,255,.78);
+
+  font-size:20px;
+  line-height:1.7;
+
+  margin-bottom:30px;
+}
+
+.landing-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+
+  padding:10px 22px;
+
+  border-radius:999px;
+
+  border:1px solid rgba(0,255,255,.35);
+
+  background:rgba(0,255,255,.05);
+
+  color:#00ffe7;
+
+  font-weight:900;
+}
+
+.landing-buttons{
+  display:flex;
+  gap:18px;
+  flex-wrap:wrap;
+}
+
+.hero-main-btn,
+.hero-secondary-btn{
+  padding:18px 28px;
+  border:none;
+  border-radius:18px;
+
+  font-size:17px;
+  font-weight:900;
+
+  cursor:pointer;
+}
+
+.hero-main-btn{
+  background:
+    linear-gradient(135deg,
+    #00ffe7,
+    #008cff,
+    #7c3cff);
+
+  color:white;
+
+  box-shadow:
+    0 0 35px rgba(0,255,255,.22);
+}
+
+.hero-secondary-btn{
+  background:rgba(255,255,255,.05);
+
+  color:white;
+
+  border:1px solid rgba(255,255,255,.12);
+}
+
+.hero-results-strip{
+  margin-top:28px;
+
+  display:inline-flex;
+
+  padding:14px 20px;
+
+  border-radius:16px;
+
+  background:
+    linear-gradient(145deg,
+    rgba(5,18,42,.95),
+    rgba(2,6,18,.98));
+
+  border:1px solid rgba(0,255,255,.25);
+
+  color:#00ffe7;
+
+  font-weight:900;
+
+  box-shadow:
+    0 0 22px rgba(0,255,255,.08);
+}
+
+/* FLOATING CARDS */
+
+.landing-right{
+  display:flex;
+  flex-direction:column;
+  gap:24px;
+}
+
+.floating-pick-card{
+  position:relative;
+
+  padding:30px;
+
+  border-radius:26px;
+
+  overflow:hidden;
+
+  background:
+    linear-gradient(145deg,
+    rgba(5,18,42,.96),
+    rgba(2,6,18,.98));
+
+  border:1px solid rgba(0,255,255,.20);
+
+  box-shadow:
+    0 0 35px rgba(0,255,255,.08);
+}
+
+.floating-pick-card small{
+  color:#00ffe7;
+  font-weight:900;
+  letter-spacing:1px;
+}
+
+.floating-pick-card h3{
+  font-size:42px;
+  margin:18px 0;
+  color:white;
+}
+
+.floating-pick-card span{
+  font-size:62px;
+  font-weight:1000;
+
+  background:
+    linear-gradient(135deg,
+    #00ffe7,
+    #8ffff5);
+
+  -webkit-background-clip:text;
+  color:transparent;
+}
+
+.floating-pick-card p{
+  margin-top:16px;
+  color:rgba(255,255,255,.72);
+}
+
+.over-card{
+  border-color:rgba(0,255,170,.35);
+}
+
+.ml-card{
+  border-color:rgba(255,209,102,.35);
+
+  background:
+    radial-gradient(circle at top right,
+    rgba(255,209,102,.10),
+    transparent 30%),
+
+    linear-gradient(145deg,
+    rgba(5,18,42,.96),
+    rgba(2,6,18,.98));
+}
+
+/* MOBILE */
+
+@media (max-width:900px){
+
+  .top-navbar,
+  .landing-hero{
+    width:calc(100% - 24px);
+  }
+
+  .landing-hero{
+    grid-template-columns:1fr;
+  }
+
+  .landing-left h1{
+    font-size:44px;
+    line-height:1.08;
+  }
+
+  .landing-subtitle{
+    font-size:17px;
+  }
+
+  .floating-pick-card h3{
+    font-size:30px;
+  }
+
+  .floating-pick-card span{
+    font-size:48px;
+  }
+
+  .nav-logo{
+    font-size:20px;
+  }
+
+}
