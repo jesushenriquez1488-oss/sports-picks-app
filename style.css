@@ -6880,3 +6880,301 @@ button:active,
     font-size:9px !important;
   }
 }
+/* ===== CASHEDGE LOGIN ANIMATED PREMIUM FINAL ===== */
+
+#authBox{
+  position:relative !important;
+  overflow:hidden !important;
+}
+
+.auth-landing-info{
+  position:relative !important;
+  overflow:hidden !important;
+}
+
+/* SHOOTING STARS */
+.login-effects{
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+  pointer-events:none;
+  z-index:0;
+}
+
+.shooting-star{
+  position:absolute;
+  height:2px;
+  border-radius:999px;
+  background:linear-gradient(90deg,#00ffe7,transparent);
+  box-shadow:0 0 8px #00ffe7,0 0 18px rgba(0,255,231,.8);
+  animation:shoot 4s linear infinite;
+  opacity:.8;
+}
+
+.star1{width:120px;top:35px;left:-140px;animation-delay:0s;}
+.star2{width:90px;top:85px;left:-120px;animation-delay:1.5s;}
+.star3{width:140px;top:145px;left:-160px;animation-delay:2.7s;}
+
+.star4{
+  width:110px;
+  top:55px;
+  right:-120px;
+  background:linear-gradient(90deg,#9b7cff,transparent);
+  box-shadow:0 0 8px #9b7cff,0 0 18px rgba(155,124,255,.8);
+  animation:shootRight 5s linear infinite;
+  animation-delay:1s;
+}
+
+.star5{
+  width:85px;
+  top:125px;
+  right:-100px;
+  background:linear-gradient(90deg,#9b7cff,transparent);
+  box-shadow:0 0 8px #9b7cff,0 0 18px rgba(155,124,255,.8);
+  animation:shootRight 4.5s linear infinite;
+  animation-delay:3s;
+}
+
+@keyframes shoot{
+  0%{transform:translateX(0) translateY(0) rotate(-12deg);opacity:0;}
+  10%{opacity:1;}
+  100%{transform:translateX(1100px) translateY(80px) rotate(-12deg);opacity:0;}
+}
+
+@keyframes shootRight{
+  0%{transform:translateX(0) translateY(0) rotate(12deg);opacity:0;}
+  10%{opacity:1;}
+  100%{transform:translateX(-1100px) translateY(80px) rotate(12deg);opacity:0;}
+}
+
+/* PREMIUM ANIMATED CARDS */
+.premium-animated-grid{
+  display:grid !important;
+  grid-template-columns:repeat(3,1fr) !important;
+  gap:16px !important;
+  position:relative;
+  z-index:2;
+}
+
+.auth-ai-card{
+  position:relative;
+  overflow:hidden;
+  min-height:138px;
+  padding:18px 14px 18px !important;
+  border-radius:20px !important;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(0,255,231,.20), transparent 35%),
+    linear-gradient(145deg,rgba(3,13,30,.98),rgba(4,5,20,.99)) !important;
+  border:1px solid rgba(0,255,231,.58) !important;
+  box-shadow:
+    0 0 30px rgba(0,255,231,.35),
+    0 0 70px rgba(0,140,255,.16),
+    inset 0 0 34px rgba(0,255,231,.10) !important;
+  animation:cardFloat 3.2s ease-in-out infinite;
+}
+
+.auth-ai-card:nth-child(2){
+  border-color:rgba(220,70,255,.72) !important;
+  box-shadow:0 0 32px rgba(220,70,255,.42), inset 0 0 34px rgba(220,70,255,.12) !important;
+  animation-delay:.3s;
+}
+
+.auth-ai-card:nth-child(3){
+  border-color:rgba(90,120,255,.72) !important;
+  box-shadow:0 0 32px rgba(90,120,255,.42), inset 0 0 34px rgba(90,120,255,.12) !important;
+  animation-delay:.6s;
+}
+
+.auth-ai-card::before{
+  content:"";
+  position:absolute;
+  top:9px;
+  left:9px;
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:#00ffe7;
+  box-shadow:0 0 20px #00ffe7;
+}
+
+.auth-ai-card::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(110deg,transparent 0%,rgba(255,255,255,.18) 45%,transparent 70%);
+  transform:translateX(-120%);
+  animation:cardShine 4s infinite;
+}
+
+/* FUTURISTIC SVG ICONS */
+.feature-icon{
+  width:58px !important;
+  height:58px !important;
+  margin:0 auto 10px !important;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(0,255,231,.18),transparent 68%);
+}
+
+.feature-icon svg{
+  width:54px;
+  height:54px;
+  fill:none;
+  stroke:#00ffe7;
+  stroke-width:3;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  filter:
+    drop-shadow(0 0 6px rgba(0,255,231,.95))
+    drop-shadow(0 0 18px rgba(0,255,231,.72));
+}
+
+.svg-trophy svg{
+  stroke:#d94cff;
+  filter:
+    drop-shadow(0 0 6px rgba(217,76,255,.95))
+    drop-shadow(0 0 20px rgba(217,76,255,.75));
+}
+
+.svg-bolt svg{
+  stroke:#6f8cff;
+  filter:
+    drop-shadow(0 0 6px rgba(111,140,255,.95))
+    drop-shadow(0 0 20px rgba(111,140,255,.75));
+}
+
+.auth-ai-card strong{
+  font-size:15px !important;
+  color:#00ffe7 !important;
+  text-shadow:0 0 14px rgba(0,255,231,.9);
+}
+
+.auth-ai-card:nth-child(2) strong{
+  color:#d94cff !important;
+  text-shadow:0 0 18px rgba(220,70,255,.9);
+}
+
+.auth-ai-card:nth-child(3) strong{
+  color:#6f8cff !important;
+  text-shadow:0 0 18px rgba(90,120,255,.9);
+}
+
+.rotating-text{
+  position:relative;
+  height:22px;
+  margin-top:8px;
+  font-size:12px;
+  color:white;
+  width:100%;
+}
+
+.rotating-text span{
+  position:absolute;
+  left:0;
+  right:0;
+  text-align:center;
+  opacity:0;
+  animation:textSwap 4s infinite;
+}
+
+.rotating-text span:nth-child(2){
+  animation-delay:2s;
+}
+
+.mini-progress{
+  position:absolute;
+  left:18px;
+  right:18px;
+  bottom:12px;
+  height:4px;
+  border-radius:999px;
+  background:rgba(255,255,255,.12);
+  overflow:hidden;
+}
+
+.mini-progress::before{
+  content:"";
+  display:block;
+  height:100%;
+  width:45%;
+  border-radius:999px;
+  background:linear-gradient(90deg,#00ffe7,#7c3cff);
+  box-shadow:0 0 14px rgba(0,255,231,.9);
+  animation:progressMove 2.2s ease-in-out infinite;
+}
+
+@keyframes textSwap{
+  0%,45%{opacity:1;transform:translateY(0);}
+  50%,100%{opacity:0;transform:translateY(-6px);}
+}
+
+@keyframes cardShine{
+  0%{transform:translateX(-120%);}
+  55%{transform:translateX(120%);}
+  100%{transform:translateX(120%);}
+}
+
+@keyframes progressMove{
+  0%{transform:translateX(-60%);}
+  100%{transform:translateX(190%);}
+}
+
+@keyframes cardFloat{
+  0%,100%{transform:translateY(0);}
+  50%{transform:translateY(-4px);}
+}
+
+/* MOBILE COMPACT */
+@media(max-width:700px){
+  .premium-animated-grid{
+    grid-template-columns:repeat(3,1fr) !important;
+    gap:7px !important;
+  }
+
+  .auth-ai-card{
+    min-height:96px !important;
+    padding:10px 5px 18px !important;
+  }
+
+  .feature-icon{
+    width:38px !important;
+    height:38px !important;
+    margin-bottom:5px !important;
+  }
+
+  .feature-icon svg{
+    width:36px;
+    height:36px;
+    stroke-width:3;
+  }
+
+  .auth-ai-card strong{
+    font-size:10px !important;
+  }
+
+  .rotating-text{
+    height:18px;
+    font-size:8.5px !important;
+    line-height:1.15;
+  }
+
+  .mini-progress{
+    left:8px;
+    right:8px;
+    bottom:8px;
+    height:3px;
+  }
+
+  .shooting-star{
+    height:1px;
+  }
+
+  .star1,.star2,.star3,.star4,.star5{
+    width:60px;
+  }
+}
