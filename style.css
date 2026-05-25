@@ -6976,7 +6976,10 @@ button:active,
     inset 0 0 34px rgba(0,255,231,.10) !important;
   animation:cardFloat 3.2s ease-in-out infinite;
 }
-
+.auth-ai-card{
+  min-height:auto !important;
+  padding-bottom:22px !important;
+}
 .auth-ai-card:nth-child(2){
   border-color:rgba(220,70,255,.72) !important;
   box-shadow:0 0 32px rgba(220,70,255,.42), inset 0 0 34px rgba(220,70,255,.12) !important;
