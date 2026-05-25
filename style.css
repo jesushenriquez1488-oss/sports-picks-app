@@ -7213,3 +7213,35 @@ button:active,
     left:100%;
   }
 }
+/* FIX MINI PROGRESS - THIN AI BAR */
+
+.auth-ai-card .mini-progress{
+  position:relative !important;
+  width:78% !important;
+  height:4px !important;
+  min-height:4px !important;
+  max-height:4px !important;
+  margin:14px auto 0 !important;
+  border-radius:999px !important;
+  background:rgba(255,255,255,.14) !important;
+  overflow:hidden !important;
+  box-shadow:none !important;
+}
+
+.auth-ai-card .mini-progress::before{
+  content:"" !important;
+  position:absolute !important;
+  top:0 !important;
+  left:-45% !important;
+  width:42% !important;
+  height:100% !important;
+  border-radius:999px !important;
+  background:linear-gradient(90deg,#00ffe7,#7c3cff) !important;
+  box-shadow:0 0 12px rgba(0,255,231,.9) !important;
+  animation:progressMoveFixed 2.2s linear infinite !important;
+}
+
+@keyframes progressMoveFixed{
+  0%{ left:-45%; }
+  100%{ left:105%; }
+}
