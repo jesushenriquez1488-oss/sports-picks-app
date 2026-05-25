@@ -7796,3 +7796,110 @@ button:active,
     border-radius:14px !important;
   }
 }
+.parlay-premium-btn{
+  max-width:500px !important;
+  height:44px !important;
+  margin:14px auto 0 !important;
+
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+
+  border-radius:14px !important;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(0,255,231,.18),
+      rgba(35,120,255,.28),
+      rgba(124,60,255,.32)
+    ) !important;
+
+  border:1px solid rgba(0,255,231,.32) !important;
+
+  color:#fff !important;
+  font-weight:900 !important;
+  letter-spacing:.7px !important;
+
+  position:relative !important;
+  overflow:hidden !important;
+
+  box-shadow:
+    0 0 12px rgba(0,255,231,.18),
+    0 0 24px rgba(124,60,255,.18),
+    inset 0 0 18px rgba(255,255,255,.04) !important;
+
+  backdrop-filter:blur(12px);
+  transition:.25s ease !important;
+}
+
+/* glow sweep */
+.parlay-premium-btn::before{
+  content:"";
+  position:absolute;
+  top:-120%;
+  left:-30%;
+  width:24%;
+  height:320%;
+
+  background:linear-gradient(
+    90deg,
+    transparent,
+    rgba(255,255,255,.18),
+    transparent
+  );
+
+  transform:rotate(18deg);
+  animation:cashEdgeSweep 4s linear infinite;
+}
+
+.parlay-premium-btn:hover{
+  transform:translateY(-1px);
+
+  box-shadow:
+    0 0 16px rgba(0,255,231,.28),
+    0 0 36px rgba(124,60,255,.28),
+    inset 0 0 18px rgba(255,255,255,.05) !important;
+}
+
+/* pulse al activar */
+.parlay-premium-btn.active-parlay{
+  animation:parlayPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes cashEdgeSweep{
+  0%{
+    left:-35%;
+  }
+
+  100%{
+    left:135%;
+  }
+}
+
+@keyframes parlayPulse{
+  0%,100%{
+    box-shadow:
+      0 0 12px rgba(0,255,231,.22),
+      0 0 26px rgba(124,60,255,.22);
+  }
+
+  50%{
+    box-shadow:
+      0 0 20px rgba(0,255,231,.45),
+      0 0 48px rgba(124,60,255,.45);
+  }
+}
+
+/* móvil */
+@media(max-width:700px){
+
+  .parlay-premium-btn{
+    max-width:92% !important;
+    height:40px !important;
+    border-radius:12px !important;
+    font-size:12px !important;
+    letter-spacing:.3px !important;
+  }
+
+}
