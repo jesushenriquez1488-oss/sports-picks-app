@@ -7181,3 +7181,35 @@ button:active,
     width:60px;
   }
 }
+.mini-progress{
+  width:78%;
+  height:4px;
+  margin-top:14px;
+  border-radius:999px;
+  background:rgba(255,255,255,.10);
+  overflow:hidden;
+  position:relative;
+}
+
+.mini-progress::before{
+  content:"";
+  position:absolute;
+  top:0;
+  bottom:0;
+  left:-40%;
+  width:40%;
+  border-radius:999px;
+  background:linear-gradient(90deg,#00ffe7,#7c3cff);
+  box-shadow:0 0 12px rgba(0,255,231,.95);
+  animation:progressMove 2.2s linear infinite;
+}
+
+@keyframes progressMove{
+  0%{
+    left:-40%;
+  }
+
+  100%{
+    left:100%;
+  }
+}
