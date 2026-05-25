@@ -7740,3 +7740,59 @@ button:active,
     letter-spacing:.5px !important;
   }
 }
+.parlay-premium-btn{
+  max-width:620px !important;
+  height:52px !important;
+  margin:16px auto 0 !important;
+  display:block !important;
+  border-radius:18px !important;
+
+  background:linear-gradient(135deg,#ff7b00,#ff2fd1,#7c3cff) !important;
+  color:white !important;
+
+  box-shadow:
+    0 0 18px rgba(255,47,209,.55),
+    0 0 42px rgba(124,60,255,.42) !important;
+
+  position:relative !important;
+  overflow:hidden !important;
+}
+
+.parlay-premium-btn::before{
+  content:"";
+  position:absolute;
+  top:-80%;
+  left:-40%;
+  width:35%;
+  height:260%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);
+  transform:rotate(18deg);
+  animation:parlayShine 3.5s linear infinite;
+}
+
+.parlay-premium-btn.active-parlay{
+  animation:parlayPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes parlayShine{
+  from{left:-45%;}
+  to{left:130%;}
+}
+
+@keyframes parlayPulse{
+  0%,100%{
+    box-shadow:0 0 18px rgba(255,47,209,.45),0 0 42px rgba(124,60,255,.35);
+  }
+  50%{
+    box-shadow:0 0 30px rgba(255,47,209,.85),0 0 70px rgba(124,60,255,.75);
+  }
+}
+
+@media(max-width:700px){
+  .parlay-premium-btn{
+    max-width:100% !important;
+    height:44px !important;
+    font-size:13px !important;
+    border-radius:14px !important;
+  }
+}
