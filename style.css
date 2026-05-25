@@ -7245,3 +7245,42 @@ button:active,
   0%{ left:-45%; }
   100%{ left:105%; }
 }
+.auth-ai-card{
+  min-height:180px !important;
+  padding-bottom:38px !important;
+}
+
+.auth-ai-card .mini-progress{
+  position:absolute !important;
+  left:24px !important;
+  right:24px !important;
+  bottom:18px !important;
+  width:auto !important;
+  height:4px !important;
+  min-height:4px !important;
+  margin:0 !important;
+  border-radius:999px !important;
+  background:rgba(255,255,255,.12) !important;
+  overflow:hidden !important;
+  border:none !important;
+  box-shadow:none !important;
+}
+
+.auth-ai-card .mini-progress::before{
+  content:"" !important;
+  position:absolute !important;
+  top:0 !important;
+  bottom:0 !important;
+  left:-35% !important;
+  width:35% !important;
+  height:100% !important;
+  border-radius:999px !important;
+  background:linear-gradient(90deg,#00ffe7,#7c3cff) !important;
+  box-shadow:0 0 12px rgba(0,255,231,.95) !important;
+  animation:miniBarMove 2s linear infinite !important;
+}
+
+@keyframes miniBarMove{
+  from{ left:-35%; }
+  to{ left:100%; }
+}
