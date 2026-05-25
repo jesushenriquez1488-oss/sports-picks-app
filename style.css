@@ -6734,3 +6734,149 @@ button:active,
     line-height:1.15 !important;
   }
 }
+/* CASHEDGE LOGIN TOP PREMIUM */
+
+#authBox::before{
+  content:"CASHEDGE" !important;
+  font-size:42px !important;
+  letter-spacing:2px !important;
+  text-shadow:
+    0 0 14px rgba(0,255,231,.9),
+    0 0 34px rgba(124,60,255,.65),
+    0 0 60px rgba(255,0,255,.35);
+}
+
+.auth-brand{
+  font-size:16px !important;
+  letter-spacing:1.5px;
+  color:#00ffe7 !important;
+  background:none !important;
+  -webkit-background-clip:initial !important;
+}
+
+.auth-landing-info h2{
+  font-size:34px !important;
+  font-weight:1000;
+  background:linear-gradient(90deg,#fff,#00ffe7,#9b7cff,#ff4dff);
+  -webkit-background-clip:text;
+  color:transparent !important;
+  text-shadow:0 0 30px rgba(0,255,231,.25);
+}
+
+.auth-landing-info h2::before{
+  content:"Data. AI. Edge.";
+}
+
+/* hide old title text visually if needed */
+.auth-landing-info h2{
+  font-size:0 !important;
+}
+
+.auth-landing-info h2::before{
+  font-size:34px !important;
+}
+
+/* animated feature cards */
+
+.auth-feature-grid div{
+  position:relative;
+  overflow:hidden;
+  min-height:92px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+
+  background:
+    radial-gradient(circle at top left, rgba(0,255,231,.18), transparent 35%),
+    linear-gradient(145deg,rgba(2,12,28,.96),rgba(5,6,22,.98)) !important;
+
+  border:1px solid rgba(0,255,231,.42) !important;
+
+  box-shadow:
+    0 0 22px rgba(0,255,231,.22),
+    0 0 45px rgba(124,60,255,.14),
+    inset 0 0 28px rgba(0,255,231,.07) !important;
+
+  animation: cardPulse 3.8s ease-in-out infinite;
+}
+
+.auth-feature-grid div:nth-child(2){
+  border-color:rgba(180,80,255,.55) !important;
+  box-shadow:
+    0 0 24px rgba(180,80,255,.28),
+    inset 0 0 28px rgba(180,80,255,.08) !important;
+}
+
+.auth-feature-grid div:nth-child(3){
+  border-color:rgba(80,120,255,.55) !important;
+  box-shadow:
+    0 0 24px rgba(80,120,255,.28),
+    inset 0 0 28px rgba(80,120,255,.08) !important;
+}
+
+.auth-feature-grid div::after{
+  content:"";
+  position:absolute;
+  left:-70%;
+  top:0;
+  width:45%;
+  height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);
+  transform:skewX(-18deg);
+  animation: cardScan 4s infinite;
+}
+
+.auth-feature-grid strong{
+  color:#00ffe7 !important;
+  text-shadow:0 0 14px rgba(0,255,231,.75);
+}
+
+.auth-feature-grid span{
+  opacity:.85;
+}
+
+@keyframes cardScan{
+  0%{left:-70%;}
+  55%{left:125%;}
+  100%{left:125%;}
+}
+
+@keyframes cardPulse{
+  0%,100%{
+    transform:translateY(0);
+    filter:brightness(1);
+  }
+  50%{
+    transform:translateY(-3px);
+    filter:brightness(1.18);
+  }
+}
+
+/* MOBILE */
+@media(max-width:700px){
+  #authBox::before{
+    font-size:30px !important;
+  }
+
+  .auth-landing-info h2::before{
+    font-size:24px !important;
+  }
+
+  .auth-feature-grid{
+    grid-template-columns:repeat(3,1fr) !important;
+  }
+
+  .auth-feature-grid div{
+    min-height:70px !important;
+    padding:10px 6px !important;
+  }
+
+  .auth-feature-grid strong{
+    font-size:10px !important;
+  }
+
+  .auth-feature-grid span{
+    font-size:9px !important;
+  }
+}
