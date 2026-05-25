@@ -7284,3 +7284,49 @@ button:active,
   from{ left:-35%; }
   to{ left:100%; }
 }
+/* FIX DEFINITIVO BARRA AI */
+.auth-ai-card .mini-progress{
+  position:absolute !important;
+  left:34px !important;
+  right:34px !important;
+  bottom:18px !important;
+  width:auto !important;
+  height:5px !important;
+  min-height:5px !important;
+  max-height:5px !important;
+  margin:0 !important;
+  padding:0 !important;
+  border-radius:999px !important;
+  border:none !important;
+  overflow:hidden !important;
+
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255,255,255,.12) 0%,
+      rgba(255,255,255,.12) 35%,
+      #00ffe7 45%,
+      #7c3cff 55%,
+      rgba(255,255,255,.12) 65%,
+      rgba(255,255,255,.12) 100%
+    ) !important;
+
+  background-size:220% 100% !important;
+  animation:cashEdgeBar 1.8s linear infinite !important;
+  box-shadow:0 0 14px rgba(0,255,231,.45) !important;
+}
+
+.auth-ai-card .mini-progress::before,
+.auth-ai-card .mini-progress::after{
+  display:none !important;
+  content:none !important;
+}
+
+@keyframes cashEdgeBar{
+  0%{
+    background-position:220% 0;
+  }
+  100%{
+    background-position:-220% 0;
+  }
+}
