@@ -7602,3 +7602,141 @@ button:active,
 .normal-rate{
   display:none !important;
 }
+/* ===== PARLAY AI FUTURISTA ===== */
+
+#loadParlayBtn{
+  position:relative !important;
+  overflow:hidden !important;
+
+  height:58px !important;
+  margin-top:14px !important;
+
+  border-radius:18px !important;
+
+  background:
+    linear-gradient(
+      135deg,
+      #ff7b00 0%,
+      #ff2fd1 45%,
+      #7c3cff 100%
+    ) !important;
+
+  border:1px solid rgba(255,255,255,.18) !important;
+
+  box-shadow:
+    0 0 14px rgba(255,47,209,.45),
+    0 0 34px rgba(124,60,255,.35),
+    inset 0 0 24px rgba(255,255,255,.08) !important;
+
+  transition:.28s ease !important;
+}
+
+/* glow animado */
+#loadParlayBtn::before{
+  content:'' !important;
+  position:absolute !important;
+  inset:-40% !important;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(255,255,255,.35),
+      transparent
+    );
+
+  transform:rotate(12deg);
+  animation:parlayShine 4s linear infinite;
+}
+
+/* línea futurista abajo */
+#loadParlayBtn::after{
+  content:'' !important;
+  position:absolute !important;
+  left:16px !important;
+  right:16px !important;
+  bottom:7px !important;
+  height:2px !important;
+
+  border-radius:999px !important;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      #fff,
+      #00ffe7,
+      #fff,
+      transparent
+    );
+
+  opacity:.9;
+}
+
+#loadParlayBtn:hover{
+  transform:translateY(-2px) scale(1.01) !important;
+
+  box-shadow:
+    0 0 18px rgba(255,47,209,.7),
+    0 0 44px rgba(124,60,255,.55),
+    inset 0 0 28px rgba(255,255,255,.12) !important;
+}
+
+#loadParlayBtn span,
+#loadParlayBtn{
+  font-size:17px !important;
+  font-weight:900 !important;
+  letter-spacing:1px !important;
+  text-transform:uppercase !important;
+}
+
+/* estado activo/cargando */
+#loadParlayBtn.active-parlay{
+  animation:parlayPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes parlayPulse{
+  0%{
+    box-shadow:
+      0 0 10px rgba(255,47,209,.4),
+      0 0 24px rgba(124,60,255,.3);
+  }
+
+  50%{
+    box-shadow:
+      0 0 22px rgba(255,47,209,.9),
+      0 0 60px rgba(124,60,255,.8);
+  }
+
+  100%{
+    box-shadow:
+      0 0 10px rgba(255,47,209,.4),
+      0 0 24px rgba(124,60,255,.3);
+  }
+}
+
+@keyframes parlayShine{
+  0%{
+    transform:translateX(-140%) rotate(12deg);
+  }
+
+  100%{
+    transform:translateX(140%) rotate(12deg);
+  }
+}
+
+/* móvil */
+@media(max-width:700px){
+
+  #loadParlayBtn{
+    height:48px !important;
+    border-radius:14px !important;
+    margin-top:10px !important;
+  }
+
+  #loadParlayBtn span,
+  #loadParlayBtn{
+    font-size:13px !important;
+    letter-spacing:.5px !important;
+  }
+}
