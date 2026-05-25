@@ -6444,3 +6444,30 @@ button:active,
     font-size:16px;
   }
 }
+#authBox,
+#userBox,
+.hero.ai-hero,
+.premium-monthly-box,
+.ai-main-area,
+.site-footer{
+  display:none !important;
+}
+
+body.show-login #authBox{
+  display:block !important;
+}
+
+body.show-app .hero.ai-hero,
+body.show-app .premium-monthly-box,
+body.show-app .ai-main-area,
+body.show-app .site-footer{
+  display:block !important;
+}
+
+body.show-app .cash-intro{
+  display:none !important;
+}
+
+body.show-login .cash-intro{
+  display:none !important;
+}
