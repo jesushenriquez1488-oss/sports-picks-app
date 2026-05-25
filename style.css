@@ -6383,6 +6383,71 @@ button:active,
   }
 
 }
+/* LOGIN PREMIUM INFO */
 
+.auth-landing-info{
+  margin-top:34px;
+  padding-top:28px;
+  border-top:1px solid rgba(0,255,255,.18);
+  text-align:center;
+}
+
+.auth-brand{
+  font-size:28px;
+  font-weight:1000;
+  margin-bottom:12px;
+  background:linear-gradient(90deg,#ffffff,#00ffe7,#9b7cff);
+  -webkit-background-clip:text;
+  color:transparent;
+}
+
+.auth-landing-info h2{
+  margin:0 0 12px;
+  font-size:30px;
+  color:white;
+}
+
+.auth-landing-info p{
+  max-width:760px;
+  margin:0 auto 24px;
+  color:rgba(255,255,255,.72);
+  font-size:15px;
+  line-height:1.6;
+}
+
+.auth-feature-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:14px;
+}
+
+.auth-feature-grid div{
+  padding:18px 14px;
+  border-radius:18px;
+  background:rgba(0,255,255,.045);
+  border:1px solid rgba(0,255,255,.16);
+}
+
+.auth-feature-grid strong{
+  display:block;
+  color:#00ffe7;
+  font-size:14px;
+  margin-bottom:6px;
+}
+
+.auth-feature-grid span{
+  color:rgba(255,255,255,.68);
+  font-size:12px;
+}
+
+@media(max-width:700px){
+  .auth-feature-grid{
+    grid-template-columns:1fr;
+  }
+
+  .auth-landing-info h2{
+    font-size:24px;
+  }
+}
 
 }
