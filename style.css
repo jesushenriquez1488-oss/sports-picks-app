@@ -6693,3 +6693,33 @@ button:active,
 #authBox{
   display:none !important;
 }
+/* OCULTAR HERO VIEJO */
+.ai-hero{
+  display:none !important;
+}
+
+/* LANDING EN UNA SOLA COLUMNA LIMPIA */
+.landing-hero{
+  grid-template-columns:1fr !important;
+  min-height:70vh;
+}
+
+.landing-left{
+  max-width:900px;
+  margin:0 auto;
+  text-align:center;
+}
+
+.landing-subtitle{
+  margin-left:auto;
+  margin-right:auto;
+}
+
+.landing-buttons{
+  justify-content:center;
+}
+
+.hero-results-strip{
+  margin-left:auto;
+  margin-right:auto;
+}
