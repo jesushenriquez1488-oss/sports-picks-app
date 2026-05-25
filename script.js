@@ -2028,6 +2028,23 @@ function endAnalysisLock(index) {
   activeAnalysis[index] = false;
   setAnalysisButtonLoading(index, false);
 }
+const loadParlayBtn =
+  document.getElementById('loadParlayBtn') ||
+  document.querySelector('.parlay-btn') ||
+  document.querySelector('[onclick*="parlay"]');
+if(loadParlayBtn){
+
+  loadParlayBtn.addEventListener('click', () => {
+
+    loadParlayBtn.classList.add('active-parlay');
+
+    setTimeout(() => {
+      loadParlayBtn.classList.remove('active-parlay');
+    }, 3500);
+
+  });
+
+}
 async function loadParlayToday() {
   const box = document.getElementById("parlayTodayBox");
 const gamesDiv = document.getElementById("games");
