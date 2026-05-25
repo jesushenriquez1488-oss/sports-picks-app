@@ -6451,3 +6451,157 @@ button:active,
 }
 
 }
+/* LOGIN PREMIUM FINAL CLEAN */
+
+#authBox{
+  max-width:920px !important;
+  margin:42px auto !important;
+  padding:28px !important;
+  border-radius:28px !important;
+  position:relative;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at top left, rgba(0,255,231,.14), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(124,60,255,.16), transparent 38%),
+    linear-gradient(145deg, rgba(6,16,36,.94), rgba(3,6,18,.98)) !important;
+  border:1px solid rgba(0,255,231,.32) !important;
+  box-shadow:
+    0 0 38px rgba(0,255,231,.14),
+    0 0 80px rgba(124,60,255,.10),
+    inset 0 0 42px rgba(0,255,231,.045) !important;
+}
+
+#authBox::before{
+  content:"CASHEDGE AI";
+  display:block;
+  text-align:center;
+  font-size:32px;
+  font-weight:1000;
+  margin-bottom:18px;
+  letter-spacing:-1px;
+  background:linear-gradient(90deg,#fff,#00ffe7,#9b7cff);
+  -webkit-background-clip:text;
+  color:transparent;
+}
+
+#authBox h3{
+  text-align:center;
+  font-size:22px !important;
+  margin:0 0 18px !important;
+}
+
+#authBox input{
+  height:48px !important;
+  margin-bottom:12px !important;
+  border-radius:14px !important;
+  font-size:14px !important;
+}
+
+#authBox button{
+  max-width:360px !important;
+  width:100% !important;
+  height:48px !important;
+  display:block !important;
+  margin:12px auto 0 !important;
+  border-radius:14px !important;
+  font-size:14px !important;
+  letter-spacing:.6px;
+  box-shadow:
+    0 0 18px rgba(0,255,231,.24),
+    0 0 34px rgba(124,60,255,.16) !important;
+}
+
+.auth-switch{
+  margin:14px 0 4px !important;
+  font-size:14px !important;
+}
+
+.auth-landing-info{
+  margin-top:24px !important;
+  padding-top:22px !important;
+}
+
+.auth-brand{
+  font-size:24px !important;
+  margin-bottom:8px !important;
+}
+
+.auth-landing-info h2{
+  font-size:24px !important;
+  margin-bottom:10px !important;
+}
+
+.auth-landing-info p{
+  max-width:620px !important;
+  font-size:14px !important;
+  line-height:1.45 !important;
+  margin-bottom:18px !important;
+}
+
+.auth-feature-grid{
+  grid-template-columns:repeat(3,1fr) !important;
+  gap:12px !important;
+}
+
+.auth-feature-grid div{
+  padding:14px 12px !important;
+  border-radius:16px !important;
+  background:
+    linear-gradient(145deg, rgba(0,255,231,.055), rgba(124,60,255,.04)) !important;
+  box-shadow:inset 0 0 22px rgba(0,255,231,.04);
+}
+
+.auth-feature-grid strong{
+  font-size:13px !important;
+}
+
+.auth-feature-grid span{
+  font-size:11px !important;
+}
+
+/* MOBILE LOGIN COMPACT */
+@media(max-width:700px){
+  #authBox{
+    width:calc(100% - 24px) !important;
+    margin:18px auto !important;
+    padding:18px !important;
+    border-radius:22px !important;
+  }
+
+  #authBox::before{
+    font-size:24px !important;
+    margin-bottom:14px !important;
+  }
+
+  #authBox h3{
+    font-size:18px !important;
+  }
+
+  #authBox input{
+    height:44px !important;
+    font-size:13px !important;
+  }
+
+  #authBox button{
+    height:44px !important;
+    max-width:100% !important;
+    font-size:13px !important;
+  }
+
+  .auth-landing-info h2{
+    font-size:20px !important;
+  }
+
+  .auth-landing-info p{
+    font-size:12px !important;
+  }
+
+  .auth-feature-grid{
+    grid-template-columns:1fr !important;
+    gap:10px !important;
+  }
+
+  .auth-feature-grid div{
+    padding:12px !important;
+  }
+}
