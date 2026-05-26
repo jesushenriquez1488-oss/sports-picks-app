@@ -1425,6 +1425,40 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
     document.getElementById("resetPasswordBox").style.display = "block";
   }
 });
+async function updateNewPassword() {
+  const password = document.getElementById("newPassword").value;
+  const confirmPassword = document.getElementById("confirmNewPassword").value;
+
+  if (!password || !confirmPassword) {
+    showAuthMessage("Complete both password fields", "error");
+    return;
+  }
+
+  if (password.length < 6) {
+    showAuthMessage("Password must be at least 6 characters", "error");
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    showAuthMessage("Passwords do not match", "error");
+    return;
+  }
+
+  const { error } = await supabaseClient.auth.updateUser({
+    password: password
+  });
+
+  if (error) {
+    showAuthMessage(error.message, "error");
+    return;
+  }
+
+  showAuthMessage("Password updated successfully", "success");
+
+  setTimeout(() => {
+    window.location.href = window.location.origin;
+  }, 1500);
+}
 async function requireLogin(message) {
   const { data: sessionData } = await supabaseClient.auth.getSession();
 
