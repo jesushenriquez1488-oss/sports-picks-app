@@ -8298,3 +8298,6 @@ button:active,
 #resetPasswordBox input{
   margin-bottom:12px;
 }
+body.logged-in #authBox{
+  display:none !important;
+}
