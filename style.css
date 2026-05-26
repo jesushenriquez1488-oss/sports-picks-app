@@ -8223,3 +8223,51 @@ button:active,
     margin-bottom:12px !important;
   }
 }
+@media(max-width:768px){
+
+  #authBox button,
+  .auth-box button,
+  .auth-link-btn,
+  .google-login-btn,
+  .ce-google-btn{
+    height:50px !important;
+    min-height:50px !important;
+    padding:0 16px !important;
+    border-radius:16px !important;
+    font-size:15px !important;
+    font-weight:800 !important;
+    box-shadow:0 0 18px rgba(0,255,255,.10) !important;
+  }
+
+  #authBox button:not(.google-login-btn):not(.ce-google-btn),
+  .auth-box button:not(.google-login-btn):not(.ce-google-btn),
+  .auth-link-btn{
+    background:linear-gradient(
+      90deg,
+      rgba(0,255,255,.13),
+      rgba(0,140,255,.14),
+      rgba(124,60,255,.16)
+    ) !important;
+    border:1px solid rgba(0,255,255,.32) !important;
+  }
+
+  .google-login-btn,
+  .ce-google-btn{
+    background:#fff !important;
+    color:#111827 !important;
+    border:none !important;
+  }
+
+  .auth-box input,
+  #authBox input{
+    height:48px !important;
+    padding:0 18px !important;
+    border-radius:16px !important;
+    margin-bottom:10px !important;
+  }
+
+  .auth-switch{
+    margin:8px 0 !important;
+    font-size:13px !important;
+  }
+}
