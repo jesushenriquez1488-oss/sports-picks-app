@@ -190,9 +190,7 @@ window.addEventListener("load", async () => {
         premiumBox.style.display = "block";
       }
     }
-if (localStorage.getItem("cashEdgePasswordRecovery") === "true") {
-  return;
-}
+
     document.getElementById("authBox").style.display = "none";
     document.getElementById("userBox").style.display = "block";
     document.getElementById("userEmail").innerText = user.email;
@@ -1373,9 +1371,7 @@ async function loginUser(email, password) {
   }
 
   localStorage.setItem("supabaseUser", JSON.stringify(user));
-if (localStorage.getItem("cashEdgePasswordRecovery") === "true") {
-  return;
-}
+
   document.getElementById("authBox").style.display = "none";
   document.getElementById("userBox").style.display = "block";
 
