@@ -1382,6 +1382,18 @@ async function loginUser(email, password) {
 
   refreshResultsAfterUnlock();
 }
+async function loginWithGoogle() {
+  const { error } = await supabaseClient.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: window.location.origin
+    }
+  });
+
+  if (error) {
+    showAuthMessage("Google login error: " + error.message, "error");
+  }
+}
 async function requireLogin(message) {
   const { data: sessionData } = await supabaseClient.auth.getSession();
 
