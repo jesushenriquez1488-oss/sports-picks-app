@@ -8271,3 +8271,17 @@ button:active,
     font-size:13px !important;
   }
 }
+.forgot-password{
+  margin-top:-2px;
+  margin-bottom:14px;
+  text-align:right;
+  font-size:13px;
+  color:rgba(255,255,255,.72);
+  cursor:pointer;
+  transition:.2s ease;
+}
+
+.forgot-password:hover{
+  color:#00f7ff;
+  text-shadow:0 0 10px rgba(0,255,255,.45);
+}
