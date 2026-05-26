@@ -8023,3 +8023,49 @@ button:active,
 .google-login-btn:active{
   transform:scale(.99);
 }
+.google-login-btn{
+  width:100% !important;
+  height:58px !important;
+  margin-top:14px !important;
+  padding:0 22px !important;
+  border-radius:18px !important;
+  border:1px solid rgba(255,255,255,.75) !important;
+  background:#ffffff !important;
+  color:#111827 !important;
+  font-size:18px !important;
+  font-weight:800 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:14px !important;
+  line-height:1 !important;
+  text-align:center !important;
+  box-shadow:0 0 28px rgba(124,60,255,.22) !important;
+}
+
+.google-login-btn img{
+  width:28px !important;
+  height:28px !important;
+  padding:0 !important;
+  margin:0 !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  position:static !important;
+  display:block !important;
+}
+
+.google-login-btn span{
+  color:#111827 !important;
+  font-size:18px !important;
+  font-weight:800 !important;
+  line-height:1 !important;
+  display:block !important;
+  position:static !important;
+  margin:0 !important;
+  padding:0 !important;
+}
+
+.google-login-btn:hover{
+  transform:translateY(-1px) !important;
+  box-shadow:0 0 35px rgba(124,60,255,.32) !important;
+}
