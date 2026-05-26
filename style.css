@@ -7968,3 +7968,58 @@ button:active,
   transform:translateY(-2px) scale(1.01);
   box-shadow:0 0 35px rgba(0,255,255,.35);
 }
+.google-login-btn{
+  width:100%;
+  margin-top:14px;
+  height:58px;
+  border:none;
+  border-radius:20px;
+  background:#ffffff;
+  color:#111827;
+  font-size:18px;
+  font-weight:700;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  position:relative;
+  overflow:hidden;
+  transition:.25s ease;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.08),
+    0 10px 35px rgba(0,0,0,.35),
+    0 0 25px rgba(124,60,255,.18);
+}
+
+.google-login-btn::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:20px;
+  padding:1px;
+  background:linear-gradient(90deg,#14e7e4,#7c3cff);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;
+  mask-composite:exclude;
+}
+
+.google-login-btn img{
+  width:26px;
+  height:26px;
+  object-fit:contain;
+}
+
+.google-login-btn:hover{
+  transform:translateY(-2px) scale(1.01);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.12),
+    0 15px 45px rgba(0,0,0,.45),
+    0 0 40px rgba(124,60,255,.28);
+}
+
+.google-login-btn:active{
+  transform:scale(.99);
+}
