@@ -1418,9 +1418,16 @@ async function loginWithGoogle() {
   }
 }
 supabaseClient.auth.onAuthStateChange((event, session) => {
-  if (event === "PASSWORD_RECOVERY") {
+  const isResetFlow = window.location.search.includes("reset=true");
 
+  if (event === "PASSWORD_RECOVERY" || isResetFlow) {
     document.getElementById("authBox").style.display = "none";
+
+    const userBox = document.getElementById("userBox");
+    if (userBox) userBox.style.display = "none";
+
+    const mainApp = document.getElementById("mainApp");
+    if (mainApp) mainApp.style.display = "none";
 
     document.getElementById("resetPasswordBox").style.display = "block";
   }
