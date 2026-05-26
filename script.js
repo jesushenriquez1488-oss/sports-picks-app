@@ -1475,7 +1475,7 @@ async function updateNewPassword() {
   }
 
   showAuthMessage("Password updated successfully", "success");
-
+localStorage.removeItem("cashEdgePasswordRecovery");
   setTimeout(() => {
     window.location.href = window.location.origin;
   }, 1500);
