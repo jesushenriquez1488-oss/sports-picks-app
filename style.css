@@ -7903,3 +7903,37 @@ button:active,
   }
 
 }
+.google-login-btn{
+  width:100%;
+  margin-top:12px;
+  padding:13px 16px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.08);
+  color:#fff;
+  font-weight:800;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  box-shadow:0 0 22px rgba(0,255,231,.12);
+  transition:.2s ease;
+}
+
+.google-login-btn span{
+  width:24px;
+  height:24px;
+  border-radius:50%;
+  background:#fff;
+  color:#111;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:900;
+}
+
+.google-login-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 0 30px rgba(0,255,231,.25);
+}
