@@ -1417,12 +1417,18 @@ async function loginWithGoogle() {
     showAuthMessage("Google login error: " + error.message, "error");
   }
 }
+const url = window.location.href;
 const hash = window.location.hash;
+const search = window.location.search;
 
-if (
+const isRecoveryMode =
+  url.includes("type=recovery") ||
   hash.includes("type=recovery") ||
-  window.location.search.includes("reset=true")
-) {
+  search.includes("reset=true") ||
+  url.includes("reset=true");
+
+if (isRecoveryMode) {
+  localStorage.setItem("cashEdgePasswordRecovery", "true");
 
   const authBox = document.getElementById("authBox");
   if (authBox) authBox.style.display = "none";
@@ -1433,7 +1439,8 @@ if (
   const mainApp = document.getElementById("mainApp");
   if (mainApp) mainApp.style.display = "none";
 
-  document.getElementById("resetPasswordBox").style.display = "block";
+  const resetBox = document.getElementById("resetPasswordBox");
+  if (resetBox) resetBox.style.display = "block";
 }
 async function updateNewPassword() {
   const password = document.getElementById("newPassword").value;
