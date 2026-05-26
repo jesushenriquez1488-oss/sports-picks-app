@@ -193,7 +193,7 @@ window.addEventListener("load", async () => {
 
     document.getElementById("authBox").style.display = "none";
     document.getElementById("userBox").style.display = "block";
-
+document.body.classList.add("logged-in");
     document.getElementById("userEmail").innerText = user.email;
     document.getElementById("premiumStatus").innerText =
       isPremiumUser ? "🔥 Premium activo" : "Free account";
@@ -1375,7 +1375,7 @@ async function loginUser(email, password) {
 
  document.getElementById("authBox").style.display = "none";
  document.getElementById("userBox").style.display = "block";
-
+document.body.classList.add("logged-in");
   document.getElementById("userEmail").innerText = user.email;
 
   document.getElementById("premiumStatus").innerText =
