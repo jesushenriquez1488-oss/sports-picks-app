@@ -1468,6 +1468,11 @@ async function requireLogin(message) {
 async function logoutUser() {
   await supabaseClient.auth.signOut();
 
+  const resetBox = document.getElementById("resetPasswordBox");
+  if (resetBox) resetBox.style.display = "none";
+
+  document.body.classList.remove("logged-in");
+
   localStorage.removeItem("supabaseUser");
   localStorage.removeItem("isPremiumUser");
 
