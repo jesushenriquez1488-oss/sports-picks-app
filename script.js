@@ -1417,6 +1417,14 @@ async function loginWithGoogle() {
     showAuthMessage("Google login error: " + error.message, "error");
   }
 }
+supabaseClient.auth.onAuthStateChange((event, session) => {
+  if (event === "PASSWORD_RECOVERY") {
+
+    document.getElementById("authBox").style.display = "none";
+
+    document.getElementById("resetPasswordBox").style.display = "block";
+  }
+});
 async function requireLogin(message) {
   const { data: sessionData } = await supabaseClient.auth.getSession();
 
