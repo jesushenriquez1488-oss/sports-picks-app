@@ -8285,3 +8285,16 @@ button:active,
   color:#00f7ff;
   text-shadow:0 0 10px rgba(0,255,255,.45);
 }
+#resetPasswordBox{
+  display:none;
+  margin-top:20px;
+}
+
+#resetPasswordBox h3{
+  text-align:center;
+  margin-bottom:18px;
+}
+
+#resetPasswordBox input{
+  margin-bottom:12px;
+}
