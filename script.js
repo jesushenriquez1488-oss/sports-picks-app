@@ -1422,31 +1422,7 @@ async function loginWithGoogle() {
     showAuthMessage("Google login error: " + error.message, "error");
   }
 }
-const url = window.location.href;
-const hash = window.location.hash;
-const search = window.location.search;
 
-const isRecoveryMode =
-  url.includes("type=recovery") ||
-  hash.includes("type=recovery") ||
-  search.includes("reset=true") ||
-  url.includes("reset=true");
-
-if (isRecoveryMode) {
-  localStorage.setItem("cashEdgePasswordRecovery", "true");
-
-  const authBox = document.getElementById("authBox");
-  if (authBox) authBox.style.display = "none";
-
-  const userBox = document.getElementById("userBox");
-  if (userBox) userBox.style.display = "none";
-
-  const mainApp = document.getElementById("mainApp");
-  if (mainApp) mainApp.style.display = "none";
-
-  const resetBox = document.getElementById("resetPasswordBox");
-  if (resetBox) resetBox.style.display = "block";
-}
 async function updateNewPassword() {
   const password = document.getElementById("newPassword").value;
   const confirmPassword = document.getElementById("confirmNewPassword").value;
