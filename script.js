@@ -192,7 +192,10 @@ window.addEventListener("load", async () => {
     }
 
     document.getElementById("authBox").style.display = "none";
-    document.getElementById("userBox").style.display = "block";
+
+if (!localStorage.getItem("cashEdgePasswordRecovery")) {
+  document.getElementById("userBox").style.display = "block";
+}
     document.getElementById("userEmail").innerText = user.email;
     document.getElementById("premiumStatus").innerText =
       isPremiumUser ? "🔥 Premium activo" : "Free account";
@@ -1372,9 +1375,11 @@ async function loginUser(email, password) {
 
   localStorage.setItem("supabaseUser", JSON.stringify(user));
 
-  document.getElementById("authBox").style.display = "none";
-  document.getElementById("userBox").style.display = "block";
+ document.getElementById("authBox").style.display = "none";
 
+if (!localStorage.getItem("cashEdgePasswordRecovery")) {
+  document.getElementById("userBox").style.display = "block";
+}
   document.getElementById("userEmail").innerText = user.email;
 
   document.getElementById("premiumStatus").innerText =
