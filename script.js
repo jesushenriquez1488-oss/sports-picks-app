@@ -1382,6 +1382,29 @@ async function loginUser(email, password) {
 
   refreshResultsAfterUnlock();
 }
+async function resetPassword() {
+
+  const email = document.getElementById("loginEmail").value;
+
+  if (!email) {
+    showAuthMessage("Enter your email first", "error");
+    return;
+  }
+
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin
+  });
+
+  if (error) {
+    showAuthMessage(error.message, "error");
+    return;
+  }
+
+  showAuthMessage(
+    "Password reset email sent",
+    "success"
+  );
+}
 async function loginWithGoogle() {
   const { error } = await supabaseClient.auth.signInWithOAuth({
     provider: "google",
