@@ -8668,3 +8668,92 @@ animation: overallPulse 3s ease-in-out infinite;
     padding: 4px 8px !important;
   }
 }
+/* FORCE COMPACT PERFORMANCE PANEL */
+#performancePanel {
+  margin-top: 25px !important;
+}
+
+#performancePanel .performance-grid,
+#performancePanel .sport-records-grid,
+#performancePanel .records-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)) !important;
+  gap: 14px !important;
+}
+
+#performancePanel .performance-card,
+#performancePanel .sport-record-card,
+#performancePanel .record-card,
+#performancePanel .sport-performance-card,
+#performancePanel .premium-performance-card,
+#performancePanel .accuracy-card {
+  min-height: 130px !important;
+  padding: 14px !important;
+  border-radius: 18px !important;
+}
+
+#performancePanel h2 {
+  font-size: 28px !important;
+}
+
+#performancePanel h3 {
+  font-size: 18px !important;
+}
+
+#performancePanel .performance-percent,
+#performancePanel .record-percent,
+#performancePanel .accuracy-percent,
+#performancePanel strong {
+  font-size: 38px !important;
+}
+
+@media (max-width: 600px) {
+  #performancePanel {
+    margin-top: 18px !important;
+  }
+
+  #performancePanel .performance-grid,
+  #performancePanel .sport-records-grid,
+  #performancePanel .records-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  #performancePanel .performance-card,
+  #performancePanel .sport-record-card,
+  #performancePanel .record-card,
+  #performancePanel .sport-performance-card,
+  #performancePanel .premium-performance-card,
+  #performancePanel .accuracy-card {
+    min-height: 95px !important;
+    padding: 10px 12px !important;
+    border-radius: 16px !important;
+  }
+
+  #performancePanel h2 {
+    font-size: 20px !important;
+    margin-bottom: 6px !important;
+  }
+
+  #performancePanel h3 {
+    font-size: 15px !important;
+  }
+
+  #performancePanel p,
+  #performancePanel small {
+    font-size: 11px !important;
+  }
+
+  #performancePanel .performance-percent,
+  #performancePanel .record-percent,
+  #performancePanel .accuracy-percent,
+  #performancePanel strong {
+    font-size: 30px !important;
+  }
+
+  #performancePanel .stat-pill,
+  #performancePanel .record-bubbles span {
+    font-size: 10px !important;
+    padding: 3px 7px !important;
+  }
+}
