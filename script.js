@@ -2125,7 +2125,10 @@ function renderPerformancePanel(data) {
 
       <div class="performance-header">
         <div>
-          <p class="premium-label">LIVE AI TRACKING</p>
+          <p class="premium-label">
+  <span class="live-dot"></span>
+  LIVE AI TRACKING
+</p>
           <h2>Premium AI Performance</h2>
         <span>Live premium pick tracking updated automatically by sport.</span>
         </div>
