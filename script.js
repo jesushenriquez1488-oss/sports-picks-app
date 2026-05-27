@@ -2101,7 +2101,7 @@ function renderPerformancePanel(data) {
 
           <div>
             <strong>${record.display_name}</strong>
-            <small>Premium picks only</small>
+            <small>AI tracked performance</small>
           </div>
         </div>
 
