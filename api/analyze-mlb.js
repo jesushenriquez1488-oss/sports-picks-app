@@ -1102,7 +1102,9 @@ game_date: new Date().toISOString().split("T")[0]
     if (recommendedCards.length > 0) {
   const gameDate = new Date().toISOString().split("T")[0];
 
-  for (const card of recommendedCards) {
+ const card = recommendedCards[0];
+
+if (card) {
     const pickType =
       card.type === "ML"
         ? "ml"
