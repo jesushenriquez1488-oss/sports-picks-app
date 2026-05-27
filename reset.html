@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Reset Password - CashEdge</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top, rgba(0,255,231,.22), transparent 35%),
+        radial-gradient(circle at bottom, rgba(124,60,255,.22), transparent 35%),
+        #050814;
+      font-family: Arial, sans-serif;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 22px;
+    }
+
+    .reset-card {
+      width: 100%;
+      max-width: 420px;
+      background: rgba(8, 16, 35, .92);
+      border: 1px solid rgba(0, 255, 231, .25);
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: 0 0 35px rgba(0,255,231,.18);
+      text-align: center;
+    }
+
+    .logo {
+      font-size: 28px;
+      font-weight: 900;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #00ffe7, #7c3cff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    h1 {
+      font-size: 22px;
+      margin: 10px 0;
+    }
+
+    p {
+      color: #b9c4d6;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      margin-top: 14px;
+      padding: 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.15);
+      background: rgba(255,255,255,.08);
+      color: white;
+      font-size: 15px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: #00ffe7;
+      box-shadow: 0 0 14px rgba(0,255,231,.25);
+    }
+
+    button {
+      width: 100%;
+      margin-top: 18px;
+      padding: 14px;
+      border: none;
+      border-radius: 999px;
+      font-weight: 900;
+      font-size: 15px;
+      color: white;
+      cursor: pointer;
+      background: linear-gradient(135deg, #00ffe7, #7c3cff);
+      box-shadow: 0 0 22px rgba(0,255,231,.25);
+    }
+
+    .message {
+      margin-top: 16px;
+      font-size: 14px;
+      min-height: 22px;
+    }
+
+    .success {
+      color: #00ff99;
+    }
+
+    .error {
+      color: #ff5c7a;
+    }
+
+    .back-link {
+      display: block;
+      margin-top: 18px;
+      color: #00ffe7;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 700;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="reset-card">
+    <div class="logo">CashEdge</div>
+
+    <h1>Crear nueva contraseña</h1>
+
+    <p>
+      Escribe tu nueva contraseña para recuperar el acceso a tu cuenta.
+    </p>
+
+    <input id="newPassword" type="password" placeholder="Nueva contraseña" />
+    <input id="confirmPassword" type="password" placeholder="Confirmar contraseña" />
+
+    <button onclick="updatePassword()">Actualizar contraseña</button>
+
+    <div id="message" class="message"></div>
+
+    <a class="back-link" href="/">Volver al login</a>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "PEGA_AQUI_TU_SUPABASE_URL";
+    const SUPABASE_ANON_KEY = "PEGA_AQUI_TU_SUPABASE_ANON_KEY";
+
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    async function updatePassword() {
+      const message = document.getElementById("message");
+      const newPassword = document.getElementById("newPassword").value.trim();
+      const confirmPassword = document.getElementById("confirmPassword").value.trim();
+
+      message.className = "message";
+      message.textContent = "";
+
+      if (!newPassword || !confirmPassword) {
+        message.classList.add("error");
+        message.textContent = "Completa ambos campos.";
+        return;
+      }
+
+      if (newPassword.length < 6) {
+        message.classList.add("error");
+        message.textContent = "La contraseña debe tener mínimo 6 caracteres.";
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        message.classList.add("error");
+        message.textContent = "Las contraseñas no coinciden.";
+        return;
+      }
+
+      const { error } = await supabaseClient.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        message.classList.add("error");
+        message.textContent = error.message || "No se pudo actualizar la contraseña.";
+        return;
+      }
+
+      message.classList.add("success");
+      message.textContent = "Contraseña actualizada correctamente. Redirigiendo...";
+
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 1800);
+    }
+  </script>
+</body>
+</html>
