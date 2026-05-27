@@ -253,7 +253,7 @@ const { error: recordError } = await supabaseAdmin
         .eq("id", pick.id);
 
       if (updateError) throw updateError;
-
+await updateSportRecord();
       graded++;
 
       details.push({
