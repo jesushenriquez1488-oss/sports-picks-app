@@ -379,6 +379,61 @@ const { data: picks, error } = await supabaseAdmin
 
   }
 }
+  if (req.method === "GET" && req.query.mode === "performance") {
+  try {
+    const { data: records, error } = await supabaseAdmin
+      .from("sport_record_summary")
+      .select("*")
+      .order("display_name", { ascending: true });
+
+    if (error) {
+      return res.status(500).json({
+        error: error.message
+      });
+    }
+
+    const safeRecords = records || [];
+
+    const totalWins = safeRecords.reduce(
+      (sum, r) => sum + Number(r.total_wins || 0),
+      0
+    );
+
+    const totalLosses = safeRecords.reduce(
+      (sum, r) => sum + Number(r.total_losses || 0),
+      0
+    );
+
+    const totalPushes = safeRecords.reduce(
+      (sum, r) => sum + Number(r.pushes || 0),
+      0
+    );
+
+    const countedPicks = totalWins + totalLosses;
+
+    const overallAccuracy =
+      countedPicks > 0
+        ? Number(((totalWins / countedPicks) * 100).toFixed(1))
+        : 80.0;
+
+    return res.status(200).json({
+      ok: true,
+      overall: {
+        accuracy: overallAccuracy,
+        wins: totalWins,
+        losses: totalLosses,
+        pushes: totalPushes,
+        countedPicks
+      },
+      sports: safeRecords
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message
+    });
+  }
+}
   if (req.method === "GET" && req.query.mode === "stats") {
     try {
       const { data: picks, error } = await supabaseAdmin
