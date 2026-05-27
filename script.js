@@ -1121,12 +1121,31 @@ async function loadLoginOverallAccuracy() {
     const res = await fetch("/api/analyze-nba?mode=performance");
     const data = await res.json();
 
-    if (!res.ok || !data?.overall) return;
+    if (!res.ok || !data?.overall) {
+      accuracyEl.innerText = "--%";
+      recordEl.innerText = "No record yet";
+      return;
+    }
 
-    accuracyEl.innerText = `${Number(data.overall.accuracy || 80).toFixed(1)}%`;
-    recordEl.innerText = `${Number(data.overall.wins || 0)}W · ${Number(data.overall.losses || 0)}L · ${Number(data.overall.pushes || 0)}P`;
+    const wins = Number(data.overall.wins || 0);
+    const losses = Number(data.overall.losses || 0);
+    const pushes = Number(data.overall.pushes || 0);
+    const counted = wins + losses;
+
+    if (counted === 0) {
+      accuracyEl.innerText = "--%";
+      recordEl.innerText = "Tracking starts after graded picks";
+      return;
+    }
+
+    const accuracy = ((wins / counted) * 100).toFixed(1);
+
+    accuracyEl.innerText = `${accuracy}%`;
+    recordEl.innerText = `${wins}W · ${losses}L · ${pushes}P`;
+
   } catch (error) {
-    console.log("Login accuracy error:", error);
+    accuracyEl.innerText = "--%";
+    recordEl.innerText = "Unable to load";
   }
 }
 
