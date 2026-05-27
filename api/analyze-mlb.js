@@ -1099,6 +1099,61 @@ await supabaseAdmin.from("daily_picks").upsert({
  updated_at: new Date().toISOString(),
 game_date: new Date().toISOString().split("T")[0]
 });
+    if (recommendedCards.length > 0) {
+  const gameDate = new Date().toISOString().split("T")[0];
+
+  for (const card of recommendedCards) {
+    const pickType =
+      card.type === "ML"
+        ? "ml"
+        : card.type === "RUNLINE"
+          ? "runline"
+          : "total";
+
+    const pickDirection =
+      card.type === "OVER" || card.type === "UNDER"
+        ? card.type
+        : null;
+
+    const pickTeam =
+      pickType === "total"
+        ? null
+        : card.team || null;
+
+    const pickLine =
+      pickType === "total"
+        ? Number(totalLine)
+        : card.protectedEdge !== null
+          ? Number(String(card.play).match(/[+-]\d+(\.\d+)?/)?.[0])
+          : null;
+
+    const { data: existingPick } = await supabaseAdmin
+      .from("picks_history")
+      .select("id")
+      .eq("sport", "mlb")
+      .eq("game_id", gameId)
+      .eq("pick", card.play)
+      .maybeSingle();
+
+    if (!existingPick) {
+      await supabaseAdmin.from("picks_history").insert({
+        game_id: gameId,
+        sport: "mlb",
+        pick: card.play,
+        confidence: card.percentage,
+        result: null,
+        is_premium: true,
+        pick_type: pickType,
+        pick_team: pickTeam,
+        line: pickType === "total" ? Number(totalLine) : pickLine,
+        away_team: awayTeam,
+        home_team: homeTeam,
+        game_date: gameDate,
+        pick_direction: pickDirection
+      });
+    }
+  }
+}
     return res.status(200).json({
       locked,
       isPremiumPick: recommendedCards.length > 0,
