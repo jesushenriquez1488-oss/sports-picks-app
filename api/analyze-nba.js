@@ -858,7 +858,10 @@ const { data: insertedPick, error: insertError } = await supabaseAdmin
     pick,
     confidence,
     result: "pending",
-    is_premium: isPremiumPick === true
+    is_premium: isPremiumPick === true,
+    pick_type: pickType,
+pick_team: pickTeam,
+line: pickLine
   })
       .select("id")
       .single();
