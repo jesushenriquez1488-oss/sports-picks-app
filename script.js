@@ -1160,10 +1160,72 @@ const text = await res.text();
       localStorage.setItem(cacheTimeKey, Date.now().toString());
     }
 
-    let upcomingGames = data.filter(game => {
+    function getKansasParts(date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+    hour: "2-digit",
+    hour12: false
+  }).formatToParts(date);
+
+  const get = type => parts.find(p => p.type === type)?.value;
+
+  return {
+    year: get("year"),
+    month: get("month"),
+    day: get("day"),
+    weekday: get("weekday"),
+    hour: Number(get("hour"))
+  };
+}
+
+function kansasDateString(date) {
+  const p = getKansasParts(date);
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
+function addDays(date, days) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+const now = new Date();
+const kansasNow = getKansasParts(now);
+const todayKansas = kansasDateString(now);
+
+const isFootballSport = [
+  "americanfootball_nfl",
+  "americanfootball_ncaaf"
+].includes(sport);
+
+let allowedDates = [];
+
+if (isFootballSport && kansasNow.weekday === "Sun" && kansasNow.hour >= 21) {
+  // Domingo después de 9PM Kansas:
+  // carga solo la próxima semana completa
+  for (let i = 1; i <= 7; i++) {
+    allowedDates.push(kansasDateString(addDays(now, i)));
+  }
+} else {
+  // Deportes diarios:
+  // antes de 9PM hoy, después de 9PM mañana
+  const targetDate =
+    kansasNow.hour >= 21
+      ? kansasDateString(addDays(now, 1))
+      : todayKansas;
+
+  allowedDates.push(targetDate);
+}
+
+let upcomingGames = data.filter(game => {
   const gameTime = new Date(game.commence_time);
-  const now = new Date();
-  return gameTime > now;
+  const gameKansasDate = kansasDateString(gameTime);
+
+  return allowedDates.includes(gameKansasDate);
 });
 const validWnbaTeams = [
   "Atlanta Dream",
