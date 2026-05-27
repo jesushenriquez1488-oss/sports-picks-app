@@ -8341,8 +8341,44 @@ body.logged-in #authBox{
   background: rgba(0, 255, 231, .08);
   border: 1px solid rgba(0, 255, 231, .25);
   box-shadow: 0 0 22px rgba(0, 255, 231, .16);
+  position: relative;
+overflow: hidden;
+animation: overallPulse 3s ease-in-out infinite;
+}
+.performance-overall-card::before{
+  content:"";
+  position:absolute;
+  inset:-40%;
+  background:
+    radial-gradient(circle, rgba(0,255,231,.18), transparent 60%);
+  animation: overallRotate 8s linear infinite;
 }
 
+.performance-overall-card *{
+  position:relative;
+  z-index:2;
+}
+
+@keyframes overallRotate{
+  from{
+    transform:rotate(0deg);
+  }
+  to{
+    transform:rotate(360deg);
+  }
+}
+
+@keyframes overallPulse{
+  0%,100%{
+    transform:translateY(0px);
+    box-shadow:0 0 22px rgba(0,255,231,.18);
+  }
+
+  50%{
+    transform:translateY(-4px);
+    box-shadow:0 0 38px rgba(0,255,231,.32);
+  }
+}
 .performance-overall-card small {
   display: block;
   color: #9fb0c8;
