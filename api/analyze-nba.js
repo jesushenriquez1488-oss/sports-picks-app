@@ -831,7 +831,25 @@ game_date: new Date().toISOString().split("T")[0]
 updated_at: new Date().toISOString(),
 game_date: new Date().toISOString().split("T")[0]
     });
+let pickType = "spread";
+let pickTeam = null;
+let pickLine = null;
 
+if (pick === "Over" || pick === "Under") {
+  pickType = "total";
+  pickTeam = null;
+  pickLine = Number(total);
+} else {
+  pickType = "spread";
+
+  if (pick.includes(awayTeam)) {
+    pickTeam = awayTeam;
+    pickLine = Number(awaySpread);
+  } else if (pick.includes(homeTeam)) {
+    pickTeam = homeTeam;
+    pickLine = Number(homeSpread);
+  }
+}
 const { data: insertedPick, error: insertError } = await supabaseAdmin
   .from("picks_history")
   .insert({
