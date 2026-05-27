@@ -1113,11 +1113,9 @@ function renderAnalysisResult({
 }
 async function loadLoginOverallAccuracy() {
   const accuracyEl = document.getElementById("loginOverallAccuracy");
-  const winsEl = document.getElementById("loginWins");
-  const lossesEl = document.getElementById("loginLosses");
-  const pushesEl = document.getElementById("loginPushes");
+  const recordEl = document.getElementById("loginOverallRecord");
 
-  if (!accuracyEl || !winsEl || !lossesEl || !pushesEl) return;
+  if (!accuracyEl || !recordEl) return;
 
   try {
     const res = await fetch("/api/analyze-nba?mode=performance");
@@ -1125,22 +1123,21 @@ async function loadLoginOverallAccuracy() {
 
     if (!res.ok || !data?.overall) {
       accuracyEl.innerText = "--%";
-      winsEl.innerText = "--W";
-      lossesEl.innerText = "--L";
-      pushesEl.innerText = "--P";
+      recordEl.innerText = "Record unavailable";
       return;
     }
 
-    accuracyEl.innerText = `${Number(data.overall.accuracy).toFixed(1)}%`;
-    winsEl.innerText = `${Number(data.overall.wins)}W`;
-    lossesEl.innerText = `${Number(data.overall.losses)}L`;
-    pushesEl.innerText = `${Number(data.overall.pushes)}P`;
+    const accuracy = Number(data.overall.accuracy || 0).toFixed(1);
+    const wins = Number(data.overall.wins || 0);
+    const losses = Number(data.overall.losses || 0);
+    const pushes = Number(data.overall.pushes || 0);
+
+    accuracyEl.innerText = `${accuracy}%`;
+    recordEl.innerText = `${wins}W · ${losses}L · ${pushes}P`;
 
   } catch (error) {
     accuracyEl.innerText = "--%";
-    winsEl.innerText = "--W";
-    lossesEl.innerText = "--L";
-    pushesEl.innerText = "--P";
+    recordEl.innerText = "Record unavailable";
   }
 }
 
