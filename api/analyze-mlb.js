@@ -17,6 +17,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const {
+      mode,
       userId,
       awayTeam,
       homeTeam,
@@ -25,7 +26,256 @@ module.exports = async function handler(req, res) {
       outcomes,
       totalLine = 8
     } = req.body || {};
+if (mode === "grade-pending") {
+  const normalize = (name = "") =>
+    String(name)
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
 
+  const parseDate = (value) => {
+    if (!value) return null;
+    return String(value).split("T")[0];
+  };
+
+  const gradePick = (pick, awayScore, homeScore) => {
+    const type = String(pick.pick_type || "").toLowerCase();
+    const team = String(pick.pick_team || "");
+    const line = Number(pick.line);
+
+    const away = String(pick.away_team || "");
+    const home = String(pick.home_team || "");
+
+    const teamIsAway = normalize(team) === normalize(away);
+    const teamIsHome = normalize(team) === normalize(home);
+
+    const teamScore = teamIsAway ? awayScore : teamIsHome ? homeScore : null;
+    const oppScore = teamIsAway ? homeScore : teamIsHome ? awayScore : null;
+
+    if (type === "ml" || type === "moneyline") {
+      if (teamScore === null || oppScore === null) return null;
+      if (teamScore > oppScore) return "win";
+      if (teamScore < oppScore) return "loss";
+      return "push";
+    }
+
+    if (type === "runline" || type === "spread") {
+      if (teamScore === null || oppScore === null || !Number.isFinite(line)) return null;
+
+      const adjusted = teamScore + line;
+
+      if (adjusted > oppScore) return "win";
+      if (adjusted < oppScore) return "loss";
+      return "push";
+    }
+
+    if (type === "total") {
+      const total = awayScore + homeScore;
+
+      const direction = String(
+        pick.pick_direction ||
+        pick.direction ||
+        pick.selection ||
+        pick.pick ||
+        pick.bet ||
+        ""
+      ).toLowerCase();
+
+      if (!Number.isFinite(line)) return null;
+
+      if (direction.includes("over")) {
+        if (total > line) return "win";
+        if (total < line) return "loss";
+        return "push";
+      }
+
+      if (direction.includes("under")) {
+        if (total < line) return "win";
+        if (total > line) return "loss";
+        return "push";
+      }
+
+      return null;
+    }
+
+    return null;
+  };
+
+  const updateSportRecord = async () => {
+    const { data: gradedRows, error: rowsError } = await supabaseAdmin
+      .from("picks_history")
+      .select("result")
+      .eq("sport", "mlb")
+      .eq("is_premium", true)
+      .not("result", "is", null);
+
+    if (rowsError) throw rowsError;
+
+    const wins = gradedRows.filter(r => r.result === "win").length;
+    const losses = gradedRows.filter(r => r.result === "loss").length;
+    const pushes = gradedRows.filter(r => r.result === "push").length;
+    const total = wins + losses + pushes;
+    const decisions = wins + losses;
+    const winRate = decisions > 0 ? Number(((wins / decisions) * 100).toFixed(1)) : 0;
+
+    const { error: recordError } = await supabaseAdmin
+      .from("sport_records")
+      .upsert({
+        sport: "mlb",
+        wins,
+        losses,
+        pushes,
+        total_picks: total,
+        win_rate: winRate,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "sport" });
+
+    if (recordError) throw recordError;
+
+    return { wins, losses, pushes, total_picks: total, win_rate: winRate };
+  };
+
+  const { data: pendingPicks, error: pendingError } = await supabaseAdmin
+    .from("picks_history")
+    .select("*")
+    .eq("sport", "mlb")
+    .eq("is_premium", true)
+    .is("result", null)
+    .limit(100);
+
+  if (pendingError) throw pendingError;
+
+  if (!pendingPicks || pendingPicks.length === 0) {
+    const record = await updateSportRecord();
+
+    return res.status(200).json({
+      ok: true,
+      sport: "mlb",
+      message: "No hay picks MLB pendientes por calificar.",
+      graded: 0,
+      record
+    });
+  }
+
+  const uniqueDates = [...new Set(
+    pendingPicks
+      .map(p => parseDate(p.game_date || p.created_at))
+      .filter(Boolean)
+  )];
+
+  let graded = 0;
+  let skipped = 0;
+  const details = [];
+
+  for (const gameDate of uniqueDates) {
+    const scheduleUrl = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${gameDate}&hydrate=team`;
+
+    const scheduleResponse = await fetch(scheduleUrl);
+    const scheduleJson = await scheduleResponse.json();
+
+    const games = scheduleJson?.dates?.[0]?.games || [];
+
+    const picksForDate = pendingPicks.filter(p =>
+      parseDate(p.game_date || p.created_at) === gameDate
+    );
+
+    for (const pick of picksForDate) {
+      const matchingGame = games.find(g => {
+        const apiAway = g?.teams?.away?.team?.name || "";
+        const apiHome = g?.teams?.home?.team?.name || "";
+
+        return (
+          normalize(apiAway) === normalize(pick.away_team) &&
+          normalize(apiHome) === normalize(pick.home_team)
+        );
+      });
+
+      if (!matchingGame) {
+        skipped++;
+        details.push({
+          id: pick.id,
+          status: "skipped",
+          reason: "Juego no encontrado en MLB StatsAPI"
+        });
+        continue;
+      }
+
+      const status = String(matchingGame?.status?.detailedState || "").toLowerCase();
+
+      const isFinal =
+        status.includes("final") ||
+        status.includes("game over") ||
+        matchingGame?.status?.abstractGameState === "Final";
+
+      if (!isFinal) {
+        skipped++;
+        details.push({
+          id: pick.id,
+          status: "skipped",
+          reason: "Juego todavía no está final"
+        });
+        continue;
+      }
+
+      const awayScore = Number(matchingGame?.teams?.away?.score);
+      const homeScore = Number(matchingGame?.teams?.home?.score);
+
+      if (!Number.isFinite(awayScore) || !Number.isFinite(homeScore)) {
+        skipped++;
+        details.push({
+          id: pick.id,
+          status: "skipped",
+          reason: "Score final no disponible"
+        });
+        continue;
+      }
+
+      const result = gradePick(pick, awayScore, homeScore);
+
+      if (!result) {
+        skipped++;
+        details.push({
+          id: pick.id,
+          status: "skipped",
+          reason: "No se pudo calificar el pick. Revisa pick_type, pick_team, line o dirección OVER/UNDER."
+        });
+        continue;
+      }
+
+      const finalScore = `${pick.away_team} ${awayScore} - ${pick.home_team} ${homeScore}`;
+
+      const { error: updateError } = await supabaseAdmin
+        .from("picks_history")
+        .update({
+          result,
+          final_score: finalScore,
+          graded_at: new Date().toISOString()
+        })
+        .eq("id", pick.id);
+
+      if (updateError) throw updateError;
+
+      graded++;
+
+      details.push({
+        id: pick.id,
+        status: "graded",
+        result,
+        finalScore
+      });
+    }
+  }
+
+  const record = await updateSportRecord();
+
+  return res.status(200).json({
+    ok: true,
+    sport: "mlb",
+    graded,
+    skipped,
+    record,
+    details
+  });
+}
    let isPremiumUser = false;
 let isAdmin = false;
 let profile = null;
