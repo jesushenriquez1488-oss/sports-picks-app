@@ -379,6 +379,101 @@ const { data: picks, error } = await supabaseAdmin
 
   }
 }
+  if (req.method === "GET" && req.query.mode === "grade-pending") {
+  try {
+    const authHeader = req.headers.authorization || "";
+    const cronToken = authHeader.replace("Bearer ", "");
+    const manualSecret = req.query.secret;
+
+    const validSecret =
+      process.env.CRON_SECRET ||
+      process.env.GENERATE_DAILY_SECRET;
+
+    if (!validSecret) {
+      return res.status(500).json({
+        error: "Falta configurar CRON_SECRET en Vercel"
+      });
+    }
+
+    if (
+      cronToken !== validSecret &&
+      manualSecret !== validSecret
+    ) {
+      return res.status(401).json({
+        error: "No autorizado"
+      });
+    }
+
+    const { data: pendingPicks, error } = await supabaseAdmin
+      .from("picks_history")
+      .select("*")
+      .eq("result", "pending")
+      .eq("is_premium", true)
+      .in("sport", ["nba", "wnba", "ncaab"])
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    const results = [];
+
+    for (const pick of pendingPicks || []) {
+      try {
+        const graded = await gradeBasketballPick(pick);
+
+        if (!graded || !graded.result) {
+          results.push({
+            id: pick.id,
+            game_id: pick.game_id,
+            graded: false,
+            reason: "Resultado final no encontrado todavía"
+          });
+          continue;
+        }
+
+        await supabaseAdmin
+          .from("picks_history")
+          .update({
+            result: graded.result,
+            final_score: graded.finalScore,
+            graded_at: new Date().toISOString()
+          })
+          .eq("id", pick.id);
+
+        await updateSportRecordAuto(pick.sport, graded.result);
+
+        results.push({
+          id: pick.id,
+          game_id: pick.game_id,
+          pick: pick.pick,
+          result: graded.result,
+          finalScore: graded.finalScore
+        });
+
+      } catch (err) {
+        results.push({
+          id: pick.id,
+          game_id: pick.game_id,
+          graded: false,
+          error: err.message
+        });
+      }
+    }
+
+    return res.status(200).json({
+      ok: true,
+      checked: pendingPicks?.length || 0,
+      results
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message
+    });
+  }
+}
   if (req.method === "GET" && req.query.mode === "performance") {
   try {
     const { data: records, error } = await supabaseAdmin
