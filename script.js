@@ -2046,6 +2046,113 @@ async function loadStats() {
 }
 
 window.addEventListener("load", loadStats);
+function animateNumber(element, target, suffix = "", duration = 1000, decimals = 0) {
+  if (!element) return;
+
+  const start = 0;
+  const startTime = performance.now();
+  const targetNumber = Number(target || 0);
+
+  function update(now) {
+    const progress = Math.min((now - startTime) / duration, 1);
+    const ease = 1 - Math.pow(1 - progress, 3);
+    const current = start + (targetNumber - start) * ease;
+
+    element.innerText = `${current.toFixed(decimals)}${suffix}`;
+
+    if (progress < 1) {
+      requestAnimationFrame(update);
+    }
+  }
+
+  requestAnimationFrame(update);
+}
+
+function formatSportIcon(sport) {
+  const icons = {
+    nba: "🏀",
+    wnba: "🏀",
+    ncaab: "NCAA",
+    nfl: "🏈",
+    ncaaf: "NCAA",
+    mlb: "⚾"
+  };
+
+  return icons[sport] || "📊";
+}
+
+function renderPerformancePanel(data) {
+  const box = document.getElementById("performancePanel");
+  if (!box || !data?.sports) return;
+
+  const sportsHTML = data.sports.map(record => {
+    const accuracy = Number(record.accuracy || 0).toFixed(1);
+    const wins = Number(record.total_wins || 0);
+    const losses = Number(record.total_losses || 0);
+    const pushes = Number(record.pushes || 0);
+    const counted = Number(record.counted_picks || wins + losses);
+
+    return `
+      <div class="performance-sport-card">
+        <div class="performance-sport-top">
+          <div class="performance-sport-icon">
+            ${formatSportIcon(record.sport)}
+          </div>
+
+          <div>
+            <strong>${record.display_name}</strong>
+            <small>Premium picks only</small>
+          </div>
+        </div>
+
+        <div class="performance-percent" data-target="${accuracy}">
+          ${accuracy}%
+        </div>
+
+        <div class="performance-record">
+          <span>${wins}W</span>
+          <span>${losses}L</span>
+          <span>${pushes}P</span>
+        </div>
+
+        <div class="performance-mini-text">
+          ${counted} counted premium picks
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  box.innerHTML = `
+    <section class="performance-section">
+
+      <div class="performance-header">
+        <div>
+          <p class="premium-label">LIVE AI TRACKING</p>
+          <h2>Premium AI Performance</h2>
+          <span>Historical record starts at 80W - 20L per sport and updates with real premium results.</span>
+        </div>
+
+        <div class="performance-overall-card">
+          <small>Overall Accuracy</small>
+          <strong id="overallPerformanceRate">0%</strong>
+          <span>${data.overall.wins}W - ${data.overall.losses}L - ${data.overall.pushes}P</span>
+        </div>
+      </div>
+
+      <div class="performance-grid">
+        ${sportsHTML}
+      </div>
+
+    </section>
+  `;
+
+  const overallRate = document.getElementById("overallPerformanceRate");
+  animateNumber(overallRate, data.overall.accuracy, "%", 1300, 1);
+
+  document.querySelectorAll(".performance-percent").forEach(el => {
+    animateNumber(el, Number(el.dataset.target || 0), "%", 1100, 1);
+  });
+}
 async function isAdmin() {
   const { data } = await supabaseClient.auth.getUser();
   return data?.user?.email === "jesushenriquez1488@gmail.com";
