@@ -2130,7 +2130,11 @@ function renderPerformancePanel(data) {
   if (!box || !data?.sports) return;
 
   const sportsHTML = data.sports.map(record => {
-    const accuracy = Number(record.accuracy || 0).toFixed(1);
+ const accuracy =
+  record.accuracy !== null &&
+  record.accuracy !== undefined
+    ? Number(record.accuracy).toFixed(1)
+    : "80.0";
     const wins = Number(record.total_wins || 0);
     const losses = Number(record.total_losses || 0);
     const pushes = Number(record.pushes || 0);
