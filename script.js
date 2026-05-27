@@ -1446,27 +1446,23 @@ document.body.classList.add("logged-in");
   refreshResultsAfterUnlock();
 }
 async function resetPassword() {
-
-  const email = document.getElementById("loginEmail").value;
+  const email = document.getElementById("resetEmail")?.value.trim();
 
   if (!email) {
-    showAuthMessage("Enter your email first", "error");
+    alert("Ingresa tu correo para recuperar tu contraseña.");
     return;
   }
 
   const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-   redirectTo: window.location.origin + "/?reset=true"
+    redirectTo: "https://cashedgeapp.com/reset.html"
   });
 
   if (error) {
-    showAuthMessage(error.message, "error");
+    alert("Error enviando recuperación: " + error.message);
     return;
   }
 
-  showAuthMessage(
-    "Password reset email sent",
-    "success"
-  );
+  alert("Te enviamos un correo para recuperar tu contraseña.");
 }
 async function loginWithGoogle() {
   const { error } = await supabaseClient.auth.signInWithOAuth({
