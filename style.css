@@ -9044,3 +9044,89 @@ animation: overallPulse 3s ease-in-out infinite;
     height: 70px;
   }
 }
+.login-trust-widget,
+.premium-trust-widget {
+  width: 190px !important;
+  margin: 8px 0 12px auto !important;
+  padding: 12px 14px !important;
+  border-radius: 20px !important;
+  text-align: center !important;
+  background:
+    radial-gradient(circle at 90% 10%, rgba(0,255,231,.45), transparent 22%),
+    linear-gradient(145deg, rgba(2,20,42,.96), rgba(12,6,42,.94)) !important;
+  border: 1px solid rgba(0,255,231,.7) !important;
+  box-shadow:
+    0 0 16px rgba(0,255,231,.45),
+    0 0 26px rgba(124,60,255,.25),
+    inset 0 0 18px rgba(0,255,231,.10) !important;
+}
+
+.login-trust-widget .trust-top span {
+  display: block !important;
+  font-size: 10px !important;
+  letter-spacing: .18em !important;
+  color: #00ffe7 !important;
+  font-weight: 1000 !important;
+  margin-bottom: 5px !important;
+}
+
+.login-trust-widget strong {
+  display: block !important;
+  font-size: 32px !important;
+  line-height: 1 !important;
+  color: #00ffe7 !important;
+  font-weight: 1000 !important;
+  text-shadow:
+    0 0 10px rgba(0,255,231,.95),
+    0 0 22px rgba(0,255,231,.55) !important;
+}
+
+.trust-mini-row {
+  display: flex !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  margin-top: 8px !important;
+}
+
+.trust-mini-row span {
+  font-size: 11px !important;
+  font-weight: 1000 !important;
+  padding: 4px 8px !important;
+  border-radius: 999px !important;
+  background: rgba(255,255,255,.08) !important;
+}
+
+.trust-mini-row .win {
+  color: #00ffe7 !important;
+}
+
+.trust-mini-row .loss {
+  color: #ff4d6d !important;
+}
+
+.trust-mini-row .push {
+  color: #ffd84d !important;
+}
+
+@media (max-width: 600px) {
+  .login-trust-widget,
+  .premium-trust-widget {
+    width: 160px !important;
+    padding: 10px 11px !important;
+    margin: 6px 0 10px auto !important;
+    border-radius: 18px !important;
+  }
+
+  .login-trust-widget strong {
+    font-size: 28px !important;
+  }
+
+  .trust-mini-row {
+    gap: 5px !important;
+  }
+
+  .trust-mini-row span {
+    font-size: 10px !important;
+    padding: 3px 6px !important;
+  }
+}
