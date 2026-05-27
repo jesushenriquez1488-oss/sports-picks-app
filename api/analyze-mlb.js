@@ -1152,7 +1152,7 @@ game_date: new Date().toISOString().split("T")[0]
     throw new Error("Error guardando pick MLB history: " + historyError.message);
   }
 }
-}
+
     return res.status(200).json({
       locked,
       isPremiumPick: recommendedCards.length > 0,
