@@ -80,7 +80,7 @@ let allTeams = [];
 let gamesCache = {};
 let lastRequestTime = 0;
 
-const ODDS_CACHE_TIME = 5 * 60 * 1000;
+const ODDS_CACHE_TIME = 60 * 1000;
 
 function selectSport(event, sport, sportName) {
   selectedSport = sport;
