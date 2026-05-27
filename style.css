@@ -9130,3 +9130,50 @@ animation: overallPulse 3s ease-in-out infinite;
     padding: 3px 6px !important;
   }
 }
+.login-trust-widget.premium-trust-widget {
+  width: 165px !important;
+  padding: 10px 10px 9px !important;
+  border-radius: 18px !important;
+  margin: 6px 0 10px auto !important;
+}
+
+.login-trust-widget .trust-top span {
+  font-size: 9px !important;
+  margin-bottom: 3px !important;
+}
+
+.login-trust-widget #loginOverallAccuracy {
+  font-size: 28px !important;
+}
+
+.login-trust-widget .trust-trophy {
+  width: 44px !important;
+  height: 44px !important;
+  margin: 6px auto !important;
+}
+
+.login-trust-widget .trophy-core {
+  width: 20px !important;
+  height: 20px !important;
+  border-radius: 9px !important;
+}
+
+.login-trust-widget .trophy-ring {
+  width: 36px !important;
+  height: 36px !important;
+}
+
+.login-trust-widget .ring2 {
+  width: 44px !important;
+  height: 44px !important;
+}
+
+.login-trust-widget small {
+  font-size: 8px !important;
+  margin-bottom: 3px !important;
+}
+
+.login-trust-widget .trust-record {
+  font-size: 11px !important;
+  line-height: 1.1 !important;
+}
