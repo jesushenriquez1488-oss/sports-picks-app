@@ -1446,8 +1446,10 @@ document.body.classList.add("logged-in");
   refreshResultsAfterUnlock();
 }
 async function resetPassword() {
-  const email = document.getElementById("resetEmail")?.value.trim();
-
+  const email =
+  document.getElementById("resetEmail")?.value.trim() ||
+  document.getElementById("email")?.value.trim() ||
+  document.getElementById("loginEmail")?.value.trim();
   if (!email) {
     alert("Ingresa tu correo para recuperar tu contraseña.");
     return;
