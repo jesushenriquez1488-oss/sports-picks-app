@@ -8579,3 +8579,31 @@ animation: overallPulse 3s ease-in-out infinite;
     transform:scale(.7);
   }
 }
+@media (max-width: 600px) {
+  #performancePanel {
+    margin-top: 28px !important;
+  }
+
+  #performancePanel .performance-card,
+  #performancePanel .sport-record-card,
+  #performancePanel .record-card {
+    padding: 18px 14px !important;
+    border-radius: 22px !important;
+    min-height: auto !important;
+  }
+
+  #performancePanel h2 {
+    font-size: 28px !important;
+    line-height: 1.1 !important;
+  }
+
+  #performancePanel h3 {
+    font-size: 20px !important;
+  }
+
+  #performancePanel .performance-percent,
+  #performancePanel .record-percent,
+  #performancePanel .accuracy-percent {
+    font-size: 42px !important;
+  }
+}
