@@ -2129,7 +2129,7 @@ function renderPerformancePanel(data) {
         <div>
           <p class="premium-label">LIVE AI TRACKING</p>
           <h2>Premium AI Performance</h2>
-          <span>Historical record starts at 80W - 20L per sport and updates with real premium results.</span>
+        <span>Live premium pick tracking updated automatically by sport.</span>
         </div>
 
         <div class="performance-overall-card">
