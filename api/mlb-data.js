@@ -112,7 +112,21 @@ if (req.method === "OPTIONS") {
     }
   });
 }
+const gameStatus = String(
+  game?.status?.detailedState || ""
+).toLowerCase();
 
+const isPregame =
+  gameStatus.includes("scheduled") ||
+  gameStatus.includes("pre-game") ||
+  gameStatus.includes("preview");
+
+if (!isPregame) {
+  return res.status(400).json({
+    error: "Juego ya iniciado o no disponible para pregame",
+    gameStatus
+  });
+}
     const awayPitcher = game.teams.away.probablePitcher;
     const homePitcher = game.teams.home.probablePitcher;
 
