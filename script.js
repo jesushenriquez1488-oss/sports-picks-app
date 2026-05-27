@@ -2115,9 +2115,7 @@ function renderPerformancePanel(data) {
           <span>${pushes}P</span>
         </div>
 
-        <div class="performance-mini-text">
-          ${counted} counted premium picks
-        </div>
+       
       </div>
     `;
   }).join("");
