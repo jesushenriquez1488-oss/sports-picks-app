@@ -2020,18 +2020,28 @@ const res = await fetch(
 }
 async function loadStats() {
   try {
-    const res = await fetch("/api/analyze-nba?mode=stats");
+    const res = await fetch("/api/analyze-nba?mode=performance");
     const data = await res.json();
 
-    if (data.premiumRate) {
-      document.getElementById("premiumRate").innerText = `${data.premiumRate}%`;
+    if (!res.ok) {
+      throw new Error(data.error || "Error cargando performance");
     }
 
-    if (data.normalRate) {
-      document.getElementById("normalRate").innerText = `${data.normalRate}%`;
+    const premiumRate = document.getElementById("premiumRate");
+    const normalRate = document.getElementById("normalRate");
+
+    if (premiumRate) {
+      animateNumber(premiumRate, data.overall.accuracy, "%", 1200, 1);
     }
+
+    if (normalRate) {
+      normalRate.innerText = `${data.overall.countedPicks} picks`;
+    }
+
+    renderPerformancePanel(data);
+
   } catch (error) {
-    console.log("Error cargando stats:", error);
+    console.log("Error cargando performance:", error);
   }
 }
 
