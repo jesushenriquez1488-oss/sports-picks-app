@@ -8757,3 +8757,46 @@ animation: overallPulse 3s ease-in-out infinite;
     padding: 3px 7px !important;
   }
 }
+#performancePanel .performance-sports-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+  gap: 14px !important;
+}
+
+#performancePanel .performance-sport-card {
+  height: auto !important;
+  min-height: 150px !important;
+  padding: 18px !important;
+}
+
+#performancePanel .performance-sport-top strong {
+  font-size: 22px !important;
+  line-height: 1.1 !important;
+}
+
+#performancePanel .performance-percentage {
+  font-size: 42px !important;
+}
+
+@media (max-width: 600px) {
+  #performancePanel .performance-panel {
+    padding: 18px 12px !important;
+  }
+
+  #performancePanel .performance-sports-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  #performancePanel .performance-sport-card {
+    min-height: 120px !important;
+    padding: 14px !important;
+  }
+
+  #performancePanel .performance-sport-top strong {
+    font-size: 18px !important;
+  }
+
+  #performancePanel .performance-percentage {
+    font-size: 34px !important;
+  }
+}
