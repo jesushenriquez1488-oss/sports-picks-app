@@ -529,7 +529,8 @@ const displayAccuracy =
   pushes: displayPushes,
   countedPicks
 },
-
+sports: safeRecords
+});
   } catch (error) {
     return res.status(500).json({
       error: error.message
