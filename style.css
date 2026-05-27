@@ -8800,3 +8800,47 @@ animation: overallPulse 3s ease-in-out infinite;
     font-size: 34px !important;
   }
 }
+.login-trust-widget {
+  width: 210px;
+  margin: 10px 0 18px auto;
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(0,255,231,.14), rgba(124,60,255,.18));
+  border: 1px solid rgba(0,255,231,.38);
+  box-shadow: 0 0 22px rgba(0,255,231,.18);
+  text-align: center;
+}
+
+.login-trust-widget span {
+  display: block;
+  font-size: 10px;
+  letter-spacing: .16em;
+  color: #00ffe7;
+  font-weight: 900;
+}
+
+.login-trust-widget strong {
+  display: block;
+  font-size: 34px;
+  color: #00ffe7;
+  line-height: 1;
+  margin: 6px 0;
+}
+
+.login-trust-widget small {
+  color: rgba(255,255,255,.82);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+@media (max-width: 600px) {
+  .login-trust-widget {
+    width: 165px;
+    padding: 11px 12px;
+    margin-right: 0;
+  }
+
+  .login-trust-widget strong {
+    font-size: 28px;
+  }
+}
