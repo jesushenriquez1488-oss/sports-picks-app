@@ -116,18 +116,18 @@ if (mode === "grade-pending") {
     const total = wins + losses + pushes;
     const decisions = wins + losses;
     const winRate = decisions > 0 ? Number(((wins / decisions) * 100).toFixed(1)) : 0;
-
-    const { error: recordError } = await supabaseAdmin
-      .from("sport_records")
-      .upsert({
-        sport: "mlb",
-        wins,
-        losses,
-        pushes,
-        total_picks: total,
-        win_rate: winRate,
-        updated_at: new Date().toISOString()
-      }, { onConflict: "sport" });
+const { error: recordError } = await supabaseAdmin
+  .from("sport_records")
+  .upsert({
+    sport: "mlb",
+    display_name: "MLB",
+    wins,
+    losses,
+    pushes,
+    total_picks: total,
+    win_rate: winRate,
+    updated_at: new Date().toISOString()
+  }, { onConflict: "sport" });
 
     if (recordError) throw recordError;
 
