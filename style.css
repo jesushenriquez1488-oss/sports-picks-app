@@ -8474,8 +8474,21 @@ animation: overallPulse 3s ease-in-out infinite;
   font-weight: 900;
   color: #00ffe7;
   text-shadow: 0 0 16px rgba(0,255,231,.42);
+  animation: percentGlow 2.2s ease-in-out infinite;
 }
+@keyframes percentGlow{
 
+  0%,100%{
+    text-shadow:
+      0 0 12px rgba(0,255,231,.28);
+  }
+
+  50%{
+    text-shadow:
+      0 0 22px rgba(0,255,231,.6),
+      0 0 44px rgba(0,255,231,.32);
+  }
+}
 .performance-record {
   display: flex;
   gap: 8px;
