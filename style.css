@@ -8301,3 +8301,176 @@ button:active,
 body.logged-in #authBox{
   display:none !important;
 }
+.performance-section {
+  margin: 28px auto;
+  padding: 24px;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top left, rgba(0, 255, 231, .16), transparent 32%),
+    radial-gradient(circle at bottom right, rgba(124, 60, 255, .18), transparent 35%),
+    rgba(8, 16, 35, .88);
+  border: 1px solid rgba(0, 255, 231, .22);
+  box-shadow: 0 0 35px rgba(0, 255, 231, .12);
+}
+
+.performance-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: stretch;
+  margin-bottom: 22px;
+}
+
+.performance-header h2 {
+  margin: 4px 0 8px;
+  font-size: 28px;
+  color: #fff;
+}
+
+.performance-header span {
+  color: #9fb0c8;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.performance-overall-card {
+  min-width: 210px;
+  padding: 18px;
+  border-radius: 22px;
+  text-align: center;
+  background: rgba(0, 255, 231, .08);
+  border: 1px solid rgba(0, 255, 231, .25);
+  box-shadow: 0 0 22px rgba(0, 255, 231, .16);
+}
+
+.performance-overall-card small {
+  display: block;
+  color: #9fb0c8;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.performance-overall-card strong {
+  display: block;
+  margin: 8px 0;
+  font-size: 42px;
+  color: #00ffe7;
+  text-shadow: 0 0 18px rgba(0, 255, 231, .45);
+}
+
+.performance-overall-card span {
+  font-size: 13px;
+  color: #dbe7ff;
+}
+
+.performance-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.performance-sport-card {
+  position: relative;
+  overflow: hidden;
+  padding: 18px;
+  border-radius: 22px;
+  background: rgba(3, 8, 20, .78);
+  border: 1px solid rgba(255,255,255,.09);
+  box-shadow: 0 12px 32px rgba(0,0,0,.28);
+}
+
+.performance-sport-card::before {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background: linear-gradient(120deg, transparent, rgba(0,255,231,.12), transparent);
+  transform: rotate(18deg);
+  animation: performanceScan 4s linear infinite;
+}
+
+@keyframes performanceScan {
+  0% { transform: translateX(-40%) rotate(18deg); }
+  100% { transform: translateX(40%) rotate(18deg); }
+}
+
+.performance-sport-top,
+.performance-percent,
+.performance-record,
+.performance-mini-text {
+  position: relative;
+  z-index: 2;
+}
+
+.performance-sport-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.performance-sport-top strong {
+  display: block;
+  color: white;
+  font-size: 16px;
+}
+
+.performance-sport-top small {
+  color: #8fa2bd;
+  font-size: 12px;
+}
+
+.performance-sport-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  font-size: 18px;
+  color: white;
+  background: linear-gradient(135deg, #00ffe7, #7c3cff);
+  box-shadow: 0 0 18px rgba(0,255,231,.25);
+}
+
+.performance-percent {
+  margin: 18px 0 10px;
+  font-size: 36px;
+  font-weight: 900;
+  color: #00ffe7;
+  text-shadow: 0 0 16px rgba(0,255,231,.42);
+}
+
+.performance-record {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.performance-record span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.07);
+  color: #dbe7ff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.performance-mini-text {
+  margin-top: 12px;
+  color: #8fa2bd;
+  font-size: 12px;
+}
+
+@media (max-width: 850px) {
+  .performance-header {
+    flex-direction: column;
+  }
+
+  .performance-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .performance-overall-card strong {
+    font-size: 36px;
+  }
+}
