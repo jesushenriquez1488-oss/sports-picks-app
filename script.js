@@ -1111,7 +1111,26 @@ function renderAnalysisResult({
   </div>
 `;
 }
+async function loadLoginOverallAccuracy() {
+  const accuracyEl = document.getElementById("loginOverallAccuracy");
+  const recordEl = document.getElementById("loginOverallRecord");
 
+  if (!accuracyEl || !recordEl) return;
+
+  try {
+    const res = await fetch("/api/analyze-nba?mode=performance");
+    const data = await res.json();
+
+    if (!res.ok || !data?.overall) return;
+
+    accuracyEl.innerText = `${Number(data.overall.accuracy || 80).toFixed(1)}%`;
+    recordEl.innerText = `${Number(data.overall.wins || 0)}W · ${Number(data.overall.losses || 0)}L · ${Number(data.overall.pushes || 0)}P`;
+  } catch (error) {
+    console.log("Login accuracy error:", error);
+  }
+}
+
+window.addEventListener("load", loadLoginOverallAccuracy);
 async function loadGames() {
   const { data: sessionData } = await supabaseClient.auth.getSession();
 
