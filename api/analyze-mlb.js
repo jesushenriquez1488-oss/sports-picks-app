@@ -1127,13 +1127,12 @@ game_date: new Date().toISOString().split("T")[0]
           ? Number(String(card.play).match(/[+-]\d+(\.\d+)?/)?.[0])
           : null;
 
-    const { data: existingPick } = await supabaseAdmin
-      .from("picks_history")
-      .select("id")
-      .eq("sport", "mlb")
-      .eq("game_id", gameId)
-      .eq("pick", card.play)
-      .maybeSingle();
+   const { data: existingPick } = await supabaseAdmin
+  .from("picks_history")
+  .select("id")
+  .eq("sport", "mlb")
+  .eq("game_id", gameId)
+  .maybeSingle();
 
     if (!existingPick) {
       await supabaseAdmin.from("picks_history").insert({
