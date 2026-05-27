@@ -1113,9 +1113,11 @@ function renderAnalysisResult({
 }
 async function loadLoginOverallAccuracy() {
   const accuracyEl = document.getElementById("loginOverallAccuracy");
-  const recordEl = document.getElementById("loginOverallRecord");
+  const winsEl = document.getElementById("loginWins");
+  const lossesEl = document.getElementById("loginLosses");
+  const pushesEl = document.getElementById("loginPushes");
 
-  if (!accuracyEl || !recordEl) return;
+  if (!accuracyEl || !winsEl || !lossesEl || !pushesEl) return;
 
   try {
     const res = await fetch("/api/analyze-nba?mode=performance");
@@ -1123,29 +1125,22 @@ async function loadLoginOverallAccuracy() {
 
     if (!res.ok || !data?.overall) {
       accuracyEl.innerText = "--%";
-      recordEl.innerText = "No record yet";
+      winsEl.innerText = "--W";
+      lossesEl.innerText = "--L";
+      pushesEl.innerText = "--P";
       return;
     }
 
-    const wins = Number(data.overall.wins || 0);
-    const losses = Number(data.overall.losses || 0);
-    const pushes = Number(data.overall.pushes || 0);
-    const counted = wins + losses;
-
-    if (counted === 0) {
-      accuracyEl.innerText = "--%";
-      recordEl.innerText = "Tracking starts after graded picks";
-      return;
-    }
-
-    const accuracy = ((wins / counted) * 100).toFixed(1);
-
-    accuracyEl.innerText = `${accuracy}%`;
-    recordEl.innerText = `${wins}W · ${losses}L · ${pushes}P`;
+    accuracyEl.innerText = `${Number(data.overall.accuracy).toFixed(1)}%`;
+    winsEl.innerText = `${Number(data.overall.wins)}W`;
+    lossesEl.innerText = `${Number(data.overall.losses)}L`;
+    pushesEl.innerText = `${Number(data.overall.pushes)}P`;
 
   } catch (error) {
     accuracyEl.innerText = "--%";
-    recordEl.innerText = "Unable to load";
+    winsEl.innerText = "--W";
+    lossesEl.innerText = "--L";
+    pushesEl.innerText = "--P";
   }
 }
 
