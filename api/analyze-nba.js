@@ -832,15 +832,16 @@ updated_at: new Date().toISOString(),
 game_date: new Date().toISOString().split("T")[0]
     });
 
-    const { data: insertedPick, error: insertError } = await supabaseAdmin
-      .from("picks_history")
-      .insert({
-        game_id: gameId,
-       sport: selectedLeague,
-        pick,
-        confidence,
-        result: "pending"
-      })
+const { data: insertedPick, error: insertError } = await supabaseAdmin
+  .from("picks_history")
+  .insert({
+    game_id: gameId,
+    sport: selectedLeague,
+    pick,
+    confidence,
+    result: "pending",
+    is_premium: isPremiumPick === true
+  })
       .select("id")
       .single();
 
