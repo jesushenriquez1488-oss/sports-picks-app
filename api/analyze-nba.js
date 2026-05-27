@@ -1261,3 +1261,159 @@ function isWnbaTeam(teamName) {
 
   return wnbaTeams.some(team => name.includes(team));
 }
+async function gradeBasketballPick(pick) {
+  const sport = String(pick.sport || "").toLowerCase();
+
+  const sportPath =
+    sport === "nba"
+      ? "basketball/nba"
+      : sport === "wnba"
+      ? "basketball/wnba"
+      : "basketball/mens-college-basketball";
+
+  const created = new Date(pick.created_at);
+  const dates = [];
+
+  for (let i = 0; i <= 4; i++) {
+    const d = new Date(created);
+    d.setDate(d.getDate() + i);
+    dates.push(
+      d.toISOString().split("T")[0].replaceAll("-", "")
+    );
+  }
+
+  for (const date of dates) {
+    const url = `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard?dates=${date}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    const events = data.events || [];
+
+    for (const event of events) {
+      const competition = event.competitions?.[0];
+      const competitors = competition?.competitors || [];
+
+      if (!competition || competitors.length < 2) continue;
+
+      const completed =
+        competition.status?.type?.completed === true ||
+        competition.status?.type?.name === "STATUS_FINAL";
+
+      if (!completed) continue;
+
+      const teams = competitors.map(c => ({
+        name: c.team?.displayName,
+        shortName: c.team?.shortDisplayName,
+        score: Number(c.score || 0),
+        homeAway: c.homeAway
+      }));
+
+      const gameText = `${teams[0].name}-${teams[1].name}`.toLowerCase();
+      const pickGame = String(pick.game_id || "").toLowerCase();
+
+      const gameMatches = pickGame
+        .split("-")
+        .every(teamName => gameText.includes(teamName.trim().toLowerCase()));
+
+      if (!gameMatches) continue;
+
+      const home = teams.find(t => t.homeAway === "home");
+      const away = teams.find(t => t.homeAway === "away");
+
+      if (!home || !away) continue;
+
+      return calculateBasketballResult({
+        pick,
+        home,
+        away
+      });
+    }
+  }
+
+  return null;
+}
+
+function calculateBasketballResult({ pick, home, away }) {
+  const pickType = String(pick.pick_type || "").toLowerCase();
+  const line = Number(pick.line);
+
+  if (!Number.isFinite(line)) return null;
+
+  const finalScore = `${away.name} ${away.score} - ${home.name} ${home.score}`;
+
+  if (pickType === "total") {
+    const totalScore = away.score + home.score;
+
+    if (String(pick.pick).toLowerCase() === "over") {
+      if (totalScore > line) return { result: "win", finalScore };
+      if (totalScore < line) return { result: "loss", finalScore };
+      return { result: "push", finalScore };
+    }
+
+    if (String(pick.pick).toLowerCase() === "under") {
+      if (totalScore < line) return { result: "win", finalScore };
+      if (totalScore > line) return { result: "loss", finalScore };
+      return { result: "push", finalScore };
+    }
+  }
+
+  if (pickType === "spread") {
+    const pickTeam = String(pick.pick_team || "").toLowerCase();
+
+    const selected =
+      String(home.name).toLowerCase() === pickTeam
+        ? home
+        : String(away.name).toLowerCase() === pickTeam
+        ? away
+        : null;
+
+    const opponent =
+      selected?.homeAway === "home" ? away : home;
+
+    if (!selected || !opponent) return null;
+
+    const adjustedScore = selected.score + line;
+
+    if (adjustedScore > opponent.score) {
+      return { result: "win", finalScore };
+    }
+
+    if (adjustedScore < opponent.score) {
+      return { result: "loss", finalScore };
+    }
+
+    return { result: "push", finalScore };
+  }
+
+  return null;
+}
+
+async function updateSportRecordAuto(sport, result) {
+  const recordSport = String(sport || "").toLowerCase();
+
+  if (!["win", "loss", "push"].includes(result)) return;
+
+  const { data: currentRecord, error } = await supabaseAdmin
+    .from("sport_records")
+    .select("real_wins, real_losses, pushes")
+    .eq("sport", recordSport)
+    .maybeSingle();
+
+  if (error || !currentRecord) return;
+
+  const updates = {
+    real_wins: Number(currentRecord.real_wins || 0),
+    real_losses: Number(currentRecord.real_losses || 0),
+    pushes: Number(currentRecord.pushes || 0),
+    updated_at: new Date().toISOString()
+  };
+
+  if (result === "win") updates.real_wins += 1;
+  if (result === "loss") updates.real_losses += 1;
+  if (result === "push") updates.pushes += 1;
+
+  await supabaseAdmin
+    .from("sport_records")
+    .update(updates)
+    .eq("sport", recordSport);
+}
