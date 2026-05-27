@@ -8607,3 +8607,64 @@ animation: overallPulse 3s ease-in-out infinite;
     font-size: 42px !important;
   }
 }
+/* ===== PERFORMANCE PANEL MOBILE OPTIMIZATION ===== */
+
+@media (max-width: 600px) {
+
+  #performancePanel {
+    margin-top: 18px !important;
+    padding: 0 !important;
+  }
+
+  #performancePanel * {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+    filter: none !important;
+    backdrop-filter: none !important;
+    text-shadow: none !important;
+  }
+
+  #performancePanel .performance-card,
+  #performancePanel .sport-record-card,
+  #performancePanel .record-card,
+  #performancePanel .sport-performance-card,
+  #performancePanel .premium-performance-card,
+  #performancePanel .accuracy-card {
+    min-height: auto !important;
+    padding: 14px !important;
+    border-radius: 18px !important;
+
+    box-shadow: 0 0 10px rgba(0,255,255,.10) !important;
+  }
+
+  #performancePanel h2 {
+    font-size: 22px !important;
+    line-height: 1.05 !important;
+    margin-bottom: 10px !important;
+  }
+
+  #performancePanel h3 {
+    font-size: 16px !important;
+    margin-bottom: 4px !important;
+  }
+
+  #performancePanel p,
+  #performancePanel small {
+    font-size: 12px !important;
+    line-height: 1.2 !important;
+  }
+
+  #performancePanel .performance-percent,
+  #performancePanel .record-percent,
+  #performancePanel .accuracy-percent {
+    font-size: 34px !important;
+    line-height: 1 !important;
+  }
+
+  #performancePanel .record-bubbles span,
+  #performancePanel .stat-pill {
+    font-size: 11px !important;
+    padding: 4px 8px !important;
+  }
+}
