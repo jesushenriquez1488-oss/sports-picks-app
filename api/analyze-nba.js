@@ -476,30 +476,10 @@ const { data: picks, error } = await supabaseAdmin
 }
   if (req.method === "GET" && req.query.mode === "performance") {
   try {
-   const { data: rawRecords, error } = await supabaseAdmin
-  .from("sport_records")
+  const { data: records, error } = await supabaseAdmin
+  .from("sport_record_summary")
   .select("*")
   .order("display_name", { ascending: true });
-
-const records = (rawRecords || []).map(r => {
-  const wins = Number(r.total_wins ?? r.wins ?? r.real_wins ?? 0);
-  const losses = Number(r.total_losses ?? r.losses ?? r.real_losses ?? 0);
-  const pushes = Number(r.pushes ?? 0);
-
-  const counted = wins + losses;
-  const accuracy =
-    counted > 0
-      ? Number(((wins / counted) * 100).toFixed(1))
-      : Number(r.accuracy ?? r.win_rate ?? 80);
-
-  return {
-    ...r,
-    total_wins: wins,
-    total_losses: losses,
-    pushes,
-    accuracy
-  };
-});
     if (error) {
       return res.status(500).json({
         error: error.message
