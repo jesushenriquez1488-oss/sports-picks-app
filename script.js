@@ -2090,7 +2090,7 @@ function renderPerformancePanel(data) {
     const wins = Number(record.total_wins || 0);
     const losses = Number(record.total_losses || 0);
     const pushes = Number(record.pushes || 0);
-    const counted = Number(record.counted_picks || wins + losses);
+   
 
     return `
       <div class="performance-sport-card">
