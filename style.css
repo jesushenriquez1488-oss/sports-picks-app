@@ -8348,10 +8348,39 @@ animation: overallPulse 3s ease-in-out infinite;
 .performance-overall-card::before{
   content:"";
   position:absolute;
-  inset:-40%;
+  width:180px;
+  height:180px;
+  border-radius:999px;
   background:
-    radial-gradient(circle, rgba(0,255,231,.18), transparent 60%);
-  animation: overallRotate 8s linear infinite;
+    radial-gradient(circle,
+      rgba(0,255,231,.22),
+      rgba(0,255,231,.05),
+      transparent 70%);
+  top:-60px;
+  right:-60px;
+  filter:blur(10px);
+  animation:orbFloat 6s ease-in-out infinite;
+}
+
+.performance-overall-card::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:22px;
+  padding:1px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(0,255,231,.55),
+      rgba(124,60,255,.25),
+      rgba(0,255,231,.12)
+    );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;
+  mask-composite:exclude;
+  pointer-events:none;
 }
 
 .performance-overall-card *{
@@ -8359,12 +8388,16 @@ animation: overallPulse 3s ease-in-out infinite;
   z-index:2;
 }
 
-@keyframes overallRotate{
-  from{
-    transform:rotate(0deg);
+@keyframes orbFloat{
+
+  0%,100%{
+    transform:translateY(0px);
+    opacity:.85;
   }
-  to{
-    transform:rotate(360deg);
+
+  50%{
+    transform:translateY(8px);
+    opacity:1;
   }
 }
 
