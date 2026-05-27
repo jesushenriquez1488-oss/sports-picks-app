@@ -8800,47 +8800,247 @@ animation: overallPulse 3s ease-in-out infinite;
     font-size: 34px !important;
   }
 }
-.login-trust-widget {
-  width: 210px;
+.premium-trust-widget {
+  position: relative;
+  width: 260px;
   margin: 10px 0 18px auto;
-  padding: 14px 16px;
-  border-radius: 20px;
-  background: linear-gradient(145deg, rgba(0,255,231,.14), rgba(124,60,255,.18));
-  border: 1px solid rgba(0,255,231,.38);
-  box-shadow: 0 0 22px rgba(0,255,231,.18);
+  padding: 18px 18px 16px;
+  border-radius: 28px;
   text-align: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 80% 10%, rgba(0,255,231,.45), transparent 24%),
+    radial-gradient(circle at 10% 85%, rgba(124,60,255,.38), transparent 28%),
+    linear-gradient(145deg, rgba(2,20,42,.95), rgba(6,5,35,.96));
+  border: 1px solid rgba(0,255,231,.75);
+  box-shadow:
+    0 0 18px rgba(0,255,231,.55),
+    0 0 38px rgba(124,60,255,.35),
+    inset 0 0 28px rgba(0,255,231,.12);
 }
 
-.login-trust-widget span {
-  display: block;
-  font-size: 10px;
-  letter-spacing: .16em;
-  color: #00ffe7;
-  font-weight: 900;
+.premium-trust-widget::before,
+.premium-trust-widget::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 22px;
+  border: 1px solid rgba(255,255,255,.08);
+  pointer-events: none;
 }
 
-.login-trust-widget strong {
+.premium-trust-widget::after {
+  inset: auto;
+  width: 90px;
+  height: 2px;
+  right: 22px;
+  top: 14px;
+  background: linear-gradient(90deg, transparent, #00ffe7, transparent);
+  box-shadow: 0 0 14px #00ffe7;
+}
+
+.trust-stars::before,
+.trust-stars::after {
+  content: "✦";
+  position: absolute;
+  color: #fff;
+  text-shadow:
+    0 0 10px #00ffe7,
+    0 0 22px #7c3cff;
+  animation: trustSpark 2.4s infinite ease-in-out;
+}
+
+.trust-stars::before {
+  right: 16px;
+  top: 18px;
+  font-size: 18px;
+}
+
+.trust-stars::after {
+  left: 18px;
+  bottom: 22px;
+  font-size: 13px;
+  animation-delay: .8s;
+}
+
+.trust-top span {
   display: block;
-  font-size: 34px;
   color: #00ffe7;
+  font-size: 11px;
+  letter-spacing: .22em;
+  font-weight: 1000;
+  margin-bottom: 7px;
+}
+
+.premium-trust-widget strong {
+  display: block;
+  color: #00ffe7;
+  font-size: 46px;
   line-height: 1;
-  margin: 6px 0;
+  font-weight: 1000;
+  text-shadow:
+    0 0 12px rgba(0,255,231,.95),
+    0 0 30px rgba(0,255,231,.55);
 }
 
-.login-trust-widget small {
-  color: rgba(255,255,255,.82);
-  font-size: 12px;
-  font-weight: 800;
+/* ===== FUTURISTIC TROPHY ===== */
+
+.trust-trophy {
+  position: relative;
+  width: 90px;
+  height: 90px;
+  margin: 12px auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-@media (max-width: 600px) {
-  .login-trust-widget {
-    width: 165px;
-    padding: 11px 12px;
-    margin-right: 0;
+.trophy-core {
+  width: 34px;
+  height: 34px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #00ffe7, #7c3cff);
+  box-shadow:
+    0 0 16px rgba(0,255,231,.9),
+    0 0 34px rgba(124,60,255,.7);
+  position: relative;
+  animation: pulseCore 2s infinite ease-in-out;
+}
+
+.trophy-core::before {
+  content: "✦";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 16px;
+  text-shadow: 0 0 12px white;
+}
+
+.trophy-ring {
+  position: absolute;
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  border: 2px solid rgba(0,255,231,.55);
+  box-shadow:
+    0 0 16px rgba(0,255,231,.45),
+    inset 0 0 12px rgba(0,255,231,.25);
+  animation: rotateRing 8s linear infinite;
+}
+
+.trophy-ring::before,
+.trophy-ring::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00ffe7;
+  box-shadow: 0 0 12px #00ffe7;
+}
+
+.trophy-ring::before {
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.trophy-ring::after {
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.ring2 {
+  width: 90px;
+  height: 90px;
+  border-color: rgba(124,60,255,.45);
+  animation-direction: reverse;
+  animation-duration: 12s;
+}
+
+@keyframes rotateRing {
+  from {
+    transform: rotate(0deg);
   }
 
-  .login-trust-widget strong {
-    font-size: 28px;
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulseCore {
+  0%,100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+/* ===== TEXT ===== */
+
+.premium-trust-widget small {
+  display: block;
+  color: rgba(255,255,255,.75);
+  font-size: 10px;
+  letter-spacing: .18em;
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
+.trust-record {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 1000;
+}
+
+@keyframes trustSpark {
+  0%,100% {
+    opacity: .35;
+    transform: scale(.8);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}
+
+/* ===== MOBILE ===== */
+
+@media (max-width: 600px) {
+  .premium-trust-widget {
+    width: 210px;
+    padding: 14px 14px 12px;
+    border-radius: 24px;
+    margin: 10px 0 16px auto;
+  }
+
+  .premium-trust-widget strong {
+    font-size: 36px;
+  }
+
+  .trust-record {
+    font-size: 12px;
+  }
+
+  .trust-trophy {
+    width: 70px;
+    height: 70px;
+  }
+
+  .trophy-ring {
+    width: 58px;
+    height: 58px;
+  }
+
+  .ring2 {
+    width: 70px;
+    height: 70px;
   }
 }
