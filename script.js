@@ -2477,3 +2477,36 @@ box.innerHTML = `
 }
 
 window.loadParlayToday = loadParlayToday;
+const enableBtn = document.getElementById("enableNotificationsBtn");
+
+if (enableBtn) {
+
+  enableBtn.addEventListener("click", async () => {
+
+    try {
+
+      const permission = await Notification.requestPermission();
+
+      if (permission === "granted") {
+
+        await OneSignal.User.PushSubscription.optIn();
+
+        enableBtn.innerHTML =
+          "✅ ALERTAS PREMIUM ACTIVADAS";
+
+      } else {
+
+        enableBtn.innerHTML =
+          "❌ ALERTAS BLOQUEADAS";
+
+      }
+
+    } catch (err) {
+
+      console.log("Push error:", err);
+
+    }
+
+  });
+
+}
