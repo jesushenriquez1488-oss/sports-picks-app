@@ -94,6 +94,14 @@
       "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_ncaab&limit=4&offset=20",
       "schedule": "45 15 * * *"
     }
-
+,
+{
+  "path": "/api/analyze-nba?mode=grade-pending",
+  "schedule": "30 6 * * *"
+},
+{
+  "path": "/api/analyze-mlb?mode=grade-pending",
+  "schedule": "40 6 * * *"
+}
   ]
 }
