@@ -8528,13 +8528,34 @@ animation: overallPulse 3s ease-in-out infinite;
   flex-wrap: wrap;
 }
 
-.performance-record span {
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.07);
-  color: #dbe7ff;
-  font-size: 12px;
-  font-weight: 800;
+.performance-record span{
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:800;
+  background:rgba(255,255,255,.06);
+}
+
+.performance-record .record-win{
+  color:#00ffae;
+  background:rgba(0,255,174,.12);
+  border:1px solid rgba(0,255,174,.22);
+  text-shadow:0 0 12px rgba(0,255,174,.55);
+  box-shadow:0 0 14px rgba(0,255,174,.12);
+}
+
+.performance-record .record-loss{
+  color:#ff5c7c;
+  background:rgba(255,92,124,.12);
+  border:1px solid rgba(255,92,124,.22);
+  text-shadow:0 0 12px rgba(255,92,124,.45);
+  box-shadow:0 0 14px rgba(255,92,124,.10);
+}
+
+.performance-record .record-push{
+  color:#c7d2e6;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.08);
 }
 
 .performance-mini-text {
