@@ -927,13 +927,23 @@ game_date: new Date().toISOString().split("T")[0]
 let pickType = "spread";
 let pickTeam = null;
 let pickLine = null;
+let pickDirection = null;
 
-if (pick === "Over" || pick === "Under") {
+const normalizedPick = String(pick || "").toLowerCase();
+
+if (normalizedPick.includes("over")) {
   pickType = "total";
   pickTeam = null;
   pickLine = Number(total);
+  pickDirection = "OVER";
+} else if (normalizedPick.includes("under")) {
+  pickType = "total";
+  pickTeam = null;
+  pickLine = Number(total);
+  pickDirection = "UNDER";
 } else {
   pickType = "spread";
+  pickDirection = null;
 
   if (pick.includes(awayTeam)) {
     pickTeam = awayTeam;
@@ -946,16 +956,23 @@ if (pick === "Over" || pick === "Under") {
 const { data: insertedPick, error: insertError } = await supabaseAdmin
   .from("picks_history")
   .insert({
-    game_id: gameId,
-    sport: selectedLeague,
-    pick,
-    confidence,
-    result: "pending",
-    is_premium: isPremiumPick === true,
-    pick_type: pickType,
-pick_team: pickTeam,
-line: pickLine
-  })
+  game_id: gameId,
+  sport: selectedLeague,
+
+  away_team: awayTeam,
+  home_team: homeTeam,
+  game_date: new Date().toISOString().split("T")[0],
+
+  pick,
+  confidence,
+  result: "pending",
+  is_premium: isPremiumPick === true,
+
+  pick_type: pickType,
+  pick_team: pickTeam,
+  pick_direction: pickDirection,
+  line: pickLine
+})
       .select("id")
       .single();
 
