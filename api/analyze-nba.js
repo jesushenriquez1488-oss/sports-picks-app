@@ -650,7 +650,7 @@ if (
   now - userData.lastRequest < FREE_COOLDOWN
 ) {
   return res.status(429).json({
-    error: "Espera 10 segundos antes de analizar nuevamente."
+    error: "⏳ Estás usando el acceso gratuito de CashEdge AI. Espera unos segundos o mejora a Premium para análisis ilimitados y acceso completo."
   });
 }
 
@@ -661,7 +661,7 @@ if (
   userData.hourRequests.length >= FREE_MAX_PER_HOUR
 ) {
   return res.status(429).json({
-    error: "Has alcanzado el límite gratuito de 10 análisis por hora. Mejora a Premium para acceso ilimitado."
+   error: "🔒 Has alcanzado el límite gratuito de CashEdge AI. Obtén CashEdge Premium para análisis ilimitados, picks exclusivos y acceso prioritario."
   });
 }
 
