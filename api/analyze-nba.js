@@ -156,28 +156,27 @@ const selectedGames = todayGames.slice(offset, offset + limit);
           const homeSpread = getSpread(game, homeTeam);
           const totalLine = getTotal(game);
           const outcomes = getH2HOutcomes(game);
-
-          const analyzeBody =
-            sport.league === "mlb"
-              ? {
-                  userId: "system-generate-daily",
-                  awayTeam,
-                  homeTeam,
-                  awaySpread,
-                  homeSpread,
-                  outcomes,
-                  totalLine: totalLine || 8
-                forceRefresh: req.query.force === "true"
-                }
-              : {
-                  awayTeam,
-                  homeTeam,
-                  awaySpread,
-                  homeSpread,
-                  total: totalLine,
-                  league: sport.league
-                forceRefresh: req.query.force === "true"
-                };
+const analyzeBody =
+  sport.league === "mlb"
+    ? {
+        userId: "system-generate-daily",
+        awayTeam,
+        homeTeam,
+        awaySpread,
+        homeSpread,
+        outcomes,
+        totalLine: totalLine || 8,
+        forceRefresh: req.query.force === "true"
+      }
+    : {
+        awayTeam,
+        homeTeam,
+        awaySpread,
+        homeSpread,
+        total: totalLine,
+        league: sport.league,
+        forceRefresh: req.query.force === "true"
+      };
 
           const analyzeRes = await fetch(`${origin}${sport.endpoint}`, {
             method: "POST",
