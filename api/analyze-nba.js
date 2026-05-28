@@ -701,8 +701,12 @@ const gameId = teamsSorted.join("-");
       .eq("sport", selectedLeague)
       .eq("game_id", gameId)
       .maybeSingle();
-
-    if (existing?.analysis_json) {
+const forceRefresh =
+  req.query.force === "true" ||
+  req.body?.force === true ||
+  req.body?.forceRefresh === true;
+    
+    if (existing?.analysis_json && !forceRefresh) {
       if (!existing.game_date) {
   await supabaseAdmin
     .from("daily_picks")
