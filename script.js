@@ -2158,9 +2158,9 @@ function renderPerformancePanel(data) {
         </div>
 
         <div class="performance-record">
-          <span>${wins}W</span>
-          <span>${losses}L</span>
-          <span>${pushes}P</span>
+          <span class="record-win">${wins}W</span>
+<span class="record-loss">${losses}L</span>
+<span class="record-push">${pushes}P</span>
         </div>
 
        
