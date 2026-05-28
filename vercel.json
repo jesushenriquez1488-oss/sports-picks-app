@@ -1,6 +1,5 @@
 {
   "crons": [
-
     {
       "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_nba&limit=4&offset=0&force=true",
       "schedule": "0 14 * * *"
@@ -103,6 +102,5 @@
       "path": "/api/analyze-mlb?mode=grade-pending",
       "schedule": "40 6 * * *"
     }
-
   ]
 }
