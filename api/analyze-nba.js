@@ -488,51 +488,38 @@ const { data: picks, error } = await supabaseAdmin
 
     const safeRecords = records || [];
 
-   const { data: gradedPicks, error: gradedError } = await supabaseAdmin
-  .from("picks_history")
-  .select("result")
-  .eq("is_premium", true)
-  .in("result", ["win", "loss", "push"]);
+  const totalWins = safeRecords.reduce(
+  (sum, r) => sum + Number(r.total_wins || 0),
+  0
+);
 
-if (gradedError) {
-  return res.status(500).json({ error: gradedError.message });
-}
+const totalLosses = safeRecords.reduce(
+  (sum, r) => sum + Number(r.total_losses || 0),
+  0
+);
 
-const realWins = gradedPicks.filter(p => p.result === "win").length;
-const realLosses = gradedPicks.filter(p => p.result === "loss").length;
-const realPushes = gradedPicks.filter(p => p.result === "push").length;
-
-const totalWins = 80 + realWins;
-const totalLosses = 20 + realLosses;
-const totalPushes = realPushes;
+const totalPushes = safeRecords.reduce(
+  (sum, r) => sum + Number(r.pushes || 0),
+  0
+);
 
 const countedPicks = totalWins + totalLosses;
 
-    const overallAccuracy =
-      countedPicks > 0
-        ? Number(((totalWins / countedPicks) * 100).toFixed(1))
-        : 80.0;
-const displayWins =
-  countedPicks > 0 ? totalWins : 80;
+const overallAccuracy =
+  countedPicks > 0
+    ? Number(((totalWins / countedPicks) * 100).toFixed(1))
+    : 80.0;
 
-const displayLosses =
-  countedPicks > 0 ? totalLosses : 20;
-
-const displayPushes =
-  countedPicks > 0 ? totalPushes : 0;
-
-const displayAccuracy =
-  countedPicks > 0 ? overallAccuracy : 80.0;
-    return res.status(200).json({
-      ok: true,
-     overall: {
-  accuracy: displayAccuracy,
-  wins: displayWins,
-  losses: displayLosses,
-  pushes: displayPushes,
-  countedPicks
-},
-sports: safeRecords
+return res.status(200).json({
+  ok: true,
+  overall: {
+    accuracy: overallAccuracy,
+    wins: totalWins,
+    losses: totalLosses,
+    pushes: totalPushes,
+    countedPicks
+  },
+  sports: safeRecords
 });
   } catch (error) {
     return res.status(500).json({
