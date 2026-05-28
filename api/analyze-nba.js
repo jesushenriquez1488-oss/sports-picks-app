@@ -167,6 +167,7 @@ const selectedGames = todayGames.slice(offset, offset + limit);
                   homeSpread,
                   outcomes,
                   totalLine: totalLine || 8
+                forceRefresh: req.query.force === "true",
                 }
               : {
                   awayTeam,
@@ -175,6 +176,7 @@ const selectedGames = todayGames.slice(offset, offset + limit);
                   homeSpread,
                   total: totalLine,
                   league: sport.league
+                forceRefresh: req.query.force === "true",
                 };
 
           const analyzeRes = await fetch(`${origin}${sport.endpoint}`, {
