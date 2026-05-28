@@ -959,6 +959,12 @@ if (normalizedPick.includes("over")) {
     pickLine = Number(homeSpread);
   }
 }
+    await supabaseAdmin
+  .from("picks_history")
+  .delete()
+  .eq("sport", selectedLeague)
+  .eq("game_id", gameId)
+  .eq("result", "pending");
 const { data: insertedPick, error: insertError } = await supabaseAdmin
   .from("picks_history")
   .insert({
