@@ -13,19 +13,23 @@ module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  try {
-    const {
-      mode,
-      userId,
-      awayTeam,
-      homeTeam,
-      awaySpread,
-      homeSpread,
-      outcomes,
-      totalLine = 8
-    } = req.body || {};
+try {
+  const mode = req.query.mode || req.body?.mode;
+
+  const {
+    userId,
+    awayTeam,
+    homeTeam,
+    awaySpread,
+    homeSpread,
+    outcomes,
+    totalLine = 8
+  } = req.body || {};
+
+  if (mode !== "grade-pending" && req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
 if (mode === "grade-pending") {
   const normalize = (name = "") =>
     String(name)
