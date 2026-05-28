@@ -619,19 +619,28 @@ const userKey =
 
 const now = Date.now();
 
+const FREE_MAX_PER_HOUR = 10;
+
 if (!USER_REQUESTS[userKey]) {
   USER_REQUESTS[userKey] = {
     lastRequest: 0,
     minuteRequests: [],
+    hourRequests: [],
   };
 }
 
 const userData = USER_REQUESTS[userKey];
 
-// limpiar requests viejos
+// limpiar requests viejos por minuto
 userData.minuteRequests =
   userData.minuteRequests.filter(
     t => now - t < 60000
+  );
+
+// limpiar requests viejos por hora
+userData.hourRequests =
+  userData.hourRequests.filter(
+    t => now - t < 60 * 60 * 1000
   );
 
 // FREE cooldown
@@ -642,6 +651,17 @@ if (
 ) {
   return res.status(429).json({
     error: "Espera 10 segundos antes de analizar nuevamente."
+  });
+}
+
+// límite FREE por hora
+if (
+  !isPremiumUser &&
+  !isAdmin &&
+  userData.hourRequests.length >= FREE_MAX_PER_HOUR
+) {
+  return res.status(429).json({
+    error: "Has alcanzado el límite gratuito de 10 análisis por hora. Mejora a Premium para acceso ilimitado."
   });
 }
 
@@ -658,6 +678,7 @@ if (
 
 userData.lastRequest = now;
 userData.minuteRequests.push(now);
+userData.hourRequests.push(now);
         }
       }
 
