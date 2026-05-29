@@ -9684,3 +9684,244 @@ animation: overallPulse 3s ease-in-out infinite;
   line-height:1.35 !important;
   margin:6px 0 !important;
 }
+/* ===========================
+   BASKET PREMIUM FINAL FIX
+   NBA / WNBA / NCAAB
+   =========================== */
+
+.premium-label,
+.premium-header h3,
+.premium-pro-label,
+.premium-circle-label,
+.premium-pro-confidence-box span,
+.premium-pro-mini span,
+.basket-premium-card::before{
+  display:none !important;
+}
+
+/* tarjeta premium limpia */
+
+.basket-premium-card{
+  background:
+    radial-gradient(circle at top, rgba(255,209,102,.08), transparent 35%),
+    linear-gradient(145deg,#050505,#0b0903) !important;
+
+  border:1.5px solid rgba(255,209,102,.9) !important;
+  border-radius:26px !important;
+
+  padding:18px !important;
+
+  box-shadow:
+    0 0 22px rgba(255,209,102,.25),
+    inset 0 0 22px rgba(255,209,102,.05) !important;
+}
+
+/* badge centrado */
+
+.basket-premium-badge{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+
+  width:fit-content !important;
+  max-width:90% !important;
+
+  margin:0 auto 18px !important;
+  padding:10px 22px !important;
+
+  border-radius:999px !important;
+
+  background:linear-gradient(135deg,#fff3b0,#ffd166,#ffb703) !important;
+  color:#151000 !important;
+
+  font-size:15px !important;
+  font-weight:1000 !important;
+
+  box-shadow:0 0 18px rgba(255,209,102,.28) !important;
+}
+
+/* bloque principal */
+
+.premium-pro-main{
+  background:#050505 !important;
+  border:1px solid rgba(255,209,102,.55) !important;
+  border-radius:24px !important;
+  padding:18px 14px !important;
+}
+
+/* pick */
+
+.premium-pro-pick{
+  text-align:center !important;
+  font-size:28px !important;
+  line-height:1.15 !important;
+  margin:2px 0 16px !important;
+  color:#ffd166 !important;
+  font-weight:1000 !important;
+}
+
+/* círculo dorado */
+
+.premium-pro-confidence-box{
+  display:flex !important;
+  justify-content:center !important;
+  align-items:center !important;
+
+  background:transparent !important;
+  border:none !important;
+  box-shadow:none !important;
+
+  padding:0 !important;
+  margin:0 auto 14px !important;
+}
+
+.premium-pro-circle{
+  width:118px !important;
+  height:118px !important;
+
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+
+  margin:0 auto !important;
+
+  border:7px solid #ffd166 !important;
+  border-radius:50% !important;
+
+  color:#ffd166 !important;
+  font-size:34px !important;
+  font-weight:1000 !important;
+
+  background:
+    radial-gradient(circle, rgba(255,209,102,.14), rgba(0,0,0,.95) 65%) !important;
+
+  box-shadow:
+    0 0 18px rgba(255,209,102,.38),
+    inset 0 0 18px rgba(255,209,102,.10) !important;
+}
+
+/* stats compactos */
+
+.premium-pro-grid{
+  display:grid !important;
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  gap:10px !important;
+
+  margin-top:14px !important;
+}
+
+.premium-pro-mini{
+  min-height:78px !important;
+  padding:10px 6px !important;
+
+  display:flex !important;
+  flex-direction:column !important;
+  justify-content:center !important;
+  align-items:center !important;
+
+  text-align:center !important;
+
+  border-radius:16px !important;
+  background:rgba(0,0,0,.45) !important;
+  border:1px solid rgba(255,209,102,.25) !important;
+}
+
+.premium-pro-mini small{
+  font-size:10px !important;
+  line-height:1.1 !important;
+  min-height:22px !important;
+
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+
+  color:#00ffe7 !important;
+  text-align:center !important;
+}
+
+.premium-pro-mini strong{
+  font-size:27px !important;
+  line-height:1 !important;
+  color:#ffd166 !important;
+}
+
+/* descanso / lesiones */
+
+.premium-data-section{
+  margin-top:16px !important;
+}
+
+.premium-data-box{
+  padding:14px !important;
+  border-radius:18px !important;
+  text-align:left !important;
+  overflow:hidden !important;
+}
+
+.premium-data-box h4{
+  text-align:center !important;
+  margin:0 0 10px !important;
+  font-size:20px !important;
+}
+
+.premium-data-box p{
+  text-align:left !important;
+  font-size:14px !important;
+  line-height:1.35 !important;
+  margin:6px 0 !important;
+
+  overflow-wrap:break-word !important;
+  word-break:normal !important;
+}
+
+/* normal card separada */
+
+.basket-normal-card{
+  background:
+    linear-gradient(145deg,#061528,#071d35) !important;
+
+  border:1px solid rgba(0,255,255,.32) !important;
+  box-shadow:0 0 18px rgba(0,255,255,.12) !important;
+}
+
+.basket-normal-badge{
+  background:linear-gradient(135deg,#00eaff,#356bff) !important;
+  color:white !important;
+}
+
+/* móvil */
+
+@media(max-width:600px){
+
+  .basket-premium-card{
+    padding:14px !important;
+    border-radius:24px !important;
+  }
+
+  .premium-pro-main{
+    padding:16px 12px !important;
+  }
+
+  .premium-pro-pick{
+    font-size:25px !important;
+  }
+
+  .premium-pro-circle{
+    width:104px !important;
+    height:104px !important;
+    font-size:30px !important;
+    border-width:6px !important;
+  }
+
+  .premium-pro-mini{
+    min-height:70px !important;
+  }
+
+  .premium-pro-mini strong{
+    font-size:25px !important;
+  }
+
+  .premium-data-box p{
+    font-size:13px !important;
+  }
+}
