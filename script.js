@@ -652,7 +652,7 @@ if (
 
           <h3>🏀 PICK PRINCIPAL</h3>
 
-<div class="premium-pro-card ${data.public.verdict === "Premium" ? "is-premium" : "is-normal"}">
+<div class="premium-pro-card ${isPremium ? "basket-premium-card" : "basket-normal-card"}">
 
   <div class="premium-pro-top-badge">
     ${
