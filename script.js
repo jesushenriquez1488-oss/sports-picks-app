@@ -654,7 +654,7 @@ if (
 
 <div class="premium-pro-card ${isPremium ? "basket-premium-card" : "basket-normal-card"}">
 
-  <div class="premium-pro-top-badge">
+  <div class="${isPremium ? "basket-premium-badge" : "basket-normal-badge"}">
     ${
       data.public.confidence >= 75
         ? "🔥 HOT PICK PREMIUM"
