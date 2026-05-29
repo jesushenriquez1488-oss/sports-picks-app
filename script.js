@@ -656,9 +656,6 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
 
         <div>
 
-          <p class="premium-label">AI PREDICTIVE REPORT</p>
-
-          <h3>🏀 PICK PRINCIPAL</h3>
 
 <div class="premium-pro-card ${isPremium ? "basket-premium-card" : "basket-normal-card"}">
 
@@ -680,15 +677,9 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
       }
     </div>
 
-    <div class="premium-pro-pick">
-      ${
-        locked
-          ? "Pick bloqueado"
-          : premium.pick
-              .replace(" cubre spread", "")
-              .replace(" cubre", "")
-      }
-    </div>
+   <div class="premium-pro-pick">
+  ${displayPick}
+</div>
 
     <div class="premium-pro-confidence-box">
 
