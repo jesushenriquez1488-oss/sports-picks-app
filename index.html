@@ -104,9 +104,24 @@ OneSignalDeferred.push(async function(OneSignal) {
   <div id="signupView" style="display:none;">
     <h3>Create account</h3>
 
-    <input id="signupEmail" placeholder="Email">
-    <input id="signupPassword" type="password" placeholder="Password">
+  <input id="signupEmail" placeholder="Email">
 
+<div class="password-wrapper">
+
+  <input
+    id="signupPassword"
+    type="password"
+    placeholder="Password"
+  >
+
+  <span
+    class="password-toggle"
+    onclick="togglePassword('signupPassword', this)"
+  >
+    👁️
+  </span>
+
+</div>
     <button onclick="registerUser(
       document.getElementById('signupEmail').value,
       document.getElementById('signupPassword').value
