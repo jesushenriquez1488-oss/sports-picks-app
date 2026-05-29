@@ -648,7 +648,7 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
   displayPick = `${displayPick} ${total}`;
 }
   resultDiv.innerHTML = `
-  <div class="${isPremium ? 'premium-result mlb-premium-dashboard' : 'normal-result'}">
+ <div class="${isPremium ? 'basket-premium-wrapper' : 'normal-result'}">
 
     <div class="result-content premium-layout">
 
