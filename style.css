@@ -9285,9 +9285,12 @@ animation: overallPulse 3s ease-in-out infinite;
     radial-gradient(circle at top, rgba(255,209,102,.16), transparent 38%),
     linear-gradient(145deg,#1b1203,#050505 62%);
   border:1.5px solid rgba(255,209,102,.9);
-  box-shadow:
-    0 0 28px rgba(255,209,102,.32),
-    inset 0 0 22px rgba(255,209,102,.08);
+ box-shadow:
+  0 0 12px rgba(255,209,102,.35),
+  0 0 28px rgba(255,209,102,.30),
+  0 0 60px rgba(255,209,102,.20),
+  0 0 90px rgba(255,209,102,.10),
+  inset 0 0 22px rgba(255,209,102,.08);
 }
 
 .ce-premium-basket-badge{
