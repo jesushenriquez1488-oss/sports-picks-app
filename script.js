@@ -657,171 +657,180 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
         <div>
 
 
-<div class="premium-pro-card ${isPremium ? "basket-premium-card" : "basket-normal-card"}">
+${
+  isPremium
+    ? `
+      <div class="ce-premium-basket-card">
 
-  <div class="${isPremium ? "basket-premium-badge" : "basket-normal-badge"}">
-    ${
-      data.public.confidence >= 75
-        ? "🔥 HOT PICK PREMIUM"
-        : "📊 JUGADA DESTACADA"
-    }
-  </div>
+        <div class="ce-premium-basket-badge">
+          🔥 HOT PICK PREMIUM
+        </div>
 
-  <div class="premium-pro-main">
+        <div class="ce-premium-basket-pick">
+          ${displayPick}
+        </div>
 
-    <div class="premium-pro-label">
-      ${
-        data.public.verdict === "Premium"
-          ? "🔥 JUGADA PREMIUM"
-          : "📊 JUGADA NORMAL"
-      }
-    </div>
+        <div class="ce-premium-basket-circle">
+          <span>${data.public.confidence}%</span>
+        </div>
 
-   <div class="premium-pro-pick">
-  ${displayPick}
-</div>
+        <div class="ce-premium-basket-stats">
 
-    <div class="premium-pro-confidence-box">
+          <div>
+            <small>EDGE</small>
+            <strong>${locked ? "Premium" : premium.mainEdge.toFixed(1)}</strong>
+          </div>
 
-      <div class="premium-pro-circle">
-        ${data.public.confidence}%
+          <div>
+            <small>TOTAL</small>
+            <strong>${locked ? "--" : premium.totalProj.toFixed(1)}</strong>
+          </div>
+
+          <div>
+            <small>${awayTeam}</small>
+            <strong>${locked ? "--" : premium.projA.toFixed(1)}</strong>
+          </div>
+
+          <div>
+            <small>${homeTeam}</small>
+            <strong>${locked ? "--" : premium.projB.toFixed(1)}</strong>
+          </div>
+
+        </div>
+
       </div>
+    `
+    : `
+      <div class="ce-normal-basket-card">
 
-     
-     
+        <div class="ce-normal-basket-badge">
+          📊 JUGADA DESTACADA
+        </div>
 
-    </div>
+        <div class="ce-normal-basket-pick">
+          ${displayPick}
+        </div>
 
-  </div>
+        <div class="ce-normal-basket-percent">
+          ${data.public.confidence}%
+        </div>
 
-  <div class="premium-pro-grid">
+        <div class="ce-normal-basket-stats">
 
-    <div class="premium-pro-mini">
-      <small>EDGE</small>
-      <strong>${locked ? "Premium" : premium.mainEdge.toFixed(1)}</strong>
-      <span>vs mercado</span>
-    </div>
+          <div>
+            <small>EDGE</small>
+            <strong>${locked ? "Premium" : premium.mainEdge.toFixed(1)}</strong>
+          </div>
 
-    <div class="premium-pro-mini">
-      <small>PROYECCIÓN TOTAL</small>
-     <strong>${locked ? "Bloqueado" : premium.totalProj.toFixed(1)}</strong>
-      <span>Total modelo</span>
-    </div>
+          <div>
+            <small>TOTAL</small>
+            <strong>${locked ? "--" : premium.totalProj.toFixed(1)}</strong>
+          </div>
 
-    <div class="premium-pro-mini team">
-      <small>${awayTeam}</small>
-    <strong>${locked ? "--" : premium.projA.toFixed(1)}</strong>
-      <span>puntos proyectados</span>
-    </div>
+          <div>
+            <small>${awayTeam}</small>
+            <strong>${locked ? "--" : premium.projA.toFixed(1)}</strong>
+          </div>
 
-    <div class="premium-pro-mini team">
-      <small>${homeTeam}</small>
-      <strong>${locked ? "--" : premium.projB.toFixed(1)}</strong>
-      <span>puntos proyectados</span>
-    </div>
+          <div>
+            <small>${homeTeam}</small>
+            <strong>${locked ? "--" : premium.projB.toFixed(1)}</strong>
+          </div>
 
-  </div>
+        </div>
+
+      </div>
+    `
+}
+
+${
+  locked
+    ? `
+      <div class="premium-lock-box">
+
+        <h4>🔒 Premium Analysis Locked</h4>
+
+        <p>El modelo detectó edge premium basado en:</p>
+
+        <div class="premium-lock-grid">
+          <div>✔ Forma reciente</div>
+          <div>✔ Descanso</div>
+          <div>✔ Lesiones</div>
+          <div>✔ Matchup ofensivo</div>
+          <div>✔ Matchup defensivo</div>
+          <div>✔ Edge vs mercado</div>
+        </div>
+
+        <button class="unlock-btn" onclick="goPremiumMonthly()">
+          🔓 Desbloquear Premium $${MONTHLY_PRICE}/mes
+        </button>
+
+      </div>
+    `
+    : `
+      <div class="ce-basket-info-section">
+
+        <div class="ce-basket-info-box">
+          <h4>😴 Descanso</h4>
+          <p>${awayTeam}: ${premium.awayRestNote}</p>
+          <p>${homeTeam}: ${premium.homeRestNote}</p>
+        </div>
+
+        <div class="ce-basket-info-box">
+          <h4>🚑 Lesiones</h4>
+
+          <p>${premium.awayInjuryPublic}</p>
+
+          ${
+            premium.awayInjuryNote.includes("No se reportan")
+              ? ""
+              : `<p>${premium.awayInjuryNote}</p>`
+          }
+
+          <p>${premium.homeInjuryPublic}</p>
+
+          ${
+            premium.homeInjuryNote.includes("No se reportan")
+              ? ""
+              : `<p>${premium.homeInjuryNote}</p>`
+          }
+
+        </div>
+
+      </div>
+    `
+}
+
+${
+  isAdminUser && data.pickId
+    ? `
+      <div class="admin-panel-pro">
+
+        <h4>🛠 ADMIN PANEL</h4>
+
+        <div class="admin-buttons">
+
+          <button onclick="updatePickResult('${data.pickId}', 'win')">
+            ✅ WIN
+          </button>
+
+          <button onclick="updatePickResult('${data.pickId}', 'loss')">
+            ❌ LOSS
+          </button>
+
+          <button onclick="updatePickResult('${data.pickId}', 'pending')">
+            ⏳ PENDING
+          </button>
+
+        </div>
+
+      </div>
+    `
+    : ""
+}
 
 </div>
-
-      ${
-        locked
-          ? `
-            <div class="premium-lock-box">
-
-              <h4>🔒 Premium Analysis Locked</h4>
-
-              <p>
-                El modelo detectó edge premium basado en:
-              </p>
-
-              <div class="premium-lock-grid">
-
-                <div>✔ Forma reciente</div>
-                <div>✔ Descanso</div>
-                <div>✔ Lesiones</div>
-                <div>✔ Matchup ofensivo</div>
-                <div>✔ Matchup defensivo</div>
-                <div>✔ Edge vs mercado</div>
-
-              </div>
-
-              <button class="unlock-btn" onclick="goPremiumMonthly()">
-                🔓 Desbloquear Premium $${MONTHLY_PRICE}/mes
-              </button>
-
-            </div>
-          `
-          : `
-
-            <div class="premium-data-section">
-
-              <div class="premium-data-box">
-
-                <h4>😴 Descanso</h4>
-
-                <p>${awayTeam}: ${premium.awayRestNote}</p>
-                <p>${homeTeam}: ${premium.homeRestNote}</p>
-
-              </div>
-
-              <div class="premium-data-box">
-
-                <h4>🚑 Lesiones</h4>
-
-                <p>${premium.awayInjuryPublic}</p>
-
-                ${
-                  premium.awayInjuryNote.includes("No se reportan")
-                    ? ""
-                    : `<p>${premium.awayInjuryNote}</p>`
-                }
-
-                <p>${premium.homeInjuryPublic}</p>
-
-                ${
-                  premium.homeInjuryNote.includes("No se reportan")
-                    ? ""
-                    : `<p>${premium.homeInjuryNote}</p>`
-                }
-
-              </div>
-
-            </div>
-
-          `
-      }
-
-      ${
-        isAdminUser && data.pickId
-          ? `
-            <div class="admin-panel-pro">
-
-              <h4>🛠 ADMIN PANEL</h4>
-
-              <div class="admin-buttons">
-
-                <button onclick="updatePickResult('${data.pickId}', 'win')">
-                  ✅ WIN
-                </button>
-
-                <button onclick="updatePickResult('${data.pickId}', 'loss')">
-                  ❌ LOSS
-                </button>
-
-                <button onclick="updatePickResult('${data.pickId}', 'pending')">
-                  ⏳ PENDING
-                </button>
-
-              </div>
-
-            </div>
-          `
-          : ""
-      }
-
-    </div>
-  </div>
+</div>
 `;
 endAnalysisLock(index);
   } catch (error) {
