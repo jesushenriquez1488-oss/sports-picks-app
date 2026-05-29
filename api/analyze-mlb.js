@@ -124,19 +124,23 @@ const { error: recordError } = await supabaseAdmin
   .from("sport_records")
   .upsert({
     sport: "mlb",
-    display_name: "MLB",
-    wins,
-    losses,
-    pushes,
-    total_picks: total,
-    win_rate: winRate,
-    updated_at: new Date().toISOString()
+display_name: "MLB",
+real_wins: wins,
+real_losses: losses,
+pushes,
+updated_at: new Date().toISOString()
   }, { onConflict: "sport" });
 
     if (recordError) throw recordError;
 
-    return { wins, losses, pushes, total_picks: total, win_rate: winRate };
-  };
+  return {
+  real_wins: wins,
+  real_losses: losses,
+  pushes,
+  total_picks: total,
+  win_rate: winRate
+};
+  
 
   const { data: pendingPicks, error: pendingError } = await supabaseAdmin
     .from("picks_history")
