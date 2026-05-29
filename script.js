@@ -1459,7 +1459,7 @@ async function loginUser(email, password) {
     showAuthMessage("Completa email y password", "error");
     return;
   }
-
+await askPushAfterLogin();
   const { data, error } = await supabaseClient.auth.signInWithPassword({
     email,
     password
