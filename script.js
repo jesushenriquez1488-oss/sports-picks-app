@@ -638,7 +638,15 @@ if (
     const locked = data.locked;
     const premium = data.premium;
     const isPremium = data.isPremiumPick;
+let displayPick = locked
+  ? "Pick bloqueado"
+  : premium.pick
+      .replace(" cubre spread", "")
+      .replace(" cubre", "");
 
+if (!locked && (displayPick === "Over" || displayPick === "Under")) {
+  displayPick = `${displayPick} ${total}`;
+}
   resultDiv.innerHTML = `
   <div class="${isPremium ? 'premium-result mlb-premium-dashboard' : 'normal-result'}">
 
