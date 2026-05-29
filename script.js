@@ -1434,7 +1434,26 @@ async function registerUser(email, password) {
   document.getElementById("loginEmail").value = email;
   document.getElementById("loginPassword").value = password;
 }
+async function askPushAfterLogin() {
+  try {
+    if (!window.OneSignalDeferred) return;
 
+    OneSignalDeferred.push(async function (OneSignal) {
+      const permission = Notification.permission;
+
+      if (permission === "granted" || permission === "denied") return;
+
+      const result = await Notification.requestPermission();
+
+      if (result === "granted") {
+        await OneSignal.User.PushSubscription.optIn();
+        console.log("Push notifications activated");
+      }
+    });
+  } catch (err) {
+    console.error("Push login prompt error:", err);
+  }
+}
 async function loginUser(email, password) {
   if (!email || !password) {
     showAuthMessage("Completa email y password", "error");
