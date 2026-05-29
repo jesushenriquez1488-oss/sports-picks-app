@@ -9593,7 +9593,7 @@ animation: overallPulse 3s ease-in-out infinite;
 .password-toggle{
   position:absolute;
   right:18px;
-  top:48%;
+  top:46%;
   transform:translateY(-50%);
 
   cursor:pointer;
