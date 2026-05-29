@@ -9577,3 +9577,38 @@ animation: overallPulse 3s ease-in-out infinite;
     font-size:12.5px;
   }
 }
+/* PASSWORD TOGGLE */
+
+.password-wrapper{
+  position:relative;
+  width:100%;
+}
+
+.password-wrapper input{
+  width:100%;
+  padding-right:55px !important;
+  box-sizing:border-box;
+}
+
+.password-toggle{
+  position:absolute;
+  right:18px;
+  top:50%;
+  transform:translateY(-50%);
+
+  cursor:pointer;
+
+  font-size:18px;
+
+  z-index:20;
+
+  user-select:none;
+
+  opacity:.8;
+
+  transition:.2s;
+}
+
+.password-toggle:hover{
+  opacity:1;
+}
