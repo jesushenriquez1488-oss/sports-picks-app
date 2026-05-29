@@ -9270,3 +9270,261 @@ animation: overallPulse 3s ease-in-out infinite;
     0 0 25px rgba(0,255,231,.4),
     0 0 45px rgba(124,60,255,.35);
 }
+/* ===============================
+   CASHEDGE BASKET CARDS FINAL
+   NBA / WNBA / NCAAB
+   =============================== */
+
+/* PREMIUM */
+
+.ce-premium-basket-card{
+  margin-top:14px;
+  padding:18px;
+  border-radius:24px;
+  background:
+    radial-gradient(circle at top, rgba(255,209,102,.16), transparent 38%),
+    linear-gradient(145deg,#1b1203,#050505 62%);
+  border:1.5px solid rgba(255,209,102,.9);
+  box-shadow:
+    0 0 28px rgba(255,209,102,.32),
+    inset 0 0 22px rgba(255,209,102,.08);
+}
+
+.ce-premium-basket-badge{
+  width:max-content;
+  max-width:90%;
+  margin:0 auto 14px;
+  padding:9px 20px;
+  border-radius:999px;
+  background:linear-gradient(135deg,#fff2a8,#ffd166,#ff9f1c);
+  color:#120900;
+  font-size:14px;
+  font-weight:1000;
+  text-align:center;
+  box-shadow:0 0 18px rgba(255,209,102,.45);
+}
+
+.ce-premium-basket-pick{
+  text-align:center;
+  color:#fff3b0;
+  font-size:28px;
+  font-weight:1000;
+  line-height:1.12;
+  margin:8px 0 14px;
+  text-shadow:0 0 14px rgba(255,209,102,.35);
+}
+
+.ce-premium-basket-circle{
+  width:118px;
+  height:118px;
+  margin:0 auto 16px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:
+    radial-gradient(circle, rgba(255,209,102,.18), #050505 68%);
+  border:7px solid #ffd166;
+  box-shadow:
+    0 0 22px rgba(255,209,102,.55),
+    inset 0 0 18px rgba(255,209,102,.14);
+}
+
+.ce-premium-basket-circle span{
+  color:#ffd166;
+  font-size:34px;
+  font-weight:1000;
+}
+
+.ce-premium-basket-stats{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:10px;
+}
+
+.ce-premium-basket-stats div{
+  min-height:76px;
+  padding:9px 6px;
+  border-radius:16px;
+  background:rgba(0,0,0,.58);
+  border:1px solid rgba(255,209,102,.32);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+}
+
+.ce-premium-basket-stats small{
+  color:#00ffe7;
+  font-size:10px;
+  font-weight:900;
+  line-height:1.1;
+  max-width:100%;
+}
+
+.ce-premium-basket-stats strong{
+  margin-top:5px;
+  color:#ffd166;
+  font-size:25px;
+  font-weight:1000;
+  line-height:1;
+}
+
+/* NORMAL */
+
+.ce-normal-basket-card{
+  margin-top:14px;
+  padding:16px;
+  border-radius:22px;
+  background:linear-gradient(145deg,#06162b,#071020);
+  border:1px solid rgba(0,255,255,.38);
+  box-shadow:0 0 18px rgba(0,255,255,.16);
+}
+
+.ce-normal-basket-badge{
+  width:max-content;
+  max-width:90%;
+  margin:0 auto 12px;
+  padding:8px 16px;
+  border-radius:999px;
+  background:linear-gradient(135deg,#00eaff,#397bff);
+  color:white;
+  font-size:13px;
+  font-weight:900;
+  text-align:center;
+}
+
+.ce-normal-basket-pick{
+  text-align:center;
+  color:white;
+  font-size:25px;
+  font-weight:900;
+  line-height:1.12;
+  margin-bottom:12px;
+}
+
+.ce-normal-basket-percent{
+  width:92px;
+  height:92px;
+  margin:0 auto 14px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:6px solid #00eaff;
+  color:#00eaff;
+  font-size:28px;
+  font-weight:1000;
+  box-shadow:0 0 16px rgba(0,255,255,.25);
+}
+
+.ce-normal-basket-stats{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:10px;
+}
+
+.ce-normal-basket-stats div{
+  min-height:68px;
+  padding:8px 6px;
+  border-radius:15px;
+  background:rgba(0,0,0,.38);
+  border:1px solid rgba(0,255,255,.20);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+}
+
+.ce-normal-basket-stats small{
+  color:#00ffe7;
+  font-size:10px;
+  font-weight:900;
+  line-height:1.1;
+}
+
+.ce-normal-basket-stats strong{
+  margin-top:5px;
+  color:white;
+  font-size:23px;
+  font-weight:1000;
+  line-height:1;
+}
+
+/* INFO BOXES */
+
+.ce-basket-info-section{
+  margin-top:16px;
+  display:grid;
+  gap:12px;
+}
+
+.ce-basket-info-box{
+  padding:14px;
+  border-radius:18px;
+  background:rgba(2,8,20,.9);
+  border:1px solid rgba(0,255,255,.18);
+  overflow:hidden;
+}
+
+.ce-basket-info-box h4{
+  margin:0 0 8px;
+  text-align:center;
+  color:#00ffe7;
+  font-size:18px;
+}
+
+.ce-basket-info-box p{
+  margin:5px 0;
+  color:#f4f7fb;
+  font-size:13px;
+  line-height:1.32;
+  text-align:left;
+  overflow-wrap:anywhere;
+}
+
+/* MOBILE */
+
+@media(max-width:600px){
+  .ce-premium-basket-card,
+  .ce-normal-basket-card{
+    padding:14px;
+  }
+
+  .ce-premium-basket-pick{
+    font-size:25px;
+  }
+
+  .ce-normal-basket-pick{
+    font-size:23px;
+  }
+
+  .ce-premium-basket-circle{
+    width:104px;
+    height:104px;
+    border-width:6px;
+  }
+
+  .ce-premium-basket-circle span{
+    font-size:30px;
+  }
+
+  .ce-premium-basket-stats div,
+  .ce-normal-basket-stats div{
+    min-height:66px;
+  }
+
+  .ce-premium-basket-stats strong{
+    font-size:23px;
+  }
+
+  .ce-normal-basket-stats strong{
+    font-size:21px;
+  }
+
+  .ce-basket-info-box p{
+    font-size:12.5px;
+  }
+}
