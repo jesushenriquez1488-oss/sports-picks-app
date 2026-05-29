@@ -1409,7 +1409,7 @@ function togglePassword(inputId, el) {
 
   if (input.type === "password") {
     input.type = "text";
-    el.textContent = "🙈";
+    el.textContent = "⊘";
   } else {
     input.type = "password";
     el.textContent = "👁️";
