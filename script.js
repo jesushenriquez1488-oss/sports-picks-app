@@ -1401,7 +1401,21 @@ function homeTeamSpreadText(spread) {
 function escapeText(text) {
   return String(text).replace(/'/g, "\\'");
 }
+function togglePassword(inputId, el) {
 
+  const input = document.getElementById(inputId);
+
+  if (!input) return;
+
+  if (input.type === "password") {
+    input.type = "text";
+    el.textContent = "🙈";
+  } else {
+    input.type = "password";
+    el.textContent = "👁️";
+  }
+
+}
 async function registerUser(email, password) {
   if (!email || !password) {
     showAuthMessage("Completa email y password", "error");
