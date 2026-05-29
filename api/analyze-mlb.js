@@ -140,7 +140,7 @@ updated_at: new Date().toISOString()
   total_picks: total,
   win_rate: winRate
 };
-  
+};
 
   const { data: pendingPicks, error: pendingError } = await supabaseAdmin
     .from("picks_history")
