@@ -95,12 +95,12 @@
     },
 
     {
-      "path": "/api/analyze-nba?mode=grade-pending",
-      "schedule": "30 6 * * *"
-    },
-    {
-      "path": "/api/analyze-mlb?mode=grade-pending",
-      "schedule": "40 6 * * *"
-    }
+  "path": "/api/analyze-mlb?mode=grade-pending",
+  "schedule": "40 8 * * *"
+},
+{
+  "path": "/api/analyze-mlb?mode=grade-pending",
+  "schedule": "40 12 * * *"
+}
   ]
 }
