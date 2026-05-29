@@ -35,7 +35,21 @@ OneSignalDeferred.push(async function(OneSignal) {
     <h3>Login</h3>
 
     <input id="loginEmail" placeholder="Email">
-    <input id="loginPassword" type="password" placeholder="Password">
+
+<div class="password-wrapper">
+  <input
+    id="loginPassword"
+    type="password"
+    placeholder="Password"
+  >
+
+  <span
+    class="password-toggle"
+    onclick="togglePassword('loginPassword', this)"
+  >
+    👁️
+  </span>
+</div>
 <p class="forgot-password" onclick="resetPassword()">
   Forgot password?
 </p>
