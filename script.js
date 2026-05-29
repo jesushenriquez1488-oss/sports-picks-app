@@ -1487,7 +1487,9 @@ async function loginUser(email, password) {
   if (dbError) {
     console.log("DB ERROR:", dbError);
   }
-
+setTimeout(() => {
+  askPushAfterLogin();
+}, 1200);
   isPremiumUser = profile?.is_premium === true;
 
   const premiumBox = document.getElementById("premiumBox");
