@@ -9586,3 +9586,101 @@ animation: overallPulse 3s ease-in-out infinite;
 
   border:1px solid rgba(0,255,255,.25);
 }
+/* FIX FINAL BASKET CARD */
+
+.basket-premium-card::before{
+  display:none !important;
+}
+
+.basket-premium-card{
+  background:#070707 !important;
+  border:2px solid rgba(255,209,102,.85) !important;
+  box-shadow:0 0 24px rgba(255,209,102,.22) !important;
+}
+
+.basket-premium-badge{
+  margin:0 auto 18px !important;
+  display:flex !important;
+  width:max-content;
+}
+
+.premium-pro-main{
+  background:#050505 !important;
+  border-radius:24px !important;
+  padding:18px !important;
+}
+
+.premium-pro-label{
+  display:none !important;
+}
+
+.premium-pro-confidence-box{
+  display:flex !important;
+  justify-content:center !important;
+  align-items:center !important;
+  background:transparent !important;
+  border:none !important;
+  box-shadow:none !important;
+  padding:8px 0 4px !important;
+}
+
+.premium-pro-circle{
+  width:135px !important;
+  height:135px !important;
+  margin:0 auto !important;
+}
+
+.premium-circle-label,
+.premium-pro-confidence-box span{
+  display:none !important;
+}
+
+.premium-pro-grid{
+  display:grid !important;
+  grid-template-columns:repeat(2, 1fr) !important;
+  gap:12px !important;
+}
+
+.premium-pro-mini{
+  min-height:88px !important;
+  padding:10px !important;
+  display:flex !important;
+  flex-direction:column !important;
+  justify-content:center !important;
+  align-items:center !important;
+  text-align:center !important;
+}
+
+.premium-pro-mini small{
+  min-height:30px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  line-height:1.1;
+}
+
+.premium-pro-mini strong{
+  font-size:30px !important;
+  line-height:1 !important;
+}
+
+.premium-pro-mini span{
+  display:none !important;
+}
+
+.premium-data-box{
+  text-align:left !important;
+  padding:16px !important;
+}
+
+.premium-data-box h4{
+  text-align:center !important;
+  margin:0 0 10px !important;
+}
+
+.premium-data-box p{
+  text-align:left !important;
+  line-height:1.35 !important;
+  margin:6px 0 !important;
+}
