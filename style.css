@@ -9424,3 +9424,165 @@ animation: overallPulse 3s ease-in-out infinite;
     background-position:300% 50%;
   }
 }
+/* ===========================
+   BASKET PREMIUM CLEAN FIX
+   =========================== */
+
+/* quitar espacios muertos arriba */
+
+.premium-header h3,
+.premium-label{
+  display:none !important;
+}
+
+/* badge principal */
+
+.basket-premium-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+
+  padding:10px 20px;
+
+  border-radius:999px;
+
+  font-size:15px;
+  font-weight:900;
+
+  background:linear-gradient(
+    135deg,
+    #fff3b0,
+    #ffd166,
+    #ffb703
+  );
+
+  color:#1a1000;
+
+  margin-bottom:14px;
+}
+
+/* nombre del pick */
+
+.premium-pro-pick{
+  text-align:center;
+  font-size:38px;
+  font-weight:1000;
+  line-height:1.1;
+  margin:8px 0 18px;
+}
+
+@media(max-width:600px){
+
+  .premium-pro-pick{
+    font-size:30px;
+  }
+
+}
+
+/* círculo más pequeño */
+
+.premium-pro-circle{
+  width:110px !important;
+  height:110px !important;
+
+  font-size:34px !important;
+}
+
+.premium-circle-label{
+  font-size:13px;
+}
+
+/* eliminar confianza moderada */
+
+.premium-pro-confidence-box span{
+  display:none;
+}
+
+/* GRID PERFECTO */
+
+.premium-pro-grid{
+  display:grid !important;
+
+  grid-template-columns:
+    repeat(2,minmax(0,1fr));
+
+  gap:12px;
+
+  margin-top:18px;
+}
+
+.premium-pro-mini{
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+
+  min-height:105px;
+
+  text-align:center;
+
+  border-radius:18px;
+
+  padding:12px;
+}
+
+.premium-pro-mini strong{
+  font-size:34px;
+  line-height:1;
+}
+
+.premium-pro-mini small{
+  font-size:12px;
+}
+
+/* quitar textos basura */
+
+.premium-pro-mini span{
+  display:none;
+}
+
+/* descanso y lesiones compactos */
+
+.premium-data-box{
+  padding:14px !important;
+}
+
+.premium-data-box h4{
+  margin-bottom:8px;
+}
+
+.premium-data-box p{
+  margin:4px 0 !important;
+  line-height:1.35;
+}
+
+/* premium más elegante */
+
+.basket-premium-card{
+
+  background:
+    linear-gradient(
+      145deg,
+      #191103,
+      #090601
+    ) !important;
+
+  border:2px solid rgba(255,210,90,.75);
+
+  box-shadow:
+    0 0 30px rgba(255,190,50,.20),
+    inset 0 0 20px rgba(255,210,90,.05);
+}
+
+/* normal azul */
+
+.basket-normal-card{
+
+  background:
+    linear-gradient(
+      145deg,
+      #071a2f,
+      #091120
+    ) !important;
+
+  border:1px solid rgba(0,255,255,.25);
+}
