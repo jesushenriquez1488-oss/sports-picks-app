@@ -687,17 +687,8 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
         ${data.public.confidence}%
       </div>
 
-      <div class="premium-circle-label">
-        ${data.public.confidence}% PROBABILIDAD
-      </div>
-
-      <span>
-        ${
-          data.public.verdict === "Premium"
-            ? "ALTA CONFIANZA"
-            : "CONFIANZA MODERADA"
-        }
-      </span>
+     
+     
 
     </div>
 
