@@ -1436,22 +1436,21 @@ async function registerUser(email, password) {
 }
 async function askPushAfterLogin() {
   try {
-    if (!window.OneSignalDeferred) return;
+    if (!("Notification" in window)) return;
 
-    OneSignalDeferred.push(async function (OneSignal) {
-      const permission = Notification.permission;
+    if (Notification.permission === "granted") return;
+    if (Notification.permission === "denied") return;
 
-      if (permission === "granted" || permission === "denied") return;
+    const result = await Notification.requestPermission();
 
-      const result = await Notification.requestPermission();
-
-      if (result === "granted") {
+    if (result === "granted" && window.OneSignalDeferred) {
+      OneSignalDeferred.push(async function (OneSignal) {
         await OneSignal.User.PushSubscription.optIn();
         console.log("Push notifications activated");
-      }
-    });
+      });
+    }
   } catch (err) {
-    console.error("Push login prompt error:", err);
+    console.error("Push permission error:", err);
   }
 }
 async function loginUser(email, password) {
