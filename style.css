@@ -9276,21 +9276,65 @@ animation: overallPulse 3s ease-in-out infinite;
    =============================== */
 
 /* PREMIUM */
-
 .ce-premium-basket-card{
+  position:relative;
+  overflow:hidden;
+
   margin-top:14px;
   padding:18px;
   border-radius:24px;
-  background:
-    radial-gradient(circle at top, rgba(255,209,102,.16), transparent 38%),
-    linear-gradient(145deg,#1b1203,#050505 62%);
-  border:1.5px solid rgba(255,209,102,.9);
- box-shadow:
-  0 0 12px rgba(255,209,102,.35),
-  0 0 28px rgba(255,209,102,.30),
-  0 0 60px rgba(255,209,102,.20),
-  0 0 90px rgba(255,209,102,.10),
-  inset 0 0 22px rgba(255,209,102,.08);
+
+  background:linear-gradient(145deg,#140d02,#050505 65%);
+  border:1px solid rgba(255,209,102,.25);
+
+  box-shadow:
+    0 0 20px rgba(255,209,102,.18),
+    0 0 40px rgba(255,209,102,.12),
+    inset 0 0 20px rgba(255,209,102,.05);
+}
+
+.ce-premium-basket-card::before{
+  content:"";
+  position:absolute;
+  inset:-3px;
+  border-radius:24px;
+
+  background:linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 20%,
+    #fff6bf 50%,
+    transparent 80%,
+    transparent 100%
+  );
+
+  background-size:300% 300%;
+  animation:premiumBorderRun 4s linear infinite;
+  filter:blur(3px);
+  z-index:0;
+}
+
+.ce-premium-basket-card::after{
+  content:"";
+  position:absolute;
+  top:2px;
+  left:2px;
+  right:2px;
+  bottom:2px;
+  border-radius:22px;
+
+  background:linear-gradient(145deg,#140d02,#050505 65%);
+  z-index:1;
+}
+
+.ce-premium-basket-card > *{
+  position:relative;
+  z-index:2;
+}
+
+@keyframes premiumBorderRun{
+  0%{ background-position:0% 50%; }
+  100%{ background-position:300% 50%; }
 }
 
 .ce-premium-basket-badge{
