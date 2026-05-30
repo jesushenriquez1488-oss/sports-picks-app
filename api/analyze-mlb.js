@@ -1146,7 +1146,7 @@ game_date: new Date().toISOString().split("T")[0]
       sport: "mlb",
       pick: card.play,
       confidence: card.percentage,
-      result: null,
+      result: "pending",
       is_premium: true,
       pick_type: pickType,
       pick_team: pickTeam,
