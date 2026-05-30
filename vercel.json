@@ -94,13 +94,35 @@
       "schedule": "45 15 * * *"
     },
 
-    {
+  {
   "path": "/api/analyze-mlb?mode=grade-pending",
   "schedule": "40 8 * * *"
 },
 {
+  "path": "/api/analyze-nba?mode=grade-pending",
+  "schedule": "50 8 * * *"
+},
+{
   "path": "/api/analyze-mlb?mode=grade-pending",
   "schedule": "40 12 * * *"
-}
-  ]
+},
+{
+  "path": "/api/analyze-nba?mode=grade-pending",
+  "schedule": "50 12 * * *"
+},
+{
+  "path": "/api/analyze-mlb?mode=grade-pending",
+  "schedule": "40 16 * * *"
+},
+{
+  "path": "/api/analyze-nba?mode=grade-pending",
+  "schedule": "50 16 * * *"
+},
+{
+  "path": "/api/analyze-mlb?mode=grade-pending",
+  "schedule": "40 19 * * *"
+},
+{
+  "path": "/api/analyze-nba?mode=grade-pending",
+  "schedule": "50 19 * * *"
 }
