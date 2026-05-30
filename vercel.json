@@ -126,9 +126,13 @@
   "path": "/api/analyze-nba?mode=grade-pending",
   "schedule": "50 19 * * *"
 }
-    {
+   {
   "path": "/api/analyze-nba?mode=send-premium-alerts",
   "schedule": "0 16 * * *"
+},
+{
+  "path": "/api/analyze-nba?mode=send-parlay-alert",
+  "schedule": "0 18 * * *"
 }
   ]
 }
