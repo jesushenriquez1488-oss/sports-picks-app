@@ -1132,9 +1132,10 @@ game_date: new Date().toISOString().split("T")[0]
       return res.status(200).json(noPlayData);
     }
 
-    const verdict = confidence >= 74 ? "Premium" : "Moderado";
-    const risk = confidence >= 74 ? "Bajo" : "Medio";
-    const isPremiumPick = verdict === "Premium";
+    const isPremiumPick = mainEdge >= 13;
+
+const verdict = isPremiumPick ? "Premium" : "Moderado";
+const risk = isPremiumPick ? "Bajo" : "Medio";
     const locked = isPremiumPick && !isPremiumUser;
 
     const fullAnalysis = {
