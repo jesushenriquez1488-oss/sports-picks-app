@@ -142,13 +142,14 @@ updated_at: new Date().toISOString()
 };
 };
 
-  const { data: pendingPicks, error: pendingError } = await supabaseAdmin
-    .from("picks_history")
-    .select("*")
-    .eq("sport", "mlb")
-    .eq("is_premium", true)
-    .is("result", null)
-    .limit(100);
+ const { data: pendingPicks, error: pendingError } = await supabaseAdmin
+  .from("picks_history")
+  .select("*")
+  .eq("sport", "mlb")
+  .eq("is_premium", true)
+  .eq("result", "pending")
+  .order("created_at", { ascending: false })
+  .limit(100);
 
   if (pendingError) throw pendingError;
 
