@@ -497,6 +497,123 @@ const { data: picks, error } = await supabaseAdmin
 
   }
 }
+  if (req.method === "GET" && req.query.mode === "send-parlay-alert") {
+  try {
+    const authHeader = req.headers.authorization || "";
+    const cronToken = authHeader.replace("Bearer ", "");
+    const manualSecret = req.query.secret;
+
+    const validSecret = process.env.CRON_SECRET;
+
+    if (!validSecret) {
+      return res.status(500).json({ error: "Falta CRON_SECRET" });
+    }
+
+    if (cronToken !== validSecret && manualSecret !== validSecret) {
+      return res.status(401).json({ error: "No autorizado" });
+    }
+
+    const appId = process.env.ONESIGNAL_APP_ID;
+    const apiKey = process.env.ONESIGNAL_REST_API_KEY;
+
+    if (!appId || !apiKey) {
+      return res.status(500).json({
+        error: "Faltan variables de OneSignal"
+      });
+    }
+
+    const todayDate = new Date().toISOString().split("T")[0];
+
+    const { data: picks, error } = await supabaseAdmin
+      .from("daily_picks")
+      .select("*")
+      .eq("game_date", todayDate);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    let candidates = [];
+
+    (picks || []).forEach(pick => {
+      const analysis = pick.analysis_json;
+
+      if (!analysis || !analysis.isPremiumPick || !analysis.premium) return;
+
+      if (analysis.premium.recommendedCards) {
+        analysis.premium.recommendedCards.forEach(card => {
+          if ((card.percentage || 0) >= 85) {
+            candidates.push({
+              sport: pick.sport,
+              game: `${pick.away_team} vs ${pick.home_team}`,
+              play: card.play,
+              percentage: Number(card.percentage || 0),
+              title: card.title
+            });
+          }
+        });
+      } else if (
+        analysis.premium.pick &&
+        (analysis.premium.confidence || 0) >= 85
+      ) {
+        candidates.push({
+          sport: pick.sport,
+          game: `${pick.away_team} vs ${pick.home_team}`,
+          play: analysis.premium.pick,
+          percentage: Number(analysis.premium.confidence || 0),
+          title: "Jugada Premium"
+        });
+      }
+    });
+
+    candidates.sort((a, b) => b.percentage - a.percentage);
+
+    const best = candidates.slice(0, 3);
+
+    if (best.length < 2) {
+      return res.status(200).json({
+        ok: true,
+        sent: 0,
+        message: "No hay suficientes picks 85%+ para Parlay AI"
+      });
+    }
+
+    const parlayText = best
+      .map((p, i) => `${i + 1}. ${p.play} (${p.percentage.toFixed(1)}%)`)
+      .join("\n");
+
+    const response = await fetch("https://onesignal.com/api/v1/notifications", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Basic ${apiKey}`
+      },
+      body: JSON.stringify({
+        app_id: appId,
+        included_segments: ["Active Subscriptions"],
+        headings: { en: "💰 PARLAY AI DEL DÍA" },
+        contents: {
+          en: `${best.length} picks premium combinados:\n${parlayText}\nDisponible ahora en CashEdge.`
+        },
+        url: "https://cashedgeapp.com"
+      })
+    });
+
+    const data = await response.json().catch(() => null);
+
+    return res.status(200).json({
+      ok: response.ok,
+      sent: response.ok ? 1 : 0,
+      parlay: best,
+      response: data
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message
+    });
+  }
+}
   if (req.method === "GET" && req.query.mode === "grade-pending") {
   try {
     const authHeader = req.headers.authorization || "";
