@@ -126,3 +126,5 @@
   "path": "/api/analyze-nba?mode=grade-pending",
   "schedule": "50 19 * * *"
 }
+  ]
+}
