@@ -1318,7 +1318,8 @@ async function gradeBasketballPick(pick) {
       ? "basketball/wnba"
       : "basketball/mens-college-basketball";
 
-  const created = new Date(pick.created_at);
+ const baseDate = pick.game_date || pick.created_at;
+const created = new Date(baseDate);
   const dates = [];
 
   for (let i = 0; i <= 4; i++) {
