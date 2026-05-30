@@ -1488,9 +1488,17 @@ function shouldCountInjury(player) {
 }
 
 function getConfidence(edge) {
-  let confidence = 50 + Number(edge || 0) * 2.4;
-  confidence = Math.max(50, Math.min(99, confidence));
-  return Math.round(confidence);
+  const safeEdge = Math.max(0, Number(edge || 0));
+
+  if (safeEdge < 13) {
+    return Math.round(Math.max(50, 50 + safeEdge * 1.5));
+  }
+
+  if (safeEdge >= 25) return 99;
+
+  const confidence = 75 + ((safeEdge - 13) / 12) * 23;
+
+  return Math.round(Math.max(75, Math.min(98, confidence)));
 }
 
 function getModelAnalysis(verdict) {
