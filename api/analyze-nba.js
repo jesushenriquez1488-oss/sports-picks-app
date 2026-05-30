@@ -1311,6 +1311,11 @@ function isWnbaTeam(teamName) {
 async function gradeBasketballPick(pick) {
   const sport = String(pick.sport || "").toLowerCase();
 
+  const normalize = (value = "") =>
+    String(value)
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+
   const sportPath =
     sport === "nba"
       ? "basketball/nba"
@@ -1318,8 +1323,8 @@ async function gradeBasketballPick(pick) {
       ? "basketball/wnba"
       : "basketball/mens-college-basketball";
 
- const baseDate = pick.game_date || pick.created_at;
-const created = new Date(baseDate);
+  const baseDate = pick.game_date || pick.created_at;
+  const created = new Date(baseDate);
   const dates = [];
 
   for (let i = 0; i <= 4; i++) {
@@ -1356,14 +1361,24 @@ const created = new Date(baseDate);
         homeAway: c.homeAway
       }));
 
-      const gameText = `${teams[0].name}-${teams[1].name}`.toLowerCase();
-      const pickGame = String(pick.game_id || "").toLowerCase();
+      const pickAway = normalize(pick.away_team);
+      const pickHome = normalize(pick.home_team);
 
-      const gameMatches = pickGame
-        .split("-")
-        .every(teamName => gameText.includes(teamName.trim().toLowerCase()));
+      const gameHasAway = teams.some(t =>
+        normalize(t.name) === pickAway ||
+        normalize(t.shortName) === pickAway ||
+        normalize(t.name).includes(pickAway) ||
+        pickAway.includes(normalize(t.name))
+      );
 
-      if (!gameMatches) continue;
+      const gameHasHome = teams.some(t =>
+        normalize(t.name) === pickHome ||
+        normalize(t.shortName) === pickHome ||
+        normalize(t.name).includes(pickHome) ||
+        pickHome.includes(normalize(t.name))
+      );
+
+      if (!gameHasAway || !gameHasHome) continue;
 
       const home = teams.find(t => t.homeAway === "home");
       const away = teams.find(t => t.homeAway === "away");
@@ -1382,6 +1397,11 @@ const created = new Date(baseDate);
 }
 
 function calculateBasketballResult({ pick, home, away }) {
+  const normalize = (value = "") =>
+    String(value)
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+
   const pickType = String(pick.pick_type || "").toLowerCase();
   const line = Number(pick.line);
 
@@ -1389,39 +1409,45 @@ function calculateBasketballResult({ pick, home, away }) {
 
   const finalScore = `${away.name} ${away.score} - ${home.name} ${home.score}`;
 
- if (pickType === "total") {
-  const totalScore = away.score + home.score;
+  if (pickType === "total") {
+    const totalScore = away.score + home.score;
 
-  const direction = String(
-    pick.pick_direction ||
-    pick.direction ||
-    pick.selection ||
-    pick.pick ||
-    ""
-  ).toLowerCase();
+    const direction = String(
+      pick.pick_direction ||
+      pick.direction ||
+      pick.selection ||
+      pick.pick ||
+      ""
+    ).toLowerCase();
 
-  if (direction.includes("over")) {
-    if (totalScore > line) return { result: "win", finalScore };
-    if (totalScore < line) return { result: "loss", finalScore };
-    return { result: "push", finalScore };
+    if (direction.includes("over")) {
+      if (totalScore > line) return { result: "win", finalScore };
+      if (totalScore < line) return { result: "loss", finalScore };
+      return { result: "push", finalScore };
+    }
+
+    if (direction.includes("under")) {
+      if (totalScore < line) return { result: "win", finalScore };
+      if (totalScore > line) return { result: "loss", finalScore };
+      return { result: "push", finalScore };
+    }
+
+    return null;
   }
-
-  if (direction.includes("under")) {
-    if (totalScore < line) return { result: "win", finalScore };
-    if (totalScore > line) return { result: "loss", finalScore };
-    return { result: "push", finalScore };
-  }
-
-  return null;
-}
 
   if (pickType === "spread") {
-    const pickTeam = String(pick.pick_team || "").toLowerCase();
+    const pickTeam = normalize(pick.pick_team);
 
     const selected =
-      String(home.name).toLowerCase() === pickTeam
+      normalize(home.name) === pickTeam ||
+      normalize(home.shortName) === pickTeam ||
+      normalize(home.name).includes(pickTeam) ||
+      pickTeam.includes(normalize(home.name))
         ? home
-        : String(away.name).toLowerCase() === pickTeam
+        : normalize(away.name) === pickTeam ||
+          normalize(away.shortName) === pickTeam ||
+          normalize(away.name).includes(pickTeam) ||
+          pickTeam.includes(normalize(away.name))
         ? away
         : null;
 
@@ -1445,7 +1471,6 @@ function calculateBasketballResult({ pick, home, away }) {
 
   return null;
 }
-
 async function updateSportRecordAuto(sport, result) {
   const recordSport = String(sport || "").toLowerCase();
 
