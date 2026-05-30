@@ -290,7 +290,7 @@ const analyzeBody =
 
     alerts = alerts
       .sort((a, b) => b.percentage - a.percentage)
-      .slice(0, 2);
+      .slice(0, 1);
 
     if (alerts.length === 0) {
       return res.status(200).json({
