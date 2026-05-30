@@ -1389,21 +1389,31 @@ function calculateBasketballResult({ pick, home, away }) {
 
   const finalScore = `${away.name} ${away.score} - ${home.name} ${home.score}`;
 
-  if (pickType === "total") {
-    const totalScore = away.score + home.score;
+ if (pickType === "total") {
+  const totalScore = away.score + home.score;
 
-    if (String(pick.pick).toLowerCase() === "over") {
-      if (totalScore > line) return { result: "win", finalScore };
-      if (totalScore < line) return { result: "loss", finalScore };
-      return { result: "push", finalScore };
-    }
+  const direction = String(
+    pick.pick_direction ||
+    pick.direction ||
+    pick.selection ||
+    pick.pick ||
+    ""
+  ).toLowerCase();
 
-    if (String(pick.pick).toLowerCase() === "under") {
-      if (totalScore < line) return { result: "win", finalScore };
-      if (totalScore > line) return { result: "loss", finalScore };
-      return { result: "push", finalScore };
-    }
+  if (direction.includes("over")) {
+    if (totalScore > line) return { result: "win", finalScore };
+    if (totalScore < line) return { result: "loss", finalScore };
+    return { result: "push", finalScore };
   }
+
+  if (direction.includes("under")) {
+    if (totalScore < line) return { result: "win", finalScore };
+    if (totalScore > line) return { result: "loss", finalScore };
+    return { result: "push", finalScore };
+  }
+
+  return null;
+}
 
   if (pickType === "spread") {
     const pickTeam = String(pick.pick_team || "").toLowerCase();
