@@ -311,7 +311,7 @@ const analyzeBody =
         },
         body: JSON.stringify({
           app_id: appId,
-         included_segments: ["Active Subscriptions"]
+         included_segments: ["Active Subscriptions"],
           headings: { en: alert.title },
           contents: {
             en: `${alert.message}\nDisponible ahora en CashEdge.`
