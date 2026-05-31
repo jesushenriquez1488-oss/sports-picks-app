@@ -1099,16 +1099,33 @@ const teamsSorted = [awayTeam, homeTeam]
   .sort();
 
 const gameId = teamsSorted.join("-");
-await supabaseAdmin.from("daily_picks").upsert({
-  sport: "mlb",
-  game_id: gameId,
-  away_team: awayTeam,
-  home_team: homeTeam,
-  analysis_json: fullMlbAnalysis,
- updated_at: new Date().toISOString(),
-game_date: new Date().toISOString().split("T")[0]
-});if (recommendedCards.length > 0) {
-  const gameDate = new Date().toISOString().split("T")[0];
+const gameDate = new Date().toISOString().split("T")[0];
+
+const { error: dailyPickError } = await supabaseAdmin
+  .from("daily_picks")
+  .upsert(
+    {
+      sport: "mlb",
+      game_id: gameId,
+      away_team: awayTeam,
+      home_team: homeTeam,
+      analysis_json: fullMlbAnalysis,
+      updated_at: new Date().toISOString(),
+      game_date: gameDate
+    },
+    {
+      onConflict: "sport,game_id"
+    }
+  );
+
+if (dailyPickError) {
+  throw new Error(
+    "Error guardando MLB daily_picks: " +
+    dailyPickError.message
+  );
+}
+
+if (recommendedCards.length > 0) {
   const card = recommendedCards[0];
 
   const pickType =
