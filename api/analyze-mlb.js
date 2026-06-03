@@ -1281,6 +1281,17 @@ if (recommendedCards.length > 0) {
 
             awayBullpenFatigue: mlbData.away?.bullpen?.fatigue || 0,
             homeBullpenFatigue: mlbData.home?.bullpen?.fatigue || 0,
+          awayBullpenWhip: mlbData.away?.bullpen?.whip || null,
+homeBullpenWhip: mlbData.home?.bullpen?.whip || null,
+
+awayBullpenLast3Whip: mlbData.away?.bullpen?.last3?.whip || null,
+homeBullpenLast3Whip: mlbData.home?.bullpen?.last3?.whip || null,
+
+awayBullpenLast7RA9: mlbData.away?.bullpen?.last7?.ra9 || null,
+homeBullpenLast7RA9: mlbData.home?.bullpen?.last7?.ra9 || null,
+
+awayBullpenLast3RA9: mlbData.away?.bullpen?.last3?.ra9 || null,
+homeBullpenLast3RA9: mlbData.home?.bullpen?.last3?.ra9 || null,
 
             awayBullpenFatigueFactor: getBullpenFatigueFactor(mlbData.away?.bullpen),
 homeBullpenFatigueFactor: getBullpenFatigueFactor(mlbData.home?.bullpen),
