@@ -179,7 +179,7 @@ if (!isPregame) {
         homeRuns,
         era: (earnedRuns * 9) / safeInnings,
         runsPerInning: runs / safeInnings,
-        runsPerGame: runs / games,
+        runsPerGame: (runs * 9) / safeInnings,
         hitsPerInning: hits / safeInnings,
         walksPerInning: walks / safeInnings,
         strikeoutsPerInning: strikeouts / safeInnings,
