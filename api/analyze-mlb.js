@@ -684,37 +684,76 @@ if (innings < 2) {
     const awayTeamAllowed = fillMissing(awayDefenseRaw, awayPitcher);
     const homeTeamAllowed = fillMissing(homeDefenseRaw, homePitcher);
 
-    const homeStarterShort =
-      homePitcherInnings > 0 && homePitcherInnings < 4;
+    function getStarterShare(expectedInnings, pitcherScore) {
+  const innings = safeNumber(expectedInnings, 0);
+  const pitcher = safeNumber(pitcherScore, 99);
 
-    const awayStarterShort =
-      awayPitcherInnings > 0 && awayPitcherInnings < 4;
+  const starterShareBase = innings / 9;
+  let aceBonus = 0;
 
-    const awayVsHomeStarterWeight = homeStarterShort ? 0.20 : 0.30;
-    const awayVsHomeBullpenWeight = homeStarterShort ? 0.38 : 0.25;
-    const awayVsHomeDefenseWeight = homeStarterShort ? 0.17 : 0.15;
-    const awayOffenseWeight = homeStarterShort ? 0.25 : 0.55;
+  if (pitcher <= 2.25 && innings >= 6.5) {
+    aceBonus = 0.08;
+  } else if (pitcher <= 2.75 && innings >= 6.0) {
+    aceBonus = 0.05;
+  }
 
-    const homeVsAwayStarterWeight = awayStarterShort ? 0.20 : 0.30;
-    const homeVsAwayBullpenWeight = awayStarterShort ? 0.38 : 0.25;
-    const homeVsAwayDefenseWeight = awayStarterShort ? 0.17 : 0.15;
-    const homeOffenseWeight = awayStarterShort ? 0.25 : 0.55;
+  return clamp(starterShareBase + aceBonus, 0.35, 0.82);
+}
 
-    let expectedRunsA =
-      awayOffense * awayOffenseWeight +
-      homePitcher * awayVsHomeStarterWeight +
-      homeTeamAllowed * awayVsHomeDefenseWeight +
-      homeBullpen * awayVsHomeBullpenWeight;
+function calculateExpectedRuns({
+  offense,
+  opponentPitcher,
+  opponentBullpen,
+  opponentTeamAllowed,
+  opponentStarterInnings
+}) {
+  const starterShare = getStarterShare(opponentStarterInnings, opponentPitcher);
+  const bullpenShare = 1 - starterShare;
 
-    let expectedRunsB =
-      homeOffense * homeOffenseWeight +
-      awayPitcher * homeVsAwayStarterWeight +
-      awayTeamAllowed * homeVsAwayDefenseWeight +
-      awayBullpen * homeVsAwayBullpenWeight;
+  const starterSegment =
+    offense * 0.35 +
+    opponentPitcher * 0.65;
 
-    if (homeStarterShort) expectedRunsA += 0.35;
-    if (awayStarterShort) expectedRunsB += 0.35;
+  const bullpenSegment =
+    offense * 0.40 +
+    opponentBullpen * 0.60;
 
+  const teamAllowedAdjustment =
+    opponentTeamAllowed * 0.10;
+
+  const expectedRuns =
+    starterSegment * starterShare +
+    bullpenSegment * bullpenShare +
+    teamAllowedAdjustment;
+
+  return {
+    expectedRuns,
+    starterShare,
+    bullpenShare,
+    starterSegment,
+    bullpenSegment,
+    teamAllowedAdjustment
+  };
+}
+
+const awayRunCalc = calculateExpectedRuns({
+  offense: awayOffense,
+  opponentPitcher: homePitcher,
+  opponentBullpen: homeBullpen,
+  opponentTeamAllowed: homeTeamAllowed,
+  opponentStarterInnings: homePitcherInnings
+});
+
+const homeRunCalc = calculateExpectedRuns({
+  offense: homeOffense,
+  opponentPitcher: awayPitcher,
+  opponentBullpen: awayBullpen,
+  opponentTeamAllowed: awayTeamAllowed,
+  opponentStarterInnings: awayPitcherInnings
+});
+
+let expectedRunsA = awayRunCalc.expectedRuns;
+let expectedRunsB = homeRunCalc.expectedRuns;
     expectedRunsA *= runEnvironmentFactor;
     expectedRunsB *= runEnvironmentFactor;
 
