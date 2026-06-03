@@ -1682,7 +1682,15 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
     if (!response.ok) {
       throw new Error(data.error || "Error analizando MLB");
     }
-
+if (data.noPlay) {
+  results.innerHTML = `
+    <div class="prediction-card">
+      <h2>⏳ Análisis MLB no disponible</h2>
+      <p>Esperando pitchers confirmados y líneas oficiales.</p>
+    </div>
+  `;
+  return;
+}
     const locked = data.locked;
     const premium = data.premium;
     const isPremiumMLB = data.isPremiumPick;
