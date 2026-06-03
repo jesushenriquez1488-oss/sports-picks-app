@@ -539,18 +539,9 @@ const last3Runs = safeNumber(last3?.ra9 ?? last3?.era ?? last3?.runsPerGame);
 
       const fatigueFactor = getBullpenFatigueFactor(bullpen);
 score *= fatigueFactor;
-
-      const bullpenWhip = avgValid(whip, last3Whip);
-
-      if (bullpenWhip !== null) {
-        if (bullpenWhip >= 1.70) score *= 1.14;
-        else if (bullpenWhip >= 1.55) score *= 1.08;
-        else if (bullpenWhip >= 1.40) score *= 1.04;
-
-        if (bullpenWhip <= 1.05) score *= 0.92;
-        else if (bullpenWhip <= 1.15) score *= 0.96;
-      }
-
+// PRUEBA TEMPORAL:
+// Sin ajuste por WHIP
+      
       return clamp(score, 1.0, 12.5);
     }
 
