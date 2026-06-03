@@ -360,10 +360,8 @@ const recentWalks = Number(recent.walks || 0);
 const recentRuns = Number(recent.runs || 0);
 
 let fatigue =
-  recentInnings * 0.85 +
-  recentAppearances * 0.35 +
-  recentWalks * 0.20 +
-  recentRuns * 0.18;
+  recentInnings * 1.00 +
+  recentAppearances * 0.25;
 
 // Penaliza bullpens muy usados en los últimos 3 juegos
 if (recentInnings >= 12) fatigue += 2.0;
