@@ -640,7 +640,31 @@ if (innings < 2) {
 
     const awayPitcherStats = mlbData.away?.pitcher?.stats || null;
     const homePitcherStats = mlbData.home?.pitcher?.stats || null;
+const awayPitcherConfirmed =
+  mlbData.away?.pitcher?.name &&
+  awayPitcherStats &&
+  safeNumber(awayPitcherStats.innings, 0) > 0;
 
+const homePitcherConfirmed =
+  mlbData.home?.pitcher?.name &&
+  homePitcherStats &&
+  safeNumber(homePitcherStats.innings, 0) > 0;
+
+if (!awayPitcherConfirmed || !homePitcherConfirmed) {
+  return res.status(200).json({
+    locked: false,
+    noPlay: true,
+    reason: "Pitchers not confirmed"
+  });
+}
+
+if (!totalLine || Number(totalLine) <= 0) {
+  return res.status(200).json({
+    locked: false,
+    noPlay: true,
+    reason: "No valid total line"
+  });
+}
     const awayPitcherRaw = adjustPitcher(awayPitcherStats);
     const homePitcherRaw = adjustPitcher(homePitcherStats);
 
