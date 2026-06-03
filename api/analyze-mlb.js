@@ -522,9 +522,9 @@ const dataResponse = await fetch(`${origin}/api/mlb-data`, {
       const last7 = bullpen.last7 || null;
       const last3 = bullpen.last3 || null;
 
-      const baseRuns = safeNumber(bullpen.runsPerGame);
-      const last7Runs = safeNumber(last7?.runsPerGame);
-      const last3Runs = safeNumber(last3?.runsPerGame);
+const baseRuns = safeNumber(bullpen.runsPerGame);
+const last7Runs = safeNumber(last7?.ra9 ?? last7?.era ?? last7?.runsPerGame);
+const last3Runs = safeNumber(last3?.ra9 ?? last3?.era ?? last3?.runsPerGame);
 
       const fallback = avgValid(baseRuns, last7Runs, last3Runs);
       if (fallback === null) return null;
