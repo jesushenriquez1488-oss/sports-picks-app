@@ -336,6 +336,7 @@ if (!isPregame) {
           strikeouts,
           appearances,
           era: (runs * 9) / Math.max(innings, 1),
+          ra9: (runs * 9) / Math.max(innings, 1),
           runsPerInning: runs / Math.max(innings, 1),
           runsPerGame: runs / games.length,
           hitsPerInning: hits / Math.max(innings, 1),
@@ -378,20 +379,31 @@ if (recentInnings <= 5 && recentAppearances <= 7) fatigue -= 1.0;
 if (recentInnings <= 3.5) fatigue -= 0.8;
 
 fatigue = Math.max(0, Number(fatigue.toFixed(2)));
+const bullpenLast7RunsPerGame = Number(base.runsPerGame || 0);
+const bullpenLast7RA9 = Number(base.ra9 || base.era || 0);
+const bullpenLast3RA9 = Number(recent.ra9 || recent.era || bullpenLast7RA9);
 
-      return {
-        games: base.games,
-        era: base.era,
-        runsPerInning: base.runsPerInning,
-        runsPerGame: base.runsPerGame,
-        hitsPerInning: base.hitsPerInning,
-        walksPerInning: base.walksPerInning,
-        strikeoutsPerInning: base.strikeoutsPerInning,
-        whip: base.whip,
-        fatigue,
-        last3: bullpen3,
-        last7: bullpen7
-      };
+let bullpenScore =
+  bullpenLast7RunsPerGame * 0.45 +
+  bullpenLast7RA9 * 0.30 +
+  bullpenLast3RA9 * 0.25;
+
+bullpenScore = Math.max(2.0, Math.min(7.5, bullpenScore));
+     return {
+  games: base.games,
+  era: base.era,
+  ra9: base.ra9,
+  runsPerInning: base.runsPerInning,
+  runsPerGame: bullpenScore,
+  rawRunsPerGame: base.runsPerGame,
+  hitsPerInning: base.hitsPerInning,
+  walksPerInning: base.walksPerInning,
+  strikeoutsPerInning: base.strikeoutsPerInning,
+  whip: base.whip,
+  fatigue,
+  last3: bullpen3,
+  last7: bullpen7
+};
     }
 async function getWeather(venueName, roofType, gameDate) {
   try {
