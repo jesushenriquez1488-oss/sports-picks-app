@@ -530,8 +530,8 @@ const last3Runs = safeNumber(last3?.ra9 ?? last3?.era ?? last3?.runsPerGame);
       if (fallback === null) return null;
 
       let score =
-        fillMissing(last7Runs, fallback) * 0.55 +
-        fillMissing(last3Runs, fallback) * 0.45;
+        fillMissing(last7Runs, fallback) * 0.75 +
+        fillMissing(last3Runs, fallback) * 0.25;
 
       const whip = safeNumber(bullpen.whip);
       const last3Whip = safeNumber(last3?.whip);
