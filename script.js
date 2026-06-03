@@ -1683,12 +1683,13 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
       throw new Error(data.error || "Error analizando MLB");
     }
 if (data.noPlay) {
-  results.innerHTML = `
+  resultDiv.innerHTML = `
     <div class="prediction-card">
       <h2>⏳ Análisis MLB no disponible</h2>
       <p>Esperando pitchers confirmados y líneas oficiales.</p>
     </div>
   `;
+  endAnalysisLock(index);
   return;
 }
     const locked = data.locked;
