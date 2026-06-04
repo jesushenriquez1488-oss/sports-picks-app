@@ -32,18 +32,24 @@ if (!userId) {
 }
 
 // PREMIUM REAL DESDE SUPABASE, NO LOCALSTORAGE
-const _premiumState = { value: false };
-
-Object.defineProperty(window, "isPremiumUser", {
-  get() { return _premiumState.value; },
-  set() {},
-  configurable: false
-});
+const _premiumState = (() => {
+  let _value = false;
+  return {
+    get isPremium() { return _value; },
+    set(val) { _value = val === true; }
+  };
+})();
 
 function _setPremiumUser(val) {
-  _premiumState.value = val === true;
+  _premiumState.set(val);
 }
 
+Object.defineProperty(window, "isPremiumUser", {
+  get() { return _premiumState.isPremium; },
+  set() { return false; },
+  configurable: false,
+  enumerable: false
+});
 const urlParams = new URLSearchParams(window.location.search);
 
 if (urlParams.get("success") === "true") {
