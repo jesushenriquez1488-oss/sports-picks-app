@@ -32,7 +32,17 @@ if (!userId) {
 }
 
 // PREMIUM REAL DESDE SUPABASE, NO LOCALSTORAGE
-let isPremiumUser = false;
+const _premiumState = { value: false };
+
+Object.defineProperty(window, "isPremiumUser", {
+  get() { return _premiumState.value; },
+  set() {},
+  configurable: false
+});
+
+function _setPremiumUser(val) {
+  _premiumState.value = val === true;
+}
 
 const urlParams = new URLSearchParams(window.location.search);
 
