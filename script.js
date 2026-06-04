@@ -1091,16 +1091,8 @@ function renderAnalysisResult({
       ${
         shouldLockPremium
           ? `
-            <button class="unlock-btn premium-unlock" onclick="unlockPick()">
-              Desbloquear jugada premium por $${SINGLE_PICK_PRICE}
-            </button>
-
-            <p class="premium-small-text">
-              O desbloquea el acceso premium por $${MONTHLY_PRICE}/mes y obtén todas las jugadas premium del mes.
-            </p>
-
             <button class="unlock-btn premium-unlock" onclick="goPremiumMonthly()">
-              Acceso Premium mensual $${MONTHLY_PRICE}/mes
+              🔓 Desbloquear Premium $${MONTHLY_PRICE}/mes
             </button>
           `
           : ""
