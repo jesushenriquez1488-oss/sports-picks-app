@@ -50,12 +50,7 @@ const _x7k = (() => {
 function _setPremiumUser(val) {
   _x7k.set(val);
 }
-Object.defineProperty(window, "isPremiumUser", {
-  get() { return _premiumState.isPremium; },
-  set() { return false; },
-  configurable: false,
-  enumerable: false
-});
+
 const urlParams = new URLSearchParams(window.location.search);
 
 if (urlParams.get("success") === "true") {
