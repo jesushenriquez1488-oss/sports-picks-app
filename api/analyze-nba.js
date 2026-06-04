@@ -472,10 +472,20 @@ const { data: picks, error } = await supabaseAdmin
 
     });
 
-    candidates.sort((a, b) => b.percentage - a.percentage);
+candidates.sort((a, b) => b.percentage - a.percentage);
 
-    const best = candidates.slice(0, 3);
+const usedGames = new Set();
 
+const best = candidates
+  .filter(candidate => {
+    const gameKey = candidate.game;
+
+    if (usedGames.has(gameKey)) return false;
+
+    usedGames.add(gameKey);
+    return true;
+  })
+  .slice(0, 3);
     if (best.length < 2) {
       return res.status(200).json({
         available: false,
@@ -566,9 +576,20 @@ const { data: picks, error } = await supabaseAdmin
       }
     });
 
-    candidates.sort((a, b) => b.percentage - a.percentage);
+  candidates.sort((a, b) => b.percentage - a.percentage);
 
-    const best = candidates.slice(0, 3);
+const usedGames = new Set();
+
+const best = candidates
+  .filter(candidate => {
+    const gameKey = candidate.game;
+
+    if (usedGames.has(gameKey)) return false;
+
+    usedGames.add(gameKey);
+    return true;
+  })
+  .slice(0, 3);
 
     if (best.length < 2) {
       return res.status(200).json({
