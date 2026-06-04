@@ -50,7 +50,11 @@ const _x7k = (() => {
 function _setPremiumUser(val) {
   _x7k.set(val);
 }
-
+function sanitize(str) {
+  const d = document.createElement("div");
+  d.appendChild(document.createTextNode(String(str)));
+  return d.innerHTML;
+}
 const urlParams = new URLSearchParams(window.location.search);
 
 if (urlParams.get("success") === "true") {
@@ -851,7 +855,7 @@ ${
 `;
 endAnalysisLock(index);
   } catch (error) {
-    resultDiv.innerHTML = "Error NBA: " + error.message;
+   resultDiv.textContent = "Error NBA: " + error.message;
     endAnalysisLock(index);
   }
 }
@@ -1363,7 +1367,7 @@ if (window.currentSport === "wnba") {
 }
       gamesDiv.innerHTML += `
         <div class="card">
-          <h2>${game.away_team} vs ${game.home_team}</h2>
+          <h2>${sanitize(game.away_team)} vs ${sanitize(game.home_team)}</h2>
 
           <p><strong>Fecha:</strong> ${formattedDate}</p>
           <p><strong>Hora:</strong> ${formattedTime}</p>
@@ -1899,7 +1903,7 @@ ${premium.recommendedCards?.[1] ? `
 `;
     endAnalysisLock(index);
       } catch (error) {
-    resultDiv.innerHTML = `<p>Error MLB: ${error.message}</p>`;
+  resultDiv.textContent = "Error MLB: " + error.message;
     endAnalysisLock(index);
   }
 }
@@ -2108,7 +2112,7 @@ const res = await fetch(
 `;
 
   } catch (err) {
-    resultDiv.innerHTML = "Error Football: " + err.message;
+    resultDiv.textContent = "Error Football: " + err.message;
   }
 }
 async function loadStats() {
