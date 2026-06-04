@@ -32,7 +32,7 @@ if (!userId) {
 }
 
 // PREMIUM REAL DESDE SUPABASE, NO LOCALSTORAGE
-const isPremiumUserModule = (() => {
+const _x7k = (() => {
   let _value = false;
 
   Object.defineProperty(window, "isPremiumUser", {
@@ -48,9 +48,8 @@ const isPremiumUserModule = (() => {
 })();
 
 function _setPremiumUser(val) {
-  isPremiumUserModule.set(val);
+  _x7k.set(val);
 }
-
 Object.defineProperty(window, "isPremiumUser", {
   get() { return _premiumState.isPremium; },
   set() { return false; },
