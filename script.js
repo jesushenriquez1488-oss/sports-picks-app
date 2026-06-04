@@ -189,7 +189,7 @@ window.addEventListener("load", async () => {
     .single();
 
   if (!error && profile) {
-    isPremiumUser = profile.is_premium === true;
+    _setPremiumUser(profile.is_premium);
 
     const premiumBox = document.getElementById("premiumBox");
 
@@ -1502,7 +1502,7 @@ await askPushAfterLogin();
     console.log("DB ERROR:", dbError);
   }
 
-  isPremiumUser = profile?.is_premium === true;
+ _setPremiumUser(profile?.is_premium);
 
   const premiumBox = document.getElementById("premiumBox");
 
@@ -1613,7 +1613,7 @@ async function logoutUser() {
   localStorage.removeItem("supabaseUser");
   localStorage.removeItem("isPremiumUser");
 
-  isPremiumUser = false;
+ _setPremiumUser(false);
 
   const premiumBox = document.getElementById("premiumBox");
 
