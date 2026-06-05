@@ -102,8 +102,79 @@ OneSignalDeferred.push(async function(OneSignal) {
 
   <!-- SIGNUP -->
   <div id="signupView" style="display:none;">
-    <h3>Create account</h3>
 
+  <div style="text-align:center;margin-bottom:4px">
+    <span style="font-size:20px;font-weight:900;letter-spacing:2px;background:linear-gradient(90deg,#fff,#00ffe7,#9b7cff);-webkit-background-clip:text;-webkit-text-fill-color:transparent">CASHEDGE</span>
+  </div>
+  <div style="text-align:center;font-size:9px;letter-spacing:1.5px;color:rgba(0,255,231,.55);font-family:monospace;margin-bottom:14px">JOIN THE EDGE</div>
+
+  <div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:16px;padding-bottom:2px">
+    <div style="flex-shrink:0;display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:999px;background:rgba(0,255,231,.06);border:1px solid rgba(0,255,231,.16);font-size:9px;font-weight:600;color:rgba(255,255,255,.65);white-space:nowrap">🏆 Picks Premium</div>
+    <div style="flex-shrink:0;display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:999px;background:rgba(0,255,231,.06);border:1px solid rgba(0,255,231,.16);font-size:9px;font-weight:600;color:rgba(255,255,255,.65);white-space:nowrap">🧠 AI Analysis</div>
+    <div style="flex-shrink:0;display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:999px;background:rgba(0,255,231,.06);border:1px solid rgba(0,255,231,.16);font-size:9px;font-weight:600;color:rgba(255,255,255,.65);white-space:nowrap">⚡ Parlay AI</div>
+    <div style="flex-shrink:0;display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:999px;background:rgba(0,255,231,.06);border:1px solid rgba(0,255,231,.16);font-size:9px;font-weight:600;color:rgba(255,255,255,.65);white-space:nowrap">📊 Live tracking</div>
+  </div>
+
+  <input id="signupEmail" placeholder="Email address">
+
+  <div class="password-wrapper">
+    <input id="signupPassword" type="password" placeholder="Password">
+    <span class="password-toggle" onclick="togglePassword('signupPassword', this)">👁️</span>
+  </div>
+
+  <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:14px">
+    <div style="width:18px;height:18px;border-radius:6px;border:1px solid rgba(0,255,231,.30);background:rgba(0,255,231,.08);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;font-size:10px;color:#00ffe7">✓</div>
+    <div style="font-size:10px;color:rgba(255,255,255,.40);line-height:1.4">
+      I agree to the <a href="/terms.html" style="color:#00ffe7;font-weight:700;text-decoration:none">Terms of Service</a> and <a href="/privacy.html" style="color:#00ffe7;font-weight:700;text-decoration:none">Privacy Policy</a>. Must be 18+.
+    </div>
+  </div>
+
+  <button onclick="registerUser(
+    document.getElementById('signupEmail').value,
+    document.getElementById('signupPassword').value
+  )">
+    Create my account
+  </button>
+
+  <div style="display:flex;align-items:center;gap:8px;margin:10px 0">
+    <div style="flex:1;height:1px;background:rgba(255,255,255,.08)"></div>
+    <div style="font-size:9px;color:rgba(255,255,255,.25);font-family:monospace">OR</div>
+    <div style="flex:1;height:1px;background:rgba(255,255,255,.08)"></div>
+  </div>
+
+  <button type="button" class="google-login-btn" onclick="loginWithGoogle()">
+    <div class="google-btn-inner">
+      <img class="google-icon" src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg">
+      <div class="google-text">Sign up with Google</div>
+    </div>
+  </button>
+
+  <p class="auth-switch">Already have an account?</p>
+
+  <button type="button" class="auth-link-btn" onclick="showLogin()">
+    Back to login
+  </button>
+
+  <div style="display:flex;justify-content:center;gap:16px;margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.06)">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+      <span style="font-size:16px">🔒</span>
+      <span style="font-size:8px;color:rgba(255,255,255,.28);text-align:center;line-height:1.2;font-family:monospace">Secure<br>SSL</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+      <span style="font-size:16px">⚡</span>
+      <span style="font-size:8px;color:rgba(255,255,255,.28);text-align:center;line-height:1.2;font-family:monospace">Instant<br>access</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+      <span style="font-size:16px">🏆</span>
+      <span style="font-size:8px;color:rgba(255,255,255,.28);text-align:center;line-height:1.2;font-family:monospace">78.1%<br>accuracy</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+      <span style="font-size:16px">❌</span>
+      <span style="font-size:8px;color:rgba(255,255,255,.28);text-align:center;line-height:1.2;font-family:monospace">Cancel<br>anytime</span>
+    </div>
+  </div>
+
+</div>
   <input id="signupEmail" placeholder="Email">
 
 <div class="password-wrapper">
