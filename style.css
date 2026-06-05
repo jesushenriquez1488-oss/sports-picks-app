@@ -277,7 +277,7 @@ body.logged-in #authBox { display: none; }
 /* ── HERO MOBILE ── */
 @media (max-width: 700px) {
   .ai-hero, .hero {
-    grid-template-columns: 1fr;
+  grid-template-columns: 1fr 1fr;
     min-height: auto;
     margin: 10px auto;
   }
