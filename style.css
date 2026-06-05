@@ -1618,7 +1618,7 @@ button:active {
     font-size: 20px;
   }
  
-  .league-info strong { font-size: 18px; }
+.league-info strong { font-size: 15px; letter-spacing: 0; }
   .league-info small  { font-size: 10px; margin-top: 3px; }
   .league-arrow       { right: 10px; font-size: 22px; }
  
