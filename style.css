@@ -1488,35 +1488,44 @@ button:active { transform: scale(.97); }
 .performance-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
  
 .performance-sport-card {
-  position: relative;
-  overflow: hidden;
-  padding: 16px;
-  border-radius: var(--radius);
-  background: rgba(3,8,20,.78);
-  border: 1px solid rgba(255,255,255,.08);
-}
- 
-.performance-sport-top { display: flex; align-items: center; gap: 10px; }
-.performance-sport-top strong { display: block; color: #fff; font-size: 15px; }
-.performance-sport-top small  { color: #8fa2bd; font-size: 12px; }
- 
-.performance-sport-icon {
-  width: 42px; height: 42px;
+  padding: 12px 14px;
   border-radius: 14px;
+  background: rgba(0,255,231,.03);
+  border: 1px solid rgba(0,255,231,.10);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.performance-sport-top { display: flex; align-items: center; gap: 8px; flex: 1; }
+.performance-sport-top strong { display: block; color: #fff; font-size: 13px; font-weight: 700; }
+.performance-sport-top small  { color: rgba(255,255,255,.30); font-size: 10px; }
+
+.performance-sport-icon {
+  width: 34px; height: 34px;
+  border-radius: 10px;
   display: grid; place-items: center;
-  font-weight: 900; font-size: 16px;
+  font-weight: 900; font-size: 14px;
   color: #fff;
   background: linear-gradient(135deg, var(--cyan), var(--purple));
+  flex-shrink: 0;
 }
- 
-.performance-percent { margin: 14px 0 8px; font-size: 32px; font-weight: 900; color: var(--cyan); }
- 
-.performance-record { display: flex; gap: 6px; flex-wrap: wrap; }
-.performance-record span { padding: 5px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; background: rgba(255,255,255,.06); }
-.record-win  { color: #00ffae; background: rgba(0,255,174,.10) !important; border: 1px solid rgba(0,255,174,.20); }
-.record-loss { color: #ff5c7c; background: rgba(255,92,124,.10) !important; border: 1px solid rgba(255,92,124,.20); }
-.record-push { color: #c7d2e6; background: rgba(255,255,255,.05) !important; border: 1px solid rgba(255,255,255,.08); }
- 
+
+.performance-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.performance-percent { font-size: 22px; font-weight: 900; color: var(--cyan); line-height: 1; text-shadow: 0 0 12px rgba(0,255,231,.35); }
+
+.performance-record { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.performance-record span { padding: 2px 6px; border-radius: 999px; font-size: 9px; font-weight: 800; }
+.record-win  { color: #00ffae; background: rgba(0,255,174,.10); border: 1px solid rgba(0,255,174,.20); }
+.record-loss { color: #ff5c7c; background: rgba(255,92,124,.10); border: 1px solid rgba(255,92,124,.20); }
+.record-push { color: rgba(255,255,255,.40); background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); }
+
 .premium-label .live-dot {
   width: 8px; height: 8px;
   border-radius: 50%;
@@ -1526,12 +1535,11 @@ button:active { transform: scale(.97); }
   box-shadow: 0 0 10px rgba(0,255,153,.70);
   animation: liveBlink 1.4s infinite;
 }
- 
+
 @keyframes liveBlink {
   0%, 100% { opacity: 1; transform: scale(1); }
   50%       { opacity: .45; transform: scale(.7); }
 }
- 
 /* ─── PARLAY ─────────────────────────────────── */
 .parlay-premium-card {
   margin: 20px auto;
