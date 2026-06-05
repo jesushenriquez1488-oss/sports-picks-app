@@ -1616,21 +1616,21 @@ button:active {
   }
  
   .league-btn {
-    min-height: 72px;
-    padding: 10px 28px 10px 70px;
-    border-radius: 16px;
-  }
+  min-height: 58px;
+  padding: 8px 24px 8px 62px;
+  border-radius: 14px;
+}
  
-  .league-icon {
-    left: 12px;
-    width: 46px; height: 46px;
-    border-radius: 14px;
-    font-size: 20px;
-  }
- 
+.league-icon {
+  left: 10px;
+  width: 38px; height: 38px;
+  border-radius: 12px;
+  font-size: 17px;
+}
+
 .league-info strong { font-size: 15px; letter-spacing: 0; }
-  .league-info small  { font-size: 10px; margin-top: 3px; }
-  .league-arrow       { right: 10px; font-size: 22px; }
+.league-info small  { font-size: 9px; margin-top: 2px; }
+.league-arrow       { right: 8px; font-size: 18px; }
  
   /* buttons */
   button, .card button, #searchBtn, .unlock-btn {
