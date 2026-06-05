@@ -1258,7 +1258,9 @@ padding: 20px 18px;
  
 /* ─── TRUST WIDGET ───────────────────────────── */
 .premium-trust-widget {
-  width: 100%;
+ width: auto;
+max-width: 240px;
+margin: 10px auto;
   margin: 10px 0;
   padding: 14px 16px;
   border-radius: var(--radius);
