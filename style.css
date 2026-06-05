@@ -139,16 +139,17 @@ body.logged-in #authBox { display: none; }
 }
 
 .hero-typewriter {
-  font-size: 14px;
-  color: rgba(255,255,255,.55);
-  line-height: 1.5;
-  max-width: 560px;
-  min-height: 22px;
+  font-size: 13px;
+  color: #00ffe7;
+  line-height: 1.6;
+  max-width: 100%;
+  min-height: 44px;
   font-family: 'JetBrains Mono', monospace;
   border-right: 2px solid #00ffe7;
   animation: cursorBlink .8s step-end infinite;
-  white-space: nowrap;
-  overflow: hidden;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 @keyframes cursorBlink {
