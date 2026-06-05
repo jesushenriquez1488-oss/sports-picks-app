@@ -108,6 +108,19 @@ function selectSport(event, sport, sportName) {
   selectedSportName = sportName;
 
   document.getElementById("appTitle").innerText = `${sportName} Picks App`;
+  const orbEl = document.querySelector(".basketball-orb");
+if (orbEl) {
+  const sportIcons = {
+    basketball_nba: "🏀",
+    basketball_wnba: "🏀",
+    basketball_ncaab: "🏀",
+    basketball_euroleague: "🌐",
+    baseball_mlb: "⚾",
+    americanfootball_nfl: "🏈",
+    americanfootball_ncaaf: "🏈"
+  };
+  orbEl.innerText = sportIcons[sport] || "🏀";
+}
   document.getElementById("searchBtn").innerText = `Buscar juegos ${sportName}`;
   document.getElementById("status").innerHTML = "";
   document.getElementById("games").innerHTML = "";
