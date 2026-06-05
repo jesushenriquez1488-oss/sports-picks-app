@@ -1752,3 +1752,22 @@ body.logged-in #authBox {
   /* trust widget */
   .premium-trust-widget { width: 140px; }
 }
+/* Ocultar app cuando no está logueado */
+.hero,
+.ai-hero,
+#premiumBox,
+.ai-main-area {
+  display: none;
+}
+
+/* Mostrar app cuando está logueado */
+body.logged-in .hero,
+body.logged-in .ai-hero,
+body.logged-in #premiumBox,
+body.logged-in .ai-main-area {
+  display: block;
+}
+
+body.logged-in .ai-hero {
+  display: grid;
+}
