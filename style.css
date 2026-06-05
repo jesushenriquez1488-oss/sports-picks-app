@@ -1589,9 +1589,25 @@ button:active { transform: scale(.97); }
   align-items: center;
   justify-content: center;
   gap: 6px;
+  animation: parlayCardFloat 3s ease-in-out infinite;
   transition: border-color .2s, box-shadow .2s;
 }
 
+.parlay-pick-card:nth-child(2) { animation-delay: .4s; }
+.parlay-pick-card:nth-child(3) { animation-delay: .8s; }
+
+@keyframes parlayCardFloat {
+  0%, 100% {
+    transform: translateY(0);
+    box-shadow: 0 0 10px rgba(0,255,231,.08);
+    border-color: rgba(0,255,231,.18);
+  }
+  50% {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 24px rgba(0,255,231,.20);
+    border-color: rgba(0,255,231,.45);
+  }
+}
 .parlay-pick-card:hover {
   border-color: rgba(0,255,231,.45);
   box-shadow: 0 0 16px rgba(0,255,231,.12);
