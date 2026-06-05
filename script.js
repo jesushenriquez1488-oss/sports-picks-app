@@ -1744,28 +1744,7 @@ ${premium.recommendedCards?.[1] ? `
 
               </div>
 
-              <div class="mlb-premium-metrics">
-                <div>
-                  <small>OVER PROBABILITY</small>
-                  <strong>${safe(premium.overProbability).toFixed(1)}%</strong>
-                </div>
-
-                <div>
-                  <small>UNDER PROBABILITY</small>
-                  <strong>${safe(premium.underProbability).toFixed(1)}%</strong>
-                </div>
-
-                <div>
-                  <small>EDGE DEL MODELO</small>
-                  <strong>${safe(premium.totalEdge).toFixed(2)}</strong>
-                </div>
-
-                <div>
-                  <small>CONFIANZA</small>
-                  <strong>ALTA</strong>
-                </div>
-              </div>
-
+              
               <div class="mlb-info-grid">
 
                 <div>
