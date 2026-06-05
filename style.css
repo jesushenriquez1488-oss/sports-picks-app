@@ -1791,3 +1791,23 @@ margin: 10px auto;
   /* trust widget */
   .premium-trust-widget { width: 140px; }
 }
+/* ─── OCULTAR APP ANTES DEL LOGIN ─── */
+.hero,
+.ai-hero,
+#premiumBox,
+.ai-main-area {
+  display: none;
+}
+
+body.logged-in .hero,
+body.logged-in .ai-hero {
+  display: grid;
+}
+
+body.logged-in #premiumBox,
+body.logged-in .ai-main-area {
+  display: block;
+}
+body.logged-in #authBox {
+  display: none;
+}
