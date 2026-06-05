@@ -1677,7 +1677,7 @@ if (data.noPlay) {
                 <div>
                   <span class="mlb-report-label">AI PREDICTIVE REPORT</span>
                   <h2>⚾ ${awayTeam} vs ${homeTeam}</h2>
-                  <p><strong>Favorito:</strong> ${premium.favoriteToWin} (${safe(premium.favoriteProb).toFixed(1)}%)</p>
+                  
                 </div>
 
               ${isPremiumMLB ? `
