@@ -1157,14 +1157,25 @@ button:active { transform: scale(.97); }
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 12px;
+  padding: 6px 14px;
   border-radius: 999px;
   background: rgba(0,255,231,.08);
-  border: 1px solid rgba(0,255,231,.22);
-  font-size: 11px;
+  border: 1px solid rgba(0,255,231,.25);
+  font-size: 12px;
   font-weight: 700;
   color: #00ffe7;
-  width: fit-content;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+#premiumStatus::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #00ffe7;
+  box-shadow: 0 0 8px #00ffe7;
+  animation: blink 1.4s infinite;
+  flex-shrink: 0;
 }
 
 .account-links {
