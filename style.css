@@ -1589,25 +1589,48 @@ button:active { transform: scale(.97); }
   align-items: center;
   justify-content: center;
   gap: 6px;
-  animation: parlayCardFloat 3s ease-in-out infinite;
-  transition: border-color .2s, box-shadow .2s;
+  overflow: hidden;
+  transition: border-color .2s;
 }
 
-.parlay-pick-card:nth-child(2) { animation-delay: .4s; }
-.parlay-pick-card:nth-child(3) { animation-delay: .8s; }
-
-@keyframes parlayCardFloat {
-  0%, 100% {
-    transform: translateY(0);
-    box-shadow: 0 0 10px rgba(0,255,231,.08);
-    border-color: rgba(0,255,231,.18);
-  }
-  50% {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 24px rgba(0,255,231,.20);
-    border-color: rgba(0,255,231,.45);
-  }
+/* línea de scan que corre de arriba abajo */
+.parlay-pick-card::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0;
+  top: -100%;
+  height: 40%;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(0,255,231,.06) 40%,
+    rgba(0,255,231,.12) 50%,
+    rgba(0,255,231,.06) 60%,
+    transparent 100%);
+  animation: scanLine 3s linear infinite;
 }
+
+.parlay-pick-card:nth-child(2)::before { animation-delay: 1s; }
+.parlay-pick-card:nth-child(3)::before { animation-delay: 2s; }
+
+@keyframes scanLine {
+  0%   { top: -40%; }
+  100% { top: 120%; }
+}
+
+/* punto parpadeante en esquina */
+.parlay-pick-card::after {
+  content: "";
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan);
+  animation: blink 1.4s infinite;
+}
+
+.parlay-pick-card:nth-child(2)::after { animation-delay: .5s; }
+.parlay-pick-card:nth-child(3)::after { animation-delay: 1s; }
 .parlay-pick-card:hover {
   border-color: rgba(0,255,231,.45);
   box-shadow: 0 0 16px rgba(0,255,231,.12);
