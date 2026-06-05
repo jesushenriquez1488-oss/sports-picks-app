@@ -1065,7 +1065,7 @@ confidence = clamp(confidence, 0, 99);
       .filter(c => c.isPremium)
       .sort((a, b) => b.percentage - a.percentage);
 
-    const recommendedCards = premiumCandidates.slice(0, 2);
+    const recommendedCards = premiumCandidates.slice(0, 1);
 
     const locked = recommendedCards.length > 0 && !isPremiumUser;
 function edgeToPercent(edge, type = "ml") {
