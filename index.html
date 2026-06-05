@@ -123,8 +123,7 @@ OneSignalDeferred.push(async function(OneSignal) {
   </div>
 
   <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:14px">
-    <div style="width:18px;height:18px;border-radius:6px;border:1px solid rgba(0,255,231,.30);background:rgba(0,255,231,.08);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;font-size:10px;color:#00ffe7">✓</div>
-    <div style="font-size:10px;color:rgba(255,255,255,.40);line-height:1.4">
+    <div id="termsCheck" style="width:18px;height:18px;border-radius:6px;border:1px solid rgba(0,255,231,.30);background:transparent;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;font-size:10px;color:#00ffe7;cursor:pointer" onclick="this.innerHTML=this.innerHTML?'':'✓';this.style.background=this.innerHTML?'rgba(0,255,231,.08)':'transparent'"></div>
       I agree to the <a href="/terms.html" style="color:#00ffe7;font-weight:700;text-decoration:none">Terms of Service</a> and <a href="/privacy.html" style="color:#00ffe7;font-weight:700;text-decoration:none">Privacy Policy</a>. Must be 18+.
     </div>
   </div>
