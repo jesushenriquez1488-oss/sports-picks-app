@@ -2105,27 +2105,20 @@ function renderPerformancePanel(data) {
     return `
       <div class="performance-sport-card">
         <div class="performance-sport-top">
-          <div class="performance-sport-icon">
-            ${formatSportIcon(record.sport)}
-          </div>
-
+          <div class="performance-sport-icon">${formatSportIcon(record.sport)}</div>
           <div>
             <strong>${record.display_name}</strong>
-            <small>AI tracked performance</small>
+            <small>AI tracked</small>
           </div>
         </div>
-
-        <div class="performance-percent" data-target="${accuracy}">
-          ${accuracy}%
+        <div class="performance-right">
+          <div class="performance-percent" data-target="${accuracy}">${accuracy}%</div>
+          <div class="performance-record">
+            <span class="record-win">${wins}W</span>
+            <span class="record-loss">${losses}L</span>
+            <span class="record-push">${pushes}P</span>
+          </div>
         </div>
-
-        <div class="performance-record">
-          <span class="record-win">${wins}W</span>
-<span class="record-loss">${losses}L</span>
-<span class="record-push">${pushes}P</span>
-        </div>
-
-       
       </div>
     `;
   }).join("");
