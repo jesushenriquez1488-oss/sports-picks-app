@@ -108,6 +108,10 @@ function selectSport(event, sport, sportName) {
   selectedSportName = sportName;
 
   document.getElementById("appTitle").innerText = `${sportName} Picks App`;
+  const line1 = document.getElementById("heroLine1");
+const line2 = document.getElementById("heroLine2");
+if (line1) line1.innerText = sportName;
+if (line2) line2.innerText = "Picks App";
   const orbEl = document.querySelector(".basketball-orb");
 if (orbEl) {
   const sportIcons = {
