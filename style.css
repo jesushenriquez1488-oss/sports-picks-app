@@ -1258,20 +1258,26 @@ padding: 20px 18px;
  
 /* ─── TRUST WIDGET ───────────────────────────── */
 .premium-trust-widget {
-  width: 155px;
-  margin: 6px 0 12px auto;
-  padding: 10px 10px 9px;
+  width: 100%;
+  margin: 10px 0;
+  padding: 12px 16px;
   border-radius: var(--radius);
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
   background:
     radial-gradient(circle at 90% 10%, rgba(0,255,231,.40), transparent 22%),
     linear-gradient(145deg, rgba(2,20,42,.96), rgba(12,6,42,.94));
   border: 1px solid rgba(0,255,231,.65);
-  box-shadow: 0 0 16px rgba(0,255,231,.40), inset 0 0 16px rgba(0,255,231,.08);
+  box-shadow: 0 0 16px rgba(0,255,231,.40);
 }
- 
-.trust-top span  { display: block; font-size: 9px; letter-spacing: .18em; color: var(--cyan); font-weight: 900; margin-bottom: 3px; }
-.premium-trust-widget strong { display: block; font-size: 26px; line-height: 1; color: var(--cyan); font-weight: 900; }
+
+.trust-top span { font-size: 10px; letter-spacing: .18em; color: var(--cyan); font-weight: 900; }
+.premium-trust-widget strong { font-size: 32px; line-height: 1; color: var(--cyan); font-weight: 900; }
+.trust-record { color: #fff; font-size: 11px; font-weight: 900; }
+.premium-trust-widget small { font-size: 9px; color: rgba(255,255,255,.70); font-weight: 900; }
  
 .trust-trophy {
   width: 36px; height: 36px;
