@@ -1260,13 +1260,13 @@ padding: 20px 18px;
 .premium-trust-widget {
   width: 100%;
   margin: 10px 0;
-  padding: 12px 16px;
+  padding: 14px 16px;
   border-radius: var(--radius);
   text-align: center;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 16px;
+  gap: 4px;
   background:
     radial-gradient(circle at 90% 10%, rgba(0,255,231,.40), transparent 22%),
     linear-gradient(145deg, rgba(2,20,42,.96), rgba(12,6,42,.94));
@@ -1274,10 +1274,10 @@ padding: 20px 18px;
   box-shadow: 0 0 16px rgba(0,255,231,.40);
 }
 
-.trust-top span { font-size: 10px; letter-spacing: .18em; color: var(--cyan); font-weight: 900; }
-.premium-trust-widget strong { font-size: 32px; line-height: 1; color: var(--cyan); font-weight: 900; }
-.trust-record { color: #fff; font-size: 11px; font-weight: 900; }
-.premium-trust-widget small { font-size: 9px; color: rgba(255,255,255,.70); font-weight: 900; }
+.trust-top span { display: block; font-size: 10px; letter-spacing: .18em; color: var(--cyan); font-weight: 900; margin-bottom: 2px; }
+.premium-trust-widget strong { display: block; font-size: 36px; line-height: 1; color: var(--cyan); font-weight: 900; }
+.trust-record { color: #fff; font-size: 11px; font-weight: 900; margin-top: 2px; }
+.premium-trust-widget small { font-size: 9px; color: rgba(255,255,255,.70); font-weight: 900; display: block; }
  
 .trust-trophy {
   width: 36px; height: 36px;
