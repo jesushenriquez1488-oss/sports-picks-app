@@ -1680,8 +1680,11 @@ if (data.noPlay) {
                   <p><strong>Favorito:</strong> ${premium.favoriteToWin} (${safe(premium.favoriteProb).toFixed(1)}%)</p>
                 </div>
 
-               ${isPremiumMLB ? `
-  <div class="mlb-gold-shield">★</div>
+              ${isPremiumMLB ? `
+  <div class="mlb-gold-shield">
+    <span>${(premium.recommendedCards?.[0] ? premium.recommendedCards[0].percentage.toFixed(1) : "0")}%</span>
+    <small>PROB.</small>
+  </div>
 ` : ``}
               </div>
 
