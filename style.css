@@ -1592,7 +1592,23 @@ margin: 10px auto;
     transition-duration: .01ms !important;
   }
 }
- 
+ #termsCheck {
+  min-width: 18px;
+  min-height: 18px;
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  border: 1px solid rgba(0,255,231,.30);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  font-size: 10px;
+  color: #00ffe7;
+  margin-top: 2px;
+}
 /* =============================================
    MOBILE — todo en un solo bloque
    ============================================= */
