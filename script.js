@@ -2470,5 +2470,17 @@ if (enableBtn) {
     }
 
   });
+function startHeroTypewriter() {
+  const el = document.getElementById("heroTypewriter");
+  if (!el) return;
+  const text = "CashEdge es una app de picks deportivos impulsados por IA y análisis de expertos en deportes.";
+  let i = 0;
+  el.innerText = "";
+  const interval = setInterval(() => {
+    el.innerText += text[i];
+    i++;
+    if (i >= text.length) clearInterval(interval);
+  }, 38);
+}
 
 }
