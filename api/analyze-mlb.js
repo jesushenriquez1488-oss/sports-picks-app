@@ -1041,10 +1041,7 @@ confidence = clamp(confidence, 0, 99);
      isPremium:
   confidence >= 75 &&
   support >= 56 &&
-  (
-    isOver
-    totalEdge >= 2.5
-  )
+  totalEdge >= 2.5
       };
     }
 
