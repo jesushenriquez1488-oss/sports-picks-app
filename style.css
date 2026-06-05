@@ -1961,7 +1961,7 @@ button:active { transform: scale(.97); }
   .forgot-password   { font-size: 12px; }
  
   /* user box */
-  #userBox { flex-direction: column; align-items: center; padding: 12px 14px; }
+ 
  
   /* auth landing */
   .premium-animated-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
