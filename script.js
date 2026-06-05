@@ -682,188 +682,91 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
   displayPick = `${displayPick} ${total}`;
 }
   resultDiv.innerHTML = `
- <div class="${isPremium ? 'basket-premium-wrapper' : 'normal-result'}">
+<div class="${isPremium ? 'ce-premium-basket-card' : 'ce-normal-basket-card'}">
 
-    <div class="result-content premium-layout">
+  ${isPremium ? `
+    <div class="ce-premium-basket-badge-row">▲ HOT PICK · NBA</div>
 
-      <div class="premium-header">
-
-        <div>
-
-
-${
-  isPremium
-    ? `
-      <div class="ce-premium-basket-card">
-
-        <div class="ce-premium-basket-badge">
-          🔥 HOT PICK PREMIUM
-        </div>
-
-        <div class="ce-premium-basket-pick">
-          ${displayPick}
-        </div>
-
-        <div class="ce-premium-basket-circle">
-          <span>${data.public.confidence}%</span>
-        </div>
-
-        <div class="ce-premium-basket-stats">
-
-          <div>
-            <small>EDGE</small>
-            <strong>${locked ? "Premium" : premium.mainEdge.toFixed(1)}</strong>
-          </div>
-
-          <div>
-            <small>TOTAL</small>
-            <strong>${locked ? "--" : premium.totalProj.toFixed(1)}</strong>
-          </div>
-
-          <div>
-            <small>${awayTeam}</small>
-            <strong>${locked ? "--" : premium.projA.toFixed(1)}</strong>
-          </div>
-
-          <div>
-            <small>${homeTeam}</small>
-            <strong>${locked ? "--" : premium.projB.toFixed(1)}</strong>
-          </div>
-
-        </div>
-
+    <div class="ce-premium-basket-header">
+      <div class="ce-premium-basket-left">
+        <div class="ce-premium-basket-pick">${displayPick}</div>
       </div>
-    `
-    : `
-      <div class="ce-normal-basket-card">
-
-        <div class="ce-normal-basket-badge">
-          📊 JUGADA DESTACADA
-        </div>
-
-        <div class="ce-normal-basket-pick">
-          ${displayPick}
-        </div>
-
-        <div class="ce-normal-basket-percent">
-          ${data.public.confidence}%
-        </div>
-
-        <div class="ce-normal-basket-stats">
-
-          <div>
-            <small>EDGE</small>
-            <strong>${locked ? "Premium" : premium.mainEdge.toFixed(1)}</strong>
-          </div>
-
-          <div>
-            <small>TOTAL</small>
-            <strong>${locked ? "--" : premium.totalProj.toFixed(1)}</strong>
-          </div>
-
-          <div>
-            <small>${awayTeam}</small>
-            <strong>${locked ? "--" : premium.projA.toFixed(1)}</strong>
-          </div>
-
-          <div>
-            <small>${homeTeam}</small>
-            <strong>${locked ? "--" : premium.projB.toFixed(1)}</strong>
-          </div>
-
-        </div>
-
+      <div class="ce-premium-basket-circle">
+        <span>${data.public.confidence}%</span>
+        <small>PROB.</small>
       </div>
-    `
-}
+    </div>
 
-${
-  locked
-    ? `
-      <div class="premium-lock-box">
+    <div class="ce-premium-basket-stats">
+      <div><small>EDGE</small><strong>${locked ? "--" : premium.mainEdge.toFixed(1)}</strong></div>
+      <div><small>TOTAL</small><strong>${locked ? "--" : premium.totalProj.toFixed(1)}</strong></div>
+      <div><small>${awayTeam.split(" ").pop()}</small><strong>${locked ? "--" : premium.projA.toFixed(1)}</strong></div>
+      <div><small>${homeTeam.split(" ").pop()}</small><strong>${locked ? "--" : premium.projB.toFixed(1)}</strong></div>
+    </div>
 
-        <h4>🔒 Premium Analysis Locked</h4>
-
-        <p>El modelo detectó edge premium basado en:</p>
-
-        <div class="premium-lock-grid">
-          <div>✔ Forma reciente</div>
-          <div>✔ Descanso</div>
-          <div>✔ Lesiones</div>
-          <div>✔ Matchup ofensivo</div>
-          <div>✔ Matchup defensivo</div>
-          <div>✔ Edge vs mercado</div>
-        </div>
-
-        <button class="unlock-btn" onclick="goPremiumMonthly()">
-          🔓 Desbloquear Premium $${MONTHLY_PRICE}/mes
-        </button>
-
-      </div>
-    `
-    : `
+    ${locked ? `
       <div class="ce-basket-info-section">
-
         <div class="ce-basket-info-box">
-          <h4>😴 Descanso</h4>
+          <h4>🔒 ANÁLISIS PREMIUM</h4>
+          <p>Edge significativo detectado. Desbloquea para ver el pick completo.</p>
+        </div>
+        <div class="ce-basket-info-box">
+          <h4>FACTORES</h4>
+          <p>Forma reciente · Descanso · Lesiones · Matchup · Edge vs mercado</p>
+        </div>
+      </div>
+      <button class="unlock-btn" style="margin-top:12px" onclick="goPremiumMonthly()">
+        🔓 Desbloquear Premium — $${MONTHLY_PRICE}/mes
+      </button>
+    ` : `
+      <div class="ce-basket-info-section">
+        <div class="ce-basket-info-box">
+          <h4>😴 DESCANSO</h4>
           <p>${awayTeam}: ${premium.awayRestNote}</p>
           <p>${homeTeam}: ${premium.homeRestNote}</p>
         </div>
-
         <div class="ce-basket-info-box">
-          <h4>🚑 Lesiones</h4>
-
+          <h4>🚑 LESIONES</h4>
           <p>${premium.awayInjuryPublic}</p>
-
-          ${
-            premium.awayInjuryNote.includes("No se reportan")
-              ? ""
-              : `<p>${premium.awayInjuryNote}</p>`
-          }
-
           <p>${premium.homeInjuryPublic}</p>
-
-          ${
-            premium.homeInjuryNote.includes("No se reportan")
-              ? ""
-              : `<p>${premium.homeInjuryNote}</p>`
-          }
-
         </div>
-
       </div>
-    `
-}
+    `}
 
-${
-  isAdminUser && data.pickId
-    ? `
-      <div class="admin-panel-pro">
-
-        <h4>🛠 ADMIN PANEL</h4>
-
-        <div class="admin-buttons">
-
-          <button onclick="updatePickResult('${data.pickId}', 'win')">
-            ✅ WIN
-          </button>
-
-          <button onclick="updatePickResult('${data.pickId}', 'loss')">
-            ❌ LOSS
-          </button>
-
-          <button onclick="updatePickResult('${data.pickId}', 'pending')">
-            ⏳ PENDING
-          </button>
-
-        </div>
-
+  ` : `
+    <div class="ce-normal-basket-badge">📊 JUGADA DESTACADA</div>
+    <div class="ce-normal-basket-pick">${displayPick}</div>
+    <div class="ce-normal-basket-stats">
+      <div><small>CONFIANZA</small><strong>${data.public.confidence}%</strong></div>
+      <div><small>EDGE</small><strong>${premium.mainEdge.toFixed(1)}</strong></div>
+      <div><small>${awayTeam.split(" ").pop()}</small><strong>${premium.projA.toFixed(1)}</strong></div>
+      <div><small>${homeTeam.split(" ").pop()}</small><strong>${premium.projB.toFixed(1)}</strong></div>
+    </div>
+    <div class="ce-basket-info-section" style="margin-top:10px">
+      <div class="ce-basket-info-box">
+        <h4>😴 DESCANSO</h4>
+        <p>${awayTeam}: ${premium.awayRestNote}</p>
+        <p>${homeTeam}: ${premium.homeRestNote}</p>
       </div>
-    `
-    : ""
-}
+      <div class="ce-basket-info-box">
+        <h4>🚑 LESIONES</h4>
+        <p>${premium.awayInjuryPublic}</p>
+        <p>${premium.homeInjuryPublic}</p>
+      </div>
+    </div>
+  `}
 
-</div>
+  ${isAdminUser && data.pickId ? `
+    <div class="admin-panel-pro" style="margin-top:12px">
+      <h4>🛠 ADMIN</h4>
+      <div class="admin-buttons">
+        <button onclick="updatePickResult('${data.pickId}', 'win')">✅ WIN</button>
+        <button onclick="updatePickResult('${data.pickId}', 'loss')">❌ LOSS</button>
+        <button onclick="updatePickResult('${data.pickId}', 'pending')">⏳ PENDING</button>
+      </div>
+    </div>
+  ` : ""}
+
 </div>
 `;
 endAnalysisLock(index);
