@@ -1706,16 +1706,33 @@ padding: 20px 18px;
   .edge-number { font-size: 28px; }
  
   /* auth */
-  #authBox {
-    width: calc(100% - 18px);
-    margin: 10px auto;
-    padding: 16px;
-    border-radius: var(--radius-lg);
-  }
+#authBox {
+  width: calc(100% - 16px);
+  margin: 8px auto;
+  padding: 14px;
+  border-radius: 20px;
+}
+
+#authBox h3    { font-size: 16px; margin-bottom: 10px; }
+#authBox input { height: 40px; font-size: 13px; margin-bottom: 7px; }
+
+#authBox button:not(.google-login-btn) {
+  height: 44px;
+  font-size: 14px;
+  border-radius: 14px;
+  margin-top: 8px;
+}
+
+.google-login-btn {
+  height: 44px;
+  margin-top: 8px;
+  border-radius: 14px;
+}
+
+.auth-switch    { font-size: 12px; margin: 8px 0; }
+.forgot-password { font-size: 12px; }
  
-  #authBox h3    { font-size: 17px; }
-  #authBox input { height: 42px; font-size: 13px; margin-bottom: 8px; }
- 
+
   /* user box */
   #userBox { flex-direction: column; align-items: flex-start; padding: 12px 14px; }
  
