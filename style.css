@@ -945,9 +945,9 @@ button:active {
  
 /* ─── AUTH BOX ───────────────────────────────── */
 #authBox {
-  max-width: 920px;
-  margin: 32px auto;
-  padding: 28px;
+ max-width: 480px;
+margin: 16px auto;
+padding: 20px 18px;
   border-radius: var(--radius-xl);
   position: relative;
   overflow: hidden;
