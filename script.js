@@ -2470,6 +2470,8 @@ if (enableBtn) {
     }
 
   });
+
+}
 function startHeroTypewriter() {
   const el = document.getElementById("heroTypewriter");
   if (!el) return;
@@ -2481,6 +2483,4 @@ function startHeroTypewriter() {
     i++;
     if (i >= text.length) clearInterval(interval);
   }, 38);
-}
-
 }
