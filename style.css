@@ -785,8 +785,18 @@ button:active { transform: scale(.97); }
   padding: 20px;
   border-radius: var(--radius-lg);
   background: linear-gradient(145deg, rgba(5,14,34,.97), rgba(2,6,18,.99));
-  border: 1px solid var(--border-p);
-  box-shadow: 0 0 28px rgba(0,255,231,.15), inset 0 0 30px rgba(0,255,231,.04);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  box-shadow: 0 0 28px rgba(0,255,231,.15);
+  animation: borderRun 3s linear infinite;
+}
+
+@keyframes borderRun {
+  0%   { box-shadow: 0 0 20px rgba(0,255,231,.60), 0 0 0 0 rgba(0,255,231,0); border-color: rgba(0,255,231,.80); }
+  25%  { box-shadow: 20px 0 20px rgba(0,255,231,.20), 0 0 0 0 rgba(0,255,231,0); border-color: rgba(124,60,255,.80); }
+  50%  { box-shadow: 0 0 20px rgba(124,60,255,.60), 0 0 0 0 rgba(0,255,231,0); border-color: rgba(0,255,231,.80); }
+  75%  { box-shadow: -20px 0 20px rgba(0,255,231,.20), 0 0 0 0 rgba(0,255,231,0); border-color: rgba(124,60,255,.80); }
+  100% { box-shadow: 0 0 20px rgba(0,255,231,.60), 0 0 0 0 rgba(0,255,231,0); border-color: rgba(0,255,231,.80); }
 }
  
 .mlb-premium-dashboard::before {
