@@ -2479,8 +2479,11 @@ function startHeroTypewriter() {
   let i = 0;
   el.innerText = "";
   const interval = setInterval(() => {
-    el.innerText += text[i];
-    i++;
-    if (i >= text.length) clearInterval(interval);
+    if (i < text.length) {
+      el.innerText = text.substring(0, i + 1);
+      i++;
+    } else {
+      clearInterval(interval);
+    }
   }, 38);
 }
