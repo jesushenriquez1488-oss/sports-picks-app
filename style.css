@@ -1485,7 +1485,11 @@ button:active { transform: scale(.97); }
 .performance-overall-card strong { display: block; margin: 8px 0; font-size: 38px; color: var(--cyan); }
 .performance-overall-card span   { font-size: 13px; color: #dbe7ff; }
  
-.performance-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.performance-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
  
 .performance-sport-card {
   padding: 12px 14px;
