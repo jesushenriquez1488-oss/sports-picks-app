@@ -1021,6 +1021,9 @@ button:active {
 .account-links a       { color: #9ffcff; text-decoration: none; font-weight: 700; }
 .account-links a:hover { color: var(--gold); }
 .account-links span    { color: rgba(255,255,255,.40); }
+body.logged-in #authBox {
+  display: none !important;
+}
  
 /* ─── AUTH FORMS ─────────────────────────────── */
 .auth-link-btn {
