@@ -1994,3 +1994,8 @@ button:active { transform: scale(.97); }
   /* footer */
   .site-footer { padding-bottom: 60px; }
 }
+#userBox {
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
