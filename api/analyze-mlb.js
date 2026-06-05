@@ -905,7 +905,7 @@ let expectedRunsB = homeRunCalc.expectedRuns;
      if (marketType === "ML") {
   const margin = Math.abs(supportData.projectedMargin);
 
-  confidence = edgeToPercent(margin, 2.0, 5.5);
+ confidence = edgeToPercent(margin, "ml");
 
   if (supportData.modelProb < 0.55) confidence = 0;
 
@@ -917,7 +917,10 @@ let expectedRunsB = homeRunCalc.expectedRuns;
 
  if (spreadNumber > 0) {
   // RL +1.5 debe valer más que ML porque tiene protección extra
-  const baseRlConfidence = edgeToPercent(protectedEdgeForPercent, 3.0, 6.0);
+ const baseRlConfidence = edgeToPercent(
+  protectedEdgeForPercent,
+  "rlplus"
+);
 
   const protectionBonus = Math.min(10, spreadNumber * 6);
 
@@ -925,7 +928,10 @@ let expectedRunsB = homeRunCalc.expectedRuns;
 
 } else {
   // RL -1.5 es más difícil que ML
-  confidence = edgeToPercent(protectedEdgeForPercent, 2.0, 5.5);
+ confidence = edgeToPercent(
+  protectedEdgeForPercent,
+  "rlminus"
+);
 }
   if (runlineProb < 65) confidence = 0;
 }
@@ -962,11 +968,11 @@ if (isPositiveRunline) {
 
       const premiumRule =
   marketType === "ML"
-    ? Math.abs(supportData.projectedMargin) >= 2.0
+   ? Math.abs(supportData.projectedMargin) >= 3.0
     : (
         Number(spread) > 0
-          ? protectedEdge >= 3.0
-          : protectedEdge >= 2.0
+          ? protectedEdge >= 3.5
+: protectedEdge >= 5.0
       );
 
       return {
@@ -1018,10 +1024,7 @@ if (isPositiveRunline) {
 
       support = clamp(support, 0, 100);
 
-     let confidence = isOver
-  ? edgeToPercent(totalEdge, 2.0, 5.5)
-: edgeToPercent(totalEdge, 2.5, 6.0);
-
+    let confidence = edgeToPercent(totalEdge, "total");
 if (probability < 62) confidence = 0;
 
 confidence = clamp(confidence, 0, 99);
@@ -1040,8 +1043,7 @@ confidence = clamp(confidence, 0, 99);
   support >= 56 &&
   (
     isOver
-      ? totalEdge >= 2.0
-      : totalEdge >= 2.5
+    totalEdge >= 2.5
   )
       };
     }
@@ -1069,22 +1071,56 @@ confidence = clamp(confidence, 0, 99);
     const recommendedCards = premiumCandidates.slice(0, 2);
 
     const locked = recommendedCards.length > 0 && !isPremiumUser;
-function edgeToPercent(edge, minEdge, eliteEdge) {
+function edgeToPercent(edge, type = "ml") {
   const e = Math.abs(Number(edge));
 
-  if (!Number.isFinite(e) || e < minEdge) return 0;
+  if (!Number.isFinite(e)) return 0;
 
-  const progress = Math.max(
-    0,
-    Math.min(
-      1,
-      (e - minEdge) / (eliteEdge - minEdge)
-    )
-  );
+  // MONEYLINE
+  if (type === "ml") {
+    if (e < 3.0) return 0;
+    if (e >= 6.0) return 99;
+    if (e >= 5.0) return 90;
+    if (e >= 4.5) return 85;
+    if (e >= 4.0) return 82;
+    if (e >= 3.5) return 78;
+    return 75;
+  }
 
-  return Number((75 + progress * 24).toFixed(1));
+  // TOTALS
+  if (type === "total") {
+    if (e < 2.5) return 0;
+    if (e >= 5.5) return 99;
+    if (e >= 5.0) return 95;
+    if (e >= 4.5) return 92;
+    if (e >= 4.0) return 88;
+    if (e >= 3.5) return 84;
+    if (e >= 3.0) return 78;
+    return 75;
+  }
+
+  // RL POSITIVO
+  if (type === "rlplus") {
+    if (e < 3.5) return 0;
+    if (e >= 6.0) return 99;
+    if (e >= 5.0) return 90;
+    if (e >= 4.5) return 85;
+    if (e >= 4.0) return 80;
+    return 75;
+  }
+
+  // RL NEGATIVO
+  if (type === "rlminus") {
+    if (e < 5.0) return 0;
+    if (e >= 7.0) return 99;
+    if (e >= 6.5) return 95;
+    if (e >= 6.0) return 90;
+    if (e >= 5.5) return 82;
+    return 75;
+  }
+
+  return 0;
 }
-
 function getBullpenFatigueFactor(bullpen) {
   if (!bullpen) return 1;
 
