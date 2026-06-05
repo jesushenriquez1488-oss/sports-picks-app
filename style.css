@@ -147,7 +147,7 @@ body.logged-in #authBox { display: none; }
   font-family: 'JetBrains Mono', monospace;
   border-right: 2px solid #00ffe7;
   animation: cursorBlink .8s step-end infinite;
-  white-space: normal;
+  white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: break-word;
 }
@@ -166,7 +166,7 @@ body.logged-in #authBox { display: none; }
     border-radius: 16px;
   }
   .hero-title { font-size: 36px; }
-  .hero-typewriter { font-size: 12px; white-space: normal; border-right: none; }
+  .hero-typewriter { font-size: 12px; white-space: pre-wrap; border-right: none; }
 }
  
 /* ─── SPORT TABS ─────────────────────────────── */
