@@ -68,23 +68,35 @@ if (urlParams.get("canceled") === "true") {
 }
 function showAuthMessage(message, type = "success") {
   const authMessage = document.getElementById("authMessage");
-
   if (!authMessage) return;
 
-  authMessage.innerText = message;
+  const isSuccess = type === "success";
 
-  authMessage.style.color =
-    type === "success" ? "#00ff99" : "#ff4d4d";
-
-  authMessage.style.marginTop = "15px";
-  authMessage.style.fontWeight = "600";
-  authMessage.style.textAlign = "center";
+  authMessage.innerHTML = `
+    <div style="
+      display:flex;
+      align-items:flex-start;
+      gap:10px;
+      padding:12px 16px;
+      border-radius:12px;
+      background:${isSuccess ? 'rgba(0,255,153,.08)' : 'rgba(255,77,77,.08)'};
+      border:1px solid ${isSuccess ? 'rgba(0,255,153,.25)' : 'rgba(255,77,77,.25)'};
+      margin-top:14px;
+    ">
+      <span style="font-size:16px;flex-shrink:0">${isSuccess ? '✅' : '⚠️'}</span>
+      <span style="
+        font-size:12px;
+        font-weight:600;
+        color:${isSuccess ? '#00ff99' : '#ff6b6b'};
+        line-height:1.5;
+      ">${message}</span>
+    </div>
+  `;
 
   setTimeout(() => {
-    authMessage.innerText = "";
-  }, 4000);
+    authMessage.innerHTML = "";
+  }, 6000);
 }
-
 function showSignup() {
   document.getElementById("loginView").style.display = "none";
   document.getElementById("signupView").style.display = "block";
