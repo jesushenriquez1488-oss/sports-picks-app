@@ -562,6 +562,15 @@ score *= fatigueFactor;
       const whip = safeNumber(stats.whip);
       const homeRunsPerInning = safeNumber(stats.homeRunsPerInning);
       const walksPerInning = safeNumber(stats.walksPerInning);
+      const pitcherDebug = {
+  recentRuns,
+  sideRuns,
+  innings,
+  whip,
+  homeRunsPerInning,
+  walksPerInning,
+  scoreStart: score
+};
 if (innings < 2) {
   score *= 2.10;
 } else if (innings < 3) {
@@ -589,7 +598,12 @@ if (innings < 2) {
         if (walksPerInning >= 0.55) score *= 1.08;
         else if (walksPerInning >= 0.45) score *= 1.04;
       }
+pitcherDebug.scoreFinal = score;
 
+console.log(
+  "PITCHER_DEBUG",
+  JSON.stringify(pitcherDebug, null, 2)
+);
       return clamp(score, 1.0, 12.5);
     }
 
