@@ -2500,3 +2500,18 @@ function startHeroTypewriter() {
     }
   }, 38);
 }
+function updatePasswordStrength(val) {
+  let s = 0;
+  if (val.length >= 8) s += 25;
+  if (val.length >= 12) s += 25;
+  if (/[A-Z]/.test(val)) s += 25;
+  if (/[0-9!@#$%^&*]/.test(val)) s += 25;
+  const bar = document.getElementById('strengthBar');
+  const label = document.getElementById('strengthLabel');
+  if (!bar) return;
+  bar.style.width = s + '%';
+  if (s <= 25) { bar.style.background = '#ff4d4d'; label.textContent = 'WEAK'; label.style.color = '#ff4d4d'; }
+  else if (s <= 50) { bar.style.background = '#ffb703'; label.textContent = 'FAIR'; label.style.color = '#ffb703'; }
+  else if (s <= 75) { bar.style.background = '#00ffe7'; label.textContent = 'GOOD'; label.style.color = '#00ffe7'; }
+  else { bar.style.background = 'linear-gradient(90deg,#00ffe7,#7c3cff)'; label.textContent = 'STRONG ✓'; label.style.color = '#00ffe7'; }
+}
