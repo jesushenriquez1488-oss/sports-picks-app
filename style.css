@@ -2039,3 +2039,19 @@ button:active { transform: scale(.97); }
   background: rgba(0,255,231,.15);
   margin: 0 12px;
 }
+.login-trust-compact {
+  padding: 7px 14px;
+  margin-bottom: 12px;
+}
+.ltc-pct {
+  font-size: 17px;
+}
+.ltc-record {
+  font-size: 10px;
+}
+.ltc-label {
+  font-size: 8px;
+}
+.ltc-divider {
+  height: 28px;
+}
