@@ -2107,3 +2107,15 @@ button:active { transform: scale(.97); }
   background: rgba(0,255,231,.06) !important;
   transform: none !important;
 }
+#signupView button:not(.google-login-btn):not(.auth-link-btn) {
+  background: transparent !important;
+  border: 1.5px solid rgba(0,255,231,.45) !important;
+  box-shadow: none !important;
+  color: #00ffe7 !important;
+}
+
+#signupView button:not(.google-login-btn):not(.auth-link-btn):hover {
+  background: rgba(0,255,231,.06) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
