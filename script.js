@@ -100,11 +100,15 @@ function showAuthMessage(message, type = "success") {
 function showSignup() {
   document.getElementById("loginView").style.display = "none";
   document.getElementById("signupView").style.display = "block";
+  const hero = document.querySelector(".auth-landing-info");
+  if (hero) hero.style.display = "none";
 }
 
 function showLogin() {
   document.getElementById("signupView").style.display = "none";
   document.getElementById("loginView").style.display = "block";
+  const hero = document.querySelector(".auth-landing-info");
+  if (hero) hero.style.display = "none";
 }
 let selectedSport = "basketball_nba";
 let selectedSportName = "NBA";
