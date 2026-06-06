@@ -2062,3 +2062,24 @@ button:active { transform: scale(.97); }
 .ltc-divider {
   height: 28px;
 }
+.google-login-btn {
+  width: 100%;
+  padding: 11px 16px;
+  background: transparent;
+  border: 1.5px solid rgba(0,255,231,.35);
+  border-radius: 10px;
+  color: rgba(255,255,255,.75);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  letter-spacing: 0.3px;
+  transition: background .2s, border .2s;
+}
+.google-login-btn:hover {
+  background: rgba(0,255,231,.05);
+  border-color: rgba(0,255,231,.6);
+}
