@@ -1999,3 +1999,43 @@ button:active { transform: scale(.97); }
   align-items: center !important;
   justify-content: space-between !important;
 }
+.login-trust-compact {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: rgba(0,255,231,.05);
+  border: 1px solid rgba(0,255,231,.18);
+  border-radius: 12px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+}
+.ltc-left, .ltc-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.ltc-label {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: rgba(0,255,231,.6);
+  font-weight: 700;
+  font-family: monospace;
+}
+.ltc-pct {
+  font-size: 22px;
+  font-weight: 900;
+  color: #00ffe7;
+}
+.ltc-record {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,.75);
+}
+.ltc-divider {
+  width: 1px;
+  height: 36px;
+  background: rgba(0,255,231,.15);
+  margin: 0 12px;
+}
