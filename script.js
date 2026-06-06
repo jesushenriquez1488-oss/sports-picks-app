@@ -1362,6 +1362,11 @@ async function registerUser(email, password) {
     return;
   }
 
+  if (password.length < 8) {
+    showAuthMessage("La contraseña debe tener al menos 8 caracteres", "error");
+    return;
+  }
+
   const { data, error } = await supabaseClient.auth.signUp({
     email,
     password
@@ -1376,16 +1381,19 @@ async function registerUser(email, password) {
     } else {
       showAuthMessage(error.message, "error");
     }
-
     return;
   }
 
-  showAuthMessage("Cuenta creada correctamente. Ahora inicia sesión.");
+  // Supabase devuelve identities vacío si el email ya existe pero no está confirmado
+  if (data.user && data.user.identities && data.user.identities.length === 0) {
+    showAuthMessage("Esta cuenta ya existe. Revisa tu correo o inicia sesión.", "error");
+    return;
+  }
 
+  showAuthMessage("✅ Cuenta creada. Revisa tu correo " + email + " para verificar tu cuenta antes de iniciar sesión.", "success");
   showLogin();
-
   document.getElementById("loginEmail").value = email;
-  document.getElementById("loginPassword").value = password;
+  document.getElementById("loginPassword").value = "";
 }
 async function askPushAfterLogin() {
   try {
