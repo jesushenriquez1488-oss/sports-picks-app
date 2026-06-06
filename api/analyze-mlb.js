@@ -595,7 +595,6 @@ if (walksPerInning !== null) {
 
 pitcherPenalty = clamp(pitcherPenalty, 0.88, 1.12);
 score *= pitcherPenalty;
-pitcherDebug.scoreFinal = score;
 
 
       return clamp(score, 1.0, 12.5);
