@@ -572,24 +572,29 @@ if (innings < 2) {
 } else if (innings >= 6) {
   score *= 0.96;
 }
-      if (whip !== null) {
-        if (whip >= 1.65) score *= 1.12;
-        else if (whip >= 1.50) score *= 1.08;
-        else if (whip >= 1.35) score *= 1.04;
+  let pitcherPenalty = 1;
 
-        if (whip <= 1.00) score *= 0.92;
-        else if (whip <= 1.10) score *= 0.96;
-      }
+if (whip !== null) {
+  if (whip >= 1.65) pitcherPenalty += 0.06;
+  else if (whip >= 1.50) pitcherPenalty += 0.04;
+  else if (whip >= 1.35) pitcherPenalty += 0.02;
 
-      if (homeRunsPerInning !== null) {
-        if (homeRunsPerInning >= 0.24) score *= 1.10;
-        else if (homeRunsPerInning >= 0.18) score *= 1.05;
-      }
+  if (whip <= 1.00) pitcherPenalty -= 0.07;
+  else if (whip <= 1.10) pitcherPenalty -= 0.04;
+}
 
-      if (walksPerInning !== null) {
-        if (walksPerInning >= 0.55) score *= 1.08;
-        else if (walksPerInning >= 0.45) score *= 1.04;
-      }
+if (homeRunsPerInning !== null) {
+  if (homeRunsPerInning >= 0.24) pitcherPenalty += 0.05;
+  else if (homeRunsPerInning >= 0.18) pitcherPenalty += 0.03;
+}
+
+if (walksPerInning !== null) {
+  if (walksPerInning >= 0.55) pitcherPenalty += 0.04;
+  else if (walksPerInning >= 0.45) pitcherPenalty += 0.02;
+}
+
+pitcherPenalty = clamp(pitcherPenalty, 0.88, 1.12);
+score *= pitcherPenalty;
 pitcherDebug.scoreFinal = score;
 
 
