@@ -2083,3 +2083,16 @@ button:active { transform: scale(.97); }
   background: rgba(0,255,231,.05);
   border-color: rgba(0,255,231,.6);
 }
+#loginView button:not(.google-login-btn):not(.auth-link-btn) {
+  background: transparent;
+  border: 1.5px solid rgba(0,255,231,.45);
+  box-shadow: none;
+  color: #00ffe7;
+}
+
+#loginView button:not(.google-login-btn):not(.auth-link-btn):hover {
+  background: rgba(0,255,231,.06);
+  border-color: rgba(0,255,231,.7);
+  box-shadow: none;
+  transform: none;
+}
