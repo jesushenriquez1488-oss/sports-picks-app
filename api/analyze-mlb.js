@@ -1080,50 +1080,41 @@ function edgeToPercent(edge, type = "ml") {
 
   if (!Number.isFinite(e)) return 0;
 
-  // MONEYLINE
-  if (type === "ml") {
-    if (e < 3.0) return 0;
-    if (e >= 6.0) return 99;
-    if (e >= 5.0) return 90;
-    if (e >= 4.5) return 85;
-    if (e >= 4.0) return 82;
-    if (e >= 3.5) return 78;
-    return 75;
+  let minEdge;
+  let maxEdge;
+
+  switch (type) {
+    case "ml":
+      minEdge = 3.0;
+      maxEdge = 6.0;
+      break;
+
+    case "total":
+      minEdge = 2.5;
+      maxEdge = 5.5;
+      break;
+
+    case "rlplus":
+      minEdge = 3.0;
+      maxEdge = 6.0;
+      break;
+
+    case "rlminus":
+      minEdge = 5.0;
+      maxEdge = 7.0;
+      break;
+
+    default:
+      return 0;
   }
 
-  // TOTALS
-  if (type === "total") {
-    if (e < 2.5) return 0;
-    if (e >= 5.5) return 99;
-    if (e >= 5.0) return 95;
-    if (e >= 4.5) return 92;
-    if (e >= 4.0) return 88;
-    if (e >= 3.5) return 84;
-    if (e >= 3.0) return 78;
-    return 75;
-  }
+  if (e < minEdge) return 0;
+  if (e >= maxEdge) return 99.0;
 
-  // RL POSITIVO
-  if (type === "rlplus") {
-    if (e < 3.5) return 0;
-    if (e >= 6.0) return 99;
-    if (e >= 5.0) return 90;
-    if (e >= 4.5) return 85;
-    if (e >= 4.0) return 80;
-    return 75;
-  }
+  const percent =
+    75 + ((e - minEdge) / (maxEdge - minEdge)) * 24;
 
-  // RL NEGATIVO
-  if (type === "rlminus") {
-    if (e < 5.0) return 0;
-    if (e >= 7.0) return 99;
-    if (e >= 6.5) return 95;
-    if (e >= 6.0) return 90;
-    if (e >= 5.5) return 82;
-    return 75;
-  }
-
-  return 0;
+  return Number(percent.toFixed(1));
 }
 function getBullpenFatigueFactor(bullpen) {
   if (!bullpen) return 1;
