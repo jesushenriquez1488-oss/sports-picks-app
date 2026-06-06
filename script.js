@@ -246,7 +246,7 @@ window.addEventListener("load", async () => {
     }
 
     document.getElementById("authBox").style.display = "none";
-    document.querySelector(".hero.ai-hero").style.display = "block";
+
     document.getElementById("userBox").style.display = "block";
 document.body.classList.add("logged-in");
     document.getElementById("userEmail").innerText = user.email;
@@ -1476,7 +1476,7 @@ await askPushAfterLogin();
   localStorage.setItem("supabaseUser", JSON.stringify(user));
 
  document.getElementById("authBox").style.display = "none";
-  document.querySelector(".hero.ai-hero").style.display = "block";
+ 
  document.getElementById("userBox").style.display = "block";
 document.body.classList.add("logged-in");
   document.getElementById("userEmail").innerText = user.email;
