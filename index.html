@@ -53,26 +53,15 @@ OneSignalDeferred.push(async function(OneSignal) {
 <p class="forgot-password" onclick="resetPassword()">
   Forgot password?
 </p>
-    <div class="login-trust-widget premium-trust-widget" id="loginOverallCard">
-      
-  <div class="trust-stars"></div>
-
-  <div class="trust-top">
-    <span>AI ACCURACY</span>
+    <div class="login-trust-compact" id="loginOverallCard">
+  <div class="ltc-left">
+    <div class="ltc-label">AI ACCURACY</div>
+    <div class="ltc-pct" id="loginOverallAccuracy">--%</div>
   </div>
-
-  <strong id="loginOverallAccuracy">--%</strong>
-
-  <div class="trust-trophy">
-    <div class="trophy-core"></div>
-    <div class="trophy-ring"></div>
-    <div class="trophy-ring ring2"></div>
-  </div>
-
-  <small>OVERALL RECORD</small>
-
-  <div class="trust-record" id="loginOverallRecord">
-    Loading...
+  <div class="ltc-divider"></div>
+  <div class="ltc-right">
+    <div class="ltc-label">OVERALL RECORD</div>
+    <div class="ltc-record" id="loginOverallRecord">Loading...</div>
   </div>
 </div>
     <button onclick="loginUser(
