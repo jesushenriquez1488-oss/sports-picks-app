@@ -1586,6 +1586,7 @@ async function logoutUser() {
   }
 
   document.getElementById("authBox").style.display = "block";
+  document.querySelector(".hero.ai-hero").style.display = "none";
   document.getElementById("userBox").style.display = "none";
 
  document.getElementById("loginEmail").value = "";
