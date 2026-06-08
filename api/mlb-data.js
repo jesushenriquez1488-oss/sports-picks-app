@@ -486,19 +486,24 @@ async function getWeather(venueName, roofType, gameDate) {
       );
 
     return {
-      speed: roofClosedLikely ? 0 : windSpeed,
-      direction: roofClosedLikely ? "neutral" : direction,
-      degrees: windDir,
-      temp,
-      humidity,
-      condition,
-      raw: roofClosedLikely
-        ? `Retractable roof likely closed: ${condition}, ${temp}F`
-        : `${windSpeed} mph, ${windDir} degrees, ${condition}`,
-      active: !roofClosedLikely,
-      source: "visual_crossing"
-    };
-
+  venue: venueName,
+  gameDate: date,
+  gameTime: gameDate,
+  coordinates: coords,
+  speed: roofClosedLikely ? 0 : windSpeed,
+  direction: roofClosedLikely ? "neutral" : direction,
+  degrees: windDir,
+  temp,
+  humidity,
+  condition,
+  rawHour: targetHour?.datetime || null,
+  raw: roofClosedLikely
+    ? `Retractable roof likely closed: ${condition}, ${temp}F`
+    : `${windSpeed} mph, ${windDir} degrees, ${condition}`,
+  active: !roofClosedLikely,
+  source: "visual_crossing",
+  weatherSource: "Visual Crossing"
+};
   } catch (error) {
     return {
       speed: 0,
