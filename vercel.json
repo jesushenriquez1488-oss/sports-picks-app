@@ -109,7 +109,7 @@
     },
     {
       "path": "/api/analyze-nba?mode=send-parlay-alert",
-      "schedule": "30 16 * * *"
+      "schedule": "0 18 * * *"
     }
   ]
 }
