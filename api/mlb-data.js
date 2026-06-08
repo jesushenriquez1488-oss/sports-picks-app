@@ -64,7 +64,7 @@ const STADIUM_COORDS = {
   "Sutter Health Park": { lat: 38.5804, lon: -121.5133 },
   "T-Mobile Park": { lat: 47.5914, lon: -122.3325 },
   "Oracle Park": { lat: 37.7786, lon: -122.3893 },
-  "Petco Park": { lat: 32.7073, lon: -117.1573 }
+  "Petco Park": { lat: 32.7073, lon: -117.1573 },
   "Las Vegas Ballpark": { lat: 36.1597, lon: -115.3200 },
 };
 export default async function handler(req, res) {
