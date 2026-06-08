@@ -511,7 +511,38 @@ async function getWeather(venueName, roofType, gameDate) {
     };
   }
 }
-
+const STADIUM_AZIMUTH = {
+  "Oakland Coliseum": 55,
+  "PNC Park": 116,
+  "Petco Park": 0,
+  "T-Mobile Park": 49,
+  "Oracle Park": 85,
+  "Busch Stadium": 62,
+  "Tropicana Field": 359,
+  "Globe Life Field": 30,
+  "Rogers Centre": 345,
+  "Target Field": 129,
+  "Citizens Bank Park": 9,
+  "Truist Park": 145,
+  "Guaranteed Rate Field": 127,
+  "loanDepot park": 128,
+  "Yankee Stadium": 75,
+  "American Family Field": 129,
+  "Angel Stadium": 43.61,
+  "Chase Field": 0,
+  "Oriole Park at Camden Yards": 31,
+  "Fenway Park": 45,
+  "Wrigley Field": 37,
+  "Great American Ball Park": 122,
+  "Progressive Field": 0,
+  "Coors Field": 4,
+  "Comerica Park": 150,
+  "Minute Maid Park": 343,
+  "Kauffman Stadium": 46,
+  "Dodger Stadium": 26,
+  "Nationals Park": 28,
+  "Citi Field": 13
+};
 function classifyWindDirection(degrees) {
   if (degrees === null || degrees === undefined || Number.isNaN(degrees)) {
     return "neutral";
