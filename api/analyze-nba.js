@@ -970,7 +970,10 @@ if (
   .map(t => String(t).trim())
   .sort();
 
-const gameId = teamsSorted.join("-");
+const gameDate = new Date().toISOString().split("T")[0];
+
+const gameId =
+  `${selectedLeague}-${gameDate}-${teamsSorted.join("-")}`;
 
     const { data: existing } = await supabaseAdmin
       .from("daily_picks")
