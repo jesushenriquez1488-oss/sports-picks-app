@@ -543,20 +543,38 @@ const STADIUM_AZIMUTH = {
   "Nationals Park": 28,
   "Citi Field": 13
 };
-function classifyWindDirection(degrees) {
-  if (degrees === null || degrees === undefined || Number.isNaN(degrees)) {
+function angleDiff(a, b) {
+  return Math.abs(((a - b + 540) % 360) - 180);
+}
+
+function classifyWindDirectionForStadium(venueName, degrees) {
+  if (
+    degrees === null ||
+    degrees === undefined ||
+    Number.isNaN(Number(degrees))
+  ) {
     return "neutral";
   }
 
-  const d = Number(degrees);
+  const stadiumAzimuth = STADIUM_AZIMUTH[venueName];
 
-  if ((d >= 315 && d <= 360) || (d >= 0 && d <= 45)) return "out";
-  if (d >= 135 && d <= 225) return "in";
-  if ((d > 45 && d < 135) || (d > 225 && d < 315)) return "cross";
+  if (stadiumAzimuth === null || stadiumAzimuth === undefined) {
+    return "neutral";
+  }
 
-  return "neutral";
+  const windFrom = Number(degrees);
+
+  // Visual Crossing = de donde viene el viento
+  const windTo = (windFrom + 180) % 360;
+
+  const outDiff = angleDiff(windTo, stadiumAzimuth);
+  const inDiff = angleDiff(windTo, (stadiumAzimuth + 180) % 360);
+
+  if (outDiff <= 45) return "out";
+  if (inDiff <= 45) return "in";
+
+  return "cross";
 }
-
     const awayPitcherStats = await getPitcherStats(awayPitcher?.id);
     const homePitcherStats = await getPitcherStats(homePitcher?.id);
 
