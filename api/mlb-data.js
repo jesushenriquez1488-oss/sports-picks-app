@@ -31,6 +31,7 @@ const PARK_FACTORS = {
   "T-Mobile Park": { factor: 0.93, roof: "retractable" },
   "Oracle Park": { factor: 0.92, roof: "open" },
   "Petco Park": { factor: 0.91, roof: "open" }
+  "Las Vegas Ballpark": { factor: 1.08, roof: "open" },
 };
 const STADIUM_COORDS = {
   "Coors Field": { lat: 39.7559, lon: -104.9942 },
@@ -64,6 +65,7 @@ const STADIUM_COORDS = {
   "T-Mobile Park": { lat: 47.5914, lon: -122.3325 },
   "Oracle Park": { lat: 37.7786, lon: -122.3893 },
   "Petco Park": { lat: 32.7073, lon: -117.1573 }
+  "Las Vegas Ballpark": { lat: 36.1597, lon: -115.3200 },
 };
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -541,6 +543,7 @@ const STADIUM_AZIMUTH = {
   "Dodger Stadium": 26,
   "Nationals Park": 28,
   "Citi Field": 13
+  "Las Vegas Ballpark": 32,
 };
 function angleDiff(a, b) {
   return Math.abs(((a - b + 540) % 360) - 180);
