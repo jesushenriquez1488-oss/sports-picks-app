@@ -593,7 +593,7 @@ function classifyWindDirectionForStadium(venueName, degrees) {
     const awayBullpen = await getBullpenProfile(game.teams.away.team.id);
     const homeBullpen = await getBullpenProfile(game.teams.home.team.id);
 
-    const weather = await getWeather(venueName, parkInfo.roof, today);
+    const weather = await getWeather(venueName, parkInfo.roof, game.gameDate);
     console.log("🌦️ MLB WEATHER DEBUG", {
   game: `${game.teams.away.team.name} @ ${game.teams.home.team.name}`,
   venueName,
