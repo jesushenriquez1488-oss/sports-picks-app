@@ -632,7 +632,17 @@ score *= pitcherPenalty;
     const parkFactor = safeNumber(venue.parkFactor, 1);
     const weatherFactor = getWeatherRunFactor(mlbData.weather);
     const runEnvironmentFactor = parkFactor * weatherFactor;
-
+console.log("🌦️ CASHEDGE VS BALLPARK CHECK", {
+  game: `${awayTeam} @ ${homeTeam}`,
+  venue: mlbData.venue?.name,
+  gameDate: mlbData.gameDate,
+  roof: mlbData.venue?.roof,
+  parkFactor,
+  weather: mlbData.weather,
+  weatherFactor,
+  runEnvironmentFactor,
+  cashEdgeRunsPct: `${((runEnvironmentFactor - 1) * 100).toFixed(1)}%`
+});
     const awayBatting = mlbData.away?.battingProfile || {};
     const homeBatting = mlbData.home?.battingProfile || {};
 
