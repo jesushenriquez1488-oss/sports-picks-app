@@ -220,41 +220,47 @@ window.addEventListener("load", async () => {
   const { data: sessionData } = await supabaseClient.auth.getSession();
 
   if (!sessionData.session) {
-    isPremiumUser = false;
+    // Esperar por si viene de OAuth redirect
+    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        subscription.unsubscribe();
+        await handleUserSession(session.user);
+      }
+    });
     return;
   }
 
-  const user = sessionData.session.user;
+  await handleUserSession(sessionData.session.user);
+});
 
+async function handleUserSession(user) {
   const { data: profile, error } = await supabaseClient
     .from("users")
-    .select("*")
-    .eq("id", user.id)
+    .upsert({
+      id: user.id,
+      email: user.email,
+      subscription_status: "free"
+    }, { onConflict: "id" })
+    .select()
     .single();
 
   if (!error && profile) {
     _setPremiumUser(profile.is_premium);
 
     const premiumBox = document.getElementById("premiumBox");
-
     if (premiumBox) {
-      if (isPremiumUser) {
-        premiumBox.style.display = "none";
-      } else {
-        premiumBox.style.display = "block";
-      }
+      premiumBox.style.display = isPremiumUser ? "none" : "block";
     }
 
     document.getElementById("authBox").style.display = "none";
-
     document.getElementById("userBox").style.display = "block";
-document.body.classList.add("logged-in");
+    document.getElementById("heroSection").style.display = "block";
+    document.body.classList.add("logged-in");
     document.getElementById("userEmail").innerText = user.email;
     document.getElementById("premiumStatus").innerText =
       isPremiumUser ? "🔥 Premium activo" : "Free account";
   }
-});
-
+}
 async function loadTeams() {
   if (allTeams.length > 0) return;
 
