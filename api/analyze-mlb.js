@@ -371,7 +371,7 @@ const dataResponse = await fetch(`${origin}/api/mlb-data`, {
       return 0.5 * (1 + erf((x - mean) / (stdDev * Math.sqrt(2))));
     }
 
-   function getWeatherRunFactor(weather) {
+function getWeatherRunFactor(weather) {
   if (!weather || weather.active === false) return 1;
 
   const raw = String(weather.raw || "").trim();
@@ -386,67 +386,99 @@ const dataResponse = await fetch(`${origin}/api/mlb-data`, {
   let factor = 1;
 
   const windSpeed = safeNumber(weather.speed, 0);
-  const temp = weather.temp ? Number(weather.temp) : null;
+  const temp = weather.temp !== null && weather.temp !== undefined
+    ? Number(weather.temp)
+    : null;
+  const humidity = safeNumber(weather.humidity);
 
   // =========================
   // WIND DIRECTION IMPACT
   // =========================
 
   if (weather.direction === "out") {
-    if (windSpeed >= 18) factor += 0.18;
-    else if (windSpeed >= 14) factor += 0.14;
-    else if (windSpeed >= 10) factor += 0.10;
+    if (windSpeed >= 22) factor += 0.26;
+    else if (windSpeed >= 18) factor += 0.22;
+    else if (windSpeed >= 14) factor += 0.17;
+    else if (windSpeed >= 10) factor += 0.11;
     else if (windSpeed >= 6) factor += 0.06;
   }
 
   if (weather.direction === "in") {
-    if (windSpeed >= 18) factor -= 0.16;
-    else if (windSpeed >= 14) factor -= 0.13;
-    else if (windSpeed >= 10) factor -= 0.09;
-    else if (windSpeed >= 6) factor -= 0.05;
+    if (windSpeed >= 22) factor -= 0.25;
+    else if (windSpeed >= 18) factor -= 0.21;
+    else if (windSpeed >= 14) factor -= 0.16;
+    else if (windSpeed >= 10) factor -= 0.10;
+    else if (windSpeed >= 6) factor -= 0.06;
   }
 
   if (weather.direction === "cross") {
-    if (windSpeed >= 18) factor += 0.05;
-    else if (windSpeed >= 14) factor += 0.04;
-    else if (windSpeed >= 10) factor += 0.03;
+    if (windSpeed >= 22) factor -= 0.04;
+    else if (windSpeed >= 18) factor -= 0.02;
+    else if (windSpeed >= 14) factor += 0.01;
   }
 
   // =========================
   // TEMPERATURE IMPACT
   // =========================
 
-  if (temp !== null) {
-
-    // HOT WEATHER BOOST
-    if (temp >= 100) factor += 0.11;
-    else if (temp >= 95) factor += 0.09;
-    else if (temp >= 90) factor += 0.07;
+  if (temp !== null && Number.isFinite(temp)) {
+    if (temp >= 100) factor += 0.13;
+    else if (temp >= 95) factor += 0.10;
+    else if (temp >= 90) factor += 0.08;
     else if (temp >= 84) factor += 0.05;
     else if (temp >= 78) factor += 0.03;
 
-    // COLD WEATHER SUPPRESSION
-    else if (temp <= 38) factor -= 0.11;
-    else if (temp <= 45) factor -= 0.08;
-    else if (temp <= 52) factor -= 0.05;
-    else if (temp <= 58) factor -= 0.03;
+    else if (temp <= 38) factor -= 0.13;
+    else if (temp <= 45) factor -= 0.10;
+    else if (temp <= 52) factor -= 0.07;
+    else if (temp <= 58) factor -= 0.04;
   }
 
   // =========================
-  // HUMIDITY
+  // HUMIDITY / AIR WEIGHT
   // =========================
 
-  const humidity = safeNumber(weather.humidity);
+  if (humidity !== null && temp !== null && Number.isFinite(temp)) {
+    if (humidity >= 85 && temp >= 88) factor += 0.04;
+    else if (humidity >= 75 && temp >= 84) factor += 0.025;
 
-  if (humidity !== null) {
-    if (humidity >= 80 && temp >= 85) {
-      factor += 0.03;
-    }
-
-    if (humidity <= 30 && temp <= 60) {
-      factor -= 0.02;
-    }
+    if (humidity >= 80 && temp <= 68) factor -= 0.03;
+    if (humidity <= 30 && temp <= 60) factor -= 0.025;
   }
+
+  // =========================
+  // COMBO EFFECTS
+  // =========================
+
+  const strongBadOverWeather =
+    weather.direction === "in" &&
+    windSpeed >= 14 &&
+    temp !== null &&
+    temp <= 70;
+
+  const extremeBadOverWeather =
+    weather.direction === "in" &&
+    windSpeed >= 18 &&
+    temp !== null &&
+    temp <= 65;
+
+  const strongGoodOverWeather =
+    weather.direction === "out" &&
+    windSpeed >= 14 &&
+    temp !== null &&
+    temp >= 78;
+
+  const extremeGoodOverWeather =
+    weather.direction === "out" &&
+    windSpeed >= 18 &&
+    temp !== null &&
+    temp >= 84;
+
+  if (strongBadOverWeather) factor -= 0.04;
+  if (extremeBadOverWeather) factor -= 0.05;
+
+  if (strongGoodOverWeather) factor += 0.04;
+  if (extremeGoodOverWeather) factor += 0.05;
 
   // =========================
   // STORM / RAIN EFFECTS
@@ -458,14 +490,12 @@ const dataResponse = await fetch(`${origin}/api/mlb-data`, {
     condition.includes("storm") ||
     condition.includes("heavy rain")
   ) {
-    factor -= 0.04;
+    factor -= 0.06;
+  } else if (condition.includes("rain")) {
+    factor -= 0.03;
   }
 
-  // =========================
-  // FINAL CLAMP
-  // =========================
-
-  return clamp(factor, 0.82, 1.38);
+  return clamp(factor, 0.72, 1.42);
 }
     function adjustOffense(batting) {
       if (!batting) return null;
