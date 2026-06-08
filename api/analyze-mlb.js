@@ -386,15 +386,13 @@ function getWeatherRunFactor(weather) {
   let factor = 1;
 
   const windSpeed = safeNumber(weather.speed, 0);
-  const temp = weather.temp !== null && weather.temp !== undefined
-    ? Number(weather.temp)
-    : null;
+  const temp =
+    weather.temp !== null && weather.temp !== undefined
+      ? Number(weather.temp)
+      : null;
   const humidity = safeNumber(weather.humidity);
 
-  // =========================
-  // WIND DIRECTION IMPACT
-  // =========================
-
+  // WIND: ahora direction ya viene corregida por estadio
   if (weather.direction === "out") {
     if (windSpeed >= 22) factor += 0.26;
     else if (windSpeed >= 18) factor += 0.22;
@@ -404,10 +402,10 @@ function getWeatherRunFactor(weather) {
   }
 
   if (weather.direction === "in") {
-    if (windSpeed >= 22) factor -= 0.25;
-    else if (windSpeed >= 18) factor -= 0.21;
-    else if (windSpeed >= 14) factor -= 0.16;
-    else if (windSpeed >= 10) factor -= 0.10;
+    if (windSpeed >= 22) factor -= 0.26;
+    else if (windSpeed >= 18) factor -= 0.22;
+    else if (windSpeed >= 14) factor -= 0.17;
+    else if (windSpeed >= 10) factor -= 0.11;
     else if (windSpeed >= 6) factor -= 0.06;
   }
 
@@ -417,10 +415,7 @@ function getWeatherRunFactor(weather) {
     else if (windSpeed >= 14) factor += 0.01;
   }
 
-  // =========================
-  // TEMPERATURE IMPACT
-  // =========================
-
+  // TEMPERATURE
   if (temp !== null && Number.isFinite(temp)) {
     if (temp >= 100) factor += 0.13;
     else if (temp >= 95) factor += 0.10;
@@ -434,10 +429,7 @@ function getWeatherRunFactor(weather) {
     else if (temp <= 58) factor -= 0.04;
   }
 
-  // =========================
   // HUMIDITY / AIR WEIGHT
-  // =========================
-
   if (humidity !== null && temp !== null && Number.isFinite(temp)) {
     if (humidity >= 85 && temp >= 88) factor += 0.04;
     else if (humidity >= 75 && temp >= 84) factor += 0.025;
@@ -446,50 +438,41 @@ function getWeatherRunFactor(weather) {
     if (humidity <= 30 && temp <= 60) factor -= 0.025;
   }
 
-  // =========================
   // COMBO EFFECTS
-  // =========================
-
-  const strongBadOverWeather =
+  const strongBadWeather =
     weather.direction === "in" &&
     windSpeed >= 14 &&
     temp !== null &&
     temp <= 70;
 
-  const extremeBadOverWeather =
+  const extremeBadWeather =
     weather.direction === "in" &&
     windSpeed >= 18 &&
     temp !== null &&
     temp <= 65;
 
-  const strongGoodOverWeather =
+  const strongGoodWeather =
     weather.direction === "out" &&
     windSpeed >= 14 &&
     temp !== null &&
     temp >= 78;
 
-  const extremeGoodOverWeather =
+  const extremeGoodWeather =
     weather.direction === "out" &&
     windSpeed >= 18 &&
     temp !== null &&
     temp >= 84;
 
-  if (strongBadOverWeather) factor -= 0.04;
-  if (extremeBadOverWeather) factor -= 0.05;
+  if (strongBadWeather) factor -= 0.04;
+  if (extremeBadWeather) factor -= 0.05;
 
-  if (strongGoodOverWeather) factor += 0.04;
-  if (extremeGoodOverWeather) factor += 0.05;
+  if (strongGoodWeather) factor += 0.04;
+  if (extremeGoodWeather) factor += 0.05;
 
-  // =========================
-  // STORM / RAIN EFFECTS
-  // =========================
-
+  // RAIN / STORM
   const condition = String(weather.condition || "").toLowerCase();
 
-  if (
-    condition.includes("storm") ||
-    condition.includes("heavy rain")
-  ) {
+  if (condition.includes("storm") || condition.includes("heavy rain")) {
     factor -= 0.06;
   } else if (condition.includes("rain")) {
     factor -= 0.03;
