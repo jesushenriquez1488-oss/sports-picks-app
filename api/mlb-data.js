@@ -543,7 +543,7 @@ const STADIUM_AZIMUTH = {
   "Dodger Stadium": 26,
   "Nationals Park": 28,
   "Citi Field": 13
-  "Las Vegas Ballpark": 32,
+ "Las Vegas Ballpark": 39,
 };
 function angleDiff(a, b) {
   return Math.abs(((a - b + 540) % 360) - 180);
