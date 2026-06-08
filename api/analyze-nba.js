@@ -24,6 +24,81 @@ module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
+  if (req.method === "GET" && req.query.mode === "refresh-all-daily") {
+  try {
+    const authHeader = req.headers.authorization || "";
+    const cronToken = authHeader.replace("Bearer ", "");
+    const manualSecret = req.query.secret;
+
+    const validSecret =
+      process.env.CRON_SECRET ||
+      process.env.GENERATE_DAILY_SECRET;
+
+    if (!validSecret) {
+      return res.status(500).json({
+        error: "Falta configurar CRON_SECRET en Vercel"
+      });
+    }
+
+    if (cronToken !== validSecret && manualSecret !== validSecret) {
+      return res.status(401).json({
+        error: "No autorizado"
+      });
+    }
+
+    const origin = getOrigin(req);
+
+    const jobs = [
+      "sport=basketball_nba&limit=4&offset=0",
+      "sport=basketball_nba&limit=4&offset=4",
+      "sport=basketball_nba&limit=4&offset=8",
+
+      "sport=basketball_wnba&limit=4&offset=0",
+      "sport=basketball_wnba&limit=4&offset=4",
+
+      "sport=baseball_mlb&limit=4&offset=0",
+      "sport=baseball_mlb&limit=4&offset=4",
+      "sport=baseball_mlb&limit=4&offset=8",
+      "sport=baseball_mlb&limit=4&offset=12",
+      "sport=baseball_mlb&limit=4&offset=16",
+
+      "sport=basketball_ncaab&limit=4&offset=0",
+      "sport=basketball_ncaab&limit=4&offset=4",
+      "sport=basketball_ncaab&limit=4&offset=8",
+      "sport=basketball_ncaab&limit=4&offset=12",
+      "sport=basketball_ncaab&limit=4&offset=16",
+      "sport=basketball_ncaab&limit=4&offset=20"
+    ];
+
+    const results = [];
+
+    for (const job of jobs) {
+      const url =
+        `${origin}/api/analyze-nba?mode=generate-daily&${job}&force=true&secret=${validSecret}`;
+
+      const response = await fetch(url);
+      const data = await response.json().catch(() => null);
+
+      results.push({
+        job,
+        ok: response.ok,
+        data
+      });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      mode: "refresh-all-daily",
+      jobs: results.length,
+      results
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message
+    });
+  }
+}
 if (req.method === "GET" && req.query.mode === "generate-daily") {
   try {
    const authHeader = req.headers.authorization || "";
