@@ -473,8 +473,7 @@ async function getWeather(venueName, roofType, gameDate) {
     const humidity = Number(targetHour?.humidity || current?.humidity || day?.humidity || 0);
     const condition = targetHour?.conditions || current?.conditions || day?.conditions || "No disponible";
 
-    const direction = classifyWindDirection(windDir);
-
+  const direction = classifyWindDirectionForStadium(venueName, windDir);
     const roofClosedLikely =
       roofType === "retractable" &&
       (
