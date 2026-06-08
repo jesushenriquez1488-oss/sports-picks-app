@@ -553,6 +553,7 @@ function classifyWindDirection(degrees) {
 });
     return res.status(200).json({
       gamePk: game.gamePk,
+      gameDate: game.gameDate,
       venue: {
         name: venueName,
         parkFactor: parkInfo.factor,
