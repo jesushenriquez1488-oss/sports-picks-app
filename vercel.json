@@ -1,4 +1,4 @@
-{
+{ 
   "crons": [
     {
       "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_nba&limit=4&offset=0&force=true",
