@@ -128,11 +128,12 @@ if (
 
     const origin = getOrigin(req);
 
-    const sports = [
-      { key: "basketball_nba", league: "nba", endpoint: "/api/analyze-nba" },
-      { key: "basketball_wnba", league: "wnba", endpoint: "/api/analyze-nba" },
-      { key: "baseball_mlb", league: "mlb", endpoint: "/api/analyze-mlb" }
-    ];
+  const sports = [
+  { key: "basketball_nba", league: "nba", endpoint: "/api/analyze-nba" },
+  { key: "basketball_wnba", league: "wnba", endpoint: "/api/analyze-nba" },
+  { key: "basketball_ncaab", league: "ncaab", endpoint: "/api/analyze-nba" },
+  { key: "baseball_mlb", league: "mlb", endpoint: "/api/analyze-mlb" }
+];
 const onlySport = req.query.sport;
 
 const selectedSports = onlySport
