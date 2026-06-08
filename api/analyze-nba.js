@@ -991,7 +991,7 @@ const forceRefresh =
   await supabaseAdmin
     .from("daily_picks")
     .update({
-      game_date: new Date().toISOString().split("T")[0],
+      game_date: gameDate,
       updated_at: new Date().toISOString()
     })
     .eq("sport", selectedLeague)
