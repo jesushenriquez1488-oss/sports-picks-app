@@ -30,7 +30,7 @@ const PARK_FACTORS = {
   "Sutter Health Park": { factor: 0.98, roof: "open" },
   "T-Mobile Park": { factor: 0.93, roof: "retractable" },
   "Oracle Park": { factor: 0.92, roof: "open" },
-  "Petco Park": { factor: 0.91, roof: "open" }
+  "Petco Park": { factor: 0.91, roof: "open" },
   "Las Vegas Ballpark": { factor: 1.08, roof: "open" },
 };
 const STADIUM_COORDS = {
@@ -542,7 +542,7 @@ const STADIUM_AZIMUTH = {
   "Kauffman Stadium": 46,
   "Dodger Stadium": 26,
   "Nationals Park": 28,
-  "Citi Field": 13
+  "Citi Field": 13,
  "Las Vegas Ballpark": 39,
 };
 function angleDiff(a, b) {
