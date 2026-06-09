@@ -1660,7 +1660,7 @@ if (data.noPlay) {
   resultDiv.innerHTML = `
     <div class="prediction-card">
       <h2>⏳ Análisis MLB no disponible</h2>
-      <p>Esperando pitchers confirmados y líneas oficiales.</p>
+      <p>${data.public?.message || data.public?.reason || data.error || "Esperando pitchers confirmados y líneas oficiales."}</p>
     </div>
   `;
   endAnalysisLock(index);
