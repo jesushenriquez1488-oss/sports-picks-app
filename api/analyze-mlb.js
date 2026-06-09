@@ -1090,13 +1090,35 @@ confidence = clamp(confidence, 0, 99);
 
     candidates.push(buildTotalCandidate("OVER"));
     candidates.push(buildTotalCandidate("UNDER"));
+function getCandidateRankingEdge(card) {
+  if (!card) return 0;
 
-    const premiumCandidates = candidates
-      .filter(c => c.isPremium)
-      .sort((a, b) => b.percentage - a.percentage);
+  if (card.type === "OVER" || card.type === "UNDER") {
+    return Math.abs(Number(card.totalEdge || 0));
+  }
 
-    const recommendedCards = premiumCandidates.slice(0, 1);
+  if (card.type === "RUNLINE") {
+    return Math.abs(Number(card.protectedEdge || 0));
+  }
 
+  if (card.type === "ML") {
+    return Math.abs(Number(card.projectedMargin || 0));
+  }
+
+  return Math.abs(Number(card.edge || 0));
+}
+   const premiumCandidates = candidates
+  .filter(c => c.isPremium)
+  .sort((a, b) => {
+    const edgeDiff =
+      getCandidateRankingEdge(b) - getCandidateRankingEdge(a);
+
+    if (edgeDiff !== 0) return edgeDiff;
+
+    return Number(b.percentage || 0) - Number(a.percentage || 0);
+  });
+
+const recommendedCards = premiumCandidates.slice(0, 1);
     const locked = recommendedCards.length > 0 && !isPremiumUser;
 function edgeToPercent(edge, type = "ml") {
   const e = Math.abs(Number(edge));
