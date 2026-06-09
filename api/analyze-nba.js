@@ -1589,19 +1589,20 @@ function shouldCountInjury(player) {
 }
 
 function getConfidence(edge) {
-  const safeEdge = Math.max(0, Number(edge || 0));
+  const safeEdge = Math.abs(Number(edge || 0));
+
+  if (!Number.isFinite(safeEdge)) return 0;
 
   if (safeEdge < 13) {
-    return Math.round(Math.max(50, 50 + safeEdge * 1.5));
+    return Math.round(Math.min(74, Math.max(50, 50 + safeEdge * 1.5)));
   }
 
   if (safeEdge >= 25) return 99;
 
-  const confidence = 75 + ((safeEdge - 13) / 12) * 23;
+  const confidence = 75 + ((safeEdge - 13) / 12) * 24;
 
-  return Math.round(Math.max(75, Math.min(98, confidence)));
+  return Number(confidence.toFixed(1));
 }
-
 function getModelAnalysis(verdict) {
   if (verdict === "Premium") {
     return "El modelo detecta una ventaja fuerte contra la línea del mercado.";
