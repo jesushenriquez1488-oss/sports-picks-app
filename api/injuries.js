@@ -53,8 +53,7 @@ const teamKey = TEAM_KEYS[team] || team;
       return res.status(500).json({ error: "API KEY NOT FOUND" });
     }
 
-    const url = `https://api.sportsdata.io/v3/nba/scores/json/Players/${team}?key=${API_KEY}`;
-
+   const url = `https://api.sportsdata.io/v3/nba/scores/json/Players/${teamKey}?key=${API_KEY}`;
     const response = await fetch(url);
     const players = await response.json();
 
