@@ -503,17 +503,25 @@ async function getFootballOdds(type, teamARef, teamBRef) {
 }
 function findStatValue(data, statName, section = "stats") {
   const groups = section === "opponent"
-  ? data?.results?.stats?.opponent ||
-    data?.results?.opponent ||
-    data?.stats?.opponent ||
-    data?.opponent ||
-    []
-  : data?.results?.stats?.categories ||
-    data?.stats?.categories ||
-    [];
+    ? data?.results?.stats?.opponent ||
+      data?.results?.opponent ||
+      data?.stats?.opponent ||
+      data?.opponent ||
+      []
+    : data?.results?.stats?.categories ||
+      data?.stats?.categories ||
+      [];
+
   for (const category of groups) {
     for (const stat of category.stats || []) {
       if (stat.name === statName) {
+        if (
+          section === "opponent" &&
+          (statName === "totalPointsPerGame" || statName === "yardsPerGame")
+        ) {
+          return Number(stat.value ?? stat.perGameValue ?? 0);
+        }
+
         return Number(stat.perGameValue ?? stat.value ?? 0);
       }
     }
