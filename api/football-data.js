@@ -771,9 +771,22 @@ if (req.method === "OPTIONS") {
     const projectedTeamA = teamAProjection.finalProjection;
     const projectedTeamB = teamBProjection.finalProjection;
 
-    const projectedTotal = round(projectedTeamA + projectedTeamB);
-    const projectedSpread = round(projectedTeamA - projectedTeamB);
+    const baseProjectedTotal = round(projectedTeamA + projectedTeamB);
+const projectedSpread = round(projectedTeamA - projectedTeamB);
 
+const [teamAProfile, teamBProfile] = await Promise.all([
+  getTeamStatsProfile(type, teamARef, selectedSeason),
+  getTeamStatsProfile(type, teamBRef, selectedSeason)
+]);
+
+const paceModule = calculatePaceEfficiencyAdjustment({
+  type,
+  projectedTotal: baseProjectedTotal,
+  teamAProfile,
+  teamBProfile
+});
+
+const projectedTotal = round(baseProjectedTotal + paceModule.adjustment);
     const odds = await getFootballOdds(type, teamARef, teamBRef);
 
     const rawPicks = buildFootballPicks({
@@ -795,6 +808,8 @@ if (req.method === "OPTIONS") {
         [teamA]: projectedTeamA,
         [teamB]: projectedTeamB
       },
+      baseProjectedTotal,
+paceEfficiencyAdjustment: paceModule,
       projectedTotal,
       projectedSpread
     });
