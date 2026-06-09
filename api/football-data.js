@@ -112,7 +112,19 @@ function clamp(value, min = 0, max = 100) {
 }
 
 function getConfidenceFromEdge(edge) {
-  return round(clamp(50 + Math.abs(edge) * 2.5));
+  const e = Math.abs(Number(edge || 0));
+
+  if (!Number.isFinite(e)) return 0;
+
+  if (e < 13) {
+    return round(Math.min(74, Math.max(50, 50 + e * 1.5)));
+  }
+
+  if (e >= 25) return 99;
+
+  const confidence = 75 + ((e - 13) / 12) * 24;
+
+  return round(confidence);
 }
 
 async function fetchJson(url) {
