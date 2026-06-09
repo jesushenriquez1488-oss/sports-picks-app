@@ -29,22 +29,20 @@ OneSignalDeferred.push(async function(OneSignal) {
 <body>
 <!-- SPLASH SCREEN -->
 <div id="splashScreen">
-  <div style="font-size:28px;font-weight:900;letter-spacing:6px;font-family:Arial,sans-serif;background:linear-gradient(90deg,#fff,#00ffe7,#9b7cff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px">CASHEDGE</div>
-  <div style="font-size:9px;letter-spacing:3px;color:rgba(0,255,231,.5);font-family:monospace;margin-bottom:24px">AI SPORTS ANALYTICS</div>
-
-  <div style="position:relative;width:280px;height:280px;display:flex;align-items:center;justify-content:center;margin-bottom:28px">
+  <div class="splash-brand">CASHEDGE</div>
+  <div class="splash-sub">AI SPORTS ANALYTICS</div>
+  <div class="splash-brain-wrap">
     <div class="splash-ring1"></div>
     <div class="splash-ring2"></div>
     <div class="splash-ring3"></div>
+    <div class="splash-glow"></div>
     <img src="/brain.png" class="splash-brain">
   </div>
-
-  <div style="height:26px;display:flex;align-items:center;gap:2px;margin-bottom:16px">
-    <div id="splashTypewriter" style="font-size:16px;font-weight:700;font-family:Arial,sans-serif;background:linear-gradient(90deg,#00ffe7,#9b7cff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px"></div>
+  <div class="splash-typewriter-wrap">
+    <div id="splashTypewriter"></div>
     <div class="splash-cursor"></div>
   </div>
-
-  <div style="display:flex;gap:8px">
+  <div class="splash-dots">
     <div class="splash-dot"></div>
     <div class="splash-dot"></div>
     <div class="splash-dot"></div>
@@ -57,13 +55,13 @@ OneSignalDeferred.push(async function(OneSignal) {
   let i=0;
   const el=document.getElementById("splashTypewriter");
   function type(){if(i<=text.length){el.textContent=text.substring(0,i);i++;setTimeout(type,80);}}
-  setTimeout(type,500);
+  setTimeout(type,600);
   setTimeout(function(){
     const splash=document.getElementById("splashScreen");
-    splash.style.transition="opacity .6s ease";
+    splash.style.transition="opacity .8s ease";
     splash.style.opacity="0";
-    setTimeout(function(){splash.style.display="none";},600);
-  },3500);
+    setTimeout(function(){splash.style.display="none";},800);
+  },3800);
 })();
 </script>
 <div id="authBox" class="auth-box">
