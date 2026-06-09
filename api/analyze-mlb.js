@@ -24,6 +24,7 @@ try {
     awaySpread,
     homeSpread,
     outcomes,
+    gameTime,
     totalLine = 8
   } = req.body || {};
 
