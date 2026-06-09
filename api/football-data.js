@@ -550,7 +550,7 @@ function buildFootballPicks({
       pick: `${chosenSide} ${chosenLine > 0 ? "+" : ""}${chosenLine}`,
       edge,
       confidence,
-      isPremium: edge >= 10 && confidence >= 75
+      isPremium: edge >= 13 && confidence >= 75
     };
   }
 
@@ -568,7 +568,7 @@ function buildFootballPicks({
         pick: rawEdge >= 0 ? `OVER ${odds.totalLine}` : `UNDER ${odds.totalLine}`,
         edge,
         confidence,
-        isPremium: edge >= 10 && confidence >= 75
+        isPremium: edge >= 13 && confidence >= 75
       };
     }
   }
