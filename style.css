@@ -2196,14 +2196,14 @@ button:active { transform: scale(.97); }
 }
 .splash-glow {
   position: absolute;
-  width: 160px; height: 160px;
+  width: 220px; height: 220px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(0,255,231,.15) 0%, transparent 70%);
   animation: splashGlowPulse 2s ease-in-out infinite;
 }
 .splash-brain {
-  width: 200px;
-  height: 200px;
+  width: 260px;
+  height: 260px;
   object-fit: contain;
   position: relative;
   z-index: 2;
