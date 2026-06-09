@@ -809,8 +809,8 @@ const best = candidates
   if (req.method === "GET" && req.query.mode === "performance") {
   try {
   const { data: records, error } = await supabaseAdmin
-  .from("sport_record_summary")
-  .select("*")
+  .from("sport_records")
+.select("sport, display_name, real_wins, real_losses, pushes")
   .order("display_name", { ascending: true });
     if (error) {
       return res.status(500).json({
@@ -821,12 +821,12 @@ const best = candidates
     const safeRecords = records || [];
 
   const totalWins = safeRecords.reduce(
-  (sum, r) => sum + Number(r.total_wins || 0),
+  (sum, r) => sum + Number(r.real_wins || 0),
   0
 );
 
 const totalLosses = safeRecords.reduce(
-  (sum, r) => sum + Number(r.total_losses || 0),
+  (sum, r) => sum + Number(r.real_losses || 0),
   0
 );
 
