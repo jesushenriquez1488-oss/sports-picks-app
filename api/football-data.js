@@ -501,7 +501,105 @@ async function getFootballOdds(type, teamARef, teamBRef) {
     };
   }
 }
+function findStatValue(data, statName, section = "stats") {
+  const groups = section === "opponent"
+    ? data?.results?.stats?.opponent || data?.stats?.opponent || []
+    : data?.results?.stats?.categories || data?.stats?.categories || [];
 
+  for (const category of groups) {
+    for (const stat of category.stats || []) {
+      if (stat.name === statName) {
+        return Number(stat.perGameValue ?? stat.value ?? 0);
+      }
+    }
+  }
+
+  return 0;
+}
+
+async function getTeamStatsProfile(type, teamRef, season) {
+  const sportPath = SPORT_PATHS[type];
+  const url = `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/teams/${teamRef.id}/statistics?season=${season}`;
+
+  const data = await fetchJson(url);
+
+  return {
+    plays: findStatValue(data, "totalOffensivePlays"),
+    yards: findStatValue(data, "yardsPerGame"),
+    thirdDown: findStatValue(data, "thirdDownConvPct"),
+    redZone: findStatValue(data, "redzoneScoringPct"),
+
+    defPoints: findStatValue(data, "totalPointsPerGame", "opponent"),
+    defYards: findStatValue(data, "yardsPerGame", "opponent"),
+    defThirdDown: findStatValue(data, "thirdDownConvPct", "opponent"),
+    defRedZone: findStatValue(data, "redzoneScoringPct", "opponent")
+  };
+}
+
+function calculatePaceEfficiencyAdjustment({ type, projectedTotal, teamAProfile, teamBProfile }) {
+  const leagueAvg = {
+    nfl: {
+      plays: 62,
+      yards: 335,
+      thirdDown: 39,
+      redZone: 58,
+      defPoints: 22,
+      defYards: 335,
+      defThirdDown: 39,
+      defRedZone: 58,
+      max: 8
+    },
+    ncaaf: {
+      plays: 68,
+      yards: 390,
+      thirdDown: 40,
+      redZone: 60,
+      defPoints: 27,
+      defYards: 390,
+      defThirdDown: 40,
+      defRedZone: 60,
+      max: 12
+    }
+  }[type];
+
+  if (!leagueAvg) return { adjustment: 0 };
+
+  function offenseScore(p) {
+    return (
+      (p.plays / leagueAvg.plays) * 0.45 +
+      (p.yards / leagueAvg.yards) * 0.25 +
+      (p.thirdDown / leagueAvg.thirdDown) * 0.15 +
+      (p.redZone / leagueAvg.redZone) * 0.15
+    );
+  }
+
+  function defenseScore(p) {
+    return (
+      (leagueAvg.defPoints / p.defPoints) * 0.35 +
+      (leagueAvg.defYards / p.defYards) * 0.35 +
+      (leagueAvg.defThirdDown / p.defThirdDown) * 0.15 +
+      (leagueAvg.defRedZone / p.defRedZone) * 0.15
+    );
+  }
+
+  const teamAEdge = offenseScore(teamAProfile) - defenseScore(teamBProfile);
+  const teamBEdge = offenseScore(teamBProfile) - defenseScore(teamAProfile);
+
+  const gameEdge = (teamAEdge + teamBEdge) / 2;
+
+  const rawAdjustment = projectedTotal * gameEdge * 0.60;
+
+  const adjustment = clamp(rawAdjustment, -leagueAvg.max, leagueAvg.max);
+
+  return {
+    adjustment: round(adjustment),
+    gameEdge: round(gameEdge, 3),
+    teamAOffenseScore: round(offenseScore(teamAProfile), 3),
+    teamBOffenseScore: round(offenseScore(teamBProfile), 3),
+    teamADefenseScore: round(defenseScore(teamAProfile), 3),
+    teamBDefenseScore: round(defenseScore(teamBProfile), 3)
+  };
+}
 function buildFootballPicks({
   teamA,
   teamB,
