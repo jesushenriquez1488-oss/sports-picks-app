@@ -783,7 +783,8 @@ const [teamAProfile, teamBProfile] = await Promise.all([
   getTeamStatsProfile(type, teamARef, selectedSeason),
   getTeamStatsProfile(type, teamBRef, selectedSeason)
 ]);
-
+console.log("TEAM A PROFILE", teamAProfile);
+console.log("TEAM B PROFILE", teamBProfile);
 const paceModule = calculatePaceEfficiencyAdjustment({
   type,
   projectedTotal: baseProjectedTotal,
