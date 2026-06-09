@@ -1117,16 +1117,7 @@ function getCandidateRankingEdge(card) {
 
     return Number(b.percentage || 0) - Number(a.percentage || 0);
   });
-console.log("🏆 MLB PREMIUM RANKING", premiumCandidates.map(c => ({
-  play: c.play,
-  type: c.type,
-  percentage: c.percentage,
-  rankingEdge: getCandidateRankingEdge(c),
-  totalEdge: c.totalEdge,
-  projectedMargin: c.projectedMargin,
-  protectedEdge: c.protectedEdge,
-  supportScore: c.supportScore
-})));
+
 const recommendedCards = premiumCandidates.slice(0, 1);
     const locked = recommendedCards.length > 0 && !isPremiumUser;
 function edgeToPercent(edge, type = "ml") {
