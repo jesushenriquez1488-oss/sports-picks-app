@@ -1332,9 +1332,9 @@ if (window.currentSport === "wnba") {
         Ver predicción del modelo
       </button>`
     : useMLBFormula
-    ? `<button onclick='analyzeMLB("${escapeText(game.away_team)}","${escapeText(game.home_team)}",${awaySpread},${homeSpread},${index},${JSON.stringify((game.bookmakers?.[0]?.markets.find(m => m.key === "h2h")?.outcomes || [])).replace(/"/g, '&quot;')}, ${total})'>
+   ? `<button onclick='analyzeMLB("${escapeText(game.away_team)}","${escapeText(game.home_team)}",${awaySpread},${homeSpread},${index},${JSON.stringify((game.bookmakers?.[0]?.markets.find(m => m.key === "h2h")?.outcomes || [])).replace(/"/g, '&quot;')},${total},"${game.commence_time || ""}")'>
         Ver predicción MLB
-      </button>`
+   </button>`
     : useFootballFormula
     ? `<button onclick="analyzeFootball('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${index})">
         Ver predicción ${selectedSportName}
