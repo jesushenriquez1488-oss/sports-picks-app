@@ -522,7 +522,7 @@ const STADIUM_AZIMUTH = {
   "PNC Park": 116,
   "Petco Park": 0,
   "T-Mobile Park": 49,
-  "Oracle Park": 25,
+  "Oracle Park": 85,
   "Busch Stadium": 62,
   "Tropicana Field": 359,
   "Globe Life Field": 30,
