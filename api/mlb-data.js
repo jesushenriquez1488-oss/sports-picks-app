@@ -121,7 +121,8 @@ const gameStatus = String(
 const isPregame =
   gameStatus.includes("scheduled") ||
   gameStatus.includes("pre-game") ||
-  gameStatus.includes("preview");
+  gameStatus.includes("preview") ||
+  gameStatus.includes("warmup");
 
 if (!isPregame) {
   return res.status(400).json({
