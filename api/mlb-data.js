@@ -125,9 +125,9 @@ const isPregame =
 
 if (!isPregame) {
   return res.status(400).json({
-    error: "Juego ya iniciado o no disponible para pregame",
-    gameStatus
-  });
+  error: `Estado detectado: ${gameStatus}`,
+  gameStatus
+});
 }
     const awayPitcher = game.teams.away.probablePitcher;
     const homePitcher = game.teams.home.probablePitcher;
