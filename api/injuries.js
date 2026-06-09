@@ -56,7 +56,12 @@ const teamKey = TEAM_KEYS[team] || team;
    const url = `https://api.sportsdata.io/v3/nba/scores/json/Players/${teamKey}?key=${API_KEY}`;
     const response = await fetch(url);
     const players = await response.json();
+console.log("PLAYERS COUNT:", players?.length);
 
+console.log(
+  "SAMPLE PLAYER:",
+  players?.[0]
+);
     if (!response.ok) {
       return res.status(response.status).json({
         error: "Error loading NBA injuries",
