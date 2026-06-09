@@ -1619,7 +1619,7 @@ window.logoutUser = logoutUser;
 window.registerUser = registerUser;
 window.loginUser = loginUser;
 
-async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, outcomes, totalLine = 8) {
+async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, outcomes, totalLine = 8, gameTime = null) {
   const resultDiv = document.getElementById(`result${index}`);
   if (!startAnalysisLock(index, "Analizando MLB...")) return;
   resultDiv.innerHTML = `<div class="loading-analysis">Analizando MLB...</div>`;
@@ -1646,6 +1646,7 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
         awaySpread,
         homeSpread,
         outcomes,
+        gameTime,
         totalLine
       })
     });
