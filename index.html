@@ -28,32 +28,40 @@ OneSignalDeferred.push(async function(OneSignal) {
 
 <body>
 <!-- SPLASH SCREEN -->
-<div id="splashScreen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#020814;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;">
-  <div style="font-size:22px;font-weight:900;letter-spacing:4px;font-family:Arial,sans-serif;background:linear-gradient(90deg,#fff,#00ffe7,#9b7cff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px">CASHEDGE</div>
-  <div style="font-size:8px;letter-spacing:2.5px;color:rgba(0,255,231,.5);font-family:monospace;margin-bottom:28px">AI SPORTS ANALYTICS</div>
- <div style="position:relative;width:260px;height:260px;display:flex;align-items:center;justify-content:center;margin-bottom:28px">
-    <div style="position:absolute;width:260px;height:260px;border-radius:50%;border:1px solid rgba(0,255,231,.15);animation:splashSpin1 12s linear infinite"></div>
-    <div style="position:absolute;width:220px;height:220px;border-radius:50%;border:1px dashed rgba(0,255,231,.1);animation:splashSpin2 8s linear infinite reverse"></div>
-    <div style="position:absolute;width:110px;height:110px;border-radius:50%;background:radial-gradient(circle,rgba(0,255,231,.06) 0%,transparent 70%)"></div>
-   <img src="/brain.png" style="width:240px;height:240px;object-fit:contain;animation:splashPulse 3s ease-in-out infinite">
+<div id="splashScreen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#020814;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;overflow:hidden">
+
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(0,255,231,.08) 0%,transparent 70%)"></div>
+
+  <div style="font-size:28px;font-weight:900;letter-spacing:6px;font-family:Arial,sans-serif;background:linear-gradient(90deg,#fff,#00ffe7,#9b7cff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px;position:relative;z-index:2">CASHEDGE</div>
+  <div style="font-size:9px;letter-spacing:3px;color:rgba(0,255,231,.5);font-family:monospace;margin-bottom:20px;position:relative;z-index:2">AI SPORTS ANALYTICS</div>
+
+  <div style="position:relative;width:300px;height:300px;display:flex;align-items:center;justify-content:center;margin-bottom:24px">
+    <div style="position:absolute;width:300px;height:300px;border-radius:50%;border:1.5px solid rgba(0,255,231,.2);animation:splashSpin1 10s linear infinite"></div>
+    <div style="position:absolute;width:270px;height:270px;border-radius:50%;border:1px dashed rgba(124,60,255,.3);animation:splashSpin2 7s linear infinite reverse"></div>
+    <div style="position:absolute;width:240px;height:240px;border-radius:50%;border:1px solid rgba(0,255,231,.1);animation:splashSpin1 15s linear infinite reverse"></div>
+    <div style="position:absolute;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(0,255,231,.06) 0%,transparent 70%);animation:splashGlow 2s ease-in-out infinite"></div>
+    <img src="/brain.png" style="width:220px;height:220px;object-fit:contain;position:relative;z-index:2;animation:splashPulse 2.5s ease-in-out infinite">
   </div>
-  <div style="height:22px;display:flex;align-items:center;gap:2px;margin-bottom:16px">
-    <div id="splashTypewriter" style="font-size:14px;font-weight:700;font-family:Arial,sans-serif;background:linear-gradient(90deg,#00ffe7,#9b7cff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:.5px"></div>
-    <div id="splashCursor" style="width:2px;height:14px;background:#00ffe7;animation:splashBlink .7s infinite;flex-shrink:0"></div>
+
+  <div style="height:26px;display:flex;align-items:center;gap:2px;margin-bottom:16px;position:relative;z-index:2">
+    <div id="splashTypewriter" style="font-size:16px;font-weight:700;font-family:Arial,sans-serif;background:linear-gradient(90deg,#00ffe7,#9b7cff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:1px"></div>
+    <div style="width:2px;height:18px;background:#00ffe7;animation:splashBlink .7s infinite;flex-shrink:0"></div>
   </div>
-  <div style="display:flex;gap:6px">
-    <div style="width:5px;height:5px;border-radius:50%;background:rgba(0,255,231,.2);animation:splashDot 1.2s ease infinite"></div>
-    <div style="width:5px;height:5px;border-radius:50%;background:rgba(0,255,231,.2);animation:splashDot 1.2s ease .2s infinite"></div>
-    <div style="width:5px;height:5px;border-radius:50%;background:rgba(0,255,231,.2);animation:splashDot 1.2s ease .4s infinite"></div>
+
+  <div style="display:flex;gap:8px;position:relative;z-index:2">
+    <div style="width:6px;height:6px;border-radius:50%;background:rgba(0,255,231,.3);animation:splashDot 1.2s ease infinite"></div>
+    <div style="width:6px;height:6px;border-radius:50%;background:rgba(0,255,231,.3);animation:splashDot 1.2s ease .2s infinite"></div>
+    <div style="width:6px;height:6px;border-radius:50%;background:rgba(0,255,231,.3);animation:splashDot 1.2s ease .4s infinite"></div>
   </div>
 </div>
 
 <style>
 @keyframes splashSpin1{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 @keyframes splashSpin2{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-@keyframes splashPulse{0%,100%{opacity:.8;transform:scale(1)}50%{opacity:1;transform:scale(1.05)}}
+@keyframes splashPulse{0%,100%{opacity:.85;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
+@keyframes splashGlow{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.15)}}
 @keyframes splashBlink{0%,100%{opacity:1}50%{opacity:0}}
-@keyframes splashDot{0%,100%{background:rgba(0,255,231,.2)}50%{background:#00ffe7}}
+@keyframes splashDot{0%,100%{background:rgba(0,255,231,.2);transform:scale(1)}50%{background:#00ffe7;transform:scale(1.4)}}
 </style>
 
 <script>
@@ -62,13 +70,13 @@ OneSignalDeferred.push(async function(OneSignal) {
   let i=0;
   const el=document.getElementById("splashTypewriter");
   function type(){if(i<=text.length){el.textContent=text.substring(0,i);i++;setTimeout(type,80);}}
-  setTimeout(type,600);
+  setTimeout(type,500);
   setTimeout(function(){
     const splash=document.getElementById("splashScreen");
-    splash.style.transition="opacity .5s ease";
+    splash.style.transition="opacity .6s ease";
     splash.style.opacity="0";
-    setTimeout(function(){splash.style.display="none";},500);
-  },3000);
+    setTimeout(function(){splash.style.display="none";},600);
+  },3500);
 })();
 </script>
 <div id="authBox" class="auth-box">
