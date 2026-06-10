@@ -456,23 +456,16 @@ const analyzeBody =
   }
 if (req.method === "GET" && req.query.mode === "parlay-today") {
   try {
-
     const authHeader = req.headers.authorization || "";
     const token = authHeader.replace("Bearer ", "");
 
     let isPremiumUser = false;
 
-    if (
-      token &&
-      token !== "null" &&
-      token !== "undefined"
-    ) {
-
+    if (token && token !== "null" && token !== "undefined") {
       const { data: authData, error: authError } =
         await supabaseAdmin.auth.getUser(token);
 
       if (!authError && authData?.user) {
-
         const { data: profile } = await supabaseAdmin
           .from("users")
           .select("is_premium")
@@ -480,17 +473,40 @@ if (req.method === "GET" && req.query.mode === "parlay-today") {
           .single();
 
         isPremiumUser =
-  profile?.is_premium === true ||
-  authData.user.email === ADMIN_EMAIL;
+          profile?.is_premium === true ||
+          authData.user.email === ADMIN_EMAIL;
       }
     }
 
-   const todayDate = new Date().toISOString().split("T")[0];
+    const todayDate = new Date().toISOString().split("T")[0];
 
-const { data: picks, error } = await supabaseAdmin
-  .from("daily_picks")
-  .select("*")
-  .eq("game_date", todayDate);
+    // 1) Primero buscar si ya existe parlay fijo para hoy
+    const { data: existingParlay, error: existingError } = await supabaseAdmin
+      .from("daily_parlays")
+      .select("*")
+      .eq("game_date", todayDate)
+      .maybeSingle();
+
+    if (existingError) {
+      return res.status(500).json({
+        error: existingError.message
+      });
+    }
+
+    if (existingParlay?.picks?.length >= 2) {
+      return res.status(200).json({
+        available: true,
+        locked: !isPremiumUser,
+        picks: isPremiumUser ? existingParlay.picks : null
+      });
+    }
+
+    // 2) Si no existe, crearlo una sola vez desde daily_picks
+    const { data: picks, error } = await supabaseAdmin
+      .from("daily_picks")
+      .select("*")
+      .eq("game_date", todayDate);
+
     if (error) {
       return res.status(500).json({
         error: error.message
@@ -499,69 +515,62 @@ const { data: picks, error } = await supabaseAdmin
 
     let candidates = [];
 
-    picks.forEach(pick => {
-
+    (picks || []).forEach(pick => {
       const analysis = pick.analysis_json;
 
-      if (
-        !analysis ||
-        !analysis.isPremiumPick ||
-        !analysis.premium
-      ) return;
+      if (!analysis || !analysis.isPremiumPick || !analysis.premium) return;
 
       // MLB
       if (analysis.premium.recommendedCards) {
-
         analysis.premium.recommendedCards.forEach(card => {
+          const percentage = Number(card.percentage || 0);
+          const edge = Number(card.edge || analysis.premium.totalDiff || 0);
 
-          if ((card.percentage || 0) >= 77) {
-
+          if (percentage >= 77) {
             candidates.push({
               sport: pick.sport,
               game: `${pick.away_team} vs ${pick.home_team}`,
               play: card.play,
-              percentage: card.percentage,
+              percentage,
+              edge,
               title: card.title
             });
-
           }
-
         });
-
       }
 
       // NBA / WNBA / NCAAB
       else if (
         analysis.premium.pick &&
-        (analysis.premium.confidence || 0) >= 77
+        Number(analysis.premium.confidence || 0) >= 77
       ) {
-
         candidates.push({
           sport: pick.sport,
           game: `${pick.away_team} vs ${pick.home_team}`,
           play: analysis.premium.pick,
-          percentage: analysis.premium.confidence,
+          percentage: Number(analysis.premium.confidence || 0),
+          edge: Number(analysis.premium.mainEdge || 0),
           title: "Jugada Premium"
         });
-
       }
-
     });
 
-candidates.sort((a, b) => b.percentage - a.percentage);
+    candidates.sort((a, b) => {
+      if (b.percentage !== a.percentage) return b.percentage - a.percentage;
+      return b.edge - a.edge;
+    });
 
-const usedGames = new Set();
+    const usedGames = new Set();
 
-const best = candidates
-  .filter(candidate => {
-    const gameKey = candidate.game;
+    const best = candidates
+      .filter(candidate => {
+        const gameKey = candidate.game;
+        if (usedGames.has(gameKey)) return false;
+        usedGames.add(gameKey);
+        return true;
+      })
+      .slice(0, 3);
 
-    if (usedGames.has(gameKey)) return false;
-
-    usedGames.add(gameKey);
-    return true;
-  })
-  .slice(0, 3);
     if (best.length < 2) {
       return res.status(200).json({
         available: false,
@@ -569,18 +578,32 @@ const best = candidates
       });
     }
 
+    // 3) Guardar parlay fijo del día
+    const { data: savedParlay, error: saveError } = await supabaseAdmin
+      .from("daily_parlays")
+      .upsert({
+        game_date: todayDate,
+        picks: best
+      }, { onConflict: "game_date" })
+      .select()
+      .single();
+
+    if (saveError) {
+      return res.status(500).json({
+        error: saveError.message
+      });
+    }
+
     return res.status(200).json({
       available: true,
       locked: !isPremiumUser,
-      picks: isPremiumUser ? best : null
+      picks: isPremiumUser ? savedParlay.picks : null
     });
 
   } catch (error) {
-
     return res.status(500).json({
       error: error.message
     });
-
   }
 }
   if (req.method === "GET" && req.query.mode === "send-parlay-alert") {
