@@ -783,16 +783,7 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
     </div>
   `}
 
-  ${isAdminUser && data.pickId ? `
-    <div class="admin-panel-pro" style="margin-top:12px">
-      <h4>🛠 ADMIN</h4>
-      <div class="admin-buttons">
-        <button onclick="updatePickResult('${data.pickId}', 'win')">✅ WIN</button>
-        <button onclick="updatePickResult('${data.pickId}', 'loss')">❌ LOSS</button>
-        <button onclick="updatePickResult('${data.pickId}', 'pending')">⏳ PENDING</button>
-      </div>
-    </div>
-  ` : ""}
+  
 
 </div>
 `;
@@ -2196,20 +2187,7 @@ async function isAdmin() {
   return data?.user?.email === "jesushenriquez1488@gmail.com";
 }
 
-async function updatePickResult(pickId, result) {
-  const { data: session } = await supabaseClient.auth.getSession();
 
-  await fetch("/api/analyze-nba?mode=update-result", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${session.session.access_token}`
-    },
-    body: JSON.stringify({ pickId, result })
-  });
-
-  alert("Resultado actualizado");
-}
 // update auth ui
 async function openCustomerPortal() {
   try {
