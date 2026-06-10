@@ -620,8 +620,6 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
       return;
     }
 
-    const isAdminUser =
-      sessionData.session.user.email === "jesushenriquez1488@gmail.com";
 let league = "nba";
 
 if (window.currentSport === "wnba") {
