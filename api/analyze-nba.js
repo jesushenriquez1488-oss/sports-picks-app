@@ -282,13 +282,14 @@ const analyzeBody =
         });
       }
     }
-
+const premiumLimitReport = await enforceDailyPremiumLimits();
     const summary = {
       ok: true,
       totalGames: results.length,
       analyzed: results.filter(r => r.ok).length,
       premium: results.filter(r => r.isPremiumPick).length,
       errors: results.filter(r => !r.ok).length,
+      premiumLimitReport,
       results
     };
 
@@ -1866,4 +1867,164 @@ async function updateSportRecordAuto(sport, result) {
     .from("sport_records")
     .update(updates)
     .eq("sport", recordSport);
+}
+async function enforceDailyPremiumLimits() {
+  const todayDate = new Date().toISOString().split("T")[0];
+
+  const PREMIUM_LIMITS = {
+    nba: 5,
+    wnba: 5,
+    mlb: 5,
+    nfl: 5,
+    ncaaf: 7,
+    ncaab: 7
+  };
+
+  const report = [];
+
+  function getScore(row) {
+    const analysis = row.analysis_json || {};
+    const premium = analysis.premium || {};
+
+    const card = premium.recommendedCards?.[0];
+
+    const confidence =
+      Number(analysis.public?.confidence) ||
+      Number(premium.confidence) ||
+      Number(card?.percentage) ||
+      0;
+
+    const edge =
+      Number(premium.mainEdge) ||
+      Number(card?.edge) ||
+      Number(card?.protectedEdge) ||
+      Number(card?.totalEdge) ||
+      Math.abs(Number(premium.totalDiff || 0)) ||
+      0;
+
+    return { confidence, edge };
+  }
+
+  for (const sport of Object.keys(PREMIUM_LIMITS)) {
+    const limit = PREMIUM_LIMITS[sport];
+
+    const { data: rows, error } = await supabaseAdmin
+      .from("daily_picks")
+      .select("*")
+      .eq("sport", sport)
+      .eq("game_date", todayDate);
+
+    if (error || !rows?.length) {
+      report.push({ sport, checked: 0, kept: 0, removed: 0 });
+      continue;
+    }
+
+    const premiumRows = rows
+      .filter(row => row.analysis_json?.isPremiumPick === true)
+      .map(row => {
+        const score = getScore(row);
+        return {
+          ...row,
+          confidenceScore: score.confidence,
+          edgeScore: score.edge
+        };
+      })
+      .sort((a, b) => {
+        if (b.confidenceScore !== a.confidenceScore) {
+          return b.confidenceScore - a.confidenceScore;
+        }
+
+        return b.edgeScore - a.edgeScore;
+      });
+
+    const allowed = premiumRows.slice(0, limit);
+    const rejected = premiumRows.slice(limit);
+
+    const allowedIds = new Set(allowed.map(row => row.game_id));
+
+    for (const row of rows) {
+      const analysis = row.analysis_json;
+
+      if (!analysis) continue;
+
+      const shouldBePremium =
+        analysis.isPremiumPick === true &&
+        allowedIds.has(row.game_id);
+
+      const shouldBeNormal =
+        analysis.isPremiumPick === true &&
+        !allowedIds.has(row.game_id);
+
+      if (shouldBeNormal) {
+        analysis.isPremiumPick = false;
+        analysis.locked = false;
+
+        if (analysis.public) {
+          analysis.public.hasPremium = false;
+          analysis.public.verdict = "Moderado";
+          analysis.public.risk = "Medio";
+        }
+
+        if (analysis.premium) {
+          analysis.premium.verdict = "Moderado";
+          analysis.premium.risk = "Medio";
+        }
+
+        await supabaseAdmin
+          .from("daily_picks")
+          .update({
+            analysis_json: analysis,
+            updated_at: new Date().toISOString()
+          })
+          .eq("sport", sport)
+          .eq("game_id", row.game_id);
+      }
+
+      if (shouldBePremium) {
+        analysis.isPremiumPick = true;
+
+        await supabaseAdmin
+          .from("daily_picks")
+          .update({
+            analysis_json: analysis,
+            updated_at: new Date().toISOString()
+          })
+          .eq("sport", sport)
+          .eq("game_id", row.game_id);
+      }
+    }
+
+    const rejectedGameIds = rejected.map(row => row.game_id);
+    const allowedGameIds = allowed.map(row => row.game_id);
+
+    if (rejectedGameIds.length > 0) {
+      await supabaseAdmin
+        .from("picks_history")
+        .update({ is_premium: false })
+        .eq("sport", sport)
+        .eq("game_date", todayDate)
+        .eq("result", "pending")
+        .in("game_id", rejectedGameIds);
+    }
+
+    if (allowedGameIds.length > 0) {
+      await supabaseAdmin
+        .from("picks_history")
+        .update({ is_premium: true })
+        .eq("sport", sport)
+        .eq("game_date", todayDate)
+        .eq("result", "pending")
+        .in("game_id", allowedGameIds);
+    }
+
+    report.push({
+      sport,
+      checked: rows.length,
+      premiumFound: premiumRows.length,
+      kept: allowed.length,
+      removed: rejected.length
+    });
+  }
+
+  return report;
 }
