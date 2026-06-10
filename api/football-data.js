@@ -810,22 +810,138 @@ const projectedTotal = round(baseProjectedTotal + paceModule.adjustment);
       odds
     });
 
-    const picks = sanitizePicksForPublic(rawPicks, isPremiumUser);
+const picks = sanitizePicksForPublic(rawPicks, isPremiumUser);
 
-    return res.status(200).json({
+const bestPick = [
+  rawPicks?.spreadPick,
+  rawPicks?.totalPick
+]
+  .filter(Boolean)
+  .sort((a, b) => Number(b.confidence || 0) - Number(a.confidence || 0))[0] || null;
+
+const isPremiumPick = bestPick?.isPremium === true;
+const gameDate = new Date().toISOString().split("T")[0];
+
+const teamsSorted = [teamA, teamB]
+  .map(t => String(t).trim())
+  .sort();
+
+const gameId = `${type}-${gameDate}-${teamsSorted.join("-")}`;
+
+const analysisJson = {
+  locked: false,
+  isPremiumPick,
+  noPlay: !bestPick,
+  public: {
+    confidence: Number(bestPick?.confidence || 0),
+    hasPremium: isPremiumPick,
+    projectedTotal,
+    projectedSpread
+  },
+  premium: bestPick
+    ? {
+        pick: bestPick.pick,
+        confidence: Number(bestPick.confidence || 0),
+        mainEdge: Number(bestPick.edge || 0),
+        projectedTotal,
+        projectedSpread,
+        projectedScore: {
+          [teamA]: projectedTeamA,
+          [teamB]: projectedTeamB
+        },
+        odds,
+        spreadPick: rawPicks?.spreadPick || null,
+        totalPick: rawPicks?.totalPick || null
+      }
+    : null
+};
+
+await supabaseAdmin
+  .from("daily_picks")
+  .upsert(
+    {
       sport: type,
-      isPremiumUser,
-      odds,
-      picks,
-      projectedScore: {
-        [teamA]: projectedTeamA,
-        [teamB]: projectedTeamB
-      },
-      baseProjectedTotal,
-paceEfficiencyAdjustment: paceModule,
-      projectedTotal,
-      projectedSpread
+      game_id: gameId,
+      away_team: teamA,
+      home_team: teamB,
+      analysis_json: analysisJson,
+      updated_at: new Date().toISOString(),
+      game_date: gameDate
+    },
+    {
+      onConflict: "sport,game_id"
+    }
+  );
+
+if (isPremiumPick && bestPick) {
+  const normalizedPick = String(bestPick.pick || "").toLowerCase();
+
+  let pickType = "spread";
+  let pickTeam = null;
+  let pickDirection = null;
+  let pickLine = null;
+
+  if (normalizedPick.includes("over")) {
+    pickType = "total";
+    pickDirection = "OVER";
+    pickLine = Number(odds?.total || odds?.totalLine || projectedTotal || 0);
+  } else if (normalizedPick.includes("under")) {
+    pickType = "total";
+    pickDirection = "UNDER";
+    pickLine = Number(odds?.total || odds?.totalLine || projectedTotal || 0);
+  } else {
+    pickType = "spread";
+    pickDirection = null;
+
+    if (bestPick.pick.includes(teamA)) {
+      pickTeam = teamA;
+      pickLine = Number(odds?.teamASpread || odds?.awaySpread || 0);
+    } else if (bestPick.pick.includes(teamB)) {
+      pickTeam = teamB;
+      pickLine = Number(odds?.teamBSpread || odds?.homeSpread || 0);
+    }
+  }
+
+  await supabaseAdmin
+    .from("picks_history")
+    .delete()
+    .eq("sport", type)
+    .eq("game_id", gameId)
+    .eq("result", "pending");
+
+  await supabaseAdmin
+    .from("picks_history")
+    .insert({
+      game_id: gameId,
+      sport: type,
+      away_team: teamA,
+      home_team: teamB,
+      game_date: gameDate,
+      pick: bestPick.pick,
+      confidence: Number(bestPick.confidence || 0),
+      result: "pending",
+      is_premium: true,
+      pick_type: pickType,
+      pick_team: pickTeam,
+      pick_direction: pickDirection,
+      line: pickLine
     });
+}
+
+return res.status(200).json({
+  sport: type,
+  isPremiumUser,
+  odds,
+  picks,
+  projectedScore: {
+    [teamA]: projectedTeamA,
+    [teamB]: projectedTeamB
+  },
+  baseProjectedTotal,
+  paceEfficiencyAdjustment: paceModule,
+  projectedTotal,
+  projectedSpread
+});
   } catch (error) {
     console.error("ERROR FOOTBALL DATA:", error);
 
