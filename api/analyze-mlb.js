@@ -1059,10 +1059,14 @@ confidence = clamp(confidence, 0, 99);
         totalProbability: Number(probability.toFixed(1)),
         totalEdge: Number(totalEdge.toFixed(2)),
         projectedTotal: Number(projectedTotal.toFixed(2)),
-     isPremium:
+    isPremium:
   confidence >= 75 &&
   support >= 56 &&
-  totalEdge >= 2.5
+  (
+    direction === "OVER"
+      ? totalEdge >= 3.5
+      : totalEdge >= 2.5
+  )
       };
     }
 
@@ -1127,7 +1131,7 @@ function edgeToPercent(edge, type = "ml") {
 
     case "total":
       minEdge = 2.5;
-      maxEdge = 5.5;
+      maxEdge = 6.5;
       break;
 
     case "rlplus":
