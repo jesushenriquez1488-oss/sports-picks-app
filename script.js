@@ -1468,7 +1468,7 @@ await askPushAfterLogin();
     premiumBox.style.display = isPremiumUser ? "none" : "block";
   }
 
-  localStorage.setItem("supabaseUser", JSON.stringify(user));
+  
 
  document.getElementById("authBox").style.display = "none";
  
