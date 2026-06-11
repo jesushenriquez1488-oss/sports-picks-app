@@ -367,20 +367,26 @@ if (pitcherSeasonEra >= 5.25 || pitcherSeasonWhip >= 1.50 || pitcherRecentEra >=
 
   projection = Number(projection.toFixed(2));
 
-  const overEdge = projection - line;
-  const underEdge = line - projection;
+ const listedSide = String(prop.side || "").toUpperCase();
 
-  const recommendation = overEdge >= underEdge ? "OVER" : "UNDER";
-  const edge = recommendation === "OVER" ? overEdge : underEdge;
+let edge = 0;
 
-  const confidence = calculatePlayerPropConfidence(market, edge);
+if (listedSide === "OVER") {
+  edge = projection - line;
+} else if (listedSide === "UNDER") {
+  edge = line - projection;
+} else {
+  return null;
+}
 
-  if (confidence <= 0) return null;
+const confidence = calculatePlayerPropConfidence(market, edge);
 
-  return {
-    player: prop.player,
-    market,
-    side: recommendation,
+if (confidence <= 0) return null;
+
+return {
+  player: prop.player,
+  market,
+  side: listedSide,
     line,
     odds: prop.odds,
     bookmaker: prop.bookmaker,
