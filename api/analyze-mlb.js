@@ -50,6 +50,16 @@ async function getPlayerSeasonStats(playerId) {
 
   return split.stat || null;
 }
+async function getPlayerHandSplits(playerId) {
+  if (!playerId) return [];
+
+  const url = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=statSplits&group=hitting&season=2026&sitCodes=vl,vr`;
+
+  const response = await fetch(url);
+  const data = await response.json();
+
+  return data?.stats?.[0]?.splits || [];
+}
 async function handlePlayerProps(req, res) {
 
   const ODDS_API_KEY = process.env.ODDS_API_KEY;
@@ -147,6 +157,7 @@ for (const playerName of testPlayers) {
 if (playerInfo?.id) {
   const logs = await getPlayerGameLog(playerInfo.id);
   const seasonStats = await getPlayerSeasonStats(playerInfo.id);
+  const handSplits = await getPlayerHandSplits(playerInfo.id);
 
   lastGamesSample = logs.slice(-3).map(g => ({
     date: g.date,
@@ -155,6 +166,10 @@ if (playerInfo?.id) {
   }));
 
   playerInfo.seasonStats = seasonStats;
+  playerInfo.handSplits = handSplits.map(s => ({
+  split: s.split?.description || s.split?.code || null,
+  stat: s.stat
+}));
 }
 
   playerSearchTest.push({
