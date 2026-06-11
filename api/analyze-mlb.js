@@ -16,12 +16,21 @@ async function handlePlayerProps(req, res) {
 
   const events = await response.json();
 
-  return res.status(200).json({
-    ok: true,
-    mode: "player-props",
-    totalGames: events.length,
-    firstGame: events[0]
-  });
+ const eventId = events[0].id;
+
+const oddsResponse = await fetch(
+  `https://api.the-odds-api.com/v4/sports/baseball_mlb/events/${eventId}/odds?apiKey=${ODDS_API_KEY}&regions=us&markets=batter_hits,batter_total_bases,batter_rbis,batter_runs_scored,batter_home_runs,pitcher_strikeouts&oddsFormat=american`
+);
+
+const oddsData = await oddsResponse.json();
+
+return res.status(200).json({
+  ok: true,
+  mode: "player-props",
+  game: `${events[0].away_team} @ ${events[0].home_team}`,
+  bookmakers: oddsData.bookmakers?.length || 0,
+  firstBookmaker: oddsData.bookmakers?.[0] || null
+});
 }
 module.exports = async function handler(req, res) {
  res.setHeader("Access-Control-Allow-Origin", "*");
