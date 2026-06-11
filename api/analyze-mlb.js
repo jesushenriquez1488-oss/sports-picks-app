@@ -124,8 +124,7 @@ function getHandednessBonus(handSplits, pitcherHand) {
     ops
   };
 }
-function calculateRecentPlayerAverages(gameLogs) {
-
+function calculateRecentHitterAverages(gameLogs) {
   if (!gameLogs?.length) return null;
 
   const last10 = gameLogs.slice(-10);
@@ -137,7 +136,8 @@ function calculateRecentPlayerAverages(gameLogs) {
     runs: 0,
     homeRuns: 0,
     strikeOuts: 0,
-    outs: 0
+    plateAppearances: 0,
+    atBats: 0
   };
 
   last10.forEach(game => {
@@ -149,19 +149,64 @@ function calculateRecentPlayerAverages(gameLogs) {
     totals.runs += Number(stat.runs || 0);
     totals.homeRuns += Number(stat.homeRuns || 0);
     totals.strikeOuts += Number(stat.strikeOuts || 0);
-    totals.outs += Number(stat.outs || 0);
+    totals.plateAppearances += Number(stat.plateAppearances || 0);
+    totals.atBats += Number(stat.atBats || 0);
   });
 
-  return {
-    games: last10.length,
+  const games = Math.max(last10.length, 1);
 
-    hits: totals.hits / last10.length,
-    totalBases: totals.totalBases / last10.length,
-    rbi: totals.rbi / last10.length,
-    runs: totals.runs / last10.length,
-    homeRuns: totals.homeRuns / last10.length,
-    strikeOuts: totals.strikeOuts / last10.length,
-    outs: totals.outs / last10.length
+  return {
+    games,
+    hits: totals.hits / games,
+    totalBases: totals.totalBases / games,
+    rbi: totals.rbi / games,
+    runs: totals.runs / games,
+    homeRuns: totals.homeRuns / games,
+    strikeOuts: totals.strikeOuts / games,
+    plateAppearances: totals.plateAppearances / games,
+    atBats: totals.atBats / games
+  };
+}
+
+function calculateRecentPitcherAverages(gameLogs) {
+  if (!gameLogs?.length) return null;
+
+  const last5 = gameLogs.slice(-5);
+
+  const totals = {
+    strikeOuts: 0,
+    outs: 0,
+    hitsAllowed: 0,
+    walks: 0,
+    earnedRuns: 0,
+    homeRunsAllowed: 0,
+    pitches: 0
+  };
+
+  last5.forEach(game => {
+    const stat = game.stat || {};
+
+    totals.strikeOuts += Number(stat.strikeOuts || 0);
+    totals.outs += Number(stat.outs || 0);
+    totals.hitsAllowed += Number(stat.hits || 0);
+    totals.walks += Number(stat.baseOnBalls || 0);
+    totals.earnedRuns += Number(stat.earnedRuns || 0);
+    totals.homeRunsAllowed += Number(stat.homeRuns || 0);
+    totals.pitches += Number(stat.numberOfPitches || 0);
+  });
+
+  const games = Math.max(last5.length, 1);
+
+  return {
+    games,
+    strikeOuts: totals.strikeOuts / games,
+    outs: totals.outs / games,
+    innings: (totals.outs / games) / 3,
+    hitsAllowed: totals.hitsAllowed / games,
+    walks: totals.walks / games,
+    earnedRuns: totals.earnedRuns / games,
+    homeRunsAllowed: totals.homeRunsAllowed / games,
+    pitches: totals.pitches / games
   };
 }
 async function handlePlayerProps(req, res) {
@@ -260,7 +305,10 @@ for (const playerName of testPlayers) {
 
 if (playerInfo?.id) {
   const logs = await getPlayerGameLog(playerInfo.id);
-  const recentAverages = calculateRecentPlayerAverages(logs);
+ const recentAverages =
+  playerInfo.primaryPosition === "P"
+    ? calculateRecentPitcherAverages(logs)
+    : calculateRecentHitterAverages(logs);
   const seasonStats = await getPlayerSeasonStats(playerInfo.id);
   const handSplits = await getPlayerHandSplits(playerInfo.id);
 
