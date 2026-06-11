@@ -731,8 +731,10 @@ const finalResponse = {
   cached: false,
   eventId: selectedEvent.id,
   game: `${selectedEvent.away_team} @ ${selectedEvent.home_team}`,
+  gameDate: today,
+  generatedAt: new Date().toISOString(),
   totalRawProps: rawProps.length,
-  totalUniqueProps: uniqueProps.length,
+  totalUniqueProps: rawProps.length,
   totalAnalyzedProps: analyzedProps.length,
   props: analyzedProps.slice(0, 40)
 };
