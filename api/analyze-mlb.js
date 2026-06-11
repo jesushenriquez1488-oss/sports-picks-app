@@ -1018,7 +1018,10 @@ const result = calculatePlayerPropProjection({
   seasonStats,
   handSplits,
   opponentPitcher,
-  opponentTeamStats
+  opponentTeamStats:
+  playerInfo?.primaryPosition === "P"
+    ? opponentTeamStats
+    : null
 });
 
   if (!result) continue;
