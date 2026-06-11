@@ -445,7 +445,18 @@ async function handlePlayerProps(req, res) {
   );
 
   const events = await response.json();
-
+if (req.query.listEvents === "true") {
+  return res.status(200).json({
+    ok: true,
+    mode: "player-props-events",
+    totalEvents: events.length,
+    events: events.map(e => ({
+      eventId: e.id,
+      game: `${e.away_team} @ ${e.home_team}`,
+      commence_time: e.commence_time
+    }))
+  });
+}
 const selectedEventId = req.query.eventId || req.body?.eventId || null;
 const force = req.query.force === "true" || req.body?.force === true;
 
