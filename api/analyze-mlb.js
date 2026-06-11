@@ -422,8 +422,7 @@ const oddsResponse = await fetch(
 const oddsData = await oddsResponse.json();
   const gameContext = await getMLBGameContextFromStatsAPI(events[0]);
 
-console.log("GAME CONTEXT:");
-console.log(JSON.stringify(gameContext, null, 2));
+
 
 const allowedMarkets = [
   "batter_hits",
@@ -526,8 +525,7 @@ for (const prop of uniqueProps) {
 }
 
 analyzedProps.sort((a, b) => b.confidence - a.confidence);
-console.log("EVENT SAMPLE:");
-console.log(JSON.stringify(events[0], null, 2));
+
 return res.status(200).json({
   ok: true,
   mode: "player-props",
