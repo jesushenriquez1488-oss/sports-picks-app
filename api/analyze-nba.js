@@ -1071,8 +1071,7 @@ if (
   .map(t => String(t).trim())
   .sort();
 
-const gameDate = new Date().toISOString().split("T")[0];
-
+const gameDate = getKansasDate(gameTime || new Date());
 const gameId =
   `${selectedLeague}-${gameDate}-${teamsSorted.join("-")}`;
 
