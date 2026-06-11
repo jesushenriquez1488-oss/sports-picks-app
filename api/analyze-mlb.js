@@ -227,18 +227,63 @@ const PLAYER_PROP_EDGE_RULES = {
   pitcher_strikeouts: 2.0,
   pitcher_outs: 4.0
 };
-
 function calculatePlayerPropConfidence(market, edge) {
-  const minEdge = PLAYER_PROP_EDGE_RULES[market];
   const e = playerSafeNum(edge);
 
-  if (!minEdge || e < minEdge) return 0;
+  if (e <= 0) return 0;
 
-  const maxEdge = minEdge * 2.25;
+  const rules = {
+    batter_hits: {
+      showEdge: 0.15,
+      premiumEdge: 0.50,
+      eliteEdge: 0.90
+    },
+    batter_total_bases: {
+      showEdge: 0.30,
+      premiumEdge: 1.00,
+      eliteEdge: 1.80
+    },
+    batter_rbis: {
+      showEdge: 0.15,
+      premiumEdge: 0.50,
+      eliteEdge: 0.90
+    },
+    batter_runs_scored: {
+      showEdge: 0.15,
+      premiumEdge: 0.50,
+      eliteEdge: 0.90
+    },
+    batter_home_runs: {
+      showEdge: 0.08,
+      premiumEdge: 0.35,
+      eliteEdge: 0.65
+    },
+    pitcher_strikeouts: {
+      showEdge: 0.75,
+      premiumEdge: 2.00,
+      eliteEdge: 3.25
+    },
+    pitcher_outs: {
+      showEdge: 1.50,
+      premiumEdge: 4.00,
+      eliteEdge: 6.50
+    }
+  };
 
-  if (e >= maxEdge) return 99.0;
+  const rule = rules[market];
+  if (!rule || e < rule.showEdge) return 0;
 
-  const percent = 75 + ((e - minEdge) / (maxEdge - minEdge)) * 24;
+  if (e < rule.premiumEdge) {
+    const percent =
+      55 + ((e - rule.showEdge) / (rule.premiumEdge - rule.showEdge)) * 19;
+
+    return Number(percent.toFixed(1));
+  }
+
+  if (e >= rule.eliteEdge) return 99.0;
+
+  const percent =
+    75 + ((e - rule.premiumEdge) / (rule.eliteEdge - rule.premiumEdge)) * 24;
 
   return Number(percent.toFixed(1));
 }
@@ -823,7 +868,8 @@ const finalResponse = {
   totalRawProps: rawProps.length,
   totalUniqueProps: rawProps.length,
   totalAnalyzedProps: analyzedProps.length,
-  props: analyzedProps.slice(0, 40)
+  props: analyzedProps.slice(0, 3),
+lockedProps: analyzedProps.slice(3, 40)
 };
 
 await supabaseAdmin
