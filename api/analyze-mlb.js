@@ -545,6 +545,7 @@ rawProps.forEach(prop => {
 const uniqueProps = Array.from(uniqueMap.values());
 const analyzedProps = [];
 
+for (const prop of uniqueProps) {
   const propLine = Number(prop.line);
 
   if (prop.market === "batter_hits" && propLine !== 0.5) {
@@ -562,6 +563,7 @@ const analyzedProps = [];
   if (prop.market === "batter_runs_scored" && propLine !== 1) {
     continue;
   }
+
   const playerInfo = await searchMLBPlayerByName(prop.player);
   if (!playerInfo?.id) continue;
 
