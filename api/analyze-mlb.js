@@ -570,6 +570,17 @@ if (prop.market === "pitcher_strikeouts" && propLine < 3.5) {
 if (prop.market === "pitcher_outs" && propLine < 9.5) {
   continue;
 }
+  if (prop.market === "batter_total_bases" && propLine > 1.5) {
+  continue;
+}
+
+if (prop.market === "batter_runs_scored" && prop.side === "Under" && propLine <= 0.5) {
+  continue;
+}
+
+if (prop.market === "batter_rbis" && prop.side === "Under" && propLine <= 0.5) {
+  continue;
+}
   const playerInfo = await searchMLBPlayerByName(prop.player);
   if (!playerInfo?.id) continue;
 
