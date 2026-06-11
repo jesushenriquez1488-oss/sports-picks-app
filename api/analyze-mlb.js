@@ -716,7 +716,15 @@ const {
   seasonStats,
   handSplits
 } = cachedPlayer;
-
+console.log("PLAYER DEBUG", {
+  player: prop.player,
+  market: prop.market,
+  side: prop.side,
+  line: prop.line,
+  hasRecent: !!recentAverages,
+  hasSeason: !!seasonStats,
+  position: playerInfo?.primaryPosition
+});
 if (!recentAverages || !seasonStats) continue;
 const currentGameContext = gameContext;
 
@@ -779,7 +787,13 @@ const result = calculatePlayerPropProjection({
   handSplits,
   opponentPitcher
 });
-
+console.log("PROP RESULT DEBUG", {
+  player: prop.player,
+  market: prop.market,
+  side: prop.side,
+  line: prop.line,
+  result
+});
   if (!result) continue;
 
   analyzedProps.push(result);
