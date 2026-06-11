@@ -6,7 +6,15 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
-
+async function handlePlayerProps(req, res) {
+  return res.status(200).json({
+    ok: true,
+    mode: "player-props",
+    title: "Player Edge AI MLB",
+    message: "Player Props AI conectado correctamente.",
+    props: []
+  });
+}
 module.exports = async function handler(req, res) {
  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -16,7 +24,9 @@ module.exports = async function handler(req, res) {
 
 try {
   const mode = req.query.mode || req.body?.mode;
-
+if (mode === "player-props") {
+  return await handlePlayerProps(req, res);
+}
   const {
     userId,
     awayTeam,
