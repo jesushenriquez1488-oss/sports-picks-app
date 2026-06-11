@@ -697,10 +697,7 @@ if (currentGameContext) {
       : homePitcherStats;
 
 }
-if (prop.market === "batter_runs_scored") {
-  console.log("RUN PROP");
-  console.log(JSON.stringify(prop, null, 2));
-}
+
 const result = calculatePlayerPropProjection({
   prop,
   playerInfo,
@@ -717,15 +714,32 @@ const result = calculatePlayerPropProjection({
 
 analyzedProps.sort((a, b) => b.confidence - a.confidence);
 
-return res.status(200).json({
+const finalResponse = {
   ok: true,
   mode: "player-props",
-  totalGames: events.length,
+  cached: false,
+  eventId: selectedEvent.id,
+  game: `${selectedEvent.away_team} @ ${selectedEvent.home_team}`,
   totalRawProps: rawProps.length,
   totalUniqueProps: uniqueProps.length,
   totalAnalyzedProps: analyzedProps.length,
   props: analyzedProps.slice(0, 40)
-});
+};
+
+await supabaseAdmin
+  .from("player_props_cache")
+  .upsert({
+    sport: "mlb",
+    event_id: selectedEvent.id,
+    game: finalResponse.game,
+    game_date: today,
+    analysis_json: finalResponse,
+    updated_at: new Date().toISOString()
+  }, {
+    onConflict: "sport,event_id,game_date"
+  });
+
+return res.status(200).json(finalResponse);
 }
 module.exports = async function handler(req, res) {
  res.setHeader("Access-Control-Allow-Origin", "*");
