@@ -230,7 +230,7 @@ const PLAYER_PROP_EDGE_RULES = {
 
 function calculatePlayerPropConfidence(market, edge) {
   const minEdge = PLAYER_PROP_EDGE_RULES[market];
-  const e = Math.abs(playerSafeNum(edge));
+  const e = playerSafeNum(edge);
 
   if (!minEdge || e < minEdge) return 0;
 
