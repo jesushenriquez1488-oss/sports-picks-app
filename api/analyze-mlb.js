@@ -661,7 +661,7 @@ analyzedProps.sort((a, b) => b.confidence - a.confidence);
 return res.status(200).json({
   ok: true,
   mode: "player-props",
-  game: `${events[0].away_team} @ ${events[0].home_team}`,
+  totalGames: events.length,
   totalRawProps: rawProps.length,
   totalUniqueProps: uniqueProps.length,
   totalAnalyzedProps: analyzedProps.length,
