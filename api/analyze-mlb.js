@@ -556,13 +556,13 @@ for (const prop of uniqueProps) {
     continue;
   }
 
-  if (prop.market === "batter_rbis" && propLine !== 1) {
-    continue;
-  }
+if (prop.market === "batter_rbis" && propLine > 1) {
+  continue;
+}
 
-  if (prop.market === "batter_runs_scored" && propLine !== 1) {
-    continue;
-  }
+if (prop.market === "batter_runs_scored" && propLine > 1) {
+  continue;
+}
 
   const playerInfo = await searchMLBPlayerByName(prop.player);
   if (!playerInfo?.id) continue;
