@@ -283,18 +283,38 @@ function calculatePlayerPropProjection({
   playerInfo,
   recentAverages,
   seasonStats,
-  handSplits
+  handSplits,
+  opponentPitcher
 }) {
   const market = prop.market;
   const line = playerSafeNum(prop.line, 0);
+const pitcherHand = opponentPitcher?.info?.pitchHand || playerInfo.pitchHand;
 
+const pitcherSeasonEra = playerSafeNum(opponentPitcher?.seasonStats?.era, 4.50);
+const pitcherSeasonWhip = playerSafeNum(opponentPitcher?.seasonStats?.whip, 1.30);
+const pitcherRecentEra =
+  playerSafeNum(opponentPitcher?.recentAverages?.earnedRuns, 2.5) /
+  Math.max(playerSafeNum(opponentPitcher?.recentAverages?.innings, 5), 1) *
+  9;
+
+let pitcherQualityFactor = 1;
+
+if (pitcherSeasonEra >= 5.25 || pitcherSeasonWhip >= 1.50 || pitcherRecentEra >= 5.50) {
+  pitcherQualityFactor = 1.18;
+} else if (pitcherSeasonEra >= 4.50 || pitcherSeasonWhip >= 1.35 || pitcherRecentEra >= 4.75) {
+  pitcherQualityFactor = 1.10;
+} else if (pitcherSeasonEra <= 2.75 || pitcherSeasonWhip <= 1.05 || pitcherRecentEra <= 2.75) {
+  pitcherQualityFactor = 0.86;
+} else if (pitcherSeasonEra <= 3.40 || pitcherSeasonWhip <= 1.15 || pitcherRecentEra <= 3.40) {
+  pitcherQualityFactor = 0.93;
+}
   let projection = 0;
 
   if (market === "batter_hits") {
     projection = weightedPlayerProjection(
       playerSafeNum(recentAverages.hits),
       seasonPerGame(seasonStats, "hits"),
-      splitPerGame(handSplits, playerInfo.pitchHand, "hits")
+     splitPerGame(handSplits, pitcherHand, "hits")
     );
   }
 
@@ -302,7 +322,7 @@ function calculatePlayerPropProjection({
     projection = weightedPlayerProjection(
       playerSafeNum(recentAverages.totalBases),
       seasonPerGame(seasonStats, "totalBases"),
-      splitPerGame(handSplits, playerInfo.pitchHand, "totalBases")
+      splitPerGame(handSplits, pitcherHand, "totalBases")
     );
   }
 
@@ -310,7 +330,7 @@ function calculatePlayerPropProjection({
     projection = weightedPlayerProjection(
       playerSafeNum(recentAverages.rbi),
       seasonPerGame(seasonStats, "rbi"),
-      splitPerGame(handSplits, playerInfo.pitchHand, "rbi")
+     splitPerGame(handSplits, pitcherHand, "rbi")
     );
   }
 
@@ -318,7 +338,7 @@ function calculatePlayerPropProjection({
     projection = weightedPlayerProjection(
       playerSafeNum(recentAverages.runs),
       seasonPerGame(seasonStats, "runs"),
-      splitPerGame(handSplits, playerInfo.pitchHand, "runs")
+      splitPerGame(handSplits, pitcherHand, "runs")
     );
   }
 
@@ -326,7 +346,7 @@ function calculatePlayerPropProjection({
     projection = weightedPlayerProjection(
       playerSafeNum(recentAverages.homeRuns),
       seasonPerGame(seasonStats, "homeRuns"),
-      splitPerGame(handSplits, playerInfo.pitchHand, "homeRuns")
+      splitPerGame(handSplits, pitcherHand, "homeRuns")
     );
   }
 
