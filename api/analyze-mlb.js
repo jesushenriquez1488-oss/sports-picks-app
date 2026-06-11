@@ -447,54 +447,47 @@ rawProps.forEach(prop => {
 });
 
 const uniqueProps = Array.from(uniqueMap.values());
-const testPlayers = [...new Set(uniqueProps.map(p => p.player))]
-  .filter(Boolean)
-  .slice(0, 5);
+const analyzedProps = [];
 
-const playerSearchTest = [];
+for (const prop of uniqueProps) {
+  const playerInfo = await searchMLBPlayerByName(prop.player);
+  if (!playerInfo?.id) continue;
 
-for (const playerName of testPlayers) {
-  const playerInfo = await searchMLBPlayerByName(playerName);
-
-  let lastGamesSample = [];
-
-if (playerInfo?.id) {
   const logs = await getPlayerGameLog(playerInfo.id);
- const recentAverages =
-  playerInfo.primaryPosition === "P"
-    ? calculateRecentPitcherAverages(logs)
-    : calculateRecentHitterAverages(logs);
+
+  const recentAverages =
+    playerInfo.primaryPosition === "P"
+      ? calculateRecentPitcherAverages(logs)
+      : calculateRecentHitterAverages(logs);
+
   const seasonStats = await getPlayerSeasonStats(playerInfo.id);
   const handSplits = await getPlayerHandSplits(playerInfo.id);
 
-  lastGamesSample = logs.slice(-3).map(g => ({
-    date: g.date,
-    opponent: g.opponent?.name || null,
-    stat: g.stat
-  }));
+  if (!recentAverages || !seasonStats) continue;
 
-  playerInfo.seasonStats = seasonStats;
-  playerInfo.handSplits = handSplits.map(s => ({
-    split: s.split?.description || s.split?.code || null,
-  stat: s.stat
-}));
-  playerInfo.recentAverages = recentAverages;
-}
-
-  playerSearchTest.push({
-    searched: playerName,
-    found: playerInfo,
-    lastGamesSample
+  const result = calculatePlayerPropProjection({
+    prop,
+    playerInfo,
+    recentAverages,
+    seasonStats,
+    handSplits
   });
+
+  if (!result) continue;
+
+  analyzedProps.push(result);
 }
+
+analyzedProps.sort((a, b) => b.confidence - a.confidence);
+
 return res.status(200).json({
   ok: true,
   mode: "player-props",
   game: `${events[0].away_team} @ ${events[0].home_team}`,
   totalRawProps: rawProps.length,
   totalUniqueProps: uniqueProps.length,
-  playerSearchTest,
-  sampleProps: uniqueProps.slice(0, 40)
+  totalAnalyzedProps: analyzedProps.length,
+  props: analyzedProps.slice(0, 40)
 });
 }
 module.exports = async function handler(req, res) {
