@@ -56,12 +56,47 @@ const rawProps = [];
   });
 });
 
+const bookPriority = [
+  "DraftKings",
+  "FanDuel",
+  "BetMGM",
+  "Caesars",
+  "Bovada",
+  "BetRivers"
+];
+
+const uniqueMap = new Map();
+
+rawProps.forEach(prop => {
+  const key = `${prop.player}|${prop.market}|${prop.line}`;
+
+  const current = uniqueMap.get(key);
+
+  if (!current) {
+    uniqueMap.set(key, prop);
+    return;
+  }
+
+  const currentRank = bookPriority.indexOf(current.bookmaker);
+  const newRank = bookPriority.indexOf(prop.bookmaker);
+
+  const safeCurrentRank = currentRank === -1 ? 999 : currentRank;
+  const safeNewRank = newRank === -1 ? 999 : newRank;
+
+  if (safeNewRank < safeCurrentRank) {
+    uniqueMap.set(key, prop);
+  }
+});
+
+const uniqueProps = Array.from(uniqueMap.values());
+
 return res.status(200).json({
   ok: true,
   mode: "player-props",
   game: `${events[0].away_team} @ ${events[0].home_team}`,
   totalRawProps: rawProps.length,
-  sampleProps: rawProps.slice(0, 25)
+  totalUniqueProps: uniqueProps.length,
+  sampleProps: uniqueProps.slice(0, 40)
 });
 }
 module.exports = async function handler(req, res) {
