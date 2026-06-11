@@ -440,9 +440,20 @@ if (listedSide === "OVER") {
 } else {
   return null;
 }
-
+console.log("EDGE DEBUG", {
+  player: prop.player,
+  market,
+  side: listedSide,
+  line,
+  projection,
+  edge
+});
 const confidence = calculatePlayerPropConfidence(market, edge);
-
+console.log("CONFIDENCE DEBUG", {
+  player: prop.player,
+  market,
+  confidence
+});
 if (confidence <= 0) return null;
 
 return {
