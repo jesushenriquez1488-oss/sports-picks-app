@@ -109,13 +109,27 @@ rawProps.forEach(prop => {
 });
 
 const uniqueProps = Array.from(uniqueMap.values());
+const testPlayers = [...new Set(uniqueProps.map(p => p.player))]
+  .filter(Boolean)
+  .slice(0, 5);
 
+const playerSearchTest = [];
+
+for (const playerName of testPlayers) {
+  const playerInfo = await searchMLBPlayerByName(playerName);
+
+  playerSearchTest.push({
+    searched: playerName,
+    found: playerInfo
+  });
+}
 return res.status(200).json({
   ok: true,
   mode: "player-props",
   game: `${events[0].away_team} @ ${events[0].home_team}`,
   totalRawProps: rawProps.length,
   totalUniqueProps: uniqueProps.length,
+  playerSearchTest,
   sampleProps: uniqueProps.slice(0, 40)
 });
 }
