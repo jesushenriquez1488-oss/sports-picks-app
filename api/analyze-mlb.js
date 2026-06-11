@@ -28,8 +28,7 @@ return res.status(200).json({
   ok: true,
   mode: "player-props",
   game: `${events[0].away_team} @ ${events[0].home_team}`,
-  bookmakers: oddsData.bookmakers?.length || 0,
-  firstBookmaker: oddsData.bookmakers?.[0] || null
+  oddsData
 });
 }
 module.exports = async function handler(req, res) {
