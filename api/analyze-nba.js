@@ -1041,13 +1041,14 @@ userData.hourRequests.push(now);
       console.log("NBA auth ignorado:", error.message);
     }
 
-   const {
+  const {
   awayTeam,
   homeTeam,
   awaySpread,
   homeSpread,
   total,
-  league
+  league,
+  gameTime
 } = req.body || {};
 
 let selectedLeague = league || "nba";
