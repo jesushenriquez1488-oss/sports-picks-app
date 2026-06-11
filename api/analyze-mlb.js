@@ -6,6 +6,26 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
+async function searchMLBPlayerByName(playerName) {
+  if (!playerName) return null;
+
+  const url = `https://statsapi.mlb.com/api/v1/people/search?names=${encodeURIComponent(playerName)}`;
+
+  const response = await fetch(url);
+  const data = await response.json();
+
+  const people = data?.people || [];
+
+  if (!people.length) return null;
+
+  return {
+    id: people[0].id,
+    fullName: people[0].fullName,
+    primaryPosition: people[0].primaryPosition?.abbreviation || null,
+    batSide: people[0].batSide?.code || null,
+    pitchHand: people[0].pitchHand?.code || null
+  };
+}
 async function handlePlayerProps(req, res) {
 
   const ODDS_API_KEY = process.env.ODDS_API_KEY;
