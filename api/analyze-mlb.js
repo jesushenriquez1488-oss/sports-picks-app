@@ -24,11 +24,44 @@ const oddsResponse = await fetch(
 
 const oddsData = await oddsResponse.json();
 
+const allowedMarkets = [
+  "batter_hits",
+  "batter_total_bases",
+  "batter_rbis",
+  "batter_runs_scored",
+  "batter_home_runs",
+  "pitcher_strikeouts"
+];
+
+const rawProps = [];
+
+(oddsData.bookmakers || []).forEach(bookmaker => {
+  (bookmaker.markets || []).forEach(market => {
+
+    if (!allowedMarkets.includes(market.key)) return;
+
+    (market.outcomes || []).forEach(outcome => {
+
+      rawProps.push({
+        player: outcome.description,
+        market: market.key,
+        side: outcome.name,
+        line: outcome.point,
+        odds: outcome.price,
+        bookmaker: bookmaker.title
+      });
+
+    });
+
+  });
+});
+
 return res.status(200).json({
   ok: true,
   mode: "player-props",
   game: `${events[0].away_team} @ ${events[0].home_team}`,
-  oddsData
+  totalRawProps: rawProps.length,
+  sampleProps: rawProps.slice(0, 25)
 });
 }
 module.exports = async function handler(req, res) {
