@@ -242,6 +242,127 @@ function calculatePlayerPropConfidence(market, edge) {
 
   return Number(percent.toFixed(1));
 }
+function seasonPerGame(stat, key) {
+  const games = playerSafeNum(stat?.gamesPlayed, 0);
+  if (games <= 0) return 0;
+  return playerSafeNum(stat?.[key], 0) / games;
+}
+
+function splitPerGame(handSplits, pitcherHand, key) {
+  if (!handSplits?.length) return 0;
+
+  const target =
+    pitcherHand === "R"
+      ? "vs Right"
+      : pitcherHand === "L"
+        ? "vs Left"
+        : null;
+
+  if (!target) return 0;
+
+  const split = handSplits.find(s =>
+    String(s.split?.description || s.split || "")
+      .toLowerCase()
+      .includes(target.toLowerCase())
+  );
+
+  if (!split?.stat) return 0;
+
+  const games = playerSafeNum(split.stat.gamesPlayed, 0);
+  if (games <= 0) return 0;
+
+  return playerSafeNum(split.stat[key], 0) / games;
+}
+
+function weightedPlayerProjection(recent, season, split) {
+  return recent * 0.50 + season * 0.20 + split * 0.30;
+}
+
+function calculatePlayerPropProjection({
+  prop,
+  playerInfo,
+  recentAverages,
+  seasonStats,
+  handSplits
+}) {
+  const market = prop.market;
+  const line = playerSafeNum(prop.line, 0);
+
+  let projection = 0;
+
+  if (market === "batter_hits") {
+    projection = weightedPlayerProjection(
+      playerSafeNum(recentAverages.hits),
+      seasonPerGame(seasonStats, "hits"),
+      splitPerGame(handSplits, playerInfo.pitchHand, "hits")
+    );
+  }
+
+  if (market === "batter_total_bases") {
+    projection = weightedPlayerProjection(
+      playerSafeNum(recentAverages.totalBases),
+      seasonPerGame(seasonStats, "totalBases"),
+      splitPerGame(handSplits, playerInfo.pitchHand, "totalBases")
+    );
+  }
+
+  if (market === "batter_rbis") {
+    projection = weightedPlayerProjection(
+      playerSafeNum(recentAverages.rbi),
+      seasonPerGame(seasonStats, "rbi"),
+      splitPerGame(handSplits, playerInfo.pitchHand, "rbi")
+    );
+  }
+
+  if (market === "batter_runs_scored") {
+    projection = weightedPlayerProjection(
+      playerSafeNum(recentAverages.runs),
+      seasonPerGame(seasonStats, "runs"),
+      splitPerGame(handSplits, playerInfo.pitchHand, "runs")
+    );
+  }
+
+  if (market === "batter_home_runs") {
+    projection = weightedPlayerProjection(
+      playerSafeNum(recentAverages.homeRuns),
+      seasonPerGame(seasonStats, "homeRuns"),
+      splitPerGame(handSplits, playerInfo.pitchHand, "homeRuns")
+    );
+  }
+
+  if (market === "pitcher_strikeouts") {
+    projection = playerSafeNum(recentAverages.strikeOuts);
+  }
+
+  if (market === "pitcher_outs") {
+    projection = playerSafeNum(recentAverages.outs);
+  }
+
+  projection = Number(projection.toFixed(2));
+
+  const overEdge = projection - line;
+  const underEdge = line - projection;
+
+  const recommendation = overEdge >= underEdge ? "OVER" : "UNDER";
+  const edge = recommendation === "OVER" ? overEdge : underEdge;
+
+  const confidence = calculatePlayerPropConfidence(market, edge);
+
+  if (confidence <= 0) return null;
+
+  return {
+    player: prop.player,
+    market,
+    side: recommendation,
+    line,
+    odds: prop.odds,
+    bookmaker: prop.bookmaker,
+    projection,
+    edge: Number(edge.toFixed(2)),
+    confidence,
+    isPremium: confidence >= 75
+  };
+}
 async function handlePlayerProps(req, res) {
 
   const ODDS_API_KEY = process.env.ODDS_API_KEY;
