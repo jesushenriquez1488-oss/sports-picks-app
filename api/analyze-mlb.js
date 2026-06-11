@@ -626,7 +626,10 @@ if (
         )
       : null;
 }
-
+if (prop.market === "batter_runs_scored") {
+  console.log("RUN PROP");
+  console.log(JSON.stringify(prop, null, 2));
+}
 const result = calculatePlayerPropProjection({
   prop,
   playerInfo,
