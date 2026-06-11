@@ -579,12 +579,41 @@ projection = projection * advancedPitcherFactor;
   }
 
   if (market === "pitcher_strikeouts") {
-    projection = playerSafeNum(recentAverages.strikeOuts);
-  }
+  const recentKs = playerSafeNum(recentAverages.strikeOuts);
 
-  if (market === "pitcher_outs") {
-    projection = playerSafeNum(recentAverages.outs);
-  }
+  const seasonKs =
+    seasonPerGame(seasonStats, "strikeOuts");
+
+  projection =
+    recentKs * 0.65 +
+    seasonKs * 0.35;
+
+  projection = projection * pitcherLineupFactor;
+}
+
+if (market === "pitcher_outs") {
+  const recentOuts =
+    playerSafeNum(recentAverages.outs);
+
+  const seasonInnings =
+    playerSafeNum(seasonStats?.inningsPitched, 0);
+
+  const gamesStarted =
+    playerSafeNum(seasonStats?.gamesStarted, 0);
+
+  const seasonOuts =
+    gamesStarted > 0
+      ? (seasonInnings * 3) / gamesStarted
+      : recentOuts;
+
+  projection =
+    recentOuts * 0.65 +
+    seasonOuts * 0.35;
+
+  projection =
+    projection *
+    playerClamp(pitcherLineupFactor, 0.92, 1.08);
+}
 
   projection = Number(projection.toFixed(2));
 
