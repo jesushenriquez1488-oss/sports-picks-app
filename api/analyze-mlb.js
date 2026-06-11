@@ -209,6 +209,39 @@ function calculateRecentPitcherAverages(gameLogs) {
     pitches: totals.pitches / games
   };
 }
+function playerSafeNum(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function playerClamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+const PLAYER_PROP_EDGE_RULES = {
+  batter_hits: 1.0,
+  batter_total_bases: 1.5,
+  batter_rbis: 1.0,
+  batter_runs_scored: 1.0,
+  batter_home_runs: 1.5,
+  pitcher_strikeouts: 3.0,
+  pitcher_outs: 5.0
+};
+
+function calculatePlayerPropConfidence(market, edge) {
+  const minEdge = PLAYER_PROP_EDGE_RULES[market];
+  const e = Math.abs(playerSafeNum(edge));
+
+  if (!minEdge || e < minEdge) return 0;
+
+  const maxEdge = minEdge * 2.25;
+
+  if (e >= maxEdge) return 99.0;
+
+  const percent = 75 + ((e - minEdge) / (maxEdge - minEdge)) * 24;
+
+  return Number(percent.toFixed(1));
+}
 async function handlePlayerProps(req, res) {
 
   const ODDS_API_KEY = process.env.ODDS_API_KEY;
@@ -222,7 +255,7 @@ async function handlePlayerProps(req, res) {
  const eventId = events[0].id;
 
 const oddsResponse = await fetch(
-  `https://api.the-odds-api.com/v4/sports/baseball_mlb/events/${eventId}/odds?apiKey=${ODDS_API_KEY}&regions=us&markets=batter_hits,batter_total_bases,batter_rbis,batter_runs_scored,batter_home_runs,pitcher_strikeouts&oddsFormat=american`
+  `https://api.the-odds-api.com/v4/sports/baseball_mlb/events/${eventId}/odds?apiKey=${ODDS_API_KEY}&regions=us&markets=batter_hits,batter_total_bases,batter_rbis,batter_runs_scored,batter_home_runs,pitcher_strikeouts,pitcher_outs`
 );
 
 const oddsData = await oddsResponse.json();
@@ -230,6 +263,7 @@ const oddsData = await oddsResponse.json();
 const allowedMarkets = [
   "batter_hits",
   "batter_total_bases",
+  "pitcher_outs",
   "batter_rbis",
   "batter_runs_scored",
   "batter_home_runs",
