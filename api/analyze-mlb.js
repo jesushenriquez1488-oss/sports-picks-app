@@ -144,15 +144,18 @@ for (const playerName of testPlayers) {
 
   let lastGamesSample = [];
 
-  if (playerInfo?.id) {
-    const logs = await getPlayerGameLog(playerInfo.id);
+if (playerInfo?.id) {
+  const logs = await getPlayerGameLog(playerInfo.id);
+  const seasonStats = await getPlayerSeasonStats(playerInfo.id);
 
-    lastGamesSample = logs.slice(-3).map(g => ({
-      date: g.date,
-      opponent: g.opponent?.name || null,
-      stat: g.stat
-    }));
-  }
+  lastGamesSample = logs.slice(-3).map(g => ({
+    date: g.date,
+    opponent: g.opponent?.name || null,
+    stat: g.stat
+  }));
+
+  playerInfo.seasonStats = seasonStats;
+}
 
   playerSearchTest.push({
     searched: playerName,
