@@ -563,7 +563,13 @@ if (prop.market === "batter_rbis" && propLine > 1) {
 if (prop.market === "batter_runs_scored" && propLine > 1) {
   continue;
 }
+if (prop.market === "pitcher_strikeouts" && propLine < 3.5) {
+  continue;
+}
 
+if (prop.market === "pitcher_outs" && propLine < 9.5) {
+  continue;
+}
   const playerInfo = await searchMLBPlayerByName(prop.player);
   if (!playerInfo?.id) continue;
 
