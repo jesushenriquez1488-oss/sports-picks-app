@@ -450,6 +450,9 @@ const uniqueProps = Array.from(uniqueMap.values());
 const analyzedProps = [];
 
 for (const prop of uniqueProps) {
+    if (prop.market === "batter_home_runs" && Number(prop.line) !== 0.5) {
+    continue;
+  }
   const playerInfo = await searchMLBPlayerByName(prop.player);
   if (!playerInfo?.id) continue;
 
