@@ -421,7 +421,33 @@ const oddsResponse = await fetch(
 
 const oddsData = await oddsResponse.json();
   const gameContext = await getMLBGameContextFromStatsAPI(events[0]);
+const awayPitcherInfo = gameContext?.awayPitcher?.id
+  ? await searchMLBPlayerByName(gameContext.awayPitcher.fullName)
+  : null;
 
+const homePitcherInfo = gameContext?.homePitcher?.id
+  ? await searchMLBPlayerByName(gameContext.homePitcher.fullName)
+  : null;
+
+const awayPitcherLogs = awayPitcherInfo?.id
+  ? await getPlayerGameLog(awayPitcherInfo.id)
+  : [];
+
+const homePitcherLogs = homePitcherInfo?.id
+  ? await getPlayerGameLog(homePitcherInfo.id)
+  : [];
+
+const awayPitcherStats = {
+  info: awayPitcherInfo,
+  recentAverages: calculateRecentPitcherAverages(awayPitcherLogs),
+  seasonStats: awayPitcherInfo?.id ? await getPlayerSeasonStats(awayPitcherInfo.id) : null
+};
+
+const homePitcherStats = {
+  info: homePitcherInfo,
+  recentAverages: calculateRecentPitcherAverages(homePitcherLogs),
+  seasonStats: homePitcherInfo?.id ? await getPlayerSeasonStats(homePitcherInfo.id) : null
+};
 
 
 const allowedMarkets = [
