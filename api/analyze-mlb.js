@@ -260,6 +260,7 @@ for (const playerName of testPlayers) {
 
 if (playerInfo?.id) {
   const logs = await getPlayerGameLog(playerInfo.id);
+  const recentAverages = calculateRecentPlayerAverages(logs);
   const seasonStats = await getPlayerSeasonStats(playerInfo.id);
   const handSplits = await getPlayerHandSplits(playerInfo.id);
 
@@ -271,9 +272,10 @@ if (playerInfo?.id) {
 
   playerInfo.seasonStats = seasonStats;
   playerInfo.handSplits = handSplits.map(s => ({
-  split: s.split?.description || s.split?.code || null,
+    split: s.split?.description || s.split?.code || null,
   stat: s.stat
 }));
+  playerInfo.recentAverages = recentAverages;
 }
 
   playerSearchTest.push({
