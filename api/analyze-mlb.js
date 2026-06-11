@@ -365,7 +365,10 @@ if (pitcherSeasonEra >= 5.25 || pitcherSeasonWhip >= 1.50 || pitcherRecentEra >=
       seasonPerGame(seasonStats, "hits"),
      splitPerGame(handSplits, pitcherHand, "hits")
     );
-    projection = applyPitcherQuality(projection, pitcherQualityFactor, 0.10);
+const advancedPitcherFactor =
+  calculateAdvancedPitcherContactFactor(opponentPitcher);
+
+projection = projection * advancedPitcherFactor;
   }
 
   if (market === "batter_total_bases") {
@@ -374,7 +377,10 @@ if (pitcherSeasonEra >= 5.25 || pitcherSeasonWhip >= 1.50 || pitcherRecentEra >=
       seasonPerGame(seasonStats, "totalBases"),
       splitPerGame(handSplits, pitcherHand, "totalBases")
     );
-    projection = applyPitcherQuality(projection, pitcherQualityFactor, 0.10);
+    const advancedPitcherFactor =
+  calculateAdvancedPitcherContactFactor(opponentPitcher);
+
+projection = projection * advancedPitcherFactor;
   }
 
   if (market === "batter_rbis") {
@@ -383,7 +389,10 @@ if (pitcherSeasonEra >= 5.25 || pitcherSeasonWhip >= 1.50 || pitcherRecentEra >=
       seasonPerGame(seasonStats, "rbi"),
      splitPerGame(handSplits, pitcherHand, "rbi")
     );
-    projection = applyPitcherQuality(projection, pitcherQualityFactor, 0.10);
+    const advancedPitcherFactor =
+  calculateAdvancedPitcherContactFactor(opponentPitcher);
+
+projection = projection * advancedPitcherFactor;
   }
 
   if (market === "batter_runs_scored") {
@@ -392,7 +401,10 @@ if (pitcherSeasonEra >= 5.25 || pitcherSeasonWhip >= 1.50 || pitcherRecentEra >=
       seasonPerGame(seasonStats, "runs"),
       splitPerGame(handSplits, pitcherHand, "runs")
     );
-    projection = applyPitcherQuality(projection, pitcherQualityFactor, 0.10);
+   const advancedPitcherFactor =
+  calculateAdvancedPitcherContactFactor(opponentPitcher);
+
+projection = projection * advancedPitcherFactor;
   }
 
   if (market === "batter_home_runs") {
@@ -401,7 +413,10 @@ if (pitcherSeasonEra >= 5.25 || pitcherSeasonWhip >= 1.50 || pitcherRecentEra >=
       seasonPerGame(seasonStats, "homeRuns"),
       splitPerGame(handSplits, pitcherHand, "homeRuns")
     );
-    projection = applyPitcherQuality(projection, pitcherQualityFactor, 0.10);
+   const advancedPitcherFactor =
+  calculateAdvancedPitcherContactFactor(opponentPitcher);
+
+projection = projection * advancedPitcherFactor;
   }
 
   if (market === "pitcher_strikeouts") {
