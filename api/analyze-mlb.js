@@ -219,13 +219,13 @@ function playerClamp(value, min, max) {
 }
 
 const PLAYER_PROP_EDGE_RULES = {
-  batter_hits: 1.0,
-  batter_total_bases: 1.5,
-  batter_rbis: 1.0,
-  batter_runs_scored: 1.0,
-  batter_home_runs: 1.5,
-  pitcher_strikeouts: 3.0,
-  pitcher_outs: 5.0
+  batter_hits: 0.5,
+  batter_total_bases: 1.0,
+  batter_rbis: 0.5,
+  batter_runs_scored: 0.5,
+  batter_home_runs: 1.0,
+  pitcher_strikeouts: 2.0,
+  pitcher_outs: 4.0
 };
 
 function calculatePlayerPropConfidence(market, edge) {
