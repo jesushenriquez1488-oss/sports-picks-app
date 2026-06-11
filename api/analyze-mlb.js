@@ -363,6 +363,46 @@ function calculatePlayerPropProjection({
     isPremium: confidence >= 75
   };
 }
+function normalizeTeamName(name = "") {
+  return String(name)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+async function getMLBGameContextFromStatsAPI(event) {
+  if (!event?.commence_time) return null;
+
+  const gameDate = new Date(event.commence_time).toISOString().split("T")[0];
+
+  const url =
+    `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${gameDate}&hydrate=probablePitcher,venue`;
+
+  const response = await fetch(url);
+  const data = await response.json();
+
+  const games = data?.dates?.[0]?.games || [];
+
+  const targetAway = normalizeTeamName(event.away_team);
+  const targetHome = normalizeTeamName(event.home_team);
+
+  const match = games.find(g => {
+    const away = normalizeTeamName(g?.teams?.away?.team?.name);
+    const home = normalizeTeamName(g?.teams?.home?.team?.name);
+
+    return away === targetAway && home === targetHome;
+  });
+
+  if (!match) return null;
+
+  return {
+    gamePk: match.gamePk,
+    venue: match.venue || null,
+    awayTeam: match.teams?.away?.team?.name || event.away_team,
+    homeTeam: match.teams?.home?.team?.name || event.home_team,
+    awayPitcher: match.teams?.away?.probablePitcher || null,
+    homePitcher: match.teams?.home?.probablePitcher || null
+  };
+}
 async function handlePlayerProps(req, res) {
 
   const ODDS_API_KEY = process.env.ODDS_API_KEY;
@@ -380,6 +420,10 @@ const oddsResponse = await fetch(
 );
 
 const oddsData = await oddsResponse.json();
+  const gameContext = await getMLBGameContextFromStatsAPI(events[0]);
+
+console.log("GAME CONTEXT:");
+console.log(JSON.stringify(gameContext, null, 2));
 
 const allowedMarkets = [
   "batter_hits",
