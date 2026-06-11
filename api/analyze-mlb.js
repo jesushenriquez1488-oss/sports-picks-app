@@ -528,6 +528,7 @@ rawProps.forEach(prop => {
 
 const uniqueProps = Array.from(uniqueMap.values());
 const analyzedProps = [];
+const playerCache = new Map();
 
 for (const prop of uniqueProps) {
   const propLine = Number(prop.line);
@@ -580,6 +581,9 @@ if (
 ) {
   continue;
 }
+  let cachedPlayer = playerCache.get(prop.player);
+
+if (!cachedPlayer) {
   const playerInfo = await searchMLBPlayerByName(prop.player);
   if (!playerInfo?.id) continue;
 
@@ -593,8 +597,24 @@ if (
   const seasonStats = await getPlayerSeasonStats(playerInfo.id);
   const handSplits = await getPlayerHandSplits(playerInfo.id);
 
-  if (!recentAverages || !seasonStats) continue;
+  cachedPlayer = {
+    playerInfo,
+    recentAverages,
+    seasonStats,
+    handSplits
+  };
 
+  playerCache.set(prop.player, cachedPlayer);
+}
+
+const {
+  playerInfo,
+  recentAverages,
+  seasonStats,
+  handSplits
+} = cachedPlayer;
+
+if (!recentAverages || !seasonStats) continue;
 const gameContext = gameContextsByEventId.get(prop.eventId);
 
 let opponentPitcher = null;
