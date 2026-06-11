@@ -432,6 +432,49 @@ function calculateAdvancedPitcherContactFactor(opponentPitcher = {}) {
 
   return playerClamp(factor, 0.78, 1.32);
 }
+function calculatePitcherOpponentLineupFactor({
+  prop,
+  opponentTeamName,
+  pitcherHand,
+  gameContext
+}) {
+  let factor = 1;
+
+  const team = String(opponentTeamName || "").toLowerCase();
+
+  // Fallback básico hasta conectar lineup real
+  const highStrikeoutTeams = [
+    "colorado rockies",
+    "chicago white sox",
+    "miami marlins",
+    "pittsburgh pirates",
+    "oakland athletics",
+    "washington nationals"
+  ];
+
+  const lowStrikeoutTeams = [
+    "houston astros",
+    "san diego padres",
+    "arizona diamondbacks",
+    "cleveland guardians",
+    "kansas city royals"
+  ];
+
+  if (highStrikeoutTeams.some(t => team.includes(t))) {
+    factor += 0.10;
+  }
+
+  if (lowStrikeoutTeams.some(t => team.includes(t))) {
+    factor -= 0.08;
+  }
+
+  // Mano del pitcher: por ahora neutral, luego lo conectamos con splits reales
+  if (pitcherHand === "L") {
+    factor += 0.01;
+  }
+
+  return playerClamp(factor, 0.88, 1.14);
+}
 function calculatePlayerPropProjection({
   prop,
   playerInfo,
