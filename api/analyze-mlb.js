@@ -446,44 +446,7 @@ async function handlePlayerProps(req, res) {
 
   const events = await response.json();
 
- const eventId = events[0].id;
-
-const oddsResponse = await fetch(
-  `https://api.the-odds-api.com/v4/sports/baseball_mlb/events/${eventId}/odds?apiKey=${ODDS_API_KEY}&regions=us&markets=batter_hits,batter_total_bases,batter_rbis,batter_runs_scored,batter_home_runs,pitcher_strikeouts,pitcher_outs`
-);
-
-const oddsData = await oddsResponse.json();
-  const gameContext = await getMLBGameContextFromStatsAPI(events[0]);
-const awayPitcherInfo = gameContext?.awayPitcher?.id
-  ? await searchMLBPlayerByName(gameContext.awayPitcher.fullName)
-  : null;
-
-const homePitcherInfo = gameContext?.homePitcher?.id
-  ? await searchMLBPlayerByName(gameContext.homePitcher.fullName)
-  : null;
-
-const awayPitcherLogs = awayPitcherInfo?.id
-  ? await getPlayerGameLog(awayPitcherInfo.id)
-  : [];
-
-const homePitcherLogs = homePitcherInfo?.id
-  ? await getPlayerGameLog(homePitcherInfo.id)
-  : [];
-
-const awayPitcherStats = {
-  info: awayPitcherInfo,
-  recentAverages: calculateRecentPitcherAverages(awayPitcherLogs),
-  seasonStats: awayPitcherInfo?.id ? await getPlayerSeasonStats(awayPitcherInfo.id) : null
-};
-
-const homePitcherStats = {
-  info: homePitcherInfo,
-  recentAverages: calculateRecentPitcherAverages(homePitcherLogs),
-  seasonStats: homePitcherInfo?.id ? await getPlayerSeasonStats(homePitcherInfo.id) : null
-};
-
-
-const allowedMarkets = [
+ const allowedMarkets = [
   "batter_hits",
   "batter_total_bases",
   "pitcher_outs",
@@ -494,27 +457,42 @@ const allowedMarkets = [
 ];
 
 const rawProps = [];
+const gameContextsByEventId = new Map();
 
-(oddsData.bookmakers || []).forEach(bookmaker => {
-  (bookmaker.markets || []).forEach(market => {
+for (const event of events) {
+  const eventId = event.id;
 
-    if (!allowedMarkets.includes(market.key)) return;
+  const oddsResponse = await fetch(
+    `https://api.the-odds-api.com/v4/sports/baseball_mlb/events/${eventId}/odds?apiKey=${ODDS_API_KEY}&regions=us&markets=batter_hits,batter_total_bases,batter_rbis,batter_runs_scored,batter_home_runs,pitcher_strikeouts,pitcher_outs`
+  );
 
-    (market.outcomes || []).forEach(outcome => {
+  const oddsData = await oddsResponse.json();
 
-      rawProps.push({
-        player: outcome.description,
-        market: market.key,
-        side: outcome.name,
-        line: outcome.point,
-        odds: outcome.price,
-        bookmaker: bookmaker.title
+  const gameContext = await getMLBGameContextFromStatsAPI(event);
+
+  gameContextsByEventId.set(eventId, gameContext);
+
+  (oddsData.bookmakers || []).forEach(bookmaker => {
+    (bookmaker.markets || []).forEach(market => {
+      if (!allowedMarkets.includes(market.key)) return;
+
+      (market.outcomes || []).forEach(outcome => {
+        rawProps.push({
+          eventId,
+          game: `${event.away_team} @ ${event.home_team}`,
+          awayTeam: event.away_team,
+          homeTeam: event.home_team,
+          player: outcome.description,
+          market: market.key,
+          side: outcome.name,
+          line: outcome.point,
+          odds: outcome.price,
+          bookmaker: bookmaker.title
+        });
       });
-
     });
-
   });
-});
+}
 
 const bookPriority = [
   "DraftKings",
@@ -617,20 +595,48 @@ if (
 
   if (!recentAverages || !seasonStats) continue;
 
-  let opponentPitcher = null;
+const gameContext = gameContextsByEventId.get(prop.eventId);
 
-if (
-  gameContext?.awayTeam === events[0].away_team &&
-  gameContext?.homeTeam === events[0].home_team
-) {
+let opponentPitcher = null;
+
+if (gameContext) {
+
+  const awayPitcherInfo = gameContext?.awayPitcher?.id
+    ? await searchMLBPlayerByName(gameContext.awayPitcher.fullName)
+    : null;
+
+  const homePitcherInfo = gameContext?.homePitcher?.id
+    ? await searchMLBPlayerByName(gameContext.homePitcher.fullName)
+    : null;
+
+  const awayPitcherLogs = awayPitcherInfo?.id
+    ? await getPlayerGameLog(awayPitcherInfo.id)
+    : [];
+
+  const homePitcherLogs = homePitcherInfo?.id
+    ? await getPlayerGameLog(homePitcherInfo.id)
+    : [];
+
+  const awayPitcherStats = {
+    info: awayPitcherInfo,
+    recentAverages: calculateRecentPitcherAverages(awayPitcherLogs),
+    seasonStats: awayPitcherInfo?.id
+      ? await getPlayerSeasonStats(awayPitcherInfo.id)
+      : null
+  };
+
+  const homePitcherStats = {
+    info: homePitcherInfo,
+    recentAverages: calculateRecentPitcherAverages(homePitcherLogs),
+    seasonStats: homePitcherInfo?.id
+      ? await getPlayerSeasonStats(homePitcherInfo.id)
+      : null
+  };
+
   opponentPitcher =
-    prop.player && playerInfo.primaryPosition !== "P"
-      ? (
-          gameContext.awayTeam === events[0].away_team
-            ? homePitcherStats
-            : awayPitcherStats
-        )
-      : null;
+    prop.homeTeam === gameContext.homeTeam
+      ? awayPitcherStats
+      : homePitcherStats;
 }
 if (prop.market === "batter_runs_scored") {
   console.log("RUN PROP");
