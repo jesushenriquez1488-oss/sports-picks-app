@@ -60,6 +60,70 @@ async function getPlayerHandSplits(playerId) {
 
   return data?.stats?.[0]?.splits || [];
 }
+function getHandednessBonus(handSplits, pitcherHand) {
+  if (!handSplits || !handSplits.length || !pitcherHand) {
+    return {
+      factor: 1,
+      label: "No hand split available",
+      splitUsed: null
+    };
+  }
+
+  const targetSplit =
+    pitcherHand === "R"
+      ? "vs Right"
+      : pitcherHand === "L"
+        ? "vs Left"
+        : null;
+
+  if (!targetSplit) {
+    return {
+      factor: 1,
+      label: "Unknown pitcher hand",
+      splitUsed: null
+    };
+  }
+
+  const split = handSplits.find(s =>
+    String(s.split || "").toLowerCase().includes(targetSplit.toLowerCase())
+  );
+
+  if (!split || !split.stat) {
+    return {
+      factor: 1,
+      label: "Matching hand split not found",
+      splitUsed: targetSplit
+    };
+  }
+
+  const avg = Number(String(split.stat.avg || "0").replace(".", "0."));
+  const ops = Number(String(split.stat.ops || "0").replace(".", "0."));
+
+  let factor = 1;
+  let label = "Neutral split";
+
+  if (avg >= 0.330 || ops >= 0.900) {
+    factor = 1.18;
+    label = "Strong hand advantage";
+  } else if (avg >= 0.290 || ops >= 0.800) {
+    factor = 1.10;
+    label = "Positive hand advantage";
+  } else if (avg <= 0.220 || ops <= 0.650) {
+    factor = 0.84;
+    label = "Strong hand penalty";
+  } else if (avg <= 0.250 || ops <= 0.700) {
+    factor = 0.92;
+    label = "Negative hand split";
+  }
+
+  return {
+    factor,
+    label,
+    splitUsed: targetSplit,
+    avg,
+    ops
+  };
+}
 async function handlePlayerProps(req, res) {
 
   const ODDS_API_KEY = process.env.ODDS_API_KEY;
