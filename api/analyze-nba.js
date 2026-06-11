@@ -1352,7 +1352,7 @@ const { data: insertedPick, error: insertError } = await supabaseAdmin
 
   away_team: awayTeam,
   home_team: homeTeam,
-  game_date: new Date().toISOString().split("T")[0],
+game_date: gameDate,
 
   pick,
   confidence,
