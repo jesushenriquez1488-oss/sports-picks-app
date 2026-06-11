@@ -338,39 +338,99 @@ function calculateAdvancedPitcherContactFactor(opponentPitcher = {}) {
   const whipRecent = inningsRecent > 0 ? (hitsRecent + walksRecent) / inningsRecent : 0;
   const hr9Recent = inningsRecent > 0 ? (hrRecent / inningsRecent) * 9 : 0;
 
-  const h9Season = playerSafeNum(season.hitsPer9Inn || season.hitsPer9 || 0);
-  const whipSeason = playerSafeNum(season.whip, 0);
-  const avgAllowed = playerSafeNum(season.avg || 0);
-  const obpAllowed = playerSafeNum(season.obp || 0);
-  const hr9Season = playerSafeNum(season.homeRunsPer9 || season.homeRunsPer9Inn || 0);
+  const inningsRaw = String(season.inningsPitched || "0");
+  const inningsSeason = Number(inningsRaw.split(".")[0]) + (Number(inningsRaw.split(".")[1] || 0) / 3);
 
-  let factor = 1;
+  const hitsSeason = playerSafeNum(season.hits, 0);
+  const walksSeason = playerSafeNum(season.baseOnBalls, 0);
+  const hbpSeason = playerSafeNum(season.hitByPitch, 0);
+  const abSeason = playerSafeNum(season.atBats, 0);
+  const sfSeason = playerSafeNum(season.sacFlies, 0);
+
+  const doublesAllowed = playerSafeNum(season.doubles, 0);
+  const triplesAllowed = playerSafeNum(season.triples, 0);
+  const hrAllowed = playerSafeNum(season.homeRuns, 0);
+
+  const singlesAllowed =
+    Math.max(0, hitsSeason - doublesAllowed - triplesAllowed - hrAllowed);
+
+  const totalBasesAllowed =
+    singlesAllowed +
+    doublesAllowed * 2 +
+    triplesAllowed * 3 +
+    hrAllowed * 4;
+
+  const h9Season =
+    inningsSeason > 0 ? (hitsSeason / inningsSeason) * 9 : 0;
+
+  const whipSeason =
+    inningsSeason > 0 ? (hitsSeason + walksSeason) / inningsSeason : 0;
+
+  const hr9Season =
+    inningsSeason > 0 ? (hrAllowed / inningsSeason) * 9 : 0;
+
+  const avgAllowed =
+    abSeason > 0 ? hitsSeason / abSeason : 0;
+
+  const obpAllowed =
+    (abSeason + walksSeason + hbpSeason + sfSeason) > 0
+      ? (hitsSeason + walksSeason + hbpSeason) /
+        (abSeason + walksSeason + hbpSeason + sfSeason)
+      : 0;
+
+  const tbPer9 =
+    inningsSeason > 0 ? (totalBasesAllowed / inningsSeason) * 9 : 0;
+
+  const contactDamage =
+    hitsSeason > 0 ? totalBasesAllowed / hitsSeason : 0;
 
   const h9 = h9Season || h9Recent;
   const whip = whipSeason || whipRecent;
   const hr9 = hr9Season || hr9Recent;
 
-  if (h9 >= 9.5) factor += 0.14;
-  else if (h9 >= 8.5) factor += 0.09;
-  else if (h9 <= 6.5) factor -= 0.09;
+  let factor = 1;
 
-  if (whip >= 1.45) factor += 0.14;
-  else if (whip >= 1.30) factor += 0.08;
-  else if (whip <= 1.05) factor -= 0.09;
+  // Hits Allowed / H9
+  if (h9 >= 9.8) factor += 0.15;
+  else if (h9 >= 9.0) factor += 0.11;
+  else if (h9 >= 8.2) factor += 0.06;
+  else if (h9 > 0 && h9 <= 6.5) factor -= 0.10;
 
-  if (avgAllowed >= 0.280) factor += 0.10;
-  else if (avgAllowed >= 0.260) factor += 0.06;
+  // WHIP / traffic
+  if (whip >= 1.50) factor += 0.15;
+  else if (whip >= 1.35) factor += 0.10;
+  else if (whip >= 1.25) factor += 0.05;
+  else if (whip > 0 && whip <= 1.05) factor -= 0.10;
+
+  // AVG Allowed
+  if (avgAllowed >= 0.285) factor += 0.11;
+  else if (avgAllowed >= 0.265) factor += 0.07;
+  else if (avgAllowed >= 0.245) factor += 0.03;
   else if (avgAllowed > 0 && avgAllowed <= 0.210) factor -= 0.08;
 
-  if (obpAllowed >= 0.350) factor += 0.08;
-  else if (obpAllowed >= 0.325) factor += 0.05;
-  else if (obpAllowed > 0 && obpAllowed <= 0.280) factor -= 0.06;
+  // OBP Allowed
+  if (obpAllowed >= 0.355) factor += 0.09;
+  else if (obpAllowed >= 0.335) factor += 0.06;
+  else if (obpAllowed >= 0.315) factor += 0.03;
+  else if (obpAllowed > 0 && obpAllowed <= 0.285) factor -= 0.06;
 
-  if (hr9 >= 1.6) factor += 0.09;
-  else if (hr9 >= 1.2) factor += 0.05;
+  // HR Allowed / HR9
+  if (hr9 >= 1.7) factor += 0.10;
+  else if (hr9 >= 1.3) factor += 0.06;
   else if (hr9 > 0 && hr9 <= 0.7) factor -= 0.05;
 
-  return playerClamp(factor, 0.82, 1.28);
+  // Total Bases Allowed
+  if (tbPer9 >= 15.0) factor += 0.12;
+  else if (tbPer9 >= 13.0) factor += 0.08;
+  else if (tbPer9 >= 11.0) factor += 0.04;
+  else if (tbPer9 > 0 && tbPer9 <= 8.0) factor -= 0.06;
+
+  // Quality of Contact Proxy
+  if (contactDamage >= 1.75) factor += 0.08;
+  else if (contactDamage >= 1.55) factor += 0.05;
+  else if (contactDamage > 0 && contactDamage <= 1.25) factor -= 0.04;
+
+  return playerClamp(factor, 0.78, 1.32);
 }
 function calculatePlayerPropProjection({
   prop,
