@@ -124,6 +124,46 @@ function getHandednessBonus(handSplits, pitcherHand) {
     ops
   };
 }
+function calculateRecentPlayerAverages(gameLogs) {
+
+  if (!gameLogs?.length) return null;
+
+  const last10 = gameLogs.slice(-10);
+
+  const totals = {
+    hits: 0,
+    totalBases: 0,
+    rbi: 0,
+    runs: 0,
+    homeRuns: 0,
+    strikeOuts: 0,
+    outs: 0
+  };
+
+  last10.forEach(game => {
+    const stat = game.stat || {};
+
+    totals.hits += Number(stat.hits || 0);
+    totals.totalBases += Number(stat.totalBases || 0);
+    totals.rbi += Number(stat.rbi || 0);
+    totals.runs += Number(stat.runs || 0);
+    totals.homeRuns += Number(stat.homeRuns || 0);
+    totals.strikeOuts += Number(stat.strikeOuts || 0);
+    totals.outs += Number(stat.outs || 0);
+  });
+
+  return {
+    games: last10.length,
+
+    hits: totals.hits / last10.length,
+    totalBases: totals.totalBases / last10.length,
+    rbi: totals.rbi / last10.length,
+    runs: totals.runs / last10.length,
+    homeRuns: totals.homeRuns / last10.length,
+    strikeOuts: totals.strikeOuts / last10.length,
+    outs: totals.outs / last10.length
+  };
+}
 async function handlePlayerProps(req, res) {
 
   const ODDS_API_KEY = process.env.ODDS_API_KEY;
