@@ -631,16 +631,7 @@ if (listedSide === "OVER") {
 
 const confidence = calculatePlayerPropConfidence(market, edge);
 if (market === "pitcher_strikeouts" || market === "pitcher_outs") {
-  console.log("PITCHER PROP DEBUG", {
-    player: prop.player,
-    market,
-    side: listedSide,
-    line,
-    projection,
-    edge,
-    confidence,
-    pitcherLineupFactor
-  });
+
 }
 if (confidence <= 0) return null;
 
