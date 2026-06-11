@@ -26,6 +26,16 @@ async function searchMLBPlayerByName(playerName) {
     pitchHand: people[0].pitchHand?.code || null
   };
 }
+async function getPlayerGameLog(playerId) {
+  if (!playerId) return [];
+
+  const url = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&season=2026`;
+
+  const response = await fetch(url);
+  const data = await response.json();
+
+  return data?.stats?.[0]?.splits || [];
+}
 async function handlePlayerProps(req, res) {
 
   const ODDS_API_KEY = process.env.ODDS_API_KEY;
