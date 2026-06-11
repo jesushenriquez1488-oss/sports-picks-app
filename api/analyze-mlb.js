@@ -280,6 +280,53 @@ function weightedPlayerProjection(recent, season, split) {
 function applyPitcherQuality(projection, pitcherQualityFactor, weight = 0.10) {
   return projection * (1 + ((pitcherQualityFactor - 1) * weight));
 }
+function calculateAdvancedPitcherContactFactor(opponentPitcher = {}) {
+  const season = opponentPitcher?.seasonStats || {};
+  const recent = opponentPitcher?.recentAverages || {};
+
+  const inningsRecent = playerSafeNum(recent.innings, 0);
+  const hitsRecent = playerSafeNum(recent.hitsAllowed, 0);
+  const walksRecent = playerSafeNum(recent.walks, 0);
+  const hrRecent = playerSafeNum(recent.homeRunsAllowed, 0);
+
+  const h9Recent = inningsRecent > 0 ? (hitsRecent / inningsRecent) * 9 : 0;
+  const whipRecent = inningsRecent > 0 ? (hitsRecent + walksRecent) / inningsRecent : 0;
+  const hr9Recent = inningsRecent > 0 ? (hrRecent / inningsRecent) * 9 : 0;
+
+  const h9Season = playerSafeNum(season.hitsPer9Inn || season.hitsPer9 || 0);
+  const whipSeason = playerSafeNum(season.whip, 0);
+  const avgAllowed = playerSafeNum(season.avg || 0);
+  const obpAllowed = playerSafeNum(season.obp || 0);
+  const hr9Season = playerSafeNum(season.homeRunsPer9 || season.homeRunsPer9Inn || 0);
+
+  let factor = 1;
+
+  const h9 = h9Season || h9Recent;
+  const whip = whipSeason || whipRecent;
+  const hr9 = hr9Season || hr9Recent;
+
+  if (h9 >= 9.5) factor += 0.14;
+  else if (h9 >= 8.5) factor += 0.09;
+  else if (h9 <= 6.5) factor -= 0.09;
+
+  if (whip >= 1.45) factor += 0.14;
+  else if (whip >= 1.30) factor += 0.08;
+  else if (whip <= 1.05) factor -= 0.09;
+
+  if (avgAllowed >= 0.280) factor += 0.10;
+  else if (avgAllowed >= 0.260) factor += 0.06;
+  else if (avgAllowed > 0 && avgAllowed <= 0.210) factor -= 0.08;
+
+  if (obpAllowed >= 0.350) factor += 0.08;
+  else if (obpAllowed >= 0.325) factor += 0.05;
+  else if (obpAllowed > 0 && obpAllowed <= 0.280) factor -= 0.06;
+
+  if (hr9 >= 1.6) factor += 0.09;
+  else if (hr9 >= 1.2) factor += 0.05;
+  else if (hr9 > 0 && hr9 <= 0.7) factor -= 0.05;
+
+  return playerClamp(factor, 0.82, 1.28);
+}
 function calculatePlayerPropProjection({
   prop,
   playerInfo,
