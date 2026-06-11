@@ -60,6 +60,19 @@ async function getPlayerHandSplits(playerId) {
 
   return data?.stats?.[0]?.splits || [];
 }
+async function getTeamSeasonHittingStats(teamId) {
+  if (!teamId) return null;
+
+  const url =
+    `https://statsapi.mlb.com/api/v1/teams/${teamId}/stats?stats=season&group=hitting&season=2026`;
+
+  const response = await fetch(url);
+  const data = await response.json();
+
+  const split = data?.stats?.[0]?.splits?.[0];
+
+  return split?.stat || null;
+}
 function getHandednessBonus(handSplits, pitcherHand) {
   if (!handSplits || !handSplits.length || !pitcherHand) {
     return {
@@ -433,47 +446,70 @@ function calculateAdvancedPitcherContactFactor(opponentPitcher = {}) {
   return playerClamp(factor, 0.78, 1.32);
 }
 function calculatePitcherOpponentLineupFactor({
-  prop,
-  opponentTeamName,
-  pitcherHand,
-  gameContext
+  opponentTeamStats,
+  pitcherHand
 }) {
+  if (!opponentTeamStats) return 1;
+
+  const games = playerSafeNum(opponentTeamStats.gamesPlayed, 0);
+  if (games <= 0) return 1;
+
+  const strikeouts = playerSafeNum(opponentTeamStats.strikeOuts, 0);
+  const plateAppearances = playerSafeNum(opponentTeamStats.plateAppearances, 0);
+  const atBats = playerSafeNum(opponentTeamStats.atBats, 0);
+  const hits = playerSafeNum(opponentTeamStats.hits, 0);
+  const walks = playerSafeNum(opponentTeamStats.baseOnBalls, 0);
+  const homeRuns = playerSafeNum(opponentTeamStats.homeRuns, 0);
+  const totalBases = playerSafeNum(opponentTeamStats.totalBases, 0);
+
+  const kPerGame = strikeouts / games;
+  const kRate =
+    plateAppearances > 0
+      ? strikeouts / plateAppearances
+      : 0;
+
+  const avg =
+    atBats > 0
+      ? hits / atBats
+      : 0;
+
+  const walkRate =
+    plateAppearances > 0
+      ? walks / plateAppearances
+      : 0;
+
+  const powerPerGame =
+    totalBases / games;
+
+  const hrPerGame =
+    homeRuns / games;
+
   let factor = 1;
 
-  const team = String(opponentTeamName || "").toLowerCase();
+  // Strikeout tendency
+  if (kPerGame >= 9.5 || kRate >= 0.255) factor += 0.12;
+  else if (kPerGame >= 8.8 || kRate >= 0.235) factor += 0.08;
+  else if (kPerGame >= 8.2 || kRate >= 0.220) factor += 0.04;
 
-  // Fallback básico hasta conectar lineup real
-  const highStrikeoutTeams = [
-    "colorado rockies",
-    "chicago white sox",
-    "miami marlins",
-    "pittsburgh pirates",
-    "oakland athletics",
-    "washington nationals"
-  ];
+  if (kPerGame <= 7.0 || kRate <= 0.185) factor -= 0.10;
+  else if (kPerGame <= 7.6 || kRate <= 0.200) factor -= 0.06;
 
-  const lowStrikeoutTeams = [
-    "houston astros",
-    "san diego padres",
-    "arizona diamondbacks",
-    "cleveland guardians",
-    "kansas city royals"
-  ];
+  // Contact quality: high AVG lowers K/outs edge
+  if (avg >= 0.270) factor -= 0.05;
+  else if (avg <= 0.230 && avg > 0) factor += 0.04;
 
-  if (highStrikeoutTeams.some(t => team.includes(t))) {
-    factor += 0.10;
-  }
+  // Walk tendency: hurts outs projection
+  if (walkRate >= 0.095) factor -= 0.04;
+  else if (walkRate <= 0.070 && walkRate > 0) factor += 0.03;
 
-  if (lowStrikeoutTeams.some(t => team.includes(t))) {
-    factor -= 0.08;
-  }
+  // Power pressure: more damage can shorten pitcher leash
+  if (hrPerGame >= 1.35 || powerPerGame >= 15.0) factor -= 0.04;
+  else if (hrPerGame <= 0.85 && powerPerGame <= 12.0) factor += 0.03;
 
-  // Mano del pitcher: por ahora neutral, luego lo conectamos con splits reales
-  if (pitcherHand === "L") {
-    factor += 0.01;
-  }
+  // Tiny lefty adjustment only as soft context
+  if (pitcherHand === "L") factor += 0.01;
 
-  return playerClamp(factor, 0.88, 1.14);
+  return playerClamp(factor, 0.84, 1.16);
 }
 function calculatePlayerPropProjection({
   prop,
@@ -481,22 +517,16 @@ function calculatePlayerPropProjection({
   recentAverages,
   seasonStats,
   handSplits,
-  opponentPitcher
+  opponentPitcher,
+  opponentTeamStats
 }) {
   const market = prop.market;
   const line = playerSafeNum(prop.line, 0);
 const pitcherHand = opponentPitcher?.info?.pitchHand || playerInfo.pitchHand;
-const opponentTeamName =
-  prop.homeTeam === prop.game?.split(" @ ")?.[1]
-    ? prop.awayTeam
-    : prop.homeTeam;
-
 const pitcherLineupFactor =
   calculatePitcherOpponentLineupFactor({
-    prop,
-    opponentTeamName,
-    pitcherHand: playerInfo?.pitchHand,
-    gameContext: null
+    opponentTeamStats,
+    pitcherHand: playerInfo?.pitchHand
   });
 const pitcherSeasonEra = playerSafeNum(opponentPitcher?.seasonStats?.era, 4.50);
 const pitcherSeasonWhip = playerSafeNum(opponentPitcher?.seasonStats?.whip, 1.30);
@@ -679,14 +709,19 @@ async function getMLBGameContextFromStatsAPI(event) {
 
   if (!match) return null;
 
-  return {
-    gamePk: match.gamePk,
-    venue: match.venue || null,
-    awayTeam: match.teams?.away?.team?.name || event.away_team,
-    homeTeam: match.teams?.home?.team?.name || event.home_team,
-    awayPitcher: match.teams?.away?.probablePitcher || null,
-    homePitcher: match.teams?.home?.probablePitcher || null
-  };
+ return {
+  gamePk: match.gamePk,
+  venue: match.venue || null,
+
+  awayTeam: match.teams?.away?.team?.name || event.away_team,
+  homeTeam: match.teams?.home?.team?.name || event.home_team,
+
+  awayTeamId: match.teams?.away?.team?.id || null,
+  homeTeamId: match.teams?.home?.team?.id || null,
+
+  awayPitcher: match.teams?.away?.probablePitcher || null,
+  homePitcher: match.teams?.home?.probablePitcher || null
+};
 }
 async function handlePlayerProps(req, res) {
 
@@ -822,7 +857,15 @@ rawProps.forEach(prop => {
 const uniqueProps = Array.from(uniqueMap.values());
 const analyzedProps = [];
 const playerCache = new Map();
+const awayTeamHittingStats =
+  gameContext?.awayTeamId
+    ? await getTeamSeasonHittingStats(gameContext.awayTeamId)
+    : null;
 
+const homeTeamHittingStats =
+  gameContext?.homeTeamId
+    ? await getTeamSeasonHittingStats(gameContext.homeTeamId)
+    : null;
 for (const prop of uniqueProps) {
   const propLine = Number(prop.line);
 
@@ -961,13 +1004,19 @@ if (currentGameContext) {
 
 }
 
+const opponentTeamStats =
+  prop.homeTeam === currentGameContext?.homeTeam
+    ? awayTeamHittingStats
+    : homeTeamHittingStats;
+
 const result = calculatePlayerPropProjection({
   prop,
   playerInfo,
   recentAverages,
   seasonStats,
   handSplits,
-  opponentPitcher
+  opponentPitcher,
+  opponentTeamStats
 });
 
   if (!result) continue;
