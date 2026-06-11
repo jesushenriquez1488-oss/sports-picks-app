@@ -36,6 +36,20 @@ async function getPlayerGameLog(playerId) {
 
   return data?.stats?.[0]?.splits || [];
 }
+async function getPlayerSeasonStats(playerId) {
+  if (!playerId) return null;
+
+  const url = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&season=2026`;
+
+  const response = await fetch(url);
+  const data = await response.json();
+
+  const split = data?.stats?.[0]?.splits?.[0];
+
+  if (!split) return null;
+
+  return split.stat || null;
+}
 async function handlePlayerProps(req, res) {
 
   const ODDS_API_KEY = process.env.ODDS_API_KEY;
