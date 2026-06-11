@@ -2028,3 +2028,11 @@ async function enforceDailyPremiumLimits() {
 
   return report;
 }
+function getKansasDate(dateValue) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date(dateValue));
+}
