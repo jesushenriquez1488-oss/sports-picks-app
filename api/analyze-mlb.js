@@ -537,13 +537,30 @@ for (const prop of uniqueProps) {
 
   if (!recentAverages || !seasonStats) continue;
 
-  const result = calculatePlayerPropProjection({
-    prop,
-    playerInfo,
-    recentAverages,
-    seasonStats,
-    handSplits
-  });
+  let opponentPitcher = null;
+
+if (
+  gameContext?.awayTeam === events[0].away_team &&
+  gameContext?.homeTeam === events[0].home_team
+) {
+  opponentPitcher =
+    prop.player && playerInfo.primaryPosition !== "P"
+      ? (
+          gameContext.awayTeam === events[0].away_team
+            ? homePitcherStats
+            : awayPitcherStats
+        )
+      : null;
+}
+
+const result = calculatePlayerPropProjection({
+  prop,
+  playerInfo,
+  recentAverages,
+  seasonStats,
+  handSplits,
+  opponentPitcher
+});
 
   if (!result) continue;
 
