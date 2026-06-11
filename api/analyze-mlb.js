@@ -128,9 +128,22 @@ const playerSearchTest = [];
 for (const playerName of testPlayers) {
   const playerInfo = await searchMLBPlayerByName(playerName);
 
+  let lastGamesSample = [];
+
+  if (playerInfo?.id) {
+    const logs = await getPlayerGameLog(playerInfo.id);
+
+    lastGamesSample = logs.slice(-3).map(g => ({
+      date: g.date,
+      opponent: g.opponent?.name || null,
+      stat: g.stat
+    }));
+  }
+
   playerSearchTest.push({
     searched: playerName,
-    found: playerInfo
+    found: playerInfo,
+    lastGamesSample
   });
 }
 return res.status(200).json({
