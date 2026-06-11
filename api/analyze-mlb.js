@@ -7,12 +7,20 @@ const supabaseAdmin = createClient(
 );
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
 async function handlePlayerProps(req, res) {
+
+  const ODDS_API_KEY = process.env.ODDS_API_KEY;
+
+  const response = await fetch(
+    `https://api.the-odds-api.com/v4/sports/baseball_mlb/events?apiKey=${ODDS_API_KEY}`
+  );
+
+  const events = await response.json();
+
   return res.status(200).json({
     ok: true,
     mode: "player-props",
-    title: "Player Edge AI MLB",
-    message: "Player Props AI conectado correctamente.",
-    props: []
+    totalGames: events.length,
+    firstGame: events[0]
   });
 }
 module.exports = async function handler(req, res) {
