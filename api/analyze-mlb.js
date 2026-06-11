@@ -524,10 +524,12 @@ function calculatePlayerPropProjection({
   const line = playerSafeNum(prop.line, 0);
 const pitcherHand = opponentPitcher?.info?.pitchHand || playerInfo.pitchHand;
 const pitcherLineupFactor =
-  calculatePitcherOpponentLineupFactor({
-    opponentTeamStats,
-    pitcherHand: playerInfo?.pitchHand
-  });
+  playerInfo?.primaryPosition === "P"
+    ? calculatePitcherOpponentLineupFactor({
+        opponentTeamStats,
+        pitcherHand: playerInfo?.pitchHand
+      })
+    : 1;
 const pitcherSeasonEra = playerSafeNum(opponentPitcher?.seasonStats?.era, 4.50);
 const pitcherSeasonWhip = playerSafeNum(opponentPitcher?.seasonStats?.whip, 1.30);
 const pitcherRecentEra =
