@@ -581,6 +581,21 @@ if (prop.market === "batter_runs_scored" && prop.side === "Under" && propLine <=
 if (prop.market === "batter_rbis" && prop.side === "Under" && propLine <= 0.5) {
   continue;
 }
+  if (
+  prop.market === "batter_runs_scored" &&
+  String(prop.side).toLowerCase() === "under" &&
+  propLine <= 0.5
+) {
+  continue;
+}
+
+if (
+  prop.market === "batter_rbis" &&
+  String(prop.side).toLowerCase() === "under" &&
+  propLine <= 0.5
+) {
+  continue;
+}
   const playerInfo = await searchMLBPlayerByName(prop.player);
   if (!playerInfo?.id) continue;
 
