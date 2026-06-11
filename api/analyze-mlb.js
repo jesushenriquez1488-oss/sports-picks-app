@@ -486,7 +486,18 @@ function calculatePlayerPropProjection({
   const market = prop.market;
   const line = playerSafeNum(prop.line, 0);
 const pitcherHand = opponentPitcher?.info?.pitchHand || playerInfo.pitchHand;
+const opponentTeamName =
+  prop.homeTeam === prop.game?.split(" @ ")?.[1]
+    ? prop.awayTeam
+    : prop.homeTeam;
 
+const pitcherLineupFactor =
+  calculatePitcherOpponentLineupFactor({
+    prop,
+    opponentTeamName,
+    pitcherHand: playerInfo?.pitchHand,
+    gameContext: null
+  });
 const pitcherSeasonEra = playerSafeNum(opponentPitcher?.seasonStats?.era, 4.50);
 const pitcherSeasonWhip = playerSafeNum(opponentPitcher?.seasonStats?.whip, 1.30);
 const pitcherRecentEra =
