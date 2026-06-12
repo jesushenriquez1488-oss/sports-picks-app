@@ -523,7 +523,7 @@ function calculatePlayerPropProjection({
 }) {
   const market = prop.market;
   const line = playerSafeNum(prop.line, 0);
-const pitcherHand = opponentPitcher?.info?.pitchHand || playerInfo.pitchHand;
+const pitcherHand = opponentPitcher?.info?.pitchHand || null;
 const pitcherLineupFactor =
   playerInfo?.primaryPosition === "P"
     ? calculatePitcherOpponentLineupFactor({
@@ -550,12 +550,7 @@ if (pitcherSeasonEra >= 5.25 || pitcherSeasonWhip >= 1.50 || pitcherRecentEra >=
   pitcherQualityFactor = 0.93;
 }
   let projection = 0;
-if (String(prop.player || "").toLowerCase().includes("wagner")) {
-  console.log("ANY WAGNER PROP", {
-    player: prop.player,
-    market: prop.market,
-    line: prop.line
-  });
+
 }
   if (market === "batter_hits") {
    const recentHits = playerSafeNum(recentAverages.hits);
@@ -571,15 +566,7 @@ const advancedPitcherFactor =
   calculateAdvancedPitcherContactFactor(opponentPitcher);
 
 projection = projection * advancedPitcherFactor;
-    if (String(prop.player || "").toLowerCase().includes("wagner")) {
-  console.log("WAGNER AUDIT", {
-    player: prop.player,
-    recentHits,
-    seasonHits,
-    splitHits,
-    advancedPitcherFactor,
-    projection
-  });
+   
 
   }
 
@@ -682,31 +669,9 @@ if (listedSide === "OVER") {
 } else {
   return null;
 }
-console.log("PLAYER PROP AUDIT", {
-  player: prop.player,
-  market,
-  side: listedSide,
-  line,
-  projection,
-  edge,
-  confidencePreview: calculatePlayerPropConfidence(market, edge),
-  recentAverages,
-  seasonStats,
-  handSplits,
-  opponentPitcher
-});
+
 const confidence = calculatePlayerPropConfidence(market, edge);
- if (confidence >= 75) {
-  console.log("HIGH CONFIDENCE AUDIT", {
-    player: prop.player,
-    market,
-    side: listedSide,
-    line,
-    projection,
-    edge,
-    confidence,
-    bookmaker: prop.bookmaker
-  });
+
 }
 if (market === "pitcher_strikeouts" || market === "pitcher_outs") {
 
