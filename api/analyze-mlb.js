@@ -564,8 +564,7 @@ const advancedPitcherFactor =
   calculateAdvancedPitcherContactFactor(opponentPitcher);
 
 projection = projection * advancedPitcherFactor;
-  }
- if (prop.player === "Will Wagner") {
+    if (prop.player === "Will Wagner") {
   console.log("WILL WAGNER AUDIT", {
     recentHits,
     seasonHits,
@@ -573,6 +572,8 @@ projection = projection * advancedPitcherFactor;
    advancedPitcherFactor,
     projection
   });
+  }
+
 }
   if (market === "batter_total_bases") {
     projection = weightedPlayerProjection(
