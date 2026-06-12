@@ -1321,7 +1321,7 @@ if (window.currentSport === "wnba") {
         Ver predicción del modelo
       </button>`
     : useMLBFormula
-   ? `<button onclick='analyzeMLB("${escapeText(game.away_team)}","${escapeText(game.home_team)}",${awaySpread},${homeSpread},${index},${JSON.stringify((game.bookmakers?.[0]?.markets.find(m => m.key === "h2h")?.outcomes || [])).replace(/"/g, '&quot;')},${total},"${game.commence_time || ""}")'>
+   ? `<button onclick='analyzeMLB("${escapeText(game.away_team)}","${escapeText(game.home_team)}",${awaySpread},${homeSpread},${index},${JSON.stringify((game.bookmakers?.[0]?.markets.find(m => m.key === "h2h")?.outcomes || [])).replace(/"/g, '&quot;')},${total},"${game.commence_time || ""}","${game.id || ""}")'>
         Ver predicción MLB
    </button>`
     : useFootballFormula
@@ -1608,7 +1608,7 @@ window.logoutUser = logoutUser;
 window.registerUser = registerUser;
 window.loginUser = loginUser;
 
-async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, outcomes, totalLine = 8, gameTime = null) {
+async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, outcomes, totalLine = 8, gameTime = null, eventId = null) {
   const resultDiv = document.getElementById(`result${index}`);
   if (!startAnalysisLock(index, "Analizando MLB...")) return;
   resultDiv.innerHTML = `<div class="loading-analysis">Analizando MLB...</div>`;
@@ -1768,7 +1768,7 @@ ${premium.recommendedCards?.[1] ? `
 </div>
 
 ` : ``}
-                <div class="mlb-projection-box">
+            <div class="mlb-projection-box">
                   <p><strong>Carreras esperadas ${awayTeam}:</strong> ${safe(premium.expectedRunsA).toFixed(2)}</p>
                   <p><strong>Carreras esperadas ${homeTeam}:</strong> ${safe(premium.expectedRunsB).toFixed(2)}</p>
                   <p><strong>Total proyectado:</strong> ${safe(premium.projectedTotal).toFixed(2)}</p>
@@ -1778,7 +1778,13 @@ ${premium.recommendedCards?.[1] ? `
 
               </div>
 
-              
+              <div class="player-edge-section">
+                <button class="player-edge-toggle-btn" onclick='togglePlayerEdgeProps(${index}, "${eventId || ""}")'>
+                  🎯 Ver player props
+                </button>
+                <div id="playerEdge${index}" class="player-edge-box"></div>
+              </div>
+
               <div class="mlb-info-grid">
 
                 <div>
