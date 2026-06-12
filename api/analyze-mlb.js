@@ -1642,8 +1642,8 @@ const last3Runs = safeNumber(last3?.ra9 ?? last3?.era ?? last3?.runsPerGame);
       if (fallback === null) return null;
 
       let score =
-        fillMissing(last7Runs, fallback) * 0.90 +
-        fillMissing(last3Runs, fallback) * 0.10;
+        fillMissing(last7Runs, fallback) * 0.95 +
+        fillMissing(last3Runs, fallback) * 0.05;
 
       const whip = safeNumber(bullpen.whip);
       const last3Whip = safeNumber(last3?.whip);
@@ -1856,9 +1856,9 @@ function calculateExpectedRuns({
     opponentPitcher * 0.65;
 
   const bullpenSegment =
-    offense * 0.40 +
-    opponentBullpen * 0.60;
-
+  offense * 0.45 +
+  opponentBullpen * 0.55;
+ 
   const teamAllowedAdjustment =
     opponentTeamAllowed * 0.10;
 
