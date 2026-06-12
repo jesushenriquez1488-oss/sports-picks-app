@@ -1939,7 +1939,24 @@ let expectedRunsB = homeRunCalc.expectedRuns;
 
     const totalPick = overProb >= underProb ? "OVER" : "UNDER";
     const totalEdge = Math.abs(projectedTotal - totalLine);
-
+console.log("MLB TOTAL AUDIT", {
+  game: `${awayTeam} @ ${homeTeam}`,
+  totalLine,
+  expectedRunsA,
+  expectedRunsB,
+  projectedTotal,
+  totalDiff: projectedTotal - totalLine,
+  totalPick,
+  overProb,
+  underProb,
+  parkFactor,
+  weatherFactor,
+  runEnvironmentFactor,
+  awayPitcher,
+  homePitcher,
+  awayBullpen,
+  homeBullpen
+});
     function getSupportForSide(side) {
       const isAway = side === "away";
 
