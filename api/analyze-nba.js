@@ -197,7 +197,12 @@ function getKansasDate(dateValue) {
   }).format(new Date(dateValue));
 }
 
-const todayKansas = getKansasDate(new Date());
+const todayKansas = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Chicago",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit"
+}).format(new Date());
 
 const todayGames = games.filter(game => {
   const gameTime =
@@ -208,7 +213,12 @@ const todayGames = games.filter(game => {
 
   if (!gameTime) return true;
 
-  return getKansasDate(gameTime) === todayKansas;
+  return new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Chicago",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit"
+}).format(new Date(gameTime)) === todayKansas;
 });
 
 const limit = Math.max(1, Number(req.query.limit || 4));
@@ -1071,7 +1081,12 @@ if (
   .map(t => String(t).trim())
   .sort();
 
-const gameDate = getKansasDate(gameTime || new Date());
+const gameDate = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Chicago",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit"
+}).format(new Date(gameTime || Date.now()));
 const gameId =
   `${selectedLeague}-${gameDate}-${teamsSorted.join("-")}`;
 
