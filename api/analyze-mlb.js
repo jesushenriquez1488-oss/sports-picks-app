@@ -671,7 +671,6 @@ if (listedSide === "OVER") {
 
 const confidence = calculatePlayerPropConfidence(market, edge);
 
-}
 if (market === "pitcher_strikeouts" || market === "pitcher_outs") {
 
 }
