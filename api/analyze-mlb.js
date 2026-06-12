@@ -564,14 +564,16 @@ const advancedPitcherFactor =
   calculateAdvancedPitcherContactFactor(opponentPitcher);
 
 projection = projection * advancedPitcherFactor;
-    if (prop.player === "Will Wagner") {
-  console.log("WILL WAGNER AUDIT", {
+    if (String(prop.player || "").toLowerCase().includes("wagner")) {
+  console.log("WAGNER AUDIT", {
+    player: prop.player,
     recentHits,
     seasonHits,
     splitHits,
-   advancedPitcherFactor,
+    advancedPitcherFactor,
     projection
   });
+
   }
 
 }
