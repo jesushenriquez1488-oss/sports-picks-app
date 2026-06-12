@@ -946,7 +946,11 @@ if (prop.market === "pitcher_outs" && propLine < 9.5) {
     side: prop.side
   });
 }
-if (market === "batter_total_bases" && line !== 1.5) continue;
+if (
+  prop.market === "batter_total_bases" &&
+  propLine !== 1.5
+) {
+  continue;
 }
 if (prop.market === "batter_runs_scored" && prop.side === "Under" && propLine <= 0.5) {
   continue;
