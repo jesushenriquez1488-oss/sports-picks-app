@@ -551,7 +551,6 @@ if (pitcherSeasonEra >= 5.25 || pitcherSeasonWhip >= 1.50 || pitcherRecentEra >=
 }
   let projection = 0;
 
-}
   if (market === "batter_hits") {
    const recentHits = playerSafeNum(recentAverages.hits);
 const seasonHits = seasonPerGame(seasonStats, "hits");
