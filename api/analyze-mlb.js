@@ -1653,7 +1653,14 @@ const last3Runs = safeNumber(last3?.ra9 ?? last3?.era ?? last3?.runsPerGame);
 score *= fatigueFactor;
 // PRUEBA TEMPORAL:
 // Sin ajuste por WHIP
-      
+      console.log("BULLPEN SCORE", {
+  team: bullpen?.team || "unknown",
+  baseRuns,
+  last7Runs,
+  last3Runs,
+  fatigue: bullpen?.fatigue,
+  finalScore: score
+});
       return clamp(score, 1.0, 12.5);
     }
 
