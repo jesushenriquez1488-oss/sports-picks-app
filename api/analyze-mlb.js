@@ -277,7 +277,7 @@ function calculatePlayerPropConfidence(market, edge) {
   showEdge: 0.50,
   premiumEdge: 1.25,
   eliteEdge: 3.00
-}
+},
 pitcher_outs: {
   showEdge: 1.50,
   premiumEdge: 3.50,
