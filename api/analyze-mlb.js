@@ -885,7 +885,7 @@ rawProps.forEach(prop => {
   }
 });
 
-const uniqueProps = Array.from(uniqueMap.values());
+const uniqueProps = Array.from(uniqueMap.values()).slice(0, 60);
 const analyzedProps = [];
 const playerCache = new Map();
 const awayTeamHittingStats =
