@@ -980,7 +980,12 @@ if (
 if (!cachedPlayer) {
   const playerInfo = await searchMLBPlayerByName(prop.player);
   if (!playerInfo?.id) continue;
-
+if (!playerInfo?.currentTeamId) {
+  console.log("NO TEAM FOUND", {
+    player: prop.player,
+    playerInfo
+  });
+}
   const logs = await getPlayerGameLog(playerInfo.id);
 
   const recentAverages =
