@@ -1892,7 +1892,15 @@ const homeRunCalc = calculateExpectedRuns({
   opponentTeamAllowed: awayTeamAllowed,
   opponentStarterInnings: awayPitcherInnings
 });
+console.log("RUN CALC", {
+  team: awayTeam,
+  ...awayRunCalc
+});
 
+console.log("RUN CALC", {
+  team: homeTeam,
+  ...homeRunCalc
+});
 let expectedRunsA = awayRunCalc.expectedRuns;
 let expectedRunsB = homeRunCalc.expectedRuns;
     expectedRunsA *= runEnvironmentFactor;
