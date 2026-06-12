@@ -2478,7 +2478,7 @@ button.player-edge-toggle-btn {
   color: rgba(255,255,255,.55);
   margin: 0 0 10px;
 }
-.player-edge-toggle-btn {
+button.player-edge-toggle-btn {
   position: relative;
   overflow: hidden;
   display: flex;
@@ -2488,14 +2488,14 @@ button.player-edge-toggle-btn {
   width: 100%;
   padding: 14px;
   border-radius: 14px;
-  background: linear-gradient(135deg, rgba(0,255,231,.10), rgba(124,60,255,.10));
-  border: 1.5px solid rgba(0,255,231,.45);
-  color: #00ffe7;
+  background: linear-gradient(135deg, rgba(0,255,231,.10), rgba(124,60,255,.10)) !important;
+  border: 1.5px solid rgba(0,255,231,.45) !important;
+  color: #00ffe7 !important;
   font-weight: 900;
   font-size: 13px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  box-shadow: 0 0 20px rgba(0,255,231,.20), inset 0 0 20px rgba(0,255,231,.04);
+  box-shadow: 0 0 20px rgba(0,255,231,.20), inset 0 0 20px rgba(0,255,231,.04) !important;
   cursor: pointer;
 }
 button.player-edge-toggle-btn:hover {
