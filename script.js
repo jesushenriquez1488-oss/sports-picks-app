@@ -2505,3 +2505,92 @@ function updatePasswordStrength(val) {
   else if (s <= 75) { bar.style.background = '#00ffe7'; label.textContent = 'GOOD'; label.style.color = '#00ffe7'; }
   else { bar.style.background = 'linear-gradient(90deg,#00ffe7,#7c3cff)'; label.textContent = 'STRONG ✓'; label.style.color = '#00ffe7'; }
 }
+const PLAYER_EDGE_MARKETS = {
+  batter_hits: "Hits",
+  batter_total_bases: "Total Bases",
+  batter_rbis: "RBIs",
+  batter_runs_scored: "Runs",
+  batter_home_runs: "Home Runs",
+  pitcher_strikeouts: "Strikeouts",
+  pitcher_outs: "Outs"
+};
+
+async function togglePlayerEdgeProps(index, eventId) {
+  const box = document.getElementById(`playerEdge${index}`);
+  if (!box) return;
+
+  if (box.dataset.loaded === "true") {
+    box.style.display = box.style.display === "none" ? "block" : "none";
+    return;
+  }
+
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  if (!sessionData.session) {
+    alert("Debes iniciar sesión.");
+    return;
+  }
+
+  if (!IS_ADMIN && !isPremiumUser) {
+    box.innerHTML = `
+      <div class="player-edge-locked">
+        <p>🔒 Player Props disponible solo para miembros Premium.</p>
+        <button class="unlock-btn" onclick="goPremiumMonthly()">
+          🔓 Desbloquear Premium $${MONTHLY_PRICE}/mes
+        </button>
+      </div>
+    `;
+    box.dataset.loaded = "true";
+    return;
+  }
+
+  if (!eventId) {
+    box.innerHTML = `<p class="player-edge-empty">No disponible para este juego.</p>`;
+    box.dataset.loaded = "true";
+    return;
+  }
+
+  box.innerHTML = `<div class="loading-analysis">Buscando player props...</div>`;
+
+  try {
+    const response = await fetch("/api/analyze-mlb?mode=player-props", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${sessionData.session.access_token}`
+      },
+      body: JSON.stringify({
+        userId: sessionData.session.user.id,
+        eventId
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) throw new Error(data.error || "Error cargando player props");
+
+    if (data.noPlay || !data.props || data.props.length === 0) {
+      box.innerHTML = `<p class="player-edge-empty">Sin player props con edge para este juego.</p>`;
+      box.dataset.loaded = "true";
+      return;
+    }
+
+    const itemsHTML = data.props.slice(0, 3).map(prop => {
+      const marketLabel = PLAYER_EDGE_MARKETS[prop.market] || prop.market;
+      return `
+        <div class="player-edge-line">
+          <span class="player-edge-name">${sanitize(prop.player)} ${sanitize(prop.side)} ${prop.line} ${sanitize(marketLabel)}</span>
+          <span class="player-edge-conf">${prop.confidence.toFixed(1)}%</span>
+        </div>
+      `;
+    }).join("");
+
+    box.innerHTML = `<div class="player-edge-list">${itemsHTML}</div>`;
+    box.dataset.loaded = "true";
+
+  } catch (error) {
+    box.innerHTML = `<p class="player-edge-empty">Error: ${error.message}</p>`;
+    box.dataset.loaded = "true";
+  }
+}
+
+window.togglePlayerEdgeProps = togglePlayerEdgeProps;
