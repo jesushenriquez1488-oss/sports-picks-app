@@ -245,60 +245,59 @@ function calculatePlayerPropConfidence(market, edge) {
 
   if (e <= 0) return 0;
 
-  const rules = {
-    batter_hits: {
-      showEdge: 0.15,
-      premiumEdge: 0.50,
-      eliteEdge: 0.90
-    },
-    batter_total_bases: {
-      showEdge: 0.30,
-      premiumEdge: 1.00,
-      eliteEdge: 1.80
-    },
-    batter_rbis: {
-      showEdge: 0.15,
-      premiumEdge: 0.50,
-      eliteEdge: 0.90
-    },
-    batter_runs_scored: {
-      showEdge: 0.15,
-      premiumEdge: 0.50,
-      eliteEdge: 0.90
-    },
-    batter_home_runs: {
-      showEdge: 0.08,
-      premiumEdge: 0.35,
-      eliteEdge: 0.65
-    },
-    pitcher_strikeouts: {
-      showEdge: 0.75,
-      premiumEdge: 2.00,
-      eliteEdge: 3.25
-    },
-    pitcher_outs: {
-      showEdge: 1.50,
-      premiumEdge: 4.00,
-      eliteEdge: 6.50
-    }
-  };
-
+ const rules = {
+  batter_hits: {
+    showEdge: 0.30,
+    premiumEdge: 1.00,
+    eliteEdge: 3.00
+  },
+  batter_total_bases: {
+    showEdge: 0.50,
+    premiumEdge: 1.00,
+    eliteEdge: 2.50
+  },
+  batter_rbis: {
+    showEdge: 0.20,
+    premiumEdge: 0.90,
+    eliteEdge: 2.00
+  },
+  batter_runs_scored: {
+    showEdge: 0.20,
+    premiumEdge: 0.90,
+    eliteEdge: 2.00
+  },
+  batter_home_runs: {
+    showEdge: 0.10,
+    premiumEdge: 0.75,
+    eliteEdge: 1.75
+  },
+  pitcher_strikeouts: {
+    showEdge: 1.00,
+    premiumEdge: 2.50,
+    eliteEdge: 4.00
+  },
+  pitcher_outs: {
+    showEdge: 2.00,
+    premiumEdge: 4.50,
+    eliteEdge: 7.00
+  }
+};
   const rule = rules[market];
   if (!rule || e < rule.showEdge) return 0;
 
-  if (e < rule.premiumEdge) {
-    const percent =
-      55 + ((e - rule.showEdge) / (rule.premiumEdge - rule.showEdge)) * 19;
-
-    return Number(percent.toFixed(1));
-  }
-
-  if (e >= rule.eliteEdge) return 99.0;
-
+if (e < rule.premiumEdge) {
   const percent =
-    75 + ((e - rule.premiumEdge) / (rule.eliteEdge - rule.premiumEdge)) * 24;
+    55 + ((e - rule.showEdge) / (rule.premiumEdge - rule.showEdge)) * 19;
 
   return Number(percent.toFixed(1));
+}
+
+if (e >= rule.eliteEdge) return 99.0;
+
+const percent =
+  75 + ((e - rule.premiumEdge) / (rule.eliteEdge - rule.premiumEdge)) * 24;
+
+return Number(percent.toFixed(1));
 }
 function seasonPerGame(stat, key) {
   const games = playerSafeNum(stat?.gamesPlayed, 0);
