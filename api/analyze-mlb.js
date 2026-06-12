@@ -660,7 +660,19 @@ if (listedSide === "OVER") {
 } else {
   return null;
 }
-
+console.log("PLAYER PROP AUDIT", {
+  player: prop.player,
+  market,
+  side: listedSide,
+  line,
+  projection,
+  edge,
+  confidencePreview: calculatePlayerPropConfidence(market, edge),
+  recentAverages,
+  seasonStats,
+  handSplits,
+  opponentPitcher
+});
 const confidence = calculatePlayerPropConfidence(market, edge);
 if (market === "pitcher_strikeouts" || market === "pitcher_outs") {
 
