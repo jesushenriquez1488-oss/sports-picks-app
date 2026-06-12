@@ -3,7 +3,7 @@ const { createClient } = require("@supabase/supabase-js");
 const supabaseAdmin = createClient(
 
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY 
 );
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
 async function searchMLBPlayerByName(playerName) {
