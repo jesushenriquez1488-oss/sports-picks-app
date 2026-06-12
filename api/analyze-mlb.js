@@ -512,6 +512,17 @@ function calculatePitcherOpponentLineupFactor({
 
   return playerClamp(factor, 0.84, 1.16);
 }
+function parseMLBInningsToOuts(value) {
+  if (value === null || value === undefined) return 0;
+
+  const raw = String(value);
+  const [innings, partial] = raw.split(".");
+
+  const fullInnings = playerSafeNum(innings, 0);
+  const extraOuts = playerSafeNum(partial, 0);
+
+  return fullInnings * 3 + playerClamp(extraOuts, 0, 2);
+}
 function calculatePlayerPropProjection({
   prop,
   playerInfo,
@@ -619,13 +630,32 @@ function calculatePlayerPropProjection({
     projection = projection * advancedPitcherFactor;
   }
 
-  if (market === "pitcher_strikeouts") {
-    const recentKs = playerSafeNum(recentAverages.strikeOuts);
-    const seasonKs = seasonPerGame(seasonStats, "strikeOuts");
+if (market === "pitcher_strikeouts") {
+  const recentKs = playerSafeNum(recentAverages.strikeOuts, 0);
+  const recentInnings = playerSafeNum(recentAverages.innings, 0);
 
-    projection = recentKs * 0.65 + seasonKs * 0.35;
-    projection = projection * pitcherLineupFactor;
-  }
+  const seasonKsTotal = playerSafeNum(seasonStats?.strikeOuts, 0);
+  const gamesStarted = playerSafeNum(seasonStats?.gamesStarted, 1);
+
+  const seasonOuts = parseMLBInningsToOuts(seasonStats?.inningsPitched);
+  const seasonInnings = seasonOuts / 3;
+
+  const recentKPerInning =
+    recentInnings > 0 ? recentKs / recentInnings : 0;
+
+  const seasonKPerInning =
+    seasonInnings > 0 ? seasonKsTotal / seasonInnings : 0;
+
+  const expectedInnings =
+    recentInnings * 0.70 +
+    (gamesStarted > 0 ? seasonInnings / gamesStarted : recentInnings) * 0.30;
+
+  const kPerInning =
+    recentKPerInning * 0.70 +
+    seasonKPerInning * 0.30;
+
+  projection = expectedInnings * kPerInning * pitcherLineupFactor;
+}
 
   if (market === "pitcher_outs") {
     const recentOuts = playerSafeNum(recentAverages.outs);
