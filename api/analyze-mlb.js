@@ -688,7 +688,7 @@ return {
     confidence,
     isPremium: confidence >= 75
   };
-}
+
 function normalizeTeamName(name = "") {
   return String(name)
     .toLowerCase()
