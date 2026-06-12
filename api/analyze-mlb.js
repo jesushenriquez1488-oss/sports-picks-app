@@ -274,15 +274,15 @@ function calculatePlayerPropConfidence(market, edge) {
     eliteEdge: 1.75
   },
   pitcher_strikeouts: {
-    showEdge: 1.00,
-    premiumEdge: 2.50,
-    eliteEdge: 4.00
-  },
-  pitcher_outs: {
-    showEdge: 2.00,
-    premiumEdge: 4.50,
-    eliteEdge: 7.00
-  }
+  showEdge: 0.75,
+  premiumEdge: 1.75,
+  eliteEdge: 4.00
+},
+pitcher_outs: {
+  showEdge: 1.50,
+  premiumEdge: 3.50,
+  eliteEdge: 6.50
+}
 };
   const rule = rules[market];
   if (!rule || e < rule.showEdge) return 0;
