@@ -457,11 +457,6 @@ function calculatePitcherOpponentLineupFactor({
 
   const strikeouts = playerSafeNum(opponentTeamStats.strikeOuts, 0);
   const plateAppearances = playerSafeNum(opponentTeamStats.plateAppearances, 0);
-  const atBats = playerSafeNum(opponentTeamStats.atBats, 0);
-  const hits = playerSafeNum(opponentTeamStats.hits, 0);
-  const walks = playerSafeNum(opponentTeamStats.baseOnBalls, 0);
-  const homeRuns = playerSafeNum(opponentTeamStats.homeRuns, 0);
-  const totalBases = playerSafeNum(opponentTeamStats.totalBases, 0);
 
   const kPerGame = strikeouts / games;
   const kRate =
@@ -469,48 +464,19 @@ function calculatePitcherOpponentLineupFactor({
       ? strikeouts / plateAppearances
       : 0;
 
-  const avg =
-    atBats > 0
-      ? hits / atBats
-      : 0;
+  const leagueAvgKPerGame = 8.5;
+  const leagueAvgKRate = 0.225;
 
-  const walkRate =
-    plateAppearances > 0
-      ? walks / plateAppearances
-      : 0;
+  const kGameFactor = kPerGame / leagueAvgKPerGame;
+  const kRateFactor = kRate > 0 ? kRate / leagueAvgKRate : 1;
 
-  const powerPerGame =
-    totalBases / games;
+  let factor =
+    kGameFactor * 0.65 +
+    kRateFactor * 0.35;
 
-  const hrPerGame =
-    homeRuns / games;
-
-  let factor = 1;
-
-  // Strikeout tendency
-  if (kPerGame >= 9.5 || kRate >= 0.255) factor += 0.12;
-  else if (kPerGame >= 8.8 || kRate >= 0.235) factor += 0.08;
-  else if (kPerGame >= 8.2 || kRate >= 0.220) factor += 0.04;
-
-  if (kPerGame <= 7.0 || kRate <= 0.185) factor -= 0.10;
-  else if (kPerGame <= 7.6 || kRate <= 0.200) factor -= 0.06;
-
-  // Contact quality: high AVG lowers K/outs edge
-  if (avg >= 0.270) factor -= 0.05;
-  else if (avg <= 0.230 && avg > 0) factor += 0.04;
-
-  // Walk tendency: hurts outs projection
-  if (walkRate >= 0.095) factor -= 0.04;
-  else if (walkRate <= 0.070 && walkRate > 0) factor += 0.03;
-
-  // Power pressure: more damage can shorten pitcher leash
-  if (hrPerGame >= 1.35 || powerPerGame >= 15.0) factor -= 0.04;
-  else if (hrPerGame <= 0.85 && powerPerGame <= 12.0) factor += 0.03;
-
-  // Tiny lefty adjustment only as soft context
   if (pitcherHand === "L") factor += 0.01;
 
-  return playerClamp(factor, 0.84, 1.16);
+  return playerClamp(factor, 0.82, 1.22);
 }
 function parseMLBInningsToOuts(value) {
   if (value === null || value === undefined) return 0;
