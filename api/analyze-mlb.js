@@ -523,50 +523,48 @@ function calculatePlayerPropProjection({
 }) {
   const market = prop.market;
   const line = playerSafeNum(prop.line, 0);
-const pitcherHand = opponentPitcher?.info?.pitchHand || null;
-const pitcherLineupFactor =
-  playerInfo?.primaryPosition === "P"
-    ? calculatePitcherOpponentLineupFactor({
-        opponentTeamStats,
-        pitcherHand: playerInfo?.pitchHand
-      })
-    : 1;
-const pitcherSeasonEra = playerSafeNum(opponentPitcher?.seasonStats?.era, 4.50);
-const pitcherSeasonWhip = playerSafeNum(opponentPitcher?.seasonStats?.whip, 1.30);
-const pitcherRecentEra =
-  playerSafeNum(opponentPitcher?.recentAverages?.earnedRuns, 2.5) /
-  Math.max(playerSafeNum(opponentPitcher?.recentAverages?.innings, 5), 1) *
-  9;
+  const pitcherHand = opponentPitcher?.info?.pitchHand || null;
 
-let pitcherQualityFactor = 1;
+  const pitcherLineupFactor =
+    playerInfo?.primaryPosition === "P"
+      ? calculatePitcherOpponentLineupFactor({
+          opponentTeamStats,
+          pitcherHand: playerInfo?.pitchHand
+        })
+      : 1;
 
-if (pitcherSeasonEra >= 5.25 || pitcherSeasonWhip >= 1.50 || pitcherRecentEra >= 5.50) {
-  pitcherQualityFactor = 1.18;
-} else if (pitcherSeasonEra >= 4.50 || pitcherSeasonWhip >= 1.35 || pitcherRecentEra >= 4.75) {
-  pitcherQualityFactor = 1.10;
-} else if (pitcherSeasonEra <= 2.75 || pitcherSeasonWhip <= 1.05 || pitcherRecentEra <= 2.75) {
-  pitcherQualityFactor = 0.86;
-} else if (pitcherSeasonEra <= 3.40 || pitcherSeasonWhip <= 1.15 || pitcherRecentEra <= 3.40) {
-  pitcherQualityFactor = 0.93;
-}
+  const pitcherSeasonEra = playerSafeNum(opponentPitcher?.seasonStats?.era, 4.50);
+  const pitcherSeasonWhip = playerSafeNum(opponentPitcher?.seasonStats?.whip, 1.30);
+  const pitcherRecentEra =
+    playerSafeNum(opponentPitcher?.recentAverages?.earnedRuns, 2.5) /
+    Math.max(playerSafeNum(opponentPitcher?.recentAverages?.innings, 5), 1) *
+    9;
+
+  let pitcherQualityFactor = 1;
+
+  if (pitcherSeasonEra >= 5.25 || pitcherSeasonWhip >= 1.50 || pitcherRecentEra >= 5.50) {
+    pitcherQualityFactor = 1.18;
+  } else if (pitcherSeasonEra >= 4.50 || pitcherSeasonWhip >= 1.35 || pitcherRecentEra >= 4.75) {
+    pitcherQualityFactor = 1.10;
+  } else if (pitcherSeasonEra <= 2.75 || pitcherSeasonWhip <= 1.05 || pitcherRecentEra <= 2.75) {
+    pitcherQualityFactor = 0.86;
+  } else if (pitcherSeasonEra <= 3.40 || pitcherSeasonWhip <= 1.15 || pitcherRecentEra <= 3.40) {
+    pitcherQualityFactor = 0.93;
+  }
+
   let projection = 0;
 
   if (market === "batter_hits") {
-   const recentHits = playerSafeNum(recentAverages.hits);
-const seasonHits = seasonPerGame(seasonStats, "hits");
-const splitHits = splitPerGame(handSplits, pitcherHand, "hits");
     projection = weightedPlayerProjection(
-   playerSafeNum(recentAverages.hits),
+      playerSafeNum(recentAverages.hits),
       seasonPerGame(seasonStats, "hits"),
-     splitPerGame(handSplits, pitcherHand, "hits")
+      splitPerGame(handSplits, pitcherHand, "hits")
     );
-  
-const advancedPitcherFactor =
-  calculateAdvancedPitcherContactFactor(opponentPitcher);
 
-projection = projection * advancedPitcherFactor;
-   
+    const advancedPitcherFactor =
+      calculateAdvancedPitcherContactFactor(opponentPitcher);
 
+    projection = projection * advancedPitcherFactor;
   }
 
   if (market === "batter_total_bases") {
@@ -575,22 +573,24 @@ projection = projection * advancedPitcherFactor;
       seasonPerGame(seasonStats, "totalBases"),
       splitPerGame(handSplits, pitcherHand, "totalBases")
     );
-    const advancedPitcherFactor =
-  calculateAdvancedPitcherContactFactor(opponentPitcher);
 
-projection = projection * advancedPitcherFactor;
+    const advancedPitcherFactor =
+      calculateAdvancedPitcherContactFactor(opponentPitcher);
+
+    projection = projection * advancedPitcherFactor;
   }
 
   if (market === "batter_rbis") {
     projection = weightedPlayerProjection(
       playerSafeNum(recentAverages.rbi),
       seasonPerGame(seasonStats, "rbi"),
-     splitPerGame(handSplits, pitcherHand, "rbi")
+      splitPerGame(handSplits, pitcherHand, "rbi")
     );
-    const advancedPitcherFactor =
-  calculateAdvancedPitcherContactFactor(opponentPitcher);
 
-projection = projection * advancedPitcherFactor;
+    const advancedPitcherFactor =
+      calculateAdvancedPitcherContactFactor(opponentPitcher);
+
+    projection = projection * advancedPitcherFactor;
   }
 
   if (market === "batter_runs_scored") {
@@ -599,10 +599,11 @@ projection = projection * advancedPitcherFactor;
       seasonPerGame(seasonStats, "runs"),
       splitPerGame(handSplits, pitcherHand, "runs")
     );
-   const advancedPitcherFactor =
-  calculateAdvancedPitcherContactFactor(opponentPitcher);
 
-projection = projection * advancedPitcherFactor;
+    const advancedPitcherFactor =
+      calculateAdvancedPitcherContactFactor(opponentPitcher);
+
+    projection = projection * advancedPitcherFactor;
   }
 
   if (market === "batter_home_runs") {
@@ -611,74 +612,57 @@ projection = projection * advancedPitcherFactor;
       seasonPerGame(seasonStats, "homeRuns"),
       splitPerGame(handSplits, pitcherHand, "homeRuns")
     );
-   const advancedPitcherFactor =
-  calculateAdvancedPitcherContactFactor(opponentPitcher);
 
-projection = projection * advancedPitcherFactor;
+    const advancedPitcherFactor =
+      calculateAdvancedPitcherContactFactor(opponentPitcher);
+
+    projection = projection * advancedPitcherFactor;
   }
 
   if (market === "pitcher_strikeouts") {
-  const recentKs = playerSafeNum(recentAverages.strikeOuts);
+    const recentKs = playerSafeNum(recentAverages.strikeOuts);
+    const seasonKs = seasonPerGame(seasonStats, "strikeOuts");
 
-  const seasonKs =
-    seasonPerGame(seasonStats, "strikeOuts");
+    projection = recentKs * 0.65 + seasonKs * 0.35;
+    projection = projection * pitcherLineupFactor;
+  }
 
-  projection =
-    recentKs * 0.65 +
-    seasonKs * 0.35;
+  if (market === "pitcher_outs") {
+    const recentOuts = playerSafeNum(recentAverages.outs);
+    const seasonInnings = playerSafeNum(seasonStats?.inningsPitched, 0);
+    const gamesStarted = playerSafeNum(seasonStats?.gamesStarted, 0);
 
-  projection = projection * pitcherLineupFactor;
-}
+    const seasonOuts =
+      gamesStarted > 0
+        ? (seasonInnings * 3) / gamesStarted
+        : recentOuts;
 
-if (market === "pitcher_outs") {
-  const recentOuts =
-    playerSafeNum(recentAverages.outs);
-
-  const seasonInnings =
-    playerSafeNum(seasonStats?.inningsPitched, 0);
-
-  const gamesStarted =
-    playerSafeNum(seasonStats?.gamesStarted, 0);
-
-  const seasonOuts =
-    gamesStarted > 0
-      ? (seasonInnings * 3) / gamesStarted
-      : recentOuts;
-
-  projection =
-    recentOuts * 0.65 +
-    seasonOuts * 0.35;
-
-  projection =
-    projection *
-    playerClamp(pitcherLineupFactor, 0.92, 1.08);
-}
+    projection = recentOuts * 0.65 + seasonOuts * 0.35;
+    projection = projection * playerClamp(pitcherLineupFactor, 0.92, 1.08);
+  }
 
   projection = Number(projection.toFixed(2));
 
- const listedSide = String(prop.side || "").toUpperCase();
+  const listedSide = String(prop.side || "").toUpperCase();
 
-let edge = 0;
+  let edge = 0;
 
-if (listedSide === "OVER") {
-  edge = projection - line;
-} else if (listedSide === "UNDER") {
-  edge = line - projection;
-} else {
-  return null;
-}
+  if (listedSide === "OVER") {
+    edge = projection - line;
+  } else if (listedSide === "UNDER") {
+    edge = line - projection;
+  } else {
+    return null;
+  }
 
-const confidence = calculatePlayerPropConfidence(market, edge);
+  const confidence = calculatePlayerPropConfidence(market, edge);
 
-if (market === "pitcher_strikeouts" || market === "pitcher_outs") {
+  if (confidence <= 0) return null;
 
-}
-if (confidence <= 0) return null;
-
-return {
-  player: prop.player,
-  market,
-  side: listedSide,
+  return {
+    player: prop.player,
+    market,
+    side: listedSide,
     line,
     odds: prop.odds,
     bookmaker: prop.bookmaker,
@@ -687,6 +671,7 @@ return {
     confidence,
     isPremium: confidence >= 75
   };
+}
 
 function normalizeTeamName(name = "") {
   return String(name)
