@@ -2580,14 +2580,16 @@ async function togglePlayerEdgeProps(index, eventId) {
       return;
     }
 
-    const itemsHTML = data.props.slice(0, 3).map(prop => {
+   const itemsHTML = data.props.slice(0, 3).map((prop, i) => {
       const marketLabel = PLAYER_EDGE_MARKETS[prop.market] || prop.market;
       const conf = prop.confidence;
       const confText = conf.toFixed(1) + "%";
+      const marketText = `${sanitize(prop.side)} ${prop.line} ${sanitize(marketLabel)}`;
 
-      let circleHTML;
+      let level, circleHTML;
 
       if (conf >= 99) {
+        level = "elite";
         circleHTML = `
           <div class="player-edge-circle elite">
             <div class="player-edge-ring"></div>
@@ -2598,6 +2600,7 @@ async function togglePlayerEdgeProps(index, eventId) {
           </div>
         `;
       } else if (conf >= 75) {
+        level = "hot";
         circleHTML = `
           <div class="player-edge-circle hot">
             <span>${confText}</span>
@@ -2605,6 +2608,7 @@ async function togglePlayerEdgeProps(index, eventId) {
           </div>
         `;
       } else {
+        level = "normal";
         circleHTML = `
           <div class="player-edge-circle normal">
             <span>${confText}</span>
@@ -2612,9 +2616,15 @@ async function togglePlayerEdgeProps(index, eventId) {
         `;
       }
 
+      const divider = i > 0 ? `<div class="player-edge-divider"></div>` : "";
+
       return `
+        ${divider}
         <div class="player-edge-line">
-          <span class="player-edge-name">${sanitize(prop.player)} ${sanitize(prop.side)} ${prop.line} ${sanitize(marketLabel)}</span>
+          <div class="player-edge-info">
+            <div class="player-edge-player">${sanitize(prop.player)}</div>
+            <div class="player-edge-market ${level}">${marketText}</div>
+          </div>
           ${circleHTML}
         </div>
       `;
