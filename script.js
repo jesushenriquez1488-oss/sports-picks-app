@@ -2582,10 +2582,40 @@ async function togglePlayerEdgeProps(index, eventId) {
 
     const itemsHTML = data.props.slice(0, 3).map(prop => {
       const marketLabel = PLAYER_EDGE_MARKETS[prop.market] || prop.market;
+      const conf = prop.confidence;
+      const confText = conf.toFixed(1) + "%";
+
+      let circleHTML;
+
+      if (conf >= 99) {
+        circleHTML = `
+          <div class="player-edge-circle elite">
+            <div class="player-edge-ring"></div>
+            <div class="player-edge-inner">
+              <span>${confText}</span>
+            </div>
+            <span class="player-edge-fire">🔥</span>
+          </div>
+        `;
+      } else if (conf >= 75) {
+        circleHTML = `
+          <div class="player-edge-circle hot">
+            <span>${confText}</span>
+            <span class="player-edge-fire">🔥</span>
+          </div>
+        `;
+      } else {
+        circleHTML = `
+          <div class="player-edge-circle normal">
+            <span>${confText}</span>
+          </div>
+        `;
+      }
+
       return `
         <div class="player-edge-line">
           <span class="player-edge-name">${sanitize(prop.player)} ${sanitize(prop.side)} ${prop.line} ${sanitize(marketLabel)}</span>
-          <span class="player-edge-conf">${prop.confidence.toFixed(1)}%</span>
+          ${circleHTML}
         </div>
       `;
     }).join("");
