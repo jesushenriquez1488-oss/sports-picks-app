@@ -674,7 +674,7 @@ console.log("PLAYER PROP AUDIT", {
   opponentPitcher
 });
 const confidence = calculatePlayerPropConfidence(market, edge);
- if (confidence >= 95) {
+ if (confidence >= 75) {
   console.log("HIGH CONFIDENCE AUDIT", {
     player: prop.player,
     market,
