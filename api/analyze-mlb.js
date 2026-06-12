@@ -674,6 +674,18 @@ console.log("PLAYER PROP AUDIT", {
   opponentPitcher
 });
 const confidence = calculatePlayerPropConfidence(market, edge);
+ if (confidence >= 95) {
+  console.log("HIGH CONFIDENCE AUDIT", {
+    player: prop.player,
+    market,
+    side: listedSide,
+    line,
+    projection,
+    edge,
+    confidence,
+    bookmaker: prop.bookmaker
+  });
+}
 if (market === "pitcher_strikeouts" || market === "pitcher_outs") {
 
 }
@@ -905,10 +917,18 @@ if (prop.market === "pitcher_strikeouts" && propLine < 3.5) {
 if (prop.market === "pitcher_outs" && propLine < 9.5) {
   continue;
 }
-  if (prop.market === "batter_total_bases" && propLine > 1.5) {
-  continue;
+ if (prop.market === "batter_total_bases") {
+  console.log("TB LINE AUDIT", {
+    player: prop.player,
+    line: prop.line,
+    bookmaker: prop.bookmaker,
+    side: prop.side
+  });
 }
 
+if (prop.market === "batter_total_bases" && propLine > 1.5) {
+  continue;
+}
 if (prop.market === "batter_runs_scored" && prop.side === "Under" && propLine <= 0.5) {
   continue;
 }
@@ -1022,7 +1042,15 @@ const opponentTeamStats =
   prop.homeTeam === currentGameContext?.homeTeam
     ? awayTeamHittingStats
     : homeTeamHittingStats;
-
+console.log("MATCHUP AUDIT", {
+  propPlayer: prop.player,
+  propMarket: prop.market,
+  propTeamHome: prop.homeTeam,
+  propTeamAway: prop.awayTeam,
+  awayPitcher: currentGameContext?.awayPitcher?.fullName,
+  homePitcher: currentGameContext?.homePitcher?.fullName,
+  assignedOpponentPitcher: opponentPitcher?.info?.fullName
+});
 const result = calculatePlayerPropProjection({
   prop,
   playerInfo,
