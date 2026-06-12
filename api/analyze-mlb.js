@@ -756,13 +756,31 @@ async function getMLBGameContextFromStatsAPI(event) {
   });
 
   if (!match) return null;
+const boxscoreUrl =
+  `https://statsapi.mlb.com/api/v1/game/${match.gamePk}/boxscore`;
 
+const boxscoreResponse = await fetch(boxscoreUrl);
+const boxscoreData = await boxscoreResponse.json();
+
+const awayPlayerIds = new Set(
+  Object.values(boxscoreData?.teams?.away?.players || {})
+    .map(p => p?.person?.id)
+    .filter(Boolean)
+);
+
+const homePlayerIds = new Set(
+  Object.values(boxscoreData?.teams?.home?.players || {})
+    .map(p => p?.person?.id)
+    .filter(Boolean)
+);
  return {
   gamePk: match.gamePk,
   venue: match.venue || null,
 
   awayTeam: match.teams?.away?.team?.name || event.away_team,
   homeTeam: match.teams?.home?.team?.name || event.home_team,
+  awayPlayerIds,
+homePlayerIds,
 
   awayTeamId: match.teams?.away?.team?.id || null,
   homeTeamId: match.teams?.home?.team?.id || null,
@@ -981,10 +999,7 @@ if (!cachedPlayer) {
   const playerInfo = await searchMLBPlayerByName(prop.player);
   if (!playerInfo?.id) continue;
 if (!playerInfo?.currentTeamId) {
-  console.log("NO TEAM FOUND", {
-    player: prop.player,
-    playerInfo
-  });
+  
 }
   const logs = await getPlayerGameLog(playerInfo.id);
 
@@ -1062,17 +1077,22 @@ if (currentGameContext) {
 
 const playerTeamId = playerInfo?.currentTeamId;
 
-opponentPitcher =
-  prop.homeTeam === currentGameContext.homeTeam
-    ? awayPitcherStats
-    : homePitcherStats;
+const playerId = playerInfo?.id;
+
+if (currentGameContext?.homePlayerIds?.has(playerId)) {
+  opponentPitcher = awayPitcherStats;
+} else if (currentGameContext?.awayPlayerIds?.has(playerId)) {
+  opponentPitcher = homePitcherStats;
+} else {
+  opponentPitcher = null;
+}
 }
 
 let opponentTeamStats = null;
 
-if (playerInfo?.currentTeamId === currentGameContext?.homeTeamId) {
+if (currentGameContext?.homePlayerIds?.has(playerInfo?.id)) {
   opponentTeamStats = awayTeamHittingStats;
-} else if (playerInfo?.currentTeamId === currentGameContext?.awayTeamId) {
+} else if (currentGameContext?.awayPlayerIds?.has(playerInfo?.id)) {
   opponentTeamStats = homeTeamHittingStats;
 }
 const result = calculatePlayerPropProjection({
