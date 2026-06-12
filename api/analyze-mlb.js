@@ -570,7 +570,6 @@ projection = projection * advancedPitcherFactor;
 
   }
 
-}
   if (market === "batter_total_bases") {
     projection = weightedPlayerProjection(
       playerSafeNum(recentAverages.totalBases),
