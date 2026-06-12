@@ -1062,13 +1062,10 @@ if (currentGameContext) {
 
 const playerTeamId = playerInfo?.currentTeamId;
 
-if (playerTeamId === currentGameContext.homeTeamId) {
-  opponentPitcher = awayPitcherStats;
-} else if (playerTeamId === currentGameContext.awayTeamId) {
-  opponentPitcher = homePitcherStats;
-} else {
-  opponentPitcher = null;
-}
+opponentPitcher =
+  prop.homeTeam === currentGameContext.homeTeam
+    ? awayPitcherStats
+    : homePitcherStats;
 }
 
 let opponentTeamStats = null;
