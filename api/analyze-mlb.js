@@ -18,13 +18,15 @@ async function searchMLBPlayerByName(playerName) {
 
   if (!people.length) return null;
 
-  return {
-    id: people[0].id,
-    fullName: people[0].fullName,
-    primaryPosition: people[0].primaryPosition?.abbreviation || null,
-    batSide: people[0].batSide?.code || null,
-    pitchHand: people[0].pitchHand?.code || null
-  };
+ return {
+  id: people[0].id,
+  fullName: people[0].fullName,
+  primaryPosition: people[0].primaryPosition?.abbreviation || null,
+  batSide: people[0].batSide?.code || null,
+  pitchHand: people[0].pitchHand?.code || null,
+  currentTeamId: people[0].currentTeam?.id || null,
+  currentTeamName: people[0].currentTeam?.name || null
+};
 }
 async function getPlayerGameLog(playerId) {
   if (!playerId) return [];
