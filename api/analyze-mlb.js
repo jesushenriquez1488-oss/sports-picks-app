@@ -549,7 +549,13 @@ if (pitcherSeasonEra >= 5.25 || pitcherSeasonWhip >= 1.50 || pitcherRecentEra >=
   pitcherQualityFactor = 0.93;
 }
   let projection = 0;
-
+if (String(prop.player || "").toLowerCase().includes("wagner")) {
+  console.log("ANY WAGNER PROP", {
+    player: prop.player,
+    market: prop.market,
+    line: prop.line
+  });
+}
   if (market === "batter_hits") {
    const recentHits = playerSafeNum(recentAverages.hits);
 const seasonHits = seasonPerGame(seasonStats, "hits");
