@@ -1066,19 +1066,13 @@ if (playerTeamId === currentGameContext.homeTeamId) {
 }
 }
 
-const opponentTeamStats =
-  prop.homeTeam === currentGameContext?.homeTeam
-    ? awayTeamHittingStats
-    : homeTeamHittingStats;
-console.log("MATCHUP AUDIT", {
-  propPlayer: prop.player,
-  propMarket: prop.market,
-  propTeamHome: prop.homeTeam,
-  propTeamAway: prop.awayTeam,
-  awayPitcher: currentGameContext?.awayPitcher?.fullName,
-  homePitcher: currentGameContext?.homePitcher?.fullName,
-  assignedOpponentPitcher: opponentPitcher?.info?.fullName
-});
+let opponentTeamStats = null;
+
+if (playerInfo?.currentTeamId === currentGameContext?.homeTeamId) {
+  opponentTeamStats = awayTeamHittingStats;
+} else if (playerInfo?.currentTeamId === currentGameContext?.awayTeamId) {
+  opponentTeamStats = homeTeamHittingStats;
+}
 const result = calculatePlayerPropProjection({
   prop,
   playerInfo,
