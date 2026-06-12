@@ -1086,6 +1086,16 @@ if (currentGameContext?.homePlayerIds?.has(playerId)) {
 } else {
   opponentPitcher = null;
 }
+ console.log("PLAYER TEAM CHECK", {
+  player: prop.player,
+  playerId,
+  isHomeRoster: currentGameContext?.homePlayerIds?.has(playerId),
+  isAwayRoster: currentGameContext?.awayPlayerIds?.has(playerId),
+  opponentPitcher:
+    opponentPitcher?.info?.fullName ||
+    opponentPitcher?.fullName ||
+    "NONE"
+});
 }
 
 let opponentTeamStats = null;
