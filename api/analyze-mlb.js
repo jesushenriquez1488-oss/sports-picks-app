@@ -551,17 +551,29 @@ if (pitcherSeasonEra >= 5.25 || pitcherSeasonWhip >= 1.50 || pitcherRecentEra >=
   let projection = 0;
 
   if (market === "batter_hits") {
+   const recentHits = playerSafeNum(recentAverages.hits);
+const seasonHits = seasonPerGame(seasonStats, "hits");
+const splitHits = splitPerGame(handSplits, pitcherHand, "hits");
     projection = weightedPlayerProjection(
    playerSafeNum(recentAverages.hits),
       seasonPerGame(seasonStats, "hits"),
      splitPerGame(handSplits, pitcherHand, "hits")
     );
+  
 const advancedPitcherFactor =
   calculateAdvancedPitcherContactFactor(opponentPitcher);
 
 projection = projection * advancedPitcherFactor;
   }
-
+ if (prop.player === "Will Wagner") {
+  console.log("WILL WAGNER AUDIT", {
+    recentHits,
+    seasonHits,
+    splitHits,
+   advancedPitcherFactor,
+    projection
+  });
+}
   if (market === "batter_total_bases") {
     projection = weightedPlayerProjection(
       playerSafeNum(recentAverages.totalBases),
