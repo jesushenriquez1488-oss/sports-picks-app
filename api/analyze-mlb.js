@@ -653,7 +653,12 @@ if (market === "pitcher_strikeouts") {
   const kPerInning =
     recentKPerInning * 0.70 +
     seasonKPerInning * 0.30;
-
+console.log("K PROP MODEL", {
+  player: prop.player,
+  expectedInnings,
+  kPerInning,
+  lineupFactor: pitcherLineupFactor
+});
   projection = expectedInnings * kPerInning * pitcherLineupFactor;
 }
 
