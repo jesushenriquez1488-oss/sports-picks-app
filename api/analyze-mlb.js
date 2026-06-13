@@ -673,7 +673,155 @@ console.log("K PROP MODEL", {
     isPremium: confidence >= 75
   };
 }
+function aggregateTeamPitchingStat(splits, key) {
+  let total = 0;
+  let count = 0;
 
+  (splits || []).forEach(s => {
+    const v = Number(s?.stat?.[key]);
+    if (Number.isFinite(v)) {
+      total += v;
+      count++;
+    }
+  });
+
+  return { total, count };
+}
+
+function computeLeagueRatesFromSplits(splits) {
+  let totalInnings = 0;
+  let totalHits = 0;
+  let totalWalks = 0;
+  let totalHR = 0;
+  let totalER = 0;
+  let totalBF = 0;
+  let totalSO = 0;
+  let totalDoubles = 0;
+  let totalTriples = 0;
+  let totalAB = 0;
+  let totalHBP = 0;
+  let totalSF = 0;
+
+  (splits || []).forEach(s => {
+    const stat = s?.stat || {};
+    totalInnings += parseMLBInningsToOuts(stat.inningsPitched) / 3;
+    totalHits += playerSafeNum(stat.hits, 0);
+    totalWalks += playerSafeNum(stat.baseOnBalls, 0);
+    totalHR += playerSafeNum(stat.homeRuns, 0);
+    totalER += playerSafeNum(stat.earnedRuns, 0);
+    totalBF += playerSafeNum(stat.battersFaced, 0);
+    totalSO += playerSafeNum(stat.strikeOuts, 0);
+    totalDoubles += playerSafeNum(stat.doubles, 0);
+    totalTriples += playerSafeNum(stat.triples, 0);
+    totalAB += playerSafeNum(stat.atBats, 0);
+    totalHBP += playerSafeNum(stat.hitBatsmen ?? stat.hitByPitch, 0);
+    totalSF += playerSafeNum(stat.sacFlies, 0);
+  });
+
+  const safeInnings = Math.max(totalInnings, 1);
+
+  const singles = Math.max(0, totalHits - totalDoubles - totalTriples - totalHR);
+  const totalBases =
+    singles + totalDoubles * 2 + totalTriples * 3 + totalHR * 4;
+
+  const avgAllowed = totalAB > 0 ? totalHits / totalAB : 0;
+
+  const obpDenom = totalAB + totalWalks + totalHBP + totalSF;
+  const obpAllowed = obpDenom > 0
+    ? (totalHits + totalWalks + totalHBP) / obpDenom
+    : 0;
+
+  const kRate = totalBF > 0 ? totalSO / totalBF : 0;
+  const kPerGame = (totalSO / safeInnings) * 9 / 1;
+
+  return {
+    avgH9: (totalHits / safeInnings) * 9,
+    avgWHIP: (totalHits + totalWalks) / safeInnings,
+    avgAVG: avgAllowed,
+    avgOBP: obpAllowed,
+    avgHR9: (totalHR / safeInnings) * 9,
+    avgTB9: (totalBases / safeInnings) * 9,
+    avgKRate: kRate,
+    avgKPerGame: (totalSO / safeInnings) * 9,
+    avgERA: (totalER * 9) / safeInnings
+  };
+}
+
+const FALLBACK_LEAGUE_AVERAGES = {
+  avgH9: 8.6,
+  avgWHIP: 1.32,
+  avgAVG: 0.250,
+  avgOBP: 0.320,
+  avgHR9: 1.15,
+  avgTB9: 13.5,
+  avgKRate: 0.225,
+  avgKPerGame: 8.5,
+  avgERA: 4.20
+};
+
+async function getLeagueAverages() {
+  try {
+    const url =
+      `https://statsapi.mlb.com/api/v1/teams/stats?season=2026&group=pitching&stats=season&sportIds=1`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    const splits = data?.stats?.[0]?.splits || [];
+
+    if (!splits.length) {
+      console.log("LEAGUE AVERAGES: no splits, using fallback");
+      return FALLBACK_LEAGUE_AVERAGES;
+    }
+
+    const rates = computeLeagueRatesFromSplits(splits);
+
+    console.log("LEAGUE AVERAGES", rates);
+
+    return rates;
+  } catch (error) {
+    console.log("LEAGUE AVERAGES ERROR, using fallback", error.message);
+    return FALLBACK_LEAGUE_AVERAGES;
+  }
+}
+
+async function getTeamPitchingStaffStats(teamId) {
+  if (!teamId) return null;
+
+  try {
+    const url =
+      `https://statsapi.mlb.com/api/v1/teams/${teamId}/stats?stats=season&group=pitching&season=2026`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    const split = data?.stats?.[0]?.splits?.[0];
+    if (!split) return null;
+
+    return computeLeagueRatesFromSplits([split]);
+  } catch (error) {
+    return null;
+  }
+}
+
+function calculateDynamicPitcherFactor(pitcherRates, leagueAvg) {
+  if (!pitcherRates || !leagueAvg) return 1;
+
+  const ratios = [];
+
+  if (leagueAvg.avgH9 > 0) ratios.push(pitcherRates.avgH9 / leagueAvg.avgH9);
+  if (leagueAvg.avgWHIP > 0) ratios.push(pitcherRates.avgWHIP / leagueAvg.avgWHIP);
+  if (leagueAvg.avgAVG > 0) ratios.push(pitcherRates.avgAVG / leagueAvg.avgAVG);
+  if (leagueAvg.avgOBP > 0) ratios.push(pitcherRates.avgOBP / leagueAvg.avgOBP);
+  if (leagueAvg.avgHR9 > 0) ratios.push(pitcherRates.avgHR9 / leagueAvg.avgHR9);
+  if (leagueAvg.avgTB9 > 0) ratios.push(pitcherRates.avgTB9 / leagueAvg.avgTB9);
+
+  if (!ratios.length) return 1;
+
+  const avgRatio = ratios.reduce((a, b) => a + b, 0) / ratios.length;
+
+  return playerClamp(avgRatio, 0.75, 1.35);
+}
 function normalizeTeamName(name = "") {
   return String(name)
     .toLowerCase()
