@@ -512,7 +512,48 @@ function calculatePlayerPropProjection({
           pitcherHand: playerInfo?.pitchHand
         })
       : 1;
+function ratesFromSeasonStats(stat) {
+    if (!stat) return null;
 
+    const innings = Math.max(parseMLBInningsToOuts(stat.inningsPitched) / 3, 1);
+    const hits = playerSafeNum(stat.hits, 0);
+    const walks = playerSafeNum(stat.baseOnBalls, 0);
+    const hr = playerSafeNum(stat.homeRuns, 0);
+    const doubles = playerSafeNum(stat.doubles, 0);
+    const triples = playerSafeNum(stat.triples, 0);
+    const ab = playerSafeNum(stat.atBats, 0);
+    const hbp = playerSafeNum(stat.hitBatsmen ?? stat.hitByPitch, 0);
+    const sf = playerSafeNum(stat.sacFlies, 0);
+
+    const singles = Math.max(0, hits - doubles - triples - hr);
+    const totalBases = singles + doubles * 2 + triples * 3 + hr * 4;
+
+    const avgAllowed = ab > 0 ? hits / ab : 0;
+    const obpDenom = ab + walks + hbp + sf;
+    const obpAllowed = obpDenom > 0 ? (hits + walks + hbp) / obpDenom : 0;
+
+    return {
+      avgH9: (hits / innings) * 9,
+      avgWHIP: (hits + walks) / innings,
+      avgAVG: avgAllowed,
+      avgOBP: obpAllowed,
+      avgHR9: (hr / innings) * 9,
+      avgTB9: (totalBases / innings) * 9
+    };
+  }
+
+  const starterRates = ratesFromSeasonStats(opponentPitcher?.seasonStats);
+
+  const starterFactor = leagueAverages
+    ? calculateDynamicPitcherFactor(starterRates, leagueAverages)
+    : 1;
+
+  const staffFactor = leagueAverages
+    ? calculateDynamicPitcherFactor(opponentStaffRates, leagueAverages)
+    : 1;
+
+  const combinedPitcherFactor =
+    starterFactor * 0.70 + staffFactor * 0.30;
 
 
   let projection = 0;
@@ -524,10 +565,7 @@ function calculatePlayerPropProjection({
       splitPerGame(handSplits, pitcherHand, "hits")
     );
 
-    const advancedPitcherFactor =
-      calculateAdvancedPitcherContactFactor(opponentPitcher);
-
-    projection = projection * advancedPitcherFactor;
+    projection = projection * combinedPitcherFactor;
   }
 
   if (market === "batter_total_bases") {
