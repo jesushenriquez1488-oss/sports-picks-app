@@ -597,16 +597,17 @@ function ratesFromSeasonStats(stat) {
 
    projection = projection * combinedPitcherFactor;
   }
-
-  if (market === "batter_home_runs") {
+   if (market === "batter_home_runs") {
     projection = weightedPlayerProjection(
       playerSafeNum(recentAverages.homeRuns),
       seasonPerGame(seasonStats, "homeRuns"),
       splitPerGame(handSplits, pitcherHand, "homeRuns")
     );
 
-   projection = projection * combinedPitcherFactor;
+    projection = projection * combinedPitcherFactor;
+    projection = projection * playerSafeNum(venueParkFactor, 1);
   }
+  
 
 if (market === "pitcher_strikeouts") {
   const recentKs = playerSafeNum(recentAverages.strikeOuts, 0);
