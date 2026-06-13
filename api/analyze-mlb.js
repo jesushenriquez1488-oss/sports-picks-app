@@ -985,7 +985,7 @@ const oddsResponse = await fetch(
 const oddsData = await oddsResponse.json();
 
 const gameContext = await getMLBGameContextFromStatsAPI(selectedEvent);
-
+const leagueAverages = await getLeagueAverages();
 const allowedMarkets = [
   "batter_hits",
   "batter_total_bases",
@@ -1063,6 +1063,18 @@ const homeTeamHittingStats =
   gameContext?.homeTeamId
     ? await getTeamSeasonHittingStats(gameContext.homeTeamId)
     : null;
+ const awayStaffRates =
+  gameContext?.awayTeamId
+    ? await getTeamPitchingStaffStats(gameContext.awayTeamId)
+    : null;
+
+const homeStaffRates =
+  gameContext?.homeTeamId
+    ? await getTeamPitchingStaffStats(gameContext.homeTeamId)
+    : null;
+
+const venueParkFactor =
+  PARK_FACTORS_PLAYER_PROPS[gameContext?.venue?.name]?.factor || 1;
 for (const prop of uniqueProps) {
   const propLine = Number(prop.line);
 
