@@ -1244,71 +1244,17 @@ const {
 if (!recentAverages || !seasonStats) continue;
 const currentGameContext = gameContext;
 
-let opponentPitcher = null;
-
-if (currentGameContext) {
-
-  const awayPitcherInfo = currentGameContext?.awayPitcher?.id
-    ? await searchMLBPlayerByName(
-        currentGameContext.awayPitcher.fullName
-      )
-    : null;
-
-  const homePitcherInfo = currentGameContext?.homePitcher?.id
-    ? await searchMLBPlayerByName(
-        currentGameContext.homePitcher.fullName
-      )
-    : null;
-
-  const awayPitcherLogs = awayPitcherInfo?.id
-    ? await getPlayerGameLog(awayPitcherInfo.id)
-    : [];
-
-  const homePitcherLogs = homePitcherInfo?.id
-    ? await getPlayerGameLog(homePitcherInfo.id)
-    : [];
-
-  const awayPitcherStats = {
-    info: awayPitcherInfo,
-    recentAverages: calculateRecentPitcherAverages(
-      awayPitcherLogs
-    ),
-    seasonStats: awayPitcherInfo?.id
-      ? await getPlayerSeasonStats(awayPitcherInfo.id)
-      : null
-  };
-
-  const homePitcherStats = {
-    info: homePitcherInfo,
-    recentAverages: calculateRecentPitcherAverages(
-      homePitcherLogs
-    ),
-    seasonStats: homePitcherInfo?.id
-      ? await getPlayerSeasonStats(homePitcherInfo.id)
-      : null
-  };
-
-const playerTeamId = playerInfo?.currentTeamId;
-
 const playerId = playerInfo?.id;
 
+let opponentPitcher = null;
+let opponentStaffRates = null;
+
 if (currentGameContext?.homePlayerIds?.has(playerId)) {
-  opponentPitcher = awayPitcherStats;
+  opponentPitcher = awayPitcherFullStats;
+  opponentStaffRates = awayStaffRates;
 } else if (currentGameContext?.awayPlayerIds?.has(playerId)) {
-  opponentPitcher = homePitcherStats;
-} else {
-  opponentPitcher = null;
-}
- console.log("PLAYER TEAM CHECK", {
-  player: prop.player,
-  playerId,
-  isHomeRoster: currentGameContext?.homePlayerIds?.has(playerId),
-  isAwayRoster: currentGameContext?.awayPlayerIds?.has(playerId),
-  opponentPitcher:
-    opponentPitcher?.info?.fullName ||
-    opponentPitcher?.fullName ||
-    "NONE"
-});
+  opponentPitcher = homePitcherFullStats;
+  opponentStaffRates = homeStaffRates;
 }
 
 let opponentTeamStats = null;
@@ -1326,9 +1272,12 @@ const result = calculatePlayerPropProjection({
   handSplits,
   opponentPitcher,
   opponentTeamStats:
-  playerInfo?.primaryPosition === "P"
-    ? opponentTeamStats
-    : null
+    playerInfo?.primaryPosition === "P"
+      ? opponentTeamStats
+      : null,
+  opponentStaffRates,
+  leagueAverages,
+  venueParkFactor
 });
 
   if (!result) continue;
