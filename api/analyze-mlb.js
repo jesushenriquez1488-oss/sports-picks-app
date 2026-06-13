@@ -1109,6 +1109,42 @@ const homeStaffRates =
 
 const venueParkFactor =
   PARK_FACTORS_PLAYER_PROPS[gameContext?.venue?.name]?.factor || 1;
+ let awayPitcherFullStats = null;
+let homePitcherFullStats = null;
+
+if (gameContext) {
+  const awayPitcherInfo = gameContext?.awayPitcher?.id
+    ? await searchMLBPlayerByName(gameContext.awayPitcher.fullName)
+    : null;
+
+  const homePitcherInfo = gameContext?.homePitcher?.id
+    ? await searchMLBPlayerByName(gameContext.homePitcher.fullName)
+    : null;
+
+  const awayPitcherLogs = awayPitcherInfo?.id
+    ? await getPlayerGameLog(awayPitcherInfo.id)
+    : [];
+
+  const homePitcherLogs = homePitcherInfo?.id
+    ? await getPlayerGameLog(homePitcherInfo.id)
+    : [];
+
+  awayPitcherFullStats = {
+    info: awayPitcherInfo,
+    recentAverages: calculateRecentPitcherAverages(awayPitcherLogs),
+    seasonStats: awayPitcherInfo?.id
+      ? await getPlayerSeasonStats(awayPitcherInfo.id)
+      : null
+  };
+
+  homePitcherFullStats = {
+    info: homePitcherInfo,
+    recentAverages: calculateRecentPitcherAverages(homePitcherLogs),
+    seasonStats: homePitcherInfo?.id
+      ? await getPlayerSeasonStats(homePitcherInfo.id)
+      : null
+  };
+}
 for (const prop of uniqueProps) {
   const propLine = Number(prop.line);
 
