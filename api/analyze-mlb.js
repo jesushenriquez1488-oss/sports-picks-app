@@ -496,7 +496,10 @@ function calculatePlayerPropProjection({
   seasonStats,
   handSplits,
   opponentPitcher,
-  opponentTeamStats
+  opponentTeamStats,
+  opponentStaffRates,
+  leagueAverages,
+  venueParkFactor
 }) {
   const market = prop.market;
   const line = playerSafeNum(prop.line, 0);
@@ -510,24 +513,7 @@ function calculatePlayerPropProjection({
         })
       : 1;
 
-  const pitcherSeasonEra = playerSafeNum(opponentPitcher?.seasonStats?.era, 4.50);
-  const pitcherSeasonWhip = playerSafeNum(opponentPitcher?.seasonStats?.whip, 1.30);
-  const pitcherRecentEra =
-    playerSafeNum(opponentPitcher?.recentAverages?.earnedRuns, 2.5) /
-    Math.max(playerSafeNum(opponentPitcher?.recentAverages?.innings, 5), 1) *
-    9;
 
-  let pitcherQualityFactor = 1;
-
-  if (pitcherSeasonEra >= 5.25 || pitcherSeasonWhip >= 1.50 || pitcherRecentEra >= 5.50) {
-    pitcherQualityFactor = 1.18;
-  } else if (pitcherSeasonEra >= 4.50 || pitcherSeasonWhip >= 1.35 || pitcherRecentEra >= 4.75) {
-    pitcherQualityFactor = 1.10;
-  } else if (pitcherSeasonEra <= 2.75 || pitcherSeasonWhip <= 1.05 || pitcherRecentEra <= 2.75) {
-    pitcherQualityFactor = 0.86;
-  } else if (pitcherSeasonEra <= 3.40 || pitcherSeasonWhip <= 1.15 || pitcherRecentEra <= 3.40) {
-    pitcherQualityFactor = 0.93;
-  }
 
   let projection = 0;
 
