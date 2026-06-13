@@ -778,7 +778,41 @@ function computeLeagueRatesFromSplits(splits) {
     avgERA: (totalER * 9) / safeInnings
   };
 }
-
+const PARK_FACTORS_PLAYER_PROPS = {
+  "Coors Field": { factor: 1.18 },
+  "Great American Ball Park": { factor: 1.08 },
+  "Fenway Park": { factor: 1.06 },
+  "Yankee Stadium": { factor: 1.04 },
+  "Citizens Bank Park": { factor: 1.04 },
+  "Wrigley Field": { factor: 1.03 },
+  "Globe Life Field": { factor: 1.02 },
+  "Chase Field": { factor: 1.02 },
+  "Minute Maid Park": { factor: 1.01 },
+  "Truist Park": { factor: 1.01 },
+  "Oriole Park at Camden Yards": { factor: 1.00 },
+  "Kauffman Stadium": { factor: 1.00 },
+  "Angel Stadium": { factor: 1.00 },
+  "Comerica Park": { factor: 0.99 },
+  "Dodger Stadium": { factor: 0.99 },
+  "Busch Stadium": { factor: 0.98 },
+  "Progressive Field": { factor: 0.98 },
+  "Nationals Park": { factor: 0.98 },
+  "Target Field": { factor: 0.97 },
+  "American Family Field": { factor: 0.97 },
+  "Rogers Centre": { factor: 0.97 },
+  "loanDepot park": { factor: 0.96 },
+  "Citi Field": { factor: 0.96 },
+  "PNC Park": { factor: 0.96 },
+  "Guaranteed Rate Field": { factor: 0.96 },
+  "Rate Field": { factor: 0.96 },
+  "Tropicana Field": { factor: 0.95 },
+  "Oakland Coliseum": { factor: 0.94 },
+  "Sutter Health Park": { factor: 0.98 },
+  "T-Mobile Park": { factor: 0.93 },
+  "Oracle Park": { factor: 0.92 },
+  "Petco Park": { factor: 0.91 },
+  "Las Vegas Ballpark": { factor: 1.08 }
+};
 const FALLBACK_LEAGUE_AVERAGES = {
   avgH9: 8.6,
   avgWHIP: 1.32,
