@@ -575,10 +575,7 @@ function ratesFromSeasonStats(stat) {
       splitPerGame(handSplits, pitcherHand, "totalBases")
     );
 
-    const advancedPitcherFactor =
-      calculateAdvancedPitcherContactFactor(opponentPitcher);
-
-    projection = projection * advancedPitcherFactor;
+    projection = projection * combinedPitcherFactor;
   }
 
   if (market === "batter_rbis") {
@@ -588,10 +585,7 @@ function ratesFromSeasonStats(stat) {
       splitPerGame(handSplits, pitcherHand, "rbi")
     );
 
-    const advancedPitcherFactor =
-      calculateAdvancedPitcherContactFactor(opponentPitcher);
-
-    projection = projection * advancedPitcherFactor;
+   projection = projection * combinedPitcherFactor;
   }
 
   if (market === "batter_runs_scored") {
@@ -601,10 +595,7 @@ function ratesFromSeasonStats(stat) {
       splitPerGame(handSplits, pitcherHand, "runs")
     );
 
-    const advancedPitcherFactor =
-      calculateAdvancedPitcherContactFactor(opponentPitcher);
-
-    projection = projection * advancedPitcherFactor;
+   projection = projection * combinedPitcherFactor;
   }
 
   if (market === "batter_home_runs") {
@@ -614,10 +605,7 @@ function ratesFromSeasonStats(stat) {
       splitPerGame(handSplits, pitcherHand, "homeRuns")
     );
 
-    const advancedPitcherFactor =
-      calculateAdvancedPitcherContactFactor(opponentPitcher);
-
-    projection = projection * advancedPitcherFactor;
+   projection = projection * combinedPitcherFactor;
   }
 
 if (market === "pitcher_strikeouts") {
