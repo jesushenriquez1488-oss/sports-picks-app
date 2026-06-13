@@ -700,7 +700,10 @@ async function getMLBGameContextFromStatsAPI(event) {
     const away = normalizeTeamName(g?.teams?.away?.team?.name);
     const home = normalizeTeamName(g?.teams?.home?.team?.name);
 
-    return away === targetAway && home === targetHome;
+    return (
+      (away.includes(targetAway) || targetAway.includes(away)) &&
+      (home.includes(targetHome) || targetHome.includes(home))
+    );
   });
 
   if (!match) return null;
