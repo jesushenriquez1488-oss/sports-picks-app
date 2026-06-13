@@ -1860,7 +1860,7 @@ function calculateExpectedRuns({
   opponentBullpen * 0.55;
  
   const teamAllowedAdjustment =
-    opponentTeamAllowed * 0.10;
+    opponentTeamAllowed * 0.00001;
 
   const expectedRuns =
     starterSegment * starterShare +
