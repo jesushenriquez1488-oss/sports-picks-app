@@ -632,29 +632,48 @@ if (market === "pitcher_strikeouts") {
   const kPerInning =
     recentKPerInning * 0.70 +
     seasonKPerInning * 0.30;
-console.log("K PROP MODEL", {
-  player: prop.player,
-  expectedInnings,
-  kPerInning,
-  lineupFactor: pitcherLineupFactor
-});
-  projection = expectedInnings * kPerInning * pitcherLineupFactor;
+
+  const opponentKRate =
+    opponentTeamStats?.gamesPlayed > 0 && opponentTeamStats?.plateAppearances > 0
+      ? playerSafeNum(opponentTeamStats.strikeOuts, 0) / playerSafeNum(opponentTeamStats.plateAppearances, 1)
+      : null;
+
+  const leagueKRate = leagueAverages?.avgKRate || 0.225;
+
+  const dynamicLineupFactor =
+    opponentKRate !== null
+      ? playerClamp(opponentKRate / leagueKRate, 0.82, 1.22)
+      : pitcherLineupFactor;
+
+  projection = expectedInnings * kPerInning * dynamicLineupFactor;
 }
 
-  if (market === "pitcher_outs") {
+if (market === "pitcher_outs") {
     const recentOuts = playerSafeNum(recentAverages.outs);
-    const seasonInnings = playerSafeNum(seasonStats?.inningsPitched, 0);
+    const seasonOutsTotal = parseMLBInningsToOuts(seasonStats?.inningsPitched);
     const gamesStarted = playerSafeNum(seasonStats?.gamesStarted, 0);
 
     const seasonOuts =
       gamesStarted > 0
-        ? (seasonInnings * 3) / gamesStarted
+        ? seasonOutsTotal / gamesStarted
         : recentOuts;
 
     projection = recentOuts * 0.65 + seasonOuts * 0.35;
-    projection = projection * playerClamp(pitcherLineupFactor, 0.92, 1.08);
-  }
 
+    const opponentKRate =
+      opponentTeamStats?.gamesPlayed > 0 && opponentTeamStats?.plateAppearances > 0
+        ? playerSafeNum(opponentTeamStats.strikeOuts, 0) / playerSafeNum(opponentTeamStats.plateAppearances, 1)
+        : null;
+
+    const leagueKRate = leagueAverages?.avgKRate || 0.225;
+
+    const outsFactor =
+      opponentKRate !== null
+        ? playerClamp(leagueKRate / opponentKRate, 0.88, 1.12)
+        : 1;
+
+    projection = projection * outsFactor;
+  }
   projection = Number(projection.toFixed(2));
 
   const listedSide = String(prop.side || "").toUpperCase();
