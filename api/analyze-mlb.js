@@ -1065,8 +1065,14 @@ const bookPriority = [
 const uniqueMap = new Map();
 
 rawProps.forEach(prop => {
-  const key = `${prop.player}|${prop.market}|${prop.line}`;
+  const dedupeByMarketOnly = [
+    "pitcher_outs",
+    "pitcher_strikeouts"
+  ].includes(prop.market);
 
+  const key = dedupeByMarketOnly
+    ? `${prop.player}|${prop.market}|${prop.side}`
+    : `${prop.player}|${prop.market}|${prop.side}|${prop.line}`;
   const current = uniqueMap.get(key);
 
   if (!current) {
