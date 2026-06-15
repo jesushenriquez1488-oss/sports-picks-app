@@ -725,10 +725,7 @@ side: shouldHide ? "Suscríbete para desbloquear" : pick.side || null
 // Luego dentro del handler, después de los headers CORS y
 // antes del try {, agregar:
 //
-//   const mode = req.query.mode || req.body?.mode;
-//   if (mode === "nfl-player-props") {
-//     return await handleNFLPlayerProps(req, res);
-//   }
+
 // ============================================================
  
 // ---- Utilidades ----
