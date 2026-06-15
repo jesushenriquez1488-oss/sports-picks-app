@@ -717,7 +717,882 @@ side: shouldHide ? "Suscríbete para desbloquear" : pick.side || null
     totalPick: sanitizePick(picks.totalPick)
   };
 }
-
+// ============================================================
+// NFL PLAYER PROPS — CASHEDGE FASE 1
+// Pegar este bloque COMPLETO justo ANTES de:
+//   module.exports = async function handler(req, res) {
+//
+// Luego dentro del handler, después de los headers CORS y
+// antes del try {, agregar:
+//
+//   const mode = req.query.mode || req.body?.mode;
+//   if (mode === "nfl-player-props") {
+//     return await handleNFLPlayerProps(req, res);
+//   }
+// ============================================================
+ 
+// ---- Utilidades ----
+ 
+function nflSafeNum(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+ 
+function nflClamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+ 
+// ---- Líneas mínimas anti-trivial ----
+const NFL_MIN_LINES = {
+  player_pass_yds:       150,
+  player_rush_yds:        25,
+  player_rush_attempts:    8,
+  player_receptions:     2.5,
+  player_reception_yds:   20
+};
+ 
+// ---- Confidence por mercado ----
+// Escala exacta del documento CASHEDGE NFL FASE 1
+function calculateNFLConfidence(market, edge) {
+  const e = nflSafeNum(edge);
+  if (e <= 0) return 0;
+ 
+  // Interpolación lineal entre puntos fijos
+  function interpolate(points, e) {
+    if (e < points[0][0]) return 0;
+    if (e >= points[points.length - 1][0]) return points[points.length - 1][1];
+    for (let i = 0; i < points.length - 1; i++) {
+      const [x0, y0] = points[i];
+      const [x1, y1] = points[i + 1];
+      if (e >= x0 && e < x1) {
+        return Number((y0 + ((e - x0) / (x1 - x0)) * (y1 - y0)).toFixed(1));
+      }
+    }
+    return 0;
+  }
+ 
+  const scales = {
+    player_pass_yds: [
+      [15, 75], [20, 80], [25, 85], [30, 90], [35, 95], [40, 99]
+    ],
+    player_rush_attempts: [
+      [2.0, 75], [3.0, 85], [4.0, 92], [5.0, 99]
+    ],
+    player_receptions: [
+      [0.8, 75], [1.2, 82], [1.6, 88], [2.0, 94], [2.5, 99]
+    ],
+    player_reception_yds: [
+      [10, 75], [15, 82], [20, 90], [25, 95], [30, 99]
+    ],
+    player_rush_yds: [
+      [10, 75], [15, 82], [20, 90], [25, 95], [30, 99]
+    ]
+  };
+ 
+  const scale = scales[market];
+  if (!scale) return 0;
+ 
+  return interpolate(scale, e);
+}
+ 
+// ---- ESPN Helpers ----
+ 
+async function espnFetchNFL(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`ESPN ${res.status}: ${url}`);
+  return res.json();
+}
+ 
+// ESPN team ID por nombre de equipo NFL
+function findESPNTeamId(teamName) {
+  const NFL_ESPN_IDS = {
+    "arizona cardinals":    "22",
+    "atlanta falcons":       "1",
+    "baltimore ravens":     "33",
+    "buffalo bills":         "2",
+    "carolina panthers":    "29",
+    "chicago bears":         "3",
+    "cincinnati bengals":    "4",
+    "cleveland browns":      "5",
+    "dallas cowboys":        "6",
+    "denver broncos":        "7",
+    "detroit lions":         "8",
+    "green bay packers":     "9",
+    "houston texans":       "34",
+    "indianapolis colts":   "11",
+    "jacksonville jaguars": "30",
+    "kansas city chiefs":   "12",
+    "las vegas raiders":    "13",
+    "los angeles chargers": "24",
+    "los angeles rams":     "14",
+    "miami dolphins":       "15",
+    "minnesota vikings":    "16",
+    "new england patriots": "17",
+    "new orleans saints":   "18",
+    "new york giants":      "19",
+    "new york jets":        "20",
+    "philadelphia eagles":  "21",
+    "pittsburgh steelers":  "23",
+    "san francisco 49ers":  "25",
+    "seattle seahawks":     "26",
+    "tampa bay buccaneers": "27",
+    "tennessee titans":     "10",
+    "washington commanders":"28"
+  };
+ 
+  const clean = String(teamName || "").toLowerCase().trim();
+  if (NFL_ESPN_IDS[clean]) return NFL_ESPN_IDS[clean];
+ 
+  for (const [key, id] of Object.entries(NFL_ESPN_IDS)) {
+    const parts = key.split(" ");
+    const mascot = parts[parts.length - 1];
+    const city = parts.slice(0, -1).join(" ");
+    if (clean.includes(mascot) || clean.includes(city)) return id;
+  }
+ 
+  return null;
+}
+ 
+// Últimos N game IDs completados de un equipo
+async function getNFLTeamRecentGameIds(espnTeamId, season, count = 5) {
+  const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${espnTeamId}/schedule?season=${season}`;
+  const data = await espnFetchNFL(url);
+  const events = data?.events || [];
+ 
+  return events
+    .filter(e => {
+      const comp = e?.competitions?.[0];
+      return (
+        comp?.status?.type?.state === "post" ||
+        comp?.status?.type?.completed === true
+      );
+    })
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, count)
+    .map(e => e.id);
+}
+ 
+// Stats de un jugador específico en un boxscore
+async function getNFLPlayerStatsFromBoxscore(gameId, playerName) {
+  const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
+  const data = await espnFetchNFL(url);
+ 
+  const result = {
+    passingYards:    0,
+    rushingYards:    0,
+    rushingCarries:  0,
+    receivingYards:  0,
+    receptions:      0,
+    targets:         0,
+    totalPlays:      0,
+    found:           false
+  };
+ 
+  const cleanName = n => String(n || "").toLowerCase().trim();
+  const targetClean = cleanName(playerName);
+  const targetLastName = targetClean.split(" ").slice(-1)[0];
+ 
+  const allPlayers = data?.boxscore?.players || [];
+ 
+  for (const teamBlock of allPlayers) {
+    for (const statGroup of teamBlock?.statistics || []) {
+      const category = String(statGroup?.name || "").toLowerCase();
+      const keys = statGroup?.keys || [];
+      const athletes = statGroup?.athletes || [];
+ 
+      for (const entry of athletes) {
+        const athleteName = cleanName(
+          entry?.athlete?.displayName || entry?.athlete?.shortName || ""
+        );
+ 
+        const matchFull = athleteName.includes(targetClean) || targetClean.includes(athleteName);
+        const matchLast = athleteName.includes(targetLastName);
+        if (!matchFull && !matchLast) continue;
+ 
+        const stats = entry?.stats || [];
+ 
+        if (category.includes("passing")) {
+          const idx = keys.indexOf("passingYards");
+          if (idx >= 0) result.passingYards = nflSafeNum(stats[idx]);
+          result.found = true;
+        }
+ 
+        if (category.includes("rushing")) {
+          const yIdx = keys.indexOf("rushingYards");
+          const cIdx = keys.indexOf("carries");
+          if (yIdx >= 0) result.rushingYards  = nflSafeNum(stats[yIdx]);
+          if (cIdx >= 0) result.rushingCarries = nflSafeNum(stats[cIdx]);
+          result.found = true;
+        }
+ 
+        if (category.includes("receiving")) {
+          const yIdx = keys.indexOf("receivingYards");
+          const rIdx = keys.indexOf("receptions");
+          const tIdx = keys.indexOf("receivingTargets");
+          if (yIdx >= 0) result.receivingYards = nflSafeNum(stats[yIdx]);
+          if (rIdx >= 0) result.receptions     = nflSafeNum(stats[rIdx]);
+          if (tIdx >= 0) result.targets         = nflSafeNum(stats[tIdx]);
+          result.found = true;
+        }
+      }
+    }
+  }
+ 
+  // Total plays para PaceScore
+  const teamStats = data?.teamStats || [];
+  for (const ts of teamStats) {
+    for (const cat of ts?.statistics || []) {
+      if (String(cat?.name || "").toLowerCase().includes("totaloffensiveplays")) {
+        result.totalPlays += nflSafeNum(cat?.value);
+      }
+    }
+  }
+ 
+  return result;
+}
+ 
+// Stats de temporada del equipo ESPN (offense + defense)
+async function getNFLTeamSeasonStats(espnTeamId, season) {
+  const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${espnTeamId}/statistics?season=${season}`;
+  const data = await espnFetchNFL(url);
+ 
+  function findOff(name) {
+    const groups = data?.results?.stats?.categories || data?.stats?.categories || [];
+    for (const cat of groups)
+      for (const s of cat?.stats || [])
+        if (s.name === name) return nflSafeNum(s.perGameValue ?? s.value);
+    return 0;
+  }
+ 
+  function findDef(name) {
+    const groups =
+      data?.results?.stats?.opponent ||
+      data?.results?.opponent ||
+      data?.stats?.opponent || [];
+    for (const cat of groups)
+      for (const s of cat?.stats || [])
+        if (s.name === name) return nflSafeNum(s.perGameValue ?? s.value);
+    return 0;
+  }
+ 
+  return {
+    // Offense
+    passingYardsPerGame:    findOff("netPassingYardsPerGame"),
+    rushingYardsPerGame:    findOff("rushingYardsPerGame"),
+    passAttemptsPerGame:    findOff("passAttemptsPerGame"),
+    rushAttemptsPerGame:    findOff("rushAttemptsPerGame"),
+    totalPlaysPerGame:      findOff("totalOffensivePlays"),
+    yardsPerPassAttempt:    findOff("yardsPerPassAttempt"),
+ 
+    // Defense (opponent allowed)
+    oppPassYardsAllowed:    findDef("netPassingYardsPerGame"),
+    oppRushYardsAllowed:    findDef("rushingYardsPerGame"),
+    oppYardsPerCarryAllowed:findDef("yardsPerRushAttempt"),
+    oppYardsPerPassAllowed: findDef("yardsPerPassAttempt"),
+    oppPointsAllowed:       findDef("totalPointsPerGame"),
+    oppPassTDAllowed:       findDef("passingTouchdowns"),
+    oppSacksPerGame:        findDef("sacks"),
+    oppReceptionsAllowed:   findDef("receptions"),
+    oppRecYardsAllowed:     findDef("receivingYards")
+  };
+}
+ 
+// ---- OpponentDefenseScores por mercado ----
+ 
+// QB: 35% YPA Allowed + 30% PassYds + 15% PassTD + 10% Sack inv + 10% Explosive
+function calcOppPassDefenseScore(oppStats) {
+  const leagueYPA      = 7.2;
+  const leaguePassYds  = 240;
+  const leaguePassTD   = 1.5;
+  const leagueSacks    = 2.5;
+ 
+  const ypa     = nflSafeNum(oppStats?.oppYardsPerPassAllowed, leagueYPA);
+  const passYds = nflSafeNum(oppStats?.oppPassYardsAllowed, leaguePassYds);
+  const passTD  = nflSafeNum(oppStats?.oppPassTDAllowed, leaguePassTD);
+  const sacks   = nflSafeNum(oppStats?.oppSacksPerGame, leagueSacks);
+ 
+  // Score > 1 = defensa mala (favorece al QB)
+  const ypaRatio     = ypa / leagueYPA;
+  const passYdsRatio = passYds / leaguePassYds;
+  const passTDRatio  = passTD / leaguePassTD;
+  const sackInv      = leagueSacks / Math.max(sacks, 0.5);  // inverso: menos sacks = mejor para QB
+  const explosive    = ypaRatio;  // proxy: YPA alto = más explosivas
+ 
+  const score =
+    ypaRatio     * 0.35 +
+    passYdsRatio * 0.30 +
+    passTDRatio  * 0.15 +
+    sackInv      * 0.10 +
+    explosive    * 0.10;
+ 
+  return nflClamp(score, 0.70, 1.40);
+}
+ 
+// RB Rush Defense: 30% RushYds + 25% YPC + 20% SuccessRate(proxy) + 15% EPA(proxy) + 10% Explosive
+function calcOppRunDefenseScore(oppStats) {
+  const leagueRushYds = 115;
+  const leagueYPC     = 4.3;
+ 
+  const rushYds = nflSafeNum(oppStats?.oppRushYardsAllowed, leagueRushYds);
+  const ypc     = nflSafeNum(oppStats?.oppYardsPerCarryAllowed, leagueYPC);
+ 
+  const rushYdsRatio = rushYds / leagueRushYds;
+  const ypcRatio     = ypc / leagueYPC;
+  // Proxies para success rate, EPA y explosive usando YPC y RushYds
+  const successProxy  = ypcRatio;
+  const epaProxy      = rushYdsRatio;
+  const explosiveProxy= ypcRatio;
+ 
+  const score =
+    rushYdsRatio   * 0.30 +
+    ypcRatio       * 0.25 +
+    successProxy   * 0.20 +
+    epaProxy       * 0.15 +
+    explosiveProxy * 0.10;
+ 
+  return nflClamp(score, 0.70, 1.35);
+}
+ 
+// WR Catch Defense: 35% RecAllowed + 25% CompPct(proxy) + 20% TargetsToPos(proxy) + 10% Slot + 10% LB
+function calcOppCatchDefenseScore(oppStats) {
+  const leagueRec    = 22;
+  const leagueRecYds = 240;
+ 
+  const recAllowed = nflSafeNum(oppStats?.oppReceptionsAllowed, leagueRec);
+  const recYds     = nflSafeNum(oppStats?.oppRecYardsAllowed, leagueRecYds);
+ 
+  const recRatio    = recAllowed / leagueRec;
+  const recYdsRatio = recYds / leagueRecYds;
+ 
+  const score =
+    recRatio    * 0.35 +
+    recYdsRatio * 0.25 +
+    recRatio    * 0.20 +   // proxy targets to position
+    recRatio    * 0.10 +   // slot weakness proxy
+    recYdsRatio * 0.10;    // LB/Safety coverage proxy
+ 
+  return nflClamp(score, 0.75, 1.30);
+}
+ 
+// WR Receiving Yards Defense: 30% RecYds + 20% YPR + 20% Explosive + 15% CompPct + 15% Slot/Outside
+function calcOppRecYardsDefenseScore(oppStats) {
+  const leagueRecYds = 240;
+  const leagueYPR    = 11.0;
+ 
+  const recYds = nflSafeNum(oppStats?.oppRecYardsAllowed, leagueRecYds);
+  const ypr    = recYds / Math.max(nflSafeNum(oppStats?.oppReceptionsAllowed, 22), 1);
+ 
+  const recYdsRatio = recYds / leagueRecYds;
+  const yprRatio    = ypr / leagueYPR;
+ 
+  const score =
+    recYdsRatio * 0.30 +
+    yprRatio    * 0.20 +
+    recYdsRatio * 0.20 +  // explosive proxy
+    recYdsRatio * 0.15 +  // comp pct proxy
+    recYdsRatio * 0.15;   // slot/outside proxy
+ 
+  return nflClamp(score, 0.75, 1.35);
+}
+ 
+// ---- GameScript y SpreadScore ----
+ 
+// SpreadScore = spread crudo de Vegas (número directo, ej: -3.5 = favorito por 3.5)
+// GameScriptScore = win probability implícita del moneyline (favorito > 0.5)
+function getGameScriptFromMoneyline(moneylineOdds) {
+  if (!moneylineOdds || !Number.isFinite(Number(moneylineOdds))) return 0.5;
+  const ml = Number(moneylineOdds);
+  return ml > 0
+    ? 100 / (ml + 100)
+    : Math.abs(ml) / (Math.abs(ml) + 100);
+}
+ 
+// ---- Fórmulas de proyección ----
+ 
+// 1. QB Passing Yards
+function projectQBPassingYards({
+  recent5,
+  seasonAvg,
+  oppPassDefenseScore,
+  paceScore,
+  teamPassRateScore,
+  gameScriptScore
+}) {
+  // OpponentPassDefenseScore ya viene normalizado (>1 = defensa mala)
+  const oppComponent = recent5 * oppPassDefenseScore;
+ 
+  return (
+    recent5           * 0.35 +
+    seasonAvg         * 0.20 +
+    oppComponent      * 0.25 +
+    paceScore         * 0.10 +
+    teamPassRateScore * 0.05 +
+    gameScriptScore   * 0.05
+  );
+}
+ 
+// 2. RB Rushing Attempts
+function projectRBRushingAttempts({
+  recent5Carries,
+  seasonCarries,
+  gameScriptPositiveScore,
+  spreadScore,
+  backfieldShareScore,
+  paceScore
+}) {
+  return (
+    recent5Carries          * 0.35 +
+    seasonCarries           * 0.20 +
+    gameScriptPositiveScore * 0.15 +
+    spreadScore             * 0.15 +
+    backfieldShareScore     * 0.10 +
+    paceScore               * 0.05
+  );
+}
+ 
+// 3. WR/TE Receptions
+function projectWRReceptions({
+  recent5Rec,
+  seasonRec,
+  recentTargetsScore,
+  oppCatchDefenseScore,
+  teamPassRateScore,
+  gameScriptScore
+}) {
+  const oppComponent = recent5Rec * oppCatchDefenseScore;
+ 
+  return (
+    recent5Rec        * 0.30 +
+    seasonRec         * 0.15 +
+    recentTargetsScore* 0.25 +
+    oppComponent      * 0.15 +
+    teamPassRateScore * 0.10 +
+    gameScriptScore   * 0.05
+  );
+}
+ 
+// 4. WR/TE Receiving Yards
+function projectWRReceivingYards({
+  recent5Yds,
+  seasonYds,
+  recentTargetsScore,
+  oppRecYardsDefenseScore,
+  coverageMatchupScore,
+  airYardsScore,
+  paceScore
+}) {
+  const oppComponent = recent5Yds * oppRecYardsDefenseScore;
+ 
+  return (
+    recent5Yds             * 0.30 +
+    seasonYds              * 0.15 +
+    recentTargetsScore     * 0.20 +
+    oppComponent           * 0.15 +
+    coverageMatchupScore   * 0.10 +
+    airYardsScore          * 0.05 +
+    paceScore              * 0.05
+  );
+}
+ 
+// 5. RB Rushing Yards
+function projectRBRushingYards({
+  recent5Yds,
+  seasonYds,
+  recentCarriesScore,
+  oppRunDefenseScore,
+  gameScriptPositiveScore,
+  paceScore
+}) {
+  const oppComponent = recent5Yds * oppRunDefenseScore;
+ 
+  return (
+    recent5Yds              * 0.30 +
+    seasonYds               * 0.15 +
+    recentCarriesScore      * 0.20 +
+    oppComponent            * 0.20 +
+    gameScriptPositiveScore * 0.10 +
+    paceScore               * 0.05
+  );
+}
+ 
+// ---- Handler NFL Player Props ----
+ 
+async function handleNFLPlayerProps(req, res) {
+  const ODDS_API_KEY = process.env.ODDS_API_KEY;
+  const NFL_SEASON   = 2025;
+ 
+  // 1. Eventos NFL
+  const eventsRes = await fetch(
+    `https://api.the-odds-api.com/v4/sports/americanfootball_nfl/events?apiKey=${ODDS_API_KEY}`
+  );
+  const events = await eventsRes.json();
+ 
+  if (!events?.length) {
+    return res.status(200).json({
+      ok: true, mode: "nfl-player-props", noPlay: true,
+      reason: "No hay eventos NFL disponibles"
+    });
+  }
+ 
+  const selectedEventId = req.query.eventId || req.body?.eventId || null;
+  const force = req.query.force === "true" || req.body?.force === true;
+ 
+  const selectedEvent = selectedEventId
+    ? events.find(e => e.id === selectedEventId)
+    : events[0];
+ 
+  if (!selectedEvent?.id) {
+    return res.status(200).json({
+      ok: true, mode: "nfl-player-props", noPlay: true,
+      reason: "Evento no encontrado"
+    });
+  }
+ 
+  const today = new Date().toISOString().split("T")[0];
+ 
+  // Cache
+  if (!force) {
+    const { data: cached } = await supabaseAdmin
+      .from("player_props_cache")
+      .select("analysis_json")
+      .eq("sport", "nfl")
+      .eq("event_id", selectedEvent.id)
+      .eq("game_date", today)
+      .maybeSingle();
+ 
+    if (cached?.analysis_json) {
+      return res.status(200).json({ ...cached.analysis_json, cached: true });
+    }
+  }
+ 
+  // 2. Player props de The Odds API
+  const propsRes = await fetch(
+    `https://api.the-odds-api.com/v4/sports/americanfootball_nfl/events/${selectedEvent.id}/odds` +
+    `?apiKey=${ODDS_API_KEY}&regions=us` +
+    `&markets=player_pass_yds,player_rush_yds,player_rush_attempts,player_receptions,player_reception_yds` +
+    `&oddsFormat=decimal`
+  );
+  const oddsData = await propsRes.json();
+ 
+  // Obtener moneyline para GameScriptScore
+  const mlRes = await fetch(
+    `https://api.the-odds-api.com/v4/sports/americanfootball_nfl/events/${selectedEvent.id}/odds` +
+    `?apiKey=${ODDS_API_KEY}&regions=us&markets=h2h,spreads&oddsFormat=american`
+  );
+  const mlData = await mlRes.json();
+ 
+  // Extraer spread y moneyline del primer bookmaker disponible
+  let awayMoneyline = null, homeMoneyline = null;
+  let awaySpread = null, homeSpread = null;
+ 
+  for (const bk of mlData?.bookmakers || []) {
+    for (const mkt of bk?.markets || []) {
+      if (mkt.key === "h2h") {
+        for (const o of mkt?.outcomes || []) {
+          if (o.name === selectedEvent.away_team) awayMoneyline = Number(o.price);
+          if (o.name === selectedEvent.home_team) homeMoneyline = Number(o.price);
+        }
+      }
+      if (mkt.key === "spreads") {
+        for (const o of mkt?.outcomes || []) {
+          if (o.name === selectedEvent.away_team) awaySpread = Number(o.point);
+          if (o.name === selectedEvent.home_team) homeSpread = Number(o.point);
+        }
+      }
+    }
+    if (awayMoneyline && homeMoneyline) break;
+  }
+ 
+  // Win probabilities implícitas
+  const awayWinProb = getGameScriptFromMoneyline(awayMoneyline);
+  const homeWinProb = getGameScriptFromMoneyline(homeMoneyline);
+ 
+  // 3. Extraer props — solo OVER, solo líneas >= mínimo
+  const bookPriority = ["DraftKings","FanDuel","BetMGM","Caesars","Bovada","BetRivers"];
+  const rawProps = [];
+ 
+  for (const bk of oddsData?.bookmakers || []) {
+    for (const mkt of bk?.markets || []) {
+      if (!NFL_MIN_LINES[mkt.key]) continue;
+      for (const o of mkt?.outcomes || []) {
+        if (String(o.name || "").toUpperCase() !== "OVER") continue;
+        const line = nflSafeNum(o.point);
+        if (line < NFL_MIN_LINES[mkt.key]) continue;
+        rawProps.push({
+          player:    o.description,
+          market:    mkt.key,
+          side:      "OVER",
+          line,
+          odds:      o.price,
+          bookmaker: bk.title
+        });
+      }
+    }
+  }
+ 
+  // Deduplicar por jugador+mercado+línea, priorizar bookmaker
+  const uniqueMap = new Map();
+  for (const prop of rawProps) {
+    const key = `${prop.player}|${prop.market}|${prop.line}`;
+    const cur = uniqueMap.get(key);
+    if (!cur) { uniqueMap.set(key, prop); continue; }
+    const curR = bookPriority.indexOf(cur.bookmaker);
+    const newR = bookPriority.indexOf(prop.bookmaker);
+    if ((newR === -1 ? 999 : newR) < (curR === -1 ? 999 : curR)) uniqueMap.set(key, prop);
+  }
+ 
+  const uniqueProps = Array.from(uniqueMap.values()).slice(0, 100);
+ 
+  if (!uniqueProps.length) {
+    return res.status(200).json({
+      ok: true, mode: "nfl-player-props", noPlay: true,
+      reason: "No hay player props NFL disponibles aún. Aparecen ~1-2 semanas antes del juego.",
+      game: `${selectedEvent.away_team} @ ${selectedEvent.home_team}`,
+      gameDate: today
+    });
+  }
+ 
+  // 4. ESPN IDs y stats de temporada
+  const awayESPNId = findESPNTeamId(selectedEvent.away_team);
+  const homeESPNId = findESPNTeamId(selectedEvent.home_team);
+ 
+  const [awayTeamStats, homeTeamStats] = await Promise.all([
+    awayESPNId ? getNFLTeamSeasonStats(awayESPNId, NFL_SEASON).catch(() => null) : Promise.resolve(null),
+    homeESPNId ? getNFLTeamSeasonStats(homeESPNId, NFL_SEASON).catch(() => null) : Promise.resolve(null)
+  ]);
+ 
+  // 5. Últimos 5 game IDs por equipo
+  const [awayGameIds, homeGameIds] = await Promise.all([
+    awayESPNId ? getNFLTeamRecentGameIds(awayESPNId, NFL_SEASON, 5).catch(() => []) : Promise.resolve([]),
+    homeESPNId ? getNFLTeamRecentGameIds(homeESPNId, NFL_SEASON, 5).catch(() => []) : Promise.resolve([])
+  ]);
+ 
+  // Cache de boxscores
+  const boxCache = new Map();
+  async function getBoxscore(gameId, playerName) {
+    const k = `${gameId}|${playerName}`;
+    if (boxCache.has(k)) return boxCache.get(k);
+    try {
+      const r = await getNFLPlayerStatsFromBoxscore(gameId, playerName);
+      boxCache.set(k, r);
+      return r;
+    } catch { return null; }
+  }
+ 
+  // 6. Analizar cada prop
+  const analyzedProps = [];
+ 
+  for (const prop of uniqueProps) {
+    const { player, market, line } = prop;
+ 
+    // Intentar away primero, luego home
+    let gameIds    = awayGameIds;
+    let teamStats  = awayTeamStats;
+    let oppStats   = homeTeamStats;
+    let winProb    = awayWinProb;
+    let spreadVal  = nflSafeNum(awaySpread, 0);
+ 
+    const playerGameStats = [];
+    for (const gid of gameIds.slice(0, 5)) {
+      const s = await getBoxscore(gid, player);
+      if (s?.found) playerGameStats.push(s);
+    }
+ 
+    // Si no encontró datos en away, intentar home
+    if (!playerGameStats.length && homeGameIds.length) {
+      gameIds   = homeGameIds;
+      teamStats = homeTeamStats;
+      oppStats  = awayTeamStats;
+      winProb   = homeWinProb;
+      spreadVal = nflSafeNum(homeSpread, 0);
+ 
+      for (const gid of gameIds.slice(0, 5)) {
+        const s = await getBoxscore(gid, player);
+        if (s?.found) playerGameStats.push(s);
+      }
+    }
+ 
+    if (!playerGameStats.length) continue;
+ 
+    // Promedios recientes
+    const avgStat = (key) => {
+      const vals = playerGameStats.map(s => nflSafeNum(s[key]));
+      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+    };
+ 
+    const recent5PassYds = avgStat("passingYards");
+    const recent5RushYds = avgStat("rushingYards");
+    const recent5Carries = avgStat("rushingCarries");
+    const recent5RecYds  = avgStat("receivingYards");
+    const recent5Rec     = avgStat("receptions");
+    const recent5Targets = avgStat("targets");
+    const avgTotalPlays  = avgStat("totalPlays");
+ 
+    // Scores de contexto
+    const leaguePlays   = 62;
+    const paceScore     = (avgTotalPlays > 0 ? avgTotalPlays : nflSafeNum(teamStats?.totalPlaysPerGame, leaguePlays)) / leaguePlays;
+ 
+    const passAttempts  = nflSafeNum(teamStats?.passAttemptsPerGame, 35);
+    const totalPlays    = nflSafeNum(teamStats?.totalPlaysPerGame, leaguePlays);
+    const teamPassRate  = totalPlays > 0 ? passAttempts / totalPlays : 0.56;
+    const teamPassRateScore = teamPassRate / 0.56; // normalizado vs liga
+ 
+    // GameScript = win probability (fuente: moneyline)
+    const gameScriptScore = winProb;
+ 
+    // GameScriptPositive para RB (favorito = más carries)
+    // favorable cuando winProb > 0.5
+    const gameScriptPositiveScore = winProb > 0.5
+      ? recent5Carries * (1 + (winProb - 0.5) * 0.4)
+      : recent5Carries * (1 - (0.5 - winProb) * 0.3);
+ 
+    // SpreadScore para RB (fuente: spread crudo Vegas, distinto de moneyline)
+    // favorito = spread negativo → más carries
+    const spreadScore = spreadVal < 0
+      ? recent5Carries * (1 + Math.abs(spreadVal) * 0.02)
+      : recent5Carries * (1 - spreadVal * 0.015);
+ 
+    // BackfieldShare proxy (sin datos de roster, usamos carries vs team avg)
+    const teamCarriesAvg = nflSafeNum(teamStats?.rushAttemptsPerGame, 25);
+    const backfieldShareScore = teamCarriesAvg > 0
+      ? (recent5Carries / teamCarriesAvg) * recent5Carries
+      : recent5Carries;
+ 
+    // Scores defensivos del rival
+    const oppPassDefScore    = calcOppPassDefenseScore(oppStats);
+    const oppRunDefScore     = calcOppRunDefenseScore(oppStats);
+    const oppCatchDefScore   = calcOppCatchDefenseScore(oppStats);
+    const oppRecYardsDefScore= calcOppRecYardsDefenseScore(oppStats);
+ 
+    // Season averages
+    const seasonPassYds = nflSafeNum(teamStats?.passingYardsPerGame, recent5PassYds);
+    const seasonRushYds = nflSafeNum(teamStats?.rushingYardsPerGame, recent5RushYds);
+    const seasonCarries = nflSafeNum(teamStats?.rushAttemptsPerGame, recent5Carries);
+    // Para WR usamos proporcional: passing yards * share estimada
+    const seasonRecYds  = seasonPassYds * 0.22;
+    const seasonRec     = passAttempts * 0.18;
+ 
+    let projection = 0;
+ 
+    if (market === "player_pass_yds") {
+      if (recent5PassYds <= 0) continue;
+      projection = projectQBPassingYards({
+        recent5:           recent5PassYds,
+        seasonAvg:         seasonPassYds,
+        oppPassDefenseScore: oppPassDefScore,
+        paceScore:         paceScore * leaguePlays,  // en yardas equivalentes
+        teamPassRateScore: teamPassRateScore * recent5PassYds,
+        gameScriptScore:   gameScriptScore * recent5PassYds
+      });
+    }
+ 
+    else if (market === "player_rush_yds") {
+      if (recent5RushYds <= 0 && recent5Carries <= 0) continue;
+      projection = projectRBRushingYards({
+        recent5Yds:              recent5RushYds,
+        seasonYds:               seasonRushYds,
+        recentCarriesScore:      recent5Carries * 4.2,  // YPC promedio liga
+        oppRunDefenseScore:      oppRunDefScore,
+        gameScriptPositiveScore: gameScriptPositiveScore * 4.2,
+        paceScore:               paceScore * recent5RushYds
+      });
+    }
+ 
+    else if (market === "player_rush_attempts") {
+      if (recent5Carries <= 0) continue;
+      projection = projectRBRushingAttempts({
+        recent5Carries,
+        seasonCarries,
+        gameScriptPositiveScore,
+        spreadScore,
+        backfieldShareScore,
+        paceScore: paceScore * recent5Carries
+      });
+    }
+ 
+    else if (market === "player_receptions") {
+      if (recent5Rec <= 0 && recent5Targets <= 0) continue;
+      projection = projectWRReceptions({
+        recent5Rec,
+        seasonRec,
+        recentTargetsScore:  recent5Targets * 0.68, // catch rate liga ~68%
+        oppCatchDefenseScore: oppCatchDefScore,
+        teamPassRateScore:   teamPassRateScore * recent5Rec,
+        gameScriptScore:     gameScriptScore * recent5Rec
+      });
+    }
+ 
+    else if (market === "player_reception_yds") {
+      if (recent5RecYds <= 0) continue;
+      const ypr = recent5Rec > 0 ? recent5RecYds / recent5Rec : 11;
+      projection = projectWRReceivingYards({
+        recent5Yds:              recent5RecYds,
+        seasonYds:               seasonRecYds,
+        recentTargetsScore:      recent5Targets * ypr * 0.68,
+        oppRecYardsDefenseScore: oppRecYardsDefScore,
+        coverageMatchupScore:    recent5RecYds * oppRecYardsDefScore,
+        airYardsScore:           ypr * recent5Targets * 0.10,
+        paceScore:               paceScore * recent5RecYds
+      });
+    }
+ 
+    if (!projection || projection <= 0) continue;
+ 
+    projection = Number(projection.toFixed(1));
+    const edge       = Number((projection - line).toFixed(2));
+    const confidence = calculateNFLConfidence(market, edge);
+ 
+    if (confidence <= 0) continue;
+ 
+    analyzedProps.push({
+      player,
+      market,
+      side: "OVER",
+      line,
+      odds:       prop.odds,
+      bookmaker:  prop.bookmaker,
+      projection,
+      edge,
+      confidence,
+      isPremium:  confidence >= 75
+    });
+  }
+ 
+  analyzedProps.sort((a, b) => b.confidence - a.confidence);
+ 
+  const finalResponse = {
+    ok:                  true,
+    mode:                "nfl-player-props",
+    cached:              false,
+    eventId:             selectedEvent.id,
+    game:                `${selectedEvent.away_team} @ ${selectedEvent.home_team}`,
+    gameDate:            today,
+    generatedAt:         new Date().toISOString(),
+    totalRawProps:       rawProps.length,
+    totalAnalyzedProps:  analyzedProps.length,
+    props:               analyzedProps.slice(0, 3),
+    lockedProps:         analyzedProps.slice(3, 40)
+  };
+ 
+  // Guardar cache
+  await supabaseAdmin
+    .from("player_props_cache")
+    .upsert({
+      sport:      "nfl",
+      event_id:   selectedEvent.id,
+      game:       finalResponse.game,
+      game_date:  today,
+      analysis_json: finalResponse,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "sport,event_id,game_date" });
+ 
+  return res.status(200).json(finalResponse);
+}
+ 
+// ============================================================
+// FIN BLOQUE NFL PLAYER PROPS
+// ============================================================
+ 
 module.exports = async function handler(req, res) {
 res.setHeader("Access-Control-Allow-Origin", "*");
 res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
