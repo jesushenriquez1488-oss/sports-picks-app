@@ -1986,7 +1986,7 @@ else if (status.includes("day-to-day") || status.includes("day to day")) pesoSta
       if (pesoStatus === 0) continue;
  
       const stats = await getPlayerSeasonAverages(player.athleteId);
- 
+ console.log("DEBUG INJURY STATS", player.name, "athleteId:", player.athleteId, "stats:", JSON.stringify(stats));
       const ois = calcOffensiveImpactScore(stats);
       const dis = calcDefensiveImpactScore(stats);
  
