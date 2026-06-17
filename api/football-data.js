@@ -446,9 +446,14 @@ async function getFootballOdds(type, teamARef, teamBRef) {
       };
     }
 
-    let spreadLineA = null;
+ let spreadLineA = null;
     let spreadLineB = null;
     let totalLine = null;
+
+    let spreadPriceA = -110;
+    let spreadPriceB = -110;
+    let overPrice = -110;
+    let underPrice = -110;
 
     for (const bookmaker of game.bookmakers || []) {
       const spreadMarket = bookmaker.markets?.find((m) => m.key === "spreads");
@@ -458,10 +463,12 @@ async function getFootballOdds(type, teamARef, teamBRef) {
         for (const outcome of spreadMarket.outcomes || []) {
           if (oddsTeamMatches(outcome.name, teamARef)) {
             spreadLineA = Number(outcome.point);
+            spreadPriceA = Number(outcome.price) || -110;
           }
 
           if (oddsTeamMatches(outcome.name, teamBRef)) {
             spreadLineB = Number(outcome.point);
+            spreadPriceB = Number(outcome.price) || -110;
           }
         }
       }
@@ -470,9 +477,17 @@ async function getFootballOdds(type, teamARef, teamBRef) {
         const over = totalMarket.outcomes?.find(
           (o) => cleanText(o.name) === "over"
         );
+        const under = totalMarket.outcomes?.find(
+          (o) => cleanText(o.name) === "under"
+        );
 
         if (over) {
           totalLine = Number(over.point);
+          overPrice = Number(over.price) || -110;
+        }
+
+        if (under) {
+          underPrice = Number(under.price) || -110;
         }
       }
 
@@ -492,7 +507,11 @@ async function getFootballOdds(type, teamARef, teamBRef) {
       commenceTime: game.commence_time,
       spreadLineA,
       spreadLineB,
-      totalLine
+      spreadPriceA,
+      spreadPriceB,
+      totalLine,
+      overPrice,
+      underPrice
     };
   } catch (error) {
     return {
@@ -651,9 +670,13 @@ function buildFootballPicks({
     chosenLine = odds.spreadLineB;
   }
 
-  if (chosenSide) {
+ if (chosenSide) {
     const edge = round(chosenEdge);
     const confidence = getConfidenceFromEdge(edge);
+
+    const chosenPrice = chosenSide === teamA
+      ? (odds.spreadPriceA ?? -110)
+      : (odds.spreadPriceB ?? -110);
 
     spreadPick = {
       type: "spread",
@@ -661,24 +684,26 @@ function buildFootballPicks({
       pick: `${chosenSide} ${chosenLine > 0 ? "+" : ""}${chosenLine}`,
       edge,
       confidence,
+      odds_american: chosenPrice,
       isPremium: edge >= 13 && confidence >= 75
     };
   }
-
   let totalPick = null;
 
-  if (Number.isFinite(odds.totalLine)) {
+  iif (Number.isFinite(odds.totalLine)) {
     const rawEdge = projectedTotal - odds.totalLine;
     const edge = round(Math.abs(rawEdge));
 
     if (edge > 0) {
       const confidence = getConfidenceFromEdge(edge);
+      const isOver = rawEdge >= 0;
 
       totalPick = {
         type: "total",
-        pick: rawEdge >= 0 ? `OVER ${odds.totalLine}` : `UNDER ${odds.totalLine}`,
+        pick: isOver ? `OVER ${odds.totalLine}` : `UNDER ${odds.totalLine}`,
         edge,
         confidence,
+        odds_american: isOver ? (odds.overPrice ?? -110) : (odds.underPrice ?? -110),
         isPremium: edge >= 13 && confidence >= 75
       };
     }
@@ -1714,11 +1739,12 @@ const analysisJson = {
     projectedTotal,
     projectedSpread
   },
-  premium: bestPick
+ premium: bestPick
     ? {
         pick: bestPick.pick,
         confidence: Number(bestPick.confidence || 0),
         mainEdge: Number(bestPick.edge || 0),
+        odds_american: Number(bestPick.odds_american ?? -110),
         projectedTotal,
         projectedSpread,
         projectedScore: {
