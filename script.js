@@ -2209,19 +2209,13 @@ function renderParlayPerformancePanel(data) {
 
   const [wins, losses] = String(data.record || "0-0").split("-").map(Number);
 
-  const streakHTML = data.currentWinStreak > 0
-    ? `<span class="record-win">🔥 ${data.currentWinStreak}W streak</span>`
-    : data.currentLossStreak > 0
-      ? `<span class="record-loss">${data.currentLossStreak}L streak</span>`
-      : `<span class="record-push">Sin racha activa</span>`;
-
   box.innerHTML = `
-    <section class="performance-section parlay-performance-section">
+    <section class="performance-section">
 
       <div class="performance-header">
         <div>
           <p class="premium-label">
-            <span class="live-dot"></span>
+            <span class="live-dot" style="background:#7c3cff;box-shadow:0 0 8px rgba(124,60,255,.6)"></span>
             PARLAY AI TRACKING
           </p>
           <h2>Parlay AI Performance</h2>
@@ -2235,32 +2229,36 @@ function renderParlayPerformancePanel(data) {
         </div>
       </div>
 
-      <div class="parlay-performance-grid">
-
-        <div class="parlay-perf-card">
-          <small>PROFIT</small>
-          <strong class="${data.profit >= 0 ? 'positive-value' : 'negative-value'}">
-            ${data.profit >= 0 ? "+" : ""}${Number(data.profit || 0).toFixed(1)}u
-          </strong>
+      <div class="performance-grid">
+        <div class="performance-sport-card">
+          <div class="performance-sport-top">
+            <div class="performance-sport-icon">💰</div>
+            <div>
+              <strong>Profit</strong>
+              <small>AI tracked</small>
+            </div>
+          </div>
+          <div class="performance-right">
+            <div class="performance-percent" style="color:${data.profit >= 0 ? '#00ff99' : '#ff6b6b'}">
+              ${data.profit >= 0 ? "+" : ""}${Number(data.profit || 0).toFixed(1)}u
+            </div>
+          </div>
         </div>
 
-        <div class="parlay-perf-card">
-          <small>ROI</small>
-          <strong class="${data.roi >= 0 ? 'positive-value' : 'negative-value'}">
-            ${data.roi >= 0 ? "+" : ""}${Number(data.roi || 0).toFixed(1)}%
-          </strong>
+        <div class="performance-sport-card">
+          <div class="performance-sport-top">
+            <div class="performance-sport-icon">📈</div>
+            <div>
+              <strong>ROI</strong>
+              <small>AI tracked</small>
+            </div>
+          </div>
+          <div class="performance-right">
+            <div class="performance-percent" style="color:${data.roi >= 0 ? '#00ff99' : '#ff6b6b'}">
+              ${data.roi >= 0 ? "+" : ""}${Number(data.roi || 0).toFixed(1)}%
+            </div>
+          </div>
         </div>
-
-        <div class="parlay-perf-card">
-          <small>AVG ODDS</small>
-          <strong>${Number(data.averageOdds || 0).toFixed(2)}</strong>
-        </div>
-
-        <div class="parlay-perf-card">
-          <small>RACHA</small>
-          <strong class="streak-text">${streakHTML}</strong>
-        </div>
-
       </div>
 
     </section>
@@ -2269,7 +2267,6 @@ function renderParlayPerformancePanel(data) {
   const overallParlayRate = document.getElementById("overallParlayRate");
   animateNumber(overallParlayRate, data.hitRate, "%", 1300, 1);
 }
-
 window.addEventListener("load", loadParlayPerformance);
 async function isAdmin() {
   const { data } = await supabaseClient.auth.getUser();
