@@ -1137,7 +1137,13 @@ if (req.method === "GET" && req.query.mode === "parlay-performance") {
 
     const gradedParlays = [];
 
-   if (legsError || !legs?.length) continue;
+    for (const parlay of parlays || []) {
+      const { data: legs, error: legsError } = await supabaseAdmin
+        .from("parlay_legs")
+        .select("*")
+        .eq("parlay_id", parlay.id);
+
+      if (legsError || !legs?.length) continue;
 
       // PASO PREVIO: sincronizar cada leg pendiente con su resultado real en picks_history
       const pendingLegsToSync = legs.filter(l => l.result === "pending" && l.game_id);
@@ -1166,11 +1172,20 @@ if (req.method === "GET" && req.query.mode === "parlay-performance") {
       }
 
       const wonLegs = legs.filter(l => l.result === "win").length;
+      const lostLegs = legs.filter(l => l.result === "loss").length;
+      const pushLegs = legs.filter(l => l.result === "push").length;
+      const pendingLegs = legs.filter(l => l.result === "pending").length;
+
+      if (pendingLegs > 0) {
+        gradedParlays.push({
+          id: parlay.id,
+          status: "still_pending",
+          pendingLegs
+        });
         continue;
       }
 
       const stake = Number(parlay.stake || 1);
-
       const activeLegs = legs.filter(l => l.result !== "push");
 
       const finalOdds = activeLegs.reduce((total, leg) => {
