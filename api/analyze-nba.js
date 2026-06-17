@@ -505,13 +505,14 @@ if (req.method === "GET" && req.query.mode === "parlay-today") {
     }
 
     if (existingParlay?.picks?.length >= 2) {
-      return res.status(200).json({
-        available: true,
-        locked: !isPremiumUser,
-        picks: isPremiumUser ? existingParlay.picks : null
-      });
-    }
+  await saveParlayTracking(todayDate, existingParlay.picks);
 
+  return res.status(200).json({
+    available: true,
+    locked: !isPremiumUser,
+    picks: isPremiumUser ? existingParlay.picks : null
+  });
+}
     // 2) Si no existe, crearlo una sola vez desde daily_picks
     const { data: picks, error } = await supabaseAdmin
       .from("daily_picks")
