@@ -152,16 +152,30 @@ const selectedSports = onlySport
       return null;
     }
 
-    function getSpread(game, teamName) {
+   function getSpread(game, teamName) {
       const market = getMarket(game, "spreads");
       const outcome = market?.outcomes?.find(o => o.name === teamName);
       return outcome?.point ?? 0;
+    }
+
+    function getSpreadPrice(game, teamName) {
+      const market = getMarket(game, "spreads");
+      const outcome = market?.outcomes?.find(o => o.name === teamName);
+      return outcome?.price ?? -110;
     }
 
     function getTotal(game) {
       const market = getMarket(game, "totals");
       const outcome = market?.outcomes?.[0];
       return outcome?.point ?? null;
+    }
+
+    function getTotalPrice(game, overUnder) {
+      const market = getMarket(game, "totals");
+      const outcome = market?.outcomes?.find(
+        o => String(o.name).toLowerCase() === overUnder
+      );
+      return outcome?.price ?? -110;
     }
 
     function getH2HOutcomes(game) {
@@ -240,7 +254,11 @@ const selectedGames = todayGames.slice(offset, offset + limit);
 
           const awaySpread = getSpread(game, awayTeam);
           const homeSpread = getSpread(game, homeTeam);
+          const awaySpreadPrice = getSpreadPrice(game, awayTeam);
+          const homeSpreadPrice = getSpreadPrice(game, homeTeam);
           const totalLine = getTotal(game);
+          const overPrice = getTotalPrice(game, "over");
+          const underPrice = getTotalPrice(game, "under");
           const outcomes = getH2HOutcomes(game);
 const analyzeBody =
   sport.league === "mlb"
@@ -250,8 +268,12 @@ const analyzeBody =
         homeTeam,
         awaySpread,
         homeSpread,
+        awaySpreadPrice,
+        homeSpreadPrice,
         outcomes,
         totalLine: totalLine || 8,
+        overPrice,
+        underPrice,
         forceRefresh: req.query.force === "true"
       }
     : {
@@ -259,11 +281,14 @@ const analyzeBody =
         homeTeam,
         awaySpread,
         homeSpread,
+        awaySpreadPrice,
+        homeSpreadPrice,
         total: totalLine,
+        overPrice,
+        underPrice,
         league: sport.league,
         forceRefresh: req.query.force === "true"
       };
-
           const analyzeRes = await fetch(`${origin}${sport.endpoint}`, {
             method: "POST",
             headers: {
@@ -1307,17 +1332,19 @@ userData.hourRequests.push(now);
     } catch (error) {
       console.log("NBA auth ignorado:", error.message);
     }
-
-  const {
+const {
   awayTeam,
   homeTeam,
   awaySpread,
   homeSpread,
+  awaySpreadPrice,
+  homeSpreadPrice,
   total,
+  overPrice,
+  underPrice,
   league,
   gameTime
 } = req.body || {};
-
 let selectedLeague = league || "nba";
 
 if (
@@ -1488,7 +1515,7 @@ if (
     let confidence = 0;
     let mainEdge = 0;
 
-    if (spreadConfidence >= totalConfidence) {
+   if (spreadConfidence >= totalConfidence) {
       pick =
         awaySpreadEdge >= homeSpreadEdge
           ? `${awayTeam} ${Number(awaySpread) > 0 ? "+" : ""}${awaySpread} cubre spread`
@@ -1500,6 +1527,18 @@ if (
       pick = totalProj > Number(total) ? "Over" : "Under";
       confidence = totalConfidence;
       mainEdge = totalEdge;
+    }
+
+    let pickPrice = -110;
+
+    if (spreadConfidence >= totalConfidence) {
+      pickPrice = awaySpreadEdge >= homeSpreadEdge
+        ? Number(awaySpreadPrice ?? -110)
+        : Number(homeSpreadPrice ?? -110);
+    } else {
+      pickPrice = totalProj > Number(total)
+        ? Number(overPrice ?? -110)
+        : Number(underPrice ?? -110);
     }
 
     if (confidence < 60) {
@@ -1558,6 +1597,7 @@ const risk = isPremiumPick ? "Bajo" : "Medio";
         verdict,
         mainEdge,
         mainEdgeConfidence: confidence,
+        odds_american: pickPrice,
         spreadDiff: projectedMargin,
         projA,
         projB,
