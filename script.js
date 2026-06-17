@@ -2128,10 +2128,9 @@ function formatSportIcon(sport) {
   return icons[sport] || "📊";
 }
 
-function renderPerformancePanel(data) {
+function renderPerformancePanel(data, parlayData) {
   const box = document.getElementById("performancePanel");
   if (!box || !data?.sports) return;
-
   const sportsHTML = data.sports.map(record => {
  const accuracy =
   record.accuracy !== null &&
@@ -2164,6 +2163,16 @@ function renderPerformancePanel(data) {
     `;
   }).join("");
 
+ const parlayCardHTML = parlayData ? `
+    <div class="performance-overall-card parlay-overall-card">
+      <small>Parlay Hit Rate</small>
+      <strong id="overallParlayRate">0%</strong>
+      <span class="${Number(parlayData.profit || 0) >= 0 ? 'positive-value' : 'negative-value'}">
+        ${Number(parlayData.profit || 0) >= 0 ? "+" : ""}${Number(parlayData.profit || 0).toFixed(1)}u · ROI ${Number(parlayData.roi || 0) >= 0 ? "+" : ""}${Number(parlayData.roi || 0).toFixed(1)}%
+      </span>
+    </div>
+  ` : "";
+
   box.innerHTML = `
     <section class="performance-section">
 
@@ -2177,10 +2186,14 @@ function renderPerformancePanel(data) {
         <span>Live premium pick tracking updated automatically by sport.</span>
         </div>
 
-        <div class="performance-overall-card">
-          <small>Overall Accuracy</small>
-          <strong id="overallPerformanceRate">0%</strong>
-          <span>${data.overall.wins}W - ${data.overall.losses}L - ${data.overall.pushes}P</span>
+        <div class="performance-cards-row">
+          <div class="performance-overall-card">
+            <small>Overall Accuracy</small>
+            <strong id="overallPerformanceRate">0%</strong>
+            <span>${data.overall.wins}W - ${data.overall.losses}L - ${data.overall.pushes}P</span>
+          </div>
+
+          ${parlayCardHTML}
         </div>
       </div>
 
@@ -2190,13 +2203,17 @@ function renderPerformancePanel(data) {
 
     </section>
   `;
-
-  const overallRate = document.getElementById("overallPerformanceRate");
+ const overallRate = document.getElementById("overallPerformanceRate");
   animateNumber(overallRate, data.overall.accuracy, "%", 1300, 1);
 
   document.querySelectorAll(".performance-percent").forEach(el => {
     animateNumber(el, Number(el.dataset.target || 0), "%", 1100, 1);
   });
+
+  if (parlayData) {
+    const overallParlayRate = document.getElementById("overallParlayRate");
+    animateNumber(overallParlayRate, parlayData.hitRate, "%", 1300, 1);
+  }
 }
 async function loadParlayPerformance() {
   try {
