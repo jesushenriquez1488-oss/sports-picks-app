@@ -2073,7 +2073,19 @@ async function loadStats() {
       normalRate.innerText = `${data.overall.countedPicks} picks`;
     }
 
-    renderPerformancePanel(data);
+    let parlayData = null;
+
+    try {
+      const parlayRes = await fetch("/api/analyze-nba?mode=parlay-performance");
+      const parlayJson = await parlayRes.json();
+      if (parlayRes.ok && parlayJson?.ok) {
+        parlayData = parlayJson;
+      }
+    } catch (e) {
+      console.log("Error cargando parlay performance:", e);
+    }
+
+    renderPerformancePanel(data, parlayData);
 
   } catch (error) {
     console.log("Error cargando performance:", error);
