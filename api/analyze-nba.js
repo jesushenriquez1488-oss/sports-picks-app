@@ -635,69 +635,7 @@ if (req.method === "GET" && req.query.mode === "parlay-today") {
       }, { onConflict: "game_date" })
       .select()
       .single();
-const legOddsDefault = 1.90;
-
-const parlayOdds = best.reduce((total, leg) => {
-  const odds = Number(leg.odds_decimal || leg.odds || legOddsDefault);
-  return total * odds;
-}, 1);
-
-const averageLegOdds =
-  best.length > 0
-    ? best.reduce((sum, leg) => {
-        return sum + Number(leg.odds_decimal || leg.odds || legOddsDefault);
-      }, 0) / best.length
-    : legOddsDefault;
-
-const { data: savedTrackingParlay, error: trackingError } =
-  await supabaseAdmin
-    .from("parlay_history")
-    .upsert({
-      game_date: todayDate,
-      sport: "mixed",
-      picks: best,
-      legs_count: best.length,
-      stake: 1,
-      odds_decimal: Number(parlayOdds.toFixed(2)),
-      parlay_odds: Number(parlayOdds.toFixed(2)),
-      average_leg_odds: Number(averageLegOdds.toFixed(2)),
-      result: "pending",
-      payout: 0,
-      profit: 0,
-      roi: 0,
-      updated_at: new Date().toISOString()
-    }, { onConflict: "game_date" })
-    .select()
-    .single();
-
-if (trackingError) {
-  console.error("Error guardando parlay tracking:", trackingError.message);
-} else if (savedTrackingParlay?.id) {
-  await supabaseAdmin
-    .from("parlay_legs")
-    .delete()
-    .eq("parlay_id", savedTrackingParlay.id);
-
-  const legRows = best.map(leg => ({
-    parlay_id: savedTrackingParlay.id,
-    game_id: leg.game_id || null,
-    sport: leg.sport,
-    game: leg.game,
-    pick: leg.play,
-    confidence: Number(leg.percentage || 0),
-    edge: Number(leg.edge || 0),
-    odds_decimal: Number(leg.odds_decimal || leg.odds || legOddsDefault),
-    result: "pending"
-  }));
-
-  const { error: legsError } = await supabaseAdmin
-    .from("parlay_legs")
-    .insert(legRows);
-
-  if (legsError) {
-    console.error("Error guardando parlay legs:", legsError.message);
-  }
-}
+await saveParlayTracking(todayDate, best);
     if (saveError) {
       return res.status(500).json({
         error: saveError.message
