@@ -1975,8 +1975,8 @@ async function getInjuryAdjustment(origin, teamName) {
     const activeInjuries = injuries.filter(player => shouldCountInjury(player));
  
     for (const player of activeInjuries) {
-      const status = "out"; // TEMPORAL - prueba de impacto máximo, revertir después
- 
+     let status = String(player.status || "").toLowerCase();
+if (player.name === "Luka Doncic") status = "doubtful"; // TEMPORAL - prueba aislada
      let pesoStatus = 0;
 
 if (status.includes("out")) pesoStatus = 4;
