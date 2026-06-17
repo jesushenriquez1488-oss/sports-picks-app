@@ -1353,27 +1353,42 @@ if (normalizedPick.includes("over")) {
     pickLine = Number(homeSpread);
   }
 }
-    await supabaseAdmin
+   await supabaseAdmin
   .from("picks_history")
   .delete()
   .eq("sport", selectedLeague)
   .eq("game_id", gameId)
   .eq("result", "pending");
-const { data: insertedPick, error: insertError } = await supabaseAdmin
-  .from("picks_history")
-  .insert({
-  game_id: gameId,
-  sport: selectedLeague,
 
-  away_team: awayTeam,
-  home_team: homeTeam,
-game_date: gameDate,
+let insertedPick = null;
 
-  pick,
-  confidence,
-  result: "pending",
-  is_premium: isPremiumPick === true,
+if (isPremiumPick === true) {
+  const { data, error: insertError } = await supabaseAdmin
+    .from("picks_history")
+    .insert({
+      game_id: gameId,
+      sport: selectedLeague,
+      away_team: awayTeam,
+      home_team: homeTeam,
+      game_date: gameDate,
+      pick,
+      confidence,
+      result: "pending",
+      is_premium: true,
+      pick_type: pickType,
+      pick_team: pickTeam,
+      pick_direction: pickDirection,
+      line: pickLine
+    })
+    .select("id")
+    .single();
 
+  insertedPick = data;
+
+  if (insertError) {
+    console.error("Error insertando pick:", insertError.message);
+  }
+}
   pick_type: pickType,
   pick_team: pickTeam,
   pick_direction: pickDirection,
