@@ -945,7 +945,68 @@ return res.status(200).json({
       return res.status(500).json({ error: error.message });
     }
   }
+if (req.method === "GET" && req.query.mode === "parlay-performance") {
+  try {
+    const { data: parlays, error } = await supabaseAdmin
+      .from("parlay_history")
+      .select("*")
+      .order("game_date", { ascending: false });
 
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    const rows = parlays || [];
+
+    const settled = rows.filter(p =>
+      ["win", "loss", "push"].includes(String(p.result).toLowerCase())
+    );
+
+    const wins = settled.filter(p => p.result === "win").length;
+    const losses = settled.filter(p => p.result === "loss").length;
+    const pushes = settled.filter(p => p.result === "push").length;
+
+    const counted = wins + losses;
+
+    const hitRate =
+      counted > 0 ? Number(((wins / counted) * 100).toFixed(1)) : 0;
+
+    const totalStake = settled.reduce(
+      (sum, p) => sum + Number(p.stake || 0),
+      0
+    );
+
+    const totalProfit = settled.reduce(
+      (sum, p) => sum + Number(p.profit || 0),
+      0
+    );
+
+    const roi =
+      totalStake > 0
+        ? Number(((totalProfit / totalStake) * 100).toFixed(1))
+        : 0;
+
+    return res.status(200).json({
+      ok: true,
+      record: {
+        wins,
+        losses,
+        pushes,
+        total: settled.length,
+        hitRate
+      },
+      units: {
+        totalStake,
+        profit: Number(totalProfit.toFixed(2)),
+        roi
+      },
+      recent: rows.slice(0, 10)
+    });
+
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+}
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
