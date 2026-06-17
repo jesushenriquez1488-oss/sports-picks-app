@@ -1088,25 +1088,35 @@ const pushes = settled.reduce((sum, p) => {
 
     const gradedParlays = [];
 
-    for (const parlay of parlays || []) {
-      const { data: legs, error: legsError } = await supabaseAdmin
-        .from("parlay_legs")
-        .select("*")
-        .eq("parlay_id", parlay.id);
+   if (legsError || !legs?.length) continue;
 
-      if (legsError || !legs?.length) continue;
+      // PASO PREVIO: sincronizar cada leg pendiente con su resultado real en picks_history
+      const pendingLegsToSync = legs.filter(l => l.result === "pending" && l.game_id);
+
+      for (const leg of pendingLegsToSync) {
+        const { data: matchingPick } = await supabaseAdmin
+          .from("picks_history")
+          .select("result")
+          .eq("game_id", leg.game_id)
+          .neq("result", "pending")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (matchingPick?.result) {
+          await supabaseAdmin
+            .from("parlay_legs")
+            .update({
+              result: matchingPick.result,
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", leg.id);
+
+          leg.result = matchingPick.result;
+        }
+      }
 
       const wonLegs = legs.filter(l => l.result === "win").length;
-      const lostLegs = legs.filter(l => l.result === "loss").length;
-      const pushLegs = legs.filter(l => l.result === "push").length;
-      const pendingLegs = legs.filter(l => l.result === "pending").length;
-
-      if (pendingLegs > 0) {
-        gradedParlays.push({
-          id: parlay.id,
-          status: "still_pending",
-          pendingLegs
-        });
         continue;
       }
 
