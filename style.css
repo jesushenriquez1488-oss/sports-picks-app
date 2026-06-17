@@ -2663,4 +2663,20 @@ button.player-edge-toggle-btn:hover {
   color: rgba(255,255,255,.55);
   margin: 0 0 10px;
 }
-/* ===== PARLAY PERFORMANCE DUAL PANEL ===== */
+.performance-cards-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.parlay-overall-card {
+  border-color: rgba(124, 60, 255, 0.25);
+}
+
+.parlay-overall-card .positive-value {
+  color: #00ff99;
+}
+
+.parlay-overall-card .negative-value {
+  color: #ff6b6b;
+}
