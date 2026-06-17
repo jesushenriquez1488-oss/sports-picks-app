@@ -558,6 +558,13 @@ if (req.method === "GET" && req.query.mode === "parlay-today") {
       if (!analysis || !analysis.isPremiumPick || !analysis.premium) return;
 
       // MLB
+    function americanToDecimalLocal(odds) {
+        const n = Number(odds);
+        if (!Number.isFinite(n) || n === 0) return 1.91;
+        return n > 0 ? (n / 100) + 1 : (100 / Math.abs(n)) + 1;
+      }
+
+      // MLB
       if (analysis.premium.recommendedCards) {
         analysis.premium.recommendedCards.forEach(card => {
           const percentage = Number(card.percentage || 0);
@@ -566,28 +573,32 @@ if (req.method === "GET" && req.query.mode === "parlay-today") {
           if (percentage >= 77) {
             candidates.push({
               sport: pick.sport,
+              game_id: pick.game_id,
               game: `${pick.away_team} vs ${pick.home_team}`,
               play: card.play,
               percentage,
               edge,
-              title: card.title
+              title: card.title,
+              odds_decimal: americanToDecimalLocal(card.odds_american ?? -110)
             });
           }
         });
       }
 
-      // NBA / WNBA / NCAAB
+      // NBA / WNBA / NCAAB / NFL / NCAAF
       else if (
         analysis.premium.pick &&
         Number(analysis.premium.confidence || 0) >= 77
       ) {
         candidates.push({
           sport: pick.sport,
+          game_id: pick.game_id,
           game: `${pick.away_team} vs ${pick.home_team}`,
           play: analysis.premium.pick,
           percentage: Number(analysis.premium.confidence || 0),
           edge: Number(analysis.premium.mainEdge || 0),
-          title: "Jugada Premium"
+          title: "Jugada Premium",
+          odds_decimal: americanToDecimalLocal(analysis.premium.odds_american ?? -110)
         });
       }
     });
