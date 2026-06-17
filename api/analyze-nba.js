@@ -950,36 +950,39 @@ if (req.method === "GET" && req.query.mode === "parlay-performance") {
     const { data: parlays, error } = await supabaseAdmin
       .from("parlay_history")
       .select("*")
-      .order("game_date", { ascending: false });
+      .order("created_at", { ascending: false });
 
     if (error) {
-      return res.status(500).json({ error: error.message });
+      return res.status(500).json({
+        ok: false,
+        step: "select_parlay_history",
+        error: error.message
+      });
     }
 
-    const rows = parlays || [];
+    const rows = Array.isArray(parlays) ? parlays : [];
 
-    const settled = rows.filter(p =>
-      ["win", "loss", "push"].includes(String(p.result).toLowerCase())
-    );
+    const settled = rows.filter(p => {
+      const r = String(p.result || "").toLowerCase();
+      return ["win", "loss", "push"].includes(r);
+    });
 
-    const wins = settled.filter(p => p.result === "win").length;
-    const losses = settled.filter(p => p.result === "loss").length;
-    const pushes = settled.filter(p => p.result === "push").length;
+    const wins = settled.filter(p => String(p.result).toLowerCase() === "win").length;
+    const losses = settled.filter(p => String(p.result).toLowerCase() === "loss").length;
+    const pushes = settled.filter(p => String(p.result).toLowerCase() === "push").length;
 
     const counted = wins + losses;
 
     const hitRate =
       counted > 0 ? Number(((wins / counted) * 100).toFixed(1)) : 0;
 
-    const totalStake = settled.reduce(
-      (sum, p) => sum + Number(p.stake || 0),
-      0
-    );
+    const totalStake = settled.reduce((sum, p) => {
+      return sum + Number(p.stake || 0);
+    }, 0);
 
-    const totalProfit = settled.reduce(
-      (sum, p) => sum + Number(p.profit || 0),
-      0
-    );
+    const totalProfit = settled.reduce((sum, p) => {
+      return sum + Number(p.profit || 0);
+    }, 0);
 
     const roi =
       totalStake > 0
@@ -996,7 +999,7 @@ if (req.method === "GET" && req.query.mode === "parlay-performance") {
         hitRate
       },
       units: {
-        totalStake,
+        totalStake: Number(totalStake.toFixed(2)),
         profit: Number(totalProfit.toFixed(2)),
         roi
       },
@@ -1004,7 +1007,12 @@ if (req.method === "GET" && req.query.mode === "parlay-performance") {
     });
 
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({
+      ok: false,
+      mode: "parlay-performance",
+      error: error.message,
+      stack: error.stack
+    });
   }
 }
   if (req.method !== "POST") {
