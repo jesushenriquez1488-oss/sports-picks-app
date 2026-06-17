@@ -1335,15 +1335,19 @@ try {
 if (mode === "player-props") {
   return await handlePlayerProps(req, res);
 }
-  const {
+ const {
     userId,
     awayTeam,
     homeTeam,
     awaySpread,
     homeSpread,
+    awaySpreadPrice,
+    homeSpreadPrice,
     outcomes,
     gameTime,
-    totalLine = 8
+    totalLine = 8,
+    overPrice,
+    underPrice
   } = req.body || {};
 
   if (mode !== "grade-pending" && req.method !== "POST") {
@@ -2625,6 +2629,25 @@ if (recommendedCards.length > 0) {
       ? Number(totalLine)
       : Number(String(card.play).match(/[+-]\d+(\.\d+)?/)?.[0]);
 
+  // Determinar el price real según el tipo de pick elegido
+  let pickPrice = -110;
+
+  if (pickType === "ml") {
+    const isAwayPick = pickTeam === awayTeam;
+    pickPrice = isAwayPick
+      ? Number(awayOdds ?? -110)
+      : Number(homeOdds ?? -110);
+  } else if (pickType === "runline") {
+    const isAwayPick = pickTeam === awayTeam;
+    pickPrice = isAwayPick
+      ? Number(awaySpreadPrice ?? -110)
+      : Number(homeSpreadPrice ?? -110);
+  } else if (pickType === "total") {
+    pickPrice = pickDirection === "OVER"
+      ? Number(overPrice ?? -110)
+      : Number(underPrice ?? -110);
+  }
+
   await supabaseAdmin
     .from("picks_history")
     .delete()
@@ -2643,6 +2666,7 @@ if (recommendedCards.length > 0) {
       pick_type: pickType,
       pick_team: pickTeam,
       line: pickType === "total" ? Number(totalLine) : pickLine,
+      odds_american: pickPrice,
       away_team: awayTeam,
       home_team: homeTeam,
       game_date: gameDate,
@@ -2653,7 +2677,6 @@ if (recommendedCards.length > 0) {
     throw new Error("Error guardando pick MLB history: " + historyError.message);
   }
 }
-
     return res.status(200).json({
       locked,
       isPremiumPick: recommendedCards.length > 0,
