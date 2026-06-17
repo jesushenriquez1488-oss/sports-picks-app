@@ -193,20 +193,28 @@ async function getTeamInjuries(sport, league, teamId) {
     const detail = await resolveInjuryDetail(ref);
     if (!detail) continue;
  
-    let athleteInfo = null;
+   let athleteInfo = null;
     const athleteRef = detail?.athlete?.$ref;
- 
+
     if (athleteRef) {
       athleteInfo = await resolveAthleteName(athleteRef);
     }
- 
+
+    // Extraer athleteId numérico del $ref (ej: .../athletes/3945274?lang=en)
+    let athleteId = null;
+    if (athleteRef) {
+      const match = athleteRef.match(/athletes\/(\d+)/);
+      if (match) athleteId = match[1];
+    }
+
     const status = detail?.status || detail?.type?.description || "Unknown";
     const detailType = detail?.details?.type || "";
     const location = detail?.details?.location || "";
- 
+
     injuries.push({
       name: athleteInfo?.name || "Unknown player",
       position: athleteInfo?.position || "",
+      athleteId,
       status,
       startDate: detail?.date || null,
       returnDate: detail?.details?.returnDate || null,
