@@ -1885,41 +1885,117 @@ function getRestAdjustment(allGames) {
   };
 }
 
+// ============================================================
+// REEMPLAZAR la función getInjuryAdjustment existente en analyze-nba.js
+// por este bloque completo. NO TOCA calcProjection, calcTeamFormula,
+// ni ninguna otra parte del cálculo de forma/proyección del equipo.
+// ============================================================
+ 
+// Promedios de liga FIJOS (manuales, sin llamadas API adicionales)
+const NBA_LEAGUE_AVG_MINUTES = 24;
+const NBA_LEAGUE_AVG_POINTS = 11.5;
+const NBA_LEAGUE_AVG_REBOUNDS = 4.4;
+ 
+// Cache en memoria para no repetir fetch de stats del mismo jugador
+const playerStatsCache = global.__NBA_PLAYER_STATS_CACHE__ || {};
+global.__NBA_PLAYER_STATS_CACHE__ = playerStatsCache;
+ 
+const NBA_CURRENT_SEASON = 2026;
+ 
+// Obtiene avgMinutes, avgPoints, avgRebounds de un jugador vía ESPN
+async function getPlayerSeasonAverages(athleteId) {
+  if (!athleteId) return null;
+ 
+  if (playerStatsCache[athleteId]) {
+    return playerStatsCache[athleteId];
+  }
+ 
+  try {
+    const url = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${NBA_CURRENT_SEASON}/types/2/athletes/${athleteId}/statistics`;
+ 
+    const res = await fetch(url);
+    if (!res.ok) return null;
+ 
+    const data = await res.json();
+    const categories = data?.splits?.categories || [];
+ 
+    function findStat(name) {
+      for (const cat of categories) {
+        const stat = (cat.stats || []).find(s => s.name === name);
+        if (stat) return Number(stat.value || 0);
+      }
+      return 0;
+    }
+ 
+    const result = {
+      avgMinutes: findStat("avgMinutes"),
+      avgPoints: findStat("avgPoints"),
+      avgRebounds: findStat("avgRebounds")
+    };
+ 
+    playerStatsCache[athleteId] = result;
+    return result;
+ 
+  } catch {
+    return null;
+  }
+}
+ 
+// Offensive Impact Score: 30% minutos + 70% puntos, normalizado vs liga
+function calcOffensiveImpactScore(stats) {
+  if (!stats) return 1; // jugador promedio por defecto si no hay datos
+ 
+  const minutesRatio = stats.avgMinutes / NBA_LEAGUE_AVG_MINUTES;
+  const pointsRatio = stats.avgPoints / NBA_LEAGUE_AVG_POINTS;
+ 
+  return (minutesRatio * 0.30) + (pointsRatio * 0.70);
+}
+ 
+// Defensive Impact Score: 30% minutos + 70% rebotes, normalizado vs liga
+function calcDefensiveImpactScore(stats) {
+  if (!stats) return 1; // jugador promedio por defecto si no hay datos
+ 
+  const minutesRatio = stats.avgMinutes / NBA_LEAGUE_AVG_MINUTES;
+  const reboundsRatio = stats.avgRebounds / NBA_LEAGUE_AVG_REBOUNDS;
+ 
+  return (minutesRatio * 0.30) + (reboundsRatio * 0.70);
+}
+ 
 async function getInjuryAdjustment(origin, teamName) {
   try {
     const data = await fetchJson(
-      `${origin}/api/injuries?team=${encodeURIComponent(teamName)}`
+      `${origin}/api/injuries?team=${encodeURIComponent(teamName)}&sport=nba`
     );
-
+ 
     const injuries = data.injuries || [];
-
+ 
     let offenseImpact = 0;
     let defenseImpact = 0;
-
+ 
     const activeInjuries = injuries.filter(player => shouldCountInjury(player));
-
-    activeInjuries.forEach(player => {
+ 
+    for (const player of activeInjuries) {
       const status = String(player.status || "").toLowerCase();
-      const position = String(player.position || "").toLowerCase();
-
-      let impact = 0;
-
-      if (status.includes("out")) impact = 4;
-      else if (status.includes("doubtful")) impact = 3;
-      else if (status.includes("questionable")) impact = 1.5;
-      else if (status.includes("probable")) impact = 0.5;
-
-      offenseImpact -= impact;
-
-      if (
-        position.includes("c") ||
-        position.includes("pf") ||
-        position.includes("sf")
-      ) {
-        defenseImpact += impact * 0.5;
-      }
-    });
-
+ 
+      let pesoStatus = 0;
+ 
+      if (status.includes("out")) pesoStatus = 4;
+      else if (status.includes("doubtful")) pesoStatus = 3;
+      else if (status.includes("questionable")) pesoStatus = 1.5;
+      else if (status.includes("probable")) pesoStatus = 0.5;
+ 
+      if (pesoStatus === 0) continue;
+ 
+      const stats = await getPlayerSeasonAverages(player.athleteId);
+ 
+      const ois = calcOffensiveImpactScore(stats);
+      const dis = calcDefensiveImpactScore(stats);
+ 
+      offenseImpact -= pesoStatus * ois;
+      defenseImpact += pesoStatus * dis * 0.5; // mismo factor 0.5 que ya usaba el código original
+ 
+    }
+ 
     return {
       offenseImpact,
       defenseImpact,
@@ -1928,6 +2004,7 @@ async function getInjuryAdjustment(origin, teamName) {
           ? activeInjuries.map(p => `${p.name} (${p.status})`).join(", ")
           : `No se reportan bajas clave para ${teamName}.`
     };
+ 
   } catch {
     return {
       offenseImpact: 0,
@@ -1936,7 +2013,6 @@ async function getInjuryAdjustment(origin, teamName) {
     };
   }
 }
-
 function shouldCountInjury(player) {
   if (!player.startDate) return true;
 
