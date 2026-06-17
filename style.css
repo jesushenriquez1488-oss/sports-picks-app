@@ -2664,19 +2664,3 @@ button.player-edge-toggle-btn:hover {
   margin: 0 0 10px;
 }
 /* ===== PARLAY PERFORMANCE DUAL PANEL ===== */
-.performance-dual-wrap {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  align-items: start;
-}
-
-.performance-dual-wrap .performance-section {
-  margin: 0;
-}
-
-@media (max-width: 860px) {
-  .performance-dual-wrap {
-    grid-template-columns: 1fr;
-  }
-}
