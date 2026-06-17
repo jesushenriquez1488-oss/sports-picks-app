@@ -966,11 +966,17 @@ if (req.method === "GET" && req.query.mode === "parlay-performance") {
       const r = String(p.result || "").toLowerCase();
       return ["win", "loss", "push"].includes(r);
     });
+const wins = settled.reduce((sum, p) => {
+  return sum + Number(p.manual_wins || 0) + (String(p.result).toLowerCase() === "win" && !p.manual_wins ? 1 : 0);
+}, 0);
 
-    const wins = settled.filter(p => String(p.result).toLowerCase() === "win").length;
-    const losses = settled.filter(p => String(p.result).toLowerCase() === "loss").length;
-    const pushes = settled.filter(p => String(p.result).toLowerCase() === "push").length;
+const losses = settled.reduce((sum, p) => {
+  return sum + Number(p.manual_losses || 0) + (String(p.result).toLowerCase() === "loss" && !p.manual_losses ? 1 : 0);
+}, 0);
 
+const pushes = settled.reduce((sum, p) => {
+  return sum + Number(p.manual_pushes || 0) + (String(p.result).toLowerCase() === "push" && !p.manual_pushes ? 1 : 0);
+}, 0);
     const counted = wins + losses;
 
     const hitRate =
