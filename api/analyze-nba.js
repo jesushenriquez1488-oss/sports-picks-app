@@ -1977,13 +1977,12 @@ async function getInjuryAdjustment(origin, teamName) {
     for (const player of activeInjuries) {
       const status = String(player.status || "").toLowerCase();
  
-      let pesoStatus = 0;
- 
-      if (status.includes("out")) pesoStatus = 4;
-      else if (status.includes("doubtful")) pesoStatus = 3;
-      else if (status.includes("questionable")) pesoStatus = 1.5;
-      else if (status.includes("probable")) pesoStatus = 0.5;
- 
+     let pesoStatus = 0;
+
+if (status.includes("out")) pesoStatus = 4;
+else if (status.includes("doubtful")) pesoStatus = 3;
+else if (status.includes("questionable")) pesoStatus = 1.5;
+else if (status.includes("day-to-day") || status.includes("day to day")) pesoStatus = 1;
       if (pesoStatus === 0) continue;
  
       const stats = await getPlayerSeasonAverages(player.athleteId);
