@@ -999,54 +999,103 @@ if (req.method === "GET" && req.query.mode === "parlay-performance") {
 
     const rows = Array.isArray(parlays) ? parlays : [];
 
-    const settled = rows.filter(p => {
+    // Fila manual inicial (histórico previo al sistema automático)
+    const initialRow = rows.find(p => p.sport === "initial");
+
+    const initialWins = Number(initialRow?.manual_wins || 0);
+    const initialLosses = Number(initialRow?.manual_losses || 0);
+    const initialPushes = Number(initialRow?.manual_pushes || 0);
+    const initialProfit = Number(initialRow?.profit || 0);
+    const initialStake = initialWins + initialLosses + initialPushes;
+
+    // Parlays automáticos reales, ya calificados
+    const automatedSettled = rows.filter(p => {
       const r = String(p.result || "").toLowerCase();
-      return ["win", "loss", "push"].includes(r);
+      return p.sport !== "initial" && ["win", "loss", "push"].includes(r);
     });
-const wins = settled.reduce((sum, p) => {
-  return sum + Number(p.manual_wins || 0) + (String(p.result).toLowerCase() === "win" && !p.manual_wins ? 1 : 0);
-}, 0);
 
-const losses = settled.reduce((sum, p) => {
-  return sum + Number(p.manual_losses || 0) + (String(p.result).toLowerCase() === "loss" && !p.manual_losses ? 1 : 0);
-}, 0);
+    const automatedWins = automatedSettled.filter(p => String(p.result).toLowerCase() === "win").length;
+    const automatedLosses = automatedSettled.filter(p => String(p.result).toLowerCase() === "loss").length;
+    const automatedPushes = automatedSettled.filter(p => String(p.result).toLowerCase() === "push").length;
 
-const pushes = settled.reduce((sum, p) => {
-  return sum + Number(p.manual_pushes || 0) + (String(p.result).toLowerCase() === "push" && !p.manual_pushes ? 1 : 0);
-}, 0);
+    const automatedStake = automatedSettled.reduce((sum, p) => sum + Number(p.stake || 0), 0);
+    const automatedProfit = automatedSettled.reduce((sum, p) => sum + Number(p.profit || 0), 0);
+
+    // Totales combinados: manual inicial + automático real
+    const wins = initialWins + automatedWins;
+    const losses = initialLosses + automatedLosses;
+    const pushes = initialPushes + automatedPushes;
+
     const counted = wins + losses;
+    const hitRate = counted > 0 ? Number(((wins / counted) * 100).toFixed(1)) : 0;
 
-    const hitRate =
-      counted > 0 ? Number(((wins / counted) * 100).toFixed(1)) : 0;
+    const totalStake = initialStake + automatedStake;
+    const totalProfit = initialProfit + automatedProfit;
 
-    const totalStake = settled.reduce((sum, p) => {
-      return sum + Number(p.stake || 0);
-    }, 0);
+    const roi = totalStake > 0
+      ? Number(((totalProfit / totalStake) * 100).toFixed(1))
+      : 0;
 
-    const totalProfit = settled.reduce((sum, p) => {
-      return sum + Number(p.profit || 0);
-    }, 0);
+    // Average odds (solo de parlays automáticos, que tienen odds reales)
+    const oddsValues = automatedSettled
+      .map(p => Number(p.parlay_odds || p.odds_decimal || 0))
+      .filter(v => v > 0);
 
-    const roi =
-      totalStake > 0
-        ? Number(((totalProfit / totalStake) * 100).toFixed(1))
-        : 0;
+    const averageOdds = oddsValues.length
+      ? Number((oddsValues.reduce((a, b) => a + b, 0) / oddsValues.length).toFixed(2))
+      : 0;
+
+    // Streaks: solo sobre el historial automático real, ordenado cronológicamente
+    const chronological = [...automatedSettled].sort(
+      (a, b) => new Date(a.game_date || a.created_at) - new Date(b.game_date || b.created_at)
+    );
+
+    let currentWinStreak = 0;
+    let currentLossStreak = 0;
+
+    for (let i = chronological.length - 1; i >= 0; i--) {
+      const r = String(chronological[i].result).toLowerCase();
+      if (r === "push") continue;
+
+      if (currentWinStreak === 0 && currentLossStreak === 0) {
+        if (r === "win") currentWinStreak = 1;
+        if (r === "loss") currentLossStreak = 1;
+        continue;
+      }
+
+      if (currentWinStreak > 0) {
+        if (r === "win") currentWinStreak++;
+        else break;
+      } else if (currentLossStreak > 0) {
+        if (r === "loss") currentLossStreak++;
+        else break;
+      }
+    }
 
     return res.status(200).json({
       ok: true,
-      record: {
-        wins,
-        losses,
-        pushes,
-        total: settled.length,
-        hitRate
+      record: `${wins}-${losses}`,
+      hitRate,
+      profit: Number(totalProfit.toFixed(2)),
+      roi,
+      averageOdds,
+      currentWinStreak,
+      currentLossStreak,
+      breakdown: {
+        manual: {
+          wins: initialWins,
+          losses: initialLosses,
+          pushes: initialPushes,
+          profit: Number(initialProfit.toFixed(2))
+        },
+        automated: {
+          wins: automatedWins,
+          losses: automatedLosses,
+          pushes: automatedPushes,
+          profit: Number(automatedProfit.toFixed(2))
+        }
       },
-      units: {
-        totalStake: Number(totalStake.toFixed(2)),
-        profit: Number(totalProfit.toFixed(2)),
-        roi
-      },
-      recent: rows.slice(0, 10)
+      recentParlays: automatedSettled.slice(0, 10)
     });
 
   } catch (error) {
