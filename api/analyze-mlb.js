@@ -2414,7 +2414,7 @@ confidence = clamp(confidence, 0, 99);
   support >= 56 &&
   (
     direction === "OVER"
-      ? totalEdge >= 3.5
+      ? totalEdge >= 3.0
       : totalEdge >= 2.5
   )
       };
