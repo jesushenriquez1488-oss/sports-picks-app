@@ -1975,8 +1975,7 @@ async function getInjuryAdjustment(origin, teamName) {
     const activeInjuries = injuries.filter(player => shouldCountInjury(player));
  
     for (const player of activeInjuries) {
-     let status = String(player.status || "").toLowerCase();
-if (player.name === "Luka Doncic") status = "doubtful"; // TEMPORAL - prueba aislada
+    const status = String(player.status || "").toLowerCase();
      let pesoStatus = 0;
 
 if (status.includes("out")) pesoStatus = 4;
@@ -1986,7 +1985,7 @@ else if (status.includes("day-to-day") || status.includes("day to day")) pesoSta
       if (pesoStatus === 0) continue;
  
       const stats = await getPlayerSeasonAverages(player.athleteId);
- console.log("DEBUG INJURY STATS", player.name, "athleteId:", player.athleteId, "stats:", JSON.stringify(stats));
+ 
       const ois = calcOffensiveImpactScore(stats);
       const dis = calcDefensiveImpactScore(stats);
  
