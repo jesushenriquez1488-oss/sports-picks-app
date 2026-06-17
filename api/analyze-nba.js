@@ -1083,6 +1083,125 @@ const pushes = settled.reduce((sum, p) => {
     });
   }
 }
+  if (req.method === "GET" && req.query.mode === "grade-parlay-tracking") {
+  try {
+    const authHeader = req.headers.authorization || "";
+    const cronToken = authHeader.replace("Bearer ", "");
+    const manualSecret = req.query.secret;
+
+    const validSecret =
+      process.env.CRON_SECRET ||
+      process.env.GENERATE_DAILY_SECRET;
+
+    if (!validSecret) {
+      return res.status(500).json({ error: "Falta CRON_SECRET" });
+    }
+
+    if (cronToken !== validSecret && manualSecret !== validSecret) {
+      return res.status(401).json({ error: "No autorizado" });
+    }
+
+    const { data: parlays, error } = await supabaseAdmin
+      .from("parlay_history")
+      .select("*")
+      .eq("result", "pending")
+      .order("game_date", { ascending: true });
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    const gradedParlays = [];
+
+    for (const parlay of parlays || []) {
+      const { data: legs, error: legsError } = await supabaseAdmin
+        .from("parlay_legs")
+        .select("*")
+        .eq("parlay_id", parlay.id);
+
+      if (legsError || !legs?.length) continue;
+
+      const wonLegs = legs.filter(l => l.result === "win").length;
+      const lostLegs = legs.filter(l => l.result === "loss").length;
+      const pushLegs = legs.filter(l => l.result === "push").length;
+      const pendingLegs = legs.filter(l => l.result === "pending").length;
+
+      if (pendingLegs > 0) {
+        gradedParlays.push({
+          id: parlay.id,
+          status: "still_pending",
+          pendingLegs
+        });
+        continue;
+      }
+
+      const stake = Number(parlay.stake || 1);
+
+      const activeLegs = legs.filter(l => l.result !== "push");
+
+      const finalOdds = activeLegs.reduce((total, leg) => {
+        return total * Number(leg.odds_decimal || 1.9);
+      }, 1);
+
+      let result = "loss";
+      let payout = 0;
+      let profit = -stake;
+
+      if (lostLegs === 0 && wonLegs > 0) {
+        result = "win";
+        payout = stake * finalOdds;
+        profit = payout - stake;
+      }
+
+      if (activeLegs.length === 0) {
+        result = "push";
+        payout = stake;
+        profit = 0;
+      }
+
+      const roi = stake > 0 ? (profit / stake) * 100 : 0;
+
+      await supabaseAdmin
+        .from("parlay_history")
+        .update({
+          result,
+          won_legs: wonLegs,
+          lost_legs: lostLegs,
+          push_legs: pushLegs,
+          odds_decimal: Number(finalOdds.toFixed(2)),
+          parlay_odds: Number(finalOdds.toFixed(2)),
+          payout: Number(payout.toFixed(2)),
+          profit: Number(profit.toFixed(2)),
+          roi: Number(roi.toFixed(1)),
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", parlay.id);
+
+      gradedParlays.push({
+        id: parlay.id,
+        result,
+        wonLegs,
+        lostLegs,
+        pushLegs,
+        finalOdds: Number(finalOdds.toFixed(2)),
+        profit: Number(profit.toFixed(2)),
+        roi: Number(roi.toFixed(1))
+      });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      checked: parlays?.length || 0,
+      graded: gradedParlays
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      error: error.message
+    });
+  }
+}
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
