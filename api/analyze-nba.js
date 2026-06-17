@@ -1458,19 +1458,7 @@ if (isPremiumPick === true) {
     console.error("Error insertando pick:", insertError.message);
   }
 }
-  pick_type: pickType,
-  pick_team: pickTeam,
-  pick_direction: pickDirection,
-  line: pickLine
-})
-      .select("id")
-      .single();
-
-    if (insertError) {
-      console.error("Error insertando pick:", insertError.message);
-    }
-
-    return res.status(200).json({
+ return res.status(200).json({
       locked,
       isPremiumPick,
       noPlay: false,
