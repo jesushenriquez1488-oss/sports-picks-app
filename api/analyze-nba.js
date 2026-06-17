@@ -1975,7 +1975,7 @@ async function getInjuryAdjustment(origin, teamName) {
     const activeInjuries = injuries.filter(player => shouldCountInjury(player));
  
     for (const player of activeInjuries) {
-      const status = String(player.status || "").toLowerCase();
+      const status = "out"; // TEMPORAL - prueba de impacto máximo, revertir después
  
      let pesoStatus = 0;
 
