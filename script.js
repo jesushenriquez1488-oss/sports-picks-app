@@ -2186,6 +2186,91 @@ function renderPerformancePanel(data) {
     animateNumber(el, Number(el.dataset.target || 0), "%", 1100, 1);
   });
 }
+async function loadParlayPerformance() {
+  try {
+    const res = await fetch("/api/analyze-nba?mode=parlay-performance");
+    const data = await res.json();
+
+    if (!res.ok || !data?.ok) {
+      console.log("Error cargando parlay performance:", data?.error);
+      return;
+    }
+
+    renderParlayPerformancePanel(data);
+
+  } catch (error) {
+    console.log("Error cargando parlay performance:", error);
+  }
+}
+
+function renderParlayPerformancePanel(data) {
+  const box = document.getElementById("parlayPerformancePanel");
+  if (!box) return;
+
+  const [wins, losses] = String(data.record || "0-0").split("-").map(Number);
+
+  const streakHTML = data.currentWinStreak > 0
+    ? `<span class="record-win">🔥 ${data.currentWinStreak}W streak</span>`
+    : data.currentLossStreak > 0
+      ? `<span class="record-loss">${data.currentLossStreak}L streak</span>`
+      : `<span class="record-push">Sin racha activa</span>`;
+
+  box.innerHTML = `
+    <section class="performance-section parlay-performance-section">
+
+      <div class="performance-header">
+        <div>
+          <p class="premium-label">
+            <span class="live-dot"></span>
+            PARLAY AI TRACKING
+          </p>
+          <h2>Parlay AI Performance</h2>
+          <span>Live parlay tracking combinando picks premium del día.</span>
+        </div>
+
+        <div class="performance-overall-card">
+          <small>Hit Rate</small>
+          <strong id="overallParlayRate">0%</strong>
+          <span>${wins || 0}W - ${losses || 0}L</span>
+        </div>
+      </div>
+
+      <div class="parlay-performance-grid">
+
+        <div class="parlay-perf-card">
+          <small>PROFIT</small>
+          <strong class="${data.profit >= 0 ? 'positive-value' : 'negative-value'}">
+            ${data.profit >= 0 ? "+" : ""}${Number(data.profit || 0).toFixed(1)}u
+          </strong>
+        </div>
+
+        <div class="parlay-perf-card">
+          <small>ROI</small>
+          <strong class="${data.roi >= 0 ? 'positive-value' : 'negative-value'}">
+            ${data.roi >= 0 ? "+" : ""}${Number(data.roi || 0).toFixed(1)}%
+          </strong>
+        </div>
+
+        <div class="parlay-perf-card">
+          <small>AVG ODDS</small>
+          <strong>${Number(data.averageOdds || 0).toFixed(2)}</strong>
+        </div>
+
+        <div class="parlay-perf-card">
+          <small>RACHA</small>
+          <strong class="streak-text">${streakHTML}</strong>
+        </div>
+
+      </div>
+
+    </section>
+  `;
+
+  const overallParlayRate = document.getElementById("overallParlayRate");
+  animateNumber(overallParlayRate, data.hitRate, "%", 1300, 1);
+}
+
+window.addEventListener("load", loadParlayPerformance);
 async function isAdmin() {
   const { data } = await supabaseClient.auth.getUser();
   return data?.user?.email === "jesushenriquez1488@gmail.com";
