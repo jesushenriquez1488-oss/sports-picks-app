@@ -2663,3 +2663,80 @@ button.player-edge-toggle-btn:hover {
   color: rgba(255,255,255,.55);
   margin: 0 0 10px;
 }
+/* ===== PARLAY PERFORMANCE DUAL PANEL ===== */
+
+.performance-dual-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.performance-dual-wrap .performance-section {
+  margin: 0;
+  height: 100%;
+}
+
+.parlay-performance-section {
+  border: 1px solid rgba(124, 60, 255, 0.18);
+}
+
+.parlay-performance-section .premium-label .live-dot {
+  background: #7c3cff;
+  box-shadow: 0 0 8px rgba(124, 60, 255, 0.6);
+}
+
+.parlay-performance-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.parlay-perf-card {
+  background: rgba(0, 255, 231, 0.04);
+  border: 1px solid rgba(0, 255, 231, 0.12);
+  border-radius: 12px;
+  padding: 12px 10px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.parlay-perf-card small {
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.4);
+  font-family: monospace;
+  text-transform: uppercase;
+}
+
+.parlay-perf-card strong {
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.positive-value {
+  color: #00ff99 !important;
+}
+
+.negative-value {
+  color: #ff6b6b !important;
+}
+
+.streak-text {
+  font-size: 12px !important;
+}
+
+/* Responsive: apilar en mobile */
+@media (max-width: 860px) {
+  .performance-dual-wrap {
+    grid-template-columns: 1fr;
+  }
+
+  .parlay-performance-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
