@@ -2577,9 +2577,13 @@ const teamsSorted = [awayTeam, homeTeam]
   .map(t => String(t).trim())
   .sort();
 
-const gameId = teamsSorted.join("-");
-const gameDate = new Date().toISOString().split("T")[0];
-
+const gameDate = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Chicago",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit"
+}).format(new Date());
+const gameId = `mlb-${gameDate}-${teamsSorted.join("-")}`;
 const { error: dailyPickError } = await supabaseAdmin
   .from("daily_picks")
   .upsert(
