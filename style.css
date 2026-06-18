@@ -171,9 +171,7 @@ body.logged-in #authBox { display: none; }
   display: flex;
   align-items: center;
   border-radius: var(--radius-lg);
-  background:
-    radial-gradient(circle at 15% 50%, rgba(0,255,234,.14), transparent 30%),
-    linear-gradient(135deg, rgba(4,16,38,.98), rgba(4,7,20,.98));
+background: #080808;
   border: 1px solid var(--border-c);
   color: white;
   cursor: pointer;
