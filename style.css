@@ -1473,7 +1473,7 @@ button:active { transform: scale(.97); }
   border-radius: var(--radius-xl);
   background:
     radial-gradient(circle at top left, rgba(0,255,231,.14), transparent 32%),
-    rgba(8,16,35,.88);
+    rgba(8,8,8,.88);
   border: 1px solid rgba(0,255,231,.20);
 }
  
