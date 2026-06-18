@@ -2634,7 +2634,7 @@ if (recommendedCards.length > 0) {
       : Number(String(card.play).match(/[+-]\d+(\.\d+)?/)?.[0]);
 
   // Determinar el price real según el tipo de pick elegido
-  let pickPrice = -110;
+ let pickPrice = -110;
 
   if (pickType === "ml") {
     const isAwayPick = pickTeam === awayTeam;
@@ -2652,9 +2652,25 @@ if (recommendedCards.length > 0) {
       : Number(underPrice ?? -110);
   }
 
+  // Agregar odds_american al card para que parlay tracking lo use
+  card.odds_american = pickPrice;
+
+  // Actualizar fullMlbAnalysis con el card ya corregido
+  fullMlbAnalysis.premium.recommendedCards[0] = card;
+
+  // Re-guardar daily_picks con el card actualizado
+  await supabaseAdmin
+    .from("daily_picks")
+    .update({
+      analysis_json: fullMlbAnalysis,
+      updated_at: new Date().toISOString()
+    })
+    .eq("sport", "mlb")
+    .eq("game_id", gameId);
+
   await supabaseAdmin
     .from("picks_history")
-    .delete()
+   .delete()
     .eq("sport", "mlb")
     .eq("game_id", gameId);
 
