@@ -1,100 +1,44 @@
 {
   "crons": [
-    {
-      "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_nba&limit=4&offset=0&force=true",
-      "schedule": "0 20 * * *"
-    },
-    {
-      "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_nba&limit=4&offset=4&force=true",
-      "schedule": "5 20 * * *"
-    },
-    {
-      "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_nba&limit=4&offset=8&force=true",
-      "schedule": "10 20 * * *"
-    },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=0&force=true", "schedule": "0 11 * * *" },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=4&force=true", "schedule": "5 11 * * *" },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=8&force=true", "schedule": "10 11 * * *" },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_wnba&limit=4&offset=0&force=true", "schedule": "20 11 * * *" },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_wnba&limit=4&offset=4&force=true", "schedule": "25 11 * * *" },
 
-    {
-      "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_wnba&limit=4&offset=0&force=true",
-      "schedule": "15 20 * * *"
-    },
-    {
-      "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_wnba&limit=4&offset=4&force=true",
-      "schedule": "20 20 * * *"
-    },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=0&force=true", "schedule": "0 13 * * *" },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=4&force=true", "schedule": "5 13 * * *" },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=8&force=true", "schedule": "10 13 * * *" },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_wnba&limit=4&offset=0&force=true", "schedule": "20 13 * * *" },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_wnba&limit=4&offset=4&force=true", "schedule": "25 13 * * *" },
 
-    {
-      "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=0&force=true",
-      "schedule": "25 20 * * *"
-    },
-    {
-      "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=4&force=true",
-      "schedule": "30 20 * * *"
-    },
-    {
-      "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=8&force=true",
-      "schedule": "35 20 * * *"
-    },
-    {
-      "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=12&force=true",
-      "schedule": "40 20 * * *"
-    },
-    {
-      "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=16&force=true",
-      "schedule": "45 20 * * *"
-    },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=0&force=true", "schedule": "0 17 * * *" },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=4&force=true", "schedule": "5 17 * * *" },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=8&force=true", "schedule": "10 17 * * *" },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_wnba&limit=4&offset=0&force=true", "schedule": "20 17 * * *" },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_wnba&limit=4&offset=4&force=true", "schedule": "25 17 * * *" },
 
-    {
-      "path": "/api/analyze-mlb?mode=grade-pending",
-      "schedule": "40 8 * * *"
-    },
-    {
-      "path": "/api/analyze-nba?mode=grade-pending",
-      "schedule": "50 8 * * *"
-    },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=0&force=true", "schedule": "0 19 * * *" },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=4&force=true", "schedule": "5 19 * * *" },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=8&force=true", "schedule": "10 19 * * *" },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_wnba&limit=4&offset=0&force=true", "schedule": "20 19 * * *" },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_wnba&limit=4&offset=4&force=true", "schedule": "25 19 * * *" },
 
-    {
-      "path": "/api/analyze-mlb?mode=grade-pending",
-      "schedule": "40 12 * * *"
-    },
-    {
-      "path": "/api/analyze-nba?mode=grade-pending",
-      "schedule": "50 12 * * *"
-    },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=0&force=true", "schedule": "0 21 * * *" },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=4&force=true", "schedule": "5 21 * * *" },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=8&force=true", "schedule": "10 21 * * *" },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_wnba&limit=4&offset=0&force=true", "schedule": "20 21 * * *" },
+    { "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_wnba&limit=4&offset=4&force=true", "schedule": "25 21 * * *" },
 
-    {
-      "path": "/api/analyze-mlb?mode=grade-pending",
-      "schedule": "40 16 * * *"
-    },
-    {
-      "path": "/api/analyze-nba?mode=grade-pending",
-      "schedule": "50 16 * * *"
-    },
+    { "path": "/api/analyze-mlb?mode=grade-pending", "schedule": "40 8 * * *" },
+    { "path": "/api/analyze-nba?mode=grade-pending", "schedule": "50 8 * * *" },
+    { "path": "/api/analyze-mlb?mode=grade-pending", "schedule": "40 12 * * *" },
+    { "path": "/api/analyze-nba?mode=grade-pending", "schedule": "50 12 * * *" },
+    { "path": "/api/analyze-mlb?mode=grade-pending", "schedule": "40 16 * * *" },
+    { "path": "/api/analyze-nba?mode=grade-pending", "schedule": "50 16 * * *" },
+    { "path": "/api/analyze-mlb?mode=grade-pending", "schedule": "40 19 * * *" },
+    { "path": "/api/analyze-nba?mode=grade-pending", "schedule": "50 19 * * *" },
+    { "path": "/api/analyze-mlb?mode=grade-pending", "schedule": "0 23 * * *" },
+    { "path": "/api/analyze-nba?mode=grade-pending", "schedule": "10 23 * * *" },
 
-    {
-      "path": "/api/analyze-mlb?mode=grade-pending",
-      "schedule": "40 19 * * *"
-    },
-    {
-      "path": "/api/analyze-nba?mode=grade-pending",
-      "schedule": "50 19 * * *"
-    },
-
-    {
-      "path": "/api/analyze-mlb?mode=grade-pending",
-      "schedule": "0 23 * * *"
-    },
-    {
-      "path": "/api/analyze-nba?mode=grade-pending",
-      "schedule": "10 23 * * *"
-    },
-
-    {
-      "path": "/api/analyze-nba?mode=send-premium-alerts",
-      "schedule": "0 21 * * *"
-    },
-    {
-      "path": "/api/analyze-nba?mode=send-parlay-alert",
-      "schedule": "30 21 * * *"
-    }
-  ]
-}
+    { "path": "/api/analyze-nba?mode=send-premium-alerts", "schedule": "45 13 *
