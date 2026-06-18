@@ -2680,3 +2680,43 @@ button.player-edge-toggle-btn:hover {
 .parlay-overall-card .negative-value {
   color: #ff6b6b;
 }
+#bg-glow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  animation: neon-pulse 3s ease-in-out infinite;
+  box-shadow:
+    inset 0 0 60px rgba(0, 255, 231, 0.06),
+    inset 0 0 150px rgba(124, 60, 255, 0.05);
+}
+
+@keyframes neon-pulse {
+  0%, 100% {
+    box-shadow:
+      inset 0 0 60px rgba(0, 255, 231, 0.06),
+      inset 0 0 150px rgba(124, 60, 255, 0.05);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 80px rgba(0, 255, 231, 0.11),
+      inset 0 0 200px rgba(124, 60, 255, 0.09);
+  }
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(0,255,231,0.18), transparent);
+  animation: scan-line 5s linear infinite;
+  pointer-events: none;
+  z-index: 999;
+}
+
+@keyframes scan-line {
+  0%   { top: -2px; }
+  100% { top: 100vh; }
+}
