@@ -2052,19 +2052,32 @@ function getModelAnalysis(verdict) {
 }
 
 function getInjuryPublicMessage(teamName, injury = {}) {
-  if (injury.offenseImpact < 0 && injury.defenseImpact > 0) {
-    return `${teamName} presenta posibles bajas en ofensiva y defensiva, lo que podría afectar su rendimiento general.`;
+  const hasOffenseImpact = injury.offenseImpact < 0;
+  const hasDefenseImpact = injury.defenseImpact > 0;
+
+  if (!hasOffenseImpact && !hasDefenseImpact) {
+    return `No se reportan bajas clave que afecten significativamente el rendimiento de ${teamName}.`;
   }
 
-  if (injury.offenseImpact < 0) {
-    return `${teamName} presenta posibles bajas en ofensiva, lo que podría afectar su producción de puntos.`;
+  const playerList = injury.note && !injury.note.startsWith("No se reportan")
+    ? injury.note
+    : null;
+
+  if (hasOffenseImpact && hasDefenseImpact) {
+    return playerList
+      ? `${teamName} podría verse afectado en ofensiva y defensiva por: ${playerList}.`
+      : `${teamName} presenta posibles bajas en ofensiva y defensiva, lo que podría afectar su rendimiento general.`;
   }
 
-  if (injury.defenseImpact > 0) {
-    return `${teamName} presenta posibles bajas en defensiva, lo que podría afectar su capacidad para contener al rival.`;
+  if (hasOffenseImpact) {
+    return playerList
+      ? `${teamName} podría verse afectado en su producción de puntos por: ${playerList}.`
+      : `${teamName} presenta posibles bajas en ofensiva, lo que podría afectar su producción de puntos.`;
   }
 
-  return `No se reportan bajas clave que afecten significativamente el rendimiento de ${teamName}.`;
+  return playerList
+    ? `${teamName} podría verse afectado en su capacidad defensiva por: ${playerList}.`
+    : `${teamName} presenta posibles bajas en defensiva, lo que podría afectar su capacidad para contener al rival.`;
 }
 function isWnbaTeam(teamName) {
   const name = String(teamName || "").toLowerCase();
