@@ -83,16 +83,76 @@ function getDefaultSeason() {
   const month = now.getMonth() + 1;
   return month >= 8 ? year : year - 1;
 }
+// Cache en memoria para IDs de equipos resueltos dinámicamente
+const dynamicTeamCache = global.__FOOTBALL_TEAM_ID_CACHE__ || {};
+global.__FOOTBALL_TEAM_ID_CACHE__ = dynamicTeamCache;
 
+async function findNCAAFTeamIdDynamic(teamName) {
+  const cacheKey = cleanText(teamName);
+
+  if (dynamicTeamCache[cacheKey]) {
+    return dynamicTeamCache[cacheKey];
+  }
+
+  try {
+    const url = `https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams?limit=500`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const groups = data?.sports?.[0]?.leagues?.[0]?.teams || [];
+    const clean = cleanText(teamName);
+
+    const match = groups.find(t => {
+      const team = t.team || {};
+      const displayName = cleanText(team.displayName || "");
+      const shortName = cleanText(team.shortDisplayName || "");
+      const location = cleanText(team.location || "");
+      const nickname = cleanText(team.name || "");
+
+      return (
+        displayName === clean || shortName === clean ||
+        clean === location ||
+        (clean.includes(location) && location.length > 2) ||
+        (clean.includes(nickname) && nickname.length > 2) ||
+        displayName.includes(clean) || clean.includes(displayName)
+      );
+    });
+
+    if (match?.team?.id) {
+      const result = {
+        id: match.team.id,
+        keys: [
+          cleanText(match.team.displayName || ""),
+          cleanText(match.team.shortDisplayName || ""),
+          cleanText(match.team.location || ""),
+          cleanText(match.team.name || "")
+        ].filter(Boolean)
+      };
+      dynamicTeamCache[cacheKey] = result;
+      return result;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
 function normalizeTeam(team) {
   const key = cleanText(team);
   const mapped = TEAM_MAP[key];
-
   if (mapped) return mapped;
+
+  for (const [mapKey, mapVal] of Object.entries(TEAM_MAP)) {
+    if (mapVal.keys.some(k => cleanText(k) === key || key.includes(cleanText(k)) || cleanText(k).includes(key))) {
+      return mapVal;
+    }
+  }
 
   return {
     id: key,
-    keys: [key]
+    keys: [key],
+    needsDynamicResolution: true
   };
 }
 
@@ -551,8 +611,20 @@ function findStatValue(data, statName, section = "stats") {
 
 async function getTeamStatsProfile(type, teamRef, season) {
   const sportPath = SPORT_PATHS[type];
-  const url = `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/teams/${teamRef.id}/statistics?season=${season}`;
 
+  if (teamRef.needsDynamicResolution && type === "ncaaf") {
+    const resolved = await findNCAAFTeamIdDynamic(teamRef.id);
+    if (resolved) {
+      teamRef = { ...teamRef, ...resolved, needsDynamicResolution: false };
+    } else {
+      return {
+        plays: 68, yards: 390, thirdDown: 40, redZone: 60,
+        defPoints: 27, defYards: 390, defThirdDown: 40, defRedZone: 60
+      };
+    }
+  }
+
+  const url = `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/teams/${teamRef.id}/statistics?season=${season}`;
   const data = await fetchJson(url);
 
   return {
@@ -560,7 +632,6 @@ async function getTeamStatsProfile(type, teamRef, season) {
     yards: findStatValue(data, "yardsPerGame"),
     thirdDown: findStatValue(data, "thirdDownConvPct"),
     redZone: findStatValue(data, "redzoneScoringPct"),
-
     defPoints: findStatValue(data, "totalPointsPerGame", "opponent"),
     defYards: findStatValue(data, "yardsPerGame", "opponent"),
     defThirdDown: findStatValue(data, "thirdDownConvPct", "opponent"),
