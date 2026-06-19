@@ -690,7 +690,7 @@ function buildFootballPicks({
   }
   let totalPick = null;
 
-  iif (Number.isFinite(odds.totalLine)) {
+  if (Number.isFinite(odds.totalLine)) {
     const rawEdge = projectedTotal - odds.totalLine;
     const edge = round(Math.abs(rawEdge));
 
