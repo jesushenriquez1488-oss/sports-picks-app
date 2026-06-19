@@ -1204,15 +1204,13 @@ const isFootballSport = [
 
 let allowedDates = [];
 
-if (isFootballSport && kansasNow.weekday === "Sun" && kansasNow.hour >= 21) {
-  // Domingo después de 9PM Kansas:
-  // carga solo la próxima semana completa
-  for (let i = 1; i <= 7; i++) {
+if (isFootballSport) {
+  // NFL/NCAAF: mostrar los próximos 7 días siempre
+  for (let i = 0; i <= 7; i++) {
     allowedDates.push(kansasDateString(addDays(now, i)));
   }
 } else {
-  // Deportes diarios:
-  // antes de 9PM hoy, después de 9PM mañana
+  // Deportes diarios: solo hoy o mañana
   const targetDate =
     kansasNow.hour >= 21
       ? kansasDateString(addDays(now, 1))
@@ -1220,7 +1218,6 @@ if (isFootballSport && kansasNow.weekday === "Sun" && kansasNow.hour >= 21) {
 
   allowedDates.push(targetDate);
 }
-
 let upcomingGames = data.filter(game => {
   const gameTime = new Date(game.commence_time);
   const gameKansasDate = kansasDateString(gameTime);
