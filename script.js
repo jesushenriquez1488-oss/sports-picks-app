@@ -1205,11 +1205,24 @@ const isFootballSport = [
 let allowedDates = [];
 
 if (isFootballSport) {
-  // NFL/NCAAF: mostrar los próximos 7 días siempre
-  for (let i = 0; i <= 7; i++) {
-    allowedDates.push(kansasDateString(addDays(now, i)));
+  // NFL/NCAAF: mostrar los próximos juegos disponibles sin límite de fecha
+  upcomingGames = data
+    .filter(game => new Date(game.commence_time) > now)
+    .sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time))
+    .slice(0, 16);
+  
+  status.innerHTML = `Juegos encontrados: ${upcomingGames.length}`;
+
+  if (upcomingGames.length === 0) {
+    gamesDiv.innerHTML = `
+      <div class="card">
+        <p>No hay juegos disponibles para ${selectedSportName} en este momento.</p>
+      </div>
+    `;
+    return;
   }
-} else {
+}
+else {
   // Deportes diarios: solo hoy o mañana
   const targetDate =
     kansasNow.hour >= 21
@@ -1218,12 +1231,13 @@ if (isFootballSport) {
 
   allowedDates.push(targetDate);
 }
-let upcomingGames = data.filter(game => {
-  const gameTime = new Date(game.commence_time);
-  const gameKansasDate = kansasDateString(gameTime);
-
-  return allowedDates.includes(gameKansasDate);
-});
+let upcomingGames = isFootballSport
+  ? upcomingGames
+  : data.filter(game => {
+      const gameTime = new Date(game.commence_time);
+      const gameKansasDate = kansasDateString(gameTime);
+      return allowedDates.includes(gameKansasDate);
+    });
 const validWnbaTeams = [
   "Atlanta Dream",
   "Chicago Sky",
