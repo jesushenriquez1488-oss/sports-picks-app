@@ -1231,13 +1231,15 @@ else {
 
   allowedDates.push(targetDate);
 }
-let upcomingGames = isFootballSport
-  ? upcomingGames
-  : data.filter(game => {
-      const gameTime = new Date(game.commence_time);
-      const gameKansasDate = kansasDateString(gameTime);
-      return allowedDates.includes(gameKansasDate);
-    });
+let upcomingGames = [];
+
+if (!isFootballSport) {
+  upcomingGames = data.filter(game => {
+    const gameTime = new Date(game.commence_time);
+    const gameKansasDate = kansasDateString(gameTime);
+    return allowedDates.includes(gameKansasDate);
+  });
+}
 const validWnbaTeams = [
   "Atlanta Dream",
   "Chicago Sky",
