@@ -23,50 +23,66 @@ const MAX_WEEKS = {
 };
 
 const TEAM_MAP = {
-  kc: { id: "12", keys: ["kc", "chiefs", "kansas city chiefs", "kansas city"] },
-  chiefs: { id: "12", keys: ["kc", "chiefs", "kansas city chiefs", "kansas city"] },
-  "kansas city chiefs": { id: "12", keys: ["kc", "chiefs", "kansas city chiefs", "kansas city"] },
+  // NFL
+  "arizona cardinals":    { id: "22", keys: ["arizona cardinals", "cardinals", "arizona"] },
+  "atlanta falcons":      { id: "1",  keys: ["atlanta falcons", "falcons", "atlanta"] },
+  "baltimore ravens":     { id: "33", keys: ["baltimore ravens", "ravens", "baltimore", "bal"] },
+  "buffalo bills":        { id: "2",  keys: ["buffalo bills", "bills", "buffalo", "buf"] },
+  "carolina panthers":    { id: "29", keys: ["carolina panthers", "panthers"] },
+  "chicago bears":        { id: "3",  keys: ["chicago bears", "bears", "chicago"] },
+  "cincinnati bengals":   { id: "4",  keys: ["cincinnati bengals", "bengals", "cincinnati", "cin"] },
+  "cleveland browns":     { id: "5",  keys: ["cleveland browns", "browns", "cleveland"] },
+  "dallas cowboys":       { id: "6",  keys: ["dallas cowboys", "cowboys", "dallas", "dal"] },
+  "denver broncos":       { id: "7",  keys: ["denver broncos", "broncos", "denver"] },
+  "detroit lions":        { id: "8",  keys: ["detroit lions", "lions", "detroit", "det"] },
+  "green bay packers":    { id: "9",  keys: ["green bay packers", "packers", "green bay"] },
+  "houston texans":       { id: "34", keys: ["houston texans", "texans", "houston"] },
+  "indianapolis colts":   { id: "11", keys: ["indianapolis colts", "colts", "indianapolis"] },
+  "jacksonville jaguars": { id: "30", keys: ["jacksonville jaguars", "jaguars", "jacksonville"] },
+  "kansas city chiefs":   { id: "12", keys: ["kansas city chiefs", "chiefs", "kansas city", "kc"] },
+  "las vegas raiders":    { id: "13", keys: ["las vegas raiders", "raiders", "las vegas"] },
+  "los angeles chargers": { id: "24", keys: ["los angeles chargers", "chargers"] },
+  "los angeles rams":     { id: "14", keys: ["los angeles rams", "rams"] },
+  "miami dolphins":       { id: "15", keys: ["miami dolphins", "dolphins", "miami"] },
+  "minnesota vikings":    { id: "16", keys: ["minnesota vikings", "vikings", "minnesota"] },
+  "new england patriots": { id: "17", keys: ["new england patriots", "patriots", "new england"] },
+  "new orleans saints":   { id: "18", keys: ["new orleans saints", "saints", "new orleans"] },
+  "new york giants":      { id: "19", keys: ["new york giants", "giants"] },
+  "new york jets":        { id: "20", keys: ["new york jets", "jets"] },
+  "philadelphia eagles":  { id: "21", keys: ["philadelphia eagles", "eagles", "philadelphia", "phi"] },
+  "pittsburgh steelers":  { id: "23", keys: ["pittsburgh steelers", "steelers", "pittsburgh"] },
+  "san francisco 49ers":  { id: "25", keys: ["san francisco 49ers", "49ers", "san francisco", "sf"] },
+  "seattle seahawks":     { id: "26", keys: ["seattle seahawks", "seahawks", "seattle"] },
+  "tampa bay buccaneers": { id: "27", keys: ["tampa bay buccaneers", "buccaneers", "tampa bay", "tampa"] },
+  "tennessee titans":     { id: "10", keys: ["tennessee titans", "titans", "tennessee"] },
+  "washington commanders":{ id: "28", keys: ["washington commanders", "commanders", "washington"] },
 
-  phi: { id: "21", keys: ["phi", "eagles", "philadelphia eagles", "philadelphia"] },
-  eagles: { id: "21", keys: ["phi", "eagles", "philadelphia eagles", "philadelphia"] },
-  "philadelphia eagles": { id: "21", keys: ["phi", "eagles", "philadelphia eagles", "philadelphia"] },
+  // Abreviaciones NFL
+  kc:   { id: "12", keys: ["kc", "chiefs", "kansas city chiefs", "kansas city"] },
+  phi:  { id: "21", keys: ["phi", "eagles", "philadelphia eagles", "philadelphia"] },
+  dal:  { id: "6",  keys: ["dal", "cowboys", "dallas cowboys", "dallas"] },
+  buf:  { id: "2",  keys: ["buf", "bills", "buffalo bills", "buffalo"] },
+  bal:  { id: "33", keys: ["bal", "ravens", "baltimore ravens", "baltimore"] },
+  cin:  { id: "4",  keys: ["cin", "bengals", "cincinnati bengals", "cincinnati"] },
+  sf:   { id: "25", keys: ["sf", "49ers", "san francisco 49ers", "san francisco"] },
+  det:  { id: "8",  keys: ["det", "lions", "detroit lions", "detroit"] },
 
-  dal: { id: "6", keys: ["dal", "cowboys", "dallas cowboys", "dallas"] },
-  cowboys: { id: "6", keys: ["dal", "cowboys", "dallas cowboys", "dallas"] },
-
-  buf: { id: "2", keys: ["buf", "bills", "buffalo bills", "buffalo"] },
-  bills: { id: "2", keys: ["buf", "bills", "buffalo bills", "buffalo"] },
-
-  bal: { id: "33", keys: ["bal", "ravens", "baltimore ravens", "baltimore"] },
-  ravens: { id: "33", keys: ["bal", "ravens", "baltimore ravens", "baltimore"] },
-
-  cin: { id: "4", keys: ["cin", "bengals", "cincinnati bengals", "cincinnati"] },
-  bengals: { id: "4", keys: ["cin", "bengals", "cincinnati bengals", "cincinnati"] },
-
-  sf: { id: "25", keys: ["sf", "49ers", "san francisco 49ers", "san francisco"] },
-  "49ers": { id: "25", keys: ["sf", "49ers", "san francisco 49ers", "san francisco"] },
-
-  det: { id: "8", keys: ["det", "lions", "detroit lions", "detroit"] },
-  lions: { id: "8", keys: ["det", "lions", "detroit lions", "detroit"] },
-
-  clemson: { id: "228", keys: ["clemson", "clemson tigers", "tigers"] },
-  "clemson tigers": { id: "228", keys: ["clemson", "clemson tigers", "tigers"] },
-
-  unc: { id: "153", keys: ["unc", "north carolina", "north carolina tar heels", "tar heels", "carolina"] },
-  "north carolina": { id: "153", keys: ["unc", "north carolina", "north carolina tar heels", "tar heels", "carolina"] },
-  "north-carolina": { id: "153", keys: ["unc", "north carolina", "north carolina tar heels", "tar heels", "carolina"] },
+  // NCAAF
+  clemson:              { id: "228",  keys: ["clemson", "clemson tigers", "tigers"] },
+  "clemson tigers":     { id: "228",  keys: ["clemson", "clemson tigers", "tigers"] },
+  unc:                  { id: "153",  keys: ["unc", "north carolina", "north carolina tar heels", "tar heels", "carolina"] },
+  "north carolina":     { id: "153",  keys: ["unc", "north carolina", "north carolina tar heels", "tar heels", "carolina"] },
+  "north-carolina":     { id: "153",  keys: ["unc", "north carolina", "north carolina tar heels", "tar heels", "carolina"] },
   "north carolina tar heels": { id: "153", keys: ["unc", "north carolina", "north carolina tar heels", "tar heels", "carolina"] },
-
-  alabama: { id: "333", keys: ["alabama", "alabama crimson tide", "crimson tide"] },
-  georgia: { id: "61", keys: ["georgia", "georgia bulldogs", "bulldogs"] },
-  "ohio state": { id: "194", keys: ["ohio state", "ohio state buckeyes", "osu", "buckeyes"] },
-  texas: { id: "251", keys: ["texas", "texas longhorns", "longhorns"] },
-  oregon: { id: "2483", keys: ["oregon", "oregon ducks", "ducks"] },
-  michigan: { id: "130", keys: ["michigan", "michigan wolverines", "wolverines"] },
-  fsu: { id: "52", keys: ["fsu", "florida state", "florida state seminoles", "seminoles"] },
-  "florida state": { id: "52", keys: ["fsu", "florida state", "florida state seminoles", "seminoles"] }
+  alabama:              { id: "333",  keys: ["alabama", "alabama crimson tide", "crimson tide"] },
+  georgia:              { id: "61",   keys: ["georgia", "georgia bulldogs", "bulldogs"] },
+  "ohio state":         { id: "194",  keys: ["ohio state", "ohio state buckeyes", "osu", "buckeyes"] },
+  texas:                { id: "251",  keys: ["texas", "texas longhorns", "longhorns"] },
+  oregon:               { id: "2483", keys: ["oregon", "oregon ducks", "ducks"] },
+  michigan:             { id: "130",  keys: ["michigan", "michigan wolverines", "wolverines"] },
+  fsu:                  { id: "52",   keys: ["fsu", "florida state", "florida state seminoles", "seminoles"] },
+  "florida state":      { id: "52",   keys: ["fsu", "florida state", "florida state seminoles", "seminoles"] }
 };
-
 function cleanText(value) {
   return String(value || "")
     .toLowerCase()
