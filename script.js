@@ -1998,82 +1998,77 @@ const isUnder = bestPick?.isUnder === true;
 async function analyzeFootball(awayTeam, homeTeam, index) {
   const resultDiv = document.getElementById(`result${index}`);
   resultDiv.innerHTML = `<div class="loading-analysis">Analizando ${selectedSportName}...</div>`;
-
+ 
   try {
     const type = selectedSport === "americanfootball_nfl" ? "nfl" : "ncaaf";
-
-   const { data: sessionData } = await supabaseClient.auth.getSession();
-
-if (!sessionData.session) {
-  alert("Debes iniciar sesión para analizar.");
-  return;
-}
-
-const res = await fetch(
-  `/api/football-data?type=${type}&teamA=${encodeURIComponent(awayTeam)}&teamB=${encodeURIComponent(homeTeam)}`,
-  {
-    headers: {
-      "Authorization": `Bearer ${sessionData.session.access_token}`
+ 
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+ 
+    if (!sessionData.session) {
+      alert("Debes iniciar sesión para analizar.");
+      return;
     }
-  }
-);
-
+ 
+    const res = await fetch(
+      `/api/football-data?type=${type}&teamA=${encodeURIComponent(awayTeam)}&teamB=${encodeURIComponent(homeTeam)}`,
+      {
+        headers: {
+          "Authorization": `Bearer ${sessionData.session.access_token}`
+        }
+      }
+    );
+ 
     const data = await res.json();
-
+ 
     if (!res.ok) {
       throw new Error(data.error || "Error football");
     }
-
+ 
     const projAway = Number(data.projectedScore?.[awayTeam] || 0);
     const projHome = Number(data.projectedScore?.[homeTeam] || 0);
-
     const projectedTotal = Number(data.projectedTotal || 0);
     const projectedSpread = Number(data.projectedSpread || 0);
-
     const odds = data.odds || {};
     const picks = data.picks || {};
-
-    let spreadPick = picks.spreadPick || null;
-    let totalPick = picks.totalPick || null;
-
-   
-
-  const validPicks = [spreadPick, totalPick].filter(Boolean);
-const bestPick = validPicks.length
-  ? validPicks.sort((a, b) => {
-      if (b.confidence !== a.confidence) return b.confidence - a.confidence;
-      return b.edge - a.edge;
-    })[0]
-  : null;
+    const spreadPick = picks.spreadPick || null;
+    const totalPick = picks.totalPick || null;
  
-const isPremium = bestPick?.isPremium === true;
-const locked = isPremium && !IS_ADMIN && !isPremiumUser;
+    const validPicks = [spreadPick, totalPick].filter(Boolean);
+    const bestPick = validPicks.length
+      ? validPicks.sort((a, b) => {
+          if (b.confidence !== a.confidence) return b.confidence - a.confidence;
+          return b.edge - a.edge;
+        })[0]
+      : null;
  
-// Fix: detectar tipo real por el texto del pick, no por el campo type
-// porque sanitizePicksForPublic cambia type a "premium"
-const pickText = String(bestPick?.pick || "").toUpperCase();
-const realType = pickText.includes("OVER") || pickText.includes("UNDER") ? "total" : "spread";
-const isOver = realType === "total" && pickText.includes("OVER");
-const isUnder = realType === "total" && pickText.includes("UNDER");
+    const isPremium = bestPick?.isPremium === true;
+    const locked = isPremium && !IS_ADMIN && !isPremiumUser;
  
-// Pasar realType al bestPick para que generateNFLAnalysisText lo use
-const bestPickFixed = bestPick ? { ...bestPick, type: realType, isOver, isUnder } : null;
+    const pickText = String(bestPick?.pick || "").toUpperCase();
+    const realType = pickText.includes("OVER") || pickText.includes("UNDER") ? "total" : "spread";
+    const isOver = realType === "total" && pickText.includes("OVER");
+    const isUnder = realType === "total" && pickText.includes("UNDER");
+    const bestPickFixed = bestPick ? { ...bestPick, type: realType, isOver, isUnder } : null;
+    const analysisText = bestPickFixed ? generateNFLAnalysisText(data, awayTeam, homeTeam, bestPickFixed) : "";
  
-const analysisText = bestPickFixed
-  ? generateNFLAnalysisText(data, awayTeam, homeTeam, bestPickFixed)
-  : "";
+    const confidence = Number(bestPick?.confidence || 0);
+    const circleDash = Math.round((confidence / 100) * 163);
+    const circleColor = isPremium ? "#7c3cff" : "#00ffe7";
  
-const confidence = Number(bestPick?.confidence || 0);
-const circleDash = Math.round((confidence / 100) * 163);
-const circleColor = isPremium ? "#7c3cff" : "#00ffe7";
+    const awayEsc = awayTeam.replace(/'/g, "\\'");
+    const homeEsc = homeTeam.replace(/'/g, "\\'");
  
-resultDiv.innerHTML = isPremium ? `
+    const propsButtonHTML = type === "nfl"
+      ? `<button onclick="toggleNFLPlayerProps(${index}, '${awayEsc}', '${homeEsc}', this)" style="width:100%;padding:11px;border-radius:8px;border:1px solid #1a2240;background:#0f1628;color:#00ffe7;font-size:12px;font-weight:600;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">⚡ VER PLAYER PROPS</button><div id="nflProps${index}"></div>`
+      : "";
+ 
+    resultDiv.innerHTML = isPremium ? `
  
 <div class="ce-premium-basket-card" style="padding:14px;">
  
   <div style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,255,231,0.08);border:1px solid rgba(0,255,231,0.2);border-radius:20px;padding:3px 8px;font-size:10px;color:#00ffe7;font-weight:500;margin-bottom:10px;">
     <span style="width:5px;height:5px;border-radius:50%;background:#00ffe7;animation:nfl-pulse 1.5s infinite;display:inline-block;"></span>
-    HOT PICK · NFL
+    HOT PICK · ${type.toUpperCase()}
   </div>
  
   <div style="font-size:12px;color:#8899bb;margin-bottom:12px;">${awayTeam} vs ${homeTeam}</div>
@@ -2087,14 +2082,13 @@ resultDiv.innerHTML = isPremium ? `
         ${locked ? "" : `${realType === "total" ? "Total" : "Spread"} · ${Number(bestPick?.odds_american ?? -110) > 0 ? "+" : ""}${bestPick?.odds_american ?? -110} · Edge ${Number(bestPick?.edge || 0).toFixed(1)}`}
       </div>
     </div>
- 
     <div style="position:relative;width:72px;height:72px;flex-shrink:0;">
       <svg width="72" height="72" viewBox="0 0 72 72" style="position:absolute;top:0;left:0;">
         <circle cx="36" cy="36" r="30" fill="none" stroke="#1a2240" stroke-width="4"/>
         <circle cx="36" cy="36" r="30" fill="none" stroke="${circleColor}" stroke-width="4"
           stroke-dasharray="${circleDash} 188" stroke-linecap="round"
           transform="rotate(-90 36 36)"
-          style="filter:drop-shadow(0 0 6px ${circleColor});animation:nfl-pulse 2s infinite;"/>
+          style="filter:drop-shadow(0 0 6px ${circleColor});"/>
       </svg>
       <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
         <span style="font-size:15px;font-weight:700;color:${circleColor};">${confidence.toFixed(1)}%</span>
@@ -2142,25 +2136,18 @@ resultDiv.innerHTML = isPremium ? `
       <div style="font-size:10px;color:${circleColor};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;font-weight:600;">⚡ Análisis del modelo</div>
       <div style="font-size:12px;color:#aabbcc;line-height:1.6;">${analysisText}</div>
     </div>
- ${type === "nfl" ? `
-    <button onclick="toggleNFLPlayerProps(${index}, '${awayTeam.replace(/'/g,"\\'")}', '${homeTeam.replace(/'/g,"\\'")}', this)"
-      style="width:100%;padding:11px;border-radius:8px;border:1px solid #1a2240;background:#0f1628;color:#00ffe7;font-size:12px;font-weight:600;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
-      ⚡ VER PLAYER PROPS
-    </button>
-    <div id="nflProps${index}"></div>
+    ${propsButtonHTML}
   `}
  
 </div>
  
-<style>
-@keyframes nfl-pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-</style>
+<style>@keyframes nfl-pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }</style>
  
 ` : `
  
 <div style="background:#0a0f1e;border:1px solid #1a2240;border-radius:12px;padding:14px;">
  
-  <div style="font-size:11px;color:#556688;margin-bottom:6px;">🏈 NFL · ${awayTeam} vs ${homeTeam}</div>
+  <div style="font-size:11px;color:#556688;margin-bottom:6px;">🏈 ${type.toUpperCase()} · ${awayTeam} vs ${homeTeam}</div>
  
   <div style="background:#0f1628;border-radius:8px;padding:12px 14px;margin-bottom:10px;">
     <div style="font-size:14px;font-weight:500;color:#8899bb;margin-bottom:4px;">Sin jugada premium detectada</div>
@@ -2181,16 +2168,13 @@ resultDiv.innerHTML = isPremium ? `
       <div style="font-size:14px;font-weight:700;color:#fff;">${projectedTotal.toFixed(1)}</div>
     </div>
   </div>
- ${type === "nfl" ? `
-  <button onclick="toggleNFLPlayerProps(${index}, '${awayTeam.replace(/'/g,"\\'")}', '${homeTeam.replace(/'/g,"\\'")}', this)"
-    style="width:100%;padding:11px;border-radius:8px;border:1px solid #1a2240;background:#0f1628;color:#00ffe7;font-size:12px;font-weight:600;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
-    ⚡ VER PLAYER PROPS
-  </button>
-  <div id="nflProps${index}"></div>
+ 
+  ${propsButtonHTML}
  
 </div>
  
 `;
+ 
   } catch (err) {
     resultDiv.textContent = "Error Football: " + err.message;
   }
