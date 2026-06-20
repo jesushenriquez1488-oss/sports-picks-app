@@ -529,13 +529,117 @@ if (req.method === "GET" && req.query.mode === "parlay-today") {
       });
     }
 
-    if (existingParlay?.picks?.length >= 2) {
-  await saveParlayTracking(todayDate, existingParlay.picks);
+  if (existingParlay?.picks?.length >= 2) {
+  const updatesToday = Number(existingParlay.updates_today || 0);
+  const now = new Date();
 
+  // Solo recalcular si no se han hecho 2 actualizaciones hoy
+  if (updatesToday < 2) {
+    const { data: freshPicks } = await supabaseAdmin
+      .from("daily_picks")
+      .select("*")
+      .eq("game_date", todayDate);
+
+    function americanToDecimalLocal(odds) {
+      const n = Number(odds);
+      if (!Number.isFinite(n) || n === 0) return 1.91;
+      return n > 0 ? (n / 100) + 1 : (100 / Math.abs(n)) + 1;
+    }
+
+    let newCandidates = [];
+
+    (freshPicks || []).forEach(pick => {
+      const analysis = pick.analysis_json;
+      if (!analysis || !analysis.isPremiumPick || !analysis.premium) return;
+
+      // Excluir juegos que ya empezaron
+      const gameTime = new Date(pick.game_date + "T23:59:59Z");
+      const commenceTime = analysis.premium?.commenceTime
+        || analysis.public?.commenceTime
+        || null;
+
+      if (commenceTime && new Date(commenceTime) <= now) return;
+
+      if (analysis.premium.recommendedCards) {
+        analysis.premium.recommendedCards.forEach(card => {
+          const percentage = Number(card.percentage || 0);
+          if (percentage >= 77) {
+            newCandidates.push({
+              sport: pick.sport,
+              game_id: pick.game_id,
+              game: `${pick.away_team} vs ${pick.home_team}`,
+              play: card.play,
+              percentage,
+              edge: Number(card.edge || analysis.premium.totalDiff || 0),
+              title: card.title,
+              odds_decimal: americanToDecimalLocal(card.odds_american ?? -110)
+            });
+          }
+        });
+      } else if (analysis.premium.pick && Number(analysis.premium.confidence || 0) >= 77) {
+        newCandidates.push({
+          sport: pick.sport,
+          game_id: pick.game_id,
+          game: `${pick.away_team} vs ${pick.home_team}`,
+          play: analysis.premium.pick,
+          percentage: Number(analysis.premium.confidence || 0),
+          edge: Number(analysis.premium.mainEdge || 0),
+          title: "Jugada Premium",
+          odds_decimal: americanToDecimalLocal(analysis.premium.odds_american ?? -110)
+        });
+      }
+    });
+
+    // Ordenar por confidence
+    newCandidates.sort((a, b) => b.percentage - a.percentage);
+
+    // Un solo pick por juego
+    const usedGames = new Set();
+    const bestNew = newCandidates
+      .filter(c => {
+        if (usedGames.has(c.game)) return false;
+        usedGames.add(c.game);
+        return true;
+      })
+      .slice(0, 3);
+
+    if (bestNew.length >= 2) {
+      // Calcular confidence promedio actual vs nuevo
+      const currentAvg = existingParlay.picks.reduce((sum, p) => sum + Number(p.percentage || 0), 0) / existingParlay.picks.length;
+      const newAvg = bestNew.reduce((sum, p) => sum + Number(p.percentage || 0), 0) / bestNew.length;
+
+      // Solo actualizar si el nuevo tiene mayor confidence promedio
+      if (newAvg > currentAvg + 2) {
+        const { data: updatedParlay } = await supabaseAdmin
+          .from("daily_parlays")
+          .update({
+            picks: bestNew,
+            updates_today: updatesToday + 1,
+            last_updated_at: now.toISOString()
+          })
+          .eq("game_date", todayDate)
+          .select()
+          .single();
+
+        await saveParlayTracking(todayDate, bestNew);
+
+        return res.status(200).json({
+          available: true,
+          locked: !isPremiumUser,
+          picks: isPremiumUser ? bestNew : null,
+          updated: true
+        });
+      }
+    }
+  }
+
+  // Sin cambios — devolver parlay existente
+  await saveParlayTracking(todayDate, existingParlay.picks);
   return res.status(200).json({
     available: true,
     locked: !isPremiumUser,
-    picks: isPremiumUser ? existingParlay.picks : null
+    picks: isPremiumUser ? existingParlay.picks : null,
+    updated: false
   });
 }
     // 2) Si no existe, crearlo una sola vez desde daily_picks
