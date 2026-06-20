@@ -2378,8 +2378,8 @@ function renderPerformancePanel(data, parlayData) {
     `;
   }).join("");
 
- const parlayCardHTML = "";
-    <div class="performance-overall-card parlay-overall-card">
+const parlayCardHTML = parlayData ? `
+    <div class="performance-overall-card parlay-overall-card" style="display:none">
       <small>Parlay Hit Rate</small>
       <strong id="overallParlayRate">0%</strong>
       <span class="${Number(parlayData.profit || 0) >= 0 ? 'positive-value' : 'negative-value'}">
