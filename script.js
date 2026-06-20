@@ -2045,164 +2045,217 @@ const res = await fetch(
     const isPremium = bestPick?.isPremium === true;
     const locked = isPremium && !IS_ADMIN && !isPremiumUser;
 
-    resultDiv.innerHTML = `
-  <div class="${isPremium ? 'premium-result mlb-premium-dashboard' : 'normal-result'}">
-
-    ${
-      isPremium
-        ? `
-          <div class="premium-top-line">
-            <span>👑</span>
-            <span>🔥 HOT PICK FOOTBALL</span>
-          </div>
-        `
-        : ""
-    }
-
-    <div class="result-content premium-layout">
-
-      <div class="premium-header">
-
-        <div>
-          <p class="premium-label">AI FOOTBALL REPORT</p>
-
-          <h3>🏈 ${awayTeam} vs ${homeTeam}</h3>
-
-          <p class="premium-game-pick">
-            ${
-              locked
-                ? "Pick Premium bloqueado"
-                : bestPick
-                  ? bestPick.pick || "No disponible"
-                  : "Sin jugada recomendada"
-            }
-          </p>
-
-          <div class="premium-meta-row">
-            <div class="premium-chip">
-              ⚡ ${bestPick ? bestPick.confidence || 0 : 0}%
-            </div>
-
-            <div class="premium-chip">
-              📊 Edge ${bestPick ? Number(bestPick.edge || 0).toFixed(1) : "0.0"}
-            </div>
-
-            <div class="premium-chip premium-chip-gold">
-              ${isPremium ? "PREMIUM" : "NORMAL"}
-            </div>
-          </div>
-        </div>
-
-        <div class="premium-score-box">
-          <span>FOOTBALL MODEL</span>
-          <strong>${bestPick ? bestPick.confidence || 0 : 0}%</strong>
-          <small>AI CONFIDENCE</small>
-        </div>
-
+    const validPicks = [spreadPick, totalPick].filter(Boolean);
+const bestPick = validPicks.length
+  ? validPicks.sort((a, b) => {
+      if (b.confidence !== a.confidence) return b.confidence - a.confidence;
+      return b.edge - a.edge;
+    })[0]
+  : null;
+ 
+const isPremium = bestPick?.isPremium === true;
+const locked = isPremium && !IS_ADMIN && !isPremiumUser;
+ 
+// Generar texto interpretativo dinámico
+const analysisText = bestPick ? generateNFLAnalysisText(data, awayTeam, homeTeam, bestPick) : "";
+ 
+// Calcular dash del círculo SVG (163 = circunferencia completa para r=26)
+const confidence = Number(bestPick?.confidence || 0);
+const circleDash = Math.round((confidence / 100) * 163);
+const circleColor = isPremium ? "#7c3cff" : "#00ffe7";
+ 
+resultDiv.innerHTML = isPremium ? `
+ 
+<div class="ce-premium-basket-card">
+ 
+  <div class="ce-premium-basket-badge-row">▲ HOT PICK · NFL</div>
+ 
+  <div class="ce-premium-basket-header">
+    <div class="ce-premium-basket-left">
+      <div class="ce-premium-basket-pick">
+        ${locked ? "Pick Premium Bloqueado" : (bestPick?.pick || "Sin jugada")}
       </div>
-
-      ${
-        locked
-          ? `
-            <div class="premium-lock-box">
-              <h4>🔒 Pick Premium Bloqueado</h4>
-
-              <p>El modelo detectó edge premium de 10+ puntos.</p>
-
-              <div class="premium-lock-grid">
-                <div>✔ Últimos juegos</div>
-                <div>✔ Matchup ofensivo</div>
-                <div>✔ Matchup defensivo</div>
-                <div>✔ Spread del mercado</div>
-                <div>✔ Edge estadístico</div>
-                <div>✔ Proyección IA</div>
-              </div>
-
-              <button class="unlock-btn" onclick="goPremiumMonthly()">
-                🔓 Desbloquear Premium mensual $${MONTHLY_PRICE}/mes
-              </button>
-            </div>
-          `
-          : bestPick
-            ? `
-              <div class="premium-analysis-grid">
-
-                <div class="premium-analysis-card">
-                  <h4>${isPremium ? "🔥 Jugada Premium" : "📊 Jugada Normal"}</h4>
-                  <p>${bestPick.pick || "No disponible"}</p>
-
-                  <div class="premium-big-number">
-                    ${bestPick.confidence || 0}%
-                  </div>
-
-                  <p>Edge: <strong>${Number(bestPick.edge || 0).toFixed(1)}</strong></p>
-                </div>
-
-                <div class="premium-analysis-card">
-                  <h4>📈 Proyección</h4>
-
-                  <p>${awayTeam}: ${projAway.toFixed(1)}</p>
-                  <p>${homeTeam}: ${projHome.toFixed(1)}</p>
-
-                  <div class="premium-total">
-                    ${projectedTotal.toFixed(1)}
-                  </div>
-
-                  <p>Total proyectado</p>
-                </div>
-
-                <div class="premium-analysis-card">
-                  <h4>🧠 Spread Modelo</h4>
-
-                  <div class="premium-big-number">
-                    ${projectedSpread.toFixed(1)}
-                  </div>
-
-                  <p>Lectura contra línea del mercado</p>
-                </div>
-
-              </div>
-            `
-            : `
-              <div class="premium-lock-box">
-                <h4>Sin jugada recomendada</h4>
-                <p>El modelo no detectó edge positivo suficiente contra la línea.</p>
-              </div>
-            `
-      }
-
-      ${
-        !locked
-          ? `
-            <div class="premium-data-section">
-
-              <div class="premium-data-box">
-                <h4>📊 Proyección del modelo</h4>
-                <p>${awayTeam}: ${projAway.toFixed(1)}</p>
-                <p>${homeTeam}: ${projHome.toFixed(1)}</p>
-                <p><strong>Total proyectado:</strong> ${projectedTotal.toFixed(1)}</p>
-                <p><strong>Spread modelo:</strong> ${projectedSpread.toFixed(1)}</p>
-              </div>
-
-              <div class="premium-data-box">
-                <h4>🎯 Lectura IA</h4>
-                <p>El sistema compara la proyección del modelo contra la línea del mercado.</p>
-                <p>Esta jugada se clasifica como ${isPremium ? "premium" : "normal"} según la confianza y el edge detectado.</p>
-              </div>
-
-            </div>
-          `
-          : ""
-      }
-
+      <div style="font-size:11px;color:#556688;margin-top:3px;">
+        ${locked ? "" : `${bestPick?.type === "total" ? "Total" : "Spread"} · ${bestPick?.odds_american > 0 ? "+" : ""}${bestPick?.odds_american ?? -110} · Edge ${Number(bestPick?.edge || 0).toFixed(1)}`}
+      </div>
+    </div>
+    <div class="ce-premium-basket-circle" style="border-color:${circleColor};">
+      <svg width="64" height="64" viewBox="0 0 64 64" style="position:absolute;top:0;left:0;">
+        <circle cx="32" cy="32" r="26" fill="none" stroke="#1a2240" stroke-width="3.5"/>
+        <circle cx="32" cy="32" r="26" fill="none" stroke="${circleColor}" stroke-width="3.5"
+          stroke-dasharray="${circleDash} 163" stroke-linecap="round"
+          transform="rotate(-90 32 32)"/>
+      </svg>
+      <span style="color:${circleColor};font-size:13px;font-weight:700;position:relative;">${confidence.toFixed(1)}%</span>
+      <small style="color:${circleColor};opacity:0.7;font-size:8px;position:relative;">PROB.</small>
     </div>
   </div>
+ 
+  <div class="ce-premium-basket-stats">
+    <div><small>${awayTeam.split(" ").pop()}</small><strong>${projAway.toFixed(1)}</strong></div>
+    <div><small>${homeTeam.split(" ").pop()}</small><strong>${projHome.toFixed(1)}</strong></div>
+    <div><small>TOTAL MOD.</small><strong>${projectedTotal.toFixed(1)}</strong></div>
+    <div><small>EDGE</small><strong>${Number(bestPick?.edge || 0).toFixed(1)}</strong></div>
+  </div>
+ 
+  ${locked ? `
+    <div class="ce-basket-info-section">
+      <div class="ce-basket-info-box">
+        <h4>🔒 PICK PREMIUM BLOQUEADO</h4>
+        <p>El modelo detectó edge premium en este partido. Desbloquea para ver el pick completo.</p>
+      </div>
+      <div class="ce-basket-info-box">
+        <h4>FACTORES</h4>
+        <p>Forma reciente · Pace · Matchup ofensivo · Matchup defensivo · Edge vs mercado</p>
+      </div>
+    </div>
+    <button class="unlock-btn" style="margin-top:12px" onclick="goPremiumMonthly()">
+      🔓 Desbloquear Premium — $${MONTHLY_PRICE}/mes
+    </button>
+  ` : `
+    <div style="background:#0a1628;border:1px solid rgba(0,255,231,0.15);border-left:3px solid ${circleColor};border-radius:8px;padding:12px 14px;margin-top:10px;">
+      <div style="font-size:10px;color:${circleColor};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;font-weight:600;">⚡ Análisis del modelo</div>
+      <div style="font-size:12px;color:#aabbcc;line-height:1.6;">${analysisText}</div>
+    </div>
+ 
+    <button class="ce-premium-basket-badge-row"
+      style="width:100%;margin-top:10px;padding:11px;border-radius:8px;border:1px solid #1a2240;background:#0f1628;color:#00ffe7;font-size:12px;font-weight:600;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;"
+      onclick="toggleNFLPlayerProps(${index}, '${awayTeam}', '${homeTeam}')">
+      ⚡ VER PLAYER PROPS
+    </button>
+    <div id="nflProps${index}"></div>
+  `}
+ 
+</div>
+ 
+` : `
+ 
+<div class="ce-normal-basket-card">
+ 
+  <div style="font-size:11px;color:#556688;margin-bottom:6px;">🏈 NFL · ${awayTeam} vs ${homeTeam}</div>
+ 
+  <div style="background:#0f1628;border-radius:8px;padding:12px 14px;margin-bottom:10px;">
+    <div style="font-size:14px;font-weight:500;color:#8899bb;margin-bottom:4px;">Sin jugada premium detectada</div>
+    <div style="font-size:11px;color:#556688;">El modelo no encontró edge suficiente para clasificar este juego como premium.</div>
+  </div>
+ 
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;">
+    <div style="background:#0f1628;border-radius:6px;padding:8px 6px;text-align:center;">
+      <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">Proyec. ${awayTeam.split(" ").pop()}</div>
+      <div style="font-size:14px;font-weight:700;color:#fff;">${projAway.toFixed(1)}</div>
+    </div>
+    <div style="background:#0f1628;border-radius:6px;padding:8px 6px;text-align:center;">
+      <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">Proyec. ${homeTeam.split(" ").pop()}</div>
+      <div style="font-size:14px;font-weight:700;color:#fff;">${projHome.toFixed(1)}</div>
+    </div>
+    <div style="background:#0f1628;border-radius:6px;padding:8px 6px;text-align:center;">
+      <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">Total Mod.</div>
+      <div style="font-size:14px;font-weight:700;color:#fff;">${projectedTotal.toFixed(1)}</div>
+    </div>
+  </div>
+ 
+  <button style="width:100%;padding:11px;border-radius:8px;border:1px solid #1a2240;background:#0f1628;color:#00ffe7;font-size:12px;font-weight:600;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;"
+    onclick="toggleNFLPlayerProps(${index}, '${awayTeam}', '${homeTeam}')">
+    ⚡ VER PLAYER PROPS
+  </button>
+  <div id="nflProps${index}"></div>
+ 
+</div>
+ 
 `;
-
   } catch (err) {
     resultDiv.textContent = "Error Football: " + err.message;
   }
 }
+async function toggleNFLPlayerProps(index, awayTeam, homeTeam) {
+  const box = document.getElementById(`nflProps${index}`);
+  if (!box) return;
+ 
+  if (box.dataset.loaded === "true") {
+    box.style.display = box.style.display === "none" ? "block" : "none";
+    return;
+  }
+ 
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  if (!sessionData.session) {
+    alert("Debes iniciar sesión.");
+    return;
+  }
+ 
+  if (!IS_ADMIN && !isPremiumUser) {
+    box.innerHTML = `
+      <div style="background:#0f1628;border:1px solid #1a2240;border-radius:8px;padding:14px;margin-top:10px;text-align:center;">
+        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;">Contenido Premium</div>
+        <div style="font-size:11px;color:#556688;margin-bottom:12px;line-height:1.5;">Desbloquea los mejores props NFL seleccionados por el modelo AI</div>
+        <button onclick="goPremiumMonthly()" style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:12px;font-weight:700;cursor:pointer;">
+          OBTENER PREMIUM · $${MONTHLY_PRICE}/mes
+        </button>
+      </div>
+    `;
+    box.dataset.loaded = "true";
+    return;
+  }
+ 
+  box.innerHTML = `<div class="loading-analysis" style="margin-top:8px;">Buscando player props NFL...</div>`;
+ 
+  try {
+    const res = await fetch(
+      `/api/football-data?mode=nfl-player-props&teamA=${encodeURIComponent(awayTeam)}&teamB=${encodeURIComponent(homeTeam)}`,
+      { headers: { "Authorization": `Bearer ${sessionData.session.access_token}` } }
+    );
+    const data = await res.json();
+ 
+    if (!res.ok || data.noPlay || !data.props?.length) {
+      box.innerHTML = `
+        <div style="background:#0f1628;border-radius:8px;padding:12px;margin-top:8px;text-align:center;">
+          <div style="font-size:11px;color:#556688;">No hay player props disponibles para este juego aún. Aparecen ~1-2 semanas antes del partido.</div>
+        </div>
+      `;
+      box.dataset.loaded = "true";
+      return;
+    }
+ 
+    const propsHTML = data.props.slice(0, 3).map(prop => {
+      const marketLabels = {
+        player_pass_yds: "yds pase",
+        player_rush_yds: "yds corrida",
+        player_rush_attempts: "intentos corrida",
+        player_receptions: "recepciones",
+        player_reception_yds: "yds recepción"
+      };
+      const marketLabel = marketLabels[prop.market] || prop.market;
+ 
+      return `
+        <div style="background:#0f1628;border:1px solid #1a2240;border-radius:8px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;margin-top:6px;">
+          <div>
+            <div style="font-size:12px;font-weight:500;color:#fff;">${prop.player}</div>
+            <div style="font-size:11px;color:#00ffe7;margin-top:2px;">Over ${prop.line} ${marketLabel}</div>
+            <div style="font-size:10px;color:#556688;margin-top:2px;">Proyección: ${prop.projection} · Edge +${prop.edge}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;margin-left:12px;">
+            <div style="font-size:15px;font-weight:700;color:#00ffe7;">${prop.confidence.toFixed(1)}%</div>
+            <div style="font-size:10px;color:#556688;">${prop.bookmaker}</div>
+          </div>
+        </div>
+      `;
+    }).join("");
+ 
+    box.innerHTML = `
+      <div style="margin-top:10px;">
+        <div style="font-size:9px;color:#00ffe7;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;opacity:0.7;">⚡ Player props del juego</div>
+        ${propsHTML}
+      </div>
+    `;
+    box.dataset.loaded = "true";
+ 
+  } catch (err) {
+    box.innerHTML = `<div style="font-size:11px;color:#556688;padding:8px;">Error cargando props: ${err.message}</div>`;
+    box.dataset.loaded = "true";
+  }
+}
+ 
+window.toggleNFLPlayerProps = toggleNFLPlayerProps;
+ 
 async function loadStats() {
   try {
     const res = await fetch("/api/analyze-nba?mode=performance");
