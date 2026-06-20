@@ -1890,8 +1890,8 @@ function generateNFLAnalysisText(data, awayTeam, homeTeam, bestPick) {
  
   const edge = Number(bestPick?.edge || 0);
   const pickType = bestPick?.type || "spread";
-  const isOver = pickType === "total" && bestPick?.pick?.includes("OVER");
-  const isUnder = pickType === "total" && bestPick?.pick?.includes("UNDER");
+  const isOver = bestPick?.isOver === true;
+const isUnder = bestPick?.isUnder === true;
   const isSpread = pickType === "spread";
   const spreadLine = isOver
     ? odds.totalLine
