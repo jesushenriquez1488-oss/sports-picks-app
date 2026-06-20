@@ -2038,7 +2038,7 @@ const res = await fetch(
 
    
 
-    const validPicks = [spreadPick, totalPick].filter(Boolean);
+  const validPicks = [spreadPick, totalPick].filter(Boolean);
 const bestPick = validPicks.length
   ? validPicks.sort((a, b) => {
       if (b.confidence !== a.confidence) return b.confidence - a.confidence;
@@ -2049,71 +2049,102 @@ const bestPick = validPicks.length
 const isPremium = bestPick?.isPremium === true;
 const locked = isPremium && !IS_ADMIN && !isPremiumUser;
  
-// Generar texto interpretativo dinámico
-const analysisText = bestPick ? generateNFLAnalysisText(data, awayTeam, homeTeam, bestPick) : "";
+// Fix: detectar tipo real por el texto del pick, no por el campo type
+// porque sanitizePicksForPublic cambia type a "premium"
+const pickText = String(bestPick?.pick || "").toUpperCase();
+const realType = pickText.includes("OVER") || pickText.includes("UNDER") ? "total" : "spread";
+const isOver = realType === "total" && pickText.includes("OVER");
+const isUnder = realType === "total" && pickText.includes("UNDER");
  
-// Calcular dash del círculo SVG (163 = circunferencia completa para r=26)
+// Pasar realType al bestPick para que generateNFLAnalysisText lo use
+const bestPickFixed = bestPick ? { ...bestPick, type: realType, isOver, isUnder } : null;
+ 
+const analysisText = bestPickFixed
+  ? generateNFLAnalysisText(data, awayTeam, homeTeam, bestPickFixed)
+  : "";
+ 
 const confidence = Number(bestPick?.confidence || 0);
 const circleDash = Math.round((confidence / 100) * 163);
 const circleColor = isPremium ? "#7c3cff" : "#00ffe7";
  
 resultDiv.innerHTML = isPremium ? `
  
-<div class="ce-premium-basket-card">
+<div style="background:#0a0f1e;border:1px solid #1a2240;border-radius:12px;padding:14px;">
  
-  <div class="ce-premium-basket-badge-row">▲ HOT PICK · NFL</div>
+  <div style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,255,231,0.08);border:1px solid rgba(0,255,231,0.2);border-radius:20px;padding:3px 8px;font-size:10px;color:#00ffe7;font-weight:500;margin-bottom:10px;">
+    <span style="width:5px;height:5px;border-radius:50%;background:#00ffe7;animation:nfl-pulse 1.5s infinite;display:inline-block;"></span>
+    HOT PICK · NFL
+  </div>
  
-  <div class="ce-premium-basket-header">
-    <div class="ce-premium-basket-left">
-      <div class="ce-premium-basket-pick">
+  <div style="font-size:12px;color:#8899bb;margin-bottom:12px;">${awayTeam} vs ${homeTeam}</div>
+ 
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;">
+    <div style="flex:1;">
+      <div style="font-size:22px;font-weight:700;color:#fff;margin-bottom:3px;">
         ${locked ? "Pick Premium Bloqueado" : (bestPick?.pick || "Sin jugada")}
       </div>
-      <div style="font-size:11px;color:#556688;margin-top:3px;">
-        ${locked ? "" : `${bestPick?.type === "total" ? "Total" : "Spread"} · ${bestPick?.odds_american > 0 ? "+" : ""}${bestPick?.odds_american ?? -110} · Edge ${Number(bestPick?.edge || 0).toFixed(1)}`}
+      <div style="font-size:11px;color:#556688;">
+        ${locked ? "" : `${realType === "total" ? "Total" : "Spread"} · ${Number(bestPick?.odds_american ?? -110) > 0 ? "+" : ""}${bestPick?.odds_american ?? -110} · Edge ${Number(bestPick?.edge || 0).toFixed(1)}`}
       </div>
     </div>
-    <div class="ce-premium-basket-circle" style="border-color:${circleColor};">
-      <svg width="64" height="64" viewBox="0 0 64 64" style="position:absolute;top:0;left:0;">
-        <circle cx="32" cy="32" r="26" fill="none" stroke="#1a2240" stroke-width="3.5"/>
-        <circle cx="32" cy="32" r="26" fill="none" stroke="${circleColor}" stroke-width="3.5"
-          stroke-dasharray="${circleDash} 163" stroke-linecap="round"
-          transform="rotate(-90 32 32)"/>
+ 
+    <div style="position:relative;width:72px;height:72px;flex-shrink:0;">
+      <svg width="72" height="72" viewBox="0 0 72 72" style="position:absolute;top:0;left:0;">
+        <circle cx="36" cy="36" r="30" fill="none" stroke="#1a2240" stroke-width="4"/>
+        <circle cx="36" cy="36" r="30" fill="none" stroke="${circleColor}" stroke-width="4"
+          stroke-dasharray="${circleDash} 188" stroke-linecap="round"
+          transform="rotate(-90 36 36)"
+          style="filter:drop-shadow(0 0 6px ${circleColor});animation:nfl-pulse 2s infinite;"/>
       </svg>
-      <span style="color:${circleColor};font-size:13px;font-weight:700;position:relative;">${confidence.toFixed(1)}%</span>
-      <small style="color:${circleColor};opacity:0.7;font-size:8px;position:relative;">PROB.</small>
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+        <span style="font-size:15px;font-weight:700;color:${circleColor};">${confidence.toFixed(1)}%</span>
+        <small style="font-size:8px;color:${circleColor};opacity:0.7;">PROB.</small>
+      </div>
     </div>
   </div>
  
-  <div class="ce-premium-basket-stats">
-    <div><small>${awayTeam.split(" ").pop()}</small><strong>${projAway.toFixed(1)}</strong></div>
-    <div><small>${homeTeam.split(" ").pop()}</small><strong>${projHome.toFixed(1)}</strong></div>
-    <div><small>TOTAL MOD.</small><strong>${projectedTotal.toFixed(1)}</strong></div>
-    <div><small>EDGE</small><strong>${Number(bestPick?.edge || 0).toFixed(1)}</strong></div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;">
+    <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
+      <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">${awayTeam.split(" ").pop()}</div>
+      <div style="font-size:14px;font-weight:700;color:#fff;">${projAway.toFixed(1)}</div>
+    </div>
+    <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
+      <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">${homeTeam.split(" ").pop()}</div>
+      <div style="font-size:14px;font-weight:700;color:#fff;">${projHome.toFixed(1)}</div>
+    </div>
+    <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
+      <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">TOTAL MOD.</div>
+      <div style="font-size:14px;font-weight:700;color:#fff;">${projectedTotal.toFixed(1)}</div>
+    </div>
+    <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
+      <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">EDGE</div>
+      <div style="font-size:14px;font-weight:700;color:#fff;">${Number(bestPick?.edge || 0).toFixed(1)}</div>
+    </div>
   </div>
  
   ${locked ? `
-    <div class="ce-basket-info-section">
-      <div class="ce-basket-info-box">
-        <h4>🔒 PICK PREMIUM BLOQUEADO</h4>
-        <p>El modelo detectó edge premium en este partido. Desbloquea para ver el pick completo.</p>
-      </div>
-      <div class="ce-basket-info-box">
-        <h4>FACTORES</h4>
-        <p>Forma reciente · Pace · Matchup ofensivo · Matchup defensivo · Edge vs mercado</p>
+    <div style="background:#0f1628;border:1px solid rgba(124,60,255,0.2);border-radius:8px;padding:14px;margin-bottom:10px;">
+      <div style="font-size:12px;font-weight:600;color:#7c3cff;margin-bottom:8px;">🔒 PICK PREMIUM BLOQUEADO</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;color:#556688;">
+        <span>✔ Últimos juegos</span>
+        <span>✔ Matchup ofensivo</span>
+        <span>✔ Matchup defensivo</span>
+        <span>✔ Spread del mercado</span>
+        <span>✔ Edge estadístico</span>
+        <span>✔ Proyección IA</span>
       </div>
     </div>
-    <button class="unlock-btn" style="margin-top:12px" onclick="goPremiumMonthly()">
+    <button class="unlock-btn" onclick="goPremiumMonthly()">
       🔓 Desbloquear Premium — $${MONTHLY_PRICE}/mes
     </button>
   ` : `
-    <div style="background:#0a1628;border:1px solid rgba(0,255,231,0.15);border-left:3px solid ${circleColor};border-radius:8px;padding:12px 14px;margin-top:10px;">
+    <div style="background:#0a1628;border:1px solid rgba(0,255,231,0.15);border-left:3px solid ${circleColor};border-radius:8px;padding:12px 14px;margin-bottom:10px;">
       <div style="font-size:10px;color:${circleColor};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;font-weight:600;">⚡ Análisis del modelo</div>
       <div style="font-size:12px;color:#aabbcc;line-height:1.6;">${analysisText}</div>
     </div>
  
-    <button class="ce-premium-basket-badge-row"
-      style="width:100%;margin-top:10px;padding:11px;border-radius:8px;border:1px solid #1a2240;background:#0f1628;color:#00ffe7;font-size:12px;font-weight:600;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;"
-      onclick="toggleNFLPlayerProps(${index}, '${awayTeam}', '${homeTeam}')">
+    <button onclick="toggleNFLPlayerProps(${index}, '${awayTeam.replace(/'/g,"\\'")}', '${homeTeam.replace(/'/g,"\\'")}', this)"
+      style="width:100%;padding:11px;border-radius:8px;border:1px solid #1a2240;background:#0f1628;color:#00ffe7;font-size:12px;font-weight:600;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
       ⚡ VER PLAYER PROPS
     </button>
     <div id="nflProps${index}"></div>
@@ -2121,9 +2152,13 @@ resultDiv.innerHTML = isPremium ? `
  
 </div>
  
+<style>
+@keyframes nfl-pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+</style>
+ 
 ` : `
  
-<div class="ce-normal-basket-card">
+<div style="background:#0a0f1e;border:1px solid #1a2240;border-radius:12px;padding:14px;">
  
   <div style="font-size:11px;color:#556688;margin-bottom:6px;">🏈 NFL · ${awayTeam} vs ${homeTeam}</div>
  
@@ -2147,8 +2182,8 @@ resultDiv.innerHTML = isPremium ? `
     </div>
   </div>
  
-  <button style="width:100%;padding:11px;border-radius:8px;border:1px solid #1a2240;background:#0f1628;color:#00ffe7;font-size:12px;font-weight:600;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;"
-    onclick="toggleNFLPlayerProps(${index}, '${awayTeam}', '${homeTeam}')">
+  <button onclick="toggleNFLPlayerProps(${index}, '${awayTeam.replace(/'/g,"\\'")}', '${homeTeam.replace(/'/g,"\\'")}', this)"
+    style="width:100%;padding:11px;border-radius:8px;border:1px solid #1a2240;background:#0f1628;color:#00ffe7;font-size:12px;font-weight:600;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
     ⚡ VER PLAYER PROPS
   </button>
   <div id="nflProps${index}"></div>
