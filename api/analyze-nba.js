@@ -581,7 +581,12 @@ if (req.method === "GET" && req.query.mode === "parlay-today") {
           sport: pick.sport,
           game_id: pick.game_id,
           game: `${pick.away_team} vs ${pick.home_team}`,
-          play: analysis.premium.pick,
+          play: (() => {
+  const p = String(analysis.premium.pick || "");
+  const total = Number(analysis.premium.totalProj || 0);
+  if ((p === "Over" || p === "Under") && total > 0) return `${p} ${total.toFixed(1)}`;
+  return p;
+})(),
           percentage: Number(analysis.premium.confidence || 0),
           edge: Number(analysis.premium.mainEdge || 0),
           title: "Jugada Premium",
@@ -698,7 +703,12 @@ if (req.method === "GET" && req.query.mode === "parlay-today") {
           sport: pick.sport,
           game_id: pick.game_id,
           game: `${pick.away_team} vs ${pick.home_team}`,
-          play: analysis.premium.pick,
+         play: (() => {
+  const p = String(analysis.premium.pick || "");
+  const total = Number(analysis.premium.totalProj || 0);
+  if ((p === "Over" || p === "Under") && total > 0) return `${p} ${total.toFixed(1)}`;
+  return p;
+})(),
           percentage: Number(analysis.premium.confidence || 0),
           edge: Number(analysis.premium.mainEdge || 0),
           title: "Jugada Premium",
@@ -820,7 +830,12 @@ await saveParlayTracking(todayDate, best);
         candidates.push({
           sport: pick.sport,
           game: `${pick.away_team} vs ${pick.home_team}`,
-          play: analysis.premium.pick,
+          play: (() => {
+  const p = String(analysis.premium.pick || "");
+  const total = Number(analysis.premium.totalProj || 0);
+  if ((p === "Over" || p === "Under") && total > 0) return `${p} ${total.toFixed(1)}`;
+  return p;
+})(),
           percentage: Number(analysis.premium.confidence || 0),
           title: "Jugada Premium"
         });
