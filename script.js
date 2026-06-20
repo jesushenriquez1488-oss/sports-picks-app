@@ -2036,14 +2036,7 @@ const res = await fetch(
     let spreadPick = picks.spreadPick || null;
     let totalPick = picks.totalPick || null;
 
-    const validPicks = [spreadPick, totalPick].filter(Boolean);
-
-    const bestPick = validPicks.length
-      ? validPicks.sort((a, b) => Number(b.confidence || 0) - Number(a.confidence || 0))[0]
-      : null;
-
-    const isPremium = bestPick?.isPremium === true;
-    const locked = isPremium && !IS_ADMIN && !isPremiumUser;
+   
 
     const validPicks = [spreadPick, totalPick].filter(Boolean);
 const bestPick = validPicks.length
