@@ -2142,7 +2142,7 @@ resultDiv.innerHTML = isPremium ? `
       <div style="font-size:10px;color:${circleColor};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;font-weight:600;">⚡ Análisis del modelo</div>
       <div style="font-size:12px;color:#aabbcc;line-height:1.6;">${analysisText}</div>
     </div>
- 
+ ${type === "nfl" ? `
     <button onclick="toggleNFLPlayerProps(${index}, '${awayTeam.replace(/'/g,"\\'")}', '${homeTeam.replace(/'/g,"\\'")}', this)"
       style="width:100%;padding:11px;border-radius:8px;border:1px solid #1a2240;background:#0f1628;color:#00ffe7;font-size:12px;font-weight:600;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
       ⚡ VER PLAYER PROPS
@@ -2181,7 +2181,7 @@ resultDiv.innerHTML = isPremium ? `
       <div style="font-size:14px;font-weight:700;color:#fff;">${projectedTotal.toFixed(1)}</div>
     </div>
   </div>
- 
+ ${type === "nfl" ? `
   <button onclick="toggleNFLPlayerProps(${index}, '${awayTeam.replace(/'/g,"\\'")}', '${homeTeam.replace(/'/g,"\\'")}', this)"
     style="width:100%;padding:11px;border-radius:8px;border:1px solid #1a2240;background:#0f1628;color:#00ffe7;font-size:12px;font-weight:600;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
     ⚡ VER PLAYER PROPS
