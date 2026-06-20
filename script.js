@@ -2378,7 +2378,7 @@ function renderPerformancePanel(data, parlayData) {
     `;
   }).join("");
 
- const parlayCardHTML = parlayData ? `
+ const parlayCardHTML = "";
     <div class="performance-overall-card parlay-overall-card">
       <small>Parlay Hit Rate</small>
       <strong id="overallParlayRate">0%</strong>
