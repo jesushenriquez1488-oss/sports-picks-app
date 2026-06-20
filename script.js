@@ -2069,7 +2069,7 @@ const circleColor = isPremium ? "#7c3cff" : "#00ffe7";
  
 resultDiv.innerHTML = isPremium ? `
  
-<div style="background:#0a0f1e;border:1px solid #1a2240;border-radius:12px;padding:14px;">
+<div class="ce-premium-basket-card" style="padding:14px;">
  
   <div style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,255,231,0.08);border:1px solid rgba(0,255,231,0.2);border-radius:20px;padding:3px 8px;font-size:10px;color:#00ffe7;font-weight:500;margin-bottom:10px;">
     <span style="width:5px;height:5px;border-radius:50%;background:#00ffe7;animation:nfl-pulse 1.5s infinite;display:inline-block;"></span>
