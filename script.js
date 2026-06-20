@@ -1868,6 +1868,133 @@ ${premium.recommendedCards?.[1] ? `
     endAnalysisLock(index);
   }
 }
+// ============================================================
+// PEGAR EN script.js — antes de la función analyzeFootball()
+// ============================================================
+ 
+function generateNFLAnalysisText(data, awayTeam, homeTeam, bestPick) {
+  const proj = data.projectedScore || {};
+  const projA = Number(proj[awayTeam] || 0);
+  const projB = Number(proj[homeTeam] || 0);
+  const projectedTotal = Number(data.projectedTotal || 0);
+  const projectedSpread = Number(data.projectedSpread || 0);
+  const odds = data.odds || {};
+  const totalLine = Number(odds.totalLine || 0);
+  const pace = data.paceEfficiencyAdjustment || {};
+ 
+  const teamAOffense = Number(pace.teamAOffenseScore || 1);
+  const teamBOffense = Number(pace.teamBOffenseScore || 1);
+  const teamADefense = Number(pace.teamADefenseScore || 1);
+  const teamBDefenseScore = Number(pace.teamBDefenseScore || 1);
+  const paceAdj = Number(pace.adjustment || 0);
+ 
+  const edge = Number(bestPick?.edge || 0);
+  const pickType = bestPick?.type || "spread";
+  const isOver = pickType === "total" && bestPick?.pick?.includes("OVER");
+  const isUnder = pickType === "total" && bestPick?.pick?.includes("UNDER");
+  const isSpread = pickType === "spread";
+  const spreadLine = isOver
+    ? odds.totalLine
+    : isUnder
+      ? odds.totalLine
+      : projectedSpread > 0
+        ? odds.spreadLineA
+        : odds.spreadLineB;
+ 
+  const totalDiff = Math.abs(projectedTotal - totalLine).toFixed(1);
+  const spreadDiff = Math.abs(projectedSpread).toFixed(1);
+ 
+  const bothOffenseHigh = teamAOffense > 1.08 && teamBOffense > 1.08;
+  const bothDefenseHigh = teamADefense > 1.08 && teamBDefenseScore > 1.08;
+  const oneOffenseHigh = teamAOffense > 1.1 || teamBOffense > 1.1;
+  const oneDefenseHigh = teamADefense > 1.1 || teamBDefenseScore > 1.1;
+  const offenseTeam = teamAOffense >= teamBOffense ? awayTeam : homeTeam;
+  const defenseTeam = teamADefense >= teamBDefenseScore ? awayTeam : homeTeam;
+  const weakDefenseTeam = teamADefense < teamBDefenseScore ? awayTeam : homeTeam;
+  const paceHigh = paceAdj > 2;
+  const paceLow = paceAdj < -2;
+  const edgeLarge = edge >= 14;
+  const edgeMedium = edge >= 9;
+  const favoriteTeam = projectedSpread > 0 ? awayTeam : homeTeam;
+  const underdogTeam = projectedSpread > 0 ? homeTeam : awayTeam;
+  const projFavorite = projectedSpread > 0 ? projA.toFixed(1) : projB.toFixed(1);
+  const projUnderdog = projectedSpread > 0 ? projB.toFixed(1) : projA.toFixed(1);
+  const isUnderdogPick = isSpread && (
+    (bestPick?.pick?.includes(awayTeam) && projectedSpread < 0) ||
+    (bestPick?.pick?.includes(homeTeam) && projectedSpread > 0)
+  );
+ 
+  // --- TOTAL OVER ---
+  if (isOver) {
+    if (bothOffenseHigh && paceHigh) {
+      return `El modelo proyecta ${projectedTotal.toFixed(1)} puntos totales contra una línea de ${totalLine} — una diferencia de +${totalDiff}. Ambos equipos llegan con ofensivas por encima del promedio de liga y un ritmo de juego acelerado. El mercado está subestimando la capacidad anotadora de este partido.`;
+    }
+    if (edgeLarge) {
+      return `La línea de ${totalLine} del mercado parece conservadora. El modelo encuentra un edge de ${edge.toFixed(1)} puntos sobre el total, proyectando ${projectedTotal.toFixed(1)} entre ambos equipos. El diferencial sugiere que el mercado está subestimando significativamente este juego.`;
+    }
+    if (projA > projB * 1.3) {
+      return `${awayTeam} proyecta ${projA.toFixed(1)} puntos por sí solo — suficiente para mantener el total elevado independientemente de ${homeTeam}. Con ${projectedTotal.toFixed(1)} proyectados en total, el modelo ve valor claro en el Over ${totalLine}.`;
+    }
+    if (projB > projA * 1.3) {
+      return `${homeTeam} proyecta ${projB.toFixed(1)} puntos por sí solo — suficiente para mantener el total elevado independientemente de ${awayTeam}. Con ${projectedTotal.toFixed(1)} proyectados en total, el modelo ve valor claro en el Over ${totalLine}.`;
+    }
+    if (oneOffenseHigh && !oneDefenseHigh) {
+      return `El modelo detecta que ${offenseTeam} llega con una ofensiva explosiva frente a una defensa de ${weakDefenseTeam} que ha permitido puntos por encima del promedio. El modelo proyecta ${projectedTotal.toFixed(1)} puntos — ${totalDiff} por encima de la línea del mercado.`;
+    }
+    if (paceHigh) {
+      return `El ritmo de juego histórico de ambos equipos tiende a generar muchas posesiones. El modelo proyecta ${projectedTotal.toFixed(1)} puntos totales, superando la línea de ${totalLine} por ${totalDiff} puntos con un ajuste de pace de +${paceAdj.toFixed(1)}.`;
+    }
+    if (!oneDefenseHigh) {
+      return `Ninguno de los dos equipos ha mostrado consistencia defensiva. El modelo proyecta ${projectedTotal.toFixed(1)} puntos totales, ${totalDiff} por encima de la línea. Los antecedentes defensivos de ambos equipos respaldan un partido de alto scoring.`;
+    }
+    return `El modelo proyecta ${projectedTotal.toFixed(1)} puntos totales contra una línea de ${totalLine}. Con un edge de ${edge.toFixed(1)} puntos y proyecciones de ${projA.toFixed(1)} para ${awayTeam} y ${projB.toFixed(1)} para ${homeTeam}, el Over ${totalLine} muestra valor estadístico claro.`;
+  }
+ 
+  // --- TOTAL UNDER ---
+  if (isUnder) {
+    if (bothDefenseHigh) {
+      return `El modelo proyecta solo ${projectedTotal.toFixed(1)} puntos totales — ${totalDiff} por debajo de la línea de ${totalLine}. Ambos equipos llegan con defensas sólidas y un ritmo de juego controlado que históricamente limita la producción ofensiva del rival.`;
+    }
+    if (edgeLarge) {
+      return `Con un edge de ${edge.toFixed(1)} puntos a favor del Under, el modelo detecta que el mercado está sobreestimando la producción ofensiva de este partido. El total proyectado de ${projectedTotal.toFixed(1)} está ${totalDiff} puntos por debajo de la línea de ${totalLine}.`;
+    }
+    if (oneDefenseHigh) {
+      return `La defensa de ${defenseTeam} es uno de los factores clave en este análisis. El modelo proyecta que limitará significativamente al rival, empujando el total hacia ${projectedTotal.toFixed(1)} — por debajo de la línea de ${totalLine} por ${totalDiff} puntos.`;
+    }
+    if (paceLow) {
+      return `El ritmo de juego de ambos equipos tiende a generar pocas posesiones y partidos de baja anotación. El modelo proyecta ${projectedTotal.toFixed(1)} puntos — ${totalDiff} por debajo de la línea — respaldado por un ajuste de pace de ${paceAdj.toFixed(1)} puntos.`;
+    }
+    return `Las ofensivas proyectadas de ${projA.toFixed(1)} para ${awayTeam} y ${projB.toFixed(1)} para ${homeTeam} no alcanzan la línea de ${totalLine}. El modelo ve el total como sobreestimado por el mercado, con un edge de ${edge.toFixed(1)} puntos a favor del Under.`;
+  }
+ 
+  // --- SPREAD — FAVORITO ---
+  if (isSpread && !isUnderdogPick) {
+    if (edgeLarge) {
+      return `El mercado parece subestimar a ${favoriteTeam}. Con un edge de ${edge.toFixed(1)} puntos sobre la línea, el modelo detecta que la ventaja real de ${favoriteTeam} es significativamente mayor a lo que las odds reflejan. Proyecciones: ${favoriteTeam} ${projFavorite} — ${underdogTeam} ${projUnderdog}.`;
+    }
+    if (bothOffenseHigh && teamADefense > 1.0 && teamBDefenseScore > 1.0) {
+      return `${favoriteTeam} muestra superioridad tanto en ofensiva como en defensa según el modelo. Con una proyección de ${projFavorite} vs ${projUnderdog}, el diferencial de ${spreadDiff} puntos excede la línea, generando una ventaja estadística clara.`;
+    }
+    if (oneOffenseHigh) {
+      return `El modelo proyecta ${projFavorite} puntos para ${favoriteTeam} frente a solo ${projUnderdog} para ${underdogTeam} — un diferencial de ${spreadDiff} puntos. La ofensiva de ${favoriteTeam} supera claramente la capacidad defensiva del rival, generando un edge de ${edge.toFixed(1)} sobre la línea del mercado.`;
+    }
+    return `El matchup favorece claramente a ${favoriteTeam}. El modelo proyecta un diferencial de ${spreadDiff} puntos — por encima de la línea — respaldado por la superioridad ofensiva y el ajuste de ritmo de juego de ${paceAdj > 0 ? "+" : ""}${paceAdj.toFixed(1)} puntos.`;
+  }
+ 
+  // --- SPREAD — UNDERDOG ---
+  if (isSpread && isUnderdogPick) {
+    if (oneDefenseHigh && defenseTeam === underdogTeam) {
+      return `La defensa de ${underdogTeam} es el factor clave aquí. El modelo proyecta que limitará a ${favoriteTeam} a ${projUnderdog} puntos, manteniendo el marcador dentro del spread. Un edge de ${edge.toFixed(1)} puntos respalda la cobertura del underdog.`;
+    }
+    if (edgeMedium) {
+      return `Aunque ${underdogTeam} llega como underdog, el modelo detecta que su proyección de ${projUnderdog} puntos es suficiente para cubrir el spread. El diferencial real proyectado de ${spreadDiff} puntos está dentro del margen de cobertura — edge de ${edge.toFixed(1)}.`;
+    }
+    return `El modelo no detecta la diferencia que el mercado está aplicando. Con proyecciones de ${projA.toFixed(1)} vs ${projB.toFixed(1)}, el partido apunta a ser más cerrado de lo que las odds sugieren — generando valor en ${underdogTeam} como underdog.`;
+  }
+ 
+  // --- FALLBACK ---
+  return `El modelo proyecta ${projA.toFixed(1)} puntos para ${awayTeam} y ${projB.toFixed(1)} para ${homeTeam}, con un total proyectado de ${projectedTotal.toFixed(1)} y un diferencial de ${spreadDiff} puntos entre ambos equipos.`;
+}
 async function analyzeFootball(awayTeam, homeTeam, index) {
   const resultDiv = document.getElementById(`result${index}`);
   resultDiv.innerHTML = `<div class="loading-analysis">Analizando ${selectedSportName}...</div>`;
