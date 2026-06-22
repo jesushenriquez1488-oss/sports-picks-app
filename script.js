@@ -1184,10 +1184,11 @@ await trackUserEvent("view_sport", {
       data = JSON.parse(savedData);
       status.innerHTML = `Usando datos recientes de ${selectedSportName}`;
     } else {
+const session = sessionData?.session;
 const res = await fetch(`/api/odds?sport=${encodeURIComponent(sport)}`, {
-  headers: {
-    "Authorization": `Bearer ${sessionData.session.access_token}`
-  }
+  headers: session?.access_token
+    ? { "Authorization": `Bearer ${session.access_token}` }
+    : {}
 });
 const text = await res.text();
       
