@@ -1943,6 +1943,10 @@ userData.hourRequests.push(now);
     } catch (error) {
       console.log("NBA auth ignorado:", error.message);
     }
+    const mode = req.query.mode || req.body?.mode;
+if (mode === "nba-player-props") {
+  return await handleNBAPlayerProps(req, res);
+}
 const {
   awayTeam,
   homeTeam,
