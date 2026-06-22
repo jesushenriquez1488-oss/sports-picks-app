@@ -798,7 +798,7 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
           <p>${premium.homeInjuryPublic}</p>
         </div>
       </div>
-     ${league === "nba" ? `
+     ${window.currentSport === "basketball_nba" ? `
   <div style="height:0.5px;background:#1a3050;margin:12px 0;"></div>
   <button
     onclick="toggleNBAPlayerProps(${index}, '${escapeText(awayTeam)}', '${escapeText(homeTeam)}', this)"
@@ -830,7 +830,7 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
         <p>${premium.homeInjuryPublic}</p>
       </div>
     </div>
-   ${league === "nba" ? `
+  ${window.currentSport === "basketball_nba" ? `
   <div style="height:0.5px;background:#1a3050;margin:12px 0;"></div>
   <button
     onclick="toggleNBAPlayerProps(${index}, '${escapeText(awayTeam)}', '${escapeText(homeTeam)}', this)"
