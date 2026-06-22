@@ -2473,7 +2473,16 @@ const parlayCardHTML = parlayData ? `
 
 async function isAdmin() {
   const { data } = await supabaseClient.auth.getUser();
-  return data?.user?.email === "jesushenriquez1488@gmail.com";
+  if (!data?.user) return false;
+
+  const res = await fetch("/api/check-premium", {
+    headers: {
+      "Authorization": `Bearer ${(await supabaseClient.auth.getSession()).data.session?.access_token || ""}`
+    }
+  });
+
+  const result = await res.json();
+  return result?.isAdmin === true;
 }
 
 
