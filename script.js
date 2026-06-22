@@ -1150,7 +1150,13 @@ async function loadGames() {
   const parlayBox = document.getElementById("parlayTodayBox");
 if (parlayBox) parlayBox.innerHTML = "";
   const sport = selectedSport;
-
+await trackUserEvent("view_sport", {
+  sport: sport,
+  page: "loadGames",
+  metadata: {
+    sportName: selectedSportName
+  }
+});
   status.innerHTML = "Cargando juegos...";
   gamesDiv.innerHTML = "";
 
@@ -2909,3 +2915,18 @@ async function togglePlayerEdgeProps(index, eventId) {
 }
 
 window.togglePlayerEdgeProps = togglePlayerEdgeProps;
+window.addEventListener("load", async () => {
+  await trackUserEvent("app_open", {
+    page: "home"
+  });
+});
+
+setInterval(async () => {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+
+  if (session) {
+    await trackUserEvent("session_ping", {
+      page: "app"
+    });
+  }
+}, 60000);
