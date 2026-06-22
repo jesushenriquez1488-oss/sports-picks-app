@@ -2921,12 +2921,3 @@ window.addEventListener("load", async () => {
   });
 });
 
-setInterval(async () => {
-  const { data: { session } } = await supabaseClient.auth.getSession();
-
-  if (session) {
-    await trackUserEvent("session_ping", {
-      page: "app"
-    });
-  }
-}, 60000);
