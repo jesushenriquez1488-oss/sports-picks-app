@@ -45,10 +45,10 @@ module.exports = async function handler(req, res) {
     }
 
     return res.status(200).json({
-      isPremium: data.is_premium === true,
-      subscriptionStatus: data.subscription_status || "free"
-    });
-
+  isPremium: data.is_premium === true,
+  subscriptionStatus: data.subscription_status || "free",
+  isAdmin: user.email === process.env.ADMIN_EMAIL
+});
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
