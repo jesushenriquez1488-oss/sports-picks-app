@@ -783,7 +783,7 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
           <p>Forma reciente · Descanso · Lesiones · Matchup · Edge vs mercado</p>
         </div>
       </div>
-      <button class="unlock-btn" style="margin-top:12px" onclick="goPremiumMonthly()">
+      <button class="unlock-btn" style="margin-top:12px" onclick="openPromoModal()">
         🔓 Desbloquear Premium — $${MONTHLY_PRICE}/mes
       </button>
     ` : `
@@ -1105,7 +1105,7 @@ function renderAnalysisResult({
       ${
         shouldLockPremium
           ? `
-            <button class="unlock-btn premium-unlock" onclick="goPremiumMonthly()">
+            <button class="unlock-btn premium-unlock" onclick="openPromoModal()">
               🔓 Desbloquear Premium $${MONTHLY_PRICE}/mes
             </button>
           `
@@ -1913,7 +1913,7 @@ ${premium.recommendedCards?.[1] ? `
     ${
       locked
         ? `
-          <button class="unlock-btn" onclick="goPremiumMonthly()">
+          <button class="unlock-btn" onclick="openPromoModal()">
             🔓 Desbloquear Premium mensual $${MONTHLY_PRICE}/mes
           </button>
         `
@@ -2188,7 +2188,7 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
         <span>✔ Proyección IA</span>
       </div>
     </div>
-    <button class="unlock-btn" onclick="goPremiumMonthly()">
+    <button class="unlock-btn" onclick="openPromoModal()">
       🔓 Desbloquear Premium — $${MONTHLY_PRICE}/mes
     </button>
   ` : `
@@ -2259,7 +2259,7 @@ async function toggleNFLPlayerProps(index, awayTeam, homeTeam) {
       <div style="background:#0f1628;border:1px solid #1a2240;border-radius:8px;padding:14px;margin-top:10px;text-align:center;">
         <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;">Contenido Premium</div>
         <div style="font-size:11px;color:#556688;margin-bottom:12px;line-height:1.5;">Desbloquea los mejores props NFL seleccionados por el modelo AI</div>
-        <button onclick="goPremiumMonthly()" style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:12px;font-weight:700;cursor:pointer;">
+        <button onclick="openPromoModal()" style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:12px;font-weight:700;cursor:pointer;">
           OBTENER PREMIUM · $${MONTHLY_PRICE}/mes
         </button>
       </div>
@@ -2700,7 +2700,7 @@ if (status) status.innerHTML = "";
               <span>✔ Filtro premium estricto</span>
             </div>
 
-            <button class="unlock-btn" onclick="goPremiumMonthly()">
+            <button class="unlock-btn" onclick="openPromoModal()">
               🔓 Desbloquear Premium $${MONTHLY_PRICE}/mes
             </button>
           </div>
@@ -2854,7 +2854,7 @@ async function togglePlayerEdgeProps(index, eventId) {
     box.innerHTML = `
       <div class="player-edge-locked">
         <p>🔒 Player Props disponible solo para miembros Premium.</p>
-        <button class="unlock-btn" onclick="goPremiumMonthly()">
+        <button class="unlock-btn" onclick="openPromoModal()">
           🔓 Desbloquear Premium $${MONTHLY_PRICE}/mes
         </button>
       </div>
@@ -2969,7 +2969,7 @@ async function toggleNBAPlayerProps(index, awayTeam, homeTeam, btn) {
       <div style="background:#0f1628;border:1px solid #1a2240;border-radius:8px;padding:14px;text-align:center;">
         <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;">Contenido Premium</div>
         <div style="font-size:11px;color:#556688;margin-bottom:12px;">Desbloquea los player props seleccionados por el modelo AI</div>
-        <button onclick="goPremiumMonthly()" style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:12px;font-weight:700;cursor:pointer;">
+        <button onclick="openPromoModal()" style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:12px;font-weight:700;cursor:pointer;">
           OBTENER PREMIUM · $${MONTHLY_PRICE}/mes
         </button>
       </div>
@@ -3193,7 +3193,7 @@ function openPromoModal() {
             placeholder="Promotional Code (optional)"
           />
 
-          <button onclick="goPremiumMonthly()">
+          <button onclick="openPromoModal()">
             Continue
           </button>
 
