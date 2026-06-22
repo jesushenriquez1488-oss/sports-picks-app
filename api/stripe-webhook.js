@@ -76,6 +76,56 @@ module.exports = async function handler(req, res) {
       }
 
       console.log("✅ PREMIUM ACTIVADO:", data);
+      const promoCode = String(session.metadata?.promoCode || "")
+  .trim()
+  .toUpperCase();
+
+if (promoCode) {
+  const { data: affiliate, error: affiliateError } = await supabaseAdmin
+    .from("affiliate_codes")
+    .select("code, owner_name, commission_percent, active")
+    .eq("code", promoCode)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (affiliateError) {
+    console.error("❌ AFFILIATE LOOKUP ERROR:", affiliateError.message);
+  }
+
+  if (affiliate) {
+    const amountPaid = Number(session.amount_total || 0) / 100;
+    const commissionPercent = Number(affiliate.commission_percent || 30);
+    const commissionAmount = Number(
+      (amountPaid * (commissionPercent / 100)).toFixed(3)
+    );
+
+    const { error: saleError } = await supabaseAdmin
+      .from("affiliate_sales")
+      .insert({
+        user_id: userId,
+        affiliate_code: affiliate.code,
+        owner_name: affiliate.owner_name,
+        stripe_customer_id: session.customer || null,
+        stripe_session_id: session.id,
+        amount_paid: amountPaid,
+        commission_percent: commissionPercent,
+        commission_amount: commissionAmount
+      });
+
+    if (saleError) {
+      console.error("❌ AFFILIATE SALE ERROR:", saleError.message);
+    } else {
+      console.log("✅ AFFILIATE SALE SAVED:", {
+        code: affiliate.code,
+        owner: affiliate.owner_name,
+        amountPaid,
+        commissionAmount
+      });
+    }
+  } else {
+    console.log("ℹ️ No valid affiliate code found:", promoCode);
+  }
+}
     }
 
     if (
