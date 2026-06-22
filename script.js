@@ -544,7 +544,13 @@ function shouldCountInjury(player) {
 
 async function getInjuryAdjustment(teamAbbr) {
   try {
-    const res = await fetch(`/api/injuries?team=${teamAbbr}`);
+ 
+const { data: sessionData } = await supabaseClient.auth.getSession();
+const res = await fetch(`/api/injuries?team=${teamAbbr}`, {
+  headers: {
+    "Authorization": `Bearer ${sessionData?.session?.access_token || ""}`
+  }
+});
     const data = await res.json();
 
     const injuries = data.injuries || [];
@@ -1178,7 +1184,11 @@ await trackUserEvent("view_sport", {
       data = JSON.parse(savedData);
       status.innerHTML = `Usando datos recientes de ${selectedSportName}`;
     } else {
-const res = await fetch(`/api/odds?sport=${encodeURIComponent(sport)}`);
+const res = await fetch(`/api/odds?sport=${encodeURIComponent(sport)}`, {
+  headers: {
+    "Authorization": `Bearer ${sessionData.session.access_token}`
+  }
+});
 const text = await res.text();
       
 
