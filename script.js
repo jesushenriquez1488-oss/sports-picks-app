@@ -2921,3 +2921,40 @@ window.addEventListener("load", async () => {
   });
 });
 
+async function requestDeleteAccount() {
+  const confirmed = confirm(
+    "To request deletion of your CashEdge account and personal data, an email request will be created. Continue?"
+  );
+
+  if (!confirmed) return;
+
+  try {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+
+    const email = user?.email || "";
+
+    const subject = encodeURIComponent(
+      "Delete Account Request - CashEdge"
+    );
+
+    const body = encodeURIComponent(
+`Hello CashEdge Support,
+
+I would like to request deletion of my CashEdge account and associated personal data.
+
+Account Email:
+${email}
+
+Thank you.`
+    );
+
+    window.location.href =
+      `mailto:supportcashedge@gmail.com?subject=${subject}&body=${body}`;
+
+  } catch (err) {
+
+    window.location.href =
+      "mailto:supportcashedge@gmail.com?subject=Delete%20Account%20Request";
+
+  }
+}
