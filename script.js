@@ -830,14 +830,15 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
         <p>${premium.homeInjuryPublic}</p>
       </div>
     </div>
-    ${league === "nba" ? `
-    <div style="height:0.5px;background:#1a3050;margin:12px 0;"></div>
-      <button
-        onclick="toggleNBAPlayerProps(${index}, '${escapeText(awayTeam)}', '${escapeText(homeTeam)}', this)"
-        style="display:block;width:100%;padding:12px 0;background:rgba(124,60,255,0.15);border:1.5px solid #7c3cff;border-radius:10px;color:#c4a0ff;font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer;text-align:center;text-transform:uppercase;margin-bottom:10px;">
-        ⚡ VER PLAYER PROPS ↗
-      </button>
-      <div id="nbaProps${index}"></div>
+   ${league === "nba" ? `
+  <div style="height:0.5px;background:#1a3050;margin:12px 0;"></div>
+  <button
+    onclick="toggleNBAPlayerProps(${index}, '${escapeText(awayTeam)}', '${escapeText(homeTeam)}', this)"
+    style="display:block;width:100%;padding:12px 0;background:rgba(124,60,255,0.15);border:1.5px solid #7c3cff;border-radius:10px;color:#c4a0ff;font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer;text-align:center;text-transform:uppercase;margin-bottom:10px;">
+    ⚡ VER PLAYER PROPS ↗
+  </button>
+  <div id="nbaProps${index}"></div>
+` : ""}
   `}
 
   
