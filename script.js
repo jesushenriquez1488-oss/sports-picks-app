@@ -223,7 +223,7 @@ const promoCode =
     
 
 async function unlockPick() {
-  return goPremiumMonthly();
+  openPromoModal();
 }
 
 function refreshResultsAfterUnlock() {
