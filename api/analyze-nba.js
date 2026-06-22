@@ -583,7 +583,7 @@ if (req.method === "GET" && req.query.mode === "parlay-today") {
           game: `${pick.away_team} vs ${pick.home_team}`,
           play: (() => {
   const p = String(analysis.premium.pick || "");
-  const total = Number(analysis.premium.totalProj || 0);
+const total = Number(analysis.premium.totalLine || analysis.premium.totalProj || 0);
   if ((p === "Over" || p === "Under") && total > 0) return `${p} ${total.toFixed(1)}`;
   return p;
 })(),
@@ -705,7 +705,7 @@ if (req.method === "GET" && req.query.mode === "parlay-today") {
           game: `${pick.away_team} vs ${pick.home_team}`,
          play: (() => {
   const p = String(analysis.premium.pick || "");
-  const total = Number(analysis.premium.totalProj || 0);
+ const total = Number(analysis.premium.totalLine || analysis.premium.totalProj || 0);
   if ((p === "Over" || p === "Under") && total > 0) return `${p} ${total.toFixed(1)}`;
   return p;
 })(),
@@ -832,7 +832,7 @@ await saveParlayTracking(todayDate, best);
           game: `${pick.away_team} vs ${pick.home_team}`,
           play: (() => {
   const p = String(analysis.premium.pick || "");
-  const total = Number(analysis.premium.totalProj || 0);
+  const total = Number(analysis.premium.totalLine || analysis.premium.totalProj || 0);
   if ((p === "Over" || p === "Under") && total > 0) return `${p} ${total.toFixed(1)}`;
   return p;
 })(),
