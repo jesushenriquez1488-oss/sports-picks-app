@@ -287,6 +287,7 @@ const analyzeBody =
         overPrice,
         underPrice,
         league: sport.league,
+      gameTime: game.commence_time,
         forceRefresh: req.query.force === "true"
       };
           const analyzeRes = await fetch(`${origin}${sport.endpoint}`, {
