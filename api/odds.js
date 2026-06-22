@@ -15,19 +15,16 @@ if (req.method === "OPTIONS") {
 const authHeader = req.headers.authorization || "";
 const token = authHeader.replace("Bearer ", "");
 
-if (!token || token === "null" || token === "undefined") {
-  return res.status(401).json({ error: "No autorizado" });
-}
-
-const { createClient } = require("@supabase/supabase-js");
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
-if (authError || !authData?.user) {
-  return res.status(401).json({ error: "Sesión inválida" });
+if (token && token !== "null" && token !== "undefined") {
+  const { createClient } = require("@supabase/supabase-js");
+  const supabaseAdmin = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !authData?.user) {
+    return res.status(401).json({ error: "Sesión inválida" });
+  }
 }
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
