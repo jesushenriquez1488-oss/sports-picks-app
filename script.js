@@ -187,7 +187,8 @@ async function goPremiumMonthly() {
     document.getElementById("authBox").scrollIntoView({ behavior: "smooth" });
     return;
   }
-
+const promoCode =
+  document.getElementById("promoCodeInput")?.value?.trim().toUpperCase() || "";
   try {
     const res = await fetch("/api/create-checkout-session", {
       method: "POST",
