@@ -3193,10 +3193,9 @@ function openPromoModal() {
             placeholder="Promotional Code (optional)"
           />
 
-          <button onclick="openPromoModal()">
-            Continue
-          </button>
-
+          <button onclick="goPremiumMonthly()">
+  Continue
+</button>
           <button class="promo-skip-btn" onclick="skipPromoCode()">
             I don't have a code
           </button>
