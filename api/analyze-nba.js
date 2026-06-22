@@ -1744,6 +1744,7 @@ const risk = isPremiumPick ? "Bajo" : "Medio";
         projA,
         projB,
         totalProj,
+        totalLine: Number(total || 0),
         modelAnalysis: getModelAnalysis(verdict),
         awayRestNote: awayRest.note,
         homeRestNote: homeRest.note,
