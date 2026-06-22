@@ -28,11 +28,14 @@ module.exports = async function handler(req, res) {
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-    const {
-      userId,
-      email,
-      action = "checkout"
-    } = req.body || {};
+   const {
+  userId,
+  email,
+  promoCode = "",
+  action = "checkout"
+} = req.body || {};
+
+const cleanPromoCode = String(promoCode || "").trim().toUpperCase();
 
     const APP_URL = "https://www.cashedgeapp.com";
 
@@ -91,17 +94,19 @@ module.exports = async function handler(req, res) {
 
       cancel_url: `${APP_URL}?canceled=true`,
 
-      metadata: {
-        userId,
-        email
-      },
+     metadata: {
+  userId,
+  email,
+  promoCode: cleanPromoCode
+},
 
-      subscription_data: {
-        metadata: {
-          userId,
-          email
-        }
-      }
+     subscription_data: {
+  metadata: {
+    userId,
+    email,
+    promoCode: cleanPromoCode
+  }
+}
     });
 
     return res.status(200).json({
