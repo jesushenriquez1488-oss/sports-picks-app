@@ -3223,3 +3223,6 @@ function skipPromoCode() {
   if (input) input.value = "";
   goPremiumMonthly();
 }
+window.openPromoModal = openPromoModal;
+window.closePromoModal = closePromoModal;
+window.skipPromoCode = skipPromoCode;
