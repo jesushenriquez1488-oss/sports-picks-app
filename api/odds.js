@@ -1,65 +1,63 @@
-const oddsCache = global.__ODDS_CACHE__ || {};
-global.__ODDS_CACHE__ = oddsCache;
+const { createClient } = require("@supabase/supabase-js");
+
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 const ODDS_CACHE_TIME = 10 * 60 * 1000;
 
 module.exports = async function handler(req, res) {
-res.setHeader("Access-Control-Allow-Origin", "*");
-res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
-if (req.method === "OPTIONS") {
-  return res.status(200).end();
-}
-  // AUTH CHECK
-const authHeader = req.headers.authorization || "";
-const token = authHeader.replace("Bearer ", "");
+  if (req.method === "OPTIONS") return res.status(200).end();
 
-if (token && token !== "null" && token !== "undefined") {
-  const { createClient } = require("@supabase/supabase-js");
-  const supabaseAdmin = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
-  if (authError || !authData?.user) {
-    return res.status(401).json({ error: "Sesión inválida" });
-  }
-}
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.replace("Bearer ", "");
+
+  if (token && token !== "null" && token !== "undefined") {
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData?.user) {
+      return res.status(401).json({ error: "Sesión inválida" });
+    }
   }
 
   try {
     const { sport } = req.query;
 
-    if (!sport) {
-      return res.status(400).json({ error: "Falta sport" });
-    }
+    if (!sport) return res.status(400).json({ error: "Falta sport" });
 
     if (!process.env.ODDS_API_KEY) {
       return res.status(500).json({ error: "ODDS_API_KEY no configurada" });
     }
 
-    const cacheKey = `odds-${sport}`;
+    // LEER CACHE GLOBAL DE SUPABASE
+    const { data: cached } = await supabaseAdmin
+      .from("odds_cache")
+      .select("data, updated_at")
+      .eq("sport", sport)
+      .maybeSingle();
 
-    if (
-      oddsCache[cacheKey] &&
-      Date.now() - oddsCache[cacheKey].time < ODDS_CACHE_TIME
-    ) {
-      return res.status(200).json(oddsCache[cacheKey].data);
+    const isValid = cached &&
+      (Date.now() - new Date(cached.updated_at).getTime() < ODDS_CACHE_TIME);
+
+    if (isValid) {
+      return res.status(200).json(cached.data);
     }
 
+    // LLAMAR THE ODDS API
     const isSoccer = sport.startsWith("soccer_");
-
     const isFootball =
       sport === "americanfootball_nfl" ||
       sport === "americanfootball_ncaaf";
 
-    const markets = isSoccer
-      ? "h2h,totals,spreads"
-      : "h2h,spreads,totals";
-
+    const markets = isSoccer ? "h2h,totals,spreads" : "h2h,spreads,totals";
     const regions = isFootball ? "us" : "us,eu";
 
     const url =
@@ -85,24 +83,23 @@ if (token && token !== "null" && token !== "undefined") {
 
     const cleanGames = games.filter(game => {
       if (!game.bookmakers || game.bookmakers.length === 0) return false;
-
       if (isFootball) {
         return game.bookmakers.some(book =>
-          book.markets?.some(market =>
-            market.key === "spreads" || market.key === "totals"
-          )
+          book.markets?.some(m => m.key === "spreads" || m.key === "totals")
         );
       }
-
       return true;
     });
 
-    oddsCache[cacheKey] = {
+    // GUARDAR EN CACHE GLOBAL
+    await supabaseAdmin.from("odds_cache").upsert({
+      sport,
       data: cleanGames,
-      time: Date.now()
-    };
+      updated_at: new Date().toISOString()
+    }, { onConflict: "sport" });
 
     return res.status(200).json(cleanGames);
+
   } catch (error) {
     console.error("ODDS ERROR:", error);
     return res.status(500).json({
