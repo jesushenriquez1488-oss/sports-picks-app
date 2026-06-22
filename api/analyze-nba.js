@@ -16,6 +16,474 @@ global.__USER_REQUESTS__ = USER_REQUESTS;
 const FREE_COOLDOWN = 10 * 1000;
 
 const PREMIUM_MAX_PER_MINUTE = 40;
+// ============================================================
+// NBA PLAYER PROPS
+// ============================================================
+
+const NBA_LEAGUE_AVG = {
+  pointsAllowed:   114.0,
+  reboundsAllowed:  44.5,
+  assistsAllowed:   26.0,
+  threesAllowed:    13.2
+};
+
+const NBA_PROP_RULES = {
+  player_points:   { statKey: "avgPoints",                   oppKey: "pointsAllowed",   showEdge: 1.0, premiumEdge: 2.5, eliteEdge: 5.0 },
+  player_rebounds: { statKey: "avgRebounds",                 oppKey: "reboundsAllowed", showEdge: 1.0, premiumEdge: 2.0, eliteEdge: 4.5 },
+  player_assists:  { statKey: "avgAssists",                  oppKey: "assistsAllowed",  showEdge: 0.8, premiumEdge: 1.8, eliteEdge: 4.0 },
+  player_threes:   { statKey: "avgThreePointFieldGoalsMade", oppKey: "threesAllowed",   showEdge: 0.5, premiumEdge: 1.2, eliteEdge: 2.5 }
+};
+
+const NBA_TEAM_IDS = {
+  "atlanta hawks": "1", "boston celtics": "2", "brooklyn nets": "17",
+  "charlotte hornets": "30", "chicago bulls": "4", "cleveland cavaliers": "5",
+  "dallas mavericks": "6", "denver nuggets": "7", "detroit pistons": "8",
+  "golden state warriors": "9", "houston rockets": "10", "indiana pacers": "11",
+  "los angeles clippers": "12", "los angeles lakers": "13", "memphis grizzlies": "29",
+  "miami heat": "14", "milwaukee bucks": "15", "minnesota timberwolves": "16",
+  "new orleans pelicans": "3", "new york knicks": "18", "oklahoma city thunder": "25",
+  "orlando magic": "19", "philadelphia 76ers": "20", "phoenix suns": "21",
+  "portland trail blazers": "22", "sacramento kings": "23", "san antonio spurs": "24",
+  "toronto raptors": "28", "utah jazz": "26", "washington wizards": "27"
+};
+
+function nbaSafeNum(v, fallback = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function nbaClamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
+}
+
+function nbaAverage(arr) {
+  const nums = arr.map(Number).filter(Number.isFinite);
+  if (!nums.length) return 0;
+  return nums.reduce((a, b) => a + b, 0) / nums.length;
+}
+
+function findNBATeamId(teamName) {
+  const clean = String(teamName || "").toLowerCase().trim();
+  if (NBA_TEAM_IDS[clean]) return NBA_TEAM_IDS[clean];
+  for (const [key, id] of Object.entries(NBA_TEAM_IDS)) {
+    const parts = key.split(" ");
+    const mascot = parts[parts.length - 1];
+    const city = parts.slice(0, -1).join(" ");
+    if (clean.includes(mascot) || clean.includes(city)) return id;
+  }
+  return null;
+}
+
+async function getNBATeamSchedule(teamId) {
+  const season = new Date().getFullYear();
+  const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamId}/schedule?season=${season}&seasontype=2`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return (data.events || [])
+    .filter(e => e.competitions?.[0]?.status?.type?.completed === true)
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 10);
+}
+
+async function getNBABoxscoreTeamStats(gameId, rivalTeamId) {
+  const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${gameId}`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const data = await res.json();
+
+  const teams = data.boxscore?.teams || [];
+  const opponentBlock = teams.find(t => String(t.team?.id) !== String(rivalTeamId));
+  if (!opponentBlock) return null;
+
+  const stats = opponentBlock.statistics || [];
+
+  const threesRaw = stats.find(s => s.name === "threePointFieldGoalsMade-threePointFieldGoalsAttempted");
+  const threesMade = threesRaw ? nbaSafeNum(String(threesRaw.displayValue).split("-")[0]) : 0;
+
+  return {
+    points:   nbaSafeNum(stats.find(s => s.name === "points")?.displayValue ?? opponentBlock.score),
+    rebounds: nbaSafeNum(stats.find(s => s.name === "totalRebounds")?.displayValue),
+    assists:  nbaSafeNum(stats.find(s => s.name === "assists")?.displayValue),
+    threes:   threesMade
+  };
+}
+
+async function getNBAOpponentDefenseStats(rivalTeamName) {
+  const teamId = findNBATeamId(rivalTeamName);
+  if (!teamId) return null;
+
+  const schedule = await getNBATeamSchedule(teamId);
+  if (!schedule.length) return null;
+
+  const allStats = [];
+  for (const event of schedule.slice(0, 10)) {
+    try {
+      const stats = await getNBABoxscoreTeamStats(event.id, teamId);
+      if (stats) allStats.push(stats);
+    } catch { /* skip */ }
+  }
+
+  if (!allStats.length) return null;
+
+  return {
+    pointsAllowed:   nbaAverage(allStats.map(s => s.points)),
+    reboundsAllowed: nbaAverage(allStats.map(s => s.rebounds)),
+    assistsAllowed:  nbaAverage(allStats.map(s => s.assists)),
+    threesAllowed:   nbaAverage(allStats.map(s => s.threes))
+  };
+}
+
+async function getNBAPlayerSeasonStats(athleteId) {
+  const season = new Date().getFullYear();
+  const url = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${season}/types/2/athletes/${athleteId}/statistics`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const data = await res.json();
+
+  const categories = data?.splits?.categories || [];
+  function findStat(name) {
+    for (const cat of categories)
+      for (const s of cat.stats || [])
+        if (s.name === name) return nbaSafeNum(s.value);
+    return 0;
+  }
+
+  return {
+    avgPoints:                   findStat("avgPoints"),
+    avgRebounds:                 findStat("avgRebounds"),
+    avgAssists:                  findStat("avgAssists"),
+    avgThreePointFieldGoalsMade: findStat("avgThreePointFieldGoalsMade"),
+    avgMinutes:                  findStat("avgMinutes")
+  };
+}
+
+async function getNBAPlayerRecentAvg(athleteId, teamId, statKey, limit = 10) {
+  try {
+    const schedule = await getNBATeamSchedule(teamId);
+    if (!schedule.length) return null;
+
+    const values = [];
+
+    for (const event of schedule.slice(0, limit)) {
+      try {
+        const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${event.id}`;
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const data = await res.json();
+
+        const allPlayers = data?.boxscore?.players || [];
+        for (const teamBlock of allPlayers) {
+          for (const statGroup of teamBlock?.statistics || []) {
+            const keys = statGroup?.keys || [];
+            for (const entry of statGroup?.athletes || []) {
+              if (String(entry?.athlete?.id) !== String(athleteId)) continue;
+              if (entry?.didNotPlay) break;
+
+              const stats = entry?.stats || [];
+
+              if (statKey === "avgPoints") {
+                const idx = keys.indexOf("points");
+                if (idx >= 0) values.push(nbaSafeNum(stats[idx]));
+              } else if (statKey === "avgRebounds") {
+                const idx = keys.indexOf("rebounds");
+                if (idx >= 0) values.push(nbaSafeNum(stats[idx]));
+              } else if (statKey === "avgAssists") {
+                const idx = keys.indexOf("assists");
+                if (idx >= 0) values.push(nbaSafeNum(stats[idx]));
+              } else if (statKey === "avgThreePointFieldGoalsMade") {
+                const idx = keys.indexOf("threePointFieldGoalsMade-threePointFieldGoalsAttempted");
+                if (idx >= 0) {
+                  const raw = String(stats[idx] || "0-0").split("-")[0];
+                  values.push(nbaSafeNum(raw));
+                }
+              }
+            }
+          }
+        }
+      } catch { continue; }
+
+      if (values.length >= limit) break;
+    }
+
+    return values.length >= 3 ? nbaAverage(values) : null;
+
+  } catch { return null; }
+}
+
+function calculateNBAPropConfidence(market, edge) {
+  const rule = NBA_PROP_RULES[market];
+  if (!rule) return 0;
+  const e = nbaSafeNum(edge);
+  if (e < rule.showEdge) return 0;
+  if (e >= rule.eliteEdge) return 99.0;
+  if (e < rule.premiumEdge) {
+    return Number((55 + ((e - rule.showEdge) / (rule.premiumEdge - rule.showEdge)) * 19).toFixed(1));
+  }
+  return Number((75 + ((e - rule.premiumEdge) / (rule.eliteEdge - rule.premiumEdge)) * 24).toFixed(1));
+}
+
+function calculateNBAPropProjection({ market, line, side, seasonStats, opponentDefenseStats, recentAvg }) {
+  const rule = NBA_PROP_RULES[market];
+  if (!rule || !seasonStats) return null;
+
+  const seasonAvg = nbaSafeNum(seasonStats[rule.statKey]);
+  if (seasonAvg <= 0) return null;
+
+  const recent = nbaSafeNum(recentAvg, seasonAvg);
+
+  const oppAllowed = nbaSafeNum(opponentDefenseStats?.[rule.oppKey], NBA_LEAGUE_AVG[rule.oppKey]);
+  const leagueAvg  = nbaSafeNum(NBA_LEAGUE_AVG[rule.oppKey], 1);
+  const oppFactor  = nbaClamp(oppAllowed / leagueAvg, 0.85, 1.15);
+
+  const matchupAvg = seasonAvg * oppFactor;
+  const projection = Number((
+    seasonAvg * 0.45 +
+    recent    * 0.35 +
+    matchupAvg * 0.20
+  ).toFixed(2));
+
+  const propLine = nbaSafeNum(line);
+  const listedSide = String(side || "").toUpperCase();
+  let edge = listedSide === "OVER" ? projection - propLine
+           : listedSide === "UNDER" ? propLine - projection
+           : null;
+  if (edge === null) return null;
+  edge = Number(edge.toFixed(2));
+
+  const confidence = calculateNBAPropConfidence(market, edge);
+  if (confidence <= 0) return null;
+
+  return {
+    market, side: listedSide, line: propLine,
+    projection, edge, confidence,
+    isPremium: confidence >= 75,
+    opponentFactor: Number(oppFactor.toFixed(3))
+  };
+}
+
+async function handleNBAPlayerProps(req, res) {
+  const ODDS_API_KEY = process.env.ODDS_API_KEY;
+  const today = new Date().toISOString().split("T")[0];
+  const force = req.query.force === "true" || req.body?.force === true;
+
+  // 1. Eventos NBA
+  const eventsRes = await fetch(
+    `https://api.the-odds-api.com/v4/sports/basketball_nba/events?apiKey=${ODDS_API_KEY}`
+  );
+  const events = await eventsRes.json();
+
+  if (!events?.length) {
+    return res.status(200).json({ ok: true, noPlay: true, reason: "No hay eventos NBA disponibles" });
+  }
+
+  const selectedEventId = req.query.eventId || req.body?.eventId || null;
+  const selectedEvent = selectedEventId
+    ? events.find(e => e.id === selectedEventId)
+    : events[0];
+
+  if (!selectedEvent?.id) {
+    return res.status(200).json({ ok: true, noPlay: true, reason: "Evento no encontrado" });
+  }
+
+  // 2. Cache
+  if (!force) {
+    const { data: cached } = await supabaseAdmin
+      .from("player_props_cache")
+      .select("analysis_json")
+      .eq("sport", "nba")
+      .eq("event_id", selectedEvent.id)
+      .eq("game_date", today)
+      .maybeSingle();
+
+    if (cached?.analysis_json) {
+      return res.status(200).json({ ...cached.analysis_json, cached: true });
+    }
+  }
+
+  // 3. Props de The Odds API
+  const NBA_MIN_LINES = {
+    player_points: 8, player_rebounds: 2,
+    player_assists: 1, player_threes: 0.5
+  };
+
+  const propsRes = await fetch(
+    `https://api.the-odds-api.com/v4/sports/basketball_nba/events/${selectedEvent.id}/odds` +
+    `?apiKey=${ODDS_API_KEY}&regions=us` +
+    `&markets=player_points,player_rebounds,player_assists,player_threes` +
+    `&oddsFormat=decimal`
+  );
+  const oddsData = await propsRes.json();
+
+  // 4. Deduplicar props OVER
+  const bookPriority = ["DraftKings", "FanDuel", "BetMGM", "Caesars", "BetRivers"];
+  const rawProps = [];
+
+  for (const bk of oddsData?.bookmakers || []) {
+    for (const mkt of bk?.markets || []) {
+      if (!NBA_MIN_LINES[mkt.key]) continue;
+      for (const o of mkt?.outcomes || []) {
+        if (String(o.name || "").toUpperCase() !== "OVER") continue;
+        const line = nbaSafeNum(o.point);
+        if (line < NBA_MIN_LINES[mkt.key]) continue;
+        rawProps.push({
+          player: o.description, market: mkt.key,
+          side: "OVER", line, odds: o.price, bookmaker: bk.title
+        });
+      }
+    }
+  }
+
+  const uniqueMap = new Map();
+  for (const prop of rawProps) {
+    const key = `${prop.player}|${prop.market}|${prop.line}`;
+    const cur = uniqueMap.get(key);
+    if (!cur) { uniqueMap.set(key, prop); continue; }
+    const curR = bookPriority.indexOf(cur.bookmaker);
+    const newR = bookPriority.indexOf(prop.bookmaker);
+    if ((newR === -1 ? 999 : newR) < (curR === -1 ? 999 : curR)) uniqueMap.set(key, prop);
+  }
+
+  const uniqueProps = Array.from(uniqueMap.values()).slice(0, 80);
+
+  if (!uniqueProps.length) {
+    return res.status(200).json({
+      ok: true, noPlay: true,
+      reason: "No hay player props NBA disponibles aún.",
+      game: `${selectedEvent.away_team} @ ${selectedEvent.home_team}`
+    });
+  }
+
+  // 5. IDs de equipos
+  const awayTeamId = findNBATeamId(selectedEvent.away_team);
+  const homeTeamId = findNBATeamId(selectedEvent.home_team);
+
+  // 6. Defensa rival
+  const [awayDefense, homeDefense] = await Promise.all([
+    getNBAOpponentDefenseStats(selectedEvent.away_team),
+    getNBAOpponentDefenseStats(selectedEvent.home_team)
+  ]);
+
+  // 7. Roster para mapear jugador → athleteId
+  async function getRoster(teamId) {
+    if (!teamId) return [];
+    try {
+      const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamId}/roster`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.athletes || []).flatMap(g => g.items || []).map(a => ({
+        id: a.id,
+        displayName: String(a.displayName || "").toLowerCase()
+      }));
+    } catch { return []; }
+  }
+
+  const [awayRoster, homeRoster] = await Promise.all([
+    getRoster(awayTeamId),
+    getRoster(homeTeamId)
+  ]);
+  const allRoster = [...awayRoster, ...homeRoster];
+
+  function findAthleteId(playerName) {
+    const clean = String(playerName || "").toLowerCase();
+    const lastName = clean.split(" ").slice(-1)[0];
+    return allRoster.find(a =>
+      a.displayName === clean ||
+      a.displayName.endsWith(lastName) && lastName.length > 3
+    )?.id || null;
+  }
+
+  // 8. Cache de stats
+  const seasonStatsCache = new Map();
+  const recentAvgCache   = new Map();
+
+  // 9. Analizar props
+  const analyzedProps = [];
+
+  for (const prop of uniqueProps) {
+    const athleteId = findAthleteId(prop.player);
+    if (!athleteId) continue;
+
+    const rule = NBA_PROP_RULES[prop.market];
+    if (!rule) continue;
+
+    // Season stats
+    let seasonStats = seasonStatsCache.get(athleteId);
+    if (!seasonStats) {
+      try {
+        seasonStats = await getNBAPlayerSeasonStats(athleteId);
+        if (seasonStats) seasonStatsCache.set(athleteId, seasonStats);
+      } catch { continue; }
+    }
+    if (!seasonStats) continue;
+
+    // Equipo del jugador
+    const isAwayPlayer = awayRoster.some(a => a.id === athleteId);
+    const playerTeamId = isAwayPlayer ? awayTeamId : homeTeamId;
+    const opponentDefense = isAwayPlayer ? homeDefense : awayDefense;
+
+    // Recent avg
+    const recentCacheKey = `${athleteId}|${prop.market}`;
+    let recentAvg = recentAvgCache.get(recentCacheKey);
+    if (recentAvg === undefined) {
+      recentAvg = await getNBAPlayerRecentAvg(athleteId, playerTeamId, rule.statKey);
+      recentAvgCache.set(recentCacheKey, recentAvg);
+    }
+
+    const result = calculateNBAPropProjection({
+      market: prop.market,
+      line: prop.line,
+      side: prop.side,
+      seasonStats,
+      opponentDefenseStats: opponentDefense,
+      recentAvg
+    });
+
+    if (!result) continue;
+
+    analyzedProps.push({
+      player:        prop.player,
+      market:        prop.market,
+      side:          prop.side,
+      line:          prop.line,
+      odds:          prop.odds,
+      bookmaker:     prop.bookmaker,
+      projection:    result.projection,
+      edge:          result.edge,
+      confidence:    result.confidence,
+      isPremium:     result.isPremium,
+      opponentFactor: result.opponentFactor
+    });
+  }
+
+  analyzedProps.sort((a, b) => b.confidence - a.confidence);
+
+  const finalResponse = {
+    ok:                 true,
+    mode:               "nba-player-props",
+    cached:             false,
+    eventId:            selectedEvent.id,
+    game:               `${selectedEvent.away_team} @ ${selectedEvent.home_team}`,
+    gameDate:           today,
+    generatedAt:        new Date().toISOString(),
+    totalRawProps:      rawProps.length,
+    totalAnalyzedProps: analyzedProps.length,
+    props:              analyzedProps.slice(0, 3),
+    lockedProps:        analyzedProps.slice(3, 40)
+  };
+
+  // Guardar cache
+  await supabaseAdmin.from("player_props_cache").upsert({
+    sport:         "nba",
+    event_id:      selectedEvent.id,
+    game:          finalResponse.game,
+    game_date:     today,
+    analysis_json: finalResponse,
+    updated_at:    new Date().toISOString()
+  }, { onConflict: "sport,event_id,game_date" });
+
+  return res.status(200).json(finalResponse);
+}
 module.exports = async function handler(req, res) {
  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
