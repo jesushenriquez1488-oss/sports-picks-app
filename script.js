@@ -2,7 +2,31 @@ const SUPABASE_URL = "https://chwuftiqbxqjbhdixdwk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_WLTdeKrWOWO404USqEcqtg_bSfDTzJ3";
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let currentSessionId = localStorage.getItem("cashedge_session_id");
 
+if (!currentSessionId) {
+  currentSessionId = crypto.randomUUID();
+  localStorage.setItem("cashedge_session_id", currentSessionId);
+}
+
+async function trackUserEvent(eventType, options = {}) {
+  try {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+
+    await supabaseClient.from("user_tracking").insert({
+      user_id: user?.id || null,
+      email: user?.email || null,
+      event_type: eventType,
+      sport: options.sport || null,
+      session_id: currentSessionId,
+      page: options.page || null,
+      metadata: options.metadata || {}
+    });
+
+  } catch (err) {
+    console.warn("Tracking error:", err);
+  }
+}
 
 
 const IS_ADMIN = false;
