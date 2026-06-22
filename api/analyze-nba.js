@@ -457,7 +457,14 @@ async function handleNBAPlayerProps(req, res) {
   }
 
   analyzedProps.sort((a, b) => b.confidence - a.confidence);
-
+if (analyzedProps.length === 0) {
+  return res.status(200).json({
+    ok: true,
+    noPlay: true,
+    reason: "No hay suficientes datos para calcular player props aún.",
+    game: `${selectedEvent.away_team} @ ${selectedEvent.home_team}`
+  });
+}
   const finalResponse = {
     ok:                 true,
     mode:               "nba-player-props",
