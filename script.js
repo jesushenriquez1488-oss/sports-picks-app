@@ -798,6 +798,7 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
           <p>${premium.homeInjuryPublic}</p>
         </div>
       </div>
+      ${league === "nba" ? `
       <div style="height:0.5px;background:#1a3050;margin:12px 0;"></div>
       <button
         onclick="toggleNBAPlayerProps(${index}, '${escapeText(awayTeam)}', '${escapeText(homeTeam)}', this)"
@@ -828,6 +829,7 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
         <p>${premium.homeInjuryPublic}</p>
       </div>
     </div>
+    ${league === "nba" ? `
     <div style="height:0.5px;background:#1a3050;margin:12px 0;"></div>
       <button
         onclick="toggleNBAPlayerProps(${index}, '${escapeText(awayTeam)}', '${escapeText(homeTeam)}', this)"
@@ -2947,7 +2949,185 @@ async function togglePlayerEdgeProps(index, eventId) {
     box.dataset.loaded = "true";
   }
 }
+async function toggleNBAPlayerProps(index, awayTeam, homeTeam, btn) {
+  const box = document.getElementById(`nbaProps${index}`);
+  if (!box) return;
 
+  if (box.dataset.loaded === "true") {
+    box.style.display = box.style.display === "none" ? "block" : "none";
+    return;
+  }
+
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  if (!sessionData.session) { alert("Debes iniciar sesión."); return; }
+
+  if (!IS_ADMIN && !isPremiumUser) {
+    box.innerHTML = `
+      <div style="background:#0f1628;border:1px solid #1a2240;border-radius:8px;padding:14px;text-align:center;">
+        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;">Contenido Premium</div>
+        <div style="font-size:11px;color:#556688;margin-bottom:12px;">Desbloquea los player props seleccionados por el modelo AI</div>
+        <button onclick="goPremiumMonthly()" style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:12px;font-weight:700;cursor:pointer;">
+          OBTENER PREMIUM · $${MONTHLY_PRICE}/mes
+        </button>
+      </div>
+    `;
+    box.dataset.loaded = "true";
+    return;
+  }
+
+  box.innerHTML = `<div class="loading-analysis" style="margin-top:8px;">Buscando player props...</div>`;
+
+  try {
+    // Buscar el eventId del juego
+    const oddsRes = await fetch(`/api/odds?sport=${encodeURIComponent(selectedSport)}`, {
+      headers: { "Authorization": `Bearer ${sessionData.session.access_token}` }
+    });
+    const games = await oddsRes.json();
+    const game = games.find(g =>
+      (g.away_team === awayTeam && g.home_team === homeTeam) ||
+      (g.home_team === awayTeam && g.away_team === homeTeam)
+    );
+    const eventId = game?.id || null;
+
+    const res = await fetch(
+      `/api/analyze-nba?mode=nba-player-props${eventId ? `&eventId=${eventId}` : ""}`,
+      { headers: { "Authorization": `Bearer ${sessionData.session.access_token}` } }
+    );
+    const data = await res.json();
+
+    if (!res.ok || data.noPlay || !data.props?.length) {
+      box.innerHTML = `
+        <div style="background:#0f1628;border-radius:8px;padding:12px;margin-top:8px;text-align:center;">
+          <div style="font-size:11px;color:#556688;">No hay player props disponibles para este juego aún.</div>
+        </div>
+      `;
+      box.dataset.loaded = "true";
+      return;
+    }
+
+    const marketLabels = {
+      player_points: "pts", player_rebounds: "reb",
+      player_assists: "ast", player_threes: "3PT"
+    };
+
+    const tabs = ["Puntos", "Rebotes", "Asistencias", "3PT"];
+    const marketKeys = ["player_points", "player_rebounds", "player_assists", "player_threes"];
+
+    const allProps = [...(data.props || []), ...(data.lockedProps || [])];
+
+    function renderProps(marketKey) {
+      const filtered = allProps.filter(p => p.market === marketKey);
+      if (!filtered.length) return `<div style="font-size:11px;color:#556688;padding:10px;text-align:center;">Sin props para este mercado.</div>`;
+
+      return filtered.slice(0, 4).map(prop => {
+        const isPos = prop.edge >= 0;
+        const borderColor = isPos ? "#00ffe7" : "#7c3cff";
+        const textColor = isPos ? "#00ffe7" : "#a07cff";
+        const confFill = isPos ? "#00ffe7" : "#7c3cff";
+        const mktLabel = marketLabels[prop.market] || prop.market;
+
+        return `
+          <div style="background:#030c18;border-radius:10px;padding:12px;margin-bottom:6px;display:flex;gap:12px;align-items:center;">
+            <div style="width:54px;height:54px;border-radius:50%;border:2px solid ${borderColor};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;">
+              <span style="font-size:14px;font-weight:700;color:${textColor};line-height:1;">${prop.confidence.toFixed(0)}%</span>
+              <span style="font-size:8px;color:#5a7a9a;">PROB</span>
+            </div>
+            <div style="flex:1;">
+              <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:3px;">${sanitize(prop.player)}</div>
+              <div style="font-size:12px;color:${textColor};font-weight:600;margin-bottom:5px;">${prop.side} ${prop.line} ${mktLabel} · ${prop.odds ? prop.odds.toFixed(2) : "-"}</div>
+              <div style="display:flex;gap:10px;">
+                <div style="text-align:center;">
+                  <div style="font-size:9px;color:#5a7a9a;">avg</div>
+                  <div style="font-size:12px;font-weight:600;color:#e8f4ff;">${prop.projection ? (prop.projection - prop.edge).toFixed(1) : "-"}</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-size:9px;color:#5a7a9a;">proy</div>
+                  <div style="font-size:12px;font-weight:600;color:#e8f4ff;">${prop.projection?.toFixed(1) || "-"}</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-size:9px;color:#5a7a9a;">edge</div>
+                  <div style="font-size:12px;font-weight:600;color:${textColor};">${prop.edge >= 0 ? "+" : ""}${prop.edge?.toFixed(2)}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    let activeTab = 0;
+
+    function buildHTML(tabIdx) {
+      const tabsHTML = tabs.map((t, i) => `
+        <button onclick="switchNBAPropsTab(${index}, ${i})"
+          style="font-size:11px;padding:4px 12px;border-radius:20px;border:0.5px solid ${i === tabIdx ? '#00ffe7' : '#0e2040'};color:${i === tabIdx ? '#00ffe7' : '#a0b4cc'};background:${i === tabIdx ? 'rgba(0,255,231,0.1)' : 'transparent'};cursor:pointer;white-space:nowrap;">
+          ${t}
+        </button>
+      `).join("");
+
+      return `
+        <div style="margin-top:10px;">
+          <div style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;" id="nbaPropsTabRow${index}">${tabsHTML}</div>
+          <div id="nbaPropsContent${index}">${renderProps(marketKeys[tabIdx])}</div>
+        </div>
+      `;
+    }
+
+    box.innerHTML = buildHTML(0);
+    box.dataset.loaded = "true";
+    box.dataset.allProps = JSON.stringify(allProps);
+
+    window[`switchNBAPropsTab`] = function(idx, tabIdx) {
+      const b = document.getElementById(`nbaProps${idx}`);
+      if (!b) return;
+      const props = JSON.parse(b.dataset.allProps || "[]");
+
+      const tabsHTML = tabs.map((t, i) => `
+        <button onclick="switchNBAPropsTab(${idx}, ${i})"
+          style="font-size:11px;padding:4px 12px;border-radius:20px;border:0.5px solid ${i === tabIdx ? '#00ffe7' : '#0e2040'};color:${i === tabIdx ? '#00ffe7' : '#a0b4cc'};background:${i === tabIdx ? 'rgba(0,255,231,0.1)' : 'transparent'};cursor:pointer;white-space:nowrap;">
+          ${t}
+        </button>
+      `).join("");
+
+      document.getElementById(`nbaPropsTabRow${idx}`).innerHTML = tabsHTML;
+
+      const filtered = props.filter(p => p.market === marketKeys[tabIdx]);
+      const marketLabels = { player_points: "pts", player_rebounds: "reb", player_assists: "ast", player_threes: "3PT" };
+
+      document.getElementById(`nbaPropsContent${idx}`).innerHTML = filtered.length
+        ? filtered.slice(0, 4).map(prop => {
+            const isPos = prop.edge >= 0;
+            const borderColor = isPos ? "#00ffe7" : "#7c3cff";
+            const textColor = isPos ? "#00ffe7" : "#a07cff";
+            const mktLabel = marketLabels[prop.market] || prop.market;
+            return `
+              <div style="background:#030c18;border-radius:10px;padding:12px;margin-bottom:6px;display:flex;gap:12px;align-items:center;">
+                <div style="width:54px;height:54px;border-radius:50%;border:2px solid ${borderColor};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;">
+                  <span style="font-size:14px;font-weight:700;color:${textColor};line-height:1;">${prop.confidence.toFixed(0)}%</span>
+                  <span style="font-size:8px;color:#5a7a9a;">PROB</span>
+                </div>
+                <div style="flex:1;">
+                  <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:3px;">${prop.player}</div>
+                  <div style="font-size:12px;color:${textColor};font-weight:600;margin-bottom:5px;">${prop.side} ${prop.line} ${mktLabel} · ${prop.odds ? prop.odds.toFixed(2) : "-"}</div>
+                  <div style="display:flex;gap:10px;">
+                    <div style="text-align:center;"><div style="font-size:9px;color:#5a7a9a;">avg</div><div style="font-size:12px;font-weight:600;color:#e8f4ff;">${prop.projection ? (prop.projection - prop.edge).toFixed(1) : "-"}</div></div>
+                    <div style="text-align:center;"><div style="font-size:9px;color:#5a7a9a;">proy</div><div style="font-size:12px;font-weight:600;color:#e8f4ff;">${prop.projection?.toFixed(1) || "-"}</div></div>
+                    <div style="text-align:center;"><div style="font-size:9px;color:#5a7a9a;">edge</div><div style="font-size:12px;font-weight:600;color:${textColor};">${prop.edge >= 0 ? "+" : ""}${prop.edge?.toFixed(2)}</div></div>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join("")
+        : `<div style="font-size:11px;color:#556688;padding:10px;text-align:center;">Sin props para este mercado.</div>`;
+    };
+
+  } catch (err) {
+    box.innerHTML = `<div style="font-size:11px;color:#556688;padding:8px;">Error: ${err.message}</div>`;
+    box.dataset.loaded = "true";
+  }
+}
+
+window.toggleNBAPlayerProps = toggleNBAPlayerProps;
 window.togglePlayerEdgeProps = togglePlayerEdgeProps;
 window.addEventListener("load", async () => {
   await trackUserEvent("app_open", {
