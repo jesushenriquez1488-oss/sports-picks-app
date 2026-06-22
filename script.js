@@ -3175,3 +3175,51 @@ Thank you.`
 
   }
 }
+function openPromoModal() {
+  let modal = document.getElementById("promoModal");
+
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "promoModal";
+    modal.innerHTML = `
+      <div class="promo-modal-backdrop">
+        <div class="promo-modal-box">
+          <h2>Unlock Premium</h2>
+          <p>Do you have a promotional code?</p>
+
+          <input
+            id="promoCodeInput"
+            type="text"
+            placeholder="Promotional Code (optional)"
+          />
+
+          <button onclick="goPremiumMonthly()">
+            Continue
+          </button>
+
+          <button class="promo-skip-btn" onclick="skipPromoCode()">
+            I don't have a code
+          </button>
+
+          <button class="promo-close-btn" onclick="closePromoModal()">
+            ×
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+
+  modal.style.display = "block";
+}
+
+function closePromoModal() {
+  const modal = document.getElementById("promoModal");
+  if (modal) modal.style.display = "none";
+}
+
+function skipPromoCode() {
+  const input = document.getElementById("promoCodeInput");
+  if (input) input.value = "";
+  goPremiumMonthly();
+}
