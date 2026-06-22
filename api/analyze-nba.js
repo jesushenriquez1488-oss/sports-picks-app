@@ -492,6 +492,9 @@ module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
+  if (req.query.mode === "nba-player-props") {
+  return await handleNBAPlayerProps(req, res);
+}
   if (req.method === "GET" && req.query.mode === "refresh-all-daily") {
   try {
     const authHeader = req.headers.authorization || "";
@@ -1943,10 +1946,7 @@ userData.hourRequests.push(now);
     } catch (error) {
       console.log("NBA auth ignorado:", error.message);
     }
-    const mode = req.query.mode || req.body?.mode;
-if (mode === "nba-player-props") {
-  return await handleNBAPlayerProps(req, res);
-}
+   
 const {
   awayTeam,
   homeTeam,
