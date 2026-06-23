@@ -26,7 +26,7 @@
     { "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_wnba&limit=4&offset=0&force=true", "schedule": "20 21 * * *" },
     { "path": "/api/analyze-nba?mode=generate-daily&sport=basketball_wnba&limit=4&offset=4&force=true", "schedule": "25 21 * * *" },
     { "path": "/api/analyze-mlb?mode=grade-pending", "schedule": "40 8 * * *" },
-    { "path": "/api/analyze-nba?mode=grade-pending", "schedule": "50 8 * * *" },
+    
     { "path": "/api/analyze-mlb?mode=grade-pending", "schedule": "40 12 * * *" },
     { "path": "/api/analyze-nba?mode=grade-pending", "schedule": "50 12 * * *" },
     { "path": "/api/analyze-mlb?mode=grade-pending", "schedule": "40 16 * * *" },
@@ -36,6 +36,10 @@
     { "path": "/api/analyze-mlb?mode=grade-pending", "schedule": "0 23 * * *" },
     { "path": "/api/analyze-nba?mode=grade-pending", "schedule": "10 23 * * *" },
     { "path": "/api/analyze-nba?mode=send-premium-alerts", "schedule": "45 13 * * *" },
-    { "path": "/api/analyze-nba?mode=send-parlay-alert", "schedule": "0 15 * * *" }
+    { "path": "/api/analyze-nba?mode=send-parlay-alert", "schedule": "0 15 * * *" },
+    { "path": "/api/twitter-bot?type=morning", "schedule": "0 14 * * *" },
+{ "path": "/api/twitter-bot?type=pick", "schedule": "0 17 * * *" },
+{ "path": "/api/twitter-bot?type=teaser", "schedule": "0 23 * * *" },
+{ "path": "/api/twitter-bot?type=results", "schedule": "0 3 * * *" }
   ]
 }
