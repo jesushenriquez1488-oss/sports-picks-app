@@ -82,6 +82,11 @@ function sanitize(str) {
 const urlParams = new URLSearchParams(window.location.search);
 
 if (urlParams.get("success") === "true") {
+  gtag("event", "conversion", {
+    send_to: "AW-18266545354/le8_CMnWsMQcEMq51YZE",
+    value: 19.99,
+    currency: "USD"
+  });
   alert("✅ Pago recibido. Verificando suscripción...");
   window.history.replaceState({}, document.title, window.location.pathname);
 }
