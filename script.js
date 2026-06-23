@@ -3182,31 +3182,36 @@ function openPromoModal() {
   if (!modal) {
     modal = document.createElement("div");
     modal.id = "promoModal";
-    modal.innerHTML = `
-      <div class="promo-modal-backdrop">
-        <div class="promo-modal-box">
-          <h2>Unlock Premium</h2>
-          <p>Do you have a promotional code?</p>
+modal.innerHTML = `
+  <div class="promo-modal-backdrop" onclick="closePromoModal()">
+    <div class="promo-modal-box" onclick="event.stopPropagation()">
 
-          <input
-            id="promoCodeInput"
-            type="text"
-            placeholder="Promotional Code (optional)"
-          />
-
-          <button onclick="goPremiumMonthly()">
-  Continue
-</button>
-          <button class="promo-skip-btn" onclick="skipPromoCode()">
-            I don't have a code
-          </button>
-
-          <button class="promo-close-btn" onclick="closePromoModal()">
-            ×
-          </button>
-        </div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+        <button onclick="closePromoModal()" style="background:transparent;border:none;color:#5a7a9a;font-size:20px;cursor:pointer;padding:0;">✕</button>
       </div>
-    `;
+
+      <div style="font-size:22px;margin-bottom:6px;">⚡</div>
+      <h2 style="font-size:18px;font-weight:700;color:#fff;margin-bottom:6px;">Obtener Premium</h2>
+      <p style="font-size:13px;color:#a0b4cc;margin-bottom:16px;">¿Tienes un código promocional?</p>
+
+      <input
+        id="promoCodeInput"
+        type="text"
+        placeholder="Código promocional (opcional)"
+        style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid #0e2a4a;background:#030c18;color:#e8f4ff;font-size:13px;box-sizing:border-box;outline:none;margin-bottom:12px;"
+      />
+
+      <button onclick="goPremiumMonthly()" style="width:100%;padding:13px;border:none;border-radius:10px;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.5px;margin-bottom:8px;">
+        CONTINUAR →
+      </button>
+
+      <button onclick="skipPromoCode()" style="width:100%;padding:12px;border:1px solid #0e2a4a;border-radius:10px;background:transparent;color:#a0b4cc;font-size:12px;font-weight:500;cursor:pointer;">
+        No tengo código
+      </button>
+
+    </div>
+  </div>
+`;
     document.body.appendChild(modal);
   }
 
