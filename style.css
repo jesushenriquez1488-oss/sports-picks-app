@@ -2706,58 +2706,24 @@ body::after {
   position: fixed;
   inset: 0;
   z-index: 999999;
+  display: none;
 }
-
 .promo-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,.75);
+  background: rgba(2,8,20,0.85);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 16px;
 }
-
 .promo-modal-box {
   width: 92%;
-  max-width: 420px;
-  background: #06111f;
-  border: 1px solid #00ffe7;
-  border-radius: 18px;
-  padding: 24px;
-  color: white;
-  text-align: center;
-  box-shadow: 0 0 35px rgba(0,255,231,.35);
-}
-
-.promo-modal-box h2 {
-  margin-bottom: 10px;
-}
-
-.promo-modal-box input {
-  width: 100%;
-  padding: 12px;
-  margin: 15px 0;
-  border-radius: 10px;
-  border: 1px solid #00ffe7;
-  background: #020814;
-  color: white;
-  box-sizing: border-box;
-}
-
-.promo-modal-box button {
-  width: 100%;
-  margin-top: 10px;
-  padding: 14px;
-  border: none;
-  border-radius: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  background: linear-gradient(90deg,#00d9ff,#7c3cff);
-  color: white;
-}
-
-.promo-close-btn {
-  background: transparent !important;
-  width: auto !important;
-  font-size: 24px;
+  max-width: 380px;
+  background: #060f1f;
+  border: 1px solid #0e2a4a;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 0 40px rgba(0,255,231,0.08);
 }
