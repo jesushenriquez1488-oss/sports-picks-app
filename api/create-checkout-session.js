@@ -36,7 +36,7 @@ module.exports = async function handler(req, res) {
 } = req.body || {};
 
 const cleanPromoCode = String(promoCode || "").trim().toUpperCase();
-
+console.log("PROMO CODE RECEIVED:", cleanPromoCode);
     const APP_URL = "https://www.cashedgeapp.com";
 
     if (!userId || userId === "guest") {
