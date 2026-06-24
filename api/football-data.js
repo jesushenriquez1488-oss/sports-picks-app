@@ -1710,6 +1710,12 @@ res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 if (req.method === "OPTIONS") {
   return res.status(200).end();
 }
+  console.log("FOOTBALL REQUEST:", {
+  method: req.method,
+  query: req.query,
+  headers: req.headers,
+  url: req.url
+});
   try {
      const mode = req.query.mode || req.body?.mode;
   if (mode === "nfl-player-props") {
