@@ -79,7 +79,8 @@ async function getPerformance() {
       }
     }
   );
-  const picks = await res.json();
+  const json = await res.json();
+const picks = Array.isArray(json) ? json : (json.data || []);
  
   const counted = picks.filter(p => p.result === "win" || p.result === "loss");
   const wins = counted.filter(p => p.result === "win").length;
