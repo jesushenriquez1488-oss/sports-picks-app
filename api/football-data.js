@@ -1814,8 +1814,12 @@ const bestPick = [
   .sort((a, b) => Number(b.confidence || 0) - Number(a.confidence || 0))[0] || null;
 
 const isPremiumPick = bestPick?.isPremium === true;
-const gameDate = new Date().toISOString().split("T")[0];
-
+const gameDate = odds?.commenceTime 
+  ? new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Chicago",
+      year: "numeric", month: "2-digit", day: "2-digit"
+    }).format(new Date(odds.commenceTime))
+  : new Date().toISOString().split("T")[0];
 const teamsSorted = [teamA, teamB]
   .map(t => String(t).trim())
   .sort();
