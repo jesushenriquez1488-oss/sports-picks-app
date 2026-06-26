@@ -1,21 +1,30 @@
 import dotenv from "dotenv";
+import { ACTIVE_SPORTS } from "../config/sports.js";
 
 dotenv.config();
 
 const ODDS_API_KEY = process.env.ODDS_API_KEY;
 
-export async function fetchOddsForSport(sport) {
-  if (!ODDS_API_KEY) {
-    throw new Error("ODDS_API_KEY no configurada en el bot");
-  }
+function getMarketsForSport(sport) {
+  if (sport.startsWith("soccer_")) return "h2h,totals,spreads";
+  return "h2h,spreads,totals";
+}
 
-  const isSoccer = sport.startsWith("soccer_");
+function getRegionsForSport(sport) {
   const isFootball =
     sport === "americanfootball_nfl" ||
     sport === "americanfootball_ncaaf";
 
-  const markets = isSoccer ? "h2h,totals,spreads" : "h2h,spreads,totals";
-  const regions = isFootball ? "us" : "us,eu";
+  return isFootball ? "us" : "us,eu";
+}
+
+async function fetchOddsForSport(sport) {
+  if (!ODDS_API_KEY) {
+    throw new Error("ODDS_API_KEY no configurada en el bot");
+  }
+
+  const markets = getMarketsForSport(sport);
+  const regions = getRegionsForSport(sport);
 
   const url =
     `https://api.the-odds-api.com/v4/sports/${encodeURIComponent(sport)}/odds/` +
@@ -24,38 +33,42 @@ export async function fetchOddsForSport(sport) {
     `&markets=${markets}` +
     `&oddsFormat=american`;
 
-  console.log(`📡 Fetching odds: ${sport} | markets=${markets} | regions=${regions}`);
+  console.log(`📡 ${sport} | markets=${markets} | regions=${regions}`);
 
   const response = await fetch(url);
   const text = await response.text();
 
   if (!response.ok) {
-    console.error(`❌ Odds API error for ${sport}:`, text);
+    console.error(`❌ Odds API error ${sport}:`, text);
     return [];
   }
-
-  let games = [];
 
   try {
-    games = JSON.parse(text);
-  } catch (err) {
-    console.error(`❌ Error parseando odds para ${sport}:`, err.message);
+    const games = JSON.parse(text);
+
+    return games.filter(game =>
+      game.bookmakers && game.bookmakers.length > 0
+    );
+  } catch (error) {
+    console.error(`❌ Error parseando ${sport}:`, error.message);
     return [];
   }
+}
 
-  const cleanGames = games.filter(game => {
-    if (!game.bookmakers || game.bookmakers.length === 0) return false;
+export async function fetchAllOdds() {
+  const allGames = [];
 
-    if (isFootball) {
-      return game.bookmakers.some(book =>
-        book.markets?.some(m => m.key === "spreads" || m.key === "totals")
-      );
+  for (const sport of ACTIVE_SPORTS) {
+    try {
+      const games = await fetchOddsForSport(sport);
+
+      console.log(`✅ ${sport}: ${games.length} juegos`);
+
+      allGames.push(...games);
+    } catch (error) {
+      console.error(`❌ Error en ${sport}:`, error.message);
     }
+  }
 
-    return true;
-  });
-
-  console.log(`✅ ${sport}: ${cleanGames.length} juegos con odds`);
-
-  return cleanGames;
+  return allGames;
 }
