@@ -1,3 +1,4 @@
+import { isValidArbitragePair } from "../utils/marketMatcher.js";
 import { calculateTwoWayArbitrage } from "../calculators/arbitrageCalculator.js";
 
 export function scanArbitrage(markets) {
@@ -23,26 +24,27 @@ export function scanArbitrage(markets) {
       for (let j = i + 1; j < selections.length; j++) {
 
         const a = selections[i];
-        const b = selections[j];
+const b = selections[j];
 
-        if (a.sportsbook === b.sportsbook) continue;
+if (!isValidArbitragePair(a, b)) {
+    continue;
+}
 
-        if (a.selection === b.selection) continue;
+const result = calculateTwoWayArbitrage(a, b);
 
-        const result = calculateTwoWayArbitrage(a, b);
-
-        if (result.isArbitrage) {
-          opportunities.push({
-            ...result,
-            sport: a.sportKey,
-            gameId: a.gameId,
-            homeTeam: a.homeTeam,
-            awayTeam: a.awayTeam,
-            market: a.market,
-            optionA: a,
-            optionB: b
-          });
-        }
+if (!result.isArbitrage) {
+    continue;
+}
+      opportunities.push({
+    ...result,
+    sport: a.sportKey,
+    gameId: a.gameId,
+    homeTeam: a.homeTeam,
+    awayTeam: a.awayTeam,
+    market: a.market,
+    optionA: a,
+    optionB: b
+});
       }
     }
   }
