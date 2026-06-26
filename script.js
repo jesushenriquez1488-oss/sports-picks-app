@@ -1387,7 +1387,7 @@ if (window.currentSport === "wnba") {
   "americanfootball_nfl",
   "americanfootball_ncaaf"
 ].includes(sport);
-      if (sport === "baseball_mlb") {
+      
   const startTime = new Date(game.commence_time);
 
   if (!game.commence_time || isNaN(startTime.getTime()) || startTime <= new Date()) {
