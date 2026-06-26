@@ -1393,7 +1393,7 @@ if (window.currentSport === "wnba") {
   if (!game.commence_time || isNaN(startTime.getTime()) || startTime <= new Date()) {
     return;
   }
-}
+
       gamesDiv.innerHTML += `
         <div class="card">
           <h2>${sanitize(game.away_team)} vs ${sanitize(game.home_team)}</h2>
