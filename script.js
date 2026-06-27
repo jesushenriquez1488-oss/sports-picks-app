@@ -13,7 +13,7 @@ async function trackUserEvent(eventType, options = {}) {
   try {
     const { data: { user } } = await supabaseClient.auth.getUser();
 
-    await supabaseClient.from("user_tracking").insert({
+    await supabaseClient.from("user_tracking").insert({ 
       user_id: user?.id || null,
       email: user?.email || null,
       event_type: eventType,
