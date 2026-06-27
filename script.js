@@ -3123,7 +3123,11 @@ function generateMLBGameCard(game, index, awaySpread, homeSpread, total, outcome
       <img src="https://a.espncdn.com/i/teamlogos/mlb/500/${homeSlug}.png" onerror="this.style.display='none'" style="width:52px;height:52px;object-fit:contain;" />
     </div>
   </div>
-  <button onclick="analyzeMLB('${awayEsc}','${homeEsc}',${awaySpread},${homeSpread},${index},[],${total},'${gameTime}','${gameId}')" style="width:100%;padding:15px;background:linear-gradient(90deg,#00ffe7,#7c3cff);border:none;cursor:pointer;font-size:13px;font-weight:700;color:#020814;letter-spacing:2px;display:flex;align-items:center;justify-content:center;gap:8px;">
+  const btnOnclick = `analyzeMLB("${awayEsc}","${homeEsc}",${awaySpread},${homeSpread},${index},[],${total},"${gameTime}","${gameId}")`;
+  
+  return `<div style="...">
+  ...
+  <button onclick="${btnOnclick}" style="width:100%;padding:15px;background:linear-gradient(90deg,#00ffe7,#7c3cff);border:none;cursor:pointer;font-size:13px;font-weight:700;color:#020814;letter-spacing:2px;display:flex;align-items:center;justify-content:center;gap:8px;">
     👁 VER PREDICCIÓN MLB &nbsp;›
   </button>
 </div>`;
