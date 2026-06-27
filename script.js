@@ -3065,166 +3065,92 @@ function skipPromoCode() {
 window.openPromoModal = openPromoModal;
 window.closePromoModal = closePromoModal;
 window.skipPromoCode = skipPromoCode;
+function getMLBLogoSlug(teamName) {
+  const map = {
+    "Arizona Diamondbacks":"ari","Atlanta Braves":"atl","Baltimore Orioles":"bal",
+    "Boston Red Sox":"bos","Chicago Cubs":"chc","Chicago White Sox":"chw",
+    "Cincinnati Reds":"cin","Cleveland Guardians":"cle","Colorado Rockies":"col",
+    "Detroit Tigers":"det","Houston Astros":"hou","Kansas City Royals":"kc",
+    "Los Angeles Angels":"laa","Los Angeles Dodgers":"lad","Miami Marlins":"mia",
+    "Milwaukee Brewers":"mil","Minnesota Twins":"min","New York Mets":"nym",
+    "New York Yankees":"nyy","Athletics":"oak","Oakland Athletics":"oak",
+    "Philadelphia Phillies":"phi","Pittsburgh Pirates":"pit","San Diego Padres":"sd",
+    "San Francisco Giants":"sf","Seattle Mariners":"sea","St. Louis Cardinals":"stl",
+    "Tampa Bay Rays":"tb","Texas Rangers":"tex","Toronto Blue Jays":"tor",
+    "Washington Nationals":"wsh"
+  };
+  return map[teamName] || teamName.toLowerCase().replace(/\s+/g,"");
+}
+window.getMLBLogoSlug = getMLBLogoSlug;
+ 
 function generateMLBGameCard(game, index, awaySpread, homeSpread, total, outcomes) {
   const homeTeam = game.home_team;
   const awayTeam = game.away_team;
   const gameDate = new Date(game.commence_time);
   const formattedDate = gameDate.toLocaleDateString("es-US", {
-    weekday: "long", month: "long", day: "numeric", year: "numeric"
+    weekday:"long", month:"long", day:"numeric", year:"numeric"
   });
   const formattedTime = gameDate.toLocaleTimeString("es-US", {
-    hour: "numeric", minute: "2-digit"
+    hour:"numeric", minute:"2-digit"
   });
+  const awaySlug = getMLBLogoSlug(awayTeam);
+  const homeSlug = getMLBLogoSlug(homeTeam);
+  const awayEsc = escapeText(awayTeam);
+  const homeEsc = escapeText(homeTeam);
+  const outcomesStr = JSON.stringify(outcomes).replace(/"/g, "&quot;");
+  const gameTime = game.commence_time || "";
+  const gameId = game.id || "";
  
-  return `
-<div style="
-  background: linear-gradient(135deg,#020b18 0%,#040f20 100%);
-  border: 1px solid #0d2040;
-  border-radius: 14px;
-  overflow: hidden;
-  margin-bottom: 16px;
-  font-family: Arial, sans-serif;
-  position: relative;
-">
-  <!-- LIVE DATA top-right -->
+  return `<div style="background:linear-gradient(135deg,#020b18 0%,#040f20 100%);border:1px solid #0d2040;border-radius:14px;overflow:hidden;margin-bottom:16px;font-family:Arial,sans-serif;position:relative;">
   <div style="position:absolute;top:12px;right:14px;display:flex;align-items:center;gap:5px;">
     <span style="font-size:8px;font-weight:700;color:#00ffe7;letter-spacing:2px;">LIVE DATA</span>
     <span style="width:6px;height:6px;border-radius:50%;background:#00ff88;display:inline-block;"></span>
   </div>
- 
-  <!-- Título -->
   <div style="padding:16px 16px 0;">
-    <h2 style="font-size:16px;font-weight:700;color:#ffffff;margin:0 0 14px;padding-right:80px;line-height:1.3;">
-      ${sanitize(awayTeam)} vs ${sanitize(homeTeam)}
-    </h2>
+    <h2 style="font-size:16px;font-weight:700;color:#ffffff;margin:0 0 14px;padding-right:80px;line-height:1.3;">${sanitize(awayTeam)} vs ${sanitize(homeTeam)}</h2>
   </div>
- 
-  <!-- Datos + Logos -->
   <div style="display:grid;grid-template-columns:1fr auto;align-items:center;padding:0 16px 16px;gap:12px;">
-    <!-- Datos izquierda -->
     <div style="display:flex;flex-direction:column;gap:6px;">
-      <div style="font-size:13px;color:#e0e8ff;">
-        <span style="color:#00ffe7;font-weight:700;">Fecha:</span> ${formattedDate}
-      </div>
-      <div style="font-size:13px;color:#e0e8ff;">
-        <span style="color:#00ffe7;font-weight:700;">Hora:</span> ${formattedTime}
-      </div>
-      <div style="font-size:13px;color:#e0e8ff;">
-        <span style="color:#00ffe7;font-weight:700;">Spread visitante:</span> ${awaySpread > 0 ? "+" : ""}${awaySpread}
-      </div>
-      <div style="font-size:13px;color:#e0e8ff;">
-        <span style="color:#00ffe7;font-weight:700;">Spread local:</span> ${homeSpread > 0 ? "+" : ""}${homeSpread}
-      </div>
-      <div style="font-size:13px;color:#e0e8ff;">
-        <span style="color:#00ffe7;font-weight:700;">Total:</span> ${total || "N/A"}
-      </div>
+      <div style="font-size:13px;color:#e0e8ff;"><span style="color:#00ffe7;font-weight:700;">Fecha:</span> ${formattedDate}</div>
+      <div style="font-size:13px;color:#e0e8ff;"><span style="color:#00ffe7;font-weight:700;">Hora:</span> ${formattedTime}</div>
+      <div style="font-size:13px;color:#e0e8ff;"><span style="color:#00ffe7;font-weight:700;">Spread visitante:</span> ${awaySpread > 0 ? "+" : ""}${awaySpread}</div>
+      <div style="font-size:13px;color:#e0e8ff;"><span style="color:#00ffe7;font-weight:700;">Spread local:</span> ${homeSpread > 0 ? "+" : ""}${homeSpread}</div>
+      <div style="font-size:13px;color:#e0e8ff;"><span style="color:#00ffe7;font-weight:700;">Total:</span> ${total || "N/A"}</div>
     </div>
- 
-    <!-- Logos derecha apilados -->
     <div style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:100px;">
-      <img
-        src="https://a.espncdn.com/i/teamlogos/mlb/500/${getMLBLogoSlug(awayTeam)}.png"
-        onerror="this.style.display='none'"
-        style="width:52px;height:52px;object-fit:contain;"
-      />
+      <img src="https://a.espncdn.com/i/teamlogos/mlb/500/${awaySlug}.png" onerror="this.style.display='none'" style="width:52px;height:52px;object-fit:contain;" />
       <span style="font-size:9px;font-weight:700;color:#4a6080;letter-spacing:1px;padding:2px 6px;">VS</span>
-      <img
-        src="https://a.espncdn.com/i/teamlogos/mlb/500/${getMLBLogoSlug(homeTeam)}.png"
-        onerror="this.style.display='none'"
-        style="width:52px;height:52px;object-fit:contain;"
-      />
+      <img src="https://a.espncdn.com/i/teamlogos/mlb/500/${homeSlug}.png" onerror="this.style.display='none'" style="width:52px;height:52px;object-fit:contain;" />
     </div>
   </div>
- 
-  <!-- Botón CTA -->
-  <button onclick='analyzeMLB("${escapeText(awayTeam)}","${escapeText(homeTeam)}",${awaySpread},${homeSpread},${index},${JSON.stringify(outcomes).replace(/"/g,"&quot;")},${total},"${game.commence_time || ""}","${game.id || ""}")' style="
-    width:100%;
-    padding:15px;
-    background:linear-gradient(90deg,#00ffe7,#7c3cff);
-    border:none;
-    cursor:pointer;
-    font-size:13px;
-    font-weight:700;
-    color:#020814;
-    letter-spacing:2px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    gap:8px;
-    transition:opacity 0.2s;
-  " onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+  <button onclick="analyzeMLB('${awayEsc}','${homeEsc}',${awaySpread},${homeSpread},${index},[],${total},'${gameTime}','${gameId}')" style="width:100%;padding:15px;background:linear-gradient(90deg,#00ffe7,#7c3cff);border:none;cursor:pointer;font-size:13px;font-weight:700;color:#020814;letter-spacing:2px;display:flex;align-items:center;justify-content:center;gap:8px;">
     👁 VER PREDICCIÓN MLB &nbsp;›
   </button>
 </div>`;
 }
- 
-// ─── Helper: ESPN logo slug por nombre de equipo MLB ───
-function getMLBLogoSlug(teamName) {
-  const map = {
-    "Arizona Diamondbacks": "ari", "Atlanta Braves": "atl", "Baltimore Orioles": "bal",
-    "Boston Red Sox": "bos", "Chicago Cubs": "chc", "Chicago White Sox": "chw",
-    "Cincinnati Reds": "cin", "Cleveland Guardians": "cle", "Colorado Rockies": "col",
-    "Detroit Tigers": "det", "Houston Astros": "hou", "Kansas City Royals": "kc",
-    "Los Angeles Angels": "laa", "Los Angeles Dodgers": "lad", "Miami Marlins": "mia",
-    "Milwaukee Brewers": "mil", "Minnesota Twins": "min", "New York Mets": "nym",
-    "New York Yankees": "nyy", "Athletics": "oak", "Oakland Athletics": "oak",
-    "Philadelphia Phillies": "phi", "Pittsburgh Pirates": "pit", "San Diego Padres": "sd",
-    "San Francisco Giants": "sf", "Seattle Mariners": "sea", "St. Louis Cardinals": "stl",
-    "Tampa Bay Rays": "tb", "Texas Rangers": "tex", "Toronto Blue Jays": "tor",
-    "Washington Nationals": "wsh"
-  };
-  return map[teamName] || teamName.toLowerCase().replace(/\s+/g, "");
-}
-window.getMLBLogoSlug = getMLBLogoSlug;
 window.generateMLBGameCard = generateMLBGameCard;
  
+function buildMLBAnalysisHTML(opts) {
+  const { isPremiumMLB, locked, premium, awayTeam, homeTeam, totalLine, eventId, MONTHLY_PRICE, safe } = opts;
  
-// ─── TARJETA 2: Analysis Card — reemplaza resultDiv.innerHTML en analyzeMLB ───
-// Pega esto dentro de analyzeMLB(), reemplaza desde:
-//   resultDiv.innerHTML = `
-//     <div class="${isPremiumMLB ? 'premium-result mlb-premium-dashboard' ...
-// hasta el cierre del template literal.
- 
-function buildMLBAnalysisHTML({
-  isPremiumMLB, locked, premium, awayTeam, homeTeam,
-  totalLine, eventId, MONTHLY_PRICE, safe
-}) {
   if (!premium) {
-    return `
-      <div style="background:#020814;border:1px solid #0d2040;border-radius:12px;padding:16px;font-family:Arial,sans-serif;">
-        <p style="color:#e0e8ff;font-size:13px;">No hay jugada premium MLB. El modelo no encontró edge suficiente.</p>
-      </div>`;
+    return `<div style="background:#020814;border:1px solid #0d2040;border-radius:12px;padding:16px;font-family:Arial,sans-serif;">
+      <p style="color:#e0e8ff;font-size:13px;">No hay jugada premium MLB. El modelo no encontró edge suficiente.</p>
+    </div>`;
   }
  
   const prob = premium.recommendedCards?.[0]?.percentage ?? 0;
-  const circ = 2 * Math.PI * 38; // r=38 → 238.76
+  const circ = 2 * Math.PI * 38;
   const dashFill = (prob / 100) * circ;
   const dashEmpty = circ - dashFill;
- 
   const pickTitle = premium.recommendedCards?.[0]?.title ?? "Jugada Premium";
   const pickPlay  = premium.recommendedCards?.[0]?.play  ?? "";
+  const extraCard = premium.recommendedCards?.[1] ?? null;
  
-  return `
-<div style="
-  background:#020814;
-  border:1px solid #0d2040;
-  border-radius:16px;
-  overflow:hidden;
-  font-family:Arial,sans-serif;
-  margin-top:10px;
-">
+  return `<div style="background:#020814;border:1px solid #0d2040;border-radius:16px;overflow:hidden;font-family:Arial,sans-serif;margin-top:10px;">
  
-  <!-- HOT PICK badge -->
   <div style="padding:16px 18px 10px;">
-    <div style="
-      display:inline-flex;align-items:center;gap:6px;
-      background:linear-gradient(90deg,#f5c518,#f59218);
-      border-radius:24px;padding:7px 16px;
-      font-size:13px;font-weight:700;color:#020814;
-      margin-bottom:14px;
-    ">👑 🔥 HOT PICK MLB</div>
- 
-    <!-- AI Header row -->
+    <div style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(90deg,#f5c518,#f59218);border-radius:24px;padding:7px 16px;font-size:13px;font-weight:700;color:#020814;margin-bottom:14px;">👑 🔥 HOT PICK MLB</div>
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
       <div style="flex:1;">
         <div style="font-size:9px;color:#4a6080;letter-spacing:2px;margin-bottom:8px;">AI PREDICTIVE REPORT</div>
@@ -3233,15 +3159,12 @@ function buildMLBAnalysisHTML({
           <span style="font-size:16px;font-weight:700;color:#fff;">${sanitize(awayTeam)} vs ${sanitize(homeTeam)}</span>
         </div>
       </div>
- 
-      <!-- Probability Ring -->
       <div style="position:relative;width:86px;height:86px;flex-shrink:0;">
         <svg width="86" height="86" viewBox="0 0 86 86">
           <circle cx="43" cy="43" r="38" fill="none" stroke="#0d2040" stroke-width="5"/>
           <circle cx="43" cy="43" r="38" fill="none" stroke="#00ffe7" stroke-width="5"
             stroke-dasharray="${dashFill.toFixed(1)} ${dashEmpty.toFixed(1)}"
-            stroke-linecap="round"
-            transform="rotate(-90 43 43)"/>
+            stroke-linecap="round" transform="rotate(-90 43 43)"/>
         </svg>
         <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
           <span style="font-size:17px;font-weight:700;color:#00ffe7;line-height:1;">${prob.toFixed(1)}%</span>
@@ -3251,82 +3174,69 @@ function buildMLBAnalysisHTML({
     </div>
   </div>
  
-  <!-- Pick Box -->
   <div style="margin:0 18px 12px;background:linear-gradient(135deg,#051428,#030e1e);border:1px solid #0d2040;border-radius:10px;padding:12px 16px;">
     <div style="font-size:9px;color:#4a6080;letter-spacing:1px;margin-bottom:5px;">${sanitize(pickTitle)}</div>
     <div style="font-size:20px;font-weight:700;color:#ffffff;">${sanitize(pickPlay)}</div>
   </div>
  
+  ${extraCard ? `<div style="margin:0 18px 12px;background:#03120d;border:1px solid #00ffe722;border-radius:10px;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;">
+    <div>
+      <div style="font-size:8px;color:#4a6080;letter-spacing:1px;margin-bottom:3px;">🔥 EXTRA PREMIUM</div>
+      <div style="font-size:14px;font-weight:700;color:#fff;">${sanitize(extraCard.play)}</div>
+    </div>
+    <div style="font-size:16px;font-weight:700;color:#00ffe7;">${safe(extraCard.percentage).toFixed(1)}%</div>
+  </div>` : ""}
+ 
   ${locked ? `
-    <!-- LOCKED state -->
-    <div style="margin:0 18px 14px;background:#030e1e;border:1px solid rgba(124,60,255,0.2);border-radius:10px;padding:14px;">
-      <div style="font-size:12px;font-weight:700;color:#7c3cff;margin-bottom:8px;">🔒 Pick Premium Bloqueado</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;color:#4a6080;">
-        <span>✔ Pitcher probable</span><span>✔ Bullpen</span>
-        <span>✔ Park factor</span><span>✔ Clima / viento</span>
-        <span>✔ Ofensiva reciente</span><span>✔ Línea del mercado</span>
-      </div>
+  <div style="margin:0 18px 14px;background:#030e1e;border:1px solid rgba(124,60,255,0.2);border-radius:10px;padding:14px;">
+    <div style="font-size:12px;font-weight:700;color:#7c3cff;margin-bottom:8px;">🔒 Pick Premium Bloqueado</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;color:#4a6080;">
+      <span>✔ Pitcher probable</span><span>✔ Bullpen</span>
+      <span>✔ Park factor</span><span>✔ Clima / viento</span>
+      <span>✔ Ofensiva reciente</span><span>✔ Línea del mercado</span>
     </div>
-    <div style="padding:0 18px 16px;">
-      <button onclick="openPromoModal()" style="width:100%;padding:13px;border:none;border-radius:10px;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:1px;">
-        🔓 Desbloquear Premium — $${MONTHLY_PRICE}/mes
-      </button>
-    </div>
+  </div>
+  <div style="padding:0 18px 16px;">
+    <button onclick="openPromoModal()" style="width:100%;padding:13px;border:none;border-radius:10px;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:1px;">
+      🔓 Desbloquear Premium — $${MONTHLY_PRICE}/mes
+    </button>
+  </div>
   ` : `
-    <!-- Stats -->
-    <div style="padding:0 18px 12px;display:flex;flex-direction:column;gap:4px;">
-      <div style="font-size:13px;color:#e0e8ff;"><span style="color:#00ffe7;font-weight:700;">Carreras esperadas ${sanitize(awayTeam)}:</span> ${safe(premium.expectedRunsA).toFixed(2)}</div>
-      <div style="font-size:13px;color:#e0e8ff;"><span style="color:#00ffe7;font-weight:700;">Carreras esperadas ${sanitize(homeTeam)}:</span> ${safe(premium.expectedRunsB).toFixed(2)}</div>
-      <div style="font-size:13px;color:#e0e8ff;"><span style="color:#00ffe7;font-weight:700;">Total proyectado:</span> ${safe(premium.projectedTotal).toFixed(2)}</div>
-      <div style="font-size:13px;color:#e0e8ff;"><span style="color:#00ffe7;font-weight:700;">Línea total:</span> ${safe(premium.totalLine, totalLine)}</div>
-      <div style="font-size:13px;color:#e0e8ff;"><span style="color:#00ffe7;font-weight:700;">Diferencia real vs línea:</span> ${safe(premium.totalDiff).toFixed(2)} carreras</div>
-    </div>
+  <div style="padding:0 18px 12px;display:flex;flex-direction:column;gap:4px;">
+    <div style="font-size:13px;color:#e0e8ff;"><span style="color:#00ffe7;font-weight:700;">Carreras esperadas ${sanitize(awayTeam)}:</span> ${safe(premium.expectedRunsA).toFixed(2)}</div>
+    <div style="font-size:13px;color:#e0e8ff;"><span style="color:#00ffe7;font-weight:700;">Carreras esperadas ${sanitize(homeTeam)}:</span> ${safe(premium.expectedRunsB).toFixed(2)}</div>
+    <div style="font-size:13px;color:#e0e8ff;"><span style="color:#00ffe7;font-weight:700;">Total proyectado:</span> ${safe(premium.projectedTotal).toFixed(2)}</div>
+    <div style="font-size:13px;color:#e0e8ff;"><span style="color:#00ffe7;font-weight:700;">Línea total:</span> ${safe(premium.totalLine, totalLine)}</div>
+    <div style="font-size:13px;color:#e0e8ff;"><span style="color:#00ffe7;font-weight:700;">Diferencia real vs línea:</span> ${safe(premium.totalDiff).toFixed(2)} carreras</div>
+  </div>
  
-    <!-- VER PLAYER PROPS -->
-    <div style="margin:0 18px 12px;">
-      <button onclick='togglePlayerEdgeProps(${eventId ? `"${eventId}"` : "null"}, "${eventId || ""}")' style="
-        width:100%;padding:13px;background:transparent;
-        border:1px solid #1a3060;border-radius:10px;
-        cursor:pointer;font-size:12px;font-weight:700;
-        color:#00ffe7;letter-spacing:2px;
-        display:flex;align-items:center;justify-content:center;gap:8px;
-      ">🎯 VER PLAYER PROPS</button>
-      <div id="playerEdge_${eventId || "x"}"></div>
-    </div>
+  <div style="margin:0 18px 12px;">
+    <button class="player-edge-toggle-btn" onclick='togglePlayerEdgeProps(${JSON.stringify(eventId || "")}, "${eventId || ""}")' style="width:100%;padding:13px;background:transparent;border:1px solid #1a3060;border-radius:10px;cursor:pointer;font-size:12px;font-weight:700;color:#00ffe7;letter-spacing:2px;display:flex;align-items:center;justify-content:center;gap:8px;">🎯 VER PLAYER PROPS</button>
+    <div id="playerEdge${eventId || "x"}" class="player-edge-box"></div>
+  </div>
  
-    <!-- 4 info boxes -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#0d2040;">
-      <div style="background:#020814;padding:11px 13px;">
-        <div style="font-size:8px;color:#4a6080;letter-spacing:1px;margin-bottom:5px;">🏟 ESTADIO / PARK FACTOR</div>
-        <div style="font-size:11px;color:#c0d0e0;line-height:1.7;">
-          ${sanitize(premium.venue?.name || "N/A")} — factor ${safe(premium.venue?.parkFactor).toFixed(2)} — techo: ${sanitize(premium.venue?.roof || "N/A")}
-        </div>
-      </div>
-      <div style="background:#020814;padding:11px 13px;">
-        <div style="font-size:8px;color:#4a6080;letter-spacing:1px;margin-bottom:5px;">🌤 CLIMA</div>
-        <div style="font-size:11px;color:#c0d0e0;line-height:1.7;">
-          Viento: ${sanitize(premium.weather?.raw || "No disponible")}<br>
-          Dirección: ${sanitize(premium.weather?.direction || "neutral")} | Velocidad: ${safe(premium.weather?.speed)} mph | Temp: ${sanitize(premium.weather?.temp || "N/D")}<br>
-          Impacto climático aplicado: ${safe(premium.weatherFactor, 1).toFixed(3)}
-        </div>
-      </div>
-      <div style="background:#020814;padding:11px 13px;">
-        <div style="font-size:8px;color:#4a6080;letter-spacing:1px;margin-bottom:5px;">📊 DATOS USADOS</div>
-        <div style="font-size:11px;color:#c0d0e0;line-height:1.7;">
-          ${sanitize(awayTeam)}: ofensiva ${safe(premium.awayOffense).toFixed(2)}, defensa ${safe(premium.awayTeamAllowed).toFixed(2)}, pitcher ${safe(premium.awayPitcherAllowed).toFixed(2)}, bullpen ${safe(premium.awayBullpenAllowed).toFixed(2)}<br>
-          ${sanitize(homeTeam)}: ofensiva ${safe(premium.homeOffense).toFixed(2)}, defensa ${safe(premium.homeTeamAllowed).toFixed(2)}, pitcher ${safe(premium.homePitcherAllowed).toFixed(2)}, bullpen ${safe(premium.homeBullpenAllowed).toFixed(2)}
-        </div>
-      </div>
-      <div style="background:#020814;padding:11px 13px;">
-        <div style="font-size:8px;color:#4a6080;letter-spacing:1px;margin-bottom:5px;">⚾ PITCHERS / BULLPEN</div>
-        <div style="font-size:11px;color:#c0d0e0;line-height:1.7;">
-          ${sanitize(awayTeam)}: ${sanitize(premium.awayPitcherName || "N/A")} — innings: ${safe(premium.awayPitcherInnings).toFixed(1)}<br>
-          ${sanitize(homeTeam)}: ${sanitize(premium.homePitcherName || "N/A")} — innings: ${safe(premium.homePitcherInnings).toFixed(1)}<br>
-          ${sanitize(awayTeam)} bullpen fatigue: ${safe(premium.awayBullpenFatigue).toFixed(1)}<br>
-          ${sanitize(homeTeam)} bullpen fatigue: ${safe(premium.homeBullpenFatigue).toFixed(1)}
-        </div>
-      </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#0d2040;">
+    <div style="background:#020814;padding:11px 13px;">
+      <div style="font-size:8px;color:#4a6080;letter-spacing:1px;margin-bottom:5px;">🏟 ESTADIO / PARK FACTOR</div>
+      <div style="font-size:11px;color:#c0d0e0;line-height:1.7;">${sanitize(premium.venue?.name || "N/A")} — factor ${safe(premium.venue?.parkFactor).toFixed(2)} — techo: ${sanitize(premium.venue?.roof || "N/A")}</div>
     </div>
+    <div style="background:#020814;padding:11px 13px;">
+      <div style="font-size:8px;color:#4a6080;letter-spacing:1px;margin-bottom:5px;">🌤 CLIMA</div>
+      <div style="font-size:11px;color:#c0d0e0;line-height:1.7;">Viento: ${sanitize(premium.weather?.raw || "No disponible")}<br>Dirección: ${sanitize(premium.weather?.direction || "neutral")} | Velocidad: ${safe(premium.weather?.speed)} mph | Temp: ${sanitize(premium.weather?.temp || "N/D")}<br>Impacto climático aplicado: ${safe(premium.weatherFactor, 1).toFixed(3)}</div>
+    </div>
+    <div style="background:#020814;padding:11px 13px;">
+      <div style="font-size:8px;color:#4a6080;letter-spacing:1px;margin-bottom:5px;">📊 DATOS USADOS</div>
+      <div style="font-size:11px;color:#c0d0e0;line-height:1.7;">${sanitize(awayTeam)}: ofensiva ${safe(premium.awayOffense).toFixed(2)}, defensa ${safe(premium.awayTeamAllowed).toFixed(2)}, pitcher ${safe(premium.awayPitcherAllowed).toFixed(2)}, bullpen ${safe(premium.awayBullpenAllowed).toFixed(2)}<br>${sanitize(homeTeam)}: ofensiva ${safe(premium.homeOffense).toFixed(2)}, defensa ${safe(premium.homeTeamAllowed).toFixed(2)}, pitcher ${safe(premium.homePitcherAllowed).toFixed(2)}, bullpen ${safe(premium.homeBullpenAllowed).toFixed(2)}</div>
+    </div>
+    <div style="background:#020814;padding:11px 13px;">
+      <div style="font-size:8px;color:#4a6080;letter-spacing:1px;margin-bottom:5px;">⚾ PITCHERS / BULLPEN</div>
+      <div style="font-size:11px;color:#c0d0e0;line-height:1.7;">${sanitize(awayTeam)}: ${sanitize(premium.awayPitcherName || "N/A")} — innings: ${safe(premium.awayPitcherInnings).toFixed(1)}<br>${sanitize(homeTeam)}: ${sanitize(premium.homePitcherName || "N/A")} — innings: ${safe(premium.homePitcherInnings).toFixed(1)}<br>${sanitize(awayTeam)} bullpen fatigue: ${safe(premium.awayBullpenFatigue).toFixed(1)}<br>${sanitize(homeTeam)} bullpen fatigue: ${safe(premium.homeBullpenFatigue).toFixed(1)}</div>
+    </div>
+  </div>
+ 
+  <div style="background:#030e1e;padding:10px;text-align:center;font-size:9px;font-weight:700;color:#4a6080;letter-spacing:2px;border-top:1px solid #0d2040;">
+    ANÁLISIS IA COMPLETO
+  </div>
   `}
  
 </div>`;
