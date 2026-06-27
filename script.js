@@ -1422,7 +1422,7 @@ if (window.currentSport === "wnba") {
           <div id="result${index}"></div>
         </div>
       `;
-    }
+    });
   } catch (error) {
     status.innerHTML = "Error: " + error.message;
   }
