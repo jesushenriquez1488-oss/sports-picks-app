@@ -1943,9 +1943,9 @@ ${premium.recommendedCards?.[1] ? `
           background:rgba(3,8,18,.50);
           backdrop-filter:blur(2px);
         ">
-          <h3 style="color:#00ff99;margin:0 0 8px;">3 free analyses used</h3>
+          <h3 style="color:#00ff99;margin:0 0 8px;">5 free analyses used</h3>
           <p style="color:#d8fff0;font-size:13px;line-height:1.5;margin:0 0 14px;">
-            More free analyses unlock every 2 hours.
+            More free analyses unlock every 3 hours.
           </p>
           <p style="
     margin:12px 0 14px;
