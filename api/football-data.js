@@ -1760,18 +1760,20 @@ if (req.method === "OPTIONS") {
   isPremiumUser ||
   authData.user.email === ADMIN_EMAIL;
 
-const usageCheck = await enforceFreeAnalysisLimit(
-  authData.user.id,
-  isUnlimited,
-  "analyze-football"
-);
+if (!isUnlimited) {
+  const usageCheck = await enforceFreeAnalysisLimit(
+    authData.user.id,
+    false,
+    "analyze-football"
+  );
 
-if (!usageCheck.allowed) {
-  return res.status(429).json({
-    error: usageCheck.message,
-    limitReached: true,
-    upgradeRequired: true
-  });
+  if (!usageCheck.allowed) {
+    return res.status(429).json({
+      error: usageCheck.message,
+      limitReached: true,
+      upgradeRequired: true
+    });
+  }
 }
         }
       }
