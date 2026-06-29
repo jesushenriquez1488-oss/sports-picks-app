@@ -1881,7 +1881,21 @@ if (req.method === "GET" && req.query.mode === "parlay-performance") {
           isPremiumUser = profile?.is_premium === true;
           const isAdmin =
   user?.email === ADMIN_EMAIL;
+const isUnlimited = isPremiumUser || isAdmin;
 
+const usageCheck = await enforceFreeAnalysisLimit(
+  user.id,
+  isUnlimited,
+  "analyze-nba"
+);
+
+if (!usageCheck.allowed) {
+  return res.status(429).json({
+    error: usageCheck.message,
+    limitReached: true,
+    upgradeRequired: true
+  });
+}
 const userKey =
   user?.id || req.headers["x-forwarded-for"] || "guest";
 
