@@ -1832,11 +1832,8 @@ console.log("FREE LIMIT CHECK:", { count, authUserId, windowStart });
     const teamAProjection = projectFootballTeam(teamAEdges, teamBEdges);
     const teamBProjection = projectFootballTeam(teamBEdges, teamAEdges);
 
-    const projectedTeamA = teamAProjection.finalProjection;
-    const projectedTeamB = teamBProjection.finalProjection;
-
-    const baseProjectedTotal = round(projectedTeamA + projectedTeamB);
-const projectedSpread = round(projectedTeamA - projectedTeamB);
+const projectedTeamA = teamAProjection.finalProjection;
+const projectedTeamB = teamBProjection.finalProjection;
 
 const [teamAProfile, teamBProfile] = await Promise.all([
   getTeamStatsProfile(type, teamARef, selectedSeason),
@@ -1845,21 +1842,21 @@ const [teamAProfile, teamBProfile] = await Promise.all([
 
 const paceModule = calculatePaceEfficiencyAdjustment({
   type,
-  projectedTotal: baseProjectedTotal,
+  projectedTotal: round(projectedTeamA + projectedTeamB),
   teamAProfile,
   teamBProfile
 });
 
-// Si ambos perfiles son el default (ESPN falló), no aplicar pace adjustment
-const bothDefault = (
-  teamAProfile.plays === 68 && teamAProfile.yards === 390 &&
-  teamBProfile.plays === 68 && teamBProfile.yards === 390
-);
+// Aplicar la mitad del ajuste a cada equipo
+const halfAdj = paceModule.adjustment / 2;
+const projectedTeamAFinal = round(projectedTeamA + halfAdj);
+const projectedTeamBFinal = round(projectedTeamB + halfAdj);
 
-const projectedTotal = bothDefault
-  ? baseProjectedTotal
-  : round(baseProjectedTotal + paceModule.adjustment);
-    const odds = await getFootballOdds(type, teamARef, teamBRef);
+const baseProjectedTotal = round(projectedTeamA + projectedTeamB);
+const projectedTotal = round(projectedTeamAFinal + projectedTeamBFinal);
+const projectedSpread = round(projectedTeamAFinal - projectedTeamBFinal);
+
+const odds = await getFootballOdds(type, teamARef, teamBRef);
 
     const rawPicks = buildFootballPicks({
       teamA,
@@ -1910,8 +1907,8 @@ const analysisJson = {
         projectedTotal,
         projectedSpread,
         projectedScore: {
-          [teamA]: projectedTeamA,
-          [teamB]: projectedTeamB
+         [teamA]: projectedTeamAFinal,
+[teamB]: projectedTeamBFinal
         },
         odds,
         spreadPick: rawPicks?.spreadPick || null,
