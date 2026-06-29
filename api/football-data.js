@@ -664,6 +664,7 @@ const url = `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/teams/${
 }
 
 function calculatePaceEfficiencyAdjustment({ type, projectedTotal, teamAProfile, teamBProfile }) {
+   if (type === "ncaaf") return { adjustment: 0, gameEdge: 0, teamAOffenseScore: 1, teamBOffenseScore: 1, teamADefenseScore: 1, teamBDefenseScore: 1 };
   const leagueAvg = {
     nfl: {
       plays: 62,
