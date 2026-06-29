@@ -1947,8 +1947,17 @@ ${premium.recommendedCards?.[1] ? `
           <p style="color:#d8fff0;font-size:13px;line-height:1.5;margin:0 0 14px;">
             More free analyses unlock every 2 hours.
           </p>
+          <p style="
+    margin:12px 0 14px;
+    text-align:center;
+    color:#cfd8dc;
+    font-size:13px;
+    line-height:1.5;
+">
+    Or upgrade to Premium for unlimited AI analyses, player props, value plays and arbitrage opportunities.
+</p>
           <button class="unlock-btn" onclick="openPromoModal()">
-            Unlock unlimited analyses
+            🚀 Upgrade to Premium — $19.99/month
           </button>
         </div>
 
