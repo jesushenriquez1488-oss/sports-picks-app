@@ -2343,9 +2343,78 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
  
 `;
  
-  } catch (err) {
-    resultDiv.textContent = "Error Football: " + err.message;
-  }
+ } catch (err) {
+  resultDiv.innerHTML = `
+    <div class="normal-result normal-blue-theme">
+      <div class="result-content mlb-premium-content" style="position:relative; overflow:hidden;">
+
+        <div style="filter:blur(5px); opacity:.45; pointer-events:none; user-select:none;">
+          <div class="mlb-premium-title">
+            <div>
+              <span class="mlb-report-label">AI PREDICTIVE REPORT</span>
+              <h2>🏈 ${awayTeam} vs ${homeTeam}</h2>
+            </div>
+          </div>
+
+          <div class="mlb-top-grid">
+            <div class="mlb-main-pick-box">
+              <span>MODEL PICK</span>
+              <strong>Analyzing Edge</strong>
+              <h3>--%</h3>
+              <small>PROBABILITY</small>
+            </div>
+          </div>
+
+          <div class="mlb-projection-box">
+            <p><strong>Projected score ${awayTeam}:</strong> --</p>
+            <p><strong>Projected score ${homeTeam}:</strong> --</p>
+            <p><strong>Projected total:</strong> --</p>
+            <p><strong>Spread edge:</strong> --</p>
+          </div>
+
+          <div class="mlb-info-grid">
+            <div><h4>📊 Team Form</h4><p>Calculating...</p></div>
+            <div><h4>🏈 Matchup</h4><p>Calculating...</p></div>
+            <div><h4>📈 Confidence</h4><p>Calculating...</p></div>
+            <div><h4>🎯 AI Projection</h4><p>Calculating...</p></div>
+          </div>
+        </div>
+
+        <div style="
+          position:absolute;
+          inset:0;
+          display:flex;
+          flex-direction:column;
+          justify-content:center;
+          align-items:center;
+          text-align:center;
+          padding:18px;
+          background:rgba(3,8,18,.50);
+          backdrop-filter:blur(2px);
+        ">
+
+          <h3 style="color:#00ff99;margin:0 0 8px;">
+            5 free analyses used
+          </h3>
+
+          <p style="color:#d8fff0;font-size:13px;line-height:1.5;margin:0 0 14px;">
+            More free analyses unlock every 3 hours.
+          </p>
+
+          <p style="color:#bfc8d6;font-size:12px;line-height:1.5;margin:0 0 18px;">
+            Or upgrade to Premium for unlimited analyses, player props, and exclusive high-value insights.
+          </p>
+
+          <button class="unlock-btn" onclick="openPromoModal()">
+            🚀 Upgrade to Premium — $19.99/month
+          </button>
+
+        </div>
+
+      </div>
+    </div>
+  `;
+}
 }
 async function toggleNFLPlayerProps(index, awayTeam, homeTeam) {
   const box = document.getElementById(`nflProps${index}`);
