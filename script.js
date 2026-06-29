@@ -1954,7 +1954,7 @@ ${premium.recommendedCards?.[1] ? `
     font-size:13px;
     line-height:1.5;
 ">
-    Or upgrade to Premium for unlimited AI analyses, player props, value plays and arbitrage opportunities.
+    Or upgrade to Premium for unlimited analyses, player props, value plays, and exclusive high-value insights.
 </p>
           <button class="unlock-btn" onclick="openPromoModal()">
             🚀 Upgrade to Premium — $19.99/month
