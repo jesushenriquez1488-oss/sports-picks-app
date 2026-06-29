@@ -1850,7 +1850,15 @@ const paceModule = calculatePaceEfficiencyAdjustment({
   teamBProfile
 });
 
-const projectedTotal = round(baseProjectedTotal + paceModule.adjustment);
+// Si ambos perfiles son el default (ESPN falló), no aplicar pace adjustment
+const bothDefault = (
+  teamAProfile.plays === 68 && teamAProfile.yards === 390 &&
+  teamBProfile.plays === 68 && teamBProfile.yards === 390
+);
+
+const projectedTotal = bothDefault
+  ? baseProjectedTotal
+  : round(baseProjectedTotal + paceModule.adjustment);
     const odds = await getFootballOdds(type, teamARef, teamBRef);
 
     const rawPicks = buildFootballPicks({
