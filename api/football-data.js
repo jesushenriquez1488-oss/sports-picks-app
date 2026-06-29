@@ -1753,6 +1753,23 @@ if (req.method === "OPTIONS") {
             .single();
 
           isPremiumUser = profile?.is_premium === true;
+          const isUnlimited =
+  isPremiumUser ||
+  authData.user.email === ADMIN_EMAIL;
+
+const usageCheck = await enforceFreeAnalysisLimit(
+  authData.user.id,
+  isUnlimited,
+  "analyze-football"
+);
+
+if (!usageCheck.allowed) {
+  return res.status(429).json({
+    error: usageCheck.message,
+    limitReached: true,
+    upgradeRequired: true
+  });
+}
         }
       }
     } catch (error) {
