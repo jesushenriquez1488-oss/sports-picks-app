@@ -1737,49 +1737,64 @@ if (req.method === "OPTIONS") {
     }
 
     let isPremiumUser = false;
+let authUserId = null;
 
-    try {
-      const authHeader = req.headers.authorization || "";
-      const token = authHeader.replace("Bearer ", "");
+try {
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.replace("Bearer ", "").trim();
 
-      if (token) {
-        const { data: authData } = await supabaseAdmin.auth.getUser(token);
-
-        if (authData?.user) {
-          const { data: profile } = await supabaseAdmin
-            .from("users")
-           .select("is_premium, subscription_status, email")
-            .eq("id", authData.user.id)
-            .single();
-
-          isPremiumUser =
-  profile?.is_premium === true ||
-  profile?.subscription_status === "active" ||
-  profile?.subscription_status === "trialing";
-          const isUnlimited =
-  isPremiumUser ||
-  authData.user.email === ADMIN_EMAIL;
-
-if (!isUnlimited) {
-  const usageCheck = await enforceFreeAnalysisLimit(
-    authData.user.id,
-    false,
-    "analyze-football"
-  );
-
-  if (!usageCheck.allowed) {
-    return res.status(429).json({
-      error: usageCheck.message,
-      limitReached: true,
-      upgradeRequired: true
+  if (!token) {
+    return res.status(401).json({
+      error: "Debes iniciar sesión para analizar."
     });
   }
-}
-        }
-      }
-    } catch (error) {
-      console.log("No se pudo validar premium football:", error.message);
+
+  const { data: authData, error: authError } =
+    await supabaseAdmin.auth.getUser(token);
+
+  if (authError || !authData?.user) {
+    return res.status(401).json({
+      error: "Sesión inválida. Inicia sesión otra vez."
+    });
+  }
+
+  authUserId = authData.user.id;
+
+  const { data: profile } = await supabaseAdmin
+    .from("users")
+    .select("is_premium, subscription_status, email")
+    .or(`id.eq.${authData.user.id},email.eq.${authData.user.email}`)
+    .maybeSingle();
+
+  isPremiumUser =
+    profile?.is_premium === true ||
+    profile?.subscription_status === "active" ||
+    profile?.subscription_status === "trialing" ||
+    authData.user.email === ADMIN_EMAIL;
+
+  // SOLO FREE PASA POR EL LÍMITE
+  if (!isPremiumUser) {
+    const usageCheck = await enforceFreeAnalysisLimit(
+      authUserId,
+      false,
+      "analyze-football"
+    );
+
+    if (!usageCheck.allowed) {
+      return res.status(429).json({
+        error: usageCheck.message,
+        limitReached: true,
+        upgradeRequired: true
+      });
     }
+  }
+
+} catch (error) {
+  console.log("No se pudo validar usuario football:", error.message);
+  return res.status(401).json({
+    error: "No se pudo validar tu sesión."
+  });
+}
 
     const selectedSeason = Number(season) || getDefaultSeason();
 
