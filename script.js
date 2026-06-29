@@ -1894,19 +1894,78 @@ ${premium.recommendedCards?.[1] ? `
   </div>
 `;
     endAnalysisLock(index);
-     } catch (error) {
+    } catch (error) {
   resultDiv.innerHTML = `
-    <div style="
-      background: rgba(0,255,153,.08);
-      border: 1px solid rgba(0,255,153,.25);
-      color: #00ff99;
-      padding: 14px;
-      border-radius: 12px;
-      font-size: 13px;
-      font-weight: 700;
-      line-height: 1.5;
-    ">
-      ${error.message}
+    <div class="premium-result mlb-premium-dashboard">
+      <div class="result-content mlb-premium-content">
+
+        <div class="mlb-premium-title">
+          <div>
+            <span class="mlb-report-label">AI PREDICTIVE REPORT</span>
+            <h2>⚾ ${awayTeam} vs ${homeTeam}</h2>
+          </div>
+        </div>
+
+        <div style="
+          position: relative;
+          overflow: hidden;
+          border-radius: 14px;
+          margin-top: 12px;
+        ">
+          <div style="
+            filter: blur(6px);
+            opacity: 0.35;
+            pointer-events: none;
+            user-select: none;
+          ">
+            <div class="mlb-top-grid">
+              <div class="mlb-main-pick-box">
+                <span>MODEL PICK</span>
+                <strong>Premium Pick</strong>
+                <h3>--%</h3>
+                <small>CONFIDENCE SCORE</small>
+              </div>
+            </div>
+
+            <div class="mlb-projection-box">
+              <p><strong>Expected runs ${awayTeam}:</strong> --</p>
+              <p><strong>Expected runs ${homeTeam}:</strong> --</p>
+              <p><strong>Projected total:</strong> --</p>
+              <p><strong>Market edge:</strong> --</p>
+            </div>
+
+            <div class="mlb-info-grid">
+              <div><h4>🏟️ Park Factor</h4><p>Premium data locked</p></div>
+              <div><h4>🌦️ Weather</h4><p>Premium data locked</p></div>
+              <div><h4>📊 Team Metrics</h4><p>Premium data locked</p></div>
+              <div><h4>⚾ Pitchers / Bullpen</h4><p>Premium data locked</p></div>
+            </div>
+          </div>
+
+          <div style="
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 18px;
+            background: rgba(5, 10, 20, 0.62);
+            backdrop-filter: blur(2px);
+          ">
+            <h3 style="margin:0 0 8px;color:#00ff99;">🔒 Premium Analysis</h3>
+            <p style="margin:0 0 14px;color:#d8fff0;font-size:13px;line-height:1.5;">
+              This AI prediction is ready. Upgrade to unlock the full analysis, projections, confidence score and player props.
+            </p>
+
+            <button class="unlock-btn" onclick="openPromoModal()">
+              🔓 Unlock Premium — $${MONTHLY_PRICE}/month
+            </button>
+          </div>
+        </div>
+
+      </div>
     </div>
   `;
   endAnalysisLock(index);
