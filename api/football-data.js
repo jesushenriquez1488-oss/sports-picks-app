@@ -1793,7 +1793,7 @@ try {
       .eq("user_id", authUserId)
       .eq("event_type", "analyze-football")
       .gte("created_at", windowStart);
-
+console.log("FREE LIMIT CHECK:", { count, authUserId, windowStart });
     if ((count || 0) >= limit) {
       return res.status(429).json({
         error: "You've used your 5 free analyses. More analyses unlock in 3 hours.",
