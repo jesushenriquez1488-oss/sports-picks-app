@@ -2366,6 +2366,7 @@ if (data.limitReached === true || data.upgradeRequired === true) {
       `;
     }
   }
+  }
 async function toggleNFLPlayerProps(index, awayTeam, homeTeam) {
   const box = document.getElementById(`nflProps${index}`);
   if (!box) return;
