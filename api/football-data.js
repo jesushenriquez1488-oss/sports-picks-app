@@ -4,7 +4,7 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
-
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const MAX_GAMES_USED = 7;
 
 const SPORT_PATHS = {
