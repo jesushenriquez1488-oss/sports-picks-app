@@ -2007,17 +2007,15 @@ return res.status(200).json({
   isPremiumUser,
   odds,
   picks,
-
-  projectedScore: shouldHideModel
-  ? null
-  : {
+publicConfidence: bestPick ? Number(bestPick.confidence || 0) : 0,
+projectedScore: {
       [teamA]: projectedTeamAFinal,
       [teamB]: projectedTeamBFinal
     },
-  baseProjectedTotal: shouldHideModel ? null : baseProjectedTotal,
-  paceEfficiencyAdjustment: shouldHideModel ? null : paceModule,
-  projectedTotal: shouldHideModel ? null : projectedTotal,
-  projectedSpread: shouldHideModel ? null : projectedSpread
+    baseProjectedTotal,
+    paceEfficiencyAdjustment: paceModule,
+    projectedTotal,
+    projectedSpread
 });
   } catch (error) {
     console.error("ERROR FOOTBALL DATA:", error);
