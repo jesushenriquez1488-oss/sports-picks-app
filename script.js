@@ -2191,7 +2191,15 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
     if (!res.ok) {
       throw new Error(data.error || "Error football");
     }
- 
+ if (
+  data.projectedScore === null ||
+  data.projectedTotal === null ||
+  data.projectedSpread === null ||
+  data.picks?.spreadPick?.locked ||
+  data.picks?.totalPick?.locked
+) {
+  throw new Error("You have used your 5 free analyses. More free analyses unlock every 3 hours.");
+}
     const projAway = Number(data.projectedScore?.[awayTeam] || 0);
     const projHome = Number(data.projectedScore?.[homeTeam] || 0);
     const projectedTotal = Number(data.projectedTotal || 0);
