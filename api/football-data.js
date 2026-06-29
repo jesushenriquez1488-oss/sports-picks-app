@@ -2000,10 +2000,7 @@ if (isPremiumPick && bestPick) {
       line: pickLine
     });
 }
-const shouldHideModel =
-  !isPremiumUser &&
-  bestPick?.isPremium === true;
-
+const shouldHideModel = false;
 return res.status(200).json({
   sport: type,
   isPremiumUser,
