@@ -9,7 +9,7 @@ const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
 async function enforceFreeAnalysisLimit(userId, isPremiumUser, endpoint = "analysis") {
   if (isPremiumUser) return { allowed: true };
 
-  const since = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  const since = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
 
   const { count, error } = await supabaseAdmin
     .from("analysis_usage")
@@ -21,10 +21,10 @@ async function enforceFreeAnalysisLimit(userId, isPremiumUser, endpoint = "analy
     throw new Error("Error checking free analysis limit");
   }
 
-  if ((count || 0) >= 3) {
+  if ((count || 0) >= 5) {
     return {
       allowed: false,
-     message: "You can unlock 3 new analyses every 2 hours, or upgrade to Premium for unlimited predictions."
+     message: "You can unlock 5 new analyses every 3 hours, or upgrade to Premium for unlimited predictions."
     };
   }
 
