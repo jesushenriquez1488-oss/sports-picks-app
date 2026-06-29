@@ -2267,24 +2267,24 @@ if (data.limitReached === true || data.upgradeRequired === true) {
     </div>
   </div>
  
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;">
-    <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
-      <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">${awayTeam.split(" ").pop()}</div>
-      <div style="font-size:14px;font-weight:700;color:#fff;">${projAway.toFixed(1)}</div>
-    </div>
-    <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
-      <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">${homeTeam.split(" ").pop()}</div>
-      <div style="font-size:14px;font-weight:700;color:#fff;">${projHome.toFixed(1)}</div>
-    </div>
-    <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
-      <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">TOTAL MOD.</div>
-      <div style="font-size:14px;font-weight:700;color:#fff;">${projectedTotal.toFixed(1)}</div>
-    </div>
-    <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
-      <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">EDGE</div>
-      <div style="font-size:14px;font-weight:700;color:#fff;">${Number(bestPick?.edge || 0).toFixed(1)}</div>
-    </div>
+ <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;">
+  <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;${locked ? 'filter:blur(4px);pointer-events:none;' : ''}">
+    <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">${awayTeam.split(" ").pop()}</div>
+    <div style="font-size:14px;font-weight:700;color:#fff;">${locked ? "??.?" : projAway.toFixed(1)}</div>
   </div>
+  <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;${locked ? 'filter:blur(4px);pointer-events:none;' : ''}">
+    <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">${homeTeam.split(" ").pop()}</div>
+    <div style="font-size:14px;font-weight:700;color:#fff;">${locked ? "??.?" : projHome.toFixed(1)}</div>
+  </div>
+  <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;${locked ? 'filter:blur(4px);pointer-events:none;' : ''}">
+    <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">TOTAL MOD.</div>
+    <div style="font-size:14px;font-weight:700;color:#fff;">${locked ? "??.?" : projectedTotal.toFixed(1)}</div>
+  </div>
+  <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;${locked ? 'filter:blur(4px);pointer-events:none;' : ''}">
+    <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">EDGE</div>
+    <div style="font-size:14px;font-weight:700;color:#fff;">${locked ? "??.?" : Number(bestPick?.edge || 0).toFixed(1)}</div>
+  </div>
+</div>
  
   ${locked ? `
     <div style="background:#0f1628;border:1px solid rgba(124,60,255,0.2);border-radius:8px;padding:14px;margin-bottom:10px;">
