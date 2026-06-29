@@ -1651,6 +1651,19 @@ if (userId && userId !== "null" && userId !== "undefined" && userId !== "guest")
   profile = data;
   isPremiumUser = profile?.is_premium === true;
   isAdmin = profile?.email === ADMIN_EMAIL;
+ const usageCheck = await enforceFreeAnalysisLimit(
+  authData.user.id,
+  isPremiumUser,
+  "analyze-mlb"
+);
+
+if (!usageCheck.allowed) {
+  return res.status(429).json({
+    error: usageCheck.message,
+    limitReached: true,
+    upgradeRequired: true
+  });
+}
 }
     const origin = "https://www.cashedgeapp.com";
 const dataResponse = await fetch(`${origin}/api/mlb-data`, {
