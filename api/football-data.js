@@ -1846,7 +1846,14 @@ const paceModule = calculatePaceEfficiencyAdjustment({
   teamAProfile,
   teamBProfile
 });
-
+console.log("PACE MODULE:", {
+  adjustment: paceModule.adjustment,
+  gameEdge: paceModule.gameEdge,
+  teamAOffenseScore: paceModule.teamAOffenseScore,
+  teamBOffenseScore: paceModule.teamBOffenseScore,
+  teamAProfile,
+  teamBProfile
+});
 // Aplicar la mitad del ajuste a cada equipo
 const halfAdj = paceModule.adjustment / 2;
 const projectedTeamAFinal = round(projectedTeamA + halfAdj);
