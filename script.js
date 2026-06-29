@@ -1894,10 +1894,23 @@ ${premium.recommendedCards?.[1] ? `
   </div>
 `;
     endAnalysisLock(index);
-      } catch (error) {
-  resultDiv.textContent = "Error MLB: " + error.message;
-    endAnalysisLock(index);
-  }
+     } catch (error) {
+  resultDiv.innerHTML = `
+    <div style="
+      background: rgba(0,255,153,.08);
+      border: 1px solid rgba(0,255,153,.25);
+      color: #00ff99;
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.5;
+    ">
+      ${error.message}
+    </div>
+  `;
+  endAnalysisLock(index);
+}
 }
 // ============================================================
 // PEGAR EN script.js — antes de la función analyzeFootball()
