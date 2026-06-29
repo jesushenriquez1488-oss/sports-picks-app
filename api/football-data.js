@@ -1943,20 +1943,27 @@ if (isPremiumPick && bestPick) {
       line: pickLine
     });
 }
+const shouldHideModel =
+  !isPremiumUser &&
+  bestPick?.isPremium === true;
 
 return res.status(200).json({
   sport: type,
   isPremiumUser,
   odds,
   picks,
-  projectedScore: {
-    [teamA]: projectedTeamA,
-    [teamB]: projectedTeamB
-  },
-  baseProjectedTotal,
-  paceEfficiencyAdjustment: paceModule,
-  projectedTotal,
-  projectedSpread
+
+  projectedScore: shouldHideModel
+    ? null
+    : {
+        [teamA]: projectedTeamA,
+        [teamB]: projectedTeamB
+      },
+
+  baseProjectedTotal: shouldHideModel ? null : baseProjectedTotal,
+  paceEfficiencyAdjustment: shouldHideModel ? null : paceModule,
+  projectedTotal: shouldHideModel ? null : projectedTotal,
+  projectedSpread: shouldHideModel ? null : projectedSpread
 });
   } catch (error) {
     console.error("ERROR FOOTBALL DATA:", error);
