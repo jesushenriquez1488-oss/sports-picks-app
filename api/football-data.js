@@ -814,8 +814,8 @@ function sanitizePicksForPublic(picks, isPremiumUser) {
     return {
       available: true,
       isPremium: pick.isPremium,
-      confidence: pick.confidence,
-      edge: pick.edge,
+      cconfidence: shouldHide ? null : pick.confidence,
+edge: shouldHide ? null : pick.edge,
       locked: shouldHide,
       type: pick.isPremium ? "premium" : pick.type,
       pick: shouldHide ? "🔒 Premium Pick" : pick.pick,
