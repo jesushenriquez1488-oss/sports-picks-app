@@ -1999,12 +1999,11 @@ return res.status(200).json({
   picks,
 
   projectedScore: shouldHideModel
-    ? null
-    : {
-        [teamA]: projectedTeamA,
-        [teamB]: projectedTeamB
-      },
-
+  ? null
+  : {
+      [teamA]: projectedTeamAFinal,
+      [teamB]: projectedTeamBFinal
+    },
   baseProjectedTotal: shouldHideModel ? null : baseProjectedTotal,
   paceEfficiencyAdjustment: shouldHideModel ? null : paceModule,
   projectedTotal: shouldHideModel ? null : projectedTotal,
