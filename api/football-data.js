@@ -1773,22 +1773,34 @@ try {
     authData.user.email === ADMIN_EMAIL;
 
   // SOLO FREE PASA POR EL LÍMITE
-  if (!isPremiumUser) {
-    const usageCheck = await enforceFreeAnalysisLimit(
-      authUserId,
-      false,
-      "analyze-football"
-    );
+ if (!isPremiumUser) {
+    const windowMs = 3 * 60 * 60 * 1000; // 3 horas
+    const limit = 5;
+    const windowStart = new Date(Date.now() - windowMs).toISOString();
 
-    if (!usageCheck.allowed) {
+    const { count } = await supabaseAdmin
+      .from("user_tracking")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", authUserId)
+      .eq("event_type", "analyze-football")
+      .gte("created_at", windowStart);
+
+    if (count >= limit) {
       return res.status(429).json({
-        error: usageCheck.message,
+        error: "You've used your 5 free analyses. More analyses unlock in 3 hours.",
         limitReached: true,
         upgradeRequired: true
       });
     }
-  }
 
+    await supabaseAdmin.from("user_tracking").insert({
+      user_id: authUserId,
+      event_type: "analyze-football",
+      sport: type,
+      session_id: null,
+      metadata: { teamA, teamB }
+    });
+  }
 } catch (error) {
   console.log("No se pudo validar usuario football:", error.message);
   return res.status(401).json({
