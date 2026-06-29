@@ -2191,12 +2191,19 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
     if (!res.ok) {
       throw new Error(data.error || "Error football");
     }
- if (
-  data.projectedScore === null ||
-  data.projectedTotal === null ||
-  data.projectedSpread === null ||
-  data.picks?.spreadPick?.locked ||
-  data.picks?.totalPick?.locked
+if (
+  data.limitReached === true ||
+  data.upgradeRequired === true ||
+  (
+    data.isPremiumUser !== true &&
+    (
+      data.projectedScore === null ||
+      data.projectedTotal === null ||
+      data.projectedSpread === null ||
+      data.picks?.spreadPick?.locked === true ||
+      data.picks?.totalPick?.locked === true
+    )
+  )
 ) {
   throw new Error("You have used your 5 free analyses. More free analyses unlock every 3 hours.");
 }
