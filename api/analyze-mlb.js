@@ -6,6 +6,35 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY 
 );
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
+async function enforceFreeAnalysisLimit(userId, isPremiumUser, endpoint = "analysis") {
+  if (isPremiumUser) return { allowed: true };
+
+  const since = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+
+  const { count, error } = await supabaseAdmin
+    .from("analysis_usage")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("created_at", since);
+
+  if (error) {
+    throw new Error("Error checking free analysis limit");
+  }
+
+  if ((count || 0) >= 3) {
+    return {
+      allowed: false,
+      message: "Free users can view 3 analyses every 3 hours. Upgrade to Premium for unlimited access."
+    };
+  }
+
+  await supabaseAdmin.from("analysis_usage").insert({
+    user_id: userId,
+    endpoint
+  });
+
+  return { allowed: true };
+}
 async function searchMLBPlayerByName(playerName) {
   if (!playerName) return null;
 
