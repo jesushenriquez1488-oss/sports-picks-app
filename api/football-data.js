@@ -1802,13 +1802,17 @@ console.log("FREE LIMIT CHECK:", { count, authUserId, windowStart });
       });
     }
 
-    await supabaseAdmin.from("user_tracking").insert({
-      user_id: authUserId,
-      event_type: "analyze-football",
-      sport: type,
-      session_id: null,
-      metadata: { teamA, teamB }
-    });
+   try {
+      await supabaseAdmin.from("user_tracking").insert({
+        user_id: authUserId,
+        event_type: "analyze-football",
+        sport: type,
+        session_id: null,
+        metadata: { teamA, teamB }
+      });
+    } catch (insertErr) {
+      console.log("Insert tracking error:", insertErr.message);
+    }
   }
 } catch (error) {
   console.log("No se pudo validar usuario football:", error.message);
