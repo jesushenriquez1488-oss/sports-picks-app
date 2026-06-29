@@ -814,7 +814,7 @@ function sanitizePicksForPublic(picks, isPremiumUser) {
     return {
       available: true,
       isPremium: pick.isPremium,
-      cconfidence: shouldHide ? null : pick.confidence,
+      confidence: shouldHide ? null : pick.confidence,
 edge: shouldHide ? null : pick.edge,
       locked: shouldHide,
       type: pick.isPremium ? "premium" : pick.type,
@@ -1748,11 +1748,14 @@ if (req.method === "OPTIONS") {
         if (authData?.user) {
           const { data: profile } = await supabaseAdmin
             .from("users")
-            .select("is_premium")
+           .select("is_premium, subscription_status, email")
             .eq("id", authData.user.id)
             .single();
 
-          isPremiumUser = profile?.is_premium === true;
+          isPremiumUser =
+  profile?.is_premium === true ||
+  profile?.subscription_status === "active" ||
+  profile?.subscription_status === "trialing";
           const isUnlimited =
   isPremiumUser ||
   authData.user.email === ADMIN_EMAIL;
