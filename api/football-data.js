@@ -1802,14 +1802,15 @@ console.log("FREE LIMIT CHECK:", { count, authUserId, windowStart });
       });
     }
 
-   try {
-      await supabaseAdmin.from("user_tracking").insert({
+ try {
+      const { error: insertError } = await supabaseAdmin.from("user_tracking").insert({
         user_id: authUserId,
         event_type: "analyze-football",
         sport: type,
         session_id: null,
         metadata: { teamA, teamB }
       });
+      console.log("INSERT RESULT:", insertError ? insertError.message : "OK");
     } catch (insertErr) {
       console.log("Insert tracking error:", insertErr.message);
     }
