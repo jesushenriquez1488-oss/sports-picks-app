@@ -639,9 +639,17 @@ async function getTeamStatsProfile(type, teamRef, season) {
       };
     }
   }
-
-  const url = `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/teams/${teamRef.id}/statistics?season=${season}`;
-  const data = await fetchJson(url);
+const url = `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/teams/${teamRef.id}/statistics?season=${season}`;
+  let data;
+  try {
+    data = await fetchJson(url);
+  } catch (err) {
+    console.log(`Stats no disponibles para team ${teamRef.id}:`, err.message);
+    return {
+      plays: 68, yards: 390, thirdDown: 40, redZone: 60,
+      defPoints: 27, defYards: 390, defThirdDown: 40, defRedZone: 60
+    };
+  }
 
   return {
     plays: findStatValue(data, "totalOffensivePlays"),
