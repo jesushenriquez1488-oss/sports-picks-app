@@ -1896,73 +1896,60 @@ ${premium.recommendedCards?.[1] ? `
     endAnalysisLock(index);
     } catch (error) {
   resultDiv.innerHTML = `
-    <div class="premium-result mlb-premium-dashboard">
-      <div class="result-content mlb-premium-content">
+    <div class="normal-result normal-blue-theme">
+      <div class="result-content mlb-premium-content" style="position:relative; overflow:hidden;">
 
-        <div class="mlb-premium-title">
-          <div>
-            <span class="mlb-report-label">AI PREDICTIVE REPORT</span>
-            <h2>⚾ ${awayTeam} vs ${homeTeam}</h2>
+        <div style="filter:blur(5px); opacity:.45; pointer-events:none; user-select:none;">
+          <div class="mlb-premium-title">
+            <div>
+              <span class="mlb-report-label">AI PREDICTIVE REPORT</span>
+              <h2>⚾ ${awayTeam} vs ${homeTeam}</h2>
+            </div>
+          </div>
+
+          <div class="mlb-top-grid">
+            <div class="mlb-main-pick-box">
+              <span>MODEL PICK</span>
+              <strong>Analyzing Edge</strong>
+              <h3>--%</h3>
+              <small>PROBABILITY</small>
+            </div>
+          </div>
+
+          <div class="mlb-projection-box">
+            <p><strong>Expected runs ${awayTeam}:</strong> --</p>
+            <p><strong>Expected runs ${homeTeam}:</strong> --</p>
+            <p><strong>Projected total:</strong> --</p>
+            <p><strong>Market edge:</strong> --</p>
+          </div>
+
+          <div class="mlb-info-grid">
+            <div><h4>🏟️ Park Factor</h4><p>Calculating...</p></div>
+            <div><h4>🌦️ Weather</h4><p>Calculating...</p></div>
+            <div><h4>📊 Team Metrics</h4><p>Calculating...</p></div>
+            <div><h4>⚾ Pitchers / Bullpen</h4><p>Calculating...</p></div>
           </div>
         </div>
 
         <div style="
-          position: relative;
-          overflow: hidden;
-          border-radius: 14px;
-          margin-top: 12px;
+          position:absolute;
+          inset:0;
+          display:flex;
+          flex-direction:column;
+          justify-content:center;
+          align-items:center;
+          text-align:center;
+          padding:18px;
+          background:rgba(3,8,18,.50);
+          backdrop-filter:blur(2px);
         ">
-          <div style="
-            filter: blur(6px);
-            opacity: 0.35;
-            pointer-events: none;
-            user-select: none;
-          ">
-            <div class="mlb-top-grid">
-              <div class="mlb-main-pick-box">
-                <span>MODEL PICK</span>
-                <strong>Premium Pick</strong>
-                <h3>--%</h3>
-                <small>CONFIDENCE SCORE</small>
-              </div>
-            </div>
-
-            <div class="mlb-projection-box">
-              <p><strong>Expected runs ${awayTeam}:</strong> --</p>
-              <p><strong>Expected runs ${homeTeam}:</strong> --</p>
-              <p><strong>Projected total:</strong> --</p>
-              <p><strong>Market edge:</strong> --</p>
-            </div>
-
-            <div class="mlb-info-grid">
-              <div><h4>🏟️ Park Factor</h4><p>Premium data locked</p></div>
-              <div><h4>🌦️ Weather</h4><p>Premium data locked</p></div>
-              <div><h4>📊 Team Metrics</h4><p>Premium data locked</p></div>
-              <div><h4>⚾ Pitchers / Bullpen</h4><p>Premium data locked</p></div>
-            </div>
-          </div>
-
-          <div style="
-            position: absolute;
-            inset: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 18px;
-            background: rgba(5, 10, 20, 0.62);
-            backdrop-filter: blur(2px);
-          ">
-            <h3 style="margin:0 0 8px;color:#00ff99;">🔒 Premium Analysis</h3>
-            <p style="margin:0 0 14px;color:#d8fff0;font-size:13px;line-height:1.5;">
-              This AI prediction is ready. Upgrade to unlock the full analysis, projections, confidence score and player props.
-            </p>
-
-            <button class="unlock-btn" onclick="openPromoModal()">
-              🔓 Unlock Premium — $${MONTHLY_PRICE}/month
-            </button>
-          </div>
+          <h3 style="color:#00ff99;margin:0 0 8px;">3 free analyses used</h3>
+          <p style="color:#d8fff0;font-size:13px;line-height:1.5;margin:0 0 14px;">
+            More free analyses unlock every 2 hours.
+          </p>
+          <button class="unlock-btn" onclick="openPromoModal()">
+            Unlock unlimited analyses
+          </button>
         </div>
 
       </div>
