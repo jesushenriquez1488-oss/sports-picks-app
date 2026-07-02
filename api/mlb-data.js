@@ -87,7 +87,7 @@ const today = gameTime
     }).format(new Date());
     const scheduleUrl =
       `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=probablePitcher,team,venue`;
-
+console.log("DATE USED:", today, "gameTime:", gameTime);
     const scheduleRes = await fetch(scheduleUrl);
     const scheduleData = await scheduleRes.json();
 
