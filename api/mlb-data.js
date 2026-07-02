@@ -141,7 +141,7 @@ if (!isPregame) {
 }
     const awayPitcher = game.teams.away.probablePitcher;
     const homePitcher = game.teams.home.probablePitcher;
-
+console.log("PITCHERS:", { away: awayPitcher, home: homePitcher, gameStatus });
     const venueName = game.venue?.name || "Unknown Stadium";
     const parkInfo = PARK_FACTORS[venueName] || { factor: 1.00, roof: "unknown" };
 
