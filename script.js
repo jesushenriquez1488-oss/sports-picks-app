@@ -1310,11 +1310,12 @@ if (isFootballSport) {
 else {
   // Deportes diarios: solo hoy o mañana
   const targetDate =
-    kansasNow.hour >= 21
-      ? kansasDateString(addDays(now, 1))
-      : todayKansas;
+  kansasNow.hour >= 21
+    ? kansasDateString(addDays(now, 1))
+    : todayKansas;
 
-  allowedDates.push(targetDate);
+allowedDates.push(todayKansas);
+allowedDates.push(kansasDateString(addDays(now, 1)));
 }
 if (!isFootballSport) {
   upcomingGames = data.filter(game => {
