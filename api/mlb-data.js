@@ -126,7 +126,7 @@ console.log("LOOKING FOR:", { awayTeam, homeTeam });
 const gameStatus = String(
   game?.status?.detailedState || ""
 ).toLowerCase();
-
+console.log("GAME STATUS:", { gameStatus });
 const isPregame =
   gameStatus.includes("scheduled") ||
   gameStatus.includes("pre-game") ||
