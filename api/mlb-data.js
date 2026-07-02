@@ -77,7 +77,12 @@ if (req.method === "OPTIONS") {
 }
   try {
     const { awayTeam, homeTeam } = req.body;
-    const today = new Date().toISOString().split("T")[0];
+    const today = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Chicago",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit"
+}).format(new Date());
 
     const scheduleUrl =
       `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=probablePitcher,team,venue`;
