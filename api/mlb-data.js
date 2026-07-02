@@ -122,7 +122,6 @@ console.log("LOOKING FOR:", { awayTeam, homeTeam });
   });
 }
     
-}
 const gameStatus = String(
   game?.status?.detailedState || ""
 ).toLowerCase();
