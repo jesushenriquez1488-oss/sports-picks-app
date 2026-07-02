@@ -113,8 +113,14 @@ console.log("LOOKING FOR:", { awayTeam, homeTeam });
   if (!game) {
   console.log("❌ GAME NOT FOUND:", awayTeam, "vs", homeTeam);
 
-  return res.status(404).json({
-    error: "Juego no encontrado",
+  return res.status(200).json({
+    noPlay: true,
+    reason: "Game not available yet",
+    public: {
+      message: "Este juego aún no está disponible para análisis. Intenta más tarde cuando MLB confirme los datos del partido."
+    }
+  });
+}
     debug: {
       input: { awayTeam, homeTeam },
       availableGames: games.map(g => ({
