@@ -948,7 +948,13 @@ async function getMLBGameContextFromStatsAPI(event) {
       (home.includes(targetHome) || targetHome.includes(home))
     );
   });
+console.log("SCHEDULE GAMES:", games.map(g => ({
+  away: g?.teams?.away?.team?.name,
+  home: g?.teams?.home?.team?.name
+})));
+console.log("TARGET:", { targetAway, targetHome });
 
+if (!match) return null;
   if (!match) return null;
 const boxscoreUrl =
   `https://statsapi.mlb.com/api/v1/game/${match.gamePk}/boxscore`;
