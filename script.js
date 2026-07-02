@@ -1314,8 +1314,7 @@ else {
     ? kansasDateString(addDays(now, 1))
     : todayKansas;
 
-allowedDates.push(todayKansas);
-allowedDates.push(kansasDateString(addDays(now, 1)));
+allowedDates.push(targetDate);
 }
 if (!isFootballSport) {
   upcomingGames = data.filter(game => {
