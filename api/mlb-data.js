@@ -121,14 +121,7 @@ console.log("LOOKING FOR:", { awayTeam, homeTeam });
     }
   });
 }
-    debug: {
-      input: { awayTeam, homeTeam },
-      availableGames: games.map(g => ({
-        away: g.teams.away.team.name,
-        home: g.teams.home.team.name
-      }))
-    }
-  });
+    
 }
 const gameStatus = String(
   game?.status?.detailedState || ""
