@@ -76,14 +76,15 @@ if (req.method === "OPTIONS") {
   return res.status(200).end();
 }
   try {
-    const { awayTeam, homeTeam } = req.body;
-    const today = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "America/Chicago",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit"
-}).format(new Date());
-
+  const { awayTeam, homeTeam, gameTime } = req.body;
+const today = gameTime
+  ? new Date(gameTime).toISOString().split("T")[0]
+  : new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Chicago",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).format(new Date());
     const scheduleUrl =
       `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=probablePitcher,team,venue`;
 
