@@ -6,7 +6,7 @@ let currentSessionId = localStorage.getItem("cashedge_session_id");
 
 if (!currentSessionId) {
   currentSessionId = crypto.randomUUID();
-  localStorage.setItem("cashedge_session_id", currentSessionId);
+  localStorage.setItem("cashedge_session_id", currentSessionId); 
 }
 
 async function trackUserEvent(eventType, options = {}) {
