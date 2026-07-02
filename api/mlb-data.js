@@ -86,7 +86,11 @@ if (req.method === "OPTIONS") {
     const scheduleData = await scheduleRes.json();
 
     const games = scheduleData?.dates?.[0]?.games || [];
-
+console.log("AVAILABLE GAMES:", games.map(g => ({
+  away: g.teams.away.team.name,
+  home: g.teams.home.team.name
+})));
+console.log("LOOKING FOR:", { awayTeam, homeTeam });
    const game = games.find(g => {
   const awayName = normalize(g.teams.away.team.name);
   const homeName = normalize(g.teams.home.team.name);
