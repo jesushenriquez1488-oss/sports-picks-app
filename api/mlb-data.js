@@ -77,21 +77,24 @@ if (req.method === "OPTIONS") {
 }
   try {
   const { awayTeam, homeTeam, gameTime } = req.body;
-const today = gameTime
-  ? new Date(gameTime).toISOString().split("T")[0]
-  : new Intl.DateTimeFormat("en-CA", {
-      timeZone: "America/Chicago",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit"
-    }).format(new Date());
-    const scheduleUrl =
-      `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${today}&hydrate=probablePitcher,team,venue`;
-console.log("DATE USED:", today, "gameTime:", gameTime);
-    const scheduleRes = await fetch(scheduleUrl);
-    const scheduleData = await scheduleRes.json();
+const gameDate = gameTime ? new Date(gameTime) : new Date();
+const todayUTC = gameDate.toISOString().split("T")[0];
+const todayLocal = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Chicago",
+  year: "numeric", month: "2-digit", day: "2-digit"
+}).format(gameDate);
 
-    const games = scheduleData?.dates?.[0]?.games || [];
+const today = todayUTC;
+   const scheduleUrl = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${todayUTC}&hydrate=probablePitcher,team,venue`;
+const scheduleUrl2 = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${todayLocal}&hydrate=probablePitcher,team,venue`;
+
+const [scheduleRes, scheduleRes2] = await Promise.all([fetch(scheduleUrl), fetch(scheduleUrl2)]);
+const [scheduleData, scheduleData2] = await Promise.all([scheduleRes.json(), scheduleRes2.json()]);
+
+const games = [
+  ...(scheduleData?.dates?.[0]?.games || []),
+  ...(scheduleData2?.dates?.[0]?.games || [])
+];
 console.log("AVAILABLE GAMES:", games.map(g => ({
   away: g.teams.away.team.name,
   home: g.teams.home.team.name
