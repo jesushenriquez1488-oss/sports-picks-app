@@ -91,10 +91,18 @@ const scheduleUrl2 = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${
 const [scheduleRes, scheduleRes2] = await Promise.all([fetch(scheduleUrl), fetch(scheduleUrl2)]);
 const [scheduleData, scheduleData2] = await Promise.all([scheduleRes.json(), scheduleRes2.json()]);
 
-const games = [
-  ...(scheduleData?.dates?.[0]?.games || []),
-  ...(scheduleData2?.dates?.[0]?.games || [])
-];
+const gamesUTC = scheduleData?.dates?.[0]?.games || [];
+const gamesLocal = scheduleData2?.dates?.[0]?.games || [];
+
+// Combinar sin duplicados — priorizar la fecha del gameTime
+const allGames = [...gamesUTC, ...gamesLocal];
+const seen = new Set();
+const games = allGames.filter(g => {
+  const key = `${g.teams.away.team.id}-${g.teams.home.team.id}`;
+  if (seen.has(key)) return false;
+  seen.add(key);
+  return true;
+});
 console.log("AVAILABLE GAMES:", games.map(g => ({
   away: g.teams.away.team.name,
   home: g.teams.home.team.name
