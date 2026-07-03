@@ -84,7 +84,7 @@ const todayLocal = new Intl.DateTimeFormat("en-CA", {
   year: "numeric", month: "2-digit", day: "2-digit"
 }).format(gameDate);
 
-const today = todayUTC;
+const today = todayLocal;
    const scheduleUrl = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${todayUTC}&hydrate=probablePitcher,team,venue`;
 const scheduleUrl2 = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${todayLocal}&hydrate=probablePitcher,team,venue`;
 
@@ -95,7 +95,7 @@ const gamesUTC = scheduleData?.dates?.[0]?.games || [];
 const gamesLocal = scheduleData2?.dates?.[0]?.games || [];
 
 // Combinar sin duplicados — priorizar la fecha del gameTime
-const allGames = [...gamesUTC, ...gamesLocal];
+const allGames = [...gamesLocal, ...gamesUTC];
 const seen = new Set();
 const games = allGames.filter(g => {
   const key = `${g.teams.away.team.id}-${g.teams.home.team.id}`;
