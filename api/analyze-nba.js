@@ -2010,18 +2010,22 @@ const gameDate = new Intl.DateTimeFormat("en-CA", {
 const gameId =
   `${selectedLeague}-${gameDate}-${teamsSorted.join("-")}`;
 
-    const { data: existing } = await supabaseAdmin
-      .from("daily_picks")
-     .select("analysis_json, game_date")
-      .eq("sport", selectedLeague)
-      .eq("game_id", gameId)
-      .maybeSingle();
+   const { data: existing } = await supabaseAdmin
+  .from("daily_picks")
+  .select("analysis_json, game_date, updated_at")
+  .eq("sport", selectedLeague)
+  .eq("game_id", gameId)
+  .maybeSingle();
+
+const cacheAge = existing?.updated_at
+  ? Date.now() - new Date(existing.updated_at).getTime()
+  : Infinity;
 const forceRefresh =
   req.query.force === "true" ||
   req.body?.force === true ||
   req.body?.forceRefresh === true;
     
-    if (existing?.analysis_json && !forceRefresh) {
+    if (existing?.analysis_json && !forceRefresh && cacheAge < 2 * 60 * 60 * 1000) {
       if (!existing.game_date) {
   await supabaseAdmin
     .from("daily_picks")
