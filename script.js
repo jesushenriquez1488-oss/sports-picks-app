@@ -754,7 +754,8 @@ let displayPick = locked
       .replace(" cubre", "");
 
 if (!locked && (displayPick === "Over" || displayPick === "Under")) {
-  displayPick = `${displayPick} ${total}`;
+  const lineToShow = Number(premium.totalLine) > 0 ? premium.totalLine : total;
+  displayPick = `${displayPick} ${lineToShow}`;
 }
   resultDiv.innerHTML = `
 <div class="${isPremium ? 'ce-premium-basket-card' : 'ce-normal-basket-card'}">
