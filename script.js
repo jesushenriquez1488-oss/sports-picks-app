@@ -251,21 +251,28 @@ function refreshResultsAfterUnlock() {
 window.addEventListener("load", async () => {
   const { data: sessionData } = await supabaseClient.auth.getSession();
 
-  if (!sessionData.session) {
-    // Esperar por si viene de OAuth redirect
-    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" && session) {
-        subscription.unsubscribe();
-        await handleUserSession(session.user);
-      }
-    });
+  if (sessionData?.session?.user) {
+    ceHideLanding();
+    await handleUserSession(sessionData.session.user);
+    document.body.classList.remove("auth-checking");
     return;
   }
 
-  await handleUserSession(sessionData.session.user);
-});
+  ceShowLanding();
+  ceLoadLandingStats();
+  ceLoadPublicPick();
 
+  const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(async (event, session) => {
+    if (event === "SIGNED_IN" && session?.user) {
+      subscription.unsubscribe();
+      ceHideLanding();
+      await handleUserSession(session.user);
+      document.body.classList.remove("auth-checking");
+    }
+  });
+});
 async function handleUserSession(user) {
+  ceHideLanding();
   const { data: profile, error } = await supabaseClient
     .from("users")
     .upsert({
