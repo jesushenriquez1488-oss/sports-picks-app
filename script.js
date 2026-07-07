@@ -251,16 +251,27 @@ function refreshResultsAfterUnlock() {
 window.addEventListener("load", async () => {
   const { data: sessionData } = await supabaseClient.auth.getSession();
 
-  if (sessionData?.session?.user) {
-    ceHideLanding();
-    await handleUserSession(sessionData.session.user);
-    document.body.classList.remove("auth-checking");
+  if (!sessionData.session) {
+
+    const { data: { subscription } } =
+      supabaseClient.auth.onAuthStateChange(async (event, session) => {
+
+        if (event === "SIGNED_IN" && session) {
+          subscription.unsubscribe();
+          await handleUserSession(session.user);
+        }
+
+      });
+
     return;
   }
 
+  await handleUserSession(sessionData.session.user);
+
+});
 
 async function handleUserSession(user) {
-  ceHideLanding();
+  
   const { data: profile, error } = await supabaseClient
     .from("users")
     .upsert({
