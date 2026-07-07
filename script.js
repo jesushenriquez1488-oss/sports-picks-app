@@ -3258,3 +3258,114 @@ function skipPromoCode() {
 window.openPromoModal = openPromoModal;
 window.closePromoModal = closePromoModal;
 window.skipPromoCode = skipPromoCode;
+function ceShowLanding() {
+  document.body.classList.remove("auth-checking");
+  document.body.classList.remove("logged-in");
+
+  const landing = document.getElementById("ceLanding");
+  const authBox = document.getElementById("authBox");
+
+  if (landing) landing.style.display = "block";
+  if (authBox) authBox.style.display = "none";
+}
+
+function ceHideLanding() {
+  const landing = document.getElementById("ceLanding");
+  if (landing) landing.style.display = "none";
+}
+
+function ceStartFree() {
+  ceHideLanding();
+
+  const authBox = document.getElementById("authBox");
+  const loginView = document.getElementById("loginView");
+  const signupView = document.getElementById("signupView");
+
+  if (authBox) authBox.style.display = "block";
+  if (loginView) loginView.style.display = "none";
+  if (signupView) signupView.style.display = "block";
+
+  authBox?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function ceGoToLogin() {
+  ceHideLanding();
+
+  const authBox = document.getElementById("authBox");
+  const loginView = document.getElementById("loginView");
+  const signupView = document.getElementById("signupView");
+
+  if (authBox) authBox.style.display = "block";
+  if (signupView) signupView.style.display = "none";
+  if (loginView) loginView.style.display = "block";
+
+  authBox?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function ceAnimateNumber(el, target, suffix = "%") {
+  if (!el) return;
+
+  const start = performance.now();
+  const duration = 900;
+
+  function frame(now) {
+    const progress = Math.min((now - start) / duration, 1);
+    const value = target * progress;
+    el.innerText = value.toFixed(1) + suffix;
+
+    if (progress < 1) requestAnimationFrame(frame);
+  }
+
+  requestAnimationFrame(frame);
+}
+
+async function ceLoadLandingStats() {
+  try {
+    const { data, error } = await supabaseClient
+      .from("sport_record_summary")
+      .select("total_wins,total_losses,pushes");
+
+    if (error || !data || data.length === 0) return;
+
+    let wins = 0;
+    let losses = 0;
+    let pushes = 0;
+
+    data.forEach(row => {
+      wins += Number(row.total_wins || 0);
+      losses += Number(row.total_losses || 0);
+      pushes += Number(row.pushes || 0);
+    });
+
+    const accuracy = wins + losses > 0
+      ? (wins / (wins + losses)) * 100
+      : 0;
+
+    ceAnimateNumber(document.getElementById("ceLiveAccuracy"), accuracy);
+    document.getElementById("ceLiveRecord").innerText = `${wins} - ${losses} - ${pushes}`;
+    document.getElementById("ceLiveUpdated").innerText = "LIVE";
+
+  } catch (err) {
+    console.warn("Landing stats error:", err);
+  }
+}
+
+async function ceLoadPublicPick() {
+  try {
+    const res = await fetch("/api/public-pick");
+    const data = await res.json();
+
+    if (!res.ok || !data.available) return;
+
+    const wrap = document.getElementById("ceLockedPickWrap");
+    const conf = document.getElementById("ceLockedConf");
+    const edge = document.getElementById("ceLockedEdge");
+
+    if (conf) conf.innerText = `${data.confidence}%`;
+    if (edge) edge.innerText = data.edge;
+    if (wrap) wrap.style.display = "block";
+
+  } catch (err) {
+    console.warn("Public pick error:", err);
+  }
+}
