@@ -3070,3 +3070,23 @@ body.logged-in #ceLanding {
     padding: 22px;
   }
 }
+.landing-live-dot{
+
+width:8px;
+height:8px;
+display:inline-block;
+background:#2cff72;
+border-radius:50%;
+margin-right:6px;
+box-shadow:0 0 10px #2cff72;
+animation:landingPulse 1s infinite;
+
+}
+
+@keyframes landingPulse{
+
+0%{opacity:.2;transform:scale(.9);}
+50%{opacity:1;transform:scale(1.2);}
+100%{opacity:.2;transform:scale(.9);}
+
+}
