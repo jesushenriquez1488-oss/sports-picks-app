@@ -2742,39 +2742,41 @@ body.logged-in #ceLanding {
 
 /* ===== CE LANDING ===== */
 .ce-landing {
-  max-width: 900px;
+  max-width: 760px;
   margin: 0 auto;
-  padding: 30px 16px 60px;
+  padding: 20px 16px 40px;
   font-family: Arial, sans-serif;
 }
-.ce-hero { text-align: center; margin-bottom: 40px; }
+.ce-hero { text-align: center; margin-bottom: 28px; }
 .ce-live-badge {
-  display: inline-flex; align-items: center; gap: 7px;
+  display: inline-flex; align-items: center; gap: 6px;
   border: 1px solid #00ffe7; border-radius: 22px;
-  padding: 5px 14px; font-size: 11px; letter-spacing: 2px;
-  color: #00ffe7; margin-bottom: 18px;
+  padding: 4px 12px; font-size: 10px; letter-spacing: 2px;
+  color: #00ffe7; margin-bottom: 14px;
   box-shadow: 0 0 12px rgba(0,255,231,0.25);
 }
 .ce-live-dot {
-  width: 8px; height: 8px; border-radius: 50%;
+  width: 7px; height: 7px; border-radius: 50%;
   background: #00ffe7; animation: cePulse 1.6s infinite;
 }
 @keyframes cePulse {
   0% { box-shadow: 0 0 0 0 rgba(0,255,231,0.6); }
-  70% { box-shadow: 0 0 0 9px rgba(0,255,231,0); }
+  70% { box-shadow: 0 0 0 8px rgba(0,255,231,0); }
   100% { box-shadow: 0 0 0 0 rgba(0,255,231,0); }
 }
 .ce-hero-title {
-  font-size: clamp(24px, 4.6vw, 40px);
-  color: #fff; margin: 0 0 10px; line-height: 1.22; font-weight: 800;
+  font-size: clamp(20px, 3.6vw, 30px);
+  color: #fff; margin: 0 0 8px; line-height: 1.2; font-weight: 800;
 }
 .ce-hero-accuracy { color: #00ffe7; text-shadow: 0 0 18px rgba(0,255,231,0.55); }
-.ce-hero-record { color: #8b96ad; font-size: 14px; margin: 0 0 24px; }
+.ce-hero-record { color: #8b96ad; font-size: 13px; margin: 0 0 18px; }
+.ce-hero-record b { color: #00ffe7; }
+.ce-hero-record .ce-loss { color: #ff5c7c; }
 .ce-cta-main {
   background: linear-gradient(90deg, #00ffe7, #2f7bff, #7c3cff);
   background-size: 200% 100%; color: #020814;
-  font-weight: 800; font-size: 15px; border: none; border-radius: 10px;
-  padding: 15px 34px; cursor: pointer;
+  font-weight: 800; font-size: 14px; border: none; border-radius: 10px;
+  padding: 13px 30px; cursor: pointer;
   animation: ceGradientMove 4s ease infinite;
   box-shadow: 0 0 22px rgba(0,255,231,0.35);
 }
@@ -2783,29 +2785,54 @@ body.logged-in #ceLanding {
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
-.ce-cta-sub { color: #55617a; font-size: 12px; margin-top: 12px; }
+.ce-cta-sub { color: #55617a; font-size: 11px; margin-top: 10px; }
 .ce-section-label {
-  font-size: 11px; letter-spacing: 2px; color: #00ffe7;
-  margin: 0 0 14px; text-align: center;
+  font-size: 10px; letter-spacing: 2px; color: #00ffe7;
+  margin: 0 0 12px; text-align: center;
 }
-.ce-sports-section { margin-bottom: 40px; }
+.ce-sports-section { margin-bottom: 28px; }
 .ce-sports-grid {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); gap: 8px;
 }
 .ce-sport-card {
-  background: #0a1220; border: 1px solid #12202f; border-radius: 10px;
-  padding: 14px 8px; text-align: center;
+  background: #0a1220; border: 1px solid rgba(0,255,231,0.2); border-radius: 9px;
+  padding: 11px 6px; text-align: center;
+  box-shadow: 0 0 12px rgba(0,255,231,0.08);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
-.ce-sport-acc { font-size: 21px; font-weight: 800; color: #00ffe7; margin: 0; }
-.ce-sport-name { font-size: 11px; color: #cdd6e6; margin: 4px 0 2px; }
-.ce-sport-record { font-size: 10px; color: #55617a; margin: 0; }
-.ce-premium-section {
-  text-align: center; border: 1px solid rgba(0,255,231,0.25);
-  border-radius: 16px; padding: 26px 18px; background: #050c1a;
+.ce-sport-card:hover {
+  border-color: rgba(0,255,231,0.55);
+  box-shadow: 0 0 16px rgba(0,255,231,0.22);
 }
-.ce-premium-title { color: #fff; font-size: 18px; font-weight: 800; margin: 0 0 6px; }
-.ce-premium-desc { color: #8b96ad; font-size: 12px; margin: 0 0 16px; }
-.ce-cta-secondary {
-  background: transparent; border: 1px solid #7c3cff; color: #c9a8ff;
-  font-size: 13px; font-weight: 700; border-radius: 10px; padding: 12px 24px; cursor: pointer;
+.ce-sport-acc { font-size: 18px; font-weight: 800; color: #00ffe7; margin: 0; text-shadow: 0 0 10px rgba(0,255,231,0.4); }
+.ce-sport-name { font-size: 10px; color: #cdd6e6; margin: 3px 0 2px; }
+.ce-sport-record { font-size: 9px; color: #55617a; margin: 0; }
+
+/* Dos cajas Free vs Premium */
+.ce-plans { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+.ce-plan {
+  border-radius: 14px; padding: 18px 14px; text-align: center;
+  background: #050c1a;
+}
+.ce-plan-free { border: 1px solid rgba(0,255,231,0.35); }
+.ce-plan-premium { border: 1px solid rgba(124,60,255,0.5); box-shadow: 0 0 18px rgba(124,60,255,0.15); }
+.ce-plan-title { font-size: 12px; font-weight: 800; letter-spacing: 1px; margin: 0 0 12px; }
+.ce-plan-free .ce-plan-title { color: #00ffe7; }
+.ce-plan-premium .ce-plan-title { color: #a685ff; }
+.ce-plan-feat { font-size: 11px; color: #cdd6e6; margin: 0 0 7px; text-align: left; padding-left: 4px; }
+.ce-plan-feat::before { content: "✓ "; color: #00ffe7; font-weight: 800; }
+.ce-plan-premium .ce-plan-feat::before { color: #a685ff; }
+.ce-plan-btn {
+  width: 100%; margin-top: 12px; border-radius: 9px; padding: 11px;
+  font-size: 12px; font-weight: 800; cursor: pointer; border: none;
+}
+.ce-plan-btn-free { background: transparent; border: 1px solid #00ffe7; color: #00ffe7; }
+.ce-plan-btn-premium {
+  background: linear-gradient(90deg, #7c3cff, #2f7bff); color: #fff;
+}
+.ce-plan-price { font-size: 13px; color: #a685ff; margin: 10px 0 0; font-weight: 700; }
+.ce-login-line { text-align: center; margin-top: 14px; }
+.ce-login-line button {
+  background: transparent; border: none; color: #8b96ad; font-size: 12px;
+  cursor: pointer; text-decoration: underline;
 }
