@@ -2727,3 +2727,346 @@ body::after {
   padding: 20px;
   box-shadow: 0 0 40px rgba(0,255,231,0.08);
 }
+body.auth-checking #ceLanding,
+body.auth-checking #authBox,
+body.auth-checking #userBox,
+body.auth-checking .hero,
+body.auth-checking .ai-hero,
+body.auth-checking .ai-main-area {
+  display: none !important;
+}
+
+body.logged-in #ceLanding {
+  display: none !important;
+}
+
+.ce-landing-v2 {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 34px 18px 70px;
+  color: #fff;
+}
+
+.ce-lv2-hero {
+  text-align: center;
+  padding-top: 12px;
+}
+
+.ce-lv2-brand {
+  font-size: 38px;
+  font-weight: 900;
+  letter-spacing: 4px;
+}
+
+.ce-lv2-brand span {
+  color: #00ffe7;
+}
+
+.ce-lv2-sub {
+  font-size: 13px;
+  letter-spacing: 4px;
+  color: rgba(255,255,255,.7);
+  margin-top: 4px;
+}
+
+.ce-lv2-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 26px 0 18px;
+  padding: 8px 18px;
+  border: 1px solid rgba(0,255,231,.35);
+  border-radius: 999px;
+  color: #00ffe7;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ce-lv2-pill span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00ffe7;
+  box-shadow: 0 0 14px #00ffe7;
+}
+
+.ce-lv2-hero h1 {
+  margin: 0;
+  font-size: clamp(34px, 6vw, 62px);
+  line-height: 1.05;
+  font-weight: 900;
+  letter-spacing: -2px;
+}
+
+.ce-lv2-hero h1 span {
+  color: #00ffe7;
+}
+
+.ce-lv2-hero p {
+  max-width: 620px;
+  margin: 18px auto 26px;
+  color: rgba(255,255,255,.72);
+  font-size: 17px;
+  line-height: 1.45;
+}
+
+.ce-lv2-main-btn,
+.ce-lv2-unlock-btn,
+.ce-lv2-plan button {
+  max-width: 430px;
+  margin: 0 auto;
+  border: none;
+  border-radius: 16px;
+  padding: 18px 24px;
+  background: linear-gradient(90deg, #00ffe7, #7c3cff);
+  color: white;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: .5px;
+  box-shadow: 0 0 34px rgba(0,255,231,.25);
+  cursor: pointer;
+}
+
+.ce-lv2-note {
+  margin-top: 14px;
+  color: rgba(255,255,255,.65);
+  font-size: 14px;
+}
+
+.ce-lv2-live-card {
+  margin: 42px auto 24px;
+  border: 1px solid rgba(0,255,231,.45);
+  border-radius: 24px;
+  background: rgba(4,10,20,.88);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  overflow: hidden;
+}
+
+.ce-lv2-live-card div {
+  padding: 24px 18px;
+  text-align: center;
+  border-right: 1px solid rgba(255,255,255,.12);
+}
+
+.ce-lv2-live-card div:last-child {
+  border-right: none;
+}
+
+.ce-lv2-live-card small {
+  display: block;
+  color: rgba(255,255,255,.68);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ce-lv2-live-card strong {
+  display: block;
+  color: #00ffe7;
+  font-size: 31px;
+  font-weight: 900;
+  margin: 8px 0;
+}
+
+.ce-lv2-live-card em {
+  display: block;
+  color: rgba(255,255,255,.55);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.ce-lv2-pick-card {
+  margin: 24px auto;
+  padding: 28px;
+  border-radius: 26px;
+  border: 1px solid rgba(255,255,255,.16);
+  background: linear-gradient(145deg, rgba(14,14,18,.96), rgba(3,6,14,.98));
+  box-shadow: inset 0 0 50px rgba(0,255,231,.04);
+}
+
+.ce-lv2-pick-card h3 {
+  text-align: center;
+  margin: 0 0 24px;
+  font-size: 22px;
+  letter-spacing: 1px;
+}
+
+.ce-lv2-pick-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 14px;
+  align-items: center;
+  padding: 22px;
+  border-radius: 20px;
+  background: rgba(255,255,255,.035);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.ce-lv2-lock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: rgba(255,255,255,.82);
+  font-size: 46px;
+  filter: blur(.2px);
+}
+
+.ce-lv2-lock span {
+  font-size: 13px;
+  color: rgba(255,255,255,.48);
+}
+
+.ce-lv2-stat {
+  text-align: center;
+}
+
+.ce-lv2-stat small {
+  display: block;
+  color: rgba(255,255,255,.75);
+  font-size: 12px;
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
+.ce-lv2-stat strong {
+  color: #00ffe7;
+  font-size: 42px;
+  font-weight: 900;
+}
+
+.ce-lv2-unlock-btn {
+  margin-top: 24px;
+  font-size: 18px;
+}
+
+.ce-lv2-pick-card p {
+  text-align: center;
+  color: rgba(255,255,255,.58);
+  margin: 14px 0 0;
+  font-size: 14px;
+}
+
+.ce-lv2-plans {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin: 24px 0 38px;
+}
+
+.ce-lv2-plan {
+  border-radius: 24px;
+  padding: 28px;
+  background: rgba(5,10,20,.88);
+}
+
+.ce-lv2-plan.free {
+  border: 1px solid rgba(0,255,231,.42);
+}
+
+.ce-lv2-plan.premium {
+  border: 1px solid rgba(124,60,255,.65);
+}
+
+.ce-lv2-plan h3 {
+  margin: 0 0 18px;
+  font-size: 22px;
+}
+
+.ce-lv2-plan.free h3 {
+  color: #00ffe7;
+}
+
+.ce-lv2-plan.premium h3 {
+  color: #a970ff;
+}
+
+.ce-lv2-plan p {
+  color: rgba(255,255,255,.78);
+  font-size: 15px;
+  margin: 13px 0;
+}
+
+.ce-lv2-plan button {
+  margin-top: 22px;
+  font-size: 17px;
+}
+
+.ce-lv2-plan small {
+  display: block;
+  text-align: center;
+  margin-top: 12px;
+  color: rgba(255,255,255,.55);
+}
+
+.ce-lv2-price {
+  text-align: center;
+  margin-top: 18px;
+  color: #a970ff;
+  font-size: 30px;
+  font-weight: 900;
+}
+
+.ce-lv2-price span {
+  color: rgba(255,255,255,.72);
+  font-size: 16px;
+}
+
+.ce-lv2-how {
+  margin-top: 20px;
+  padding: 26px;
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.03);
+}
+
+.ce-lv2-how h3 {
+  text-align: center;
+  margin: 0 0 18px;
+  letter-spacing: 2px;
+}
+
+.ce-lv2-how div {
+  margin: 14px 0;
+}
+
+.ce-lv2-how strong {
+  color: #00ffe7;
+}
+
+.ce-lv2-how p {
+  margin: 5px 0 0;
+  color: rgba(255,255,255,.62);
+}
+
+.ce-lv2-login {
+  margin: 24px auto 0;
+  background: transparent;
+  border: none;
+  color: #00ffe7;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+@media (max-width: 760px) {
+  .ce-lv2-live-card,
+  .ce-lv2-pick-row,
+  .ce-lv2-plans {
+    grid-template-columns: 1fr;
+  }
+
+  .ce-lv2-live-card div {
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,.10);
+  }
+
+  .ce-lv2-live-card div:last-child {
+    border-bottom: none;
+  }
+
+  .ce-lv2-pick-card,
+  .ce-lv2-plan {
+    padding: 22px;
+  }
+}
