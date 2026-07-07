@@ -3327,34 +3327,30 @@ function ceAnimateNumber(el, target, suffix = "%") {
 }
 
 async function ceLoadLandingStats() {
+
   try {
-    const { data, error } = await supabaseClient
-      .from("sport_record_summary")
-      .select("total_wins,total_losses,pushes");
 
-    if (error || !data || data.length === 0) return;
+    const response = await fetch("/api/performance");
 
-    let wins = 0;
-    let losses = 0;
-    let pushes = 0;
+    const data = await response.json();
 
-    data.forEach(row => {
-      wins += Number(row.total_wins || 0);
-      losses += Number(row.total_losses || 0);
-      pushes += Number(row.pushes || 0);
-    });
+    if (!response.ok) return;
 
-    const accuracy = wins + losses > 0
-      ? (wins / (wins + losses)) * 100
-      : 0;
+    document.getElementById("ceLiveAccuracy").innerText =
+      `${Number(data.overall.accuracy).toFixed(1)}%`;
 
-    ceAnimateNumber(document.getElementById("ceLiveAccuracy"), accuracy);
-    document.getElementById("ceLiveRecord").innerText = `${wins} - ${losses} - ${pushes}`;
-    document.getElementById("ceLiveUpdated").innerText = "LIVE";
+    document.getElementById("ceLiveRecord").innerText =
+      `${data.overall.wins}-${data.overall.losses}-${data.overall.pushes}`;
 
-  } catch (err) {
-    console.warn("Landing stats error:", err);
+    document.getElementById("ceLiveUpdated").innerHTML =
+      `<span class="landing-live-dot"></span> LIVE`;
+
+  } catch(err){
+
+    console.log(err);
+
   }
+
 }
 
 async function ceLoadPublicPick() {
