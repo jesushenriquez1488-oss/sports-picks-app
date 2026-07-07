@@ -105,12 +105,31 @@ OneSignalDeferred.push(async function(OneSignal) {
     <p class="ce-section-label">LIVE PERFORMANCE BY SPORT</p>
     <div id="ceSportsGrid" class="ce-sports-grid"></div>
   </div>
-
-  <div class="ce-premium-section">
-    <p class="ce-premium-title">Premium Access — $19.99/mo</p>
-    <p class="ce-premium-desc">Unlimited picks · Player props · Daily parlay</p>
-    <button type="button" class="ce-cta-secondary" onclick="ceShowAuth()">CREATE FREE ACCOUNT</button>
+<div class="ce-plans">
+  <div class="ce-plan ce-plan-free">
+    <p class="ce-plan-title">FREE ACCESS</p>
+    <p class="ce-plan-feat">Daily free predictions</p>
+    <p class="ce-plan-feat">Limited analyses</p>
+    <p class="ce-plan-feat">View games & scores</p>
+    <p class="ce-plan-feat">Live performance tracking</p>
+    <button type="button" class="ce-plan-btn ce-plan-btn-free" onclick="ceShowAuth()">START FREE</button>
   </div>
+
+  <div class="ce-plan ce-plan-premium">
+    <p class="ce-plan-title">PREMIUM ACCESS</p>
+    <p class="ce-plan-feat">Unlimited analyses</p>
+    <p class="ce-plan-feat">Player Props</p>
+    <p class="ce-plan-feat">Premium Picks</p>
+    <p class="ce-plan-feat">Daily Parlay AI</p>
+    <p class="ce-plan-feat">Highest confidence plays</p>
+    <button type="button" class="ce-plan-btn ce-plan-btn-premium" onclick="ceShowAuth()">GET PREMIUM</button>
+    <p class="ce-plan-price">$19.99 / month</p>
+  </div>
+</div>
+
+<div class="ce-login-line">
+  <button type="button" onclick="ceShowAuth()">Already have an account? Log in</button>
+</div>
 </section>
 <div id="authBox" class="auth-box">
 
