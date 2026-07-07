@@ -2837,43 +2837,74 @@ body.logged-in #ceLanding {
   cursor: pointer; text-decoration: underline;
 }
 /* ===== CE LOCKED PICK ===== */
-.ce-locked-wrap { margin-bottom: 28px; }
+.ce-locked-wrap { margin-bottom: 30px; }
+
+.ce-locked-toplabel {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 11px; letter-spacing: 2.5px; font-weight: 800;
+  color: #00ffe7; margin-bottom: 12px;
+  text-shadow: 0 0 12px rgba(0,255,231,0.5);
+}
+.ce-locked-flame { font-size: 14px; filter: drop-shadow(0 0 4px rgba(0,255,231,0.7)); }
+
 .ce-locked-card {
-  background: #050c1a; border: 1px solid rgba(0,255,231,0.35);
-  border-radius: 16px; padding: 18px; max-width: 520px; margin: 0 auto;
-  box-shadow: 0 0 26px rgba(0,255,231,0.12); position: relative; overflow: hidden;
+  position: relative; overflow: hidden;
+  max-width: 480px; margin: 0 auto;
+  padding: 20px;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(124,60,255,0.14), transparent 45%),
+    radial-gradient(circle at bottom left, rgba(0,255,231,0.10), transparent 45%),
+    linear-gradient(160deg, #071426, #030a17);
+  border: 1px solid rgba(0,255,231,0.4);
+  box-shadow: 0 0 34px rgba(0,255,231,0.18), inset 0 0 30px rgba(0,255,231,0.04);
 }
 .ce-locked-card::before {
   content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-  background: linear-gradient(90deg, #00ffe7, #7c3cff);
+  background: linear-gradient(90deg, #00ffe7, #2f7bff, #7c3cff);
 }
-.ce-locked-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+
+.ce-locked-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .ce-locked-badge {
-  border: 1px solid rgba(0,255,231,0.5); color: #00ffe7;
-  border-radius: 14px; font-size: 10px; letter-spacing: 1.5px; padding: 3px 10px;
+  border: 1px solid rgba(0,255,231,0.6); color: #00ffe7;
+  background: rgba(0,255,231,0.08);
+  border-radius: 20px; font-size: 10px; font-weight: 800; letter-spacing: 1.5px;
+  padding: 4px 12px;
 }
-.ce-locked-time { color: #55617a; font-size: 11px; }
-.ce-locked-matchup { color: #cdd6e6; font-size: 13px; margin: 0 0 12px; }
-.ce-locked-body { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-.ce-locked-pick { display: flex; flex-direction: column; gap: 4px; }
-.ce-locked-mask { font-size: 24px; font-weight: 800; color: #fff; letter-spacing: 3px; filter: blur(0.5px); }
-.ce-locked-label { font-size: 10px; letter-spacing: 2px; color: #7c3cff; }
+.ce-locked-time { color: #8b96ad; font-size: 12px; font-weight: 600; }
+
+.ce-locked-matchup { color: #fff; font-size: 17px; font-weight: 800; margin: 0 0 14px; line-height: 1.3; }
+
+.ce-locked-divider { height: 1px; background: linear-gradient(90deg, transparent, rgba(0,255,231,0.3), transparent); margin-bottom: 16px; }
+
+.ce-locked-body { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.ce-locked-metric { display: flex; flex-direction: column; gap: 4px; }
+.ce-locked-metric-label { font-size: 10px; letter-spacing: 1.5px; color: #00ffe7; opacity: 0.85; }
+.ce-locked-metric-value {
+  font-size: 34px; font-weight: 800; color: #fff; line-height: 1;
+  text-shadow: 0 0 16px rgba(0,255,231,0.4);
+}
+
 .ce-locked-circle {
-  width: 76px; height: 76px; border-radius: 50%; border: 3px solid #7c3cff;
+  width: 90px; height: 90px; border-radius: 50%;
+  border: 3px solid #7c3cff;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  color: #fff; box-shadow: 0 0 20px rgba(124,60,255,0.45); animation: ceBreath 2.4s ease-in-out infinite;
+  color: #fff; box-shadow: 0 0 24px rgba(124,60,255,0.5);
+  animation: ceBreath 2.4s ease-in-out infinite;
 }
-.ce-locked-circle span { font-size: 18px; font-weight: 800; }
-.ce-locked-circle small { font-size: 8px; color: #8b96ad; letter-spacing: 1px; }
-@keyframes ceBreath { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-.ce-locked-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
-.ce-locked-stat { background: #0a1424; border-radius: 8px; padding: 9px 6px; text-align: center; }
-.ce-locked-stat.ce-blur { filter: blur(4px); pointer-events: none; user-select: none; }
-.ce-locked-stat-label { display: block; font-size: 8px; letter-spacing: 1px; color: #00ffe7; margin-bottom: 4px; opacity: 0.85; }
-.ce-locked-stat-value { font-size: 15px; font-weight: 800; color: #fff; }
-.ce-cta-unlock {
-  width: 100%; background: rgba(124,60,255,0.16); border: 1px solid #7c3cff;
-  color: #c9a8ff; font-size: 13px; font-weight: 700; letter-spacing: 0.5px;
-  border-radius: 10px; padding: 12px; cursor: pointer;
+.ce-locked-circle span { font-size: 22px; font-weight: 800; }
+.ce-locked-circle small { font-size: 7px; color: #a685ff; letter-spacing: 1.5px; margin-top: 2px; }
+@keyframes ceBreath { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+
+.ce-locked-pickrow {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 13px;
+  border-radius: 12px;
+  background: rgba(124,60,255,0.12);
+  border: 1px dashed rgba(124,60,255,0.5);
 }
-.ce-cta-unlock:hover { background: rgba(124,60,255,0.3); }
+.ce-locked-lockicon { font-size: 16px; }
+.ce-locked-pickmask {
+  font-size: 13px; font-weight: 800; letter-spacing: 3px;
+  color: #c9a8ff;
+}
