@@ -83,7 +83,35 @@ OneSignalDeferred.push(async function(OneSignal) {
   },3800);
 })();
 </script>
- 
+ <section id="ceLanding" class="ce-landing" style="display:none;">
+  <div class="ce-hero">
+    <div class="ce-live-badge">
+      <span class="ce-live-dot"></span>
+      LIVE AI TRACKING
+    </div>
+    <h1 class="ce-hero-title">
+      Our AI model hits
+      <span id="ceHeroAccuracy" class="ce-hero-accuracy">0%</span>
+      of its premium picks
+    </h1>
+    <p id="ceHeroRecord" class="ce-hero-record">Loading...</p>
+    <button type="button" class="ce-cta-main" onclick="ceShowAuth()">
+      START FREE — SEE TODAY'S PICKS →
+    </button>
+    <p class="ce-cta-sub">No card required · Free analyses every 3 hours</p>
+  </div>
+
+  <div class="ce-sports-section">
+    <p class="ce-section-label">LIVE PERFORMANCE BY SPORT</p>
+    <div id="ceSportsGrid" class="ce-sports-grid"></div>
+  </div>
+
+  <div class="ce-premium-section">
+    <p class="ce-premium-title">Premium Access — $19.99/mo</p>
+    <p class="ce-premium-desc">Unlimited picks · Player props · Daily parlay</p>
+    <button type="button" class="ce-cta-secondary" onclick="ceShowAuth()">CREATE FREE ACCOUNT</button>
+  </div>
+</section>
 <div id="authBox" class="auth-box">
 
   <!-- LOGIN -->
