@@ -3343,6 +3343,7 @@ async function ceInitLanding() {
       landing.style.display = "block";
       if (authBox) authBox.style.display = "none";
       ceLoadLandingStats();
+      ceLoadPublicPick();
     }
   } catch (err) {
     console.log("ceInitLanding error:", err.message);
@@ -3350,3 +3351,25 @@ async function ceInitLanding() {
 }
 
 document.addEventListener("DOMContentLoaded", ceInitLanding);
+// Trae el pick premium del día y llena la tarjeta
+async function ceLoadPublicPick() {
+  try {
+    const res = await fetch("/api/public-pick");
+    const data = await res.json();
+    if (!data.available) return;
+
+    document.getElementById("ceLockedSport").textContent = data.sport;
+    document.getElementById("ceLockedMatchup").textContent = data.matchup;
+    document.getElementById("ceLockedConf").textContent = data.confidence + "%";
+    document.getElementById("ceLockedConf2").textContent = data.confidence + "%";
+    document.getElementById("ceLockedEdge").textContent = data.edge;
+
+    const t = new Date(data.gameTime);
+    document.getElementById("ceLockedTime").textContent =
+      t.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+
+    document.getElementById("ceLockedPickWrap").style.display = "block";
+  } catch (err) {
+    console.log("Public pick error:", err.message);
+  }
+}
