@@ -15,13 +15,15 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const nowISO = new Date().toISOString();
+   const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Chicago",
+      year: "numeric", month: "2-digit", day: "2-digit"
+    }).format(new Date());
 
     const { data: picks } = await supabaseAdmin
       .from("daily_picks")
-      .select("sport, away_team, home_team, game_time, analysis_json")
-      .gte("game_time", nowISO)
-      .order("game_time", { ascending: true })
+      .select("sport, away_team, home_team, game_time, game_date, analysis_json")
+      .eq("game_date", today)
       .limit(60);
 
     if (!picks || picks.length === 0) {
