@@ -2836,3 +2836,44 @@ body.logged-in #ceLanding {
   background: transparent; border: none; color: #8b96ad; font-size: 12px;
   cursor: pointer; text-decoration: underline;
 }
+/* ===== CE LOCKED PICK ===== */
+.ce-locked-wrap { margin-bottom: 28px; }
+.ce-locked-card {
+  background: #050c1a; border: 1px solid rgba(0,255,231,0.35);
+  border-radius: 16px; padding: 18px; max-width: 520px; margin: 0 auto;
+  box-shadow: 0 0 26px rgba(0,255,231,0.12); position: relative; overflow: hidden;
+}
+.ce-locked-card::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, #00ffe7, #7c3cff);
+}
+.ce-locked-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.ce-locked-badge {
+  border: 1px solid rgba(0,255,231,0.5); color: #00ffe7;
+  border-radius: 14px; font-size: 10px; letter-spacing: 1.5px; padding: 3px 10px;
+}
+.ce-locked-time { color: #55617a; font-size: 11px; }
+.ce-locked-matchup { color: #cdd6e6; font-size: 13px; margin: 0 0 12px; }
+.ce-locked-body { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.ce-locked-pick { display: flex; flex-direction: column; gap: 4px; }
+.ce-locked-mask { font-size: 24px; font-weight: 800; color: #fff; letter-spacing: 3px; filter: blur(0.5px); }
+.ce-locked-label { font-size: 10px; letter-spacing: 2px; color: #7c3cff; }
+.ce-locked-circle {
+  width: 76px; height: 76px; border-radius: 50%; border: 3px solid #7c3cff;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: #fff; box-shadow: 0 0 20px rgba(124,60,255,0.45); animation: ceBreath 2.4s ease-in-out infinite;
+}
+.ce-locked-circle span { font-size: 18px; font-weight: 800; }
+.ce-locked-circle small { font-size: 8px; color: #8b96ad; letter-spacing: 1px; }
+@keyframes ceBreath { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+.ce-locked-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.ce-locked-stat { background: #0a1424; border-radius: 8px; padding: 9px 6px; text-align: center; }
+.ce-locked-stat.ce-blur { filter: blur(4px); pointer-events: none; user-select: none; }
+.ce-locked-stat-label { display: block; font-size: 8px; letter-spacing: 1px; color: #00ffe7; margin-bottom: 4px; opacity: 0.85; }
+.ce-locked-stat-value { font-size: 15px; font-weight: 800; color: #fff; }
+.ce-cta-unlock {
+  width: 100%; background: rgba(124,60,255,0.16); border: 1px solid #7c3cff;
+  color: #c9a8ff; font-size: 13px; font-weight: 700; letter-spacing: 0.5px;
+  border-radius: 10px; padding: 12px; cursor: pointer;
+}
+.ce-cta-unlock:hover { background: rgba(124,60,255,0.3); }
