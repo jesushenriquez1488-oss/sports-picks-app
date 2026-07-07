@@ -3264,3 +3264,89 @@ function skipPromoCode() {
 window.openPromoModal = openPromoModal;
 window.closePromoModal = closePromoModal;
 window.skipPromoCode = skipPromoCode;
+/* ===== CE LANDING ===== */
+
+// Cuando el usuario da click en un botón del landing:
+// oculta el landing y muestra tu login (authBox)
+function ceShowAuth() {
+  document.getElementById("ceLanding").style.display = "none";
+  const authBox = document.getElementById("authBox");
+  if (authBox) authBox.style.display = "";
+}
+
+// Anima el número de 0 hasta el valor real
+function ceAnimateCounter(el, target) {
+  const start = performance.now();
+  function frame(now) {
+    const p = Math.min((now - start) / 1400, 1);
+    const eased = 1 - Math.pow(1 - p, 3);
+    el.textContent = (target * eased).toFixed(1) + "%";
+    if (p < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+// Trae los porcentajes reales desde Supabase
+async function ceLoadLandingStats() {
+  try {
+    const { data, error } = await supabaseClient
+      .from("sport_record_summary")
+      .select("display_name, total_wins, total_losses, pushes, accuracy");
+
+    if (error || !data || data.length === 0) return;
+
+    let totalW = 0, totalL = 0, totalP = 0;
+    data.forEach(r => {
+      totalW += Number(r.total_wins || 0);
+      totalL += Number(r.total_losses || 0);
+      totalP += Number(r.pushes || 0);
+    });
+
+    const overallAcc = (totalW + totalL) > 0 ? (totalW / (totalW + totalL)) * 100 : 0;
+
+    const accEl = document.getElementById("ceHeroAccuracy");
+    if (accEl) ceAnimateCounter(accEl, overallAcc);
+
+    const recEl = document.getElementById("ceHeroRecord");
+    if (recEl) recEl.textContent = `${totalW}W · ${totalL}L · ${totalP}P — tracked live, every result public`;
+
+    const grid = document.getElementById("ceSportsGrid");
+    if (grid) {
+      grid.innerHTML = data
+        .slice()
+        .sort((a, b) => Number(b.accuracy || 0) - Number(a.accuracy || 0))
+        .map(r => `
+          <div class="ce-sport-card">
+            <p class="ce-sport-acc">${Number(r.accuracy || 0).toFixed(1)}%</p>
+            <p class="ce-sport-name">${r.display_name}</p>
+            <p class="ce-sport-record">${r.total_wins}W - ${r.total_losses}L</p>
+          </div>
+        `).join("");
+    }
+  } catch (err) {
+    console.log("Landing stats error:", err.message);
+  }
+}
+
+// Al cargar la página: si NO hay sesión, muestra el landing
+async function ceInitLanding() {
+  const landing = document.getElementById("ceLanding");
+  const authBox = document.getElementById("authBox");
+  if (!landing) return;
+
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+
+    if (session) {
+      landing.style.display = "none";
+    } else {
+      landing.style.display = "block";
+      if (authBox) authBox.style.display = "none";
+      ceLoadLandingStats();
+    }
+  } catch (err) {
+    console.log("ceInitLanding error:", err.message);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", ceInitLanding);
