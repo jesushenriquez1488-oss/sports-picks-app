@@ -3358,17 +3358,21 @@ async function ceLoadPublicPick() {
     const data = await res.json();
     if (!data.available) return;
 
-    document.getElementById("ceLockedSport").textContent = data.sport;
-    document.getElementById("ceLockedMatchup").textContent = data.matchup;
-    document.getElementById("ceLockedConf").textContent = data.confidence + "%";
-    document.getElementById("ceLockedConf2").textContent = data.confidence + "%";
-    document.getElementById("ceLockedEdge").textContent = data.edge;
+    const set = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val;
+    };
+
+    set("ceLockedSport", data.sport);
+    set("ceLockedMatchup", data.matchup);
+    set("ceLockedConf", data.confidence + "%");
+    set("ceLockedEdge", data.edge);
 
     const t = new Date(data.gameTime);
-    document.getElementById("ceLockedTime").textContent =
-      t.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    set("ceLockedTime", t.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }));
 
-    document.getElementById("ceLockedPickWrap").style.display = "block";
+    const wrap = document.getElementById("ceLockedPickWrap");
+    if (wrap) wrap.style.display = "block";
   } catch (err) {
     console.log("Public pick error:", err.message);
   }
