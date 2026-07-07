@@ -1095,14 +1095,19 @@ button:active { transform: scale(.97); }
   box-shadow: 0 0 35px rgba(0,255,231,.12), inset 0 0 40px rgba(0,255,231,.04);
 }
 
-.ce-auth-screen {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px 16px;
-  box-sizing: border-box;
+/* En celular: llenar pantalla, sin borde flotante */
+@media (max-width: 600px) {
+  #authBox {
+    max-width: 100%;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 24px 18px;
+    background: linear-gradient(145deg, rgba(6,16,36,.94), rgba(3,6,18,.98));
+  }
 }
+
+
  
 #authBox h3 { text-align: center; font-size: 20px; margin: 0 0 16px; color: #fff; }
  
