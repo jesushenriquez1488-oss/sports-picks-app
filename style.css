@@ -2740,3 +2740,72 @@ body.logged-in #ceLanding {
   display: none !important;
 }
 
+/* ===== CE LANDING ===== */
+.ce-landing {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 30px 16px 60px;
+  font-family: Arial, sans-serif;
+}
+.ce-hero { text-align: center; margin-bottom: 40px; }
+.ce-live-badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 1px solid #00ffe7; border-radius: 22px;
+  padding: 5px 14px; font-size: 11px; letter-spacing: 2px;
+  color: #00ffe7; margin-bottom: 18px;
+  box-shadow: 0 0 12px rgba(0,255,231,0.25);
+}
+.ce-live-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #00ffe7; animation: cePulse 1.6s infinite;
+}
+@keyframes cePulse {
+  0% { box-shadow: 0 0 0 0 rgba(0,255,231,0.6); }
+  70% { box-shadow: 0 0 0 9px rgba(0,255,231,0); }
+  100% { box-shadow: 0 0 0 0 rgba(0,255,231,0); }
+}
+.ce-hero-title {
+  font-size: clamp(24px, 4.6vw, 40px);
+  color: #fff; margin: 0 0 10px; line-height: 1.22; font-weight: 800;
+}
+.ce-hero-accuracy { color: #00ffe7; text-shadow: 0 0 18px rgba(0,255,231,0.55); }
+.ce-hero-record { color: #8b96ad; font-size: 14px; margin: 0 0 24px; }
+.ce-cta-main {
+  background: linear-gradient(90deg, #00ffe7, #2f7bff, #7c3cff);
+  background-size: 200% 100%; color: #020814;
+  font-weight: 800; font-size: 15px; border: none; border-radius: 10px;
+  padding: 15px 34px; cursor: pointer;
+  animation: ceGradientMove 4s ease infinite;
+  box-shadow: 0 0 22px rgba(0,255,231,0.35);
+}
+@keyframes ceGradientMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.ce-cta-sub { color: #55617a; font-size: 12px; margin-top: 12px; }
+.ce-section-label {
+  font-size: 11px; letter-spacing: 2px; color: #00ffe7;
+  margin: 0 0 14px; text-align: center;
+}
+.ce-sports-section { margin-bottom: 40px; }
+.ce-sports-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;
+}
+.ce-sport-card {
+  background: #0a1220; border: 1px solid #12202f; border-radius: 10px;
+  padding: 14px 8px; text-align: center;
+}
+.ce-sport-acc { font-size: 21px; font-weight: 800; color: #00ffe7; margin: 0; }
+.ce-sport-name { font-size: 11px; color: #cdd6e6; margin: 4px 0 2px; }
+.ce-sport-record { font-size: 10px; color: #55617a; margin: 0; }
+.ce-premium-section {
+  text-align: center; border: 1px solid rgba(0,255,231,0.25);
+  border-radius: 16px; padding: 26px 18px; background: #050c1a;
+}
+.ce-premium-title { color: #fff; font-size: 18px; font-weight: 800; margin: 0 0 6px; }
+.ce-premium-desc { color: #8b96ad; font-size: 12px; margin: 0 0 16px; }
+.ce-cta-secondary {
+  background: transparent; border: 1px solid #7c3cff; color: #c9a8ff;
+  font-size: 13px; font-weight: 700; border-radius: 10px; padding: 12px 24px; cursor: pointer;
+}
