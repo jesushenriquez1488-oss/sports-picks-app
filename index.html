@@ -100,7 +100,43 @@ OneSignalDeferred.push(async function(OneSignal) {
     </button>
     <p class="ce-cta-sub">No card required · Free analyses every 3 hours</p>
   </div>
-
+<div id="ceLockedPickWrap" class="ce-locked-wrap" style="display:none;">
+    <p class="ce-section-label">🔥 TODAY'S TOP PREMIUM PICK</p>
+    <div class="ce-locked-card">
+      <div class="ce-locked-head">
+        <span id="ceLockedSport" class="ce-locked-badge">NBA</span>
+        <span id="ceLockedTime" class="ce-locked-time"></span>
+      </div>
+      <p id="ceLockedMatchup" class="ce-locked-matchup">Loading...</p>
+      <div class="ce-locked-body">
+        <div class="ce-locked-pick">
+          <span class="ce-locked-mask">🔒 ●●●●● ●●.●</span>
+          <span class="ce-locked-label">PREMIUM PICK</span>
+        </div>
+        <div class="ce-locked-circle">
+          <span id="ceLockedConf">--%</span>
+          <small>PROB.</small>
+        </div>
+      </div>
+      <div class="ce-locked-stats">
+        <div class="ce-locked-stat">
+          <span class="ce-locked-stat-label">EDGE</span>
+          <span id="ceLockedEdge" class="ce-locked-stat-value">--</span>
+        </div>
+        <div class="ce-locked-stat">
+          <span class="ce-locked-stat-label">CONFIDENCE</span>
+          <span id="ceLockedConf2" class="ce-locked-stat-value">--%</span>
+        </div>
+        <div class="ce-locked-stat ce-blur">
+          <span class="ce-locked-stat-label">MODEL PICK</span>
+          <span class="ce-locked-stat-value">???</span>
+        </div>
+      </div>
+      <button type="button" class="ce-cta-unlock" onclick="ceShowAuth()">
+        🔓 UNLOCK THIS PICK — CREATE FREE ACCOUNT
+      </button>
+    </div>
+  </div>
   <div class="ce-sports-section">
     <p class="ce-section-label">LIVE PERFORMANCE BY SPORT</p>
     <div id="ceSportsGrid" class="ce-sports-grid"></div>
