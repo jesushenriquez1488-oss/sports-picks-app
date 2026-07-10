@@ -90,7 +90,7 @@ console.log("PROMO CODE RECEIVED:", cleanPromoCode);
         }
       ],
 
-      success_url: `${APP_URL}?success=true`,
+     success_url: `${APP_URL}?success=true&session_id={CHECKOUT_SESSION_ID}`,
 
       cancel_url: `${APP_URL}?canceled=true`,
 
