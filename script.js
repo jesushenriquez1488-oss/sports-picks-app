@@ -81,21 +81,104 @@ function sanitize(str) {
 }
 const urlParams = new URLSearchParams(window.location.search);
 
-if (urlParams.get("success") === "true") {
-  gtag('event', 'conversion', {
-    'send_to': 'AW-18266545354/le8_CMnWsMQcEMq51YZE',
-    'value': 19.99,
-    'currency': 'USD',
-    'transaction_id': urlParams.get("session_id") || ''
-  });
-  alert("✅ Pago recibido. Verificando suscripción...");
-  window.history.replaceState({}, document.title, window.location.pathname);
+async function handleStripeReturn() {
+  const paymentSuccess = urlParams.get("success") === "true";
+  const paymentCanceled = urlParams.get("canceled") === "true";
+  const stripeSessionId = urlParams.get("session_id");
+
+  if (paymentCanceled) {
+    alert("Pago cancelado.");
+
+    window.history.replaceState(
+      {},
+      document.title,
+      window.location.pathname
+    );
+
+    return;
+  }
+
+  if (!paymentSuccess) return;
+
+  if (!stripeSessionId) {
+    console.error("Stripe regresó sin session_id.");
+    alert("No se pudo verificar el pago. Comunícate con soporte.");
+
+    window.history.replaceState(
+      {},
+      document.title,
+      window.location.pathname
+    );
+
+    return;
+  }
+
+  const conversionStorageKey =
+    `cashedge_google_conversion_${stripeSessionId}`;
+
+  try {
+    alert("✅ Pago recibido. Verificando suscripción...");
+
+    const response = await fetch(
+      `/api/verify-checkout-session?session_id=${encodeURIComponent(stripeSessionId)}`
+    );
+
+    const verification = await response.json();
+
+    if (!response.ok || verification.verified !== true) {
+      throw new Error(
+        verification.error || "Stripe no pudo verificar el pago."
+      );
+    }
+
+    const conversionAlreadySent =
+      localStorage.getItem(conversionStorageKey) === "sent";
+
+    if (!conversionAlreadySent) {
+      if (typeof window.gtag !== "function") {
+        throw new Error("La etiqueta de Google Ads no está disponible.");
+      }
+
+      window.gtag("event", "conversion", {
+        send_to: "AW-18266545354/le8_CMnWsMQcEMq51YZE",
+        value: Number(verification.value || 19.99),
+        currency: String(verification.currency || "USD").toUpperCase(),
+        transaction_id:
+          verification.transactionId || stripeSessionId
+      });
+
+      localStorage.setItem(conversionStorageKey, "sent");
+
+      console.log("✅ Conversión Premium enviada a Google Ads:", {
+        transactionId:
+          verification.transactionId || stripeSessionId,
+        value: verification.value,
+        currency: verification.currency
+      });
+    } else {
+      console.log("Conversión ya enviada anteriormente:", stripeSessionId);
+    }
+
+    alert("✅ Premium confirmado correctamente.");
+
+  } catch (error) {
+    console.error("❌ Error verificando la compra:", error);
+
+    alert(
+      "El pago fue recibido, pero no pudimos confirmar el seguimiento. " +
+      "Tu suscripción se actualizará automáticamente."
+    );
+
+  } finally {
+    window.history.replaceState(
+      {},
+      document.title,
+      window.location.pathname
+    );
+  }
 }
 
-if (urlParams.get("canceled") === "true") {
-  alert("Pago cancelado.");
-  window.history.replaceState({}, document.title, window.location.pathname);
-}
+handleStripeReturn();
 function showAuthMessage(message, type = "success") {
   const authMessage = document.getElementById("authMessage");
   if (!authMessage) return;
