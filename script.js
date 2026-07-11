@@ -2261,8 +2261,8 @@ if (data.limitReached === true || data.upgradeRequired === true) {
  
   <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;">
     <div style="flex:1;">
-      <div style="font-size:22px;font-weight:700;color:#fff;margin-bottom:3px;">
-        ${locked ? "remium Pick Locked" : (bestPick?.pick || "No play")}
+     <div style="font-size:26px;font-weight:900;margin-bottom:3px;${locked ? "color:#fff;" : "background:linear-gradient(90deg,#00ffe7,#7c3cff);-webkit-background-clip:text;background-clip:text;color:transparent;"}">
+        ${locked ? "Premium Pick Locked" : (bestPick?.pick || "No play")}
       </div>
       <div style="font-size:11px;color:#556688;">
         ${locked ? "" : `${realType === "total" ? "Total" : "Spread"} · ${Number(bestPick?.odds_american ?? -110) > 0 ? "+" : ""}${bestPick?.odds_american ?? -110} · Edge ${Number(bestPick?.edge || 0).toFixed(1)}`}
