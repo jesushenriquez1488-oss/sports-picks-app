@@ -1881,20 +1881,25 @@ if (data.noPlay) {
           ? `
             <div class="mlb-premium-title">
               <h2>⚾ ${awayTeam} vs ${homeTeam}</h2>
-              <p>🔒 Análisis Premium Detectado</p>
+              <p>🔒 PREMIUM PICK DETECTED</p>
             </div>
 
             <div class="mlb-lock-panel">
-              <h3>Pick Premium Bloqueado</h3>
-              <p>Este juego tiene edge premium detectado.</p>
+              <div class="ce-lock-conf-row">
+                <div class="ce-lock-conf-circle">
+                  <strong>${data.public?.confidence ?? "85+"}%</strong>
+                  <small>CONF.</small>
+                </div>
+                <div style="text-align:left;">
+                  <div style="font-size:13px;font-weight:700;color:#fff;">Model's pick: <span style="letter-spacing:2px;color:#5a7a9a;">████████</span> 🔒</div>
+                  <div style="font-size:11px;color:#8899bb;margin-top:3px;">Real edge detected vs the sportsbook line</div>
+                </div>
+              </div>
 
-              <div class="mlb-factor-grid">
-                <span>✔ Pitcher probable</span>
-                <span>✔ Bullpen</span>
-                <span>✔ Park factor</span>
-                <span>✔ Clima / viento</span>
-                <span>✔ Ofensiva reciente</span>
-                <span>✔ Línea del mercado</span>
+              <div class="ce-lock-record">${ceRecordLine("mlb")}</div>
+
+              <div class="ce-lock-why">
+                The model only flags premium picks when it detects a real mathematical edge against the sportsbooks. Betting without that edge is guessing.
               </div>
             </div>
           `
@@ -1992,8 +1997,8 @@ ${premium.recommendedCards?.[1] ? `
     ${
       locked
         ? `
-          <button class="unlock-btn" onclick="openPromoModal()">
-            🔓 Desbloquear Premium mensual $${MONTHLY_PRICE}/mes
+        <button class="unlock-btn ce-premium-btn" onclick="openPromoModal()">
+            🔓 UNLOCK PREMIUM PICK — $${MONTHLY_PRICE}/MO
           </button>
         `
         : ""
