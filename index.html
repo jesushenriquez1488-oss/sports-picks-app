@@ -465,21 +465,41 @@ OneSignalDeferred.push(async function(OneSignal) {
 </div>
 
 <div class="premium-monthly-box" id="premiumBox">
-  <h3>🔥 Acceso Premium</h3>
+  <div style="max-width:560px;margin:0 auto;text-align:center;">
 
-  <p><strong>Picks de alta probabilidad con análisis automático.</strong></p>
+    <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,255,231,0.08);border:1px solid rgba(0,255,231,0.25);border-radius:20px;padding:4px 12px;font-size:10px;color:#00ffe7;font-weight:600;letter-spacing:1px;margin-bottom:14px;">
+      <span style="width:6px;height:6px;border-radius:50%;background:#00ffe7;animation:nfl-pulse 1.5s infinite;display:inline-block;"></span>
+      PREMIUM ACCESS
+    </div>
 
-  <p>✔ Picks premium desbloqueados</p>
-  <p>✔ Análisis con odds y proyección del modelo</p>
-  <p>✔ Acceso mensual inmediato</p>
+    <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:6px;">Stop guessing. <span style="background:linear-gradient(90deg,#00ffe7,#7c3cff);-webkit-background-clip:text;background-clip:text;color:transparent;">Bet with the model.</span></div>
+    <div id="premiumBoxRecord" style="font-size:12px;color:#8899bb;margin-bottom:16px;">The AI tracks every pick publicly — nothing hidden.</div>
 
-  <button class="unlock-btn monthly-btn" onclick="openPromoModal()">
-    Desbloquear Premium — $19.99 / mes
-  </button>
+    <div style="background:#0a1220;border:1px solid #14243d;border-radius:14px;padding:16px 20px;margin-bottom:14px;text-align:left;">
+      <div style="display:flex;align-items:center;gap:10px;padding-bottom:10px;border-bottom:1px solid #14243d;">
+        <span style="font-size:15px;">🔓</span>
+        <span style="font-size:12px;color:#d0dcec;">Every premium pick unlocked — all sports</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #14243d;">
+        <span style="font-size:15px;">⚡</span>
+        <span style="font-size:12px;color:#d0dcec;">Daily AI Parlay — pays 5-7x when it hits</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #14243d;">
+        <span style="font-size:15px;">🎯</span>
+        <span style="font-size:12px;color:#d0dcec;">Player props flagged by the model</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding-top:10px;">
+        <span style="font-size:15px;">♾️</span>
+        <span style="font-size:12px;color:#d0dcec;">Unlimited analyses — no 3-hour wait</span>
+      </div>
+    </div>
 
-  <p style="font-size:13px; opacity:0.75;">
-    Cancela cuando quieras desde tu suscripción.
-  </p>
+    <button onclick="openPromoModal()" style="display:block;width:100%;padding:16px;border:none;border-radius:12px;background:linear-gradient(135deg,#00ffe7,#7c3cff);color:#020814;font-size:14px;font-weight:900;letter-spacing:0.5px;cursor:pointer;text-transform:uppercase;box-shadow:0 0 25px rgba(0,255,231,0.35),0 0 50px rgba(124,60,255,0.2);">
+      🔓 GET PREMIUM — $19.99/MO
+    </button>
+    <div style="font-size:10px;color:#5a7a9a;margin-top:8px;">Less than one losing bet. Cancel anytime.</div>
+
+  </div>
 </div>
 
   <main class="ai-main-area">
