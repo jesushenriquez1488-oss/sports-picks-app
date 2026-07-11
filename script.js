@@ -2273,7 +2273,7 @@ if (data.limitReached === true || data.upgradeRequired === true) {
         ${locked ? "" : `${realType === "total" ? "Total" : "Spread"} · ${Number(bestPick?.odds_american ?? -110) > 0 ? "+" : ""}${bestPick?.odds_american ?? -110} · Edge ${Number(bestPick?.edge || 0).toFixed(1)}`}
       </div>
     </div>
-    <div style="position:relative;width:72px;height:72px;flex-shrink:0;">
+   <div class="ce-conf-pulse" style="position:relative;width:72px;height:72px;flex-shrink:0;">
       <svg width="72" height="72" viewBox="0 0 72 72" style="position:absolute;top:0;left:0;">
         <circle cx="36" cy="36" r="30" fill="none" stroke="#1a2240" stroke-width="4"/>
         <circle cx="36" cy="36" r="30" fill="none" stroke="${circleColor}" stroke-width="4"
