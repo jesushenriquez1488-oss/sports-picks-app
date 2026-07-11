@@ -1804,7 +1804,7 @@ window.loginUser = loginUser;
 async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, outcomes, totalLine = 8, gameTime = null, eventId = null) {
   const resultDiv = document.getElementById(`result${index}`);
   if (!startAnalysisLock(index, "Analizando MLB...")) return;
-  resultDiv.innerHTML = `<div class="loading-analysis">Analizando MLB...</div>`;
+  resultDiv.innerHTML = `<div class="loading-analysis">Analyzing MLB...</div>`;
 
   const safe = (v, d = 0) => (typeof v === "number" && !isNaN(v) ? v : d);
 
@@ -3042,14 +3042,14 @@ async function togglePlayerEdgeProps(index, eventId) {
 
   const { data: sessionData } = await supabaseClient.auth.getSession();
   if (!sessionData.session) {
-    alert("Debes iniciar sesión.");
+    alert("You must log in.");
     return;
   }
 
   if (!IS_ADMIN && !isPremiumUser) {
     box.innerHTML = `
       <div class="player-edge-locked">
-        <p>🔒 Player Props disponible solo para miembros Premium.</p>
+        <p>🔒 Player Props are for Premium members only.</p>
         <button class="unlock-btn" onclick="openPromoModal()">
           🔓 Desbloquear Premium $${MONTHLY_PRICE}/mes
         </button>
@@ -3060,12 +3060,12 @@ async function togglePlayerEdgeProps(index, eventId) {
   }
 
   if (!eventId) {
-    box.innerHTML = `<p class="player-edge-empty">No disponible para este juego.</p>`;
+    box.innerHTML = `<p class="player-edge-empty">Not available for this game.</p>`;
     box.dataset.loaded = "true";
     return;
   }
 
-  box.innerHTML = `<div class="loading-analysis">Buscando player props...</div>`;
+  box.innerHTML = `<div class="loading-analysis">Loading player props...</div>`;
 
   try {
     const response = await fetch("/api/analyze-mlb?mode=player-props", {
@@ -3085,7 +3085,7 @@ async function togglePlayerEdgeProps(index, eventId) {
     if (!response.ok) throw new Error(data.error || "Error cargando player props");
 
     if (data.noPlay || !data.props || data.props.length === 0) {
-      box.innerHTML = `<p class="player-edge-empty">Sin player props con edge para este juego.</p>`;
+      box.innerHTML = `<p class="player-edge-empty">No player props with edge for this game.</p>`;
       box.dataset.loaded = "true";
       return;
     }
