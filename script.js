@@ -2929,16 +2929,15 @@ if (status) status.innerHTML = "";
 
 box.innerHTML = `
   <div class="parlay-premium-card">
-
-    <div class="parlay-premium-header">
+<div class="parlay-premium-header">
       <div class="parlay-pill">
-        👑 🔥 CASHEDGE PARLAY AI DEL DÍA
+        ⚡ CASHEDGE AI PARLAY OF THE DAY
       </div>
 
-      <h2>Parlay recomendado de ${data.picks.length} jugadas</h2>
+      <h2 style="background:linear-gradient(90deg,#00ffe7,#7c3cff);-webkit-background-clip:text;background-clip:text;color:transparent;">${data.picks.length}-Leg AI Parlay</h2>
 
       <p>
-        Seleccionado automáticamente con los picks premium más altos del día.
+        Auto-built with today's highest-confidence premium picks.
       </p>
     </div>
 
@@ -2947,7 +2946,7 @@ box.innerHTML = `
     </div>
 
     <div class="parlay-footer-note">
-      Solo se genera cuando hay mínimo 2 picks premium de 77%+
+      Only generated when there are at least 2 premium picks at 77%+
     </div>
 
   </div>
