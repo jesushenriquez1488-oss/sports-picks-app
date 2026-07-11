@@ -2923,3 +2923,80 @@ body.logged-in #ceLanding {
   font-size: 13px; font-weight: 800; letter-spacing: 3px;
   color: #c9a8ff;
 }
+.ce-premium-btn {
+  width: 100%;
+  padding: 15px 20px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #00ffe7 0%, #7c3cff 100%);
+  color: #020814;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  text-transform: uppercase;
+  box-shadow: 0 0 18px rgba(0,255,231,.3), 0 0 36px rgba(124,60,255,.22);
+  transition: transform .2s, box-shadow .2s;
+}
+.ce-premium-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 28px rgba(0,255,231,.5), 0 0 55px rgba(124,60,255,.38);
+}
+.ce-premium-btn::after {
+  content: "";
+  position: absolute;
+  top: 0; left: -100%;
+  width: 55%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent);
+  transform: skewX(-20deg);
+  animation: ceBtnShine 3.2s infinite;
+}
+@keyframes ceBtnShine {
+  0% { left: -100%; }
+  55%, 100% { left: 160%; }
+}
+.ce-lock-conf-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(0,255,231,.05);
+  border: 1px solid rgba(0,255,231,.18);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin: 12px 0;
+}
+.ce-lock-conf-circle {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  border: 2.5px solid #00ffe7;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 14px rgba(0,255,231,.45);
+  animation: ceConfPulse 2.2s infinite;
+}
+@keyframes ceConfPulse {
+  0%,100% { box-shadow: 0 0 12px rgba(0,255,231,.35); }
+  50% { box-shadow: 0 0 22px rgba(0,255,231,.65); }
+}
+.ce-lock-conf-circle strong { font-size: 16px; color: #00ffe7; }
+.ce-lock-conf-circle small { font-size: 8px; color: #5a7a9a; letter-spacing: 1px; }
+.ce-lock-why {
+  font-size: 12px;
+  color: #a0b4cc;
+  line-height: 1.55;
+  border-left: 3px solid #7c3cff;
+  padding: 8px 12px;
+  background: rgba(124,60,255,.06);
+  border-radius: 0 8px 8px 0;
+  margin: 10px 0;
+  text-align: left;
+}
+.ce-lock-record {
+  font-size: 12px;
+  color: #00ffe7;
+  font-weight: 700;
+  margin: 8px 0;
+}
