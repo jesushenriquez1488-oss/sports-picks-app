@@ -3116,6 +3116,6 @@ body.logged-in #ceLanding {
   border-radius: 50%;
 }
 @keyframes ceConfBreath {
-  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 6px rgba(124,60,255,0.5)); }
-  50% { transform: scale(1.06); filter: drop-shadow(0 0 14px rgba(124,60,255,0.9)); }
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 6px rgba(255,140,26,0.5)); }
+  50% { transform: scale(1.06); filter: drop-shadow(0 0 16px rgba(255,140,26,0.95)); }
 }
