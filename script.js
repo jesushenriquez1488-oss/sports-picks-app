@@ -901,7 +901,7 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
   <button
     onclick="toggleNBAPlayerProps(${index}, '${escapeText(awayTeam)}', '${escapeText(homeTeam)}', this)"
     style="display:block;width:100%;padding:12px 0;background:rgba(124,60,255,0.15);border:1.5px solid #7c3cff;border-radius:10px;color:#c4a0ff;font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer;text-align:center;text-transform:uppercase;margin-bottom:10px;">
-    ⚡ VER PLAYER PROPS ↗
+    ⚡VIEW PLAYER PROPS ↗
   </button>
   <div id="nbaProps${index}"></div>
 ` : ""}
@@ -1513,18 +1513,18 @@ if (window.currentSport === "wnba") {
           ${
   useBasketballFormula
     ? `<button onclick="analyzeAuto('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index})">
-        Ver predicción del modelo
+        View AI Prediction
       </button>`
     : useMLBFormula
    ? `<button onclick='analyzeMLB("${escapeText(game.away_team)}","${escapeText(game.home_team)}",${awaySpread},${homeSpread},${index},${JSON.stringify((game.bookmakers?.[0]?.markets.find(m => m.key === "h2h")?.outcomes || [])).replace(/"/g, '&quot;')},${total},"${game.commence_time || ""}","${game.id || ""}")'>
-        Ver predicción MLB
+        View AI Prediction
    </button>`
     : useFootballFormula
     ? `<button onclick="analyzeFootball('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${index})">
-        Ver predicción ${selectedSportName}
+        View ${selectedSportName} Prediction
       </button>`
     : `<button onclick="analyzeOtherLeague('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index})">
-        Ver predicción del modelo
+       View AI Prediction
       </button>`
 }
           <div id="result${index}"></div>
@@ -1944,7 +1944,7 @@ ${premium.recommendedCards?.[0] ? `
   <h3>${safe(premium.recommendedCards[0].percentage).toFixed(1)}%</h3>
   <small>PROBABILIDAD DE ÉXITO</small>
 ` : `
-  <span>Sin jugada premium</span>
+  <span>No play premium</span>
 `}
 </div>
 </div>
@@ -2314,7 +2314,7 @@ if (data.limitReached === true || data.upgradeRequired === true) {
 
   ` : `
     <div style="background:#0a1628;border:1px solid rgba(0,255,231,0.15);border-left:3px solid ${circleColor};border-radius:8px;padding:12px 14px;margin-bottom:10px;">
-      <div style="font-size:10px;color:${circleColor};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;font-weight:600;">⚡ Análisis del modelo</div>
+      <div style="font-size:10px;color:${circleColor};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;font-weight:600;">⚡ Model analysis</div>
       <div style="font-size:12px;color:#aabbcc;line-height:1.6;">${analysisText}</div>
     </div>
     ${propsButtonHTML}
@@ -2397,9 +2397,9 @@ async function toggleNFLPlayerProps(index, awayTeam, homeTeam) {
     box.innerHTML = `
       <div style="background:#0f1628;border:1px solid #1a2240;border-radius:8px;padding:14px;margin-top:10px;text-align:center;">
         <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;">Contenido Premium</div>
-        <div style="font-size:11px;color:#556688;margin-bottom:12px;line-height:1.5;">Desbloquea los mejores props NFL seleccionados por el modelo AI</div>
+        <div style="font-size:11px;color:#556688;margin-bottom:12px;line-height:1.5;">Unlock the best NFL props selected by the AI model</div>
         <button onclick="openPromoModal()" style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:12px;font-weight:700;cursor:pointer;">
-          OBTENER PREMIUM · $${MONTHLY_PRICE}/mes
+          GET PREMIUM · $${MONTHLY_PRICE}/mes
         </button>
       </div>
     `;
@@ -2419,7 +2419,7 @@ async function toggleNFLPlayerProps(index, awayTeam, homeTeam) {
     if (!res.ok || data.noPlay || !data.props?.length) {
       box.innerHTML = `
         <div style="background:#0f1628;border-radius:8px;padding:12px;margin-top:8px;text-align:center;">
-          <div style="font-size:11px;color:#556688;">No hay player props disponibles para este juego aún. Aparecen ~1-2 semanas antes del partido.</div>
+          <div style="font-size:11px;color:#556688;">No player props available for this game yet. They appear ~1-2 weeks before kickoff.</div>
         </div>
       `;
       box.dataset.loaded = "true";
@@ -3162,7 +3162,7 @@ async function toggleNBAPlayerProps(index, awayTeam, homeTeam, btn) {
   if (!IS_ADMIN && !isPremiumUser) {
     box.innerHTML = `
       <div style="background:#0f1628;border:1px solid #1a2240;border-radius:8px;padding:14px;text-align:center;">
-        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;">Contenido Premium</div>
+        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;">Premium Content</div>
         <div style="font-size:11px;color:#556688;margin-bottom:12px;">Desbloquea los player props seleccionados por el modelo AI</div>
         <button onclick="openPromoModal()" style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:12px;font-weight:700;cursor:pointer;">
           OBTENER PREMIUM · $${MONTHLY_PRICE}/mes
