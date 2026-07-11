@@ -2297,7 +2297,7 @@ if (data.limitReached === true || data.upgradeRequired === true) {
   </div>
 </div>
  
-  ${locked ? `
+ 
     ${locked ? `
     <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,255,231,0.05);border:1px solid rgba(0,255,231,0.15);border-radius:10px;padding:10px 16px;margin-bottom:12px;">
       <span style="font-size:12px;color:#8899bb;">Model's all-time ${type.toUpperCase()} record</span>
