@@ -3111,3 +3111,11 @@ body.logged-in #ceLanding {
   animation: ceBarGrow 1s ease-out;
 }
 @keyframes ceBarGrow { from { width: 0 !important; } }
+.ce-conf-pulse {
+  animation: ceConfBreath 2.2s ease-in-out infinite;
+  border-radius: 50%;
+}
+@keyframes ceConfBreath {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 6px rgba(124,60,255,0.5)); }
+  50% { transform: scale(1.06); filter: drop-shadow(0 0 14px rgba(124,60,255,0.9)); }
+}
