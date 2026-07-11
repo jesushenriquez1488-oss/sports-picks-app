@@ -2250,11 +2250,11 @@ if (data.limitReached === true || data.upgradeRequired === true) {
  
     resultDiv.innerHTML = isPremium ? `
  
-<div class="ce-premium-basket-card" style="padding:14px;">
+<div class="ce-premium-basket-card ce-nfl-premium">
  
-  <div style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,255,231,0.08);border:1px solid rgba(0,255,231,0.2);border-radius:20px;padding:3px 8px;font-size:10px;color:#00ffe7;font-weight:500;margin-bottom:10px;">
-    <span style="width:5px;height:5px;border-radius:50%;background:#00ffe7;animation:nfl-pulse 1.5s infinite;display:inline-block;"></span>
-    HOT PICK · ${type.toUpperCase()}
+  <div class="ce-premium-tag">
+    <span style="width:6px;height:6px;border-radius:50%;background:#00ffe7;animation:nfl-pulse 1.5s infinite;display:inline-block;"></span>
+    🔥 PREMIUM PICK · ${type.toUpperCase()}
   </div>
  
   <div style="font-size:12px;color:#8899bb;margin-bottom:12px;">${awayTeam} vs ${homeTeam}</div>
@@ -2262,7 +2262,7 @@ if (data.limitReached === true || data.upgradeRequired === true) {
   <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;">
     <div style="flex:1;">
       <div style="font-size:22px;font-weight:700;color:#fff;margin-bottom:3px;">
-        ${locked ? "Pick Premium Bloqueado" : (bestPick?.pick || "Sin jugada")}
+        ${locked ? "remium Pick Locked" : (bestPick?.pick || "No play")}
       </div>
       <div style="font-size:11px;color:#556688;">
         ${locked ? "" : `${realType === "total" ? "Total" : "Spread"} · ${Number(bestPick?.odds_american ?? -110) > 0 ? "+" : ""}${bestPick?.odds_american ?? -110} · Edge ${Number(bestPick?.edge || 0).toFixed(1)}`}
@@ -2318,6 +2318,32 @@ if (data.limitReached === true || data.upgradeRequired === true) {
     </button>
 
   ` : `
+  <div style="background:#0f1628;border-radius:10px;padding:14px;margin-bottom:10px;">
+      <div style="font-size:10px;color:#7c3cff;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin-bottom:12px;">📊 Matchup breakdown</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div>
+          <div style="font-size:10px;color:#8899bb;margin-bottom:2px;">${awayTeam.split(" ").pop()} offense</div>
+          <div style="font-size:13px;font-weight:700;color:#fff;">${(Number(data.paceEfficiencyAdjustment?.teamAOffenseScore || 1) * 100).toFixed(0)}<span style="font-size:9px;color:#5a7a9a;"> /100</span></div>
+          <div class="ce-stat-bar"><div style="width:${Math.min(100, Number(data.paceEfficiencyAdjustment?.teamAOffenseScore || 1) * 100 - 20)}%;"></div></div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:#8899bb;margin-bottom:2px;">${homeTeam.split(" ").pop()} offense</div>
+          <div style="font-size:13px;font-weight:700;color:#fff;">${(Number(data.paceEfficiencyAdjustment?.teamBOffenseScore || 1) * 100).toFixed(0)}<span style="font-size:9px;color:#5a7a9a;"> /100</span></div>
+          <div class="ce-stat-bar"><div style="width:${Math.min(100, Number(data.paceEfficiencyAdjustment?.teamBOffenseScore || 1) * 100 - 20)}%;"></div></div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:#8899bb;margin-bottom:2px;">${awayTeam.split(" ").pop()} defense</div>
+          <div style="font-size:13px;font-weight:700;color:#fff;">${(Number(data.paceEfficiencyAdjustment?.teamADefenseScore || 1) * 100).toFixed(0)}<span style="font-size:9px;color:#5a7a9a;"> /100</span></div>
+          <div class="ce-stat-bar"><div style="width:${Math.min(100, Number(data.paceEfficiencyAdjustment?.teamADefenseScore || 1) * 100 - 20)}%;"></div></div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:#8899bb;margin-bottom:2px;">${homeTeam.split(" ").pop()} defense</div>
+          <div style="font-size:13px;font-weight:700;color:#fff;">${(Number(data.paceEfficiencyAdjustment?.teamBDefenseScore || 1) * 100).toFixed(0)}<span style="font-size:9px;color:#5a7a9a;"> /100</span></div>
+          <div class="ce-stat-bar"><div style="width:${Math.min(100, Number(data.paceEfficiencyAdjustment?.teamBDefenseScore || 1) * 100 - 20)}%;"></div></div>
+        </div>
+      </div>
+    </div>
     <div style="background:#0a1628;border:1px solid rgba(0,255,231,0.15);border-left:3px solid ${circleColor};border-radius:8px;padding:12px 14px;margin-bottom:10px;">
       <div style="font-size:10px;color:${circleColor};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;font-weight:600;">⚡ Model analysis</div>
       <div style="font-size:12px;color:#aabbcc;line-height:1.6;">${analysisText}</div>
