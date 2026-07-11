@@ -1449,14 +1449,14 @@ if (window.currentSport === "wnba") {
     upcomingGames.forEach((game, index) => {
       const gameDate = new Date(game.commence_time);
 
-      const formattedDate = gameDate.toLocaleDateString("es-US", {
+      const formattedDate = gameDate.toLocaleDateString("en-US", {
         weekday: "long",
         month: "short",
         day: "numeric",
         year: "numeric"
       });
 
-      const formattedTime = gameDate.toLocaleTimeString("es-US", {
+      const formattedTime = gameDate.toLocaleTimeString("en-US", {
         hour: "numeric",
         minute: "2-digit"
       });
@@ -1505,11 +1505,11 @@ if (window.currentSport === "wnba") {
    gamesDiv.innerHTML += `
         <div class="card">
           <h2>${sanitize(game.away_team)} vs ${sanitize(game.home_team)}</h2>
-          <p><strong>Fecha:</strong> ${formattedDate}</p>
-          <p><strong>Hora:</strong> ${formattedTime}</p>
-          <p><strong>Spread visitante:</strong> ${awayTeamSpreadText(awaySpread)}</p>
-          <p><strong>Spread local:</strong> ${homeTeamSpreadText(homeSpread)}</p>
-          <p><strong>Total:</strong> ${total || "No disponible"}</p>
+         <p><strong>Date:</strong> ${formattedDate}</p>
+          <p><strong>Time:</strong> ${formattedTime}</p>
+          <p><strong>Away spread:</strong> ${awayTeamSpreadText(awaySpread)}</p>
+          <p><strong>Home spread:</strong> ${homeTeamSpreadText(homeSpread)}</p>
+          <p><strong>Total:</strong> ${total || "Not available"}</p>
           ${
   useBasketballFormula
     ? `<button onclick="analyzeAuto('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index})">
@@ -1958,37 +1958,37 @@ ${premium.recommendedCards?.[1] ? `
 ` : ``}
 
             <div class="mlb-projection-box">
-                  <p><strong>Carreras esperadas ${awayTeam}:</strong> ${safe(premium.expectedRunsA).toFixed(2)}</p>
-                  <p><strong>Carreras esperadas ${homeTeam}:</strong> ${safe(premium.expectedRunsB).toFixed(2)}</p>
-                  <p><strong>Total proyectado:</strong> ${safe(premium.projectedTotal).toFixed(2)}</p>
-                  <p><strong>Línea total:</strong> ${safe(premium.totalLine, totalLine)}</p>
-                  <p><strong>Diferencia real vs línea:</strong> ${safe(premium.totalDiff).toFixed(2)} carreras</p>
+                  <p><strong>Expected runs ${awayTeam}:</strong> ${safe(premium.expectedRunsA).toFixed(2)}</p>
+                  <p><strong>Expected runs ${homeTeam}:</strong> ${safe(premium.expectedRunsB).toFixed(2)}</p>
+                  <p><strong>Projected total:</strong> ${safe(premium.projectedTotal).toFixed(2)}</p>
+                  <p><strong>Total line:</strong> ${safe(premium.totalLine, totalLine)}</p>
+                  <p><strong>Diff vs line:</strong> ${safe(premium.totalDiff).toFixed(2)} runs</p>
                 </div>
 
               </div>
 
               <div class="player-edge-section">
                 <button class="player-edge-toggle-btn" onclick='togglePlayerEdgeProps(${index}, "${eventId || ""}")'>
-                  🎯 Ver player props
+                  🎯 View Player Props
                 </button>
                 <div id="playerEdge${index}" class="player-edge-box"></div>
               </div>
 
               <div class="mlb-info-grid">
                 <div>
-                  <h4>🏟️ Estadio / Park Factor</h4>
-                  <p>${premium.venue?.name || "N/A"} — factor ${safe(premium.venue?.parkFactor).toFixed(2)} — techo: ${premium.venue?.roof || "N/A"}</p>
+                  <h4>🏟️ Ballpark / Park Factor</h4>
+                  <p>${premium.venue?.name || "N/A"} — factor ${safe(premium.venue?.parkFactor).toFixed(2)} — roof: ${premium.venue?.roof || "N/A"}</p>
                 </div>
                 <div>
-                  <h4>🌦️ Clima</h4>
-                  <p>Viento: ${premium.weather?.raw || "No disponible"}</p>
-                  <p>Dirección: ${premium.weather?.direction || "neutral"} | Velocidad: ${safe(premium.weather?.speed)} mph | Temp: ${premium.weather?.temp || "N/D"}</p>
-                  <p>Impacto climático aplicado: ${safe(premium.weatherFactor, 1).toFixed(3)}</p>
+                  <h4>🌦️ Weather</h4>
+                  <p>Wind: ${premium.weather?.raw || "No disponible"}</p>
+                  <p>Direction: ${premium.weather?.direction || "neutral"} | Speed: ${safe(premium.weather?.speed)} mph | Temp: ${premium.weather?.temp || "N/D"}</p>
+                  <p>Weather impact applied: ${safe(premium.weatherFactor, 1).toFixed(3)}</p>
                 </div>
                 <div>
-                  <h4>📊 Datos usados</h4>
-                  <p>${awayTeam}: ofensiva ${safe(premium.awayOffense).toFixed(2)}, defensa ${safe(premium.awayTeamAllowed).toFixed(2)}, pitcher ${safe(premium.awayPitcherAllowed).toFixed(2)}, bullpen ${safe(premium.awayBullpenAllowed).toFixed(2)}</p>
-                  <p>${homeTeam}: ofensiva ${safe(premium.homeOffense).toFixed(2)}, defensa ${safe(premium.homeTeamAllowed).toFixed(2)}, pitcher ${safe(premium.homePitcherAllowed).toFixed(2)}, bullpen ${safe(premium.homeBullpenAllowed).toFixed(2)}</p>
+                  <h4>📊 Data used</h4>
+                  <p>${awayTeam}: offense ${safe(premium.awayOffense).toFixed(2)}, defense ${safe(premium.awayTeamAllowed).toFixed(2)}, pitcher ${safe(premium.awayPitcherAllowed).toFixed(2)}, bullpen ${safe(premium.awayBullpenAllowed).toFixed(2)}</p>
+                  <p>${homeTeam}: offense ${safe(premium.homeOffense).toFixed(2)}, defense ${safe(premium.homeTeamAllowed).toFixed(2)}, pitcher ${safe(premium.homePitcherAllowed).toFixed(2)}, bullpen ${safe(premium.homeBullpenAllowed).toFixed(2)}</p>
                 </div>
                 <div>
                   <h4>⚾ Pitchers / Bullpen</h4>
@@ -2000,12 +2000,12 @@ ${premium.recommendedCards?.[1] ? `
               </div>
 
               <div class="mlb-complete-bar">
-                ANÁLISIS IA COMPLETO
+               FULL AI ANALYSIS
               </div>
             `
             : `
-              <p><strong>No hay jugada premium MLB.</strong></p>
-              <p>El modelo no encontró edge suficiente.</p>
+              <p><strong>No premium MLB play.</strong></p>
+              <p>The model didn't find enough edge.</p>
             `
       }
 
