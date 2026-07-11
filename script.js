@@ -2994,7 +2994,7 @@ if (enableBtn) {
 function startHeroTypewriter() {
   const el = document.getElementById("heroTypewriter");
   if (!el) return;
-  const text = "Es una app de picks deportivos impulsados\ por IA y análisis de expertos en deportes.";
+ const text = "AI-powered sports picks. Every prediction tracked live, every result public.";
   let i = 0;
   el.innerText = "";
   const interval = setInterval(() => {
