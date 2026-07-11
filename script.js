@@ -2318,32 +2318,37 @@ if (data.limitReached === true || data.upgradeRequired === true) {
     </button>
 
   ` : `
-  <div style="background:#0f1628;border-radius:10px;padding:14px;margin-bottom:10px;">
+ ${(() => {
+      const pe = data.paceEfficiencyAdjustment || {};
+      const aOff = Number(pe.teamAOffenseScore || 1);
+      const bOff = Number(pe.teamBOffenseScore || 1);
+      const aDef = Number(pe.teamADefenseScore || 1);
+      const bDef = Number(pe.teamBDefenseScore || 1);
+      const hasData = [aOff, bOff, aDef, bDef].some(v => v !== 1);
+      if (!hasData) return "";
+      const toPct = v => Math.max(8, Math.min(100, Math.round((v - 0.8) / 0.5 * 100)));
+      const toScore = v => Math.max(1, Math.min(99, Math.round((v - 0.8) / 0.5 * 100)));
+      const row = (label, val, color) => `
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+            <span style="font-size:10px;color:#8899bb;">${label}</span>
+            <span style="font-size:12px;font-weight:700;color:${color};">${toScore(val)}</span>
+          </div>
+          <div style="height:5px;border-radius:3px;background:#14243d;overflow:hidden;">
+            <div style="height:100%;width:${toPct(val)}%;border-radius:3px;background:linear-gradient(90deg,#00ffe7,#7c3cff);"></div>
+          </div>
+        </div>`;
+      return `
+    <div style="background:#0f1628;border-radius:10px;padding:14px;margin-bottom:10px;">
       <div style="font-size:10px;color:#7c3cff;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin-bottom:12px;">📊 Matchup breakdown</div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-        <div>
-          <div style="font-size:10px;color:#8899bb;margin-bottom:2px;">${awayTeam.split(" ").pop()} offense</div>
-          <div style="font-size:13px;font-weight:700;color:#fff;">${(Number(data.paceEfficiencyAdjustment?.teamAOffenseScore || 1) * 100).toFixed(0)}<span style="font-size:9px;color:#5a7a9a;"> /100</span></div>
-          <div class="ce-stat-bar"><div style="width:${Math.min(100, Number(data.paceEfficiencyAdjustment?.teamAOffenseScore || 1) * 100 - 20)}%;"></div></div>
-        </div>
-        <div>
-          <div style="font-size:10px;color:#8899bb;margin-bottom:2px;">${homeTeam.split(" ").pop()} offense</div>
-          <div style="font-size:13px;font-weight:700;color:#fff;">${(Number(data.paceEfficiencyAdjustment?.teamBOffenseScore || 1) * 100).toFixed(0)}<span style="font-size:9px;color:#5a7a9a;"> /100</span></div>
-          <div class="ce-stat-bar"><div style="width:${Math.min(100, Number(data.paceEfficiencyAdjustment?.teamBOffenseScore || 1) * 100 - 20)}%;"></div></div>
-        </div>
-        <div>
-          <div style="font-size:10px;color:#8899bb;margin-bottom:2px;">${awayTeam.split(" ").pop()} defense</div>
-          <div style="font-size:13px;font-weight:700;color:#fff;">${(Number(data.paceEfficiencyAdjustment?.teamADefenseScore || 1) * 100).toFixed(0)}<span style="font-size:9px;color:#5a7a9a;"> /100</span></div>
-          <div class="ce-stat-bar"><div style="width:${Math.min(100, Number(data.paceEfficiencyAdjustment?.teamADefenseScore || 1) * 100 - 20)}%;"></div></div>
-        </div>
-        <div>
-          <div style="font-size:10px;color:#8899bb;margin-bottom:2px;">${homeTeam.split(" ").pop()} defense</div>
-          <div style="font-size:13px;font-weight:700;color:#fff;">${(Number(data.paceEfficiencyAdjustment?.teamBDefenseScore || 1) * 100).toFixed(0)}<span style="font-size:9px;color:#5a7a9a;"> /100</span></div>
-          <div class="ce-stat-bar"><div style="width:${Math.min(100, Number(data.paceEfficiencyAdjustment?.teamBDefenseScore || 1) * 100 - 20)}%;"></div></div>
-        </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;">
+        ${row(`${awayTeam.split(" ").pop()} offense`, aOff, "#00ffe7")}
+        ${row(`${homeTeam.split(" ").pop()} offense`, bOff, "#00ffe7")}
+        ${row(`${awayTeam.split(" ").pop()} defense`, aDef, "#a07cff")}
+        ${row(`${homeTeam.split(" ").pop()} defense`, bDef, "#a07cff")}
       </div>
-    </div>
+    </div>`;
+    })()}
     <div style="background:#0a1628;border:1px solid rgba(0,255,231,0.15);border-left:3px solid ${circleColor};border-radius:8px;padding:12px 14px;margin-bottom:10px;">
       <div style="font-size:10px;color:${circleColor};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;font-weight:600;">⚡ Model analysis</div>
       <div style="font-size:12px;color:#aabbcc;line-height:1.6;">${analysisText}</div>
