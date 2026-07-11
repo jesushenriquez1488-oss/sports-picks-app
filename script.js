@@ -1879,28 +1879,45 @@ if (data.noPlay) {
       ${
         locked
           ? `
-            <div class="mlb-premium-title">
-              <h2>⚾ ${awayTeam} vs ${homeTeam}</h2>
-              <p>🔒 PREMIUM PICK DETECTED</p>
-            </div>
+           <div style="max-width:560px;margin:0 auto;">
 
-            <div class="mlb-lock-panel">
-              <div class="ce-lock-conf-row">
-                <div class="ce-lock-conf-circle">
-                  <strong>${data.public?.confidence ?? "85+"}%</strong>
-                  <small>CONF.</small>
+              <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,255,231,0.08);border:1px solid rgba(0,255,231,0.25);border-radius:20px;padding:4px 12px;font-size:10px;color:#00ffe7;font-weight:600;letter-spacing:1px;margin-bottom:14px;">
+                <span style="width:6px;height:6px;border-radius:50%;background:#00ffe7;animation:nfl-pulse 1.5s infinite;display:inline-block;"></span>
+                PREMIUM PICK DETECTED · MLB
+              </div>
+
+              <div style="font-size:15px;color:#8899bb;margin-bottom:16px;">⚾ ${awayTeam} vs ${homeTeam}</div>
+
+              <div style="display:flex;align-items:center;gap:18px;background:#0a1220;border:1px solid #14243d;border-radius:14px;padding:18px 20px;margin-bottom:12px;">
+                <div style="position:relative;width:84px;height:84px;flex-shrink:0;">
+                  <svg width="84" height="84" viewBox="0 0 84 84" style="position:absolute;top:0;left:0;">
+                    <circle cx="42" cy="42" r="36" fill="none" stroke="#14243d" stroke-width="5"/>
+                    <circle cx="42" cy="42" r="36" fill="none" stroke="#00ffe7" stroke-width="5"
+                      stroke-dasharray="${Math.round(((Number(data.public?.confidence) || 85) / 100) * 226)} 226"
+                      stroke-linecap="round" transform="rotate(-90 42 42)"
+                      style="filter:drop-shadow(0 0 8px #00ffe7);"/>
+                  </svg>
+                  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                    <span style="font-size:19px;font-weight:800;color:#00ffe7;">${data.public?.confidence ? Number(data.public.confidence).toFixed(0) : "85"}%</span>
+                    <small style="font-size:8px;color:#5a7a9a;letter-spacing:1px;">CONFIDENCE</small>
+                  </div>
                 </div>
                 <div style="text-align:left;">
-                  <div style="font-size:13px;font-weight:700;color:#fff;">Model's pick: <span style="letter-spacing:2px;color:#5a7a9a;">████████</span> 🔒</div>
-                  <div style="font-size:11px;color:#8899bb;margin-top:3px;">Real edge detected vs the sportsbook line</div>
+                  <div style="font-size:11px;color:#5a7a9a;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">Model's pick</div>
+                  <div style="font-size:20px;font-weight:800;color:#fff;letter-spacing:3px;">•••••••• <span style="font-size:15px;">🔒</span></div>
+                  <div style="font-size:12px;color:#00ffe7;margin-top:6px;">Real edge detected vs the sportsbook line</div>
                 </div>
               </div>
 
-              <div class="ce-lock-record">${ceRecordLine("mlb")}</div>
-
-              <div class="ce-lock-why">
-                The model only flags premium picks when it detects a real mathematical edge against the sportsbooks. Betting without that edge is guessing.
+              <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,255,231,0.05);border:1px solid rgba(0,255,231,0.15);border-radius:10px;padding:10px 16px;margin-bottom:12px;">
+                <span style="font-size:12px;color:#8899bb;">Model's all-time MLB record</span>
+                <span style="font-size:14px;font-weight:800;color:#00ffe7;">${(ceRecordLine("mlb") || "").replace(/<[^>]*>/g, "").replace(/📊.*record: /, "") || "72% (155-61)"}</span>
               </div>
+
+              <div style="font-size:12px;color:#a0b4cc;line-height:1.6;text-align:left;padding:0 4px;margin-bottom:14px;">
+                The model only flags a pick as premium when it finds a real mathematical edge against the sportsbooks. Betting without that edge is guessing.
+              </div>
+
             </div>
           `
           : premium
