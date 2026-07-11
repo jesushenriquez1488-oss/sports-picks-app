@@ -254,7 +254,7 @@ if (orbEl) {
   };
   orbEl.innerText = sportIcons[sport] || "🏀";
 }
-  document.getElementById("searchBtn").innerText = `Buscar juegos ${sportName}`;
+  document.getElementById("searchBtn").innerText = `Find ${sportName} games`;
   document.getElementById("status").innerHTML = "";
   document.getElementById("games").innerHTML = "";
 
