@@ -2842,27 +2842,51 @@ if (status) status.innerHTML = "";
     if (data.locked) {
       box.innerHTML = `
         <div class="premium-result mlb-premium-dashboard">
-          <div class="mlb-premium-badge">
-            <span>👑</span>
-            <strong>🔥 PARLAY PREMIUM DEL DÍA</strong>
-          </div>
+          <div style="max-width:560px;margin:0 auto;padding:6px 0;">
 
-          <div class="mlb-lock-panel">
-            <h3>🔒 Parlay Premium Bloqueado</h3>
-            <p>CashEdge detectó una combinación premium del día con jugadas de 85%+.</p>
-
-            <div class="mlb-factor-grid">
-              <span>✔ Picks premium del día</span>
-              <span>✔ Confianza 85%+</span>
-              <span>✔ Top 2 o 3 jugadas</span>
-              <span>✔ Selección automática IA</span>
-              <span>✔ Edge contra mercado</span>
-              <span>✔ Filtro premium estricto</span>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+              <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,255,231,0.08);border:1px solid rgba(0,255,231,0.25);border-radius:20px;padding:4px 12px;font-size:10px;color:#00ffe7;font-weight:600;letter-spacing:1px;">
+                <span style="width:6px;height:6px;border-radius:50%;background:#00ffe7;animation:nfl-pulse 1.5s infinite;display:inline-block;"></span>
+                TODAY'S AI PARLAY
+              </div>
+              <div style="font-size:10px;color:#7c3cff;font-weight:700;letter-spacing:1px;">⚡ READY NOW</div>
             </div>
 
-            <button class="unlock-btn" onclick="openPromoModal()">
-              🔓 Desbloquear Premium $${MONTHLY_PRICE}/mes
+            <div style="background:linear-gradient(135deg,rgba(0,255,231,0.06),rgba(124,60,255,0.08));border:1px solid rgba(124,60,255,0.3);border-radius:14px;padding:20px;margin-bottom:12px;">
+              <div style="font-size:11px;color:#8899bb;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Potential payout</div>
+              <div style="font-size:34px;font-weight:900;color:#fff;line-height:1;">$100 <span style="color:#5a7a9a;font-size:20px;font-weight:600;">→</span> <span style="background:linear-gradient(90deg,#00ffe7,#7c3cff);-webkit-background-clip:text;background-clip:text;color:transparent;">$500–$700</span></div>
+              <div style="font-size:11px;color:#8899bb;margin-top:8px;">Every leg flagged at <strong style="color:#00ffe7;">85%+ model confidence</strong></div>
+            </div>
+
+            <div style="background:#0a1220;border:1px solid #14243d;border-radius:14px;padding:16px 20px;margin-bottom:12px;text-align:left;">
+              <div style="display:flex;align-items:center;gap:12px;padding-bottom:12px;border-bottom:1px solid #14243d;">
+                <span style="width:28px;height:28px;border-radius:50%;background:rgba(0,255,231,0.1);border:1px solid rgba(0,255,231,0.35);color:#00ffe7;font-size:12px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">1</span>
+                <div style="flex:1;">
+                  <div style="font-size:15px;font-weight:800;color:#fff;letter-spacing:3px;">••••••••• 🔒</div>
+                  <div style="font-size:10px;color:#5a7a9a;margin-top:2px;">Leg locked — premium only</div>
+                </div>
+                <span style="font-size:13px;font-weight:800;color:#00ffe7;">85%+</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding-top:12px;">
+                <span style="width:28px;height:28px;border-radius:50%;background:rgba(124,60,255,0.12);border:1px solid rgba(124,60,255,0.4);color:#a07cff;font-size:12px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">2</span>
+                <div style="flex:1;">
+                  <div style="font-size:15px;font-weight:800;color:#fff;letter-spacing:3px;">••••••••• 🔒</div>
+                  <div style="font-size:10px;color:#5a7a9a;margin-top:2px;">Leg locked — premium only</div>
+                </div>
+                <span style="font-size:13px;font-weight:800;color:#a07cff;">85%+</span>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:8px;background:rgba(124,60,255,0.06);border-left:3px solid #7c3cff;border-radius:0 10px 10px 0;padding:10px 14px;margin-bottom:14px;text-align:left;">
+              <span style="font-size:15px;">👀</span>
+              <span style="font-size:12px;color:#c4b0ee;line-height:1.5;">Premium members are already on this parlay. It disappears when the first game starts.</span>
+            </div>
+
+            <button onclick="openPromoModal()" style="display:block;width:100%;padding:16px;border:none;border-radius:12px;background:linear-gradient(135deg,#00ffe7,#7c3cff);color:#020814;font-size:14px;font-weight:900;letter-spacing:0.5px;cursor:pointer;text-transform:uppercase;box-shadow:0 0 25px rgba(0,255,231,0.35),0 0 50px rgba(124,60,255,0.2);">
+              🔓 REVEAL TODAY'S PARLAY — $19.99/MO
             </button>
+            <div style="font-size:10px;color:#5a7a9a;margin-top:8px;">One hit covers 2+ years of premium. Cancel anytime.</div>
+
           </div>
         </div>
       `;
