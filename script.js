@@ -748,8 +748,8 @@ function getModelAnalysis(verdict) {
 
 async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, index) {
   const resultDiv = document.getElementById(`result${index}`);
-  if (!startAnalysisLock(index, "Analizando...")) return;
-  resultDiv.innerHTML = `<div class="loading-analysis">Analizando NBA...</div>`;
+  if (!startAnalysisLock(index, "Analyzing...")) return;
+  resultDiv.innerHTML = `<div class="loading-analysis">Analyzing NBA...</div>`;
 
   try {
     const { data: sessionData } = await supabaseClient.auth.getSession();
@@ -969,7 +969,7 @@ endAnalysisLock(index);
 }
 function analyzeOtherLeague(awayTeam, homeTeam, awaySpread, homeSpread, total, index) {
   const resultDiv = document.getElementById(`result${index}`);
-  resultDiv.innerHTML = `<div class="loading-analysis">Analizando ${selectedSportName}...</div>`;
+  resultDiv.innerHTML = `<div class="loading-analysis">Analyzing ${selectedSportName}...</div>`;
 
   setTimeout(() => {
     const leagueProfile = getLeagueProfile(selectedSport);
@@ -2407,7 +2407,7 @@ async function toggleNFLPlayerProps(index, awayTeam, homeTeam) {
     return;
   }
  
-  box.innerHTML = `<div class="loading-analysis" style="margin-top:8px;">Buscando player props NFL...</div>`;
+  box.innerHTML = `<div class="loading-analysis" style="margin-top:8px;">Loading NFL player props...</div>`;
  
   try {
     const res = await fetch(
@@ -3174,7 +3174,7 @@ async function toggleNBAPlayerProps(index, awayTeam, homeTeam, btn) {
     return;
   }
 
-  box.innerHTML = `<div class="loading-analysis" style="margin-top:8px;">Buscando player props...</div>`;
+  box.innerHTML = `<div class="loading-analysis" style="margin-top:8px;">Loading player props...</div>`;
 
   try {
     // Buscar el eventId del juego
