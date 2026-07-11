@@ -2332,31 +2332,57 @@ if (data.limitReached === true || data.upgradeRequired === true) {
 ` : `
  
 <div style="background:#0a0f1e;border:1px solid #1a2240;border-radius:12px;padding:14px;">
- 
-  <div style="font-size:11px;color:#556688;margin-bottom:6px;">🏈 ${type.toUpperCase()} · ${awayTeam} vs ${homeTeam}</div>
- 
-  <div style="background:#0f1628;border-radius:8px;padding:12px 14px;margin-bottom:10px;">
-    <div style="font-size:14px;font-weight:500;color:#8899bb;margin-bottom:4px;">Sin jugada premium detectada</div>
-    <div style="font-size:11px;color:#556688;">El modelo no encontró edge suficiente para clasificar este juego como premium.</div>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+    <div style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,255,231,0.06);border:1px solid rgba(0,255,231,0.15);border-radius:20px;padding:3px 10px;font-size:10px;color:#00ffe7;font-weight:600;">
+      📊 AI ANALYSIS · ${type.toUpperCase()}
+    </div>
+    <div style="position:relative;width:58px;height:58px;flex-shrink:0;">
+      <svg width="58" height="58" viewBox="0 0 58 58" style="position:absolute;top:0;left:0;">
+        <circle cx="29" cy="29" r="24" fill="none" stroke="#1a2240" stroke-width="4"/>
+        <circle cx="29" cy="29" r="24" fill="none" stroke="#00ffe7" stroke-width="4"
+          stroke-dasharray="${Math.round(((confidence || 50) / 100) * 151)} 151" stroke-linecap="round"
+          transform="rotate(-90 29 29)" style="filter:drop-shadow(0 0 5px #00ffe7);"/>
+      </svg>
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+        <span style="font-size:12px;font-weight:700;color:#00ffe7;">${confidence ? confidence.toFixed(0) : "--"}%</span>
+        <small style="font-size:7px;color:#5a7a9a;">PROB.</small>
+      </div>
+    </div>
   </div>
- 
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;">
-    <div style="background:#0f1628;border-radius:6px;padding:8px 6px;text-align:center;">
-      <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">Proyec. ${awayTeam.split(" ").pop()}</div>
+
+  <div style="font-size:12px;color:#8899bb;margin-bottom:4px;">${awayTeam} vs ${homeTeam}</div>
+  <div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:2px;">${bestPick?.pick || "No strong edge found"}</div>
+  <div style="font-size:11px;color:#556688;margin-bottom:12px;">${bestPick ? `${realType === "total" ? "Total" : "Spread"} · Edge ${Number(bestPick?.edge || 0).toFixed(1)} — below the premium threshold` : "The model didn't find enough edge to flag this game."}</div>
+
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;">
+    <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
+      <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">${awayTeam.split(" ").pop()}</div>
       <div style="font-size:14px;font-weight:700;color:#fff;">${projAway.toFixed(1)}</div>
     </div>
-    <div style="background:#0f1628;border-radius:6px;padding:8px 6px;text-align:center;">
-      <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">Proyec. ${homeTeam.split(" ").pop()}</div>
+    <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
+      <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">${homeTeam.split(" ").pop()}</div>
       <div style="font-size:14px;font-weight:700;color:#fff;">${projHome.toFixed(1)}</div>
     </div>
-    <div style="background:#0f1628;border-radius:6px;padding:8px 6px;text-align:center;">
-      <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">Total Mod.</div>
+    <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
+      <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">TOTAL MOD.</div>
       <div style="font-size:14px;font-weight:700;color:#fff;">${projectedTotal.toFixed(1)}</div>
     </div>
+    <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
+      <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">PACE ADJ.</div>
+      <div style="font-size:14px;font-weight:700;color:#fff;">${Number(data.paceEfficiencyAdjustment?.adjustment || 0) > 0 ? "+" : ""}${Number(data.paceEfficiencyAdjustment?.adjustment || 0).toFixed(1)}</div>
+    </div>
   </div>
- 
+
+  ${analysisText ? `
+  <div style="background:#0a1628;border:1px solid rgba(0,255,231,0.12);border-left:3px solid #00ffe7;border-radius:8px;padding:12px 14px;margin-bottom:10px;">
+    <div style="font-size:10px;color:#00ffe7;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;font-weight:600;">⚡ Model analysis</div>
+    <div style="font-size:12px;color:#aabbcc;line-height:1.6;">${analysisText}</div>
+  </div>
+  ` : ""}
+
   ${propsButtonHTML}
- 
+
 </div>
  
 `;
