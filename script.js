@@ -2244,8 +2244,6 @@ if (data.limitReached === true || data.upgradeRequired === true) {
     const bestPickFixed = bestPick ? { ...bestPick, type: realType, isOver, isUnder } : null;
     const analysisText = bestPickFixed ? generateNFLAnalysisText(data, awayTeam, homeTeam, bestPickFixed) : "";
  
-    const confidence = locked ? 85 : Number(bestPick?.confidence || 0);
-    const circleDash = Math.round((confidence / 100) * 163);
     const circleColor = isPremium ? "#7c3cff" : "#00ffe7";
  
     const awayEsc = awayTeam.replace(/'/g, "\\'");
