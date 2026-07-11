@@ -2298,20 +2298,20 @@ if (data.limitReached === true || data.upgradeRequired === true) {
 </div>
  
   ${locked ? `
-    <div style="background:#0f1628;border:1px solid rgba(124,60,255,0.2);border-radius:8px;padding:14px;margin-bottom:10px;">
-      <div style="font-size:12px;font-weight:600;color:#7c3cff;margin-bottom:8px;">🔒 PICK PREMIUM BLOQUEADO</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;color:#556688;">
-        <span>✔ Últimos juegos</span>
-        <span>✔ Matchup ofensivo</span>
-        <span>✔ Matchup defensivo</span>
-        <span>✔ Spread del mercado</span>
-        <span>✔ Edge estadístico</span>
-        <span>✔ Proyección IA</span>
-      </div>
+    ${locked ? `
+    <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,255,231,0.05);border:1px solid rgba(0,255,231,0.15);border-radius:10px;padding:10px 16px;margin-bottom:12px;">
+      <span style="font-size:12px;color:#8899bb;">Model's all-time ${type.toUpperCase()} record</span>
+      <span style="font-size:14px;font-weight:800;color:#00ffe7;">${ceRecordPlain(type)}</span>
     </div>
-    <button class="unlock-btn" onclick="openPromoModal()">
-      🔓 Desbloquear Premium — $${MONTHLY_PRICE}/mes
+
+    <div style="font-size:12px;color:#a0b4cc;line-height:1.6;text-align:left;padding:0 4px;margin-bottom:14px;">
+      The model only flags a pick as premium when it finds a real mathematical edge against the sportsbooks. Betting without that edge is guessing.
+    </div>
+
+    <button onclick="openPromoModal()" style="display:block;width:100%;padding:15px;border:none;border-radius:12px;background:linear-gradient(135deg,#00ffe7,#7c3cff);color:#020814;font-size:14px;font-weight:800;letter-spacing:0.5px;cursor:pointer;text-transform:uppercase;box-shadow:0 0 20px rgba(0,255,231,0.3);">
+      🔓 UNLOCK PREMIUM PICK — $19.99/MO
     </button>
+  ` : `
   ` : `
     <div style="background:#0a1628;border:1px solid rgba(0,255,231,0.15);border-left:3px solid ${circleColor};border-radius:8px;padding:12px 14px;margin-bottom:10px;">
       <div style="font-size:10px;color:${circleColor};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;font-weight:600;">⚡ Análisis del modelo</div>
