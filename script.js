@@ -2219,16 +2219,23 @@ if (data.limitReached === true || data.upgradeRequired === true) {
     const spreadPick = picks.spreadPick || null;
     const totalPick = picks.totalPick || null;
  
-    const validPicks = [spreadPick, totalPick].filter(Boolean);
-    const bestPick = validPicks.length
-      ? validPicks.sort((a, b) => {
-          if (b.confidence !== a.confidence) return b.confidence - a.confidence;
-          return b.edge - a.edge;
-        })[0]
-      : null;
- 
+    // Si hay algún pick premium bloqueado, ese manda — mostrar card locked
+    const lockedPremiumPick = [spreadPick, totalPick].find(p => p?.locked === true) || null;
+
+    const validPicks = [spreadPick, totalPick]
+      .filter(p => p && !p.locked)
+      .sort((a, b) => {
+        if (Number(b.confidence || 0) !== Number(a.confidence || 0)) return Number(b.confidence || 0) - Number(a.confidence || 0);
+        return Number(b.edge || 0) - Number(a.edge || 0);
+      });
+
+    const bestPick = lockedPremiumPick || validPicks[0] || null;
+
     const isPremium = bestPick?.isPremium === true;
-    const locked = isPremium && !IS_ADMIN && !isPremiumUser;
+    const locked = lockedPremiumPick !== null;
+
+    const confidence = locked ? 75 : Number(bestPick?.confidence || 0);
+    const circleDash = Math.round((confidence / 100) * 163);
  
     const pickText = String(bestPick?.pick || "").toUpperCase();
     const realType = pickText.includes("OVER") || pickText.includes("UNDER") ? "total" : "spread";
@@ -2277,7 +2284,7 @@ if (data.limitReached === true || data.upgradeRequired === true) {
           style="filter:drop-shadow(0 0 6px ${circleColor});"/>
       </svg>
       <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-        <span style="font-size:15px;font-weight:700;color:${circleColor};">${confidence.toFixed(1)}%</span>
+       <span style="font-size:${locked ? "13px" : "15px"};font-weight:700;color:${circleColor};">${locked ? "75%+" : confidence.toFixed(1) + "%"}</span>
         <small style="font-size:8px;color:${circleColor};opacity:0.7;">PROB.</small>
       </div>
     </div>
