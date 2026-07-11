@@ -2875,6 +2875,14 @@ if (status) status.innerHTML = "";
                 </div>
                 <span style="font-size:13px;font-weight:800;color:#a07cff;">85%+</span>
               </div>
+              <div style="display:flex;align-items:center;gap:12px;padding-top:12px;border-top:1px solid #14243d;margin-top:12px;">
+                <span style="width:28px;height:28px;border-radius:50%;background:rgba(0,255,231,0.1);border:1px solid rgba(0,255,231,0.35);color:#00ffe7;font-size:12px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">3</span>
+                <div style="flex:1;">
+                  <div style="font-size:15px;font-weight:800;color:#fff;letter-spacing:3px;">••••••••• 🔒</div>
+                  <div style="font-size:10px;color:#5a7a9a;margin-top:2px;">Leg locked — premium only</div>
+                </div>
+                <span style="font-size:13px;font-weight:800;color:#00ffe7;">85%+</span>
+              </div>
             </div>
 
             <div style="display:flex;align-items:center;gap:8px;background:rgba(124,60,255,0.06);border-left:3px solid #7c3cff;border-radius:0 10px 10px 0;padding:10px 14px;margin-bottom:14px;text-align:left;">
