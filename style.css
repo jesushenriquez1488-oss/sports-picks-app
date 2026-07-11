@@ -2929,7 +2929,7 @@ body.logged-in #ceLanding {
   border: none;
   border-radius: 12px;
   background: linear-gradient(135deg, #00ffe7 0%, #7c3cff 100%);
-  color: #020814;
+ color: #020814 !important;
   font-weight: 800;
   font-size: 14px;
   letter-spacing: 0.5px;
