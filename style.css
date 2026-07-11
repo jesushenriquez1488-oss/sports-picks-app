@@ -3049,25 +3049,39 @@ body.logged-in #ceLanding {
 /* Premium card frame animado */
 .ce-nfl-premium {
   position: relative;
-  background: #0a0f1e;
+  background: linear-gradient(180deg, #0d1326 0%, #0a0f1e 100%);
   border-radius: 14px;
   padding: 16px;
-  border: 1.5px solid transparent;
-  background-clip: padding-box;
+  border: 1px solid rgba(124, 60, 255, 0.35);
+  animation: ceGlowPulse 3s ease-in-out infinite;
+  overflow: hidden;
 }
-.ce-nfl-premium::before {
+@keyframes ceGlowPulse {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(0, 255, 231, 0.12), 0 0 30px rgba(124, 60, 255, 0.10);
+    border-color: rgba(0, 255, 231, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(0, 255, 231, 0.28), 0 0 55px rgba(124, 60, 255, 0.22);
+    border-color: rgba(124, 60, 255, 0.55);
+  }
+}
+/* Línea de escaneo que cruza el card */
+.ce-nfl-premium::after {
   content: "";
   position: absolute;
-  inset: -1.5px;
-  z-index: -1;
-  border-radius: 15px;
-  background: linear-gradient(120deg, #00ffe7, #7c3cff, #020814, #00ffe7);
-  background-size: 300% 300%;
-  animation: ceBorderFlow 5s linear infinite;
+  top: 0;
+  left: -60%;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(0, 255, 231, 0.05), transparent);
+  transform: skewX(-15deg);
+  animation: ceScanSweep 4.5s ease-in-out infinite;
+  pointer-events: none;
 }
-@keyframes ceBorderFlow {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 300% 50%; }
+@keyframes ceScanSweep {
+  0% { left: -60%; }
+  60%, 100% { left: 130%; }
 }
 .ce-premium-tag {
   display: inline-flex;
