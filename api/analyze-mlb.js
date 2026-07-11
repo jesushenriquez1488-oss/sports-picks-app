@@ -2585,10 +2585,11 @@ function getBullpenFatigueFactor(bullpen) {
   isPremiumPick: recommendedCards.length > 0,
   noPlay: recommendedCards.length === 0,
   public: {
-    awayTeam,
-    homeTeam,
-    totalLine
-  },
+        awayTeam,
+        homeTeam,
+        totalLine,
+        confidence: recommendedCards[0]?.percentage || null
+      },
   premium: {
     recommendedCards,
 
