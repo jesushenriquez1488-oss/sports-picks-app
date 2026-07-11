@@ -2444,7 +2444,17 @@ async function toggleNFLPlayerProps(index, awayTeam, homeTeam) {
 }
  
 window.toggleNFLPlayerProps = toggleNFLPlayerProps;
- 
+ window.ceSportRecords = {};
+
+function ceRecordLine(sportKey) {
+  const r = window.ceSportRecords[sportKey];
+  if (!r) return "";
+  const w = Number(r.total_wins || 0);
+  const l = Number(r.total_losses || 0);
+  if (w + l === 0) return "";
+  const pct = ((w / (w + l)) * 100).toFixed(0);
+  return `📊 Model's all-time ${r.display_name} record: <strong>${pct}%</strong> (${w}-${l})`;
+}
 async function loadStats() {
   try {
     const res = await fetch("/api/analyze-nba?mode=performance");
@@ -2453,7 +2463,9 @@ async function loadStats() {
     if (!res.ok) {
       throw new Error(data.error || "Error cargando performance");
     }
-
+if (data.sports) {
+      data.sports.forEach(r => { window.ceSportRecords[r.sport] = r; });
+    }
     const premiumRate = document.getElementById("premiumRate");
     const normalRate = document.getElementById("normalRate");
 
