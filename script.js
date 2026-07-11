@@ -1594,7 +1594,12 @@ async function registerUser(email, password) {
     showAuthMessage("Esta cuenta ya existe. Revisa tu correo o inicia sesión.", "error");
     return;
   }
-
+// Registrar creación exitosa de cuenta en Google Analytics
+if (typeof window.gtag === "function") {
+  window.gtag("event", "sign_up", {
+    method: "email",
+  });
+}
   showAuthMessage("✅ Cuenta creada. Revisa tu correo " + email + " para verificar tu cuenta antes de iniciar sesión.", "success");
   showLogin();
   document.getElementById("loginEmail").value = email;
