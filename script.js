@@ -946,7 +946,7 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
 endAnalysisLock(index);
  } catch (error) {
     if (error.message && (error.message.includes("free analyses") || error.message.includes("every 3 hours") || error.message.includes("unlock 5"))) {
-      resultDiv.innerHTML = ceLimitScreenHTML();
+   resultDiv.innerHTML = ceLimitScreenHTML(league);
     } else {
       resultDiv.innerHTML = `
         <div class="normal-result">
@@ -2039,7 +2039,7 @@ ${premium.recommendedCards?.[1] ? `
     endAnalysisLock(index);
    } catch (error) {
     if (error.message && (error.message.includes("free analyses") || error.message.includes("every 3 hours") || error.message.includes("unlock 5"))) {
-    resultDiv.innerHTML = ceLimitScreenHTML();
+    resultDiv.innerHTML = ceLimitScreenHTML("mlb");
     } else {
       resultDiv.innerHTML = `
         <div class="normal-result">
@@ -2424,7 +2424,7 @@ if (data.limitReached === true || data.upgradeRequired === true) {
  
 } catch (err) {
     if (err.message && err.message.includes("free analyses")) {
-     resultDiv.innerHTML = ceLimitScreenHTML();
+     resultDiv.innerHTML = ceLimitScreenHTML(type);
     } else {
       resultDiv.innerHTML = `
         <div class="normal-result">
@@ -2543,14 +2543,14 @@ function ceRecordLine(sportKey) {
   const pct = ((w / (w + l)) * 100).toFixed(0);
   return `${pct}% (${w}-${l})`;
 }
-function ceLimitScreenHTML() {
-  const best = Object.values(window.ceSportRecords || {})
-    .map(r => {
-      const w = Number(r.total_wins || 0), l = Number(r.total_losses || 0);
-      return w + l >= 20 ? { name: r.display_name, pct: (w / (w + l)) * 100, w, l } : null;
-    })
-    .filter(Boolean)
-    .sort((a, b) => b.pct - a.pct)[0] || null;
+function ceLimitScreenHTML(sportKey) {
+  const records = window.ceSportRecords || {};
+  const toRec = r => {
+    if (!r) return null;
+    const w = Number(r.total_wins || 0), l = Number(r.total_losses || 0);
+    return w + l >= 20 ? { name: r.display_name, pct: (w / (w + l)) * 100, w, l } : null;
+  };
+  const best = toRec(records[sportKey]) || Object.values(records).map(toRec).filter(Boolean).sort((a, b) => b.pct - a.pct)[0] || null;
 
   return `
     <div class="normal-result" style="border:1px solid rgba(0,255,231,0.25);border-radius:14px;overflow:hidden;">
