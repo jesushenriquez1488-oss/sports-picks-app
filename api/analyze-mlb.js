@@ -2520,9 +2520,26 @@ function getCandidateRankingEdge(card) {
 const recommendedCards = premiumCandidates.slice(0, 1);
     const locked = recommendedCards.length > 0 && !isPremiumUser;
  // Mejor candidato no-premium para mostrar como jugada destacada free
+// Solo candidatos direccionales válidos (edge real positivo), rankeados por edge
+function freeLeanEdge(c) {
+  if (!c) return -999;
+  if (c.type === "OVER" || c.type === "UNDER") {
+    // buildTotalCandidate ya elige la dirección correcta; usar el edge real
+    const diffOk = (c.type === "OVER") === (Number(c.projectedTotal) > Number(totalLine));
+    return diffOk ? Math.abs(Number(c.totalEdge || 0)) : -999;
+  }
+  if (c.type === "RUNLINE") {
+    return Number(c.protectedEdge || 0) > 0 ? Number(c.protectedEdge) : -999;
+  }
+  if (c.type === "ML") {
+    return Number(c.projectedMargin || 0) > 0 ? Number(c.projectedMargin) : -999;
+  }
+  return -999;
+}
+
 const bestFreeCandidate = candidates
-  .filter(c => !c.isPremium)
-  .sort((a, b) => getCandidateRankingEdge(b) - getCandidateRankingEdge(a))[0] || null;
+  .filter(c => !c.isPremium && freeLeanEdge(c) > 0)
+  .sort((a, b) => freeLeanEdge(b) - freeLeanEdge(a))[0] || null;
 function edgeToPercent(edge, type = "ml") {
   const e = Math.abs(Number(edge));
 
