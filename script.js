@@ -2031,11 +2031,7 @@ ${premium.recommendedCards?.[1] ? `
               </div>
             `
             : `
-              <div style="background:#0f1628;border-radius:10px;padding:14px 16px;margin-bottom:12px;text-align:left;">
-                <div style="font-size:10px;color:#00ffe7;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin-bottom:6px;">📊 Model's lean</div>
-                <div style="font-size:19px;font-weight:800;color:#fff;margin-bottom:4px;">${data.public?.freePick?.play || "No clear lean"}</div>
-                <div style="font-size:11px;color:#556688;line-height:1.5;">The model leans this way, but the edge isn't strong enough to qualify as a premium pick.</div>
-              </div>
+              <p><strong>MLB analysis not available.</strong></p>
             `
       }
 
