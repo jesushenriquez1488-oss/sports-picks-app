@@ -1962,12 +1962,27 @@ ${premium.recommendedCards?.[1] ? `
 </div>
 ` : ``}
 
-            <div class="mlb-projection-box">
-                  <p><strong>Expected runs ${awayTeam}:</strong> ${safe(premium.expectedRunsA).toFixed(2)}</p>
-                  <p><strong>Expected runs ${homeTeam}:</strong> ${safe(premium.expectedRunsB).toFixed(2)}</p>
-                  <p><strong>Projected total:</strong> ${safe(premium.projectedTotal).toFixed(2)}</p>
-                  <p><strong>Total line:</strong> ${safe(premium.totalLine, totalLine)}</p>
-                  <p><strong>Diff vs line:</strong> ${safe(premium.totalDiff).toFixed(2)} runs</p>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px;">
+                  <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
+                    <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">${awayTeam.split(" ").pop()} RUNS</div>
+                    <div style="font-size:14px;font-weight:700;color:#fff;">${safe(premium.expectedRunsA).toFixed(1)}</div>
+                  </div>
+                  <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
+                    <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">${homeTeam.split(" ").pop()} RUNS</div>
+                    <div style="font-size:14px;font-weight:700;color:#fff;">${safe(premium.expectedRunsB).toFixed(1)}</div>
+                  </div>
+                  <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
+                    <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">PROJ. TOTAL</div>
+                    <div style="font-size:14px;font-weight:700;color:#fff;">${safe(premium.projectedTotal).toFixed(1)}</div>
+                  </div>
+                  <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
+                    <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">LINE</div>
+                    <div style="font-size:14px;font-weight:700;color:#fff;">${safe(premium.totalLine, totalLine)}</div>
+                  </div>
+                  <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
+                    <div style="font-size:8px;color:${safe(premium.totalDiff) >= 0 ? "#ff8c1a" : "#4da3ff"};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.9;">DIFF</div>
+                    <div style="font-size:14px;font-weight:700;color:${safe(premium.totalDiff) >= 0 ? "#ff8c1a" : "#4da3ff"};">${safe(premium.totalDiff) >= 0 ? "+" : ""}${safe(premium.totalDiff).toFixed(1)}</div>
+                  </div>
                 </div>
 
               </div>
@@ -1980,16 +1995,15 @@ ${premium.recommendedCards?.[1] ? `
               </div>
 
               <div class="mlb-info-grid">
-                <div>
-                  <h4>🏟️ Ballpark / Park Factor</h4>
-                  <p>${premium.venue?.name || "N/A"} — factor ${safe(premium.venue?.parkFactor).toFixed(2)} — roof: ${premium.venue?.roof || "N/A"}</p>
+              ${isPremiumMLB ? `
+              <div class="ce-nfl-premium" style="margin-bottom:10px;text-align:left;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                  <span style="font-size:10px;color:#ff8c1a;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;">🎯 GAME HIGHLIGHT</span>
+                  <span style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(124,60,255,0.15);border:1px solid rgba(124,60,255,0.4);color:#a07cff;font-weight:700;">PREMIUM ONLY</span>
                 </div>
-                <div>
-                  <h4>🌦️ Weather</h4>
-                  <p>Wind: ${premium.weather?.raw || "No disponible"}</p>
-                  <p>Direction: ${premium.weather?.direction || "neutral"} | Speed: ${safe(premium.weather?.speed)} mph | Temp: ${premium.weather?.temp || "N/D"}</p>
-                  <p>Weather impact applied: ${safe(premium.weatherFactor, 1).toFixed(3)}</p>
-                </div>
+                <div style="font-size:12px;color:#d0dcec;line-height:1.65;">${generateMLBHighlight(premium, awayTeam, homeTeam)}</div>
+              </div>
+              ` : ""}
                 <div>
                   <h4>📊 Data used</h4>
                   <p>${awayTeam}: offense ${safe(premium.awayOffense).toFixed(2)}, defense ${safe(premium.awayTeamAllowed).toFixed(2)}, pitcher ${safe(premium.awayPitcherAllowed).toFixed(2)}, bullpen ${safe(premium.awayBullpenAllowed).toFixed(2)}</p>
@@ -2009,8 +2023,11 @@ ${premium.recommendedCards?.[1] ? `
               </div>
             `
             : `
-              <p><strong>No premium MLB play.</strong></p>
-              <p>The model didn't find enough edge.</p>
+              <div style="background:#0f1628;border-radius:10px;padding:14px 16px;margin-bottom:12px;text-align:left;">
+                <div style="font-size:10px;color:#00ffe7;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin-bottom:6px;">📊 Model's lean</div>
+                <div style="font-size:19px;font-weight:800;color:#fff;margin-bottom:4px;">${data.public?.freePick?.play || "No clear lean"}</div>
+                <div style="font-size:11px;color:#556688;line-height:1.5;">The model leans this way, but the edge isn't strong enough to qualify as a premium pick.</div>
+              </div>
             `
       }
 
