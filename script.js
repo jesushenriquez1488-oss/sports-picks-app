@@ -1944,14 +1944,16 @@ if (data.noPlay) {
               <div class="mlb-top-grid">
                 <div class="mlb-main-pick-box">
 ${premium.recommendedCards?.[0] ? `
-  <span style="font-size:10px;color:#ff8c1a;letter-spacing:0.1em;text-transform:uppercase;font-weight:700;">🔥 ${premium.recommendedCards[0].title}</span>
-  <strong style="display:block;font-size:30px;font-weight:900;margin:4px 0;background:linear-gradient(90deg,#00ffe7,#7c3cff);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:0.5px;">${premium.recommendedCards[0].play}</strong>
-  <h3 style="margin:2px 0 0;">${safe(premium.recommendedCards[0].percentage).toFixed(1)}%</h3>
-  <small>SUCCESS PROBABILITY</small>
+ <span style="font-size:10px;color:#ff8c1a;letter-spacing:0.1em;text-transform:uppercase;font-weight:700;">🔥 ${premium.recommendedCards[0].title}</span>
+  <strong style="display:block;font-size:24px;font-weight:900;margin:4px 0;color:#fff;letter-spacing:0.5px;">${premium.recommendedCards[0].play}</strong>
+  <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+    <span style="font-size:10px;padding:3px 10px;border-radius:6px;background:rgba(255,140,26,0.12);border:1px solid rgba(255,140,26,0.4);color:#ff8c1a;font-weight:800;">${safe(premium.recommendedCards[0].percentage).toFixed(1)}% PROB</span>
+    <span style="font-size:10px;padding:3px 10px;border-radius:6px;background:rgba(0,255,231,0.08);border:1px solid rgba(0,255,231,0.25);color:#00ffe7;font-weight:700;">AI QUALIFIED</span>
+  </div>
 ` : `
   <div style="text-align:left;">
     <div style="font-size:10px;color:#00ffe7;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin-bottom:6px;">📊 Model's lean</div>
-    <div style="font-size:24px;font-weight:900;margin-bottom:4px;background:linear-gradient(90deg,#8899bb,#c0d0e8);-webkit-background-clip:text;background-clip:text;color:transparent;">${data.public?.freePick?.play || "No clear lean"}</div>
+   <div style="font-size:18px;font-weight:800;color:#fff;margin-bottom:4px;">${data.public?.freePick?.play || "No clear lean"}</div>
     <div style="font-size:11px;color:#556688;line-height:1.5;">Not strong enough to qualify as premium.</div>
   </div>
 `}
