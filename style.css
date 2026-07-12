@@ -3119,11 +3119,10 @@ body.logged-in #ceLanding {
   0%, 100% { transform: scale(1); filter: drop-shadow(0 0 6px rgba(255,140,26,0.5)); }
   50% { transform: scale(1.06); filter: drop-shadow(0 0 16px rgba(255,140,26,0.95)); }
 }
-.mlb-main-pick-box {
+
+.mlb-main-pick-box.ce-premium-glow {
   background: linear-gradient(135deg, rgba(255,140,26,0.06), rgba(124,60,255,0.06)) !important;
   border: 1px solid rgba(255,140,26,0.35) !important;
-  border-radius: 12px !important;
-  padding: 16px 20px !important;
   box-shadow: 0 0 18px rgba(255,140,26,0.12) !important;
   animation: ceGlowPulseOrange 3s ease-in-out infinite;
 }
