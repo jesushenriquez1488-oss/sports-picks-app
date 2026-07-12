@@ -2388,8 +2388,8 @@ if (isPositiveRunline) {
 
       const title =
         marketType === "ML"
-          ? "Jugada Premium ML"
-          : "Jugada Premium Runline";
+          ? "Premium ML Play"
+          : "Premium Runline Play";
 
       const premiumRule =
   marketType === "ML"
