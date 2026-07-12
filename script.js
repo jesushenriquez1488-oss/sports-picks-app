@@ -2553,6 +2553,64 @@ function ceRecordLine(sportKey) {
   const pct = ((w / (w + l)) * 100).toFixed(0);
   return `${pct}% (${w}-${l})`;
 }
+function ceWindIcon(direction, speed) {
+  const s = Number(speed || 0);
+  if (direction === "out") return `<span style="color:#ff8c1a;">↗ OUT ${s} mph</span>`;
+  if (direction === "in") return `<span style="color:#4da3ff;">↙ IN ${s} mph</span>`;
+  if (direction === "cross") return `<span style="color:#a0b4cc;">⇄ CROSS ${s} mph</span>`;
+  return `<span style="color:#a0b4cc;">〰 ${s} mph</span>`;
+}
+
+function ceTempIcon(temp) {
+  const t = Number(temp);
+  if (!Number.isFinite(t)) return "";
+  if (t >= 90) return `🌡️🔥 ${t}°F`;
+  if (t >= 78) return `🌡️ ${t}°F <span style="color:#ff8c1a;">warm</span>`;
+  if (t <= 50) return `🌡️❄️ ${t}°F`;
+  return `🌡️ ${t}°F`;
+}
+
+function ceParkIcon(factor) {
+  const f = Number(factor || 1);
+  if (f >= 1.05) return `<span style="color:#ff8c1a;">🏟️ Hitter's park (${f.toFixed(2)})</span>`;
+  if (f <= 0.95) return `<span style="color:#4da3ff;">🏟️ Pitcher's park (${f.toFixed(2)})</span>`;
+  return `🏟️ Neutral park (${f.toFixed(2)})`;
+}
+
+function generateMLBHighlight(premium, awayTeam, homeTeam) {
+  if (!premium) return "";
+  const parts = [];
+  const runsA = Number(premium.expectedRunsA || 0);
+  const runsB = Number(premium.expectedRunsB || 0);
+  const diff = Number(premium.totalDiff || 0);
+  const wf = Number(premium.weatherFactor || 1);
+  const pf = Number(premium.venue?.parkFactor || 1);
+  const awayFatigue = Number(premium.awayBullpenFatigue || 0);
+  const homeFatigue = Number(premium.homeBullpenFatigue || 0);
+
+  if (Math.abs(diff) >= 2.5) {
+    parts.push(`The model projects <strong>${Number(premium.projectedTotal).toFixed(1)} runs</strong> vs a line of ${premium.totalLine} — a ${Math.abs(diff).toFixed(1)}-run gap the market hasn't priced in.`);
+  } else if (Math.abs(diff) >= 1.2) {
+    parts.push(`Projection of ${Number(premium.projectedTotal).toFixed(1)} runs sits ${Math.abs(diff).toFixed(1)} ${diff > 0 ? "above" : "below"} the market line.`);
+  }
+
+  if (runsA > runsB * 1.4) parts.push(`${awayTeam}'s offense profiles significantly stronger in this matchup (${runsA.toFixed(1)} vs ${runsB.toFixed(1)} expected runs).`);
+  else if (runsB > runsA * 1.4) parts.push(`${homeTeam}'s offense profiles significantly stronger in this matchup (${runsB.toFixed(1)} vs ${runsA.toFixed(1)} expected runs).`);
+
+  const starterInnA = Number(premium.awayPitcherInnings || 0);
+  const starterInnB = Number(premium.homePitcherInnings || 0);
+  if (starterInnA > 0 && starterInnA < 4) parts.push(`${premium.awayPitcherName || awayTeam + "'s starter"} averages only ${starterInnA.toFixed(1)} innings — early bullpen exposure expected.`);
+  if (starterInnB > 0 && starterInnB < 4) parts.push(`${premium.homePitcherName || homeTeam + "'s starter"} averages only ${starterInnB.toFixed(1)} innings — early bullpen exposure expected.`);
+
+  if (awayFatigue >= 16) parts.push(`${awayTeam}'s bullpen is heavily fatigued (${awayFatigue.toFixed(1)}) — late-inning runs likely.`);
+  if (homeFatigue >= 16) parts.push(`${homeTeam}'s bullpen is heavily fatigued (${homeFatigue.toFixed(1)}) — late-inning runs likely.`);
+
+  if (wf >= 1.08) parts.push(`Weather conditions boost scoring (+${((wf - 1) * 100).toFixed(0)}% run environment).`);
+  else if (wf <= 0.92) parts.push(`Weather suppresses scoring (${((wf - 1) * 100).toFixed(0)}% run environment).`);
+  if (pf >= 1.05) parts.push(`Hitter-friendly ballpark amplifies the edge.`);
+
+  return parts.slice(0, 4).join(" ");
+}
 async function loadStats() {
   try {
     const res = await fetch("/api/analyze-nba?mode=performance");
