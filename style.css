@@ -3119,3 +3119,15 @@ body.logged-in #ceLanding {
   0%, 100% { transform: scale(1); filter: drop-shadow(0 0 6px rgba(255,140,26,0.5)); }
   50% { transform: scale(1.06); filter: drop-shadow(0 0 16px rgba(255,140,26,0.95)); }
 }
+.mlb-main-pick-box {
+  background: linear-gradient(135deg, rgba(255,140,26,0.06), rgba(124,60,255,0.06)) !important;
+  border: 1px solid rgba(255,140,26,0.35) !important;
+  border-radius: 12px !important;
+  padding: 16px 20px !important;
+  box-shadow: 0 0 18px rgba(255,140,26,0.12) !important;
+  animation: ceGlowPulseOrange 3s ease-in-out infinite;
+}
+@keyframes ceGlowPulseOrange {
+  0%, 100% { box-shadow: 0 0 12px rgba(255,140,26,0.10); border-color: rgba(255,140,26,0.3); }
+  50% { box-shadow: 0 0 24px rgba(255,140,26,0.28); border-color: rgba(255,140,26,0.6); }
+}
