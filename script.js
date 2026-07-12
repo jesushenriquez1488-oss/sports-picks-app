@@ -1947,9 +1947,13 @@ ${premium.recommendedCards?.[0] ? `
   <span>${premium.recommendedCards[0].title}</span>
   <strong>${premium.recommendedCards[0].play}</strong>
   <h3>${safe(premium.recommendedCards[0].percentage).toFixed(1)}%</h3>
-  <small>PROBABILIDAD DE ÉXITO</small>
+  <small>SUCCESS PROBABILITY</small>
 ` : `
-  <span>No play premium</span>
+  <div style="text-align:left;">
+    <div style="font-size:10px;color:#00ffe7;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin-bottom:6px;">📊 Model's lean</div>
+    <div style="font-size:19px;font-weight:800;color:#fff;margin-bottom:4px;">${data.public?.freePick?.play || "No clear lean"}</div>
+    <div style="font-size:11px;color:#556688;line-height:1.5;">Not strong enough to qualify as premium.</div>
+  </div>
 `}
 </div>
 </div>
