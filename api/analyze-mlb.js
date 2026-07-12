@@ -2522,7 +2522,7 @@ const recommendedCards = premiumCandidates.slice(0, 1);
  // Mejor candidato no-premium para mostrar como jugada destacada free
 const bestFreeCandidate = candidates
   .filter(c => !c.isPremium)
-  .sort((a, b) => Number(b.supportScore || 0) - Number(a.supportScore || 0))[0] || null;
+  .sort((a, b) => getCandidateRankingEdge(b) - getCandidateRankingEdge(a))[0] || null;
 function edgeToPercent(edge, type = "ml") {
   const e = Math.abs(Number(edge));
 
