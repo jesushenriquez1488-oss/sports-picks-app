@@ -1979,12 +1979,7 @@ ${premium.recommendedCards?.[1] ? `
                     <div style="font-size:11px;font-weight:700;color:${safe(premium.totalDiff) >= 0 ? "#ff8c1a" : "#4da3ff"};margin-top:2px;">${safe(premium.totalDiff) >= 0 ? "▲ +" : "▼ "}${safe(premium.totalDiff).toFixed(1)} runs</div>
                   </div>
                 </div>
-                  <div style="flex:1;min-width:140px;background:#0f1628;border:1px solid ${safe(premium.totalDiff) >= 0 ? "rgba(255,140,26,0.35)" : "rgba(77,163,255,0.35)"};border-radius:10px;padding:14px 16px;text-align:center;">
-                    <div style="font-size:9px;color:#5a7a9a;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Model vs Line</div>
-                    <div style="font-size:16px;font-weight:800;color:#fff;">${safe(premium.projectedTotal).toFixed(1)} <span style="color:#5a7a9a;font-size:12px;">vs</span> ${safe(premium.totalLine, totalLine)}</div>
-                    <div style="font-size:13px;font-weight:800;color:${safe(premium.totalDiff) >= 0 ? "#ff8c1a" : "#4da3ff"};margin-top:2px;">${safe(premium.totalDiff) >= 0 ? "▲ +" : "▼ "}${safe(premium.totalDiff).toFixed(1)} runs</div>
-                  </div>
-                </div>
+                
 
               </div>
 
