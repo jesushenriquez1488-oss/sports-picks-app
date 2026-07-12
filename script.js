@@ -1962,26 +1962,22 @@ ${premium.recommendedCards?.[1] ? `
 </div>
 ` : ``}
 
-          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px;">
-                  <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
-                    <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">${awayTeam.split(" ").pop()} RUNS</div>
-                    <div style="font-size:14px;font-weight:700;color:#fff;">${safe(premium.expectedRunsA).toFixed(1)}</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+                  <div style="flex:2;min-width:200px;background:linear-gradient(135deg,#0d1a2e,#0f1628);border:1px solid rgba(0,255,231,0.15);border-radius:10px;padding:14px 16px;display:flex;align-items:center;justify-content:space-around;">
+                    <div style="text-align:center;">
+                      <div style="font-size:9px;color:#5a7a9a;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${awayTeam.split(" ").pop()}</div>
+                      <div style="font-size:22px;font-weight:800;color:#fff;">${safe(premium.expectedRunsA).toFixed(1)}</div>
+                    </div>
+                    <div style="font-size:11px;color:#5a7a9a;">expected<br>runs</div>
+                    <div style="text-align:center;">
+                      <div style="font-size:9px;color:#5a7a9a;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${homeTeam.split(" ").pop()}</div>
+                      <div style="font-size:22px;font-weight:800;color:#fff;">${safe(premium.expectedRunsB).toFixed(1)}</div>
+                    </div>
                   </div>
-                  <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
-                    <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">${homeTeam.split(" ").pop()} RUNS</div>
-                    <div style="font-size:14px;font-weight:700;color:#fff;">${safe(premium.expectedRunsB).toFixed(1)}</div>
-                  </div>
-                  <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
-                    <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">PROJ. TOTAL</div>
-                    <div style="font-size:14px;font-weight:700;color:#fff;">${safe(premium.projectedTotal).toFixed(1)}</div>
-                  </div>
-                  <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
-                    <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">LINE</div>
-                    <div style="font-size:14px;font-weight:700;color:#fff;">${safe(premium.totalLine, totalLine)}</div>
-                  </div>
-                  <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;">
-                    <div style="font-size:8px;color:${safe(premium.totalDiff) >= 0 ? "#ff8c1a" : "#4da3ff"};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.9;">DIFF</div>
-                    <div style="font-size:14px;font-weight:700;color:${safe(premium.totalDiff) >= 0 ? "#ff8c1a" : "#4da3ff"};">${safe(premium.totalDiff) >= 0 ? "+" : ""}${safe(premium.totalDiff).toFixed(1)}</div>
+                  <div style="flex:1;min-width:140px;background:#0f1628;border:1px solid ${safe(premium.totalDiff) >= 0 ? "rgba(255,140,26,0.35)" : "rgba(77,163,255,0.35)"};border-radius:10px;padding:14px 16px;text-align:center;">
+                    <div style="font-size:9px;color:#5a7a9a;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Model vs Line</div>
+                    <div style="font-size:16px;font-weight:800;color:#fff;">${safe(premium.projectedTotal).toFixed(1)} <span style="color:#5a7a9a;font-size:12px;">vs</span> ${safe(premium.totalLine, totalLine)}</div>
+                    <div style="font-size:13px;font-weight:800;color:${safe(premium.totalDiff) >= 0 ? "#ff8c1a" : "#4da3ff"};margin-top:2px;">${safe(premium.totalDiff) >= 0 ? "▲ +" : "▼ "}${safe(premium.totalDiff).toFixed(1)} runs</div>
                   </div>
                 </div>
 
@@ -1995,16 +1991,17 @@ ${premium.recommendedCards?.[1] ? `
               </div>
 
               <div class="mlb-info-grid">
-              ${isPremiumMLB ? `
-              <div class="ce-nfl-premium" style="margin-bottom:10px;text-align:left;">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                  <span style="font-size:10px;color:#ff8c1a;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;">🎯 GAME HIGHLIGHT</span>
-                  <span style="font-size:9px;padding:2px 8px;border-radius:10px;background:rgba(124,60,255,0.15);border:1px solid rgba(124,60,255,0.4);color:#a07cff;font-weight:700;">PREMIUM ONLY</span>
+             <div>
+                  <h4>🏟️ Ballpark / Park Factor</h4>
+                  <p>${premium.venue?.name || "N/A"} — roof: ${premium.venue?.roof || "N/A"}</p>
+                  <p>${ceParkIcon(premium.venue?.parkFactor)}</p>
                 </div>
-                <div style="font-size:12px;color:#d0dcec;line-height:1.65;">${generateMLBHighlight(premium, awayTeam, homeTeam)}</div>
-              </div>
-              ` : ""}
                 <div>
+                  <h4>🌦️ Weather</h4>
+                  <p>${premium.weather?.raw || "Not available"}</p>
+                  <p>${ceWindIcon(premium.weather?.direction, premium.weather?.speed)} · ${ceTempIcon(premium.weather?.temp)}</p>
+                  <p style="opacity:0.7;">Run impact: ${safe(premium.weatherFactor, 1) >= 1 ? "+" : ""}${((safe(premium.weatherFactor, 1) - 1) * 100).toFixed(1)}%</p>
+                </div>
                   <h4>📊 Data used</h4>
                   <p>${awayTeam}: offense ${safe(premium.awayOffense).toFixed(2)}, defense ${safe(premium.awayTeamAllowed).toFixed(2)}, pitcher ${safe(premium.awayPitcherAllowed).toFixed(2)}, bullpen ${safe(premium.awayBullpenAllowed).toFixed(2)}</p>
                   <p>${homeTeam}: offense ${safe(premium.homeOffense).toFixed(2)}, defense ${safe(premium.homeTeamAllowed).toFixed(2)}, pitcher ${safe(premium.homePitcherAllowed).toFixed(2)}, bullpen ${safe(premium.homeBullpenAllowed).toFixed(2)}</p>
@@ -2020,6 +2017,12 @@ ${premium.recommendedCards?.[1] ? `
 
               <div class="mlb-complete-bar">
                FULL AI ANALYSIS
+              </div>
+              <div style="text-align:center;margin-top:10px;">
+                <button onclick='toggleGameHighlight(${index}, "${encodeURIComponent(JSON.stringify(premium || {}))}", "${escapeText(awayTeam)}", "${escapeText(homeTeam)}")' style="background:transparent;border:1px solid rgba(255,140,26,0.35);border-radius:16px;padding:5px 14px;color:#ff8c1a;font-size:10px;font-weight:700;letter-spacing:0.06em;cursor:pointer;text-transform:uppercase;">
+                  🎯 Game Highlight
+                </button>
+                <div id="gameHighlight${index}"></div>
               </div>
             `
             : `
@@ -2596,37 +2599,51 @@ function ceParkIcon(factor) {
 
 function generateMLBHighlight(premium, awayTeam, homeTeam) {
   if (!premium) return "";
-  const parts = [];
+  const s = [];
   const runsA = Number(premium.expectedRunsA || 0);
   const runsB = Number(premium.expectedRunsB || 0);
+  const projTotal = Number(premium.projectedTotal || 0);
+  const line = Number(premium.totalLine || 0);
   const diff = Number(premium.totalDiff || 0);
   const wf = Number(premium.weatherFactor || 1);
   const pf = Number(premium.venue?.parkFactor || 1);
-  const awayFatigue = Number(premium.awayBullpenFatigue || 0);
-  const homeFatigue = Number(premium.homeBullpenFatigue || 0);
+  const wDir = premium.weather?.direction;
+  const wSpeed = Number(premium.weather?.speed || 0);
+  const temp = Number(premium.weather?.temp);
+  const awayP = premium.awayPitcherName || `${awayTeam}'s starter`;
+  const homeP = premium.homePitcherName || `${homeTeam}'s starter`;
+  const innA = Number(premium.awayPitcherInnings || 0);
+  const innB = Number(premium.homePitcherInnings || 0);
+  const fatA = Number(premium.awayBullpenFatigue || 0);
+  const fatB = Number(premium.homeBullpenFatigue || 0);
+  const pick = premium.recommendedCards?.[0]?.play || null;
 
-  if (Math.abs(diff) >= 2.5) {
-    parts.push(`The model projects <strong>${Number(premium.projectedTotal).toFixed(1)} runs</strong> vs a line of ${premium.totalLine} — a ${Math.abs(diff).toFixed(1)}-run gap the market hasn't priced in.`);
-  } else if (Math.abs(diff) >= 1.2) {
-    parts.push(`Projection of ${Number(premium.projectedTotal).toFixed(1)} runs sits ${Math.abs(diff).toFixed(1)} ${diff > 0 ? "above" : "below"} the market line.`);
-  }
+  // Apertura: el pick o el lean
+  if (pick) s.push(`The model flagged <strong>${pick}</strong> in this matchup.`);
+  s.push(`It projects ${runsA.toFixed(1)} runs for ${awayTeam} and ${runsB.toFixed(1)} for ${homeTeam} — a combined <strong>${projTotal.toFixed(1)}</strong> against the market line of ${line}${Math.abs(diff) >= 1 ? ` (${diff > 0 ? "+" : ""}${diff.toFixed(1)} runs of separation)` : ""}.`);
 
-  if (runsA > runsB * 1.4) parts.push(`${awayTeam}'s offense profiles significantly stronger in this matchup (${runsA.toFixed(1)} vs ${runsB.toFixed(1)} expected runs).`);
-  else if (runsB > runsA * 1.4) parts.push(`${homeTeam}'s offense profiles significantly stronger in this matchup (${runsB.toFixed(1)} vs ${runsA.toFixed(1)} expected runs).`);
+  // Pitcheo
+  if (innA > 0 && innA < 4) s.push(`A key driver: ${awayP} averages just ${innA.toFixed(1)} innings per start, meaning ${awayTeam}'s bullpen enters early${fatA >= 12 ? ` — and it's already fatigued (${fatA.toFixed(1)})` : ""}.`);
+  else if (innA >= 6) s.push(`${awayP} is a workhorse (${innA.toFixed(1)} innings/start), limiting bullpen exposure for ${awayTeam}.`);
+  if (innB > 0 && innB < 4) s.push(`On the other side, ${homeP} averages only ${innB.toFixed(1)} innings, exposing ${homeTeam}'s bullpen${fatB >= 12 ? ` which is running hot (fatigue ${fatB.toFixed(1)})` : ""}.`);
+  else if (innB >= 6) s.push(`${homeP} goes deep into games (${innB.toFixed(1)} innings/start), keeping ${homeTeam}'s bullpen fresh.`);
 
-  const starterInnA = Number(premium.awayPitcherInnings || 0);
-  const starterInnB = Number(premium.homePitcherInnings || 0);
-  if (starterInnA > 0 && starterInnA < 4) parts.push(`${premium.awayPitcherName || awayTeam + "'s starter"} averages only ${starterInnA.toFixed(1)} innings — early bullpen exposure expected.`);
-  if (starterInnB > 0 && starterInnB < 4) parts.push(`${premium.homePitcherName || homeTeam + "'s starter"} averages only ${starterInnB.toFixed(1)} innings — early bullpen exposure expected.`);
+  // Clima
+  if (wDir === "out" && wSpeed >= 8) s.push(`The wind is blowing out at ${wSpeed} mph — a hitter's tailwind that inflates scoring.`);
+  else if (wDir === "in" && wSpeed >= 8) s.push(`Wind blowing in at ${wSpeed} mph knocks down fly balls and suppresses runs.`);
+  if (Number.isFinite(temp) && temp >= 88) s.push(`At ${temp}°F, the hot air helps the ball carry.`);
+  else if (Number.isFinite(temp) && temp <= 52) s.push(`Cold conditions (${temp}°F) deaden contact.`);
 
-  if (awayFatigue >= 16) parts.push(`${awayTeam}'s bullpen is heavily fatigued (${awayFatigue.toFixed(1)}) — late-inning runs likely.`);
-  if (homeFatigue >= 16) parts.push(`${homeTeam}'s bullpen is heavily fatigued (${homeFatigue.toFixed(1)}) — late-inning runs likely.`);
+  // Park
+  if (pf >= 1.05) s.push(`${premium.venue?.name || "The ballpark"} plays hitter-friendly (factor ${pf.toFixed(2)}), amplifying the offensive environment.`);
+  else if (pf <= 0.95) s.push(`${premium.venue?.name || "The ballpark"} suppresses offense (factor ${pf.toFixed(2)}).`);
 
-  if (wf >= 1.08) parts.push(`Weather conditions boost scoring (+${((wf - 1) * 100).toFixed(0)}% run environment).`);
-  else if (wf <= 0.92) parts.push(`Weather suppresses scoring (${((wf - 1) * 100).toFixed(0)}% run environment).`);
-  if (pf >= 1.05) parts.push(`Hitter-friendly ballpark amplifies the edge.`);
+  // Cierre
+  if (Math.abs(diff) >= 2.5) s.push(`Put together, the model sees a gap the market hasn't priced in — that's what qualified this play.`);
+  else if (pick) s.push(`The combination of these factors is what pushed this play over the model's premium threshold.`);
+  else s.push(`No single factor was strong enough to qualify a premium play here, but these are the dynamics the model weighed.`);
 
-  return parts.slice(0, 4).join(" ");
+  return s.join(" ");
 }
 async function loadStats() {
   try {
@@ -3171,7 +3188,41 @@ const PLAYER_EDGE_MARKETS = {
   pitcher_strikeouts: "Strikeouts",
   pitcher_outs: "Outs"
 };
+function toggleGameHighlight(index, premiumJson, awayTeam, homeTeam) {
+  const box = document.getElementById(`gameHighlight${index}`);
+  if (!box) return;
 
+  if (box.dataset.loaded === "true") {
+    box.style.display = box.style.display === "none" ? "block" : "none";
+    return;
+  }
+
+  if (!IS_ADMIN && !isPremiumUser) {
+    box.innerHTML = `
+      <div style="background:#0f1628;border:1px solid #1a2240;border-radius:8px;padding:14px;margin-top:8px;text-align:center;">
+        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;">🔒 Premium Content</div>
+        <div style="font-size:11px;color:#556688;margin-bottom:12px;">The full game story — why the model made this call, factor by factor.</div>
+        <button onclick="openPromoModal()" style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:12px;font-weight:700;cursor:pointer;">
+          GET PREMIUM · $${MONTHLY_PRICE}/mo
+        </button>
+      </div>
+    `;
+    box.dataset.loaded = "true";
+    return;
+  }
+
+  let premium = null;
+  try { premium = JSON.parse(decodeURIComponent(premiumJson)); } catch (e) {}
+
+  box.innerHTML = `
+    <div style="background:#0a1220;border:1px solid rgba(255,140,26,0.25);border-left:3px solid #ff8c1a;border-radius:8px;padding:14px 16px;margin-top:8px;text-align:left;">
+      <div style="font-size:10px;color:#ff8c1a;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin-bottom:8px;">🎯 Game Highlight</div>
+      <div style="font-size:12px;color:#d0dcec;line-height:1.7;">${generateMLBHighlight(premium, awayTeam, homeTeam) || "No standout factors detected in this matchup."}</div>
+    </div>
+  `;
+  box.dataset.loaded = "true";
+}
+window.toggleGameHighlight = toggleGameHighlight;
 async function togglePlayerEdgeProps(index, eventId) {
   const box = document.getElementById(`playerEdge${index}`);
   if (!box) return;
