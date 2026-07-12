@@ -2002,6 +2002,7 @@ ${premium.recommendedCards?.[1] ? `
                   <p>${ceWindIcon(premium.weather?.direction, premium.weather?.speed)} · ${ceTempIcon(premium.weather?.temp)}</p>
                   <p style="opacity:0.7;">Run impact: ${safe(premium.weatherFactor, 1) >= 1 ? "+" : ""}${((safe(premium.weatherFactor, 1) - 1) * 100).toFixed(1)}%</p>
                 </div>
+                 <div>
                   <h4>📊 Data used</h4>
                   <p>${awayTeam}: offense ${safe(premium.awayOffense).toFixed(2)}, defense ${safe(premium.awayTeamAllowed).toFixed(2)}, pitcher ${safe(premium.awayPitcherAllowed).toFixed(2)}, bullpen ${safe(premium.awayBullpenAllowed).toFixed(2)}</p>
                   <p>${homeTeam}: offense ${safe(premium.homeOffense).toFixed(2)}, defense ${safe(premium.homeTeamAllowed).toFixed(2)}, pitcher ${safe(premium.homePitcherAllowed).toFixed(2)}, bullpen ${safe(premium.homeBullpenAllowed).toFixed(2)}</p>
