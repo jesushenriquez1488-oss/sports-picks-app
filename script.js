@@ -1871,9 +1871,9 @@ if (data.noPlay) {
     ${
       isPremiumMLB
         ? `
-          <div class="mlb-premium-badge">
-            <span>👑</span>
-            <strong>🔥 HOT PICK MLB</strong>
+          <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,255,231,0.08);border:1px solid rgba(0,255,231,0.25);border-radius:20px;padding:4px 12px;font-size:10px;color:#00ffe7;font-weight:600;letter-spacing:1px;">
+            <span style="width:6px;height:6px;border-radius:50%;background:#00ffe7;animation:nfl-pulse 1.5s infinite;display:inline-block;"></span>
+            🔥 PREMIUM PICK · MLB
           </div>
         `
         : ""
@@ -1942,13 +1942,12 @@ if (data.noPlay) {
               </div>
 
               <div class="mlb-top-grid">
-                <div class="mlb-main-pick-box">
+                <div class="mlb-main-pick-box ${premium.recommendedCards?.[0] ? "ce-premium-glow" : ""}">
 ${premium.recommendedCards?.[0] ? `
- <span style="font-size:10px;color:#ff8c1a;letter-spacing:0.1em;text-transform:uppercase;font-weight:700;">🔥 ${premium.recommendedCards[0].title}</span>
-  <strong style="display:block;font-size:24px;font-weight:900;margin:4px 0;color:#fff;letter-spacing:0.5px;">${premium.recommendedCards[0].play}</strong>
-  <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
-    <span style="font-size:10px;padding:3px 10px;border-radius:6px;background:rgba(255,140,26,0.12);border:1px solid rgba(255,140,26,0.4);color:#ff8c1a;font-weight:800;">${safe(premium.recommendedCards[0].percentage).toFixed(1)}% PROB</span>
-    <span style="font-size:10px;padding:3px 10px;border-radius:6px;background:rgba(0,255,231,0.08);border:1px solid rgba(0,255,231,0.25);color:#00ffe7;font-weight:700;">AI QUALIFIED</span>
+<span style="font-size:10px;color:#ff8c1a;letter-spacing:0.1em;text-transform:uppercase;font-weight:700;">🔥 ${premium.recommendedCards[0].title}</span>
+  <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-top:4px;">
+    <strong style="font-size:24px;font-weight:900;color:#fff;letter-spacing:0.5px;">${premium.recommendedCards[0].play}</strong>
+    <span style="font-size:20px;font-weight:900;color:#ff8c1a;">${safe(premium.recommendedCards[0].percentage).toFixed(1)}%</span>
   </div>
 ` : `
   <div style="text-align:left;">
