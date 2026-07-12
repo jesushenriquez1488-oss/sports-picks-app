@@ -1944,8 +1944,8 @@ if (data.noPlay) {
               <div class="mlb-top-grid">
                 <div class="mlb-main-pick-box ${premium.recommendedCards?.[0] ? "ce-premium-glow" : ""}">
 ${premium.recommendedCards?.[0] ? `
-<span style="font-size:10px;color:#ff8c1a;letter-spacing:0.1em;text-transform:uppercase;font-weight:700;">🔥 ${premium.recommendedCards[0].title}</span>
-  <strong style="display:block;font-size:24px;font-weight:900;color:#fff;letter-spacing:0.5px;margin-top:4px;">${premium.recommendedCards[0].play}</strong>
+<span style="font-size:9px;color:#ff8c1a;letter-spacing:0.1em;text-transform:uppercase;font-weight:700;">🔥 ${premium.recommendedCards[0].title}</span>
+  <strong style="display:block;font-size:19px;font-weight:800;color:#fff;letter-spacing:0.3px;margin-top:3px;">${premium.recommendedCards[0].play}</strong>
 ` : `
   <div style="text-align:left;">
     <div style="font-size:10px;color:#00ffe7;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin-bottom:6px;">📊 Model's lean</div>
@@ -1964,18 +1964,21 @@ ${premium.recommendedCards?.[1] ? `
 </div>
 ` : ``}
 
-        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
-                  <div style="flex:2;min-width:200px;background:linear-gradient(135deg,#0d1a2e,#0f1628);border:1px solid rgba(0,255,231,0.15);border-radius:10px;padding:14px 16px;display:flex;align-items:center;justify-content:space-around;">
-                    <div style="text-align:center;">
-                      <div style="font-size:9px;color:#5a7a9a;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${awayTeam.split(" ").pop()}</div>
-                      <div style="font-size:22px;font-weight:800;color:#fff;">${safe(premium.expectedRunsA).toFixed(1)}</div>
-                    </div>
-                    <div style="font-size:11px;color:#5a7a9a;">expected<br>runs</div>
-                    <div style="text-align:center;">
-                      <div style="font-size:9px;color:#5a7a9a;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${homeTeam.split(" ").pop()}</div>
-                      <div style="font-size:22px;font-weight:800;color:#fff;">${safe(premium.expectedRunsB).toFixed(1)}</div>
-                    </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#0b1322;border:1px solid #10203a;border-radius:10px;overflow:hidden;margin-bottom:12px;">
+                  <div style="background:#070d1a;padding:12px 8px;text-align:center;">
+                    <div style="font-size:8px;color:#4a5f7f;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${awayTeam.split(" ").pop()} RUNS</div>
+                    <div style="font-size:17px;font-weight:800;color:#c9d6e8;">${safe(premium.expectedRunsA).toFixed(1)}</div>
                   </div>
+                  <div style="background:#070d1a;padding:12px 8px;text-align:center;">
+                    <div style="font-size:8px;color:#4a5f7f;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${homeTeam.split(" ").pop()} RUNS</div>
+                    <div style="font-size:17px;font-weight:800;color:#c9d6e8;">${safe(premium.expectedRunsB).toFixed(1)}</div>
+                  </div>
+                 <div style="background:#070d1a;padding:12px 8px;text-align:center;">
+                    <div style="font-size:8px;color:#4a5f7f;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">MODEL VS LINE</div>
+                    <div style="font-size:17px;font-weight:800;color:#c9d6e8;">${safe(premium.projectedTotal).toFixed(1)}<span style="color:#4a5f7f;font-size:11px;"> / ${safe(premium.totalLine, totalLine)}</span></div>
+                    <div style="font-size:11px;font-weight:700;color:${safe(premium.totalDiff) >= 0 ? "#ff8c1a" : "#4da3ff"};margin-top:2px;">${safe(premium.totalDiff) >= 0 ? "▲ +" : "▼ "}${safe(premium.totalDiff).toFixed(1)} runs</div>
+                  </div>
+                </div>
                   <div style="flex:1;min-width:140px;background:#0f1628;border:1px solid ${safe(premium.totalDiff) >= 0 ? "rgba(255,140,26,0.35)" : "rgba(77,163,255,0.35)"};border-radius:10px;padding:14px 16px;text-align:center;">
                     <div style="font-size:9px;color:#5a7a9a;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Model vs Line</div>
                     <div style="font-size:16px;font-weight:800;color:#fff;">${safe(premium.projectedTotal).toFixed(1)} <span style="color:#5a7a9a;font-size:12px;">vs</span> ${safe(premium.totalLine, totalLine)}</div>
