@@ -2519,6 +2519,10 @@ function getCandidateRankingEdge(card) {
 
 const recommendedCards = premiumCandidates.slice(0, 1);
     const locked = recommendedCards.length > 0 && !isPremiumUser;
+ // Mejor candidato no-premium para mostrar como jugada destacada free
+const bestFreeCandidate = candidates
+  .filter(c => !c.isPremium)
+  .sort((a, b) => Number(b.supportScore || 0) - Number(a.supportScore || 0))[0] || null;
 function edgeToPercent(edge, type = "ml") {
   const e = Math.abs(Number(edge));
 
@@ -2751,10 +2755,17 @@ if (recommendedCards.length > 0) {
     return res.status(200).json({
       locked,
       isPremiumPick: recommendedCards.length > 0,
-      public: {
+    public: {
         awayTeam,
         homeTeam,
-        totalLine
+        totalLine,
+        confidence: recommendedCards[0]?.percentage || null,
+        freePick: bestFreeCandidate
+          ? {
+              title: "Model's lean",
+              play: bestFreeCandidate.play
+            }
+          : null
       },
       premium: locked
         ? null
