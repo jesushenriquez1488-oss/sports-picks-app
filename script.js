@@ -2570,6 +2570,53 @@ function ceRecordLine(sportKey) {
   const pct = ((w / (w + l)) * 100).toFixed(0);
   return `${pct}% (${w}-${l})`;
 }
+function ceLimitScreenHTML() {
+  const best = Object.values(window.ceSportRecords || {})
+    .map(r => {
+      const w = Number(r.total_wins || 0), l = Number(r.total_losses || 0);
+      return w + l >= 20 ? { name: r.display_name, pct: (w / (w + l)) * 100, w, l } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.pct - a.pct)[0] || null;
+
+  return `
+    <div class="normal-result" style="border:1px solid rgba(0,255,231,0.25);border-radius:14px;overflow:hidden;">
+      <div style="padding:22px 18px;text-align:center;max-width:520px;margin:0 auto;">
+
+        <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,140,26,0.08);border:1px solid rgba(255,140,26,0.3);border-radius:20px;padding:4px 12px;font-size:10px;color:#ff8c1a;font-weight:700;letter-spacing:1px;margin-bottom:14px;">
+          ⏳ DAILY FREE LIMIT REACHED
+        </div>
+
+        <div style="font-size:20px;font-weight:900;color:#fff;margin-bottom:6px;">You clearly like the picks.</div>
+        <div style="font-size:12px;color:#8899bb;line-height:1.6;margin-bottom:16px;">You've used your 5 free analyses. The next batch unlocks in <strong style="color:#00ffe7;">up to 3 hours</strong> — or you can stop waiting.</div>
+
+        ${best ? `
+        <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,255,231,0.05);border:1px solid rgba(0,255,231,0.15);border-radius:10px;padding:10px 16px;margin-bottom:10px;">
+          <span style="font-size:12px;color:#8899bb;">Model's ${best.name} record</span>
+          <span style="font-size:14px;font-weight:800;color:#00ffe7;">${best.pct.toFixed(0)}% (${best.w}-${best.l})</span>
+        </div>` : ""}
+
+        <div style="background:#0a1220;border:1px solid #14243d;border-radius:10px;padding:12px 16px;margin-bottom:14px;text-align:left;">
+          <div style="display:flex;align-items:center;gap:8px;padding-bottom:8px;border-bottom:1px solid #14243d;">
+            <span>♾️</span><span style="font-size:12px;color:#d0dcec;">Unlimited analyses — no more waiting</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #14243d;">
+            <span>🔓</span><span style="font-size:12px;color:#d0dcec;">Every premium pick, all sports</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding-top:8px;">
+            <span>⚡</span><span style="font-size:12px;color:#d0dcec;">Daily AI Parlay — pays 5-7x when it hits</span>
+          </div>
+        </div>
+
+        <button onclick="openPromoModal()" style="display:block;width:100%;padding:15px;border:none;border-radius:12px;background:linear-gradient(135deg,#00ffe7,#7c3cff);color:#020814;font-size:13px;font-weight:900;letter-spacing:0.5px;cursor:pointer;text-transform:uppercase;box-shadow:0 0 20px rgba(0,255,231,0.3);">
+          🔓 GO UNLIMITED — $19.99/MO
+        </button>
+        <div style="font-size:10px;color:#5a7a9a;margin-top:8px;">Less than one losing bet. Cancel anytime.</div>
+
+      </div>
+    </div>
+  `;
+}
 function ceWindIcon(direction, speed) {
   const s = Number(speed || 0);
   if (direction === "out") return `<span style="color:#ff8c1a;">↗ OUT ${s} mph</span>`;
