@@ -946,16 +946,7 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
 endAnalysisLock(index);
  } catch (error) {
     if (error.message && (error.message.includes("free analyses") || error.message.includes("every 3 hours") || error.message.includes("unlock 5"))) {
-      resultDiv.innerHTML = `
-        <div class="normal-result normal-blue-theme">
-          <div style="padding:24px;text-align:center;">
-            <h3 style="color:#00ff99;margin:0 0 8px;">5 free analyses used</h3>
-            <p style="color:#d8fff0;font-size:13px;line-height:1.5;margin:0 0 14px;">More free analyses unlock every 3 hours.</p>
-            <p style="color:#bfc8d6;font-size:12px;line-height:1.5;margin:0 0 18px;">Or upgrade to Premium for unlimited analyses.</p>
-            <button class="unlock-btn" onclick="openPromoModal()">🚀 Upgrade to Premium — $19.99/month</button>
-          </div>
-        </div>
-      `;
+      resultDiv.innerHTML = ceLimitScreenHTML();
     } else {
       resultDiv.innerHTML = `
         <div class="normal-result">
@@ -2048,16 +2039,7 @@ ${premium.recommendedCards?.[1] ? `
     endAnalysisLock(index);
    } catch (error) {
     if (error.message && (error.message.includes("free analyses") || error.message.includes("every 3 hours") || error.message.includes("unlock 5"))) {
-      resultDiv.innerHTML = `
-        <div class="normal-result normal-blue-theme">
-          <div style="padding:24px;text-align:center;">
-            <h3 style="color:#00ff99;margin:0 0 8px;">5 free analyses used</h3>
-            <p style="color:#d8fff0;font-size:13px;line-height:1.5;margin:0 0 14px;">More free analyses unlock every 3 hours.</p>
-            <p style="color:#bfc8d6;font-size:12px;line-height:1.5;margin:0 0 18px;">Or upgrade to Premium for unlimited analyses.</p>
-            <button class="unlock-btn" onclick="openPromoModal()">🚀 Upgrade to Premium — $19.99/month</button>
-          </div>
-        </div>
-      `;
+    resultDiv.innerHTML = ceLimitScreenHTML();
     } else {
       resultDiv.innerHTML = `
         <div class="normal-result">
@@ -2442,16 +2424,7 @@ if (data.limitReached === true || data.upgradeRequired === true) {
  
 } catch (err) {
     if (err.message && err.message.includes("free analyses")) {
-      resultDiv.innerHTML = `
-        <div class="normal-result normal-blue-theme">
-          <div style="padding:24px;text-align:center;">
-            <h3 style="color:#00ff99;margin:0 0 8px;">5 free analyses used</h3>
-            <p style="color:#d8fff0;font-size:13px;line-height:1.5;margin:0 0 14px;">More free analyses unlock every 3 hours.</p>
-            <p style="color:#bfc8d6;font-size:12px;line-height:1.5;margin:0 0 18px;">Or upgrade to Premium for unlimited analyses, player props, and exclusive high-value insights.</p>
-            <button class="unlock-btn" onclick="openPromoModal()">🚀 Upgrade to Premium — $19.99/month</button>
-          </div>
-        </div>
-      `;
+     resultDiv.innerHTML = ceLimitScreenHTML();
     } else {
       resultDiv.innerHTML = `
         <div class="normal-result">
