@@ -1944,7 +1944,7 @@ if (data.noPlay) {
               <div class="mlb-top-grid">
                 <div class="mlb-main-pick-box ${premium.recommendedCards?.[0] ? "ce-premium-glow" : ""}">
 ${premium.recommendedCards?.[0] ? `
-<span style="font-size:9px;color:#ff8c1a;letter-spacing:0.1em;text-transform:uppercase;font-weight:700;">🔥 ${premium.recommendedCards[0].title}</span>
+<span style="font-size:9px;color:#a07cff;letter-spacing:0.1em;text-transform:uppercase;font-weight:700;">🔥 ${premium.recommendedCards[0].title}</span>
   <strong style="display:block;font-size:19px;font-weight:800;color:#fff;letter-spacing:0.3px;margin-top:3px;">${premium.recommendedCards[0].play}</strong>
 ` : `
   <div style="text-align:left;">
