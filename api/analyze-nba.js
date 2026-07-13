@@ -1982,6 +1982,10 @@ const {
   gameTime
 } = req.body || {};
 let selectedLeague = league || "nba";
+    selectedLeague = String(selectedLeague)
+  .replace("basketball_", "")
+  .toLowerCase();
+if (!["nba", "wnba", "ncaab"].includes(selectedLeague)) selectedLeague = "nba";
 
 if (
   selectedLeague === "nba" &&
