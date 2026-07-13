@@ -1215,7 +1215,7 @@ const total = Number(analysis.premium.totalLine || 0);
     if (best.length < 2) {
       return res.status(200).json({
         available: false,
-        message: "Hoy no hay suficientes jugadas premium para un parlay recomendado."
+        message: "There aren't enough Premium plays today to build a recommended parlay."
       });
     }
 
