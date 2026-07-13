@@ -2671,7 +2671,8 @@ function generateMLBHighlight(premium, awayTeam, homeTeam) {
 function generateBasketHighlight(premium, awayTeam, homeTeam) {
   if (!premium) return "";
   const s = [];
-  const pick = String(premium.pick || "");
+  const rawPick = String(premium.pick || "");
+  const pick = rawPick.replace(" cubre spread", "").replace(" cubre", "");
   const pickUp = pick.toUpperCase();
   const projA = Number(premium.projA || 0);
   const projB = Number(premium.projB || 0);
@@ -2679,8 +2680,8 @@ function generateBasketHighlight(premium, awayTeam, homeTeam) {
   const line = Number(premium.totalLine || 0);
   const edge = Number(premium.mainEdge || 0);
   const margin = Number(premium.spreadDiff || (projA - projB));
+  const conf = Number(premium.confidence || 0);
 
-  // Dirección del pick — esto manda sobre todo lo demás
   const isOver = pickUp.includes("OVER");
   const isUnder = pickUp.includes("UNDER");
   const isSpread = !isOver && !isUnder;
@@ -2689,8 +2690,20 @@ function generateBasketHighlight(premium, awayTeam, homeTeam) {
   const fadedTeam = pickedAway ? homeTeam : awayTeam;
   const pickedProj = pickedAway ? projA : projB;
   const fadedProj = pickedAway ? projB : projA;
+  const gap = Math.abs(pickedProj - fadedProj);
 
-  // Contexto: descanso y lesiones
+  // Línea del spread desde el texto del pick (ej. -12.5 / +8.5)
+  const lineMatch = pick.match(/([+-]\d+(\.\d+)?)/);
+  const spreadLine = lineMatch ? Number(lineMatch[1]) : null;
+  const isFavorite = spreadLine !== null && spreadLine < 0;
+  const isDog = spreadLine !== null && spreadLine > 0;
+  const cushion = spreadLine !== null ? gap - Math.abs(spreadLine) : null;
+
+  // Seed determinístico por juego para rotar frases (mismo juego = mismo texto)
+  const seed = (awayTeam + homeTeam).split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  const v = (arr) => arr[seed % arr.length];
+
+  // Descanso / lesiones
   const restB2B = t => /back-to-back/i.test(t || "");
   const restGood = t => /buen descanso/i.test(t || "");
   const awayB2B = restB2B(premium.awayRestNote), homeB2B = restB2B(premium.homeRestNote);
@@ -2706,75 +2719,121 @@ function generateBasketHighlight(premium, awayTeam, homeTeam) {
   const pickedB2B = pickedAway ? awayB2B : homeB2B;
   const fadedB2B = pickedAway ? homeB2B : awayB2B;
   const pickedRested = pickedAway ? awayRested : homeRested;
+  const fadedRested = pickedAway ? homeRested : awayRested;
 
-  // Pool de argumentos: { dir, cond, mag, text } — solo entran los que apoyan el pick
   const args = [];
 
-  if (isOver || isUnder) {
-    const gap = Math.abs(totalProj - line).toFixed(1);
-    args.push({
-      dir: true, cond: line > 0 && Math.abs(totalProj - line) >= 3,
-      mag: Math.abs(totalProj - line),
-      text: isOver
-        ? `The model projects <strong>${totalProj.toFixed(1)} combined points</strong> against a line of ${line} — a ${gap}-point gap the market hasn't priced in.`
-        : `The model projects only <strong>${totalProj.toFixed(1)} combined points</strong> against a line of ${line} — the market is ${gap} points too high.`
-    });
-    args.push({
-      dir: isOver, cond: projA >= line * 0.53 || projB >= line * 0.53,
-      mag: Math.max(projA, projB) - line / 2,
-      text: `${projA >= projB ? awayTeam : homeTeam} alone projects for ${Math.max(projA, projB).toFixed(1)} points, doing most of the heavy lifting toward the Over.`
-    });
-    args.push({
-      dir: isUnder, cond: awayB2B || homeB2B,
-      mag: (awayB2B ? 3 : 0) + (homeB2B ? 3 : 0),
-      text: `${awayB2B && homeB2B ? "Both teams are" : `${awayB2B ? awayTeam : homeTeam} is`} on the second night of a back-to-back — tired legs historically drag scoring down.`
-    });
-    args.push({
-      dir: isUnder, cond: !!(awayInj || homeInj),
-      mag: 2.5,
-      text: `Key offensive pieces are compromised${awayInj ? ` for ${awayTeam} (${awayInj})` : ""}${awayInj && homeInj ? " and" : ""}${homeInj ? ` for ${homeTeam} (${homeInj})` : ""}, capping the scoring ceiling.`
-    });
-    args.push({
-      dir: isOver, cond: awayRested && homeRested,
-      mag: 2,
-      text: `Both teams come in with full rest — fresh legs favor pace and offensive efficiency.`
-    });
-  }
-
   if (isSpread) {
-    args.push({
-      dir: true, cond: Math.abs(margin) >= 4,
-      mag: Math.abs(margin),
-      text: `The model projects ${pickedProj.toFixed(1)} points for ${pickedTeam} against ${fadedProj.toFixed(1)} for ${fadedTeam} — a ${Math.abs(margin).toFixed(1)}-point gap that comfortably clears the number.`
+    // 1. Gap de proyección — con framing según tamaño
+    if (gap >= 15) {
+      args.push({ cond: true, mag: gap, text: v([
+        `The projections aren't close: <strong>${pickedProj.toFixed(1)} to ${fadedProj.toFixed(1)}</strong>. The model sees ${pickedTeam} controlling this from start to finish — a ${gap.toFixed(1)}-point gap against a ${Math.abs(spreadLine || 0)}-point line.`,
+        `This one profiles as a potential blowout. The model has ${pickedTeam} at ${pickedProj.toFixed(1)} and ${fadedTeam} at just ${fadedProj.toFixed(1)} — nearly double the separation the line demands.`
+      ])});
+    } else if (gap >= 6) {
+      args.push({ cond: true, mag: gap, text: v([
+        `The model projects ${pickedProj.toFixed(1)} for ${pickedTeam} vs ${fadedProj.toFixed(1)} for ${fadedTeam} — a ${gap.toFixed(1)}-point margin that clears the number${cushion !== null && cushion > 2 ? ` with ${cushion.toFixed(1)} points to spare` : ""}.`,
+        `On raw projections this is ${pickedTeam}'s game: ${pickedProj.toFixed(1)} to ${fadedProj.toFixed(1)}, enough cushion over the ${Math.abs(spreadLine || 0)}-point line to qualify.`
+      ])});
+    } else {
+      args.push({ cond: true, mag: gap, text:
+        `The model projects a tighter game than the market — ${pickedProj.toFixed(1)} to ${fadedProj.toFixed(1)} — but the number is what creates the value here.`
+      });
+    }
+
+    // 2. Framing favorito vs dog
+    if (isDog) {
+      args.push({ cond: true, mag: 4, text: v([
+        `The market is asking ${pickedTeam} to stay within ${Math.abs(spreadLine)} — the model says they ${gap > 0 && pickedProj > fadedProj ? "win this game outright" : `only lose by ${Math.abs(margin).toFixed(1)}`}. That's free points.`,
+        `Getting +${Math.abs(spreadLine)} with a team the model ${pickedProj > fadedProj ? "projects to win straight up" : "sees keeping it close"} is exactly the kind of mispricing the model hunts for.`
+      ])});
+    } else if (isFavorite && Math.abs(spreadLine) >= 10) {
+      args.push({ cond: cushion !== null && cushion > 0, mag: 3, text: v([
+        `Laying ${Math.abs(spreadLine)} points is usually dangerous — but the model's projected margin of ${gap.toFixed(1)} says ${fadedTeam} simply doesn't have the firepower to keep this inside the number.`,
+        `Big spreads scare the public. The model doesn't flinch here: ${fadedTeam}'s projected ${fadedProj.toFixed(1)} points leave them ${gap.toFixed(1)} behind, well past the line.`
+      ])});
+    }
+
+    // 3. Producción ofensiva desequilibrada
+    if (pickedProj >= 95 && fadedProj <= 82) {
+      args.push({ cond: true, mag: 3.5, text: v([
+        `The mismatch is on both ends: ${pickedTeam}'s projected ${pickedProj.toFixed(1)} points come against a ${fadedTeam} attack the model caps at ${fadedProj.toFixed(1)} — they can't trade baskets in this one.`,
+        `${fadedTeam} projects for just ${fadedProj.toFixed(1)} points — against ${pickedTeam}'s ${pickedProj.toFixed(1)}, they'd need a defensive miracle the recent data doesn't support.`
+      ])});
+    }
+
+    // 4. Contexto del total aunque el pick sea spread
+    if (line > 0 && Math.abs(totalProj - line) >= 4) {
+      const dir = totalProj > line ? "faster and higher-scoring" : "slower and lower-scoring";
+      args.push({ cond: true, mag: 2, text:
+        `Worth noting: the model also sees this game playing ${dir} than the market's ${line} total (projected ${totalProj.toFixed(1)}) — the same read that's driving the spread edge.`
+      });
+    }
+
+    // 5. Lesiones del rival
+    args.push({ cond: !!fadedInj, mag: 4, text:
+      `${fadedTeam} comes in compromised: ${fadedInj}. That's production the line hasn't fully discounted.`
     });
-    args.push({
-      dir: true, cond: !!fadedInj,
-      mag: 3,
-      text: `${fadedTeam} is dealing with key absences (${fadedInj}) — production the market may not have fully discounted.`
+
+    // 6. Ventaja de descanso
+    args.push({ cond: fadedB2B && !pickedB2B, mag: 3.5, text:
+      `${fadedTeam} is on the second night of a back-to-back while ${pickedTeam} ${pickedRested ? "is fully rested" : "played a normal schedule"} — legs matter in fourth quarters.`
     });
-    args.push({
-      dir: true, cond: fadedB2B && !pickedB2B,
-      mag: 3,
-      text: `${fadedTeam} is playing the second night of a back-to-back while ${pickedTeam} ${pickedRested ? "comes in fully rested" : "had a normal schedule"} — a rest edge that shows up in fourth quarters.`
+    args.push({ cond: pickedRested && !fadedRested && !fadedB2B, mag: 1.5, text: v([
+      `${pickedTeam} also holds the rest edge — extra recovery days versus ${fadedTeam}'s standard turnaround.`,
+      `The schedule tilts this further: ${pickedTeam} comes in with extra rest while ${fadedTeam} runs a normal rotation.`
+    ])});
+  }
+
+  if (isOver || isUnder) {
+    const tGap = Math.abs(totalProj - line).toFixed(1);
+    args.push({ cond: line > 0, mag: Math.abs(totalProj - line), text: isOver
+      ? v([
+        `The model projects <strong>${totalProj.toFixed(1)} combined points</strong> against a ${line} line — the market is ${tGap} points light on this game.`,
+        `At ${totalProj.toFixed(1)} projected points, the model sees scoring the ${line} line doesn't account for — a ${tGap}-point gap.`
+      ])
+      : v([
+        `The model caps this game at <strong>${totalProj.toFixed(1)} combined points</strong> — ${tGap} below the ${line} line the market hung.`,
+        `Projected scoring of ${totalProj.toFixed(1)} falls ${tGap} short of the ${line} line — the market is pricing an offensive game the data doesn't show.`
+      ])
+    });
+    args.push({ cond: isOver && Math.max(projA, projB) >= line * 0.55, mag: 3, text:
+      `${projA >= projB ? awayTeam : homeTeam} alone projects for ${Math.max(projA, projB).toFixed(1)} — one team doing most of the work toward the Over.`
+    });
+    args.push({ cond: isUnder && (awayB2B || homeB2B), mag: 3, text:
+      `${awayB2B && homeB2B ? "Both teams are" : `${awayB2B ? awayTeam : homeTeam} is`} on a back-to-back — tired legs historically drag totals down.`
+    });
+    args.push({ cond: isUnder && !!(awayInj || homeInj), mag: 2.5, text:
+      `Key offensive pieces are out or limited${awayInj ? ` for ${awayTeam} (${awayInj})` : ""}${awayInj && homeInj ? " and" : ""}${homeInj ? ` for ${homeTeam} (${homeInj})` : ""}, capping the ceiling.`
+    });
+    args.push({ cond: isOver && awayRested && homeRested, mag: 2, text:
+      `Both teams come in fully rested — fresh legs favor pace and efficiency.`
     });
   }
 
-  // Solo argumentos válidos, ordenados por magnitud, top 3
-  const valid = args.filter(a => a.dir && a.cond).sort((a, b) => b.mag - a.mag).slice(0, 3);
+  const valid = args.filter(a => a.cond).sort((a, b) => b.mag - a.mag).slice(0, 3);
 
-  // Riesgo en contra — se menciona al final, nunca como argumento
+  // Caveat en contra (nunca como argumento)
   let risk = "";
-  if (isSpread && pickedInj) risk = `The one caveat: ${pickedTeam}'s own injury report (${pickedInj}) — the model already priced it in, and the edge held.`;
-  else if (isSpread && pickedB2B && !fadedB2B) risk = `The one caveat: ${pickedTeam} is on a back-to-back — the model factored the fatigue and the edge survived it.`;
-  else if (isOver && (awayB2B || homeB2B)) risk = `The one caveat: ${awayB2B ? awayTeam : homeTeam} plays on short rest — even so, the projected total cleared the line with room to spare.`;
-  else if (isUnder && awayRested && homeRested) risk = `The one caveat: both teams are well rested — the model still sees the matchup profile keeping this below the number.`;
+  if (isSpread && pickedInj) risk = `The one caveat: ${pickedTeam}'s own injury report (${pickedInj}) — already priced into the projection, and the edge held.`;
+  else if (isSpread && pickedB2B && !fadedB2B) risk = `The one caveat: ${pickedTeam} plays on short rest — the model factored the fatigue and the edge survived it.`;
+  else if (isOver && (awayB2B || homeB2B)) risk = `The one caveat: ${awayB2B ? awayTeam : homeTeam} is on short rest — even so, the projected total cleared the line comfortably.`;
 
-  // Armar narrativa
-  s.push(`The model flagged <strong>${pick}</strong> at ${Number(premium.confidence || 0).toFixed(0)}% confidence, driven by a ${edge.toFixed(1)}-point edge vs the market.`);
+  // Apertura con variantes
+  s.push(v([
+    `The model flagged <strong>${pick}</strong> at ${conf.toFixed(0)}% confidence — a ${edge.toFixed(1)}-point edge over the market.`,
+    `<strong>${pick}</strong> hit the model's premium threshold at ${conf.toFixed(0)}% confidence, backed by a ${edge.toFixed(1)}-point edge.`,
+    `This game triggered a premium flag: <strong>${pick}</strong>, ${conf.toFixed(0)}% confidence, ${edge.toFixed(1)} points of edge vs the line.`
+  ]));
   valid.forEach(a => s.push(a.text));
   if (risk) s.push(risk);
-  if (!valid.length) s.push(`The projections of ${projA.toFixed(1)} (${awayTeam}) and ${projB.toFixed(1)} (${homeTeam}) are what pushed this play past the model's threshold.`);
-  else s.push(`Stacked together, these factors are what qualified this play as premium.`);
+
+  // Cierre con variantes
+  s.push(v([
+    `Stacked together, that's what qualified this play as premium.`,
+    `That combination is what separated this game from the rest of today's slate.`,
+    `The model doesn't flag plays without that alignment — this one had it.`
+  ]));
 
   return s.join(" ");
 }
