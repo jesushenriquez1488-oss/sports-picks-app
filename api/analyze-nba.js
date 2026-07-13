@@ -2253,7 +2253,9 @@ const risk = isPremiumPick ? "Bajo" : "Medio";
         awayInjuryNote: awayInjuries.note || "",
         homeInjuryNote: homeInjuries.note || "",
         awayInjuryPublic: getInjuryPublicMessage(awayTeam, awayInjuries),
-        homeInjuryPublic: getInjuryPublicMessage(homeTeam, homeInjuries)
+       homeInjuryPublic: getInjuryPublicMessage(homeTeam, homeInjuries),
+        awayRecentForm: buildRecentForm(awayAll, awayGames),
+        homeRecentForm: buildRecentForm(homeAll, homeGames)
       }
     };
 
@@ -3150,4 +3152,25 @@ function getKansasDate(dateValue) {
     month: "2-digit",
     day: "2-digit"
   }).format(new Date(dateValue));
+}
+function buildRecentForm(allGames, formulaGames) {
+  // allGames: NBA (getTeamGameView pendiente) | formulaGames: ya normalizados
+  // WNBA/NCAAB: allGames === formulaGames (vienen de basketball-recent-games)
+  const source = (formulaGames?.length ? formulaGames : allGames) || [];
+  const last = source.slice(0, 5).map(g => {
+    const scored = Number(g.scored ?? (g.isHome ? g.home_team_score : g.visitor_team_score) ?? 0);
+    const allowed = Number(g.allowed ?? (g.isHome ? g.visitor_team_score : g.home_team_score) ?? 0);
+    return { won: scored > allowed, scored, allowed };
+  }).filter(g => g.scored > 0 || g.allowed > 0);
+
+  if (!last.length) return null;
+
+  const wins = last.filter(g => g.won).length;
+  const avgScored = last.reduce((s, g) => s + g.scored, 0) / last.length;
+
+  return {
+    record: `${wins}-${last.length - wins}`,
+    avgPoints: Number(avgScored.toFixed(1)),
+    streak: last.map(g => (g.won ? "W" : "L")).join("")
+  };
 }
