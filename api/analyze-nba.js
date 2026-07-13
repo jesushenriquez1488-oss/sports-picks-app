@@ -865,7 +865,7 @@ const premiumLimitReport = await enforceDailyPremiumLimits();
           if (percentage >= 95) {
             alerts.push({
               title: percentage >= 99 ? "👑 ELITE AI ALERT" : "🔥 HOT PICK ALERT",
-              message: `${card.play} — ${percentage.toFixed(1)}%`,
+             message: `${percentage.toFixed(1)}% AI Confidence`,
               percentage
             });
           }
@@ -873,7 +873,7 @@ const premiumLimitReport = await enforceDailyPremiumLimits();
       } else if (analysis.premium.pick && analysis.public?.confidence >= 95) {
         alerts.push({
           title: analysis.public.confidence >= 99 ? "👑 ELITE AI ALERT" : "🔥 HOT PICK ALERT",
-          message: `${analysis.premium.pick} — ${analysis.public.confidence}%`,
+         message: `${Number(analysis.public.confidence).toFixed(1)}% AI Confidence`,
           percentage: Number(analysis.public.confidence)
         });
       }
@@ -905,8 +905,8 @@ const premiumLimitReport = await enforceDailyPremiumLimits();
          included_segments: ["Active Subscriptions"],
           headings: { en: alert.title },
           contents: {
-            en: `${alert.message}\nDisponible ahora en CashEdge.`
-          },
+  en: `${alert.message}\nOpen CashEdge to unlock today's Premium play.`
+}
           url: "https://cashedgeapp.com"
         })
       });
@@ -1344,9 +1344,7 @@ const best = candidates
       });
     }
 
-    const parlayText = best
-      .map((p, i) => `${i + 1}. ${p.play} (${p.percentage.toFixed(1)}%)`)
-      .join("\n");
+   
 
     const response = await fetch("https://onesignal.com/api/v1/notifications", {
       method: "POST",
@@ -1357,10 +1355,10 @@ const best = candidates
       body: JSON.stringify({
         app_id: appId,
         included_segments: ["Active Subscriptions"],
-        headings: { en: "💰 PARLAY AI DEL DÍA" },
+        headings: { en: "💰 TODAY'S AI PARLAY IS READY" },
         contents: {
-          en: `${best.length} picks premium combinados:\n${parlayText}\nDisponible ahora en CashEdge.`
-        },
+  en: `${best.length} Premium selections are ready.\nOpen CashEdge to unlock today's AI Parlay.`
+},
         url: "https://cashedgeapp.com"
       })
     });
