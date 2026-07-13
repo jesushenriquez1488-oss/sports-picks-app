@@ -870,6 +870,11 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
     </div>
 
     ${locked ? `
+      <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,255,231,0.05);border:1px solid rgba(0,255,231,0.15);border-radius:10px;padding:10px 16px;margin-bottom:12px;">
+        <span style="font-size:12px;color:#8899bb;">Model's all-time ${league.toUpperCase()} record</span>
+        <span style="font-size:14px;font-weight:800;color:#00ffe7;">${ceRecordPlain(league)}</span>
+      </div>
+
       <div class="ce-basket-info-section">
         <div class="ce-basket-info-box">
           <h4>🔒 PREMIUM ANALYSIS</h4>
@@ -880,6 +885,11 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
           <p>Recent form · Rest · Injuries · Matchup · Edge vs market</p>
         </div>
       </div>
+
+      <div style="font-size:12px;color:#a0b4cc;line-height:1.6;text-align:left;padding:0 4px;margin:12px 0 2px;">
+        The model only flags a pick as premium when it finds a real mathematical edge against the sportsbooks. Betting without that edge is guessing.
+      </div>
+
       <button class="unlock-btn" style="margin-top:12px" onclick="openPromoModal()">
         🔓 UNLOCK PREMIUM PICK — $${MONTHLY_PRICE}/MO
       </button>
@@ -902,7 +912,7 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
         </button>
         <div id="gameHighlight${index}"></div>
       </div>
-     ${window.currentSport === "basketball_nba" ? `
+     ${(window.currentSport === "basketball_nba" || window.currentSport === "nba") ? `
   <div style="height:0.5px;background:#1a3050;margin:12px 0;"></div>
   <button
     onclick="toggleNBAPlayerProps(${index}, '${escapeText(awayTeam)}', '${escapeText(homeTeam)}', this)"
@@ -934,7 +944,7 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
         <p>${premium.homeInjuryPublic}</p>
       </div>
     </div>
-  ${window.currentSport === "basketball_nba" ? `
+ ${(window.currentSport === "basketball_nba" || window.currentSport === "nba") ? `
   <div style="height:0.5px;background:#1a3050;margin:12px 0;"></div>
   <button
     onclick="toggleNBAPlayerProps(${index}, '${escapeText(awayTeam)}', '${escapeText(homeTeam)}', this)"
