@@ -911,6 +911,18 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
           <p>${premium.homeInjuryPublic}</p>
         </div>
       </div>
+      ${premium.awayRecentForm || premium.homeRecentForm ? `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+        ${[[awayTeam, premium.awayRecentForm], [homeTeam, premium.homeRecentForm]].map(([team, f]) => f ? `
+        <div style="background:#070d1a;border:1px solid #10203a;border-radius:8px;padding:10px 12px;">
+          <div style="font-size:9px;color:#4a5f7f;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${team.split(" ").pop()} · LAST ${f.streak.length}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:14px;font-weight:800;color:#fff;">${f.record}</span>
+            <span style="font-size:11px;color:#8899bb;">${f.avgPoints} PPG</span>
+            <span style="font-size:11px;font-weight:700;letter-spacing:2px;">${f.streak.split("").map(r => `<span style="color:${r === "W" ? "#00ffe7" : "#ff5566"};">${r}</span>`).join("")}</span>
+          </div>
+        </div>` : "").join("")}
+      </div>` : ""}
       <div style="text-align:center;margin-top:10px;margin-bottom:10px;">
         <button onclick='toggleGameHighlight(${index}, "${encodeURIComponent(JSON.stringify(premium || {})).replace(/'/g, "%27")}", "${escapeText(awayTeam)}", "${escapeText(homeTeam)}")' style="background:transparent;border:1px solid rgba(255,140,26,0.35);border-radius:16px;padding:5px 14px;color:#ff8c1a;font-size:10px;font-weight:700;letter-spacing:0.06em;cursor:pointer;text-transform:uppercase;">
           🎯 Game Highlight
