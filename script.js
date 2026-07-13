@@ -862,13 +862,18 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
       </div>
     </div>
 
-    <div class="ce-premium-basket-stats">
+   <div class="ce-premium-basket-stats">
       <div><small>EDGE</small><strong>${locked ? "--" : premium.mainEdge.toFixed(1)}</strong></div>
-      <div><small>TOTAL</small><strong>${locked ? "--" : premium.totalProj.toFixed(1)}</strong></div>
       <div><small>${awayTeam.split(" ").pop()}</small><strong>${locked ? "--" : premium.projA.toFixed(1)}</strong></div>
       <div><small>${homeTeam.split(" ").pop()}</small><strong>${locked ? "--" : premium.projB.toFixed(1)}</strong></div>
+      <div><small>MODEL VS LINE</small>${locked ? "<strong>--</strong>" : (() => {
+        const ln = Number(premium.totalLine) > 0 ? Number(premium.totalLine) : Number(total || 0);
+        const proj = Number(premium.totalProj || 0);
+        if (!(ln > 0)) return `<strong>${proj.toFixed(1)}</strong>`;
+        const d = proj - ln;
+        return `<strong>${proj.toFixed(1)}<span style="color:#4a5f7f;font-size:11px;"> / ${ln}</span></strong><div style="font-size:10px;font-weight:700;color:${d >= 0 ? "#ff8c1a" : "#4da3ff"};margin-top:2px;">${d >= 0 ? "▲ +" : "▼ "}${d.toFixed(1)} pts</div>`;
+      })()}</div>
     </div>
-
     ${locked ? `
       <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,255,231,0.05);border:1px solid rgba(0,255,231,0.15);border-radius:10px;padding:10px 16px;margin-bottom:12px;">
         <span style="font-size:12px;color:#8899bb;">Model's all-time ${league.toUpperCase()} record</span>
