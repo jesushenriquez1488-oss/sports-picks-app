@@ -897,7 +897,7 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
         </div>
       </div>
       <div style="text-align:center;margin-top:10px;margin-bottom:10px;">
-        <button onclick='toggleGameHighlight(${index}, "${encodeURIComponent(JSON.stringify(premium || {}))}", "${escapeText(awayTeam)}", "${escapeText(homeTeam)}")' style="background:transparent;border:1px solid rgba(255,140,26,0.35);border-radius:16px;padding:5px 14px;color:#ff8c1a;font-size:10px;font-weight:700;letter-spacing:0.06em;cursor:pointer;text-transform:uppercase;">
+        <button onclick='toggleGameHighlight(${index}, "${encodeURIComponent(JSON.stringify(premium || {})).replace(/'/g, "%27")}", "${escapeText(awayTeam)}", "${escapeText(homeTeam)}")' style="background:transparent;border:1px solid rgba(255,140,26,0.35);border-radius:16px;padding:5px 14px;color:#ff8c1a;font-size:10px;font-weight:700;letter-spacing:0.06em;cursor:pointer;text-transform:uppercase;">
           🎯 Game Highlight
         </button>
         <div id="gameHighlight${index}"></div>
@@ -2017,7 +2017,7 @@ ${premium.recommendedCards?.[1] ? `
                FULL AI ANALYSIS
               </div>
               <div style="text-align:center;margin-top:10px;">
-                <button onclick='toggleGameHighlight(${index}, "${encodeURIComponent(JSON.stringify(premium || {}))}", "${escapeText(awayTeam)}", "${escapeText(homeTeam)}")' style="background:transparent;border:1px solid rgba(255,140,26,0.35);border-radius:16px;padding:5px 14px;color:#ff8c1a;font-size:10px;font-weight:700;letter-spacing:0.06em;cursor:pointer;text-transform:uppercase;">
+                <button onclick='toggleGameHighlight(${index}, "${encodeURIComponent(JSON.stringify(premium || {})).replace(/'/g, "%27")}", "${escapeText(awayTeam)}", "${escapeText(homeTeam)}")' style="background:transparent;border:1px solid rgba(255,140,26,0.35);border-radius:16px;padding:5px 14px;color:#ff8c1a;font-size:10px;font-weight:700;letter-spacing:0.06em;cursor:pointer;text-transform:uppercase;">
                   🎯 Game Highlight
                 </button>
                 <div id="gameHighlight${index}"></div>
@@ -2705,13 +2705,13 @@ function generateBasketHighlight(premium, awayTeam, homeTeam) {
 
   // Descanso / lesiones
   const restB2B = t => /back-to-back/i.test(t || "");
-  const restGood = t => /buen descanso/i.test(t || "");
+  const restGood = t => /buen descanso|well rested/i.test(t || "");
   const awayB2B = restB2B(premium.awayRestNote), homeB2B = restB2B(premium.homeRestNote);
   const awayRested = restGood(premium.awayRestNote), homeRested = restGood(premium.homeRestNote);
   const injNames = note => {
     const t = String(note || "");
-    return /no se (reportan|pudieron)/i.test(t) ? "" : t;
-  };
+    return /no se (reportan|pudieron)|no key absences|could not read/i.test(t) ? "" : t;
+   };
   const awayInj = injNames(premium.awayInjuryNote);
   const homeInj = injNames(premium.homeInjuryNote);
   const pickedInj = pickedAway ? awayInj : homeInj;
