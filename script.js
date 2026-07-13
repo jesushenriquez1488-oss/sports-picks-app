@@ -896,6 +896,12 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
           <p>${premium.homeInjuryPublic}</p>
         </div>
       </div>
+      <div style="text-align:center;margin-top:10px;margin-bottom:10px;">
+        <button onclick='toggleGameHighlight(${index}, "${encodeURIComponent(JSON.stringify(premium || {}))}", "${escapeText(awayTeam)}", "${escapeText(homeTeam)}")' style="background:transparent;border:1px solid rgba(255,140,26,0.35);border-radius:16px;padding:5px 14px;color:#ff8c1a;font-size:10px;font-weight:700;letter-spacing:0.06em;cursor:pointer;text-transform:uppercase;">
+          🎯 Game Highlight
+        </button>
+        <div id="gameHighlight${index}"></div>
+      </div>
      ${window.currentSport === "basketball_nba" ? `
   <div style="height:0.5px;background:#1a3050;margin:12px 0;"></div>
   <button
@@ -2662,6 +2668,116 @@ function generateMLBHighlight(premium, awayTeam, homeTeam) {
 
   return s.join(" ");
 }
+function generateBasketHighlight(premium, awayTeam, homeTeam) {
+  if (!premium) return "";
+  const s = [];
+  const pick = String(premium.pick || "");
+  const pickUp = pick.toUpperCase();
+  const projA = Number(premium.projA || 0);
+  const projB = Number(premium.projB || 0);
+  const totalProj = Number(premium.totalProj || 0);
+  const line = Number(premium.totalLine || 0);
+  const edge = Number(premium.mainEdge || 0);
+  const margin = Number(premium.spreadDiff || (projA - projB));
+
+  // Dirección del pick — esto manda sobre todo lo demás
+  const isOver = pickUp.includes("OVER");
+  const isUnder = pickUp.includes("UNDER");
+  const isSpread = !isOver && !isUnder;
+  const pickedAway = isSpread && pick.includes(awayTeam);
+  const pickedTeam = pickedAway ? awayTeam : homeTeam;
+  const fadedTeam = pickedAway ? homeTeam : awayTeam;
+  const pickedProj = pickedAway ? projA : projB;
+  const fadedProj = pickedAway ? projB : projA;
+
+  // Contexto: descanso y lesiones
+  const restB2B = t => /back-to-back/i.test(t || "");
+  const restGood = t => /buen descanso/i.test(t || "");
+  const awayB2B = restB2B(premium.awayRestNote), homeB2B = restB2B(premium.homeRestNote);
+  const awayRested = restGood(premium.awayRestNote), homeRested = restGood(premium.homeRestNote);
+  const injNames = note => {
+    const t = String(note || "");
+    return /no se (reportan|pudieron)/i.test(t) ? "" : t;
+  };
+  const awayInj = injNames(premium.awayInjuryNote);
+  const homeInj = injNames(premium.homeInjuryNote);
+  const pickedInj = pickedAway ? awayInj : homeInj;
+  const fadedInj = pickedAway ? homeInj : awayInj;
+  const pickedB2B = pickedAway ? awayB2B : homeB2B;
+  const fadedB2B = pickedAway ? homeB2B : awayB2B;
+  const pickedRested = pickedAway ? awayRested : homeRested;
+
+  // Pool de argumentos: { dir, cond, mag, text } — solo entran los que apoyan el pick
+  const args = [];
+
+  if (isOver || isUnder) {
+    const gap = Math.abs(totalProj - line).toFixed(1);
+    args.push({
+      dir: true, cond: line > 0 && Math.abs(totalProj - line) >= 3,
+      mag: Math.abs(totalProj - line),
+      text: isOver
+        ? `The model projects <strong>${totalProj.toFixed(1)} combined points</strong> against a line of ${line} — a ${gap}-point gap the market hasn't priced in.`
+        : `The model projects only <strong>${totalProj.toFixed(1)} combined points</strong> against a line of ${line} — the market is ${gap} points too high.`
+    });
+    args.push({
+      dir: isOver, cond: projA >= line * 0.53 || projB >= line * 0.53,
+      mag: Math.max(projA, projB) - line / 2,
+      text: `${projA >= projB ? awayTeam : homeTeam} alone projects for ${Math.max(projA, projB).toFixed(1)} points, doing most of the heavy lifting toward the Over.`
+    });
+    args.push({
+      dir: isUnder, cond: awayB2B || homeB2B,
+      mag: (awayB2B ? 3 : 0) + (homeB2B ? 3 : 0),
+      text: `${awayB2B && homeB2B ? "Both teams are" : `${awayB2B ? awayTeam : homeTeam} is`} on the second night of a back-to-back — tired legs historically drag scoring down.`
+    });
+    args.push({
+      dir: isUnder, cond: !!(awayInj || homeInj),
+      mag: 2.5,
+      text: `Key offensive pieces are compromised${awayInj ? ` for ${awayTeam} (${awayInj})` : ""}${awayInj && homeInj ? " and" : ""}${homeInj ? ` for ${homeTeam} (${homeInj})` : ""}, capping the scoring ceiling.`
+    });
+    args.push({
+      dir: isOver, cond: awayRested && homeRested,
+      mag: 2,
+      text: `Both teams come in with full rest — fresh legs favor pace and offensive efficiency.`
+    });
+  }
+
+  if (isSpread) {
+    args.push({
+      dir: true, cond: Math.abs(margin) >= 4,
+      mag: Math.abs(margin),
+      text: `The model projects ${pickedProj.toFixed(1)} points for ${pickedTeam} against ${fadedProj.toFixed(1)} for ${fadedTeam} — a ${Math.abs(margin).toFixed(1)}-point gap that comfortably clears the number.`
+    });
+    args.push({
+      dir: true, cond: !!fadedInj,
+      mag: 3,
+      text: `${fadedTeam} is dealing with key absences (${fadedInj}) — production the market may not have fully discounted.`
+    });
+    args.push({
+      dir: true, cond: fadedB2B && !pickedB2B,
+      mag: 3,
+      text: `${fadedTeam} is playing the second night of a back-to-back while ${pickedTeam} ${pickedRested ? "comes in fully rested" : "had a normal schedule"} — a rest edge that shows up in fourth quarters.`
+    });
+  }
+
+  // Solo argumentos válidos, ordenados por magnitud, top 3
+  const valid = args.filter(a => a.dir && a.cond).sort((a, b) => b.mag - a.mag).slice(0, 3);
+
+  // Riesgo en contra — se menciona al final, nunca como argumento
+  let risk = "";
+  if (isSpread && pickedInj) risk = `The one caveat: ${pickedTeam}'s own injury report (${pickedInj}) — the model already priced it in, and the edge held.`;
+  else if (isSpread && pickedB2B && !fadedB2B) risk = `The one caveat: ${pickedTeam} is on a back-to-back — the model factored the fatigue and the edge survived it.`;
+  else if (isOver && (awayB2B || homeB2B)) risk = `The one caveat: ${awayB2B ? awayTeam : homeTeam} plays on short rest — even so, the projected total cleared the line with room to spare.`;
+  else if (isUnder && awayRested && homeRested) risk = `The one caveat: both teams are well rested — the model still sees the matchup profile keeping this below the number.`;
+
+  // Armar narrativa
+  s.push(`The model flagged <strong>${pick}</strong> at ${Number(premium.confidence || 0).toFixed(0)}% confidence, driven by a ${edge.toFixed(1)}-point edge vs the market.`);
+  valid.forEach(a => s.push(a.text));
+  if (risk) s.push(risk);
+  if (!valid.length) s.push(`The projections of ${projA.toFixed(1)} (${awayTeam}) and ${projB.toFixed(1)} (${homeTeam}) are what pushed this play past the model's threshold.`);
+  else s.push(`Stacked together, these factors are what qualified this play as premium.`);
+
+  return s.join(" ");
+}
 async function loadStats() {
   try {
     const res = await fetch("/api/analyze-nba?mode=performance");
@@ -3234,7 +3350,7 @@ function toggleGameHighlight(index, premiumJson, awayTeam, homeTeam) {
   box.innerHTML = `
     <div style="background:#0a1220;border:1px solid rgba(255,140,26,0.25);border-left:3px solid #ff8c1a;border-radius:8px;padding:14px 16px;margin-top:8px;text-align:left;">
       <div style="font-size:10px;color:#ff8c1a;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin-bottom:8px;">🎯 Game Highlight</div>
-      <div style="font-size:12px;color:#d0dcec;line-height:1.7;">${generateMLBHighlight(premium, awayTeam, homeTeam) || "No standout factors detected in this matchup."}</div>
+     <div style="font-size:12px;color:#d0dcec;line-height:1.7;">${(premium?.recommendedCards ? generateMLBHighlight(premium, awayTeam, homeTeam) : generateBasketHighlight(premium, awayTeam, homeTeam)) || "No standout factors detected in this matchup."}</div>
     </div>
   `;
   box.dataset.loaded = "true";
