@@ -826,7 +826,7 @@ if (
         <div class="normal-result">
           <p><strong>${data.public.title}</strong></p>
           <p>${data.public.message}</p>
-          <p><strong>Motivo:</strong> ${data.public.reason}</p>
+          <p><strong>Reason:</strong> ${data.public.reason}</p>
         </div>
       `;
       endAnalysisLock(index);
@@ -837,7 +837,7 @@ if (
     const premium = data.premium;
     const isPremium = data.isPremiumPick;
 let displayPick = locked
-  ? "Pick bloqueado"
+  ? "•••••••• 🔒"
   : premium.pick
       .replace(" cubre spread", "")
       .replace(" cubre", "");
@@ -872,26 +872,26 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
     ${locked ? `
       <div class="ce-basket-info-section">
         <div class="ce-basket-info-box">
-          <h4>🔒 ANÁLISIS PREMIUM</h4>
-          <p>Edge significativo detectado. Desbloquea para ver el pick completo.</p>
+          <h4>🔒 PREMIUM ANALYSIS</h4>
+          <p>Significant edge detected. Unlock to see the full pick.</p>
         </div>
         <div class="ce-basket-info-box">
-          <h4>FACTORES</h4>
-          <p>Forma reciente · Descanso · Lesiones · Matchup · Edge vs mercado</p>
+          <h4>FACTORS</h4>
+          <p>Recent form · Rest · Injuries · Matchup · Edge vs market</p>
         </div>
       </div>
       <button class="unlock-btn" style="margin-top:12px" onclick="openPromoModal()">
-        🔓 Desbloquear Premium — $${MONTHLY_PRICE}/mes
+        🔓 UNLOCK PREMIUM PICK — $${MONTHLY_PRICE}/MO
       </button>
     ` : `
-      <div class="ce-basket-info-section">
+    <div class="ce-basket-info-section">
         <div class="ce-basket-info-box">
-          <h4>😴 DESCANSO</h4>
+          <h4>😴 REST</h4>
           <p>${awayTeam}: ${premium.awayRestNote}</p>
           <p>${homeTeam}: ${premium.homeRestNote}</p>
         </div>
         <div class="ce-basket-info-box">
-          <h4>🚑 LESIONES</h4>
+          <h4>🚑 INJURIES</h4>
           <p>${premium.awayInjuryPublic}</p>
           <p>${premium.homeInjuryPublic}</p>
         </div>
@@ -914,22 +914,22 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
 `}
 
   ` : `
-    <div class="ce-normal-basket-badge">📊 JUGADA DESTACADA</div>
+    <div class="ce-normal-basket-badge">📊 FEATURED PLAY</div>
     <div class="ce-normal-basket-pick">${displayPick}</div>
     <div class="ce-normal-basket-stats">
-      <div><small>CONFIANZA</small><strong>${data.public.confidence}%</strong></div>
+      <div><small>CONFIDENCE</small><strong>${data.public.confidence}%</strong></div>
       <div><small>EDGE</small><strong>${premium.mainEdge.toFixed(1)}</strong></div>
       <div><small>${awayTeam.split(" ").pop()}</small><strong>${premium.projA.toFixed(1)}</strong></div>
       <div><small>${homeTeam.split(" ").pop()}</small><strong>${premium.projB.toFixed(1)}</strong></div>
     </div>
     <div class="ce-basket-info-section" style="margin-top:10px">
       <div class="ce-basket-info-box">
-        <h4>😴 DESCANSO</h4>
+        <h4>😴 REST</h4>
         <p>${awayTeam}: ${premium.awayRestNote}</p>
         <p>${homeTeam}: ${premium.homeRestNote}</p>
       </div>
       <div class="ce-basket-info-box">
-        <h4>🚑 LESIONES</h4>
+        <h4>🚑 INJURIES</h4>
         <p>${premium.awayInjuryPublic}</p>
         <p>${premium.homeInjuryPublic}</p>
       </div>
@@ -939,7 +939,7 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
   <button
     onclick="toggleNBAPlayerProps(${index}, '${escapeText(awayTeam)}', '${escapeText(homeTeam)}', this)"
     style="display:block;width:100%;padding:12px 0;background:rgba(124,60,255,0.15);border:1.5px solid #7c3cff;border-radius:10px;color:#c4a0ff;font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer;text-align:center;text-transform:uppercase;margin-bottom:10px;">
-    ⚡ VER PLAYER PROPS ↗
+    ⚡ VIEW PLAYER PROPS ↗
   </button>
   <div id="nbaProps${index}"></div>
 ` : ""}
@@ -2255,7 +2255,7 @@ if (data.limitReached === true || data.upgradeRequired === true) {
     const homeEsc = homeTeam.replace(/'/g, "\\'");
  
     const propsButtonHTML = type === "nfl"
-      ? `<button onclick="toggleNFLPlayerProps(${index}, '${awayEsc}', '${homeEsc}', this)" style="width:100%;padding:11px;border-radius:8px;border:1px solid #1a2240;background:#0f1628;color:#00ffe7;font-size:12px;font-weight:600;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">⚡ VER PLAYER PROPS</button><div id="nflProps${index}"></div>`
+      ? `<button onclick="toggleNFLPlayerProps(${index}, '${awayEsc}', '${homeEsc}', this)" style="width:100%;padding:11px;border-radius:8px;border:1px solid #1a2240;background:#0f1628;color:#00ffe7;font-size:12px;font-weight:600;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">⚡ VIEW PLAYER PROPS</button><div id="nflProps${index}"></div>`
       : "";
  
     resultDiv.innerHTML = isPremium ? `
@@ -3547,8 +3547,8 @@ async function toggleNBAPlayerProps(index, awayTeam, homeTeam, btn) {
   if (!IS_ADMIN && !isPremiumUser) {
     box.innerHTML = `
       <div style="background:#0f1628;border:1px solid #1a2240;border-radius:8px;padding:14px;text-align:center;">
-        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;">Premium Content</div>
-        <div style="font-size:11px;color:#556688;margin-bottom:12px;">Desbloquea los player props seleccionados por el modelo AI</div>
+       <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;">Premium Content</div>
+        <div style="font-size:11px;color:#556688;margin-bottom:12px;">Unlock the best NBA props selected by the AI model</div>
         <button onclick="openPromoModal()" style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:12px;font-weight:700;cursor:pointer;">
           OBTENER PREMIUM · $${MONTHLY_PRICE}/mes
         </button>
@@ -3581,7 +3581,7 @@ async function toggleNBAPlayerProps(index, awayTeam, homeTeam, btn) {
     if (!res.ok || data.noPlay || !data.props?.length) {
       box.innerHTML = `
         <div style="background:#0f1628;border-radius:8px;padding:12px;margin-top:8px;text-align:center;">
-          <div style="font-size:11px;color:#556688;">No hay player props disponibles para este juego aún.</div>
+          <div style="font-size:11px;color:#556688;">No player props available for this game yet.</div>
         </div>
       `;
       box.dataset.loaded = "true";
@@ -3593,14 +3593,14 @@ async function toggleNBAPlayerProps(index, awayTeam, homeTeam, btn) {
       player_assists: "ast", player_threes: "3PT"
     };
 
-    const tabs = ["Puntos", "Rebotes", "Asistencias", "3PT"];
+    const tabs = ["Points", "Rebounds", "Assists", "3PT"];
     const marketKeys = ["player_points", "player_rebounds", "player_assists", "player_threes"];
 
     const allProps = [...(data.props || []), ...(data.lockedProps || [])];
 
     function renderProps(marketKey) {
       const filtered = allProps.filter(p => p.market === marketKey);
-      if (!filtered.length) return `<div style="font-size:11px;color:#556688;padding:10px;text-align:center;">Sin props para este mercado.</div>`;
+      if (!filtered.length) return `<div style="font-size:11px;color:#556688;padding:10px;text-align:center;">No props for this market.</div>`;
 
       return filtered.slice(0, 4).map(prop => {
         const isPos = prop.edge >= 0;
@@ -3701,7 +3701,7 @@ async function toggleNBAPlayerProps(index, awayTeam, homeTeam, btn) {
               </div>
             `;
           }).join("")
-        : `<div style="font-size:11px;color:#556688;padding:10px;text-align:center;">Sin props para este mercado.</div>`;
+        : `<div style="font-size:11px;color:#556688;padding:10px;text-align:center;">No props for this market.</div>`;
     };
 
   } catch (err) {
