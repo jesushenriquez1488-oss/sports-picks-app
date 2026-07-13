@@ -3113,7 +3113,7 @@ function resetInactivityTimer() {
 
     if (sessionData.session) {
       await logoutUser();
-      alert("Tu sesión se cerró por inactividad.");
+      alert("Your session has expired due to inactivity.");
     }
   }, INACTIVITY_LIMIT);
 }
@@ -3183,7 +3183,7 @@ if (gamesDiv) gamesDiv.innerHTML = "";
 if (status) status.innerHTML = "";
   if (!box) return;
 
-  box.innerHTML = `<div class="loading-analysis">Buscando Parlay Premium del Día...</div>`;
+  box.innerHTML = `<div class="loading-analysis">Generating today's Premium AI Parlay...</div>`;
 
   try {
     const { data: sessionData } = await supabaseClient.auth.getSession();
@@ -3191,8 +3191,8 @@ if (status) status.innerHTML = "";
     if (!sessionData.session) {
       box.innerHTML = `
         <div class="premium-result mlb-premium-dashboard">
-          <h3>🔥 CashEdge Parlay AI del Día</h3>
-          <p>Debes iniciar sesión para ver esta sección premium.</p>
+          <h3>🔥 CashEdge AI Parlay of the Day</h3>
+          <p>Sign in to unlock this Premium feature.</p>
         </div>
       `;
       return;
@@ -3208,13 +3208,13 @@ if (status) status.innerHTML = "";
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || "Error cargando parlay");
+      throw new Error(data.error || "Error loading parlay");
     }
 
     if (!data.available) {
       box.innerHTML = `
         <div class="normal-result">
-          <h3>🔥 CashEdge Parlay AI del Día</h3>
+          <h3>🔥 CashEdge AI Parlay of the Day</h3>
           <p>${data.message}</p>
         </div>
       `;
