@@ -2475,7 +2475,7 @@ function getRestAdjustment(allGames) {
   if (!allGames || allGames.length < 2) {
     return {
       points: 0,
-      note: "Descanso no disponible"
+      note: "Rest data not available"
     };
   }
 
@@ -2486,20 +2486,20 @@ function getRestAdjustment(allGames) {
   if (diffDays <= 1) {
     return {
       points: -3,
-      note: "Back-to-back detectado. El equipo podría mostrar menor energía y eficiencia."
+     note: "Back-to-back detected. The team may show reduced energy and efficiency."
     };
   }
 
   if (diffDays >= 3) {
     return {
       points: 2,
-      note: "Buen descanso. El equipo llega con mejor recuperación física."
+     note: "Well rested. The team comes in with better physical recovery."
     };
   }
 
   return {
     points: 0,
-    note: "Descanso normal"
+   note: "Normal rest"
   };
 }
 
@@ -2618,14 +2618,14 @@ else if (status.includes("day-to-day") || status.includes("day to day")) pesoSta
       note:
         activeInjuries.length > 0
           ? activeInjuries.map(p => `${p.name} (${p.status})`).join(", ")
-          : `No se reportan bajas clave para ${teamName}.`
+          : `No key absences reported for ${teamName}.`
     };
  
   } catch {
     return {
       offenseImpact: 0,
       defenseImpact: 0,
-      note: `No se pudieron leer lesiones para ${teamName}.`
+      note: `Could not read injuries for ${teamName}.`
     };
   }
 }
@@ -2674,28 +2674,28 @@ function getInjuryPublicMessage(teamName, injury = {}) {
   const hasDefenseImpact = injury.defenseImpact > 0;
 
   if (!hasOffenseImpact && !hasDefenseImpact) {
-    return `No se reportan bajas clave que afecten significativamente el rendimiento de ${teamName}.`;
+    return `No key absences reported that significantly affect ${teamName}'s performance.`;
   }
 
-  const playerList = injury.note && !injury.note.startsWith("No se reportan")
+  const playerList = injury.note && !injury.note.startsWith("No key absences") && !injury.note.startsWith("No se")
     ? injury.note
     : null;
 
   if (hasOffenseImpact && hasDefenseImpact) {
     return playerList
-      ? `${teamName} podría verse afectado en ofensiva y defensiva por: ${playerList}.`
-      : `${teamName} presenta posibles bajas en ofensiva y defensiva, lo que podría afectar su rendimiento general.`;
+      ? `${teamName} could be affected on both ends of the floor: ${playerList}.`
+      : `${teamName} has potential absences on offense and defense that could affect overall performance.`;
   }
 
   if (hasOffenseImpact) {
     return playerList
-      ? `${teamName} podría verse afectado en su producción de puntos por: ${playerList}.`
-      : `${teamName} presenta posibles bajas en ofensiva, lo que podría afectar su producción de puntos.`;
+      ? `${teamName}'s scoring output could be affected by: ${playerList}.`
+      : `${teamName} has potential offensive absences that could affect scoring production.`;
   }
 
   return playerList
-    ? `${teamName} podría verse afectado en su capacidad defensiva por: ${playerList}.`
-    : `${teamName} presenta posibles bajas en defensiva, lo que podría afectar su capacidad para contener al rival.`;
+    ? `${teamName}'s defense could be affected by: ${playerList}.`
+    : `${teamName} has potential defensive absences that could affect its ability to contain the opponent.`;
 }
 function isWnbaTeam(teamName) {
   const name = String(teamName || "").toLowerCase();
