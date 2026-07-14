@@ -3196,9 +3196,9 @@ function formatSportIcon(sport) {
   const icons = {
     nba: "🏀",
     wnba: "🏀",
-    ncaab: "NCAA",
+    ncaab: "🎓",
     nfl: "🏈",
-    ncaaf: "NCAA",
+    ncaaf: "🎓",
     mlb: "⚾"
   };
 
