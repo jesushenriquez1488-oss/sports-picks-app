@@ -379,7 +379,7 @@ async function handleUserSession(user) {
     document.body.classList.add("logged-in");
     document.getElementById("userEmail").innerText = user.email;
     document.getElementById("premiumStatus").innerText =
-      isPremiumUser ? "🔥 Premium activo" : "Free account";
+      isPremiumUser ? "🔥 Premium active" : "Free account";
   }
 }
 async function loadTeams() {
@@ -755,7 +755,7 @@ async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, in
     const { data: sessionData } = await supabaseClient.auth.getSession();
 
     if (!sessionData.session) {
-      alert("Debes iniciar sesión para analizar.");
+      alert("You must sign in to analyze.");
       return;
     }
 
@@ -793,8 +793,8 @@ if (
 ) {
   resultDiv.innerHTML = `
     <div class="normal-result">
-      <p><strong>Juego no disponible para análisis WNBA.</strong></p>
-      <p>Este equipo no tiene data válida en el modelo.</p>
+      <p><strong>Game not available for WNBA analysis.</strong></p>
+      <p>This team doesn't have valid data in the model.</p>
     </div>
   `;
   return;
@@ -818,7 +818,7 @@ if (
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || "Error analizando NBA");
+      throw new Error(data.error || "Error analyzing NBA");
     }
 
     if (data.noPlay) {
@@ -983,7 +983,7 @@ endAnalysisLock(index);
     } else {
       resultDiv.innerHTML = `
         <div class="normal-result">
-          <p><strong>Error analizando NBA</strong></p>
+          <p><strong>Error analyzing NBA</strong></p>
           <p>${error.message}</p>
         </div>
       `;
@@ -1245,7 +1245,7 @@ function renderAnalysisResult({
         shouldLockPremium
           ? `
             <button class="unlock-btn premium-unlock" onclick="openPromoModal()">
-              🔓 Desbloquear Premium $${MONTHLY_PRICE}/mes
+              🔓 UNLOCK PREMIUM $${MONTHLY_PRICE}/MO
             </button>
           `
           : ""
@@ -1304,7 +1304,7 @@ async function loadGames() {
   const { data: sessionData } = await supabaseClient.auth.getSession();
 
   if (!sessionData.session) {
-    alert("Debes registrarte o iniciar sesión para ver los análisis.");
+    alert("Sign up or log in to view the analyses.");
     document.getElementById("authBox").scrollIntoView({ behavior: "smooth" });
     return;
   }
@@ -1321,7 +1321,7 @@ await trackUserEvent("view_sport", {
     sportName: selectedSportName
   }
 });
-  status.innerHTML = "Cargando juegos...";
+  status.innerHTML = "Loading games...";
   gamesDiv.innerHTML = "";
 
   try {
@@ -1340,7 +1340,7 @@ await trackUserEvent("view_sport", {
 
     if (savedData && savedTime && (nowCache - Number(savedTime) < ODDS_CACHE_TIME)) {
       data = JSON.parse(savedData);
-      status.innerHTML = `Usando datos recientes de ${selectedSportName}`;
+      status.innerHTML = `Using recent data ${selectedSportName}`;
     } else {
 const session = sessionData?.session;
 const res = await fetch(`/api/odds?sport=${encodeURIComponent(sport)}`, {
@@ -1351,7 +1351,7 @@ const res = await fetch(`/api/odds?sport=${encodeURIComponent(sport)}`, {
 const text = await res.text();
       
 
-      if (!res.ok) throw new Error("Error cargando odds: " + text);
+      if (!res.ok) throw new Error("Error loading odds: " + text);
 
       data = JSON.parse(text);
 
@@ -1410,12 +1410,12 @@ if (isFootballSport) {
     .sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time))
     .slice(0, 16);
   
-  status.innerHTML = `Juegos encontrados: ${upcomingGames.length}`;
+  status.innerHTML = `Games found: ${upcomingGames.length}`;
 
   if (upcomingGames.length === 0) {
     gamesDiv.innerHTML = `
       <div class="card">
-        <p>No hay juegos disponibles para ${selectedSportName} en este momento.</p>
+        <p>No games available for ${selectedSportName} right now.</p>
       </div>
     `;
     return;
@@ -1587,12 +1587,12 @@ function togglePassword(inputId, el) {
 }
 async function registerUser(email, password) {
   if (!email || !password) {
-    showAuthMessage("Completa email y password", "error");
+    showAuthMessage("Enter your email and password", "error");
     return;
   }
 
   if (password.length < 8) {
-    showAuthMessage("La contraseña debe tener al menos 8 caracteres", "error");
+    showAuthMessage("Password must be at least 8 characters", "error");
     return;
   }
 
@@ -1606,7 +1606,7 @@ async function registerUser(email, password) {
       error.message.toLowerCase().includes("already") ||
       error.message.toLowerCase().includes("registered")
     ) {
-      showAuthMessage("Esta cuenta ya existe. Inicia sesión.", "error");
+      showAuthMessage("This account already exists. Please log in.", "error");
     } else {
       showAuthMessage(error.message, "error");
     }
@@ -1615,7 +1615,7 @@ async function registerUser(email, password) {
 
   // Supabase devuelve identities vacío si el email ya existe pero no está confirmado
   if (data.user && data.user.identities && data.user.identities.length === 0) {
-    showAuthMessage("Esta cuenta ya existe. Revisa tu correo o inicia sesión.", "error");
+    showAuthMessage("This account already exists. Check your email or log in.", "error");
     return;
   }
 // Registrar creación exitosa de cuenta en Google Analytics
@@ -1624,7 +1624,7 @@ if (typeof window.gtag === "function") {
     method: "email",
   });
 }
-  showAuthMessage("✅ Cuenta creada. Revisa tu correo " + email + " para verificar tu cuenta antes de iniciar sesión.", "success");
+  showAuthMessage("✅ Account created. Check your email " + email + " to verify your account before logging in.", "success");
   showLogin();
   document.getElementById("loginEmail").value = email;
   document.getElementById("loginPassword").value = "";
@@ -1650,7 +1650,7 @@ async function askPushAfterLogin() {
 }
 async function loginUser(email, password) {
   if (!email || !password) {
-    showAuthMessage("Completa email y password", "error");
+    showAuthMessage("Enter your email and password", "error");
     return;
   }
 await askPushAfterLogin();
@@ -1660,7 +1660,7 @@ await askPushAfterLogin();
   });
 
   if (error) {
-    showAuthMessage("Email o password incorrecto", "error");
+    showAuthMessage("Incorrect email or password", "error");
     return;
   }
 
@@ -1709,7 +1709,7 @@ async function resetPassword() {
   document.getElementById("email")?.value.trim() ||
   document.getElementById("loginEmail")?.value.trim();
   if (!email) {
-    alert("Ingresa tu correo para recuperar tu contraseña.");
+    alert("Enter your email to reset your password.");
     return;
   }
 
@@ -1718,11 +1718,11 @@ async function resetPassword() {
   });
 
   if (error) {
-    alert("Error enviando recuperación: " + error.message);
+    alert("Error sending recovery email: " + error.message);
     return;
   }
 
-  alert("Te enviamos un correo para recuperar tu contraseña.");
+  alert("We sent you a password recovery email.");
 }
 async function loginWithGoogle() {
   const { error } = await supabaseClient.auth.signInWithOAuth({
@@ -1775,7 +1775,7 @@ async function requireLogin(message) {
   const { data: sessionData } = await supabaseClient.auth.getSession();
 
   if (!sessionData.session) {
-    alert(message || "Debes registrarte o iniciar sesión para continuar.");
+    alert(message || "Sign up or log in to continue.");
     document.getElementById("authBox").scrollIntoView({ behavior: "smooth" });
     return false;
   }
@@ -1832,7 +1832,7 @@ window.loginUser = loginUser;
 
 async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, outcomes, totalLine = 8, gameTime = null, eventId = null) {
   const resultDiv = document.getElementById(`result${index}`);
-  if (!startAnalysisLock(index, "Analizando MLB...")) return;
+  if (!startAnalysisLock(index, "Analyzing MLB...")) return;
   resultDiv.innerHTML = `<div class="loading-analysis">Analyzing MLB...</div>`;
 
   const safe = (v, d = 0) => (typeof v === "number" && !isNaN(v) ? v : d);
@@ -1841,7 +1841,7 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
     const { data: sessionData } = await supabaseClient.auth.getSession();
 
     if (!sessionData.session) {
-      alert("Debes iniciar sesión para analizar.");
+      alert("You must sign in to analyze.");
       return;
     }
 
@@ -1865,13 +1865,13 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || "Error analizando MLB");
+      throw new Error(data.error || "Error analyzing MLB");
     }
 if (data.noPlay) {
   resultDiv.innerHTML = `
     <div class="prediction-card">
-      <h2>⏳ Análisis MLB no disponible</h2>
-      <p>${data.public?.message || data.public?.reason || data.error || "Esperando pitchers confirmados y líneas oficiales."}</p>
+      <h2>⏳ MLB analysis not available</h2>
+      <p>${data.public?.message || data.public?.reason || data.error || "Waiting for confirmed pitchers and official lines."}</p>
     </div>
   `;
   endAnalysisLock(index);
@@ -2076,7 +2076,7 @@ ${premium.recommendedCards?.[1] ? `
     } else {
       resultDiv.innerHTML = `
         <div class="normal-result">
-          <p><strong>Error analizando MLB</strong></p>
+          <p><strong>Error analyzing MLB</strong></p>
           <p>${error.message}</p>
         </div>
       `;
@@ -2272,7 +2272,7 @@ function generateNFLAnalysisText(data, awayTeam, homeTeam, bestPick) {
 }
 async function analyzeFootball(awayTeam, homeTeam, index) {
   const resultDiv = document.getElementById(`result${index}`);
-  resultDiv.innerHTML = `<div class="loading-analysis">Analizando ${selectedSportName}...</div>`;
+  resultDiv.innerHTML = `<div class="loading-analysis">Analyzing ${selectedSportName}...</div>`;
  
   try {
     const type = selectedSport === "americanfootball_nfl" ? "nfl" : "ncaaf";
@@ -2280,7 +2280,7 @@ async function analyzeFootball(awayTeam, homeTeam, index) {
     const { data: sessionData } = await supabaseClient.auth.getSession();
  
     if (!sessionData.session) {
-      alert("Debes iniciar sesión para analizar.");
+      alert("You must sign in to analyze.");
       return;
     }
  
@@ -2520,7 +2520,7 @@ if (data.limitReached === true || data.upgradeRequired === true) {
     } else {
       resultDiv.innerHTML = `
         <div class="normal-result">
-          <p><strong>Error analizando ${selectedSportName}</strong></p>
+          <p><strong>Error analyzing ${selectedSportName}</strong></p>
           <p>${err.message}</p>
         </div>
       `;
@@ -2538,17 +2538,17 @@ async function toggleNFLPlayerProps(index, awayTeam, homeTeam) {
  
   const { data: sessionData } = await supabaseClient.auth.getSession();
   if (!sessionData.session) {
-    alert("Debes iniciar sesión.");
+    alert("You must sign in.");
     return;
   }
  
   if (!IS_ADMIN && !isPremiumUser) {
     box.innerHTML = `
       <div style="background:#0f1628;border:1px solid #1a2240;border-radius:8px;padding:14px;margin-top:10px;text-align:center;">
-        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;">Contenido Premium</div>
+        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;">Premium Content</div>
         <div style="font-size:11px;color:#556688;margin-bottom:12px;line-height:1.5;">Unlock the best NFL props selected by the AI model</div>
         <button onclick="openPromoModal()" style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:12px;font-weight:700;cursor:pointer;">
-          GET PREMIUM · $${MONTHLY_PRICE}/mes
+          GET PREMIUM · $${MONTHLY_PRICE}/MO
         </button>
       </div>
     `;
@@ -2577,11 +2577,11 @@ async function toggleNFLPlayerProps(index, awayTeam, homeTeam) {
  
     const propsHTML = data.props.slice(0, 3).map(prop => {
       const marketLabels = {
-        player_pass_yds: "yds pase",
-        player_rush_yds: "yds corrida",
-        player_rush_attempts: "intentos corrida",
-        player_receptions: "recepciones",
-        player_reception_yds: "yds recepción"
+        player_pass_yds: "pass yds",
+        player_rush_yds: "rush yds",
+        player_rush_attempts: "rush attempts",
+        player_receptions: "receptions",
+        player_reception_yds: "receiving yds"
       };
       const marketLabel = marketLabels[prop.market] || prop.market;
  
@@ -2590,7 +2590,7 @@ async function toggleNFLPlayerProps(index, awayTeam, homeTeam) {
           <div>
             <div style="font-size:12px;font-weight:500;color:#fff;">${prop.player}</div>
             <div style="font-size:11px;color:#00ffe7;margin-top:2px;">Over ${prop.line} ${marketLabel}</div>
-            <div style="font-size:10px;color:#556688;margin-top:2px;">Proyección: ${prop.projection} · Edge +${prop.edge}</div>
+            <div style="font-size:10px;color:#556688;margin-top:2px;">Projection: ${prop.projection} · Edge +${prop.edge}</div>
           </div>
           <div style="text-align:right;flex-shrink:0;margin-left:12px;">
             <div style="font-size:15px;font-weight:700;color:#00ffe7;">${prop.confidence.toFixed(1)}%</div>
@@ -2602,14 +2602,14 @@ async function toggleNFLPlayerProps(index, awayTeam, homeTeam) {
  
     box.innerHTML = `
       <div style="margin-top:10px;">
-        <div style="font-size:9px;color:#00ffe7;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;opacity:0.7;">⚡ Player props del juego</div>
+        <div style="font-size:9px;color:#00ffe7;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;opacity:0.7;">⚡Game player props</div>
         ${propsHTML}
       </div>
     `;
     box.dataset.loaded = "true";
  
   } catch (err) {
-    box.innerHTML = `<div style="font-size:11px;color:#556688;padding:8px;">Error cargando props: ${err.message}</div>`;
+    box.innerHTML = `<div style="font-size:11px;color:#556688;padding:8px;">Error loading props: ${err.message}</div>`;
     box.dataset.loaded = "true";
   }
 }
@@ -3385,7 +3385,7 @@ function resetInactivityTimer() {
 resetInactivityTimer();
 const activeAnalysis = {};
 
-function setAnalysisButtonLoading(index, isLoading, text = "Analizando...") {
+function setAnalysisButtonLoading(index, isLoading, text = "Analyzing...") {
   const resultDiv = document.getElementById(`result${index}`);
   const card = resultDiv ? resultDiv.closest(".card") : null;
   const button = card ? card.querySelector("button") : null;
@@ -3399,7 +3399,7 @@ function setAnalysisButtonLoading(index, isLoading, text = "Analizando...") {
     button.style.opacity = "0.6";
     button.style.cursor = "not-allowed";
   } else {
-    button.innerText = button.dataset.originalText || "Ver predicción del modelo";
+    button.innerText = button.dataset.originalText || "View AI Prediction";
     button.disabled = false;
     button.style.opacity = "1";
     button.style.cursor = "pointer";
@@ -3610,12 +3610,12 @@ if (enableBtn) {
         await OneSignal.User.PushSubscription.optIn();
 
         enableBtn.innerHTML =
-          "✅ ALERTAS PREMIUM ACTIVADAS";
+          "✅ PREMIUM ALERTS ENABLED";
 
       } else {
 
         enableBtn.innerHTML =
-          "❌ ALERTAS BLOQUEADAS";
+          "❌ ALERTS BLOCKED";
 
       }
 
@@ -3753,7 +3753,7 @@ async function togglePlayerEdgeProps(index, eventId) {
 
     const data = await response.json();
 
-    if (!response.ok) throw new Error(data.error || "Error cargando player props");
+    if (!response.ok) throw new Error(data.error || "Error loading player props");
 
     if (data.noPlay || !data.props || data.props.length === 0) {
       box.innerHTML = `<p class="player-edge-empty">No player props with edge for this game.</p>`;
@@ -3837,7 +3837,7 @@ async function toggleNBAPlayerProps(index, awayTeam, homeTeam, btn) {
        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;">Premium Content</div>
         <div style="font-size:11px;color:#556688;margin-bottom:12px;">Unlock the best NBA props selected by the AI model</div>
         <button onclick="openPromoModal()" style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:12px;font-weight:700;cursor:pointer;">
-          OBTENER PREMIUM · $${MONTHLY_PRICE}/mes
+          GET PREMIUM · $${MONTHLY_PRICE}/MO
         </button>
       </div>
     `;
@@ -4057,22 +4057,22 @@ modal.innerHTML = `
       </div>
 
       <div style="font-size:22px;margin-bottom:6px;">⚡</div>
-      <h2 style="font-size:18px;font-weight:700;color:#fff;margin-bottom:6px;">Obtener Premium</h2>
-      <p style="font-size:13px;color:#a0b4cc;margin-bottom:16px;">¿Tienes un código promocional?</p>
+      <h2 style="font-size:18px;font-weight:700;color:#fff;margin-bottom:6px;">Get Premium</h2>
+      <p style="font-size:13px;color:#a0b4cc;margin-bottom:16px;">¿Have a promo code?</p>
 
       <input
         id="promoCodeInput"
         type="text"
-        placeholder="Código promocional (opcional)"
+        placeholder="Promo code (optional)"
         style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid #0e2a4a;background:#030c18;color:#e8f4ff;font-size:13px;box-sizing:border-box;outline:none;margin-bottom:12px;"
       />
 
       <button onclick="goPremiumMonthly()" style="width:100%;padding:13px;border:none;border-radius:10px;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.5px;margin-bottom:8px;">
-        CONTINUAR →
+        CONTINUE →
       </button>
 
       <button onclick="skipPromoCode()" style="width:100%;padding:12px;border:1px solid #0e2a4a;border-radius:10px;background:transparent;color:#a0b4cc;font-size:12px;font-weight:500;cursor:pointer;">
-        No tengo código
+        I don't have a code
       </button>
 
     </div>
