@@ -2650,13 +2650,17 @@ function ceParkIcon(factor) {
 function generateMLBHighlight(premium, awayTeam, homeTeam) {
   if (!premium) return "";
   const s = [];
+
+  // ---- Datos base ----
   const runsA = Number(premium.expectedRunsA || 0);
   const runsB = Number(premium.expectedRunsB || 0);
   const projTotal = Number(premium.projectedTotal || 0);
   const line = Number(premium.totalLine || 0);
-  const diff = Number(premium.totalDiff || 0);
+  const diff = Number(premium.totalDiff || (projTotal - line));
   const wf = Number(premium.weatherFactor || 1);
   const pf = Number(premium.venue?.parkFactor || 1);
+  const parkName = premium.venue?.name || "the ballpark";
+  const roof = String(premium.venue?.roof || "").toLowerCase();
   const wDir = premium.weather?.direction;
   const wSpeed = Number(premium.weather?.speed || 0);
   const temp = Number(premium.weather?.temp);
@@ -2666,32 +2670,229 @@ function generateMLBHighlight(premium, awayTeam, homeTeam) {
   const innB = Number(premium.homePitcherInnings || 0);
   const fatA = Number(premium.awayBullpenFatigue || 0);
   const fatB = Number(premium.homeBullpenFatigue || 0);
-  const pick = premium.recommendedCards?.[0]?.play || null;
+  const awayOff = Number(premium.awayOffense || 0);
+  const homeOff = Number(premium.homeOffense || 0);
+  const awayPAllowed = Number(premium.awayPitcherAllowed || 0);
+  const homePAllowed = Number(premium.homePitcherAllowed || 0);
+  const awayBpAllowed = Number(premium.awayBullpenAllowed || 0);
+  const homeBpAllowed = Number(premium.homeBullpenAllowed || 0);
 
-  // Apertura: el pick o el lean
-  if (pick) s.push(`The model flagged <strong>${pick}</strong> in this matchup.`);
-  s.push(`It projects ${runsA.toFixed(1)} runs for ${awayTeam} and ${runsB.toFixed(1)} for ${homeTeam} — a combined <strong>${projTotal.toFixed(1)}</strong> against the market line of ${line}${Math.abs(diff) >= 1 ? ` (${diff > 0 ? "+" : ""}${diff.toFixed(1)} runs of separation)` : ""}.`);
+  const card = premium.recommendedCards?.[0] || null;
+  const pick = card?.play || null;
+  const conf = Number(card?.percentage || 0);
+  const pickUp = String(pick || "").toUpperCase();
 
-  // Pitcheo
-  if (innA > 0 && innA < 4) s.push(`A key driver: ${awayP} averages just ${innA.toFixed(1)} innings per start, meaning ${awayTeam}'s bullpen enters early${fatA >= 12 ? ` — and it's already fatigued (${fatA.toFixed(1)})` : ""}.`);
-  else if (innA >= 6) s.push(`${awayP} is a workhorse (${innA.toFixed(1)} innings/start), limiting bullpen exposure for ${awayTeam}.`);
-  if (innB > 0 && innB < 4) s.push(`On the other side, ${homeP} averages only ${innB.toFixed(1)} innings, exposing ${homeTeam}'s bullpen${fatB >= 12 ? ` which is running hot (fatigue ${fatB.toFixed(1)})` : ""}.`);
-  else if (innB >= 6) s.push(`${homeP} goes deep into games (${innB.toFixed(1)} innings/start), keeping ${homeTeam}'s bullpen fresh.`);
+  // ---- Dirección del pick ----
+  const isOver = pickUp.includes("OVER");
+  const isUnder = pickUp.includes("UNDER");
+  const isTotal = isOver || isUnder;
+  const isTeamPick = pick && !isTotal; // ML o Runline
+  const pickedAway = isTeamPick && pick.includes(awayTeam);
+  const pickedTeam = pickedAway ? awayTeam : homeTeam;
+  const fadedTeam = pickedAway ? homeTeam : awayTeam;
+  const pickedRuns = pickedAway ? runsA : runsB;
+  const fadedRuns = pickedAway ? runsB : runsA;
+  const pickedPitcher = pickedAway ? awayP : homeP;
+  const fadedPitcher = pickedAway ? homeP : awayP;
+  const fadedPitcherAllowed = pickedAway ? homePAllowed : awayPAllowed;
+  const pickedPitcherAllowed = pickedAway ? awayPAllowed : homePAllowed;
+  const fadedInn = pickedAway ? innB : innA;
+  const pickedInn = pickedAway ? innA : innB;
+  const fadedFat = pickedAway ? fatB : fatA;
+  const pickedFat = pickedAway ? fatA : fatB;
 
-  // Clima
-  if (wDir === "out" && wSpeed >= 8) s.push(`The wind is blowing out at ${wSpeed} mph — a hitter's tailwind that inflates scoring.`);
-  else if (wDir === "in" && wSpeed >= 8) s.push(`Wind blowing in at ${wSpeed} mph knocks down fly balls and suppresses runs.`);
-  if (Number.isFinite(temp) && temp >= 88) s.push(`At ${temp}°F, the hot air helps the ball carry.`);
-  else if (Number.isFinite(temp) && temp <= 52) s.push(`Cold conditions (${temp}°F) deaden contact.`);
+  // ---- Seed para rotar variantes por juego ----
+  const seed = (awayTeam + homeTeam).split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  const v = arr => arr[seed % arr.length];
 
-  // Park
-  if (pf >= 1.05) s.push(`${premium.venue?.name || "The ballpark"} plays hitter-friendly (factor ${pf.toFixed(2)}), amplifying the offensive environment.`);
-  else if (pf <= 0.95) s.push(`${premium.venue?.name || "The ballpark"} suppresses offense (factor ${pf.toFixed(2)}).`);
+  const isDome = roof.includes("dome") || roof.includes("closed") || roof.includes("retract");
 
-  // Cierre
-  if (Math.abs(diff) >= 2.5) s.push(`Put together, the model sees a gap the market hasn't priced in — that's what qualified this play.`);
-  else if (pick) s.push(`The combination of these factors is what pushed this play over the model's premium threshold.`);
-  else s.push(`No single factor was strong enough to qualify a premium play here, but these are the dynamics the model weighed.`);
+  const args = [];
+
+  // ============ TOTALS ============
+  if (isTotal) {
+    const tGap = Math.abs(diff).toFixed(1);
+
+    // Gap del modelo vs línea
+    args.push({ cond: line > 0 && Math.abs(diff) >= 1, mag: Math.abs(diff) + 2, text: isOver
+      ? v([
+        `The model projects <strong>${projTotal.toFixed(1)} combined runs</strong> against a line of ${line} — the market is ${tGap} runs light on this game.`,
+        `At ${runsA.toFixed(1)} runs for ${awayTeam} and ${runsB.toFixed(1)} for ${homeTeam}, the projected total of ${projTotal.toFixed(1)} clears the ${line} line by ${tGap}.`
+      ])
+      : v([
+        `The model caps this game at <strong>${projTotal.toFixed(1)} combined runs</strong> — ${tGap} below the ${line} the market hung.`,
+        `Projected scoring of ${runsA.toFixed(1)} + ${runsB.toFixed(1)} lands at ${projTotal.toFixed(1)}, well short of the ${line} line.`
+      ])
+    });
+
+    // Pitchers — SOLO en la dirección del pick
+    if (isOver) {
+      if (awayPAllowed >= 4.6) args.push({ cond: true, mag: awayPAllowed - 4.3, text:
+        `${awayP} has been getting hit — allowing ${awayPAllowed.toFixed(2)} runs per start, exactly the kind of arm ${homeTeam}'s lineup feeds on.`
+      });
+      if (homePAllowed >= 4.6) args.push({ cond: true, mag: homePAllowed - 4.3, text:
+        `On the other side, ${homeP} is allowing ${homePAllowed.toFixed(2)} per start — no shutdown arm in this matchup.`
+      });
+      if (innA > 0 && innA < 4.7) args.push({ cond: true, mag: 5 - innA, text:
+        `${awayP} averages just ${innA.toFixed(1)} innings per start — ${awayTeam}'s bullpen enters early${fatA >= 12 ? `, and it's already gassed (fatigue ${fatA.toFixed(1)})` : ""}, opening the late-inning scoring window.`
+      });
+      if (innB > 0 && innB < 4.7) args.push({ cond: true, mag: 5 - innB, text:
+        `${homeP} rarely gets deep (${innB.toFixed(1)} innings/start), exposing ${homeTeam}'s bullpen${fatB >= 12 ? ` — running hot at ${fatB.toFixed(1)} fatigue` : ""} to a lineup that punishes middle relief.`
+      });
+      if (fatA >= 12 && innA >= 4.7) args.push({ cond: true, mag: fatA / 5, text:
+        `${awayTeam}'s bullpen is fatigued (${fatA.toFixed(1)}) — tired arms in the late innings are where Overs cash.`
+      });
+      if (fatB >= 12 && innB >= 4.7) args.push({ cond: true, mag: fatB / 5, text:
+        `${homeTeam}'s relief corps is running on fumes (fatigue ${fatB.toFixed(1)}) — the model expects late runs.`
+      });
+      if (awayOff >= 4.8) args.push({ cond: true, mag: awayOff - 4.4, text:
+        `${awayTeam}'s offense is producing ${awayOff.toFixed(2)} runs per game — a lineup swinging it well right now.`
+      });
+      if (homeOff >= 4.8) args.push({ cond: true, mag: homeOff - 4.4, text:
+        `${homeTeam} brings ${homeOff.toFixed(2)} runs per game of recent production into a favorable matchup.`
+      });
+    }
+
+    if (isUnder) {
+      if (awayPAllowed > 0 && awayPAllowed <= 3.6) args.push({ cond: true, mag: 4.2 - awayPAllowed, text:
+        `${awayP} has been stingy — just ${awayPAllowed.toFixed(2)} runs allowed per start, the kind of arm that strangles totals.`
+      });
+      if (homePAllowed > 0 && homePAllowed <= 3.6) args.push({ cond: true, mag: 4.2 - homePAllowed, text:
+        `${homeP} is dealing: ${homePAllowed.toFixed(2)} runs per start keeps ${awayTeam}'s lineup in check.`
+      });
+      if (innA >= 5.8) args.push({ cond: true, mag: innA - 5, text:
+        `${awayP} is a workhorse (${innA.toFixed(1)} innings/start) — deep starts mean fewer bullpen innings and fewer scoring windows.`
+      });
+      if (innB >= 5.8) args.push({ cond: true, mag: innB - 5, text:
+        `${homeP} goes deep (${innB.toFixed(1)} innings/start), keeping the game in the starter's hands and off the scoreboard.`
+      });
+      if (awayOff > 0 && awayOff <= 3.9) args.push({ cond: true, mag: 4.4 - awayOff, text:
+        `${awayTeam}'s bats are cold — ${awayOff.toFixed(2)} runs per game recently.`
+      });
+      if (homeOff > 0 && homeOff <= 3.9) args.push({ cond: true, mag: 4.4 - homeOff, text:
+        `${homeTeam} is scraping for runs at ${homeOff.toFixed(2)} per game — no offensive engine here.`
+      });
+    }
+
+    // Clima — solo si empuja hacia el pick, y solo outdoor
+    if (!isDome) {
+      if (isOver && wDir === "out" && wSpeed >= 7) args.push({ cond: true, mag: wSpeed / 4, text:
+        `The wind is blowing out at ${wSpeed} mph at ${parkName} — a hitter's tailwind that turns warning-track flies into damage.`
+      });
+      if (isUnder && wDir === "in" && wSpeed >= 7) args.push({ cond: true, mag: wSpeed / 4, text:
+        `Wind blowing in at ${wSpeed} mph knocks down fly balls — free outs for both pitching staffs.`
+      });
+      if (isOver && Number.isFinite(temp) && temp >= 85) args.push({ cond: true, mag: (temp - 80) / 5, text:
+        `At ${temp}°F, the ball carries — hot, thin air adds distance to every fly ball.`
+      });
+      if (isUnder && Number.isFinite(temp) && temp <= 55) args.push({ cond: true, mag: (60 - temp) / 5, text:
+        `Cold conditions (${temp}°F) deaden contact and keep the ball in the park.`
+      });
+    }
+
+    // Park — solo en dirección del pick
+    if (isOver && pf >= 1.04) args.push({ cond: true, mag: (pf - 1) * 30, text:
+      `${parkName} plays hitter-friendly (park factor ${pf.toFixed(2)}) — the venue itself adds runs to this projection.`
+    });
+    if (isUnder && pf <= 0.96) args.push({ cond: true, mag: (1 - pf) * 30, text:
+      `${parkName} suppresses offense (park factor ${pf.toFixed(2)}) — a pitcher's yard working in the Under's favor.`
+    });
+  }
+
+  // ============ ML / RUNLINE ============
+  if (isTeamPick) {
+    const rGap = pickedRuns - fadedRuns;
+
+    // Gap de proyección
+    args.push({ cond: rGap >= 0.6, mag: rGap + 2, text: v([
+      `The model projects ${pickedTeam} for ${pickedRuns.toFixed(1)} runs against ${fadedRuns.toFixed(1)} for ${fadedTeam} — a ${rGap.toFixed(1)}-run gap in a sport where one run decides most games.`,
+      `Run projections tilt clearly: ${pickedRuns.toFixed(1)} to ${fadedRuns.toFixed(1)} in ${pickedTeam}'s favor.`
+    ])});
+
+    // Ventaja de pitcheo abridor
+    if (pickedPitcherAllowed > 0 && fadedPitcherAllowed > 0 && fadedPitcherAllowed - pickedPitcherAllowed >= 0.8) {
+      args.push({ cond: true, mag: fadedPitcherAllowed - pickedPitcherAllowed + 1, text: v([
+        `The pitching matchup is the story: ${pickedPitcher} (${pickedPitcherAllowed.toFixed(2)} runs allowed/start) against ${fadedPitcher} (${fadedPitcherAllowed.toFixed(2)}) — a clear mound advantage for ${pickedTeam}.`,
+        `${fadedPitcher} is allowing ${fadedPitcherAllowed.toFixed(2)} runs per start while ${pickedPitcher} sits at ${pickedPitcherAllowed.toFixed(2)} — the model weighs starting pitching heavily, and this one isn't close.`
+      ])});
+    }
+
+    // Pitcher rival corto + bullpen rival cansado
+    if (fadedInn > 0 && fadedInn < 4.7) args.push({ cond: true, mag: 5 - fadedInn + (fadedFat >= 12 ? 1.5 : 0), text:
+      `${fadedPitcher} averages only ${fadedInn.toFixed(1)} innings per start — ${fadedTeam} hands this to its bullpen early${fadedFat >= 12 ? `, and that bullpen is fatigued (${fadedFat.toFixed(1)})` : ""}, exactly where ${pickedTeam}'s lineup does damage.`
+    });
+
+    // Ofensiva propia caliente
+    const pickedOff = pickedAway ? awayOff : homeOff;
+    const fadedOff = pickedAway ? homeOff : awayOff;
+    if (pickedOff >= 4.8) args.push({ cond: true, mag: pickedOff - 4.4, text:
+      `${pickedTeam}'s offense is rolling at ${pickedOff.toFixed(2)} runs per game.`
+    });
+    if (fadedOff > 0 && fadedOff <= 3.9) args.push({ cond: true, mag: 4.4 - fadedOff, text:
+      `${fadedTeam}'s lineup is scuffling — ${fadedOff.toFixed(2)} runs per game won't keep pace with this projection.`
+    });
+
+    // Pitcher propio workhorse
+    if (pickedInn >= 5.8) args.push({ cond: true, mag: pickedInn - 5.2, text:
+      `${pickedPitcher} goes deep (${pickedInn.toFixed(1)} innings/start), shortening the game and protecting the lead the model projects.`
+    });
+  }
+
+  // ---- Top 3 argumentos por magnitud ----
+  const valid = args.filter(a => a.cond).sort((a, b) => b.mag - a.mag).slice(0, 3);
+
+  // ---- Caveat: dato fuerte EN CONTRA, mencionado como riesgo controlado ----
+  let risk = "";
+  if (isOver) {
+    if (innA >= 6 || innB >= 6) {
+      const wp = innA >= 6 ? awayP : homeP;
+      const wi = innA >= 6 ? innA : innB;
+      risk = `The one caveat: ${wp} is a workhorse (${wi.toFixed(1)} innings/start) — the model already priced that in, and the projected total still cleared the line.`;
+    } else if (!isDome && wDir === "in" && wSpeed >= 7) {
+      risk = `The one caveat: wind blowing in at ${wSpeed} mph — even against it, the offensive edge held.`;
+    } else if (pf <= 0.96) {
+      risk = `The one caveat: ${parkName} is a pitcher's park (${pf.toFixed(2)}) — the model factored the venue and the Over still qualified.`;
+    }
+  }
+  if (isUnder) {
+    if (!isDome && wDir === "out" && wSpeed >= 7) {
+      risk = `The one caveat: wind blowing out at ${wSpeed} mph — the pitching edge outweighed it in the model's read.`;
+    } else if (pf >= 1.04) {
+      risk = `The one caveat: ${parkName} plays hitter-friendly (${pf.toFixed(2)}) — even in this yard, the projection came in under the number.`;
+    } else if (awayOff >= 4.8 || homeOff >= 4.8) {
+      const ht = awayOff >= 4.8 ? awayTeam : homeTeam;
+      risk = `The one caveat: ${ht}'s bats have been productive — the pitching matchup is what caps them in the model's read.`;
+    }
+  }
+  if (isTeamPick) {
+    if (fadedPitcherAllowed > 0 && fadedPitcherAllowed <= 3.6) {
+      risk = `The one caveat: ${fadedPitcher} has pitched well (${fadedPitcherAllowed.toFixed(2)} runs/start) — the model saw it and still found enough edge elsewhere to qualify the play.`;
+    } else if (pickedFat >= 12) {
+      risk = `The one caveat: ${pickedTeam}'s bullpen is fatigued (${pickedFat.toFixed(1)}) — priced into the projection, and the edge survived.`;
+    }
+  }
+
+  // ---- Armar narrativa ----
+  if (pick) {
+    s.push(v([
+      `The model flagged <strong>${pick}</strong> at ${conf.toFixed(1)}% confidence in this matchup.`,
+      `<strong>${pick}</strong> hit the model's premium threshold at ${conf.toFixed(1)}% confidence.`,
+      `This game triggered a premium flag: <strong>${pick}</strong>, ${conf.toFixed(1)}% on the model's scale.`
+    ]));
+  } else {
+    s.push(`No single factor was strong enough to qualify a premium play here, but these are the dynamics the model weighed.`);
+  }
+
+  valid.forEach(a => s.push(a.text));
+  if (risk) s.push(risk);
+
+  if (pick) {
+    s.push(v([
+      `Stacked together, that's what qualified this play as premium.`,
+      `That alignment of factors is what separated this game from the rest of today's slate.`,
+      `The model doesn't flag plays without that convergence — this one had it.`
+    ]));
+  }
 
   return s.join(" ");
 }
