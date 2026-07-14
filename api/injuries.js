@@ -187,20 +187,23 @@ async function getTeamInjuries(sport, league, teamId) {
  
   if (!refs.length) return [];
  
-  const injuries = [];
- 
-  for (const ref of refs) {
-    const detail = await resolveInjuryDetail(ref);
+const injuries = [];
+
+  const capped = refs.slice(0, 25);
+
+  const details = await Promise.all(capped.map(ref => resolveInjuryDetail(ref)));
+
+  const athleteRefs = details.map(d => d?.athlete?.$ref || null);
+  const athletes = await Promise.all(
+    athleteRefs.map(ref => (ref ? resolveAthleteName(ref) : Promise.resolve(null)))
+  );
+
+  for (let i = 0; i < details.length; i++) {
+    const detail = details[i];
     if (!detail) continue;
- 
-   let athleteInfo = null;
-    const athleteRef = detail?.athlete?.$ref;
+    const athleteInfo = athletes[i];
+    const athleteRef = athleteRefs[i];
 
-    if (athleteRef) {
-      athleteInfo = await resolveAthleteName(athleteRef);
-    }
-
-    // Extraer athleteId numérico del $ref (ej: .../athletes/3945274?lang=en)
     let athleteId = null;
     if (athleteRef) {
       const match = athleteRef.match(/athletes\/(\d+)/);
@@ -221,7 +224,7 @@ async function getTeamInjuries(sport, league, teamId) {
       notes: detail?.shortComment || detail?.longComment || `${detailType} ${location}`.trim()
     });
   }
- 
+
   return injuries;
 }
  
