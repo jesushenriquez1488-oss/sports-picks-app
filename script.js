@@ -2298,10 +2298,10 @@ if (data.limitReached === true || data.upgradeRequired === true) {
  
   <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;">
     <div style="flex:1;">
-     <div style="font-size:26px;font-weight:900;margin-bottom:3px;${locked ? "color:#fff;" : "background:linear-gradient(90deg,#00ffe7,#7c3cff);-webkit-background-clip:text;background-clip:text;color:transparent;"}">
+    <div style="font-size:24px;font-weight:800;letter-spacing:0.3px;margin-bottom:3px;color:#fff;">
         ${locked ? "Premium Pick Locked" : (bestPick?.pick || "No play")}
       </div>
-      <div style="font-size:11px;color:#556688;">
+     <div style="font-size:11px;color:#a07cff;">
         ${locked ? "" : `${realType === "total" ? "Total" : "Spread"} · ${Number(bestPick?.odds_american ?? -110) > 0 ? "+" : ""}${bestPick?.odds_american ?? -110} · Edge ${Number(bestPick?.edge || 0).toFixed(1)}`}
       </div>
     </div>
@@ -2310,8 +2310,8 @@ if (data.limitReached === true || data.upgradeRequired === true) {
         <circle cx="36" cy="36" r="30" fill="none" stroke="#1a2240" stroke-width="4"/>
         <circle cx="36" cy="36" r="30" fill="none" stroke="${circleColor}" stroke-width="4"
           stroke-dasharray="${circleDash} 188" stroke-linecap="round"
-          transform="rotate(-90 36 36)"
-          style="filter:drop-shadow(0 0 6px ${circleColor});"/>
+          transform="rotate(-90 36 36)"/>
+          
       </svg>
       <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
        <span style="font-size:${locked ? "13px" : "15px"};font-weight:700;color:${circleColor};">${locked ? "75%+" : confidence.toFixed(1) + "%"}</span>
