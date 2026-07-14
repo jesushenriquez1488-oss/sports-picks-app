@@ -388,7 +388,7 @@ async function loadTeams() {
   const res = await fetch("/api/nba-data?type=teams");
 
   const text = await res.text();
-  if (!res.ok) throw new Error("Error cargando equipos: " + text);
+  if (!res.ok) throw new Error("Error loading teams: " + text);
 
   const data = JSON.parse(text);
   allTeams = data.data;
@@ -430,10 +430,10 @@ async function getRecentGamesByTeamId(teamId) {
   const text = await res.text();
 
   if (text.includes("Too many")) {
-    throw new Error("Demasiadas consultas. Espera 1 minuto.");
+    throw new Error("Too many requests. Wait 1 minute.");
   }
 
-  if (!res.ok) throw new Error("Error cargando juegos: " + text);
+  if (!res.ok) throw new Error("Error loading games: " + text);
 
   const data = JSON.parse(text);
 
@@ -492,7 +492,7 @@ async function getRecentGames(teamName) {
  const games = await res.json();
 
 if (!res.ok) {
-  throw new Error(games.error || "Error cargando juegos desde SportsDataIO");
+  throw new Error(games.error || "Error loading games from SportsDataIO");
 }
 
 return games;
@@ -504,7 +504,7 @@ return games;
   }
 
   const teamId = findTeamId(teamName);
-  if (!teamId) throw new Error("No encontré equipo: " + teamName);
+  if (!teamId) throw new Error("Team not found: " + teamName);
 
   const rawGames = await getRecentGamesByTeamId(teamId);
 
@@ -532,7 +532,7 @@ return games;
   }
 
   if (completedGames.length < 5) {
-    throw new Error("No hay suficientes juegos con promedio real del rival.");
+    throw new Error("Not enough games with real opponent averages.");
   }
 
   gamesCache[cacheKey] = completedGames;
@@ -1459,12 +1459,12 @@ if (window.currentSport === "wnba") {
     validWnbaTeams.includes(game.away_team)
   );
 }
-    status.innerHTML = `Juegos encontrados: ${upcomingGames.length}`;
+    status.innerHTML = `Games found: ${upcomingGames.length}`;
 
     if (upcomingGames.length === 0) {
       gamesDiv.innerHTML = `
         <div class="card">
-          <p>No hay juegos disponibles para ${selectedSportName} en este momento.</p>
+          <p>No games available for ${selectedSportName} right now.</p>
         </div>
       `;
       return;
