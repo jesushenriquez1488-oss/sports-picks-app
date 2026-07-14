@@ -906,7 +906,7 @@ const premiumLimitReport = await enforceDailyPremiumLimits();
           headings: { en: alert.title },
           contents: {
   en: `${alert.message}\nOpen CashEdge to unlock today's Premium play.`
-}
+},
           url: "https://cashedgeapp.com"
         })
       });
