@@ -1068,7 +1068,7 @@ const total = Number(analysis.premium.totalLine || 0);
 })(),
           percentage: Number(analysis.premium.confidence || 0),
           edge: Number(analysis.premium.mainEdge || 0),
-          title: "Jugada Premium",
+          title: "Premium Play",
           odds_decimal: americanToDecimalLocal(analysis.premium.odds_american ?? -110)
         });
       }
@@ -1190,7 +1190,7 @@ const total = Number(analysis.premium.totalLine || 0);
 })(),
           percentage: Number(analysis.premium.confidence || 0),
           edge: Number(analysis.premium.mainEdge || 0),
-          title: "Jugada Premium",
+          title: "Premium Play",
           odds_decimal: americanToDecimalLocal(analysis.premium.odds_american ?? -110)
         });
       }
@@ -1930,7 +1930,7 @@ if (
   now - userData.lastRequest < FREE_COOLDOWN
 ) {
   return res.status(429).json({
-    error: "⏳ Estás usando el acceso gratuito de CashEdge AI. Espera unos segundos o mejora a Premium para análisis ilimitados y acceso completo."
+    error: "⏳ You're using CashEdge AI free access. Wait a few seconds or upgrade to Premium for unlimited analyses and full access."
   });
 }
 
@@ -1941,7 +1941,7 @@ if (
   userData.hourRequests.length >= FREE_MAX_PER_HOUR
 ) {
   return res.status(429).json({
-   error: "🔒 Has alcanzado el límite gratuito de CashEdge AI. Obtén CashEdge Premium para análisis ilimitados, picks exclusivos y acceso prioritario."
+   error: "🔒 You've reached the CashEdge AI free limit. Get CashEdge Premium for unlimited analyses, exclusive picks and priority access."
   });
 }
 
@@ -1996,7 +1996,7 @@ if (
 }
 
     if (!awayTeam || !homeTeam) {
-      return res.status(400).json({ error: "Faltan equipos" });
+      return res.status(400).json({ error: "Missing teams" });
     }
 
     const teamsSorted = [awayTeam, homeTeam]
@@ -2087,7 +2087,7 @@ if (
 
   if (!awayId || !homeId) {
     return res.status(400).json({
-      error: "No encontré uno de los equipos."
+      error: "Couldn't find one of the teams."
     });
   }
 
@@ -2113,7 +2113,7 @@ if (
   homeGames.length < minGamesRequired
 ) {
   return res.status(400).json({
-    error: "No hay suficientes juegos recientes con data completa."
+    error: "Not enough recent games with complete data."
   });
 }
     const [awayInjuries, homeInjuries] = await Promise.all([
@@ -2160,8 +2160,8 @@ if (
    if (spreadConfidence >= totalConfidence) {
       pick =
         awaySpreadEdge >= homeSpreadEdge
-          ? `${awayTeam} ${Number(awaySpread) > 0 ? "+" : ""}${awaySpread} cubre spread`
-          : `${homeTeam} ${Number(homeSpread) > 0 ? "+" : ""}${homeSpread} cubre spread`;
+          ? `${awayTeam} ${Number(awaySpread) > 0 ? "+" : ""}${awaySpread}`
+          : `${homeTeam} ${Number(homeSpread) > 0 ? "+" : ""}${homeSpread}`;
 
       confidence = spreadConfidence;
       mainEdge = spreadEdge;
@@ -2188,10 +2188,10 @@ if (
         locked: false,
         isPremiumPick: false,
         noPlay: true,
-        public: {
-          title: "No hay ventaja clara",
-          message: "El modelo no encontró suficiente edge para recomendar entrada en este juego.",
-          reason: "Baja probabilidad según el modelo."
+       public: {
+          title: "No clear edge",
+          message: "The model didn't find enough edge to recommend a play on this game.",
+          reason: "Low probability according to the model."
         },
         premium: null
       };
@@ -2663,14 +2663,14 @@ function getConfidence(edge) {
 }
 function getModelAnalysis(verdict) {
   if (verdict === "Premium") {
-    return "El modelo detecta una ventaja fuerte contra la línea del mercado.";
+    return "The model detects a strong edge against the market line.";
   }
 
   if (verdict === "Moderado") {
-    return "El modelo detecta una ventaja moderada contra la línea del mercado.";
+    return "The model detects a moderate edge against the market line.";
   }
 
-  return "El modelo no detecta suficiente ventaja para recomendar entrada fuerte.";
+  return "The model doesn't detect enough edge to recommend a strong play.";
 }
 
 function getInjuryPublicMessage(teamName, injury = {}) {
