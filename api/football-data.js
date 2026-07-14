@@ -839,6 +839,163 @@ side: shouldHide ? "Suscríbete para desbloquear" : pick.side || null
   };
 }
 // ============================================================
+// NFL/NCAAF INJURY IMPACT SYSTEM
+// ============================================================
+
+const NFL_INJURY_ACTIVE = false; // cambiar a true para aplicar al modelo (Paso final)
+
+const NFL_POS_LEAGUE_AVG = {
+  QB: { yds: 230.4, td: 1.59 },
+  RB: { yds: 71.2,  td: 0.54 },
+  WR: { yds: 70.9,  td: 0.42 },
+  TE: { yds: 70.9,  td: 0.42 }
+};
+
+const NFL_POS_MULTIPLIER = { QB: 1.5, RB: 0.8, WR: 0.7, TE: 0.7, DEFAULT: 0.5 };
+const NFL_DEF_CROSSOVER  = { QB: 0.35, RB: 0.15, WR: 0.10, TE: 0.10, DEFAULT: 0.05 };
+const NFL_MAX_TEAM_INJURY_IMPACT = 10;
+
+function getNFLPesoStatus(status) {
+  const s = String(status || "").toLowerCase();
+  if (s.includes("out") || s.includes("injured reserve")) return 4;
+  if (s.includes("doubtful")) return 3;
+  if (s.includes("questionable")) return 1.5;
+  if (s.includes("day-to-day") || s.includes("day to day")) return 1;
+  return 0;
+}
+
+function normalizeNFLPosition(pos) {
+  const p = String(pos || "").toUpperCase().trim();
+  if (["QB", "RB", "WR", "TE"].includes(p)) return p;
+  if (p === "FB" || p === "HB") return "RB";
+  return "DEFAULT";
+}
+
+const nflInjuryStatsCache = global.__NFL_INJURY_STATS_CACHE__ || {};
+global.__NFL_INJURY_STATS_CACHE__ = nflInjuryStatsCache;
+
+async function getNFLPlayerSeasonStats(athleteId, type, season) {
+  if (!athleteId) return null;
+  const cacheKey = `${type}-${season}-${athleteId}`;
+  if (nflInjuryStatsCache[cacheKey]) return nflInjuryStatsCache[cacheKey];
+
+  const leaguePath = type === "ncaaf" ? "college-football" : "nfl";
+
+  try {
+    const url = `https://sports.core.api.espn.com/v2/sports/football/leagues/${leaguePath}/seasons/${season}/types/2/athletes/${athleteId}/statistics`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+
+    const categories = data?.splits?.categories || [];
+    function findStat(name) {
+      for (const cat of categories)
+        for (const s of cat.stats || [])
+          if (s.name === name) return nflSafeNum(s.value);
+      return 0;
+    }
+
+    const gp = Math.max(findStat("gamesPlayed"), 1);
+
+    const result = {
+      passYdsPG: findStat("passingYards") / gp,
+      rushYdsPG: findStat("rushingYards") / gp,
+      recYdsPG:  findStat("receivingYards") / gp,
+      passTDPG:  findStat("passingTouchdowns") / gp,
+      rushTDPG:  findStat("rushingTouchdowns") / gp,
+      recTDPG:   findStat("receivingTouchdowns") / gp
+    };
+
+    nflInjuryStatsCache[cacheKey] = result;
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+function calcNFLOIS(pos, stats) {
+  if (!stats) return 1;
+  const avg = NFL_POS_LEAGUE_AVG[pos];
+  if (!avg) return 0.5;
+
+  let yds = 0, td = 0;
+  if (pos === "QB")      { yds = stats.passYdsPG + stats.rushYdsPG; td = stats.passTDPG + stats.rushTDPG; }
+  else if (pos === "RB") { yds = stats.rushYdsPG + stats.recYdsPG;  td = stats.rushTDPG + stats.recTDPG; }
+  else                   { yds = stats.recYdsPG;                    td = stats.recTDPG; }
+
+  if (yds <= 0 && td <= 0) return 0.6;
+
+  const ois = (yds / avg.yds) * 0.5 + (td / avg.td) * 0.5;
+  return nflClamp(ois, 0.2, 2.5);
+}
+
+async function getNFLTeamInjuriesList(teamName, type) {
+  try {
+    const res = await fetch(
+      `https://cashedgeapp.com/api/injuries?team=${encodeURIComponent(teamName)}&sport=${type}`
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data?.injuries || [];
+  } catch {
+    return [];
+  }
+}
+
+async function getInjuryAdjustmentNFL(teamName, type, season) {
+  try {
+    const injuries = await getNFLTeamInjuriesList(teamName, type);
+
+    let totalImpact = 0;
+    const counted = [];
+
+    for (const player of injuries) {
+      const peso = getNFLPesoStatus(player.status);
+      if (peso === 0) continue;
+
+      // Lesión ya resuelta según ESPN
+      if (player.returnDate && new Date(player.returnDate).getTime() < Date.now()) continue;
+
+      if (player.startDate) {
+        const days = (Date.now() - new Date(player.startDate).getTime()) / 86400000;
+        const estimatedGamesMissed = Math.floor(days / 7); // NFL: 1 juego por semana
+
+        // Ya se perdió 5+ juegos: los últimos juegos del equipo ya reflejan su ausencia
+        if (estimatedGamesMissed > 5) continue;
+
+        // Lesión vieja sin gravedad (no Out/IR) — probablemente resuelta
+        if (peso < 4 && days > 30) continue;
+      }
+      const pos = normalizeNFLPosition(player.position);
+      const mult = NFL_POS_MULTIPLIER[pos] ?? NFL_POS_MULTIPLIER.DEFAULT;
+      const cross = NFL_DEF_CROSSOVER[pos] ?? NFL_DEF_CROSSOVER.DEFAULT;
+
+      const stats = NFL_POS_LEAGUE_AVG[pos]
+        ? await getNFLPlayerSeasonStats(player.athleteId, type, season)
+        : null;
+
+      const ois = calcNFLOIS(pos, stats);
+
+      const impact = peso * ois * mult * 0.5;
+      totalImpact += impact * (1 + cross);
+
+      counted.push(`${player.name} (${pos}, ${player.status})`);
+    }
+
+    totalImpact = Math.min(totalImpact, NFL_MAX_TEAM_INJURY_IMPACT);
+
+    return {
+      pointsImpact: round(-totalImpact, 2),
+      note: counted.length ? counted.join(", ") : "No key injuries reported."
+    };
+  } catch {
+    return { pointsImpact: 0, note: "Injury data unavailable." };
+  }
+}
+// ============================================================
+// FIN INJURY SYSTEM
+// ============================================================
+// ============================================================
 // NFL PLAYER PROPS — CASHEDGE FASE 1
 // Pegar este bloque COMPLETO justo ANTES de:
 //   module.exports = async function handler(req, res) {
@@ -1840,7 +1997,18 @@ console.log("FREE LIMIT CHECK:", { count, authUserId, windowStart });
 
 const projectedTeamA = teamAProjection.finalProjection;
 const projectedTeamB = teamBProjection.finalProjection;
+    
+// Ajuste por lesiones (modo sombra si NFL_INJURY_ACTIVE = false)
+const [teamAInjuries, teamBInjuries] = await Promise.all([
+  getInjuryAdjustmentNFL(teamA, type, selectedSeason),
+  getInjuryAdjustmentNFL(teamB, type, selectedSeason)
+]);
 
+const injuryAdjA = NFL_INJURY_ACTIVE ? teamAInjuries.pointsImpact : 0;
+const injuryAdjB = NFL_INJURY_ACTIVE ? teamBInjuries.pointsImpact : 0;
+
+const projectedTeamAInj = round(projectedTeamA + injuryAdjA);
+const projectedTeamBInj = round(projectedTeamB + injuryAdjB);
 const [teamAProfile, teamBProfile] = await Promise.all([
   getTeamStatsProfile(type, teamARef, selectedSeason),
   getTeamStatsProfile(type, teamBRef, selectedSeason)
@@ -1848,7 +2016,7 @@ const [teamAProfile, teamBProfile] = await Promise.all([
 
 const paceModule = calculatePaceEfficiencyAdjustment({
   type,
-  projectedTotal: round(projectedTeamA + projectedTeamB),
+  projectedTotal: round(projectedTeamAInj + projectedTeamBInj),
   teamAProfile,
   teamBProfile
 });
@@ -1862,8 +2030,8 @@ console.log("PACE MODULE:", {
 });
 // Aplicar la mitad del ajuste a cada equipo
 const halfAdj = paceModule.adjustment / 2;
-const projectedTeamAFinal = round(projectedTeamA + halfAdj);
-const projectedTeamBFinal = round(projectedTeamB + halfAdj);
+const projectedTeamAFinal = round(projectedTeamAInj + halfAdj);
+const projectedTeamBFinal = round(projectedTeamBInj + halfAdj);
 
 const baseProjectedTotal = round(projectedTeamA + projectedTeamB);
 const projectedTotal = round(projectedTeamAFinal + projectedTeamBFinal);
@@ -2014,6 +2182,11 @@ projectedScore: {
     },
     baseProjectedTotal,
     paceEfficiencyAdjustment: paceModule,
+  injuryImpact: {
+      active: NFL_INJURY_ACTIVE,
+      [teamA]: teamAInjuries,
+      [teamB]: teamBInjuries
+    },
     projectedTotal,
     projectedSpread
 });
@@ -2021,7 +2194,7 @@ projectedScore: {
     console.error("ERROR FOOTBALL DATA:", error);
 
     return res.status(500).json({
-      error: "Error cargando data real football",
+      error: "Error loading football data",
       details: error.message
     });
   }
