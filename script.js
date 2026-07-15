@@ -1618,11 +1618,15 @@ async function registerUser(email, password) {
     showAuthMessage("This account already exists. Check your email or log in.", "error");
     return;
   }
-// Registrar creación exitosa de cuenta en Google Analytics
+// Registrar creación exitosa de cuenta
 if (typeof window.gtag === "function") {
   window.gtag("event", "sign_up", {
     method: "email",
   });
+}
+
+if (typeof window.fbq === "function") {
+  window.fbq("track", "CompleteRegistration");
 }
   showAuthMessage("✅ Account created. Check your email " + email + " to verify your account before logging in.", "success");
   showLogin();
