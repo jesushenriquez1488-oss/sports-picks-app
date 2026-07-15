@@ -941,11 +941,50 @@ async function getNFLTeamInjuriesList(teamName, type) {
     return [];
   }
 }
+// Cache de QB1 por equipo
+const nflQB1Cache = global.__NFL_QB1_CACHE__ || {};
+global.__NFL_QB1_CACHE__ = nflQB1Cache;
 
-async function getInjuryAdjustmentNFL(teamName, type, season) {
+// Devuelve el athleteId del QB titular según el depth chart de ESPN (null si no se pudo)
+async function getNFLStarterQBId(teamRef, type, season) {
+  if (!teamRef?.id) return null;
+  const cacheKey = `${type}-${season}-${teamRef.id}`;
+  if (nflQB1Cache[cacheKey] !== undefined) return nflQB1Cache[cacheKey];
+
+  const leaguePath = type === "ncaaf" ? "college-football" : "nfl";
+
   try {
-    const injuries = await getNFLTeamInjuriesList(teamName, type);
+    const url = `https://sports.core.api.espn.com/v2/sports/football/leagues/${leaguePath}/seasons/${season}/teams/${teamRef.id}/depthcharts`;
+    const res = await fetch(url);
+    if (!res.ok) { nflQB1Cache[cacheKey] = null; return null; }
+    const data = await res.json();
 
+    for (const formation of data?.items || []) {
+      const qbGroup = formation?.positions?.qb;
+      if (!qbGroup?.athletes?.length) continue;
+
+      const starter = qbGroup.athletes.find(a => Number(a.rank) === 1);
+      const ref = starter?.athlete?.$ref || "";
+      const match = ref.match(/athletes\/(\d+)/);
+      if (match) {
+        nflQB1Cache[cacheKey] = match[1];
+        return match[1];
+      }
+    }
+
+    nflQB1Cache[cacheKey] = null;
+    return null;
+  } catch {
+    nflQB1Cache[cacheKey] = null;
+    return null;
+  }
+}
+async function getInjuryAdjustmentNFL(teamName, teamRef, type, season) {
+  try {
+    const [injuries, starterQBId] = await Promise.all([
+      getNFLTeamInjuriesList(teamName, type),
+      getNFLStarterQBId(teamRef, type, season)
+    ]);
     let totalImpact = 0;
     const counted = [];
 
@@ -969,6 +1008,8 @@ async function getInjuryAdjustmentNFL(teamName, type, season) {
       const pos = normalizeNFLPosition(player.position);
        // Solo posiciones con impacto medible cuentan (QB/RB/WR/TE)
       if (!NFL_POS_LEAGUE_AVG[pos]) continue;
+      // QB: solo el titular del depth chart cuenta — el backup no juega
+      if (pos === "QB" && starterQBId && String(player.athleteId) !== String(starterQBId)) continue;
       const mult = NFL_POS_MULTIPLIER[pos] ?? NFL_POS_MULTIPLIER.DEFAULT;
       const cross = NFL_DEF_CROSSOVER[pos] ?? NFL_DEF_CROSSOVER.DEFAULT;
 
@@ -2004,8 +2045,8 @@ const projectedTeamB = teamBProjection.finalProjection;
     
 // Ajuste por lesiones (modo sombra si NFL_INJURY_ACTIVE = false)
 const [teamAInjuries, teamBInjuries] = await Promise.all([
-  getInjuryAdjustmentNFL(teamA, type, selectedSeason),
-  getInjuryAdjustmentNFL(teamB, type, selectedSeason)
+ getInjuryAdjustmentNFL(teamA, teamARef, type, selectedSeason),
+    getInjuryAdjustmentNFL(teamB, teamBRef, type, selectedSeason)
 ]);
 
 const injuryAdjA = NFL_INJURY_ACTIVE ? teamAInjuries.pointsImpact : 0;
