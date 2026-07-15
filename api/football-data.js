@@ -842,7 +842,7 @@ side: shouldHide ? "Suscríbete para desbloquear" : pick.side || null
 // NFL/NCAAF INJURY IMPACT SYSTEM
 // ============================================================
 
-const NFL_INJURY_ACTIVE = false; // cambiar a true para aplicar al modelo (Paso final)
+const NFL_INJURY_ACTIVE = true; // cambiar a true para aplicar al modelo (Paso final)
 
 const NFL_POS_LEAGUE_AVG = {
   QB: { yds: 230.4, td: 1.59 },
