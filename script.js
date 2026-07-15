@@ -2132,7 +2132,17 @@ function generateNFLAnalysisText(data, awayTeam, homeTeam, bestPick) {
   const isDog = spreadLine !== null && spreadLine > 0;
   const isFav = spreadLine !== null && spreadLine < 0;
   const cushion = spreadLine !== null ? gap - Math.abs(spreadLine) : null;
-
+// Lesiones (informativas mientras el injury system esté en modo sombra)
+  const injData = data.injuryImpact || {};
+  const injClean = n => {
+    const t = String(n || "").trim();
+    return /no key injuries|injury data unavailable/i.test(t) ? "" : t;
+  };
+  const awayInjNote = injClean(injData[awayTeam]?.note);
+  const homeInjNote = injClean(injData[homeTeam]?.note);
+  const injActive = injData.active === true;
+  const pickedInjNote = isSpread ? (pickedAway ? awayInjNote : homeInjNote) : "";
+  const fadedInjNote = isSpread ? (pickedAway ? homeInjNote : awayInjNote) : "";
   // Escala visible del matchup breakdown (misma que la UI: 0.8→0, 1.3→99)
   const toScore = v => Math.max(1, Math.min(99, Math.round((v - 0.8) / 0.5 * 100)));
 
@@ -2235,6 +2245,10 @@ function generateNFLAnalysisText(data, awayTeam, homeTeam, bestPick) {
         `${pickedTeam} grades above average on both sides of the ball (offense ${toScore(pickedOff)}, defense ${toScore(pickedDef)}) — no phase where ${fadedTeam} can hide.`
       });
     }
+    // Lesiones del rival — solo como argumento si el modelo ya las descuenta
+    if (injActive && fadedInjNote) args.push({ cond: true, mag: 3.5, text:
+      `${fadedTeam}'s injury report works against them: ${fadedInjNote} — production the model has already discounted from their projection.`
+    });
   }
 
   const valid = args.filter(a => a.cond).sort((a, b) => b.mag - a.mag).slice(0, 3);
@@ -2252,7 +2266,14 @@ function generateNFLAnalysisText(data, awayTeam, homeTeam, bestPick) {
   } else if (isSpread && hasPaceData && fadedOff >= 1.1) {
     risk = `The one caveat: ${fadedTeam}'s offense grades ${toScore(fadedOff)} — dangerous, but the model already priced it and the edge held.`;
   }
-
+else if (isSpread && pickedInjNote) {
+    risk = injActive
+      ? `The one caveat: ${pickedTeam}'s own injury report (${pickedInjNote}) — already priced into the projection, and the edge held.`
+      : `Worth monitoring: ${pickedTeam}'s injury report lists ${pickedInjNote} — statuses can shift before kickoff.`;
+  }
+  else if (isTotal && (awayInjNote || homeInjNote)) {
+    risk = `Worth monitoring: the injury report lists ${[awayInjNote, homeInjNote].filter(Boolean).join(" and ")} — statuses can shift before kickoff.`;
+  }
   // ---- Narrativa ----
   const s = [];
   s.push(v([
@@ -2444,6 +2465,30 @@ if (data.limitReached === true || data.upgradeRequired === true) {
         ${row(`${homeTeam.split(" ").pop()} defense`, bDef, "#a07cff")}
       </div>
     </div>`;
+    })()}
+    ${(() => {
+      const inj = data.injuryImpact || {};
+      const awayInj = inj[awayTeam] || {};
+      const homeInj = inj[homeTeam] || {};
+      const clean = n => String(n || "").trim();
+      const awayNote = clean(awayInj.note);
+      const homeNote = clean(homeInj.note);
+      const noData = t => !t || /no key injuries|injury data unavailable/i.test(t);
+      if (noData(awayNote) && noData(homeNote)) return "";
+      return `
+      <div style="background:#0a1220;border:1px solid #16263f;border-radius:10px;padding:12px 14px;margin-bottom:10px;">
+        <div style="font-size:10px;font-weight:700;color:#00ffe7;letter-spacing:0.08em;margin-bottom:6px;">🚑 INJURY REPORT</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <div style="font-size:9px;color:#4a5f7f;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">${awayTeam.split(" ").pop()}</div>
+            <div style="font-size:11px;color:#d0dcec;line-height:1.5;">${noData(awayNote) ? "No key injuries reported." : awayNote}</div>
+          </div>
+          <div>
+            <div style="font-size:9px;color:#4a5f7f;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">${homeTeam.split(" ").pop()}</div>
+            <div style="font-size:11px;color:#d0dcec;line-height:1.5;">${noData(homeNote) ? "No key injuries reported." : homeNote}</div>
+          </div>
+        </div>
+      </div>`;
     })()}
     <div style="background:#0a1628;border:1px solid rgba(0,255,231,0.15);border-left:3px solid ${circleColor};border-radius:8px;padding:12px 14px;margin-bottom:10px;">
       <div style="font-size:10px;color:${circleColor};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;font-weight:600;">⚡ Model analysis</div>
