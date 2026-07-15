@@ -914,7 +914,7 @@ async function getNFLPlayerSeasonStats(athleteId, type, season) {
 }
 
 function calcNFLOIS(pos, stats) {
-  if (!stats) return 1;
+    if (!stats) return 0; // sin stats = sin evidencia de impacto = no cuenta
   const avg = NFL_POS_LEAGUE_AVG[pos];
   if (!avg) return 0.5;
 
@@ -923,7 +923,7 @@ function calcNFLOIS(pos, stats) {
   else if (pos === "RB") { yds = stats.rushYdsPG + stats.recYdsPG;  td = stats.rushTDPG + stats.recTDPG; }
   else                   { yds = stats.recYdsPG;                    td = stats.recTDPG; }
 
-  if (yds <= 0 && td <= 0) return 0.6;
+if (yds <= 0 && td <= 0) return 0; // tiene registro pero cero producción = no cuenta
 
   const ois = (yds / avg.yds) * 0.5 + (td / avg.td) * 0.5;
   return nflClamp(ois, 0.2, 2.5);
@@ -967,6 +967,8 @@ async function getInjuryAdjustmentNFL(teamName, type, season) {
         if (peso < 4 && days > 30) continue;
       }
       const pos = normalizeNFLPosition(player.position);
+       // Solo posiciones con impacto medible cuentan (QB/RB/WR/TE)
+      if (!NFL_POS_LEAGUE_AVG[pos]) continue;
       const mult = NFL_POS_MULTIPLIER[pos] ?? NFL_POS_MULTIPLIER.DEFAULT;
       const cross = NFL_DEF_CROSSOVER[pos] ?? NFL_DEF_CROSSOVER.DEFAULT;
 
@@ -975,7 +977,9 @@ async function getInjuryAdjustmentNFL(teamName, type, season) {
         : null;
 
       const ois = calcNFLOIS(pos, stats);
-
+// Suplente / pieza menor: producción insuficiente para ser el titular que iba a jugar
+      const minOIS = pos === "QB" ? 0.6 : 0.4;
+      if (NFL_POS_LEAGUE_AVG[pos] && ois < minOIS) continue;
       const impact = peso * ois * mult * 0.5;
       totalImpact += impact * (1 + cross);
 
