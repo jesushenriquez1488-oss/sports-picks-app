@@ -2023,7 +2023,42 @@ console.log("FREE LIMIT CHECK:", { count, authUserId, windowStart });
     error: "No se pudo validar tu sesión."
   });
 }
+// ===== CACHE DE ANÁLISIS (TTL dinámico) =====
+    try {
+      const cacheTeamsSorted = [teamA, teamB].map(t => String(t).trim()).sort();
+      const cacheIdSuffix = `-${cacheTeamsSorted.join("-")}`;
 
+      const { data: cachedRows } = await supabaseAdmin
+        .from("daily_picks")
+        .select("game_id, analysis_json, updated_at, game_time")
+        .eq("sport", type)
+        .like("game_id", `${type}-%${cacheIdSuffix}`)
+        .order("game_date", { ascending: true })
+        .limit(3);
+
+      const cached = (cachedRows || []).find(r =>
+        r.analysis_json?.fullResponse &&
+        (!r.game_time || new Date(r.game_time).getTime() > Date.now())
+      );
+
+      if (cached) {
+        const ageMin = (Date.now() - new Date(cached.updated_at).getTime()) / 60000;
+        const hoursToKickoff = cached.game_time
+          ? (new Date(cached.game_time).getTime() - Date.now()) / 3600000
+          : 99;
+        const ttlMin = hoursToKickoff < 3 ? 15 : 45;
+
+        if (ageMin < ttlMin) {
+          const full = cached.analysis_json.fullResponse;
+          return res.status(200).json({
+            ...full,
+            isPremiumUser,
+            picks: sanitizePicksForPublic(full.picks, isPremiumUser)
+          });
+        }
+      }
+    } catch {}
+    // ===== FIN CACHE =====
     const selectedSeason = Number(season) || getDefaultSeason();
 
     const teamARef = normalizeTeam(teamA);
@@ -2113,7 +2148,25 @@ const teamsSorted = [teamA, teamB]
   .sort();
 
 const gameId = `${type}-${gameDate}-${teamsSorted.join("-")}`;
-
+const fullResponse = {
+    sport: type,
+    odds,
+    picks: rawPicks || picks,
+    publicConfidence: bestPick ? Number(bestPick.confidence || 0) : 0,
+    projectedScore: {
+      [teamA]: projectedTeamAFinal,
+      [teamB]: projectedTeamBFinal
+    },
+    baseProjectedTotal,
+    paceEfficiencyAdjustment: paceModule,
+    injuryImpact: {
+      active: NFL_INJURY_ACTIVE,
+      [teamA]: teamAInjuries,
+      [teamB]: teamBInjuries
+    },
+    projectedTotal,
+    projectedSpread
+  };
 const analysisJson = {
   locked: false,
   isPremiumPick,
@@ -2151,16 +2204,18 @@ await supabaseAdmin
       game_id: gameId,
       away_team: teamA,
       home_team: teamB,
-      analysis_json: analysisJson,
+     analysis_json: { ...analysisJson, fullResponse },
       updated_at: new Date().toISOString(),
-      game_date: gameDate
+      game_date: gameDate,
+      game_time: odds?.commenceTime || null
     },
     {
       onConflict: "sport,game_id"
     }
   );
 
-if (isPremiumPick && bestPick) {
+const gameNotStarted = !odds?.commenceTime || new Date(odds.commenceTime).getTime() > Date.now();
+  if (isPremiumPick && bestPick && gameNotStarted) {
   const normalizedPick = String(bestPick.pick || "").toLowerCase();
 
   let pickType = "spread";
@@ -2216,24 +2271,9 @@ if (isPremiumPick && bestPick) {
 }
 const shouldHideModel = false;
 return res.status(200).json({
-  sport: type,
+  ...fullResponse,
   isPremiumUser,
-  odds,
-  picks,
-publicConfidence: bestPick ? Number(bestPick.confidence || 0) : 0,
-projectedScore: {
-      [teamA]: projectedTeamAFinal,
-      [teamB]: projectedTeamBFinal
-    },
-    baseProjectedTotal,
-    paceEfficiencyAdjustment: paceModule,
-  injuryImpact: {
-      active: NFL_INJURY_ACTIVE,
-      [teamA]: teamAInjuries,
-      [teamB]: teamBInjuries
-    },
-    projectedTotal,
-    projectedSpread
+  picks
 });
   } catch (error) {
     console.error("ERROR FOOTBALL DATA:", error);
