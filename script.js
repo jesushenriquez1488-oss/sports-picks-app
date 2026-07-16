@@ -85,7 +85,7 @@ async function handleStripeReturn() {
   const paymentSuccess = urlParams.get("success") === "true";
   const paymentCanceled = urlParams.get("canceled") === "true";
   const stripeSessionId = urlParams.get("session_id");
-
+const metaEventId = urlParams.get("meta_event_id");
   if (paymentCanceled) {
     alert("Pago cancelado.");
 
@@ -115,7 +115,8 @@ async function handleStripeReturn() {
 
   const conversionStorageKey =
     `cashedge_google_conversion_${stripeSessionId}`;
-
+const metaConversionStorageKey =
+  `cashedge_meta_purchase_${stripeSessionId}`;
   try {
     alert("✅ Pago recibido. Verificando suscripción...");
 
@@ -158,7 +159,42 @@ async function handleStripeReturn() {
     } else {
       console.log("Conversión ya enviada anteriormente:", stripeSessionId);
     }
+const metaConversionAlreadySent =
+  localStorage.getItem(metaConversionStorageKey) === "sent";
 
+if (!metaConversionAlreadySent) {
+  if (!metaEventId) {
+    console.warn("Meta Purchase no enviado: falta meta_event_id.");
+  } else if (typeof window.fbq !== "function") {
+    console.warn("Meta Purchase no enviado: Pixel no disponible.");
+  } else {
+    window.fbq(
+      "track",
+      "Purchase",
+      {
+        value: Number(verification.value || 19.99),
+        currency: String(
+          verification.currency || "USD"
+        ).toUpperCase(),
+        content_name: "CashEdge Premium Subscription",
+        content_type: "product"
+      },
+      {
+        eventID: metaEventId
+      }
+    );
+
+    localStorage.setItem(metaConversionStorageKey, "sent");
+
+    console.log("✅ Purchase enviado al Meta Pixel:", {
+      eventId: metaEventId,
+      transactionId:
+        verification.transactionId || stripeSessionId,
+      value: verification.value,
+      currency: verification.currency
+    });
+  }
+}
     alert("✅ Premium confirmado correctamente.");
 
   } catch (error) {
