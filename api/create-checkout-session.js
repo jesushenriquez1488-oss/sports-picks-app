@@ -1,10 +1,47 @@
 const Stripe = require("stripe");
+const crypto = require("crypto");
 const { createClient } = require("@supabase/supabase-js");
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+function parseCookies(cookieHeader = "") {
+  return cookieHeader.split(";").reduce((cookies, item) => {
+    const separatorIndex = item.indexOf("=");
+
+    if (separatorIndex === -1) {
+      return cookies;
+    }
+
+    const key = item.slice(0, separatorIndex).trim();
+    const value = item.slice(separatorIndex + 1).trim();
+
+    if (key) {
+      cookies[key] = decodeURIComponent(value);
+    }
+
+    return cookies;
+  }, {});
+}
+
+function getClientIp(req) {
+  const forwardedFor = req.headers["x-forwarded-for"];
+
+  if (Array.isArray(forwardedFor)) {
+    return forwardedFor[0]?.trim() || "";
+  }
+
+  if (typeof forwardedFor === "string") {
+    return forwardedFor.split(",")[0]?.trim() || "";
+  }
+
+  return (
+    req.headers["x-real-ip"] ||
+    req.socket?.remoteAddress ||
+    ""
+  );
+}
 
 module.exports = async function handler(req, res) {
  res.setHeader("Access-Control-Allow-Origin", "*");
@@ -38,7 +75,32 @@ module.exports = async function handler(req, res) {
 const cleanPromoCode = String(promoCode || "").trim().toUpperCase();
 console.log("PROMO CODE RECEIVED:", cleanPromoCode);
     const APP_URL = "https://www.cashedgeapp.com";
+const cookies = parseCookies(req.headers.cookie || "");
 
+const metaEventId = crypto.randomUUID();
+
+const fbp = cookies._fbp || "";
+const fbc = cookies._fbc || "";
+
+const clientIpAddress = getClientIp(req);
+const clientUserAgent = req.headers["user-agent"] || "";
+const eventSourceUrl = req.headers.referer || APP_URL;
+
+const metaMetadata = {
+  userId: String(userId),
+  email: String(email || ""),
+  promoCode: cleanPromoCode,
+  metaEventId,
+  eventSourceUrl: String(eventSourceUrl),
+  ...(clientIpAddress
+    ? { clientIpAddress: String(clientIpAddress) }
+    : {}),
+  ...(clientUserAgent
+    ? { clientUserAgent: String(clientUserAgent) }
+    : {}),
+  ...(fbp ? { fbp: String(fbp) } : {}),
+  ...(fbc ? { fbc: String(fbc) } : {})
+};
     if (!userId || userId === "guest") {
       return res.status(400).json({
         error: "Falta userId válido"
@@ -90,22 +152,17 @@ console.log("PROMO CODE RECEIVED:", cleanPromoCode);
         }
       ],
 
-     success_url: `${APP_URL}?success=true&session_id={CHECKOUT_SESSION_ID}`,
+    success_url:
+  `${APP_URL}?success=true` +
+  `&session_id={CHECKOUT_SESSION_ID}` +
+  `&meta_event_id=${encodeURIComponent(metaEventId)}`,
 
       cancel_url: `${APP_URL}?canceled=true`,
 
-     metadata: {
-  userId,
-  email,
-  promoCode: cleanPromoCode
-},
+     metadata: metaMetadata,
 
-     subscription_data: {
-  metadata: {
-    userId,
-    email,
-    promoCode: cleanPromoCode
-  }
+subscription_data: {
+  metadata: metaMetadata
 }
     });
 
