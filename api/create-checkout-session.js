@@ -18,7 +18,11 @@ function parseCookies(cookieHeader = "") {
     const value = item.slice(separatorIndex + 1).trim();
 
     if (key) {
-      cookies[key] = decodeURIComponent(value);
+     try {
+  cookies[key] = decodeURIComponent(value);
+} catch {
+  cookies[key] = value;
+}
     }
 
     return cookies;
@@ -75,32 +79,7 @@ module.exports = async function handler(req, res) {
 const cleanPromoCode = String(promoCode || "").trim().toUpperCase();
 console.log("PROMO CODE RECEIVED:", cleanPromoCode);
     const APP_URL = "https://www.cashedgeapp.com";
-const cookies = parseCookies(req.headers.cookie || "");
 
-const metaEventId = crypto.randomUUID();
-
-const fbp = cookies._fbp || "";
-const fbc = cookies._fbc || "";
-
-const clientIpAddress = getClientIp(req);
-const clientUserAgent = req.headers["user-agent"] || "";
-const eventSourceUrl = req.headers.referer || APP_URL;
-
-const metaMetadata = {
-  userId: String(userId),
-  email: String(email || ""),
-  promoCode: cleanPromoCode,
-  metaEventId,
-  eventSourceUrl: String(eventSourceUrl),
-  ...(clientIpAddress
-    ? { clientIpAddress: String(clientIpAddress) }
-    : {}),
-  ...(clientUserAgent
-    ? { clientUserAgent: String(clientUserAgent) }
-    : {}),
-  ...(fbp ? { fbp: String(fbp) } : {}),
-  ...(fbc ? { fbc: String(fbc) } : {})
-};
     if (!userId || userId === "guest") {
       return res.status(400).json({
         error: "Falta userId válido"
@@ -135,7 +114,32 @@ const metaMetadata = {
         error: "Falta email"
       });
     }
+const cookies = parseCookies(req.headers.cookie || "");
 
+const metaEventId = crypto.randomUUID();
+
+const fbp = cookies._fbp || "";
+const fbc = cookies._fbc || "";
+
+const clientIpAddress = getClientIp(req);
+const clientUserAgent = req.headers["user-agent"] || "";
+const eventSourceUrl = req.headers.referer || APP_URL;
+
+const metaMetadata = {
+  userId: String(userId),
+  email: String(email || ""),
+  promoCode: cleanPromoCode,
+  metaEventId,
+  eventSourceUrl: String(eventSourceUrl),
+  ...(clientIpAddress
+    ? { clientIpAddress: String(clientIpAddress) }
+    : {}),
+  ...(clientUserAgent
+    ? { clientUserAgent: String(clientUserAgent) }
+    : {}),
+  ...(fbp ? { fbp: String(fbp) } : {}),
+  ...(fbc ? { fbc: String(fbc) } : {})
+};
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
 
