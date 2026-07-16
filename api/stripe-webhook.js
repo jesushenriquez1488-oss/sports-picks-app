@@ -15,45 +15,109 @@ module.exports.config = {
     bodyParser: false,
   },
 };
+function sha256(value) {
+  if (!value) return null;
+
+  return crypto
+    .createHash("sha256")
+    .update(String(value).trim().toLowerCase())
+    .digest("hex");
+}
+
 async function sendMetaPurchase({
   email,
+  userId,
   value,
   currency = "USD",
-  eventId
+  eventId,
+  eventSourceUrl,
+  clientIpAddress,
+  clientUserAgent,
+  fbp,
+  fbc,
 }) {
-  if (!META_PIXEL_ID || !META_ACCESS_TOKEN) return;
+  if (!META_PIXEL_ID || !META_ACCESS_TOKEN) {
+    console.warn("⚠️ Meta credentials are missing.");
+    return;
+  }
 
-  const hashedEmail = crypto
-    .createHash("sha256")
-    .update(email.trim().toLowerCase())
-    .digest("hex");
+  const userData = {};
 
-  await fetch(
+  const hashedEmail = sha256(email);
+  const hashedExternalId = sha256(userId);
+
+  if (hashedEmail) {
+    userData.em = [hashedEmail];
+  }
+
+  if (hashedExternalId) {
+    userData.external_id = [hashedExternalId];
+  }
+
+  if (clientIpAddress) {
+    userData.client_ip_address = clientIpAddress;
+  }
+
+  if (clientUserAgent) {
+    userData.client_user_agent = clientUserAgent;
+  }
+
+  if (fbp) {
+    userData.fbp = fbp;
+  }
+
+  if (fbc) {
+    userData.fbc = fbc;
+  }
+
+  const payload = {
+    data: [
+      {
+        event_name: "Purchase",
+        event_time: Math.floor(Date.now() / 1000),
+        action_source: "website",
+        event_id: eventId,
+        event_source_url:
+          eventSourceUrl || "https://www.cashedgeapp.com/",
+        user_data: userData,
+        custom_data: {
+          currency,
+          value,
+          content_name: "CashEdge Premium Subscription",
+          content_type: "product",
+        },
+      },
+    ],
+  };
+
+  const response = await fetch(
     `https://graph.facebook.com/v23.0/${META_PIXEL_ID}/events?access_token=${META_ACCESS_TOKEN}`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        data: [
-          {
-            event_name: "Purchase",
-            event_time: Math.floor(Date.now() / 1000),
-            action_source: "website",
-            event_id: eventId,
-            user_data: {
-              em: [hashedEmail],
-            },
-            custom_data: {
-              currency,
-              value,
-            },
-          },
-        ],
-      }),
+      body: JSON.stringify(payload),
     }
   );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    console.error("❌ META PURCHASE ERROR:", result);
+    throw new Error(
+      result?.error?.message || "Meta Purchase event failed"
+    );
+  }
+
+  console.log("✅ META PURCHASE SENT:", {
+    eventId,
+    value,
+    currency,
+    eventsReceived: result.events_received,
+    messages: result.messages,
+    fbtraceId: result.fbtrace_id,
+  });
 }
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
@@ -116,11 +180,23 @@ module.exports = async function handler(req, res) {
       }
 
       console.log("✅ PREMIUM ACTIVADO:", data);
-      await sendMetaPurchase({
+     await sendMetaPurchase({
   email,
+  userId,
   value: Number(session.amount_total || 0) / 100,
   currency: session.currency?.toUpperCase() || "USD",
-  eventId: session.id,
+  eventId: session.metadata?.metaEventId || session.id,
+  eventSourceUrl:
+    session.metadata?.eventSourceUrl ||
+    "https://www.cashedgeapp.com/",
+  clientIpAddress:
+    session.metadata?.clientIpAddress || null,
+  clientUserAgent:
+    session.metadata?.clientUserAgent || null,
+  fbp:
+    session.metadata?.fbp || null,
+  fbc:
+    session.metadata?.fbc || null,
 });
       const promoCode = String(session.metadata?.promoCode || "")
   .trim()
