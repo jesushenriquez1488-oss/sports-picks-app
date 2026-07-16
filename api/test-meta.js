@@ -17,6 +17,7 @@ module.exports = async function handler(req, res) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        test_event_code: "TEST93082",
         data: [
           {
             event_name: "Purchase",
