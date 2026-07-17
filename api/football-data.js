@@ -2227,6 +2227,7 @@ try {
 
       const fA = fpiMap?.[String(idA)];
       const fB = fpiMap?.[String(idB)];
+      console.log("FPI CHECK: " + JSON.stringify({ A: fA, B: fB, idA, idB }));
       const baseA = fpiMap ? getScheduleBaseline(teamAGames, fpiMap) : null;
       const baseB = fpiMap ? getScheduleBaseline(teamBGames, fpiMap) : null;
 
