@@ -2334,14 +2334,16 @@ else if (isSpread && pickedInjNote) {
 async function analyzeFootball(awayTeam, homeTeam, index) {
   const resultDiv = document.getElementById(`result${index}`);
   resultDiv.innerHTML = `<div class="loading-analysis">Analyzing ${selectedSportName}...</div>`;
- 
+
+  const type = selectedSport === "americanfootball_nfl" ? "nfl" : "ncaaf";
+
   try {
-    const type = selectedSport === "americanfootball_nfl" ? "nfl" : "ncaaf";
  
     const { data: sessionData } = await supabaseClient.auth.getSession();
  
     if (!sessionData.session) {
       alert("You must sign in to analyze.");
+      resultDiv.innerHTML = "";
       return;
     }
  
@@ -2600,8 +2602,9 @@ if (data.limitReached === true || data.upgradeRequired === true) {
 `;
  
 } catch (err) {
-    if (err.message && err.message.includes("free analyses")) {
-     resultDiv.innerHTML = ceLimitScreenHTML(type);
+    const msg = err?.message || String(err);
+    if (msg.includes("free analyses") || msg.includes("every 3 hours") || msg.includes("unlock 5")) {
+      resultDiv.innerHTML = ceLimitScreenHTML(type);
     } else {
       resultDiv.innerHTML = `
         <div class="normal-result">
