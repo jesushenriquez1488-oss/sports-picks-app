@@ -21,6 +21,10 @@ const MAX_WEEKS = {
   nfl: 22,
   ncaaf: 16
 };
+// ===== AJUSTE POR CALIDAD DE RIVAL (FPI) — SOLO NCAAF =====
+const NCAAF_FPI_ACTIVE = true;   // false = vuelve al comportamiento de hoy
+const NCAAF_FPI_MULT   = 1.0;    // 1.0 = escala del FPI tal cual
+const PREMIUM_EDGE_MIN = { nfl: 13, ncaaf: 18 };
 
 const TEAM_MAP = {
   // NFL
@@ -187,20 +191,18 @@ function clamp(value, min = 0, max = 100) {
   return Math.max(min, Math.min(max, value));
 }
 
-function getConfidenceFromEdge(edge) {
+function getConfidenceFromEdge(edge, type = "nfl") {
   const e = Math.abs(Number(edge || 0));
-
   if (!Number.isFinite(e)) return 0;
 
-  if (e < 13) {
+  const minPremium = PREMIUM_EDGE_MIN[type] || 13;
+
+  if (e < minPremium) {
     return round(Math.min(74, Math.max(50, 50 + e * 1.5)));
   }
+  if (e >= minPremium + 12) return 99;
 
-  if (e >= 25) return 99;
-
-  const confidence = 75 + ((e - 13) / 12) * 24;
-
-  return round(confidence);
+  return round(75 + ((e - minPremium) / 12) * 24);
 }
 
 async function fetchJson(url) {
@@ -411,6 +413,7 @@ function buildTeamGamesFromSeason(allGames, teamRef) {
       date: game.date,
       week: game.week,
       opponent: game.opponentName,
+      opponentId: game.opponentId,
       teamPoints: game.teamPoints,
       pointsAllowed: game.pointsAllowed,
       opponentAvgPointsAllowed: opponentAvg.opponentAvgPointsAllowed,
@@ -419,7 +422,70 @@ function buildTeamGamesFromSeason(allGames, teamRef) {
     };
   });
 }
+const fpiCache = global.__NCAAF_FPI_CACHE__ || {};
+global.__NCAAF_FPI_CACHE__ = fpiCache;
+function resolveTeamIdFromGames(allGames, teamRef) {
+  if (teamRef?.id && /^\d+$/.test(String(teamRef.id))) return String(teamRef.id);
+  for (const g of allGames) {
+    if (gameSideMatches(g, 1, teamRef)) return String(g.team1Id);
+    if (gameSideMatches(g, 2, teamRef)) return String(g.team2Id);
+  }
+  return null;
+}
+// Devuelve { teamId: { off, def } } — null si falla
+async function getFPIMap(season) {
+  const key = `ncaaf-${season}`;
+  if (fpiCache[key] !== undefined) return fpiCache[key];
 
+  try {
+    const url = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${season}/powerindex?limit=200`;
+    const res = await fetch(url);
+    if (!res.ok) { fpiCache[key] = null; return null; }
+    const data = await res.json();
+
+    const map = {};
+    for (const item of data?.items || []) {
+      const ref = item?.team?.$ref || "";
+      const m = ref.match(/teams\/(\d+)/);
+      if (!m) continue;
+
+      const find = (n) => {
+        const p = (item.predictives || []).find(x => x.name === n);
+        return p ? Number(p.value) : null;
+      };
+
+      const off = find("epaoffense");
+      const def = find("epadefense");
+      if (off === null || def === null) continue;
+
+      map[m[1]] = { off, def };
+    }
+
+    const result = Object.keys(map).length ? map : null;
+    fpiCache[key] = result;
+    return result;
+  } catch {
+    fpiCache[key] = null;
+    return null;
+  }
+}
+
+// Nivel promedio de los rivales que este equipo ya enfrentó
+function getScheduleBaseline(games, fpiMap) {
+  const defs = [], offs = [];
+  for (const g of games) {
+    const f = fpiMap[String(g.opponentId)];
+    if (!f) continue;
+    defs.push(f.def);
+    offs.push(f.off);
+  }
+  if (!defs.length) return null;
+  return {
+    avgOppDef: average(defs),
+    avgOppOff: average(offs),
+    matched: defs.length
+  };
+}
 function calculateFootballEdges(games = []) {
   const recentGames = games.slice(
     0,
@@ -733,7 +799,8 @@ function buildFootballPicks({
   teamB,
   projectedSpread,
   projectedTotal,
-  odds
+  odds,
+    type = "nfl"
 }) {
   if (!odds || !odds.available) {
     return {
@@ -768,7 +835,7 @@ function buildFootballPicks({
 
  if (chosenSide) {
     const edge = round(chosenEdge);
-    const confidence = getConfidenceFromEdge(edge);
+    const confidence = getConfidenceFromEdge(edge, type);
 
     const chosenPrice = chosenSide === teamA
       ? (odds.spreadPriceA ?? -110)
@@ -781,7 +848,7 @@ function buildFootballPicks({
       edge,
       confidence,
       odds_american: chosenPrice,
-      isPremium: edge >= 13 && confidence >= 75
+      isPremium: edge >= (PREMIUM_EDGE_MIN[type] || 13) && confidence >= 75
     };
   }
   let totalPick = null;
@@ -791,7 +858,7 @@ function buildFootballPicks({
     const edge = round(Math.abs(rawEdge));
 
     if (edge > 0) {
-      const confidence = getConfidenceFromEdge(edge);
+      const confidence = getConfidenceFromEdge(edge, type);
       const isOver = rawEdge >= 0;
 
       totalPick = {
@@ -800,7 +867,7 @@ function buildFootballPicks({
         edge,
         confidence,
         odds_american: isOver ? (odds.overPrice ?? -110) : (odds.underPrice ?? -110),
-        isPremium: edge >= 13 && confidence >= 75
+       isPremium: edge >= (PREMIUM_EDGE_MIN[type] || 13) && confidence >= 75
       };
     }
   }
@@ -2068,14 +2135,81 @@ try {
     const teamAGames = buildTeamGamesFromSeason(allGames, teamARef);
     const teamBGames = buildTeamGamesFromSeason(allGames, teamBRef);
 
-    const teamAEdges = calculateFootballEdges(teamAGames);
+   const teamAEdges = calculateFootballEdges(teamAGames);
     const teamBEdges = calculateFootballEdges(teamBGames);
 
-    const teamAProjection = projectFootballTeam(teamAEdges, teamBEdges);
-    const teamBProjection = projectFootballTeam(teamBEdges, teamAEdges);
+    // ===== AJUSTE POR CALIDAD DE RIVAL (FPI) =====
+    let fpiAdj = { active: false, reason: "no aplica (solo ncaaf)" };
+    let adjA = { off: 0, def: 0 };
+    let adjB = { off: 0, def: 0 };
+
+    if (type === "ncaaf") {
+      const fpiMap = await getFPIMap(selectedSeason)
+        || await getFPIMap(selectedSeason - 1);
+
+      const idA = resolveTeamIdFromGames(allGames, teamARef);
+      const idB = resolveTeamIdFromGames(allGames, teamBRef);
+
+      const fA = fpiMap?.[String(idA)];
+      const fB = fpiMap?.[String(idB)];
+      const baseA = fpiMap ? getScheduleBaseline(teamAGames, fpiMap) : null;
+      const baseB = fpiMap ? getScheduleBaseline(teamBGames, fpiMap) : null;
+
+      if (!fpiMap)               fpiAdj = { active: false, reason: "FPI no disponible" };
+      else if (!fA || !fB)       fpiAdj = { active: false, reason: "equipo sin FPI", idA, idB };
+      else if (!baseA || !baseB) fpiAdj = { active: false, reason: "sin rivales con FPI" };
+      else if (!NCAAF_FPI_ACTIVE) fpiAdj = { active: false, reason: "desactivado" };
+      else {
+        adjA.off = round((baseA.avgOppDef - fB.def) * NCAAF_FPI_MULT, 2);
+        adjB.off = round((baseB.avgOppDef - fA.def) * NCAAF_FPI_MULT, 2);
+        adjA.def = round((baseA.avgOppOff - fB.off) * NCAAF_FPI_MULT, 2);
+        adjB.def = round((baseB.avgOppOff - fA.off) * NCAAF_FPI_MULT, 2);
+
+        fpiAdj = {
+          active: true,
+          mult: NCAAF_FPI_MULT,
+          [teamA]: { fpi: fA, baseline: baseA, adj: adjA },
+          [teamB]: { fpi: fB, baseline: baseB, adj: adjB }
+        };
+      }
+    }
+
+    const teamAAdj = {
+      ...teamAEdges,
+      avgOffensiveEdge: round(teamAEdges.avgOffensiveEdge + adjA.off),
+      avgDefensiveEdge: round(teamAEdges.avgDefensiveEdge + adjA.def)
+    };
+    const teamBAdj = {
+      ...teamBEdges,
+      avgOffensiveEdge: round(teamBEdges.avgOffensiveEdge + adjB.off),
+      avgDefensiveEdge: round(teamBEdges.avgDefensiveEdge + adjB.def)
+    };
+
+    const teamAProjection = projectFootballTeam(teamAAdj, teamBAdj);
+    const teamBProjection = projectFootballTeam(teamBAdj, teamAAdj);
 
 const projectedTeamA = teamAProjection.finalProjection;
 const projectedTeamB = teamBProjection.finalProjection;
+
+    // Comparativo SIN ajuste
+    const rawA = projectFootballTeam(teamAEdges, teamBEdges).finalProjection;
+    const rawB = projectFootballTeam(teamBEdges, teamAEdges).finalProjection;
+
+    console.log("NCAAF FPI ADJ:", {
+      type,
+      matchup: `${teamA} vs ${teamB}`,
+      fpiAdj,
+      edgesRaw: {
+        [teamA]: { off: teamAEdges.avgOffensiveEdge, def: teamAEdges.avgDefensiveEdge },
+        [teamB]: { off: teamBEdges.avgOffensiveEdge, def: teamBEdges.avgDefensiveEdge }
+      },
+      edgesAjustados: {
+        [teamA]: { off: teamAAdj.avgOffensiveEdge, def: teamAAdj.avgDefensiveEdge },
+        [teamB]: { off: teamBAdj.avgOffensiveEdge, def: teamBAdj.avgDefensiveEdge }
+      },
+      SIN_AJUSTE: { A: rawA, B: rawB, spread: round(rawA - rawB), total: round(rawA + rawB) },
+      CON_AJUSTE: { A: projectedTeamA, B: projectedTeamB, spread: round(projectedTeamA - projectedTeamB), total: round(projectedTeamA + projectedTeamB) }
+    });
     
 // Ajuste por lesiones (modo sombra si NFL_INJURY_ACTIVE = false)
 const [teamAInjuries, teamBInjuries] = await Promise.all([
@@ -2123,7 +2257,8 @@ const odds = await getFootballOdds(type, teamARef, teamBRef);
       teamB,
       projectedSpread,
       projectedTotal,
-      odds
+      odds,
+      type
     });
 
 const picks = sanitizePicksForPublic(rawPicks, isPremiumUser);
@@ -2157,6 +2292,8 @@ const fullResponse = {
       [teamB]: projectedTeamBFinal
     },
     baseProjectedTotal,
+  fpiAdjustment: fpiAdj,
+    sinAjuste: { [teamA]: rawA, [teamB]: rawB },
     paceEfficiencyAdjustment: paceModule,
     injuryImpact: {
       active: NFL_INJURY_ACTIVE,
