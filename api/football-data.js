@@ -2137,7 +2137,25 @@ try {
 
     const teamAGames = buildTeamGamesFromSeason(allGames, teamARef);
     const teamBGames = buildTeamGamesFromSeason(allGames, teamBRef);
+// ===== GUARD: insufficient data =====
+    const MIN_GAMES_REQUIRED = 3;
 
+    if (teamAGames.length < MIN_GAMES_REQUIRED || teamBGames.length < MIN_GAMES_REQUIRED) {
+      console.log("INSUFFICIENT DATA:", {
+        type,
+        [teamA]: teamAGames.length,
+        [teamB]: teamBGames.length
+      });
+      return res.status(200).json({
+        sport: type,
+        error: "Insufficient data",
+        detail: `${teamA}: ${teamAGames.length} games · ${teamB}: ${teamBGames.length} games`,
+        picks: {
+          available: false,
+          message: "Not enough data to analyze this game."
+        }
+      });
+    }
    const teamAEdges = calculateFootballEdges(teamAGames);
     const teamBEdges = calculateFootballEdges(teamBGames);
 
