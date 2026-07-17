@@ -2234,7 +2234,7 @@ try {
       if (!fpiMap)               fpiAdj = { active: false, reason: "FPI no disponible" };
       else if (!fA || !fB)       fpiAdj = { active: false, reason: "equipo sin FPI", idA, idB };
       else if (!baseA || !baseB) fpiAdj = { active: false, reason: "sin rivales con FPI" };
-      else if (!NCAAF_FPI_ACTIVE) fpiAdj = { active: false, reason: "desactivado" };
+      else if (!NCAAF_FPI_ACTIVE) fpiAdj = { active: false, reason: "desactivado", fA, fB, baseA, baseB };
       else {
         adjA.off = round((baseA.avgOppDef - fB.def) * NCAAF_FPI_MULT, 2);
         adjB.off = round((baseB.avgOppDef - fA.def) * NCAAF_FPI_MULT, 2);
@@ -2385,7 +2385,7 @@ const teamsSorted = [teamA, teamB]
 const gameId = `${type}-${gameDate}-${teamsSorted.join("-")}`;
 const fullResponse = {
     sport: type,
-  debug: { A: teamAEdges, B: teamBEdges, projA: teamAProjection.debug, projB: teamBProjection.debug },
+debug: { A: teamAEdges, B: teamBEdges, fpiRaw: fpiAdj },
     odds,
     picks: rawPicks || picks,
     publicConfidence: bestPick ? Number(bestPick.confidence || 0) : 0,
