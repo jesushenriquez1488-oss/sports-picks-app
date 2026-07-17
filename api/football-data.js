@@ -160,24 +160,25 @@ async function findNCAAFTeamIdDynamic(teamName) {
     return null;
   }
 }
-function normalizeTeam(team) {
+function normalizeTeam(team, type = "nfl") {
   const key = cleanText(team);
+
+  // Match exacto por llave del mapa
   const mapped = TEAM_MAP[key];
   if (mapped) return mapped;
 
-  for (const [mapKey, mapVal] of Object.entries(TEAM_MAP)) {
-    if (mapVal.keys.some(k => cleanText(k) === key || key.includes(cleanText(k)) || cleanText(k).includes(key))) {
-      return mapVal;
-    }
+  // Match exacto contra los alias
+  for (const mapVal of Object.values(TEAM_MAP)) {
+    if (mapVal.keys.some(k => cleanText(k) === key)) return mapVal;
   }
 
+  // NCAAF: nunca cae al TEAM_MAP de NFL por parecido
   return {
     id: key,
     keys: [key],
     needsDynamicResolution: true
   };
 }
-
 function average(numbers) {
   const valid = numbers.filter((n) => Number.isFinite(Number(n)));
   if (!valid.length) return 0;
