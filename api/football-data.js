@@ -90,6 +90,8 @@ const TEAM_MAP = {
 function cleanText(value) {
   return String(value || "")
     .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .replaceAll("-", " ")
     .replaceAll(".", "")
     .replaceAll("'", "")
@@ -233,24 +235,23 @@ function competitorMatchesTeam(competitor, teamRef) {
   const location = cleanText(competitor.team?.location);
   const name = cleanText(competitor.team?.name);
 
+  // ID numerico: match directo (NFL y NCAAF de TEAM_MAP)
   if (teamRef.id && String(teamRef.id) === id) return true;
 
   return teamRef.keys.some((key) => {
-    const cleanKey = cleanText(key);
+    const k = cleanText(key);
+    if (!k) return false;
 
-    return (
-      abbreviation === cleanKey ||
-      displayName === cleanKey ||
-      shortName === cleanKey ||
-      location === cleanKey ||
-      name === cleanKey ||
-      displayName.includes(cleanKey) ||
-      cleanKey.includes(displayName) ||
-      location.includes(cleanKey) ||
-      cleanKey.includes(location) ||
-      name.includes(cleanKey) ||
-      cleanKey.includes(name)
-    );
+    // Solo match EXACTO. Nada de includes sobre mascota.
+    if (displayName && displayName === k) return true;
+    if (shortName && shortName === k) return true;
+    if (location && location === k) return true;
+    if (abbreviation && abbreviation === k) return true;
+
+    // "usc trojans" -> location "usc" + mascota "trojans"
+    if (location && name && `${location} ${name}` === k) return true;
+
+    return false;
   });
 }
 
