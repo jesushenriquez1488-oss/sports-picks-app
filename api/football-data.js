@@ -521,12 +521,14 @@ function projectFootballTeam(team, opponent) {
     opponent.avgPointsAllowed + team.avgOffensiveEdge;
 
   const projectionFromOpponentDefense =
-    team.avgPointsScored + opponent.avgDefensiveEdge;
+    team.avgPointsScored - opponent.avgDefensiveEdge;
 
   const finalProjection =
     (projectionFromOffense + projectionFromOpponentDefense) / 2;
 
   return {
+    projectionFromOffense: round(projectionFromOffense),
+    projectionFromOpponentDefense: round(projectionFromOpponentDefense),
     finalProjection: round(finalProjection)
   };
 }
