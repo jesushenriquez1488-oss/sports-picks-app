@@ -22,7 +22,7 @@ const MAX_WEEKS = {
   ncaaf: 16
 };
 // ===== AJUSTE POR CALIDAD DE RIVAL (FPI) — SOLO NCAAF =====
-const NCAAF_FPI_ACTIVE = false;   // false = vuelve al comportamiento de hoy
+const NCAAF_FPI_ACTIVE = true;   // false = vuelve al comportamiento de hoy
 const NCAAF_FPI_MULT   = 1.0;    // 1.0 = escala del FPI tal cual
 const PREMIUM_EDGE_MIN = { nfl: 13, ncaaf: 18 };
 
