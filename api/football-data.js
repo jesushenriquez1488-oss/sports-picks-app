@@ -2131,9 +2131,8 @@ try {
     // ===== FIN CACHE =====
     const selectedSeason = Number(season) || getDefaultSeason();
 
-    const teamARef = normalizeTeam(teamA);
-    const teamBRef = normalizeTeam(teamB);
-
+   const teamARef = normalizeTeam(teamA, type);
+    const teamBRef = normalizeTeam(teamB, type);
     const allGames = await getSeasonGames(type, selectedSeason);
 
     const teamAGames = buildTeamGamesFromSeason(allGames, teamARef);
