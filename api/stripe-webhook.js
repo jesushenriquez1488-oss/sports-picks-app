@@ -145,7 +145,14 @@ module.exports = async function handler(req, res) {
 
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
+if (session.payment_status !== "paid") {
+  console.log("ℹ️ Checkout completed but payment is not paid:", {
+    sessionId: session.id,
+    paymentStatus: session.payment_status
+  });
 
+  return res.status(200).json({ received: true });
+}
       const userId =
         session.metadata?.userId ||
         session.client_reference_id;
