@@ -1983,39 +1983,38 @@ try {
     profile?.subscription_status === "trialing" ||
     authData.user.email === ADMIN_EMAIL;
 
-  // SOLO FREE PASA POR EL LÍMITE
- if (!isPremiumUser) {
-    const windowMs = 3 * 60 * 60 * 1000; // 3 horas
-    const limit = 5;
-    const windowStart = new Date(Date.now() - windowMs).toISOString();
+// SOLO FREE PASA POR EL LÍMITE
+  if (!isPremiumUser) {
+    const since = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
 
-    const { count } = await supabaseAdmin
-      .from("user_tracking")
-      .select("*", { count: "exact", head: true })
+    const { count, error: countError } = await supabaseAdmin
+      .from("analysis_usage")
+      .select("id", { count: "exact", head: true })
       .eq("user_id", authUserId)
-      .eq("event_type", "analyze-football")
-      .gte("created_at", windowStart);
-console.log("FREE LIMIT CHECK:", { count, authUserId, windowStart });
-    if ((count || 0) >= limit) {
+      .gte("created_at", since);
+
+    console.log("FREE LIMIT CHECK:", { count, authUserId, since });
+
+    if (countError) {
+      console.log("Limit check error:", countError.message);
+    }
+
+    if ((count || 0) >= 5) {
       return res.status(429).json({
-        error: "You've used your 5 free analyses. More analyses unlock in 3 hours.",
+        error: "You can unlock 5 new analyses every 3 hours, or upgrade to Premium for unlimited predictions.",
         limitReached: true,
         upgradeRequired: true
       });
     }
 
- try {
-      const { error: insertError } = await supabaseAdmin.from("user_tracking").insert({
+    const { error: insertError } = await supabaseAdmin
+      .from("analysis_usage")
+      .insert({
         user_id: authUserId,
-        event_type: "analyze-football",
-        sport: type,
-        session_id: null,
-        metadata: { teamA, teamB }
+        endpoint: "analyze-football"
       });
-      console.log("INSERT RESULT:", insertError ? insertError.message : "OK");
-    } catch (insertErr) {
-      console.log("Insert tracking error:", insertErr.message);
-    }
+
+    console.log("INSERT RESULT:", insertError ? insertError.message : "OK");
   }
 } catch (error) {
   console.log("No se pudo validar usuario football:", error.message);
