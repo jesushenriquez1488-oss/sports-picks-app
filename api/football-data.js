@@ -2285,7 +2285,7 @@ const projectedTeamB = teamBProjection.finalProjection;
       SIN_AJUSTE: { A: rawA, B: rawB, spread: round(rawA - rawB), total: round(rawA + rawB) },
       CON_AJUSTE: { A: projectedTeamA, B: projectedTeamB, spread: round(projectedTeamA - projectedTeamB), total: round(projectedTeamA + projectedTeamB) }
     });
-    console.log("CASHEDGE VIAS:", {
+   console.log("CASHEDGE VIAS: " + JSON.stringify({
       matchup: `${teamA} vs ${teamB}`,
       alpha,
       beta,
@@ -2293,6 +2293,7 @@ const projectedTeamB = teamBProjection.finalProjection;
         crudo: { pf: teamAEdges.avgPointsScored, pa: teamAEdges.avgPointsAllowed },
         calendario: { sosDef: teamAEdges.sosDef, sosOff: teamAEdges.sosOff },
         edges: { off: teamAEdges.avgOffensiveEdge, def: teamAEdges.avgDefensiveEdge },
+        gamesUsed: teamAEdges.gamesUsed,
         via1_desdeOfensiva: teamAProjection.projectionFromOffense,
         via2_desdeDefRival: teamAProjection.projectionFromOpponentDefense,
         consenso: teamAProjection.finalProjection,
@@ -2302,12 +2303,13 @@ const projectedTeamB = teamBProjection.finalProjection;
         crudo: { pf: teamBEdges.avgPointsScored, pa: teamBEdges.avgPointsAllowed },
         calendario: { sosDef: teamBEdges.sosDef, sosOff: teamBEdges.sosOff },
         edges: { off: teamBEdges.avgOffensiveEdge, def: teamBEdges.avgDefensiveEdge },
+        gamesUsed: teamBEdges.gamesUsed,
         via1_desdeOfensiva: teamBProjection.projectionFromOffense,
         via2_desdeDefRival: teamBProjection.projectionFromOpponentDefense,
         consenso: teamBProjection.finalProjection,
         ...teamBProjection.debug
       }
-    });
+    }, null, 2));
     
 // Ajuste por lesiones (modo sombra si NFL_INJURY_ACTIVE = false)
 const [teamAInjuries, teamBInjuries] = await Promise.all([
