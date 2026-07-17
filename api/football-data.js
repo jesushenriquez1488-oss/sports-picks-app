@@ -530,7 +530,7 @@ function projectFootballTeam(team, opponent) {
   return {
     projectionFromOffense: round(projectionFromOffense),
     projectionFromOpponentDefense: round(projectionFromOpponentDefense),
-    finalProjection: round(finalProjection)
+    finalProjection: round(Math.max(0, finalProjection))
   };
 }
 
