@@ -22,9 +22,16 @@ const MAX_WEEKS = {
   ncaaf: 16
 };
 // ===== AJUSTE POR CALIDAD DE RIVAL (FPI) — SOLO NCAAF =====
-const NCAAF_FPI_ACTIVE = true;   // false = vuelve al comportamiento de hoy
+const NCAAF_FPI_ACTIVE = false;   // false = vuelve al comportamiento de hoy
 const NCAAF_FPI_MULT   = 1.0;    // 1.0 = escala del FPI tal cual
 const PREMIUM_EDGE_MIN = { nfl: 13, ncaaf: 18 };
+// ===== MODELO DE CONSENSO CASHEDGE =====
+const SOS_ALPHA       = 0.6;   // 0 = Edge sin tocar, 1 = regla de tres completa. CALIBRAR.
+const SOS_RATIO_MIN   = 0.55;
+const SOS_RATIO_MAX   = 1.80;
+const CONSENSUS_BETA  = 0.15;  // cuánto se inclina el consenso. 0 = 50/50 fijo. CALIBRAR DESPUÉS.
+const CONSENSUS_SCALE = 10;    // pts de diferencia para inclinar el peso
+const MIN_PROJECTION  = 7;
 
 const TEAM_MAP = {
   // NFL
@@ -193,7 +200,12 @@ function round(num, decimals = 1) {
 function clamp(value, min = 0, max = 100) {
   return Math.max(min, Math.min(max, value));
 }
-
+// Regla de tres parcial: (rival de hoy / rivales enfrentados)^alpha
+function sosRatio(target, faced, alpha = SOS_ALPHA) {
+  const t = Number(target), f = Number(faced);
+  if (!(t > 0) || !(f > 0)) return 1;
+  return Math.pow(clamp(t / f, SOS_RATIO_MIN, SOS_RATIO_MAX), alpha);
+}
 function getConfidenceFromEdge(edge, type = "nfl") {
   const e = Math.abs(Number(edge || 0));
   if (!Number.isFinite(e)) return 0;
@@ -489,48 +501,87 @@ function getScheduleBaseline(games, fpiMap) {
   };
 }
 function calculateFootballEdges(games = []) {
-  const recentGames = games.slice(
-    0,
-    Math.min(MAX_GAMES_USED, games.length)
-  );
-
-  const usableGames = recentGames.filter(
-    (game) => Number(game.opponentGamesUsed) > 0
-  );
-
+  const recentGames = games.slice(0, Math.min(MAX_GAMES_USED, games.length));
+  const usableGames = recentGames.filter((game) => Number(game.opponentGamesUsed) > 0);
   const gamesForCalc = usableGames.length ? usableGames : recentGames;
 
-  const offensiveEdges = gamesForCalc.map((game) => {
-    return Number(game.teamPoints) - Number(game.opponentAvgPointsAllowed);
-  });
+  // Edge ofensivo: anoté MÁS de lo que suelen permitir -> positivo = ofensiva buena
+  const offensiveEdges = gamesForCalc.map(
+    (g) => Number(g.teamPoints) - Number(g.opponentAvgPointsAllowed)
+  );
 
-  const defensiveEdges = gamesForCalc.map((game) => {
-    return Number(game.opponentAvgPointsScored) - Number(game.pointsAllowed);
-  });
+  // Edge defensivo: permití MÁS de lo que suelen anotar -> positivo = defensa MALA
+  // (INVERTIDO respecto a la versión anterior del archivo)
+  const defensiveEdges = gamesForCalc.map(
+    (g) => Number(g.pointsAllowed) - Number(g.opponentAvgPointsScored)
+  );
 
   return {
     gamesUsed: gamesForCalc.length,
-    avgPointsScored: round(average(gamesForCalc.map((g) => g.teamPoints))),
+    avgPointsScored:  round(average(gamesForCalc.map((g) => g.teamPoints))),
     avgPointsAllowed: round(average(gamesForCalc.map((g) => g.pointsAllowed))),
+
+    // Fuerza del calendario
+    sosDef: round(average(gamesForCalc.map((g) => g.opponentAvgPointsAllowed))), // qué permitían las defensas que enfrenté
+    sosOff: round(average(gamesForCalc.map((g) => g.opponentAvgPointsScored))),  // qué anotaban las ofensivas que enfrenté
+
     avgOffensiveEdge: round(average(offensiveEdges)),
     avgDefensiveEdge: round(average(defensiveEdges))
   };
 }
 
-function projectFootballTeam(team, opponent) {
-  const projectionFromOffense =
-    opponent.avgPointsAllowed + team.avgOffensiveEdge;
+// team = equipo que anota (A), opponent = equipo que defiende (B)
+function projectFootballTeam(team, opponent, alpha = SOS_ALPHA, beta = CONSENSUS_BETA) {
+  // --- VÍA 1: Edge ofensivo de A sobre la base defensiva de B ---
+  // El Edge de A se obtuvo vs defensas que permitían team.sosDef.
+  // Hoy enfrenta una que permite opponent.avgPointsAllowed.
+  // Defensa de hoy mejor -> ratio < 1 -> el Edge se encoge.
+  const offRatio   = sosRatio(opponent.avgPointsAllowed, team.sosDef, alpha);
+  const edgeOffRaw = Number(team.avgOffensiveEdge) || 0;
+  const edgeOffAdj = edgeOffRaw * offRatio;
+  const projectionFromOffense = Number(opponent.avgPointsAllowed || 0) + edgeOffAdj;
 
-  const projectionFromOpponentDefense =
-    team.avgPointsScored - opponent.avgDefensiveEdge;
+  // --- VÍA 2: Edge defensivo de B sobre la base ofensiva de A ---
+  const defRatio   = sosRatio(team.avgPointsScored, opponent.sosOff, alpha);
+  const edgeDefRaw = Number(opponent.avgDefensiveEdge) || 0;
+  const edgeDefAdj = edgeDefRaw * defRatio;
+  // El signo del Edge manda: defensa mala (+) suma, defensa buena (-) resta.
+  const projectionFromOpponentDefense = Number(team.avgPointsScored || 0) + edgeDefAdj;
 
-  const finalProjection =
-    (projectionFromOffense + projectionFromOpponentDefense) / 2;
+  // --- CONSENSO PONDERADO ---
+  // Fuerzas YA corregidas por calendario para este matchup, no las crudas.
+  const offStrength = edgeOffAdj;   // + = ofensiva buena
+  const defStrength = -edgeDefAdj;  // + = defensa buena (signo volteado)
+
+  // diff > 0 -> manda la ofensiva -> pesa más la vía 1
+  // diff < 0 -> manda la defensa  -> pesa más la vía 2
+  const diff = offStrength - defStrength;
+
+  const safeBeta = clamp(Number(beta) || 0, 0, 0.49);
+  const tilt = Math.tanh(diff / CONSENSUS_SCALE); // satura: ninguna vía se apaga
+  const w1 = clamp(0.5 + safeBeta * tilt, 0.5 - safeBeta, 0.5 + safeBeta);
+  const w2 = 1 - w1;
+
+  const finalProjection = projectionFromOffense * w1 + projectionFromOpponentDefense * w2;
 
   return {
     projectionFromOffense: round(projectionFromOffense),
     projectionFromOpponentDefense: round(projectionFromOpponentDefense),
-    finalProjection: round(Math.max(0, finalProjection))
+    finalProjection: round(Math.max(MIN_PROJECTION, finalProjection)),
+    debug: {
+      offRatio: round(offRatio, 3),
+      edgeOffRaw: round(edgeOffRaw),
+      edgeOffAdj: round(edgeOffAdj),
+      defRatio: round(defRatio, 3),
+      edgeDefRaw: round(edgeDefRaw),
+      edgeDefAdj: round(edgeDefAdj),
+      offStrength: round(offStrength),
+      defStrength: round(defStrength),
+      diff: round(diff),
+      tilt: round(tilt, 3),
+      w1: round(w1, 3),
+      w2: round(w2, 3)
+    }
   };
 }
 
@@ -2130,6 +2181,8 @@ try {
     } catch {}
     // ===== FIN CACHE =====
     const selectedSeason = Number(season) || getDefaultSeason();
+    const alpha = Number(req.query.alpha ?? SOS_ALPHA);   // temporal, para calibrar
+    const beta  = Number(req.query.beta  ?? CONSENSUS_BETA);
 
    const teamARef = normalizeTeam(teamA);
     const teamBRef = normalizeTeam(teamB);
@@ -2207,16 +2260,16 @@ try {
       avgDefensiveEdge: round(teamBEdges.avgDefensiveEdge + adjB.def)
     };
 
-    const teamAProjection = projectFootballTeam(teamAAdj, teamBAdj);
-    const teamBProjection = projectFootballTeam(teamBAdj, teamAAdj);
-
+   const teamAProjection = projectFootballTeam(teamAAdj, teamBAdj, alpha, beta);
+    const teamBProjection = projectFootballTeam(teamBAdj, teamAAdj, alpha, beta);
+    
 const projectedTeamA = teamAProjection.finalProjection;
 const projectedTeamB = teamBProjection.finalProjection;
 
-    // Comparativo SIN ajuste
-    const rawA = projectFootballTeam(teamAEdges, teamBEdges).finalProjection;
-    const rawB = projectFootballTeam(teamBEdges, teamAEdges).finalProjection;
-
+   // Comparativo: sin ajuste de calendario y con consenso 50/50
+    const rawA = projectFootballTeam(teamAEdges, teamBEdges, 0, 0).finalProjection;
+    const rawB = projectFootballTeam(teamBEdges, teamAEdges, 0, 0).finalProjection;
+    
     console.log("NCAAF FPI ADJ:", {
       type,
       matchup: `${teamA} vs ${teamB}`,
@@ -2231,6 +2284,29 @@ const projectedTeamB = teamBProjection.finalProjection;
       },
       SIN_AJUSTE: { A: rawA, B: rawB, spread: round(rawA - rawB), total: round(rawA + rawB) },
       CON_AJUSTE: { A: projectedTeamA, B: projectedTeamB, spread: round(projectedTeamA - projectedTeamB), total: round(projectedTeamA + projectedTeamB) }
+    });
+    console.log("CASHEDGE VIAS:", {
+      matchup: `${teamA} vs ${teamB}`,
+      alpha,
+      beta,
+      [teamA]: {
+        crudo: { pf: teamAEdges.avgPointsScored, pa: teamAEdges.avgPointsAllowed },
+        calendario: { sosDef: teamAEdges.sosDef, sosOff: teamAEdges.sosOff },
+        edges: { off: teamAEdges.avgOffensiveEdge, def: teamAEdges.avgDefensiveEdge },
+        via1_desdeOfensiva: teamAProjection.projectionFromOffense,
+        via2_desdeDefRival: teamAProjection.projectionFromOpponentDefense,
+        consenso: teamAProjection.finalProjection,
+        ...teamAProjection.debug
+      },
+      [teamB]: {
+        crudo: { pf: teamBEdges.avgPointsScored, pa: teamBEdges.avgPointsAllowed },
+        calendario: { sosDef: teamBEdges.sosDef, sosOff: teamBEdges.sosOff },
+        edges: { off: teamBEdges.avgOffensiveEdge, def: teamBEdges.avgDefensiveEdge },
+        via1_desdeOfensiva: teamBProjection.projectionFromOffense,
+        via2_desdeDefRival: teamBProjection.projectionFromOpponentDefense,
+        consenso: teamBProjection.finalProjection,
+        ...teamBProjection.debug
+      }
     });
     
 // Ajuste por lesiones (modo sombra si NFL_INJURY_ACTIVE = false)
