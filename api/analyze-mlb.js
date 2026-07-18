@@ -939,15 +939,28 @@ async function getMLBGameContextFromStatsAPI(event) {
   const targetAway = normalizeTeamName(event.away_team);
   const targetHome = normalizeTeamName(event.home_team);
 
-  const match = games.find(g => {
+const nameMatch = g => {
     const away = normalizeTeamName(g?.teams?.away?.team?.name);
     const home = normalizeTeamName(g?.teams?.home?.team?.name);
-
     return (
       (away.includes(targetAway) || targetAway.includes(away)) &&
       (home.includes(targetHome) || targetHome.includes(home))
     );
-  });
+  };
+
+  const candidateGames = games.filter(nameMatch);
+  let match;
+
+  if (candidateGames.length <= 1) {
+    match = candidateGames[0];
+  } else {
+    const targetTime = event.commence_time ? new Date(event.commence_time).getTime() : null;
+    match = targetTime
+      ? candidateGames.reduce((best, g) =>
+          Math.abs(new Date(g.gameDate).getTime() - targetTime) 
+          Math.abs(new Date(best.gameDate).getTime() - targetTime) ? g : best)
+      : candidateGames[0];
+  }
 console.log("SCHEDULE GAMES:", games.map(g => ({
   away: g?.teams?.away?.team?.name,
   home: g?.teams?.home?.team?.name
