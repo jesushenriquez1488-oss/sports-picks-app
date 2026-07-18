@@ -26,12 +26,12 @@ const NCAAF_FPI_ACTIVE = false;   // false = vuelve al comportamiento de hoy
 const NCAAF_FPI_MULT   = 1.0;    // 1.0 = escala del FPI tal cual
 const PREMIUM_EDGE_MIN = { nfl: 10, ncaaf: 10 };
 // ===== MODELO DE CONSENSO CASHEDGE =====
-const SOS_ALPHA       = 0.6;   // 0 = Edge sin tocar, 1 = regla de tres completa. CALIBRAR.
+const SOS_ALPHA       = 0.8;   // 0 = Edge sin tocar, 1 = regla de tres completa. CALIBRAR.
 const SOS_RATIO_MIN   = 0.55;
 const SOS_RATIO_MAX   = 1.80;
 const CONSENSUS_BETA  = 0.15;  // cuánto se inclina el consenso. 0 = 50/50 fijo. CALIBRAR DESPUÉS.
 const CONSENSUS_SCALE = 10;    // pts de diferencia para inclinar el peso
-const MIN_PROJECTION  = 7;
+const MIN_PROJECTION  = 3;
 
 const TEAM_MAP = {
   // NFL
