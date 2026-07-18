@@ -215,9 +215,9 @@ function getConfidenceFromEdge(edge, type = "nfl") {
   if (e < minPremium) {
     return round(Math.min(74, Math.max(50, 50 + e * 1.5)));
   }
-  if (e >= minPremium + 12) return 99;
+  if (e >= 30) return 99;
 
-  return round(75 + ((e - minPremium) / 12) * 24);
+  return round(75 + ((e - minPremium) / (30 - minPremium)) * 24);
 }
 
 async function fetchJson(url) {
