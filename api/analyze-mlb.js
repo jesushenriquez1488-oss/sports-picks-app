@@ -1370,7 +1370,7 @@ try {
 if (mode === "player-props") {
   return await handlePlayerProps(req, res);
 }
- const {
+const {
     userId,
     awayTeam,
     homeTeam,
@@ -1382,9 +1382,9 @@ if (mode === "player-props") {
     gameTime,
     totalLine = 8,
     overPrice,
-    underPrice
+    underPrice,
+    eventId
   } = req.body || {};
-
   if (mode !== "grade-pending" && req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
