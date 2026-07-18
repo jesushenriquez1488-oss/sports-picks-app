@@ -76,7 +76,7 @@ if (req.method === "OPTIONS") {
   return res.status(200).end();
 }
   try {
-  const { awayTeam, homeTeam, gameTime } = req.body;
+const { awayTeam, homeTeam, gameTime, eventId } = req.body;
 const gameDate = gameTime ? new Date(gameTime) : new Date();
 const todayUTC = gameDate.toISOString().split("T")[0];
 const todayLocal = new Intl.DateTimeFormat("en-CA", {
@@ -98,7 +98,8 @@ const gamesLocal = scheduleData2?.dates?.[0]?.games || [];
 const allGames = [...gamesLocal, ...gamesUTC];
 const seen = new Set();
 const games = allGames.filter(g => {
-  const key = `${g.teams.away.team.id}-${g.teams.home.team.id}`;
+  // gamePk es único por juego — los dos del doubleheader tienen gamePk distinto
+  const key = g.gamePk;
   if (seen.has(key)) return false;
   seen.add(key);
   return true;
@@ -108,18 +109,40 @@ console.log("AVAILABLE GAMES:", games.map(g => ({
   home: g.teams.home.team.name
 })));
 console.log("LOOKING FOR:", { awayTeam, homeTeam });
-   const game = games.find(g => {
-  const awayName = normalize(g.teams.away.team.name);
-  const homeName = normalize(g.teams.home.team.name);
+  const nameMatches = g => {
+     const awayName = normalize(g.teams.away.team.name);
+     const homeName = normalize(g.teams.home.team.name);
+     const inputAway = normalize(awayTeam);
+     const inputHome = normalize(homeTeam);
+     return (
+       (awayName.includes(inputAway) || inputAway.includes(awayName)) &&
+       (homeName.includes(inputHome) || inputHome.includes(homeName))
+     );
+   };
 
-  const inputAway = normalize(awayTeam);
-  const inputHome = normalize(homeTeam);
+   const matchingGames = games.filter(nameMatches);
 
-  return (
-    (awayName.includes(inputAway) || inputAway.includes(awayName)) &&
-    (homeName.includes(inputHome) || inputHome.includes(homeName))
-  );
-});
+   let game;
+   if (matchingGames.length <= 1) {
+     game = matchingGames[0];
+   } else {
+     // Doubleheader: desempatar por hora de inicio (The Odds API da commence_time por juego)
+     const targetTime = gameTime ? new Date(gameTime).getTime() : null;
+
+     if (targetTime) {
+       game = matchingGames.reduce((best, g) => {
+         const gTime = new Date(g.gameDate).getTime();
+         const bestTime = new Date(best.gameDate).getTime();
+         return Math.abs(gTime - targetTime) < Math.abs(bestTime - targetTime) ? g : best;
+       });
+     } else {
+       // Sin hora: preferir el que aún no ha empezado
+       game = matchingGames.find(g => {
+         const st = String(g.status?.detailedState || "").toLowerCase();
+         return st.includes("scheduled") || st.includes("pre-game") || st.includes("preview") || st.includes("warmup");
+       }) || matchingGames[0];
+     }
+   }
 
   if (!game) {
   console.log("❌ GAME NOT FOUND:", awayTeam, "vs", homeTeam);
