@@ -1890,7 +1890,7 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
+     body: JSON.stringify({
         userId: sessionData.session.user.id,
         awayTeam,
         homeTeam,
@@ -1898,7 +1898,8 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
         homeSpread,
         outcomes,
         gameTime,
-        totalLine
+        totalLine,
+        eventId
       })
     });
 
