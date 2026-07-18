@@ -2672,12 +2672,12 @@ const gameDate = new Intl.DateTimeFormat("en-CA", {
   month: "2-digit",
   day: "2-digit"
 }).format(new Date());
-// El eventId de The Odds API distingue los dos juegos de un doubleheader.
-// El gamePk que devuelve mlb-data también sirve; se prefiere eventId por ser el que ve el usuario.
-const gamePkSuffix = mlbData.gamePk ? `-${mlbData.gamePk}` : "";
-const gameId = eventId
-  ? `mlb-${gameDate}-${teamsSorted.join("-")}-${eventId}`
-  : `mlb-${gameDate}-${teamsSorted.join("-")}${gamePkSuffix}`;
+
+// gamePk de MLB es la fuente única de verdad: siempre existe y es único por juego,
+// incluso en doubleheaders. No depende de que el frontend pase eventId.
+const gameId = mlbData.gamePk
+  ? `mlb-${gameDate}-${teamsSorted.join("-")}-${mlbData.gamePk}`
+  : `mlb-${gameDate}-${teamsSorted.join("-")}`;
 const { error: dailyPickError } = await supabaseAdmin
   .from("daily_picks")
   .upsert(
