@@ -24,7 +24,7 @@ const MAX_WEEKS = {
 // ===== AJUSTE POR CALIDAD DE RIVAL (FPI) — SOLO NCAAF =====
 const NCAAF_FPI_ACTIVE = false;   // false = vuelve al comportamiento de hoy
 const NCAAF_FPI_MULT   = 1.0;    // 1.0 = escala del FPI tal cual
-const PREMIUM_EDGE_MIN = { nfl: 13, ncaaf: 18 };
+const PREMIUM_EDGE_MIN = { nfl: 10, ncaaf: 10 };
 // ===== MODELO DE CONSENSO CASHEDGE =====
 const SOS_ALPHA       = 0.6;   // 0 = Edge sin tocar, 1 = regla de tres completa. CALIBRAR.
 const SOS_RATIO_MIN   = 0.55;
