@@ -2665,13 +2665,12 @@ function getBullpenFatigueFactor(bullpen) {
 const teamsSorted = [awayTeam, homeTeam]
   .map(t => String(t).trim())
   .sort();
-
 const gameDate = new Intl.DateTimeFormat("en-CA", {
   timeZone: "America/Chicago",
   year: "numeric",
   month: "2-digit",
   day: "2-digit"
-}).format(new Date());
+}).format(gameTime ? new Date(gameTime) : new Date());
 
 // gamePk de MLB es la fuente única de verdad: siempre existe y es único por juego,
 // incluso en doubleheaders. No depende de que el frontend pase eventId.
