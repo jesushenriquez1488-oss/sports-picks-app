@@ -955,11 +955,15 @@ const nameMatch = g => {
     match = candidateGames[0];
   } else {
     const targetTime = event.commence_time ? new Date(event.commence_time).getTime() : null;
-    match = targetTime
-      ? candidateGames.reduce((best, g) =>
-          Math.abs(new Date(g.gameDate).getTime() - targetTime) 
-          Math.abs(new Date(best.gameDate).getTime() - targetTime) ? g : best)
-      : candidateGames[0];
+   if (targetTime) {
+      match = candidateGames.reduce((best, g) => {
+        const gDiff = Math.abs(new Date(g.gameDate).getTime() - targetTime);
+        const bestDiff = Math.abs(new Date(best.gameDate).getTime() - targetTime);
+        return gDiff < bestDiff ? g : best;
+      });
+    } else {
+      match = candidateGames[0];
+    }
   }
 console.log("SCHEDULE GAMES:", games.map(g => ({
   away: g?.teams?.away?.team?.name,
