@@ -1677,7 +1677,7 @@ if (!usageCheck.allowed) {
 const dataResponse = await fetch(`${origin}/api/mlb-data`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-     body: JSON.stringify({ awayTeam, homeTeam, gameTime })
+     body: JSON.stringify({ awayTeam, homeTeam, gameTime, eventId })
     });
 
     const mlbData = await dataResponse.json();
