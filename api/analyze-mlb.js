@@ -2347,9 +2347,9 @@ console.log("MLB TOTAL AUDIT", {
   "rlplus"
 );
 
-  const protectionBonus = Math.min(10, spreadNumber * 6);
+  const protectionBonus = Math.min(5, spreadNumber * 3.4);
 
-  confidence = clamp(baseRlConfidence + protectionBonus, 0, 99);
+  confidence = clamp(baseRlConfidence + protectionBonus, 0, 98);
 
 } else {
   // RL -1.5 es más difícil que ML
@@ -2358,7 +2358,7 @@ console.log("MLB TOTAL AUDIT", {
   "rlminus"
 );
 }
-  if (runlineProb < 65) confidence = 0;
+  if (runlineProb < 72) confidence = 0;
 }
 
       const isPositiveRunline = isRunline && Number(spread) > 0;
@@ -2560,8 +2560,8 @@ function edgeToPercent(edge, type = "ml") {
       break;
 
     case "rlplus":
-      minEdge = 3.0;
-      maxEdge = 6.0;
+      minEdge = 3.5;
+      maxEdge = 8.5;
       break;
 
     case "rlminus":
