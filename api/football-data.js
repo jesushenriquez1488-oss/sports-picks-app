@@ -2412,7 +2412,6 @@ const teamsSorted = [teamA, teamB]
 const gameId = `${type}-${gameDate}-${teamsSorted.join("-")}`;
 const fullResponse = {
     sport: type,
-debug: { A: teamAEdges, B: teamBEdges, fpiRaw: fpiAdj },
     odds,
     picks: rawPicks || picks,
     publicConfidence: bestPick ? Number(bestPick.confidence || 0) : 0,
