@@ -500,6 +500,42 @@ function getScheduleBaseline(games, fpiMap) {
     matched: defs.length
   };
 }
+const LEAGUE_AVG_FALLBACK = 28;
+
+// Promedio de puntos por equipo/partido, calculado de TU muestra real
+function computeLeagueBaseline(allGames) {
+  const scores = [];
+  for (const g of allGames) {
+    scores.push(Number(g.team1Score));
+    scores.push(Number(g.team2Score));
+  }
+  const avg = average(scores);
+  return avg > 0 ? round(avg) : LEAGUE_AVG_FALLBACK;
+}
+// Traduce FPI a puntos y recalcula los Edges contra el nivel REAL del calendario
+function buildFPIProfile(edges, fpi, base, leagueAvg) {
+  // Qué haría este equipo contra un rival PROMEDIO de FBS (según FPI, alto = bueno)
+  const fpiPF = leagueAvg + Number(fpi.off);   // anotaría
+  const fpiPA = leagueAvg - Number(fpi.def);   // permitiría
+
+  // Nivel real del calendario que enfrentó, en puntos
+  const facedPA = leagueAvg - Number(base.avgOppDef); // lo que permitían las defensas que enfrentó
+  const facedPF = leagueAvg + Number(base.avgOppOff); // lo que anotaban las ofensivas que enfrentó
+
+  // Edges limpios: vs lo que REALMENTE debía esperarse de ese calendario
+  const edgeOffClean = edges.avgPointsScored  - facedPA;  // + = ofensiva buena
+  const edgeDefClean = edges.avgPointsAllowed - facedPF;  // + = defensa MALA (tu convención)
+
+  return {
+    ...edges,
+    fpiPF: round(fpiPF),
+    fpiPA: round(fpiPA),
+    facedPA: round(facedPA),
+    facedPF: round(facedPF),
+    edgeOffClean: round(edgeOffClean),
+    edgeDefClean: round(edgeDefClean)
+  };
+}
 function calculateFootballEdges(games = []) {
   const recentGames = games.slice(0, Math.min(MAX_GAMES_USED, games.length));
   const usableGames = recentGames.filter((game) => Number(game.opponentGamesUsed) > 0);
@@ -584,7 +620,48 @@ function projectFootballTeam(team, opponent, alpha = SOS_ALPHA, beta = CONSENSUS
     }
   };
 }
+// team = equipo que anota (A), opponent = equipo que defiende (B)
+// Ambos perfiles vienen de buildFPIProfile
+function projectFootballTeamFPI(team, opponent, alpha = SOS_ALPHA, beta = CONSENSUS_BETA) {
+  // --- VÍA 1: puntos reales de A sobre la base defensiva de B (FPI) ---
+  const offRatio   = sosRatio(opponent.fpiPA, team.facedPA, alpha);
+  const edgeOffAdj = team.edgeOffClean * offRatio;
+  const projectionFromOffense = opponent.fpiPA + edgeOffAdj;
 
+  // --- VÍA 2: puntos reales de B sobre la base ofensiva de A (FPI) ---
+  const defRatio   = sosRatio(team.fpiPF, opponent.facedPF, alpha);
+  const edgeDefAdj = opponent.edgeDefClean * defRatio;
+  const projectionFromOpponentDefense = team.fpiPF + edgeDefAdj;
+
+  // --- CONSENSO PONDERADO (fuerzas ya corregidas) ---
+  const offStrength = edgeOffAdj;
+  const defStrength = -edgeDefAdj;
+  const diff = offStrength - defStrength;
+
+  const safeBeta = clamp(Number(beta) || 0, 0, 0.49);
+  const tilt = Math.tanh(diff / CONSENSUS_SCALE);
+  const w1 = clamp(0.5 + safeBeta * tilt, 0.5 - safeBeta, 0.5 + safeBeta);
+  const w2 = 1 - w1;
+
+  const finalProjection = projectionFromOffense * w1 + projectionFromOpponentDefense * w2;
+
+  return {
+    projectionFromOffense: round(projectionFromOffense),
+    projectionFromOpponentDefense: round(projectionFromOpponentDefense),
+    finalProjection: round(Math.max(MIN_PROJECTION, finalProjection)),
+    debug: {
+      offRatio: round(offRatio, 3),
+      edgeOffClean: round(team.edgeOffClean),
+      edgeOffAdj: round(edgeOffAdj),
+      defRatio: round(defRatio, 3),
+      edgeDefClean: round(opponent.edgeDefClean),
+      edgeDefAdj: round(edgeDefAdj),
+      diff: round(diff),
+      w1: round(w1, 3),
+      w2: round(w2, 3)
+    }
+  };
+}
 function oddsTeamMatches(oddsName, teamRef) {
   const cleanOddsName = cleanText(oddsName);
 
@@ -2213,104 +2290,54 @@ try {
    const teamAEdges = calculateFootballEdges(teamAGames);
     const teamBEdges = calculateFootballEdges(teamBGames);
 
-    // ===== AJUSTE POR CALIDAD DE RIVAL (FPI) =====
+    // ===== CALENDARIO VÍA FPI =====
+    const leagueAvg = computeLeagueBaseline(allGames);
     let fpiAdj = { active: false, reason: "no aplica (solo ncaaf)" };
-    let adjA = { off: 0, def: 0 };
-    let adjB = { off: 0, def: 0 };
+    let teamAProjection, teamBProjection, teamAAdj, teamBAdj;
 
     if (type === "ncaaf") {
-      const fpiMap = await getFPIMap(selectedSeason)
-        || await getFPIMap(selectedSeason - 1);
-
+      const fpiMap = await getFPIMap(selectedSeason) || await getFPIMap(selectedSeason - 1);
       const idA = resolveTeamIdFromGames(allGames, teamARef);
       const idB = resolveTeamIdFromGames(allGames, teamBRef);
-
       const fA = fpiMap?.[String(idA)];
       const fB = fpiMap?.[String(idB)];
-      console.log("FPI CHECK: " + JSON.stringify({ A: fA, B: fB, idA, idB }));
       const baseA = fpiMap ? getScheduleBaseline(teamAGames, fpiMap) : null;
       const baseB = fpiMap ? getScheduleBaseline(teamBGames, fpiMap) : null;
 
       if (!fpiMap)               fpiAdj = { active: false, reason: "FPI no disponible" };
       else if (!fA || !fB)       fpiAdj = { active: false, reason: "equipo sin FPI", idA, idB };
       else if (!baseA || !baseB) fpiAdj = { active: false, reason: "sin rivales con FPI" };
-      else if (!NCAAF_FPI_ACTIVE) fpiAdj = { active: false, reason: "desactivado", fA, fB, baseA, baseB };
       else {
-        adjA.off = round((baseA.avgOppDef - fB.def) * NCAAF_FPI_MULT, 2);
-        adjB.off = round((baseB.avgOppDef - fA.def) * NCAAF_FPI_MULT, 2);
-        adjA.def = round((baseA.avgOppOff - fB.off) * NCAAF_FPI_MULT, 2);
-        adjB.def = round((baseB.avgOppOff - fA.off) * NCAAF_FPI_MULT, 2);
-
+        teamAAdj = buildFPIProfile(teamAEdges, fA, baseA, leagueAvg);
+        teamBAdj = buildFPIProfile(teamBEdges, fB, baseB, leagueAvg);
         fpiAdj = {
           active: true,
-          mult: NCAAF_FPI_MULT,
-          [teamA]: { fpi: fA, baseline: baseA, adj: adjA },
-          [teamB]: { fpi: fB, baseline: baseB, adj: adjB }
+          leagueAvg,
+          [teamA]: { fpi: fA, baseline: baseA, perfil: teamAAdj },
+          [teamB]: { fpi: fB, baseline: baseB, perfil: teamBAdj }
         };
       }
     }
 
-    const teamAAdj = {
-      ...teamAEdges,
-      avgOffensiveEdge: round(teamAEdges.avgOffensiveEdge + adjA.off),
-      avgDefensiveEdge: round(teamAEdges.avgDefensiveEdge + adjA.def)
-    };
-    const teamBAdj = {
-      ...teamBEdges,
-      avgOffensiveEdge: round(teamBEdges.avgOffensiveEdge + adjB.off),
-      avgDefensiveEdge: round(teamBEdges.avgDefensiveEdge + adjB.def)
-    };
-
-   const teamAProjection = projectFootballTeam(teamAAdj, teamBAdj, alpha, beta);
-    const teamBProjection = projectFootballTeam(teamBAdj, teamAAdj, alpha, beta);
+    if (fpiAdj.active) {
+      teamAProjection = projectFootballTeamFPI(teamAAdj, teamBAdj, alpha, beta);
+      teamBProjection = projectFootballTeamFPI(teamBAdj, teamAAdj, alpha, beta);
+    } else {
+      // Fallback: NFL, o NCAAF sin FPI
+      teamAAdj = teamAEdges;
+      teamBAdj = teamBEdges;
+      teamAProjection = projectFootballTeam(teamAAdj, teamBAdj, alpha, beta);
+      teamBProjection = projectFootballTeam(teamBAdj, teamAAdj, alpha, beta);
+    }
     
 const projectedTeamA = teamAProjection.finalProjection;
 const projectedTeamB = teamBProjection.finalProjection;
 
-   // Comparativo: sin ajuste de calendario y con consenso 50/50
+   // Comparativo: modelo viejo (sin FPI, sin ajustes)
     const rawA = projectFootballTeam(teamAEdges, teamBEdges, 0, 0).finalProjection;
     const rawB = projectFootballTeam(teamBEdges, teamAEdges, 0, 0).finalProjection;
     
-    console.log("NCAAF FPI ADJ:", {
-      type,
-      matchup: `${teamA} vs ${teamB}`,
-      fpiAdj,
-      edgesRaw: {
-        [teamA]: { off: teamAEdges.avgOffensiveEdge, def: teamAEdges.avgDefensiveEdge },
-        [teamB]: { off: teamBEdges.avgOffensiveEdge, def: teamBEdges.avgDefensiveEdge }
-      },
-      edgesAjustados: {
-        [teamA]: { off: teamAAdj.avgOffensiveEdge, def: teamAAdj.avgDefensiveEdge },
-        [teamB]: { off: teamBAdj.avgOffensiveEdge, def: teamBAdj.avgDefensiveEdge }
-      },
-      SIN_AJUSTE: { A: rawA, B: rawB, spread: round(rawA - rawB), total: round(rawA + rawB) },
-      CON_AJUSTE: { A: projectedTeamA, B: projectedTeamB, spread: round(projectedTeamA - projectedTeamB), total: round(projectedTeamA + projectedTeamB) }
-    });
-   console.log("CASHEDGE VIAS: " + JSON.stringify({
-      matchup: `${teamA} vs ${teamB}`,
-      alpha,
-      beta,
-      [teamA]: {
-        crudo: { pf: teamAEdges.avgPointsScored, pa: teamAEdges.avgPointsAllowed },
-        calendario: { sosDef: teamAEdges.sosDef, sosOff: teamAEdges.sosOff },
-        edges: { off: teamAEdges.avgOffensiveEdge, def: teamAEdges.avgDefensiveEdge },
-        gamesUsed: teamAEdges.gamesUsed,
-        via1_desdeOfensiva: teamAProjection.projectionFromOffense,
-        via2_desdeDefRival: teamAProjection.projectionFromOpponentDefense,
-        consenso: teamAProjection.finalProjection,
-        ...teamAProjection.debug
-      },
-      [teamB]: {
-        crudo: { pf: teamBEdges.avgPointsScored, pa: teamBEdges.avgPointsAllowed },
-        calendario: { sosDef: teamBEdges.sosDef, sosOff: teamBEdges.sosOff },
-        edges: { off: teamBEdges.avgOffensiveEdge, def: teamBEdges.avgDefensiveEdge },
-        gamesUsed: teamBEdges.gamesUsed,
-        via1_desdeOfensiva: teamBProjection.projectionFromOffense,
-        via2_desdeDefRival: teamBProjection.projectionFromOpponentDefense,
-        consenso: teamBProjection.finalProjection,
-        ...teamBProjection.debug
-      }
-    }, null, 2));
+  
     
 // Ajuste por lesiones (modo sombra si NFL_INJURY_ACTIVE = false)
 const [teamAInjuries, teamBInjuries] = await Promise.all([
