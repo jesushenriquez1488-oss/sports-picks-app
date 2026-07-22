@@ -2761,16 +2761,15 @@ function ceLimitScreenHTML(sportKey) {
           <span style="font-size:14px;font-weight:800;color:#00ffe7;">${best.pct.toFixed(0)}% (${best.w}-${best.l})</span>
         </div>` : ""}
 
-        <div style="background:#0a1220;border:1px solid #14243d;border-radius:10px;padding:12px 16px;margin-bottom:14px;text-align:left;">
-          <div style="display:flex;align-items:center;gap:8px;padding-bottom:8px;border-bottom:1px solid #14243d;">
-            <span>♾️</span><span style="font-size:12px;color:#d0dcec;">Unlimited analyses — no more waiting</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #14243d;">
-            <span>🔓</span><span style="font-size:12px;color:#d0dcec;">Every premium pick, all sports</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;padding-top:8px;">
-            <span>⚡</span><span style="font-size:12px;color:#d0dcec;">Daily AI Parlay — pays 5-7x when it hits</span>
-          </div>
+        <div style="background:#0a1220;border:1px solid #14243d;border-radius:10px;padding:4px 16px;margin-bottom:14px;text-align:left;">
+          <div style="font-size:10px;color:#5a7a9a;letter-spacing:1px;font-weight:700;padding:12px 0 6px;">PREMIUM UNLOCKS</div>
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #14243d;"><span style="font-size:14px;">♾️</span><span style="font-size:12px;color:#d0dcec;">Unlimited analyses — no more waiting</span></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #14243d;"><span style="font-size:14px;">🔓</span><span style="font-size:12px;color:#d0dcec;">Every premium pick, all sports</span></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #14243d;"><span style="font-size:14px;">🎯</span><span style="font-size:12px;color:#d0dcec;">Player props — MLB, NBA and NFL</span></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #14243d;"><span style="font-size:14px;">⚡</span><span style="font-size:12px;color:#d0dcec;">Full game highlight — why the model picked it</span></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #14243d;"><span style="font-size:14px;">💎</span><span style="font-size:12px;color:#d0dcec;">Value plays — every 75%+ edge on the board</span></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #14243d;"><span style="font-size:14px;">🔥</span><span style="font-size:12px;color:#d0dcec;">Daily AI Parlay — pays 5-7x when it hits</span></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 0 12px;border-top:1px solid #14243d;"><span style="font-size:14px;">🔔</span><span style="font-size:12px;color:#d0dcec;">Instant alerts on 95%+ plays</span></div>
         </div>
 
         <button onclick="openPromoModal()" style="display:block;width:100%;padding:15px;border:none;border-radius:12px;background:linear-gradient(135deg,#00ffe7,#7c3cff);color:#020814;font-size:13px;font-weight:900;letter-spacing:0.5px;cursor:pointer;text-transform:uppercase;box-shadow:0 0 20px rgba(0,255,231,0.3);">
