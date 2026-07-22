@@ -2876,7 +2876,7 @@ function generateMLBHighlight(premium, awayTeam, homeTeam) {
     if (isOver) {
       if (awayPAllowed >= 4.6) args.push({ cond: true, mag: awayPAllowed - 4.3, text:
        `${awayP} has been getting hit — allowing ${awayPAllowed.toFixed(2)} runs per 9 innings over his last 5 outings, exactly the kind of arm ${homeTeam}'s lineup feeds on.`
-        
+           });
       if (homePAllowed >= 4.6) args.push({ cond: true, mag: homePAllowed - 4.3, text:
         `On the other side, ${homeP} has allowed ${homePAllowed.toFixed(2)} runs per 9 across his last 5 outings — no shutdown arm in this matchup.`
       });
@@ -2958,9 +2958,9 @@ function generateMLBHighlight(premium, awayTeam, homeTeam) {
 
     // Ventaja de pitcheo abridor
     if (pickedPitcherAllowed > 0 && fadedPitcherAllowed > 0 && fadedPitcherAllowed - pickedPitcherAllowed >= 0.8) {
-      args.push({ cond: true, mag: fadedPitcherAllowed - pickedPitcherAllowed + 1, text: v([
-      `The pitching matchup is the story: over their last 5 outings, ${pickedPitcher} has allowed ${pickedPitcherAllowed.toFixed(2)} runs per 9 against ${fadedPitcher}'s ${fadedPitcherAllowed.toFixed(2)} — a clear mound advantage for ${pickedTeam}.`
-      `Across his last 5 outings ${fadedPitcher} has allowed ${fadedPitcherAllowed.toFixed(2)} runs per 9 while ${pickedPitcher} sits at ${pickedPitcherAllowed.toFixed(2)} — the model weighs starting pitching heavily, and this one isn't close.`
+  args.push({ cond: true, mag: fadedPitcherAllowed - pickedPitcherAllowed + 1, text: v([
+        `The pitching matchup is the story: over their last 5 outings, ${pickedPitcher} has allowed ${pickedPitcherAllowed.toFixed(2)} runs per 9 against ${fadedPitcher}'s ${fadedPitcherAllowed.toFixed(2)} — a clear mound advantage for ${pickedTeam}.`,
+        `Across his last 5 outings ${fadedPitcher} has allowed ${fadedPitcherAllowed.toFixed(2)} runs per 9 while ${pickedPitcher} sits at ${pickedPitcherAllowed.toFixed(2)} — the model weighs starting pitching heavily, and this one isn't close.`
       ])});
     }
 
