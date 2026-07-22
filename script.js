@@ -2742,8 +2742,7 @@ function ceLimitScreenHTML(sportKey) {
         </div>
 
         <div style="font-size:20px;font-weight:900;color:#fff;margin-bottom:6px;">You clearly like the picks.</div>
-        <div style="font-size:12px;color:#8899bb;line-height:1.6;margin-bottom:16px;">You've used your 5 free analyses. The next batch unlocks in <strong style="color:#00ffe7;">up to 3 hours</strong> — or you can stop waiting.</div>
-
+        <div style="font-size:12px;color:#8899bb;line-height:1.6;margin-bottom:16px;">You've used today's 5 free analyses. More free analyses unlock <strong style="color:#00ffe7;">tomorrow</strong> — or you can stop waiting.</div>
         ${best ? `
         <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,255,231,0.05);border:1px solid rgba(0,255,231,0.15);border-radius:10px;padding:10px 16px;margin-bottom:10px;">
           <span style="font-size:12px;color:#8899bb;">Model's ${best.name} record</span>
