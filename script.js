@@ -2875,10 +2875,10 @@ function generateMLBHighlight(premium, awayTeam, homeTeam) {
     // Pitchers — SOLO en la dirección del pick
     if (isOver) {
       if (awayPAllowed >= 4.6) args.push({ cond: true, mag: awayPAllowed - 4.3, text:
-        `${awayP} has been getting hit — allowing ${awayPAllowed.toFixed(2)} runs per start, exactly the kind of arm ${homeTeam}'s lineup feeds on.`
-      });
+       `${awayP} has been getting hit — allowing ${awayPAllowed.toFixed(2)} runs per 9 innings over his last 5 outings, exactly the kind of arm ${homeTeam}'s lineup feeds on.`
+        
       if (homePAllowed >= 4.6) args.push({ cond: true, mag: homePAllowed - 4.3, text:
-        `On the other side, ${homeP} is allowing ${homePAllowed.toFixed(2)} per start — no shutdown arm in this matchup.`
+        `On the other side, ${homeP} has allowed ${homePAllowed.toFixed(2)} runs per 9 across his last 5 outings — no shutdown arm in this matchup.`
       });
       if (innA > 0 && innA < 4.7) args.push({ cond: true, mag: 5 - innA, text:
         `${awayP} averages just ${innA.toFixed(1)} innings per start — ${awayTeam}'s bullpen enters early${fatA >= 12 ? `, and it's already gassed (fatigue ${fatA.toFixed(1)})` : ""}, opening the late-inning scoring window.`
@@ -2902,10 +2902,10 @@ function generateMLBHighlight(premium, awayTeam, homeTeam) {
 
     if (isUnder) {
       if (awayPAllowed > 0 && awayPAllowed <= 3.6) args.push({ cond: true, mag: 4.2 - awayPAllowed, text:
-        `${awayP} has been stingy — just ${awayPAllowed.toFixed(2)} runs allowed per start, the kind of arm that strangles totals.`
+       `${awayP} has been stingy — just ${awayPAllowed.toFixed(2)} runs per 9 innings over his last 5 outings, the kind of arm that strangles totals.`
       });
       if (homePAllowed > 0 && homePAllowed <= 3.6) args.push({ cond: true, mag: 4.2 - homePAllowed, text:
-        `${homeP} is dealing: ${homePAllowed.toFixed(2)} runs per start keeps ${awayTeam}'s lineup in check.`
+       `${homeP} is dealing: ${homePAllowed.toFixed(2)} runs per 9 in his last 5 outings keeps ${awayTeam}'s lineup in check.`
       });
       if (innA >= 5.8) args.push({ cond: true, mag: innA - 5, text:
         `${awayP} is a workhorse (${innA.toFixed(1)} innings/start) — deep starts mean fewer bullpen innings and fewer scoring windows.`
@@ -2959,8 +2959,8 @@ function generateMLBHighlight(premium, awayTeam, homeTeam) {
     // Ventaja de pitcheo abridor
     if (pickedPitcherAllowed > 0 && fadedPitcherAllowed > 0 && fadedPitcherAllowed - pickedPitcherAllowed >= 0.8) {
       args.push({ cond: true, mag: fadedPitcherAllowed - pickedPitcherAllowed + 1, text: v([
-        `The pitching matchup is the story: ${pickedPitcher} (${pickedPitcherAllowed.toFixed(2)} runs allowed/start) against ${fadedPitcher} (${fadedPitcherAllowed.toFixed(2)}) — a clear mound advantage for ${pickedTeam}.`,
-        `${fadedPitcher} is allowing ${fadedPitcherAllowed.toFixed(2)} runs per start while ${pickedPitcher} sits at ${pickedPitcherAllowed.toFixed(2)} — the model weighs starting pitching heavily, and this one isn't close.`
+      `The pitching matchup is the story: over their last 5 outings, ${pickedPitcher} has allowed ${pickedPitcherAllowed.toFixed(2)} runs per 9 against ${fadedPitcher}'s ${fadedPitcherAllowed.toFixed(2)} — a clear mound advantage for ${pickedTeam}.`
+      `Across his last 5 outings ${fadedPitcher} has allowed ${fadedPitcherAllowed.toFixed(2)} runs per 9 while ${pickedPitcher} sits at ${pickedPitcherAllowed.toFixed(2)} — the model weighs starting pitching heavily, and this one isn't close.`
       ])});
     }
 
@@ -3013,7 +3013,7 @@ function generateMLBHighlight(premium, awayTeam, homeTeam) {
   }
   if (isTeamPick) {
     if (fadedPitcherAllowed > 0 && fadedPitcherAllowed <= 3.6) {
-      risk = `The one caveat: ${fadedPitcher} has pitched well (${fadedPitcherAllowed.toFixed(2)} runs/start) — the model saw it and still found enough edge elsewhere to qualify the play.`;
+      risk = `The one caveat: ${fadedPitcher} has pitched well lately (${fadedPitcherAllowed.toFixed(2)} runs per 9 over his last 5) — the model saw it and still found enough edge elsewhere to qualify the play.`;
     } else if (pickedFat >= 12) {
       risk = `The one caveat: ${pickedTeam}'s bullpen is fatigued (${pickedFat.toFixed(1)}) — priced into the projection, and the edge survived.`;
     }
