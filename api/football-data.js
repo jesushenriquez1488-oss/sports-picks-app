@@ -2111,7 +2111,54 @@ async function handleNFLPlayerProps(req, res) {
 // ============================================================
 // FIN BLOQUE NFL PLAYER PROPS
 // ============================================================
- 
+ function getDayStart() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hour12: false
+  }).formatToParts(new Date());
+
+  const get = t => Number(parts.find(p => p.type === t).value);
+  const msIntoDay = (get("hour") % 24) * 3600000 + get("minute") * 60000 + get("second") * 1000;
+
+  return new Date(Date.now() - msIntoDay).toISOString();
+}
+
+async function checkFreeAnalysisLimit(userId, isUnlimited) {
+  if (isUnlimited) return { allowed: true, remaining: null };
+
+  const { count, error } = await supabaseAdmin
+    .from("analysis_usage")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("created_at", getDayStart());
+
+  if (error) return { allowed: true, remaining: null };
+
+  const used = count || 0;
+
+  if (used >= 5) {
+    return {
+      allowed: false,
+      remaining: 0,
+      message: "You've used today's 5 free analyses. More free analyses will be available tomorrow."
+    };
+  }
+
+  return { allowed: true, remaining: 5 - used };
+}
+
+async function recordFreeAnalysis(userId, isUnlimited, endpoint) {
+  if (isUnlimited) return;
+  if (!userId || userId === "null" || userId === "undefined" || userId === "guest") return;
+
+  const { error } = await supabaseAdmin
+    .from("analysis_usage")
+    .insert({ user_id: userId, endpoint });
+
+  if (error) console.log("recordFreeAnalysis error:", error.message);
+}
 module.exports = async function handler(req, res) {
 res.setHeader("Access-Control-Allow-Origin", "*");
 res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -2184,36 +2231,15 @@ try {
 
 // SOLO FREE PASA POR EL LÍMITE
   if (!isPremiumUser) {
-    const since = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+    const usageCheck = await checkFreeAnalysisLimit(authUserId, false);
 
-    const { count, error: countError } = await supabaseAdmin
-      .from("analysis_usage")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", authUserId)
-      .gte("created_at", since);
-
-    console.log("FREE LIMIT CHECK:", { count, authUserId, since });
-
-    if (countError) {
-      console.log("Limit check error:", countError.message);
-    }
-
-    if ((count || 0) >= 5) {
+    if (!usageCheck.allowed) {
       return res.status(429).json({
-        error: "You can unlock 5 new analyses every 3 hours, or upgrade to Premium for unlimited predictions.",
+        error: usageCheck.message,
         limitReached: true,
         upgradeRequired: true
       });
     }
-
-    const { error: insertError } = await supabaseAdmin
-      .from("analysis_usage")
-      .insert({
-        user_id: authUserId,
-        endpoint: "analyze-football"
-      });
-
-    console.log("INSERT RESULT:", insertError ? insertError.message : "OK");
   }
 } catch (error) {
   console.log("No se pudo validar usuario football:", error.message);
@@ -2248,6 +2274,13 @@ try {
 
         if (ageMin < ttlMin) {
           const full = cached.analysis_json.fullResponse;
+           const cachedIsPremium =
+            full.picks?.spreadPick?.isPremium === true ||
+            full.picks?.totalPick?.isPremium === true;
+
+          if (!isPremiumUser && !cachedIsPremium) {
+            await recordFreeAnalysis(authUserId, false, "analyze-football");
+          }
           return res.status(200).json({
             ...full,
             isPremiumUser,
@@ -2533,7 +2566,10 @@ const gameNotStarted = !odds?.commenceTime || new Date(odds.commenceTime).getTim
       line: pickLine
     });
 }
-const shouldHideModel = false;
+if (!isPremiumPick) {
+  await recordFreeAnalysis(authUserId, isPremiumUser, "analyze-football");
+}
+
 return res.status(200).json({
   ...fullResponse,
   isPremiumUser,
