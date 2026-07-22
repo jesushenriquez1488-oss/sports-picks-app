@@ -1994,7 +1994,7 @@ if (data.noPlay) {
               <div style="background:#0a1220;border:1px solid #14243d;border-radius:12px;padding:4px 16px;margin-bottom:14px;text-align:left;">
                 <div style="font-size:10px;color:#5a7a9a;letter-spacing:1px;padding:12px 0 6px;">PREMIUM ALSO UNLOCKS</div>
                 <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #10203a;font-size:12px;color:#d0dcec;"><span style="font-size:14px;">🎯</span>Player props — MLB, NBA and NFL</div>
-                <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #10203a;font-size:12px;color:#d0dcec;"><span style="font-size:14px;">⚡</span>Full game highlight — why the model picked it</div>
+               
                 <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #10203a;font-size:12px;color:#d0dcec;"><span style="font-size:14px;">💎</span>Value plays — every 75%+ edge on the board</div>
                 <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #10203a;font-size:12px;color:#d0dcec;"><span style="font-size:14px;">🔥</span>Daily AI parlay — pays 5-7x when it hits</div>
                 <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #10203a;font-size:12px;color:#d0dcec;"><span style="font-size:14px;">🔔</span>Instant alerts on 95%+ plays</div>
