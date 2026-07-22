@@ -16,6 +16,54 @@ global.__USER_REQUESTS__ = USER_REQUESTS;
 const FREE_COOLDOWN = 10 * 1000;
 
 const PREMIUM_MAX_PER_MINUTE = 40;
+function getDayStart() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hour12: false
+  }).formatToParts(new Date());
+
+  const get = t => Number(parts.find(p => p.type === t).value);
+  const msIntoDay = (get("hour") % 24) * 3600000 + get("minute") * 60000 + get("second") * 1000;
+
+  return new Date(Date.now() - msIntoDay).toISOString();
+}
+
+async function checkFreeAnalysisLimit(userId, isUnlimited) {
+  if (isUnlimited) return { allowed: true, remaining: null };
+
+  const { count, error } = await supabaseAdmin
+    .from("analysis_usage")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("created_at", getDayStart());
+
+  if (error) return { allowed: true, remaining: null };
+
+  const used = count || 0;
+
+  if (used >= 5) {
+    return {
+      allowed: false,
+      remaining: 0,
+      message: "You've used today's 5 free analyses. More free analyses will be available tomorrow."
+    };
+  }
+
+  return { allowed: true, remaining: 5 - used };
+}
+
+async function recordFreeAnalysis(userId, isUnlimited, endpoint) {
+  if (isUnlimited) return;
+  if (!userId || userId === "null" || userId === "undefined" || userId === "guest") return;
+
+  const { error } = await supabaseAdmin
+    .from("analysis_usage")
+    .insert({ user_id: userId, endpoint });
+
+  if (error) console.log("recordFreeAnalysis error:", error.message);
+}
 // ============================================================
 // NBA PLAYER PROPS
 // ============================================================
@@ -1854,6 +1902,7 @@ if (req.method === "GET" && req.query.mode === "parlay-performance") {
   try {
     let user = null;
     let isPremiumUser = false;
+    let isUnlimited = false;
 
     try {
       const authHeader = req.headers.authorization || "";
@@ -1879,13 +1928,9 @@ if (req.method === "GET" && req.query.mode === "parlay-performance") {
           isPremiumUser = profile?.is_premium === true;
           const isAdmin =
   user?.email === ADMIN_EMAIL;
-const isUnlimited = isPremiumUser || isAdmin;
+isUnlimited = isPremiumUser || isAdmin;
 
-const usageCheck = await enforceFreeAnalysisLimit(
-  user.id,
-  isUnlimited,
-  "analyze-nba"
-);
+const usageCheck = await checkFreeAnalysisLimit(user.id, isUnlimited);
 
 if (!usageCheck.allowed) {
   return res.status(429).json({
@@ -2040,6 +2085,9 @@ const forceRefresh =
 }
       const cachedAnalysis = existing.analysis_json;
       const locked = cachedAnalysis.isPremiumPick && !isPremiumUser;
+      if (!cachedAnalysis.isPremiumPick) {
+        await recordFreeAnalysis(user?.id, isUnlimited, "analyze-nba");
+      }
 
       return res.status(200).json({
         locked,
@@ -2205,7 +2253,7 @@ if (
 updated_at: new Date().toISOString(),
 game_date: new Date().toISOString().split("T")[0]
       });
-
+await recordFreeAnalysis(user?.id, isUnlimited, "analyze-nba");
       return res.status(200).json(noPlayData);
     }
 
@@ -2331,6 +2379,9 @@ if (isPremiumPick === true) {
     console.error("Error insertando pick:", insertError.message);
   }
 }
+    if (!isPremiumPick) {
+   await recordFreeAnalysis(user?.id, isUnlimited, "analyze-nba");
+ }
  return res.status(200).json({
       locked,
       isPremiumPick,
