@@ -6,34 +6,55 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY 
 );
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
-async function enforceFreeAnalysisLimit(userId, isPremiumUser, endpoint = "analysis") {
-  if (isPremiumUser) return { allowed: true };
+function getDayStart() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hour12: false
+  }).formatToParts(new Date());
 
-  const since = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+  const get = t => Number(parts.find(p => p.type === t).value);
+  const msIntoDay = (get("hour") % 24) * 3600000 + get("minute") * 60000 + get("second") * 1000;
+
+  return new Date(Date.now() - msIntoDay).toISOString();
+}
+
+async function checkFreeAnalysisLimit(userId, isUnlimited) {
+  if (isUnlimited) return { allowed: true, remaining: null };
 
   const { count, error } = await supabaseAdmin
     .from("analysis_usage")
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId)
-    .gte("created_at", since);
+    .gte("created_at", getDayStart());
 
   if (error) {
     throw new Error("Error checking free analysis limit");
   }
 
-  if ((count || 0) >= 5) {
+  const used = count || 0;
+
+  if (used >= 5) {
     return {
       allowed: false,
-     message: "You can unlock 5 new analyses every 3 hours, or upgrade to Premium for unlimited predictions."
+      remaining: 0,
+      message: "You've used today's 5 free analyses. More free analyses will be available tomorrow."
     };
   }
 
-  await supabaseAdmin.from("analysis_usage").insert({
-    user_id: userId,
-    endpoint
-  });
+  return { allowed: true, remaining: 5 - used };
+}
 
-  return { allowed: true };
+async function recordFreeAnalysis(userId, isUnlimited, endpoint) {
+  if (isUnlimited) return;
+  if (!userId || userId === "null" || userId === "undefined" || userId === "guest") return;
+
+  const { error } = await supabaseAdmin
+    .from("analysis_usage")
+    .insert({ user_id: userId, endpoint });
+
+  if (error) console.log("recordFreeAnalysis error:", error.message);
 }
 async function searchMLBPlayerByName(playerName) {
   if (!playerName) return null;
@@ -1660,8 +1681,9 @@ await updateSportRecord();
     details
   });
 }
-   let isPremiumUser = false;
+  let isPremiumUser = false;
 let isAdmin = false;
+let isUnlimited = false;
 let profile = null;
 
 if (userId && userId !== "null" && userId !== "undefined" && userId !== "guest") {
@@ -1674,21 +1696,17 @@ if (userId && userId !== "null" && userId !== "undefined" && userId !== "guest")
   profile = data;
   isPremiumUser = profile?.is_premium === true;
   isAdmin = profile?.email === ADMIN_EMAIL;
- const isUnlimited = isPremiumUser || isAdmin;
+  isUnlimited = isPremiumUser || isAdmin;
 
-const usageCheck = await enforceFreeAnalysisLimit(
-  userId,
-  isUnlimited,
-  "analyze-mlb"
-);
+  const usageCheck = await checkFreeAnalysisLimit(userId, isUnlimited);
 
-if (!usageCheck.allowed) {
-  return res.status(429).json({
-    error: usageCheck.message,
-    limitReached: true,
-    upgradeRequired: true
-  });
-}
+  if (!usageCheck.allowed) {
+    return res.status(429).json({
+      error: usageCheck.message,
+      limitReached: true,
+      upgradeRequired: true
+    });
+  }
 }
     const origin = "https://www.cashedgeapp.com";
 const dataResponse = await fetch(`${origin}/api/mlb-data`, {
@@ -2790,6 +2808,9 @@ if (recommendedCards.length > 0) {
     throw new Error("Error guardando pick MLB history: " + historyError.message);
   }
 }
+  if (recommendedCards.length === 0) {
+          await recordFreeAnalysis(userId, isUnlimited, "analyze-mlb");
+    }
     return res.status(200).json({
       locked,
       isPremiumPick: recommendedCards.length > 0,
