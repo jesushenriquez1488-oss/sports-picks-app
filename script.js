@@ -1964,8 +1964,7 @@ if (data.noPlay) {
                     <circle cx="42" cy="42" r="36" fill="none" stroke="#14243d" stroke-width="5"/>
                     <circle cx="42" cy="42" r="36" fill="none" stroke="#00ffe7" stroke-width="5"
                       stroke-dasharray="${Math.round(((Number(data.public?.confidence) || 85) / 100) * 226)} 226"
-                      stroke-linecap="round" transform="rotate(-90 42 42)"
-                      style="filter:drop-shadow(0 0 8px #00ffe7);"/>
+                      stroke-linecap="round" transform="rotate(-90 42 42)"/>
                   </svg>
                   <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
                     <span style="font-size:19px;font-weight:800;color:#00ffe7;">${data.public?.confidence ? Number(data.public.confidence).toFixed(0) : "85"}%</span>
@@ -1974,7 +1973,11 @@ if (data.noPlay) {
                 </div>
                 <div style="text-align:left;">
                   <div style="font-size:11px;color:#5a7a9a;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">Model's pick</div>
-                  <div style="font-size:20px;font-weight:800;color:#fff;letter-spacing:3px;">•••••••• <span style="font-size:15px;">🔒</span></div>
+                  <div style="display:flex;align-items:center;gap:8px;margin:2px 0 0;">
+                    <span style="display:block;height:19px;width:96px;border-radius:5px;background:#16283f;"></span>
+                    <span style="display:block;height:19px;width:46px;border-radius:5px;background:#16283f;"></span>
+                    <span style="font-size:14px;">🔒</span>
+                  </div>
                   <div style="font-size:12px;color:#00ffe7;margin-top:6px;">Real edge detected vs the sportsbook line</div>
                 </div>
               </div>
