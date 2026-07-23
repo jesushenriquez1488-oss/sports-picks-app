@@ -1325,7 +1325,8 @@ async function loadLoginOverallAccuracy() {
 const heroRec = document.getElementById("loginOverallRecordHero");
 if (heroAcc) heroAcc.innerText = `${accuracy.toFixed(1)}%`;
 if (heroRec) heroRec.innerText = `${wins}W · ${losses}L · ${pushes}P`;
-
+const signupAcc = document.getElementById("signupAccuracy");
+if (signupAcc) signupAcc.innerText = `${accuracy.toFixed(1)}%`;
   } catch (error) {
     accuracyEl.innerText = "--%";
     recordEl.innerText = "Loading...";
