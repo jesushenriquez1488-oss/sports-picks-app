@@ -98,27 +98,198 @@ src="https://www.facebook.com/tr?id=1360080689410498&ev=PageView&noscript=1"
   },3800);
 })();
 </script>
- <section id="ceLanding" class="ce-landing" style="display:none;">
-  <div class="ce-hero">
-    <div class="ce-live-badge">
-      <span class="ce-live-dot"></span>
-      LIVE AI TRACKING
-    </div>
-    <h1 class="ce-hero-title">
-      Our AI model hits
-      <span id="ceHeroAccuracy" class="ce-hero-accuracy">0%</span>
-      of its premium picks
-    </h1>
-    <p id="ceHeroRecord" class="ce-hero-record">Loading...</p>
-    <button type="button" class="ce-cta-main" onclick="ceShowAuth()">
-      START FREE — SEE TODAY'S PICKS →
-    </button>
-    <p class="ce-cta-sub">No card required · Free analyses every 3 hours</p>
+<section id="ceLanding" class="ce-landing" style="display:none;">
+
+<div style="max-width:920px;margin:0 auto;padding:0 16px 40px;font-family:Arial,sans-serif;">
+
+
+<!-- ===== 1. HERO ===== -->
+
+<div style="text-align:center;padding:36px 0 8px;">
+
+  <div class="ce-live-badge">
+    <span class="ce-live-dot"></span>
+    LIVE TRACKING
   </div>
-<div id="ceLockedPickWrap" class="ce-locked-wrap" style="display:none;">
+
+  <h1 style="font-size:34px;line-height:1.25;font-weight:900;color:#fff;margin:18px 0 14px;">
+    Stop wasting hours figuring out<br>
+    <span style="color:#00ffe7;">which games actually matter.</span>
+  </h1>
+
+  <p style="font-size:14px;line-height:1.7;color:#8899bb;max-width:600px;margin:0 auto 26px;">
+    Sport-specific models built from formulas developed through 30+ years of
+    sports-analysis experience already went through today's board — and flagged
+    only what cleared the bar.
+  </p>
+
+  <button type="button" onclick="ceShowAuth()" style="display:block;width:100%;max-width:560px;margin:0 auto;padding:17px;border:none;border-radius:12px;background:linear-gradient(135deg,#00ffe7,#7c3cff);color:#020814;font-size:15px;font-weight:900;letter-spacing:0.5px;cursor:pointer;text-transform:uppercase;">
+    See today's board — free →
+  </button>
+
+  <div style="font-size:11px;color:#5a7a9a;margin-top:12px;">
+    No card required · 5 free analyses daily · Every result tracked publicly
+  </div>
+
+  <div style="font-size:11px;color:#8899bb;margin-top:6px;">
+    Join free. Upgrade only if you want to unlock Premium.
+  </div>
+
+  <div style="font-size:15px;color:#a0b4cc;line-height:1.7;max-width:520px;margin:30px auto 0;font-style:italic;">
+    The hardest decision isn't picking the right game.<br>
+    It's knowing which games to ignore.
+  </div>
+
+</div>
+
+
+<!-- ===== 2. EL PROBLEMA ===== -->
+
+<div style="background:#0a0f1e;border:1px solid #1a2240;border-radius:14px;padding:28px 24px;margin:44px 0 0;">
+
+  <div style="font-size:10px;color:#7c3cff;letter-spacing:1.5px;font-weight:700;margin-bottom:12px;">THE PROBLEM WITH GENERIC TOOLS</div>
+
+  <h2 style="font-size:22px;font-weight:900;color:#fff;margin:0 0 16px;line-height:1.35;">
+    A general-purpose model doesn't know baseball.
+  </h2>
+
+  <p style="font-size:13px;line-height:1.8;color:#a0b4cc;margin:0 0 14px;">
+    Ask one for a prediction and it will usually produce one — whether or not the
+    matchup presents a meaningful signal.
+  </p>
+
+  <div style="border-left:2px solid #16243d;padding-left:16px;margin:0 0 16px;">
+    <div style="font-size:13px;line-height:1.9;color:#8899bb;">
+      It doesn't know Coors Field plays nothing like Petco Park.<br>
+      It doesn't know a bullpen that threw 28 pitches yesterday is a different bullpen today.<br>
+      It doesn't check whether the injured quarterback was the starter or the backup.
+    </div>
+  </div>
+
+  <p style="font-size:15px;line-height:1.7;color:#00ffe7;font-weight:700;margin:0;">
+    It answers because you asked — not because there's an edge.
+  </p>
+
+</div>
+
+
+<!-- ===== 3. EL NÚMERO ===== -->
+
+<div style="margin:44px 0 0;text-align:center;">
+
+  <div style="font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:18px;">SO DOES IT WORK? — EVERY RESULT IS PUBLIC</div>
+
+  <div style="background:#0a0f1e;border:1px solid rgba(0,255,231,0.25);border-radius:14px;padding:30px 20px;">
+
+    <div style="font-size:52px;font-weight:900;color:#00ffe7;line-height:1;">
+      <span id="ceHeroAccuracy" style="font-size:52px;font-weight:900;color:#00ffe7;">0%</span>
+    </div>
+
+    <div style="font-size:11px;color:#5a7a9a;letter-spacing:1.5px;font-weight:700;margin-top:10px;">
+      PREMIUM PICKS ACCURACY
+    </div>
+
+    <div style="height:1px;background:#16243d;margin:20px auto;max-width:280px;"></div>
+
+    <p id="ceHeroRecord" style="font-size:14px;color:#d0dcec;margin:0;">Loading...</p>
+
+  </div>
+
+  <div style="font-size:11px;color:#5a7a9a;margin-top:14px;line-height:1.7;max-width:560px;margin-left:auto;margin-right:auto;">
+    Based exclusively on publicly tracked Premium picks — the same selections
+    subscribers receive. Every published pick is graded against the line recorded
+    when it was released, losses included.
+  </div>
+
+  <div style="font-size:10px;color:#4a5f7f;margin-top:8px;">
+    Historical performance does not guarantee future results.
+  </div>
+
+</div>
+
+
+<!-- ===== 4. RENDIMIENTO POR DEPORTE ===== -->
+
+<div class="ce-sports-section" style="margin:34px 0 0;">
+  <p style="text-align:center;font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:16px;">BROKEN DOWN BY SPORT</p>
+  <div id="ceSportsGrid" class="ce-sports-grid"></div>
+</div>
+
+
+<!-- ===== 5. LA DEMO DEL FILTRO ===== -->
+
+<div style="margin:44px 0 0;">
+
+  <div style="text-align:center;font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:6px;">WHAT THE FILTER DOES</div>
+  <div style="text-align:center;font-size:12px;color:#5a7a9a;margin-bottom:18px;">A typical day on the board</div>
+
+  <div style="background:#0a0f1e;border:1px solid #1a2240;border-radius:14px;padding:6px 18px;">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid #16243d;opacity:0.45;">
+      <div style="font-size:12px;color:#8899bb;">Dodgers vs Padres</div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span style="font-size:12px;color:#5a7a9a;">54%</span>
+        <span style="font-size:10px;color:#5a7a9a;letter-spacing:0.5px;min-width:88px;text-align:right;">FILTERED OUT</span>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid #16243d;opacity:0.45;">
+      <div style="font-size:12px;color:#8899bb;">Astros vs Mariners</div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span style="font-size:12px;color:#5a7a9a;">58%</span>
+        <span style="font-size:10px;color:#5a7a9a;letter-spacing:0.5px;min-width:88px;text-align:right;">FILTERED OUT</span>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid #16243d;">
+      <div style="font-size:12px;color:#fff;font-weight:700;">Yankees vs Red Sox</div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span style="font-size:13px;color:#00ffe7;font-weight:700;">91%</span>
+        <span style="font-size:10px;color:#00ffe7;letter-spacing:0.5px;min-width:88px;text-align:right;">FLAGGED</span>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid #16243d;opacity:0.45;">
+      <div style="font-size:12px;color:#8899bb;">Cubs vs Cardinals</div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span style="font-size:12px;color:#5a7a9a;">61%</span>
+        <span style="font-size:10px;color:#5a7a9a;letter-spacing:0.5px;min-width:88px;text-align:right;">FILTERED OUT</span>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid #16243d;">
+      <div style="font-size:12px;color:#fff;font-weight:700;">Braves vs Mets</div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span style="font-size:13px;color:#00ffe7;font-weight:700;">88%</span>
+        <span style="font-size:10px;color:#00ffe7;letter-spacing:0.5px;min-width:88px;text-align:right;">FLAGGED</span>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;opacity:0.45;">
+      <div style="font-size:12px;color:#8899bb;">Rangers vs Angels</div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span style="font-size:12px;color:#5a7a9a;">49%</span>
+        <span style="font-size:10px;color:#5a7a9a;letter-spacing:0.5px;min-width:88px;text-align:right;">FILTERED OUT</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="text-align:center;font-size:12px;color:#8899bb;line-height:1.7;margin-top:14px;">
+    Four of these never reach you. That's not the model failing — that's the model working.
+  </div>
+
+  <div style="text-align:center;font-size:10px;color:#4a5f7f;margin-top:8px;">
+    Illustrative example of how the confidence filter works.
+  </div>
+
+</div>
+  <!-- ===== 6. EL PICK REAL DE HOY ===== -->
+
+<div id="ceLockedPickWrap" class="ce-locked-wrap" style="display:none;margin-top:44px;">
   <div class="ce-locked-toplabel">
     <span class="ce-locked-flame">⚡</span>
-    TODAY'S TOP AI SIGNAL
+    ONE THE MODEL FLAGGED TODAY
   </div>
 
   <div class="ce-locked-card">
@@ -148,35 +319,337 @@ src="https://www.facebook.com/tr?id=1360080689410498&ev=PageView&noscript=1"
     </div>
   </div>
 </div>
-  <div class="ce-sports-section">
-    <p class="ce-section-label">LIVE PERFORMANCE BY SPORT</p>
-    <div id="ceSportsGrid" class="ce-sports-grid"></div>
-  </div>
-<div class="ce-plans">
-  <div class="ce-plan ce-plan-free">
-    <p class="ce-plan-title">FREE ACCESS</p>
-    <p class="ce-plan-feat">Daily free predictions</p>
-    <p class="ce-plan-feat">Limited analyses</p>
-    <p class="ce-plan-feat">View games & scores</p>
-    <p class="ce-plan-feat">Live performance tracking</p>
-    <button type="button" class="ce-plan-btn ce-plan-btn-free" onclick="ceShowAuth()">START FREE</button>
+
+
+<!-- ===== 7. CÓMO SE CONSTRUYE ===== -->
+
+<div style="margin:44px 0 0;">
+
+  <div style="text-align:center;font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:20px;">HOW A FLAGGED MATCHUP IS BUILT</div>
+
+  <div style="background:#0a0f1e;border:1px solid #1a2240;border-radius:14px;padding:24px 20px;">
+
+    <div style="display:flex;align-items:center;gap:14px;padding:12px 0;">
+      <div style="flex-shrink:0;width:34px;height:34px;border-radius:8px;background:#0f1628;display:flex;align-items:center;justify-content:center;font-size:15px;">📥</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;color:#fff;font-weight:700;">Raw sports data</div>
+        <div style="font-size:11px;color:#5a7a9a;margin-top:2px;">Box scores, lines, weather, injuries, depth charts</div>
+      </div>
+    </div>
+
+    <div style="height:16px;border-left:1px solid #1a2240;margin-left:17px;"></div>
+
+    <div style="display:flex;align-items:center;gap:14px;padding:12px 0;">
+      <div style="flex-shrink:0;width:34px;height:34px;border-radius:8px;background:#0f1628;display:flex;align-items:center;justify-content:center;font-size:15px;">🧠</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;color:#fff;font-weight:700;">30+ years of analysis experience</div>
+        <div style="font-size:11px;color:#5a7a9a;margin-top:2px;">The weighting comes from three decades of doing this</div>
+      </div>
+    </div>
+
+    <div style="height:16px;border-left:1px solid #1a2240;margin-left:17px;"></div>
+
+    <div style="display:flex;align-items:center;gap:14px;padding:12px 0;">
+      <div style="flex-shrink:0;width:34px;height:34px;border-radius:8px;background:#0f1628;display:flex;align-items:center;justify-content:center;font-size:15px;">⚙️</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;color:#fff;font-weight:700;">A separate formula per sport</div>
+        <div style="font-size:11px;color:#5a7a9a;margin-top:2px;">Park and bullpen. Schedule strength. Rest.</div>
+      </div>
+    </div>
+
+    <div style="height:16px;border-left:1px solid #1a2240;margin-left:17px;"></div>
+
+    <div style="display:flex;align-items:center;gap:14px;padding:12px 0;">
+      <div style="flex-shrink:0;width:34px;height:34px;border-radius:8px;background:#0f1628;display:flex;align-items:center;justify-content:center;font-size:15px;">📊</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;color:#fff;font-weight:700;">Projection vs the market line</div>
+        <div style="font-size:11px;color:#5a7a9a;margin-top:2px;">The distance between them is the whole game</div>
+      </div>
+    </div>
+
+    <div style="height:16px;border-left:1px solid #1a2240;margin-left:17px;"></div>
+
+    <div style="display:flex;align-items:center;gap:14px;padding:12px 0;">
+      <div style="flex-shrink:0;width:34px;height:34px;border-radius:8px;background:rgba(124,60,255,0.12);border:1px solid rgba(124,60,255,0.3);display:flex;align-items:center;justify-content:center;font-size:15px;">🚫</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;color:#a07cff;font-weight:700;">The confidence filter</div>
+        <div style="font-size:11px;color:#8899bb;margin-top:2px;">This is where most matchups die. Not enough separation, no flag.</div>
+      </div>
+    </div>
+
+    <div style="height:16px;border-left:1px solid #1a2240;margin-left:17px;"></div>
+
+    <div style="display:flex;align-items:center;gap:14px;padding:12px 0 0;">
+      <div style="flex-shrink:0;width:34px;height:34px;border-radius:8px;background:rgba(0,255,231,0.1);border:1px solid rgba(0,255,231,0.3);display:flex;align-items:center;justify-content:center;font-size:15px;">✓</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;color:#00ffe7;font-weight:700;">What reaches you</div>
+        <div style="font-size:11px;color:#8899bb;margin-top:2px;">A handful a day, across every sport. That's the point.</div>
+      </div>
+    </div>
+
   </div>
 
-  <div class="ce-plan ce-plan-premium">
-    <p class="ce-plan-title">PREMIUM ACCESS</p>
-    <p class="ce-plan-feat">Unlimited analyses</p>
-    <p class="ce-plan-feat">Player Props</p>
-    <p class="ce-plan-feat">Premium Picks</p>
-    <p class="ce-plan-feat">Daily Parlay AI</p>
-    <p class="ce-plan-feat">Highest confidence plays</p>
-    <button type="button" class="ce-plan-btn ce-plan-btn-premium" onclick="ceShowAuth()">GET PREMIUM</button>
-    <p class="ce-plan-price">$19.99 / month</p>
+</div>
+
+
+<!-- ===== 8. CAPTURAS REALES ===== -->
+
+<div style="margin:44px 0 0;">
+
+  <div style="text-align:center;font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:6px;">WHAT YOU ACTUALLY SEE</div>
+  <div style="text-align:center;font-size:12px;color:#5a7a9a;margin-bottom:20px;">Real screens from the app. Not mockups.</div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;" class="ce-shots-grid">
+
+    <div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;">
+        <span style="font-size:10px;color:#8899bb;letter-spacing:1.5px;font-weight:700;">FREE</span>
+        <span style="font-size:11px;color:#5a7a9a;">· a game the model didn't flag</span>
+      </div>
+      <div style="border:1px solid #1a2240;border-radius:12px;overflow:hidden;background:#0a0f1e;">
+        <img src="/screen-free.png" alt="Free view: a matchup the model did not flag, showing the model's lean, run projections and game conditions" style="width:100%;display:block;">
+      </div>
+      <div style="font-size:11px;color:#5a7a9a;line-height:1.7;margin-top:10px;text-align:center;">
+        You still get the full read — projections, park, weather, bullpen.
+        The model just tells you straight that it isn't strong enough.
+      </div>
+    </div>
+
+    <div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;">
+        <span style="font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;">PREMIUM</span>
+        <span style="font-size:11px;color:#5a7a9a;">· a game it did</span>
+      </div>
+      <div style="border:1px solid rgba(0,255,231,0.25);border-radius:12px;overflow:hidden;background:#0a0f1e;">
+        <img src="/screen-premium.png" alt="Premium view: a flagged matchup fully unlocked, with the selection, player props and the full model breakdown" style="width:100%;display:block;">
+      </div>
+      <div style="font-size:11px;color:#5a7a9a;line-height:1.7;margin-top:10px;text-align:center;">
+        The selection, the player props, and the paragraph explaining
+        exactly why the model landed there.
+      </div>
+    </div>
+
+  </div>
+
+  <div style="text-align:center;font-size:12px;color:#8899bb;line-height:1.7;margin-top:16px;max-width:520px;margin-left:auto;margin-right:auto;">
+    Free isn't a stripped-down demo. It's the same analysis — you just don't see
+    the ones the model stands behind.
+  </div>
+
+</div>
+
+
+<!-- ===== 9. SIN / CON ===== -->
+
+<div style="text-align:center;font-size:15px;color:#a0b4cc;line-height:1.7;max-width:520px;margin:44px auto 18px;">
+  If your game-day routine looks like the left column, CashEdge was built for you.
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+
+  <div style="background:#0a0f1e;border:1px solid #1a2240;border-radius:14px;padding:20px 18px;">
+    <div style="font-size:10px;color:#5a7a9a;letter-spacing:1.5px;font-weight:700;margin-bottom:14px;">YOUR ROUTINE WITHOUT CASHEDGE</div>
+    <div style="font-size:12px;color:#8899bb;line-height:1.6;padding:9px 0;border-bottom:1px solid #16243d;">Three hours cross-checking stats</div>
+    <div style="font-size:12px;color:#8899bb;line-height:1.6;padding:9px 0;border-bottom:1px solid #16243d;">Five tabs, five opinions, no agreement</div>
+    <div style="font-size:12px;color:#8899bb;line-height:1.6;padding:9px 0;border-bottom:1px solid #16243d;">No way to tell a strong spot from a coin flip</div>
+    <div style="font-size:12px;color:#8899bb;line-height:1.6;padding:9px 0 0;">Second-guessing yourself right up to kickoff</div>
+  </div>
+
+  <div style="background:#0a0f1e;border:1px solid rgba(0,255,231,0.25);border-radius:14px;padding:20px 18px;">
+    <div style="font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:14px;">YOUR ROUTINE WITH IT</div>
+    <div style="font-size:12px;color:#d0dcec;line-height:1.6;padding:9px 0;border-bottom:1px solid #16243d;">The board was filtered before you opened the app</div>
+    <div style="font-size:12px;color:#d0dcec;line-height:1.6;padding:9px 0;border-bottom:1px solid #16243d;">One number: how far the model sits from the line</div>
+    <div style="font-size:12px;color:#d0dcec;line-height:1.6;padding:9px 0;border-bottom:1px solid #16243d;">Weak matchups never reach you</div>
+    <div style="font-size:12px;color:#d0dcec;line-height:1.6;padding:9px 0 0;">Ten minutes instead of three hours</div>
+  </div>
+
+</div>
+  <!-- ===== 10. QUÉ PASA DESPUÉS DE REGISTRARTE ===== -->
+
+<div style="margin:44px 0 0;">
+
+  <div style="text-align:center;font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:20px;">WHAT HAPPENS AFTER YOU JOIN</div>
+
+  <div style="background:#0a0f1e;border:1px solid #1a2240;border-radius:14px;padding:6px 22px;">
+
+    <div style="display:flex;gap:16px;padding:16px 0;border-bottom:1px solid #16243d;">
+      <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,255,231,0.3);color:#00ffe7;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</div>
+      <div>
+        <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:3px;">Create your account</div>
+        <div style="font-size:12px;color:#8899bb;line-height:1.6;">Free. No card. Under a minute.</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:16px;padding:16px 0;border-bottom:1px solid #16243d;">
+      <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,255,231,0.3);color:#00ffe7;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</div>
+      <div>
+        <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:3px;">Run your 5 free analyses</div>
+        <div style="font-size:12px;color:#8899bb;line-height:1.6;">Any sport, any matchup on today's board. Resets every day.</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:16px;padding:16px 0;border-bottom:1px solid #16243d;">
+      <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,255,231,0.3);color:#00ffe7;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</div>
+      <div>
+        <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:3px;">Hit a flagged matchup</div>
+        <div style="font-size:12px;color:#8899bb;line-height:1.6;">You'll see the confidence and the edge. The selection stays locked — and it doesn't spend one of your free analyses.</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:16px;padding:16px 0;border-bottom:1px solid #16243d;">
+      <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,255,231,0.3);color:#00ffe7;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">4</div>
+      <div>
+        <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:3px;">Unlock everything</div>
+        <div style="font-size:12px;color:#8899bb;line-height:1.6;">Every flagged matchup, player props, the daily parlay, the full breakdown.</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:16px;padding:16px 0;">
+      <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,255,231,0.3);color:#00ffe7;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">5</div>
+      <div>
+        <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:3px;">Watch every result get graded</div>
+        <div style="font-size:12px;color:#8899bb;line-height:1.6;">Win or lose, it goes on the public record. Nothing gets quietly deleted.</div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- ===== 11. PREMIUM ===== -->
+
+<div style="margin:44px 0 0;">
+
+  <div style="text-align:center;font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:18px;">WHAT PREMIUM ACTUALLY CHANGES</div>
+
+  <div style="background:#0a0f1e;border:1px solid rgba(0,255,231,0.25);border-radius:14px;padding:28px 24px;">
+
+    <div style="font-size:19px;line-height:1.5;color:#fff;font-weight:900;margin-bottom:16px;">
+      Premium is seeing what the model is actually confident about.
+    </div>
+
+    <div style="font-size:14px;line-height:2;color:#a0b4cc;margin-bottom:22px;">
+      No more guessing which spot is real.<br>
+      No more checking five sites to confirm one number.<br>
+      No more wondering whether the edge was ever there.
+    </div>
+
+    <div style="border-top:1px solid #16243d;padding-top:18px;">
+      <div style="font-size:11px;color:#5a7a9a;letter-spacing:1px;font-weight:700;margin-bottom:12px;">EVERY DAY, ACROSS EVERY SPORT</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;">
+        <div style="font-size:12px;color:#d0dcec;line-height:1.6;">Every flagged matchup</div>
+        <div style="font-size:12px;color:#d0dcec;line-height:1.6;">Every player prop</div>
+        <div style="font-size:12px;color:#d0dcec;line-height:1.6;">Every projection and breakdown</div>
+        <div style="font-size:12px;color:#d0dcec;line-height:1.6;">The daily parlay</div>
+        <div style="font-size:12px;color:#d0dcec;line-height:1.6;">Alerts on the strongest signals</div>
+        <div style="font-size:12px;color:#d0dcec;line-height:1.6;">No daily cap on analyses</div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- ===== 12. OBJECIONES ===== -->
+
+<div style="margin:44px 0 0;">
+
+  <div style="text-align:center;font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:18px;">STRAIGHT ANSWERS</div>
+
+  <div style="background:#0a0f1e;border:1px solid #1a2240;border-radius:14px;padding:6px 22px;">
+
+    <div style="padding:16px 0;border-bottom:1px solid #16243d;">
+      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:6px;">Is this just ChatGPT with a skin on it?</div>
+      <div style="font-size:12px;color:#8899bb;line-height:1.7;">No. Each sport runs its own statistical model with its own inputs — park factors and bullpen fatigue for baseball, schedule strength and positional injury weighting for football, rest and back-to-backs for basketball. No language model writes the projection.</div>
+    </div>
+
+    <div style="padding:16px 0;border-bottom:1px solid #16243d;">
+      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:6px;">Why do some days have almost no flagged games?</div>
+      <div style="font-size:12px;color:#8899bb;line-height:1.7;">Because the model didn't find enough separation from the line. A day with two flagged matchups is the system working, not failing.</div>
+    </div>
+
+    <div style="padding:16px 0;border-bottom:1px solid #16243d;">
+      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:6px;">The lines move. Does that change anything?</div>
+      <div style="font-size:12px;color:#8899bb;line-height:1.7;">Yes. Every edge is measured against the line at the time of the analysis, and that line is recorded with the result. If the market moves, the edge you'd get later isn't the one the model measured.</div>
+    </div>
+
+    <div style="padding:16px 0;border-bottom:1px solid #16243d;">
+      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:6px;">Do you delete the losses?</div>
+      <div style="font-size:12px;color:#8899bb;line-height:1.7;">No. Every published result is graded automatically and stays on the record with the line it was recorded at.</div>
+    </div>
+
+    <div style="padding:16px 0;border-bottom:1px solid #16243d;">
+      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:6px;">Can I cancel?</div>
+      <div style="font-size:12px;color:#8899bb;line-height:1.7;">Any time, from your account. No call, no email, no retention script.</div>
+    </div>
+
+    <div style="padding:16px 0;">
+      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:6px;">Is this betting advice?</div>
+      <div style="font-size:12px;color:#8899bb;line-height:1.7;">No. CashEdge is a statistical analysis tool. What you do with the output is your call.</div>
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- ===== 13. CTA FINAL ===== -->
+
+<div style="text-align:center;margin:44px 0 0;padding:32px 20px;background:#0a0f1e;border:1px solid rgba(0,255,231,0.25);border-radius:14px;">
+
+  <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:8px;">Today's board is already filtered.</div>
+  <div style="font-size:13px;color:#8899bb;line-height:1.7;max-width:440px;margin:0 auto 22px;">
+    Five analyses, free, every day. See what the model does with a real slate before you decide anything.
+  </div>
+
+  <button type="button" onclick="ceShowAuth()" style="display:block;width:100%;max-width:420px;margin:0 auto;padding:17px;border:none;border-radius:12px;background:linear-gradient(135deg,#00ffe7,#7c3cff);color:#020814;font-size:15px;font-weight:900;letter-spacing:0.5px;cursor:pointer;text-transform:uppercase;">
+    See today's board — free →
+  </button>
+
+  <div style="font-size:11px;color:#8899bb;margin-top:12px;">
+    Join free. Upgrade only if you want to unlock Premium.
+  </div>
+
+  <div style="font-size:11px;color:#5a7a9a;margin-top:10px;">
+    Already know what you want?
+    <a href="#" onclick="ceShowAuth();return false;" style="color:#00ffe7;text-decoration:underline;">Go straight to Premium — $19.99/mo</a>
+  </div>
+
+  <div class="ce-login-line" style="margin-top:10px;">
+    <button type="button" onclick="ceShowAuth()" style="background:none;border:none;font-size:11px;color:#5a7a9a;text-decoration:underline;cursor:pointer;">Already have an account? Log in</button>
+  </div>
+
+</div>
+
+
+<!-- ===== 14. AVISO LEGAL ===== -->
+
+<div style="margin:36px 0 0;padding-top:22px;border-top:1px solid #16243d;text-align:center;">
+  <div style="font-size:11px;color:#5a7a9a;line-height:1.8;max-width:560px;margin:0 auto;">
+    21+ · Play responsibly. For help with a gambling problem, call or text
+    <strong style="color:#8899bb;">1-800-MY-RESET</strong>.
+  </div>
+  <div style="font-size:10px;color:#4a5f7f;line-height:1.8;max-width:560px;margin:10px auto 0;">
+    Historical performance does not guarantee future results. CashEdge provides
+    statistical analysis and informational content, not financial or betting advice.
   </div>
 </div>
 
-<div class="ce-login-line">
-  <button type="button" onclick="ceShowAuth()">Already have an account? Log in</button>
+
 </div>
+
+<style>
+@media (max-width: 760px) {
+  #ceLanding .ce-shots-grid { grid-template-columns: 1fr !important; }
+}
+@media (max-width: 640px) {
+  #ceLanding h1 { font-size: 25px !important; }
+  #ceLanding h2 { font-size: 19px !important; }
+}
+</style>
+
 </section>
   <div class="ce-auth-screen">
 <div id="authBox" class="auth-box">
