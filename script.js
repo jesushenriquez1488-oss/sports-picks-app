@@ -141,7 +141,7 @@ const metaConversionStorageKey =
       }
 
       window.gtag("event", "conversion", {
-        send_to: "AW-18266545354/le8_CMnWsMQcEMq51YZE",
+        send_to: "AW-18266545354/le8_CMnWsMQcEMq5IYZE",
         value: Number(verification.value || 19.99),
         currency: String(verification.currency || "USD").toUpperCase(),
         transaction_id:
