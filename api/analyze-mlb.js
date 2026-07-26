@@ -2428,7 +2428,7 @@ if (isPositiveRunline) {
 
       const premiumRule =
   marketType === "ML"
-   ? Math.abs(supportData.projectedMargin) >= 3.0
+   ? Math.abs(supportData.projectedMargin) >= 2.5
     : (
         Number(spread) > 0
           ? protectedEdge >= 3.5
