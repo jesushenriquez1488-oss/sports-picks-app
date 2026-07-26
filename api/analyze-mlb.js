@@ -2585,7 +2585,7 @@ function edgeToPercent(edge, type = "ml") {
 
   switch (type) {
     case "ml":
-      minEdge = 3.0;
+      minEdge = 2.5;
       maxEdge = 6.0;
       break;
 
@@ -2600,8 +2600,8 @@ function edgeToPercent(edge, type = "ml") {
       break;
 
     case "rlminus":
-      minEdge = 5.0;
-      maxEdge = 7.0;
+      minEdge = 4.5;
+      maxEdge = 8.0;
       break;
 
     default:
