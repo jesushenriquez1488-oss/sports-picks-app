@@ -448,172 +448,6 @@ bullpenScore = Math.max(2.0, Math.min(7.5, bullpenScore));
   last7: bullpen7
 };
     }
-async function getWeather(venueName, roofType, gameDate) {
-  try {
-    const apiKey = process.env.VISUAL_CROSSING_API_KEY;
-
-    if (!apiKey) {
-      return {
-        speed: 0,
-        direction: "neutral",
-        temp: null,
-        humidity: null,
-        condition: "API key no configurada",
-        raw: "VISUAL_CROSSING_API_KEY missing",
-        active: false,
-        source: "visual_crossing"
-      };
-    }
-
-    if (roofType === "dome") {
-      return {
-        speed: 0,
-        direction: "neutral",
-        temp: null,
-        humidity: null,
-        condition: "Dome",
-        raw: "Dome / clima neutralizado",
-        active: false,
-        source: "visual_crossing"
-      };
-    }
-
-    const coords = STADIUM_COORDS[venueName];
-
-    if (!coords) {
-      return {
-        speed: 0,
-        direction: "neutral",
-        temp: null,
-        humidity: null,
-        condition: "Coordenadas no encontradas",
-        raw: `No coords for ${venueName}`,
-        active: false,
-        source: "visual_crossing"
-      };
-    }
-
-    const date = gameDate || new Date().toISOString().split("T")[0];
-
-    const url =
-      `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/` +
-      `${coords.lat},${coords.lon}/${date}?unitGroup=us&include=hours,current&key=${apiKey}&contentType=json`;
-
-    const response = await fetch(url);
-    const data = await response.json();
-
-   
-   const current = data?.currentConditions || {};
-    const day = data?.days?.[0] || {};
-    const hours = day?.hours || [];
-
-    // Hora local del primer lanzamiento usando el tzoffset del estadio
-    const tzOffset = Number(data?.tzoffset || 0);
-    const gameDateObj = new Date(gameDate);
-    const gameUTCHour =
-      gameDateObj.getUTCHours() + gameDateObj.getUTCMinutes() / 60;
-
-    let localStartHour = Math.round(gameUTCHour + tzOffset);
-    if (localStartHour < 0) localStartHour += 24;
-    if (localStartHour > 23) localStartHour -= 24;
-
-    // Tomar el bloque de inicio + las 2 horas siguientes (cubre ~3h de juego)
-    const windowHours = [];
-    for (let i = 0; i < 3; i++) {
-      const h = (localStartHour + i) % 24;
-      const block = hours.find(
-        hr => Number(hr.datetime?.split(":")?.[0]) === h
-      );
-      if (block) windowHours.push(block);
-    }
-
-    // Fallback si no encontró las horas
-    const validHours = windowHours.length > 0 ? windowHours : [day];
-
-    // Pesos: inicio pesa más (más tiempo de juego con ambos abridores)
-    // Se normalizan según cuántas horas encontramos (por si el juego cruza medianoche)
-    const rawWeights = [0.45, 0.35, 0.20];
-    const weights = rawWeights.slice(0, validHours.length);
-    const weightSum = weights.reduce((a, b) => a + b, 0);
-
-    const weightedAvg = (key) => {
-      let total = 0;
-      let wUsed = 0;
-      validHours.forEach((h, i) => {
-        const v = Number(h[key]);
-        if (Number.isFinite(v)) {
-          total += v * weights[i];
-          wUsed += weights[i];
-        }
-      });
-      return wUsed > 0 ? total / wUsed : 0;
-    };
-
-    // Velocidad, temp y humedad: promedio ponderado sobre la ventana
-    const windSpeed = weightedAvg("windspeed");
-    const temp = weightedAvg("temp");
-    const humidity = weightedAvg("humidity");
-
-    // Dirección del viento: tomada de la hora de INICIO (no se promedia — es circular)
-    const windDir = Number(
-      validHours[0]?.winddir ?? current?.winddir ?? day?.winddir ?? 0
-    );
-
-    // Condición: la de la hora de inicio
-    const condition =
-      validHours[0]?.conditions || current?.conditions || day?.conditions || "No disponible";
-
-    // LOG TEMPORAL — verificar que agarró la ventana correcta
-    console.log("WEATHER WINDOW:", {
-      venue: venueName,
-      localStartHour,
-      horasUsadas: validHours.map(h => h.datetime),
-      windSpeed: windSpeed.toFixed(1),
-      temp: temp.toFixed(1),
-      windDir
-    });
-  const direction = classifyWindDirectionForStadium(venueName, windDir);
-    const roofClosedLikely =
-      roofType === "retractable" &&
-      (
-        temp >= 90 ||
-        temp <= 45 ||
-        String(condition).toLowerCase().includes("rain") ||
-        String(condition).toLowerCase().includes("storm")
-      );
-
-    return {
-  venue: venueName,
-  gameDate: date,
-  gameTime: gameDate,
-  coordinates: coords,
-  speed: roofClosedLikely ? 0 : windSpeed,
-  direction: roofClosedLikely ? "neutral" : direction,
-  degrees: windDir,
-  temp,
-  humidity,
-  condition,
- rawHour: validHours[0]?.datetime || null,
-  raw: roofClosedLikely
-    ? `Retractable roof likely closed: ${condition}, ${temp}F`
-    : `${windSpeed} mph, ${windDir} degrees, ${condition}`,
-  active: !roofClosedLikely,
-  source: "visual_crossing",
-  weatherSource: "Visual Crossing"
-};
-  } catch (error) {
-    return {
-      speed: 0,
-      direction: "neutral",
-      temp: null,
-      humidity: null,
-      condition: "No disponible",
-      raw: error.message,
-      active: false,
-      source: "visual_crossing"
-    };
-  }
-}
 const STADIUM_AZIMUTH = {
   "Oakland Coliseum": 55,
   "PNC Park": 116,
@@ -628,6 +462,7 @@ const STADIUM_AZIMUTH = {
   "Citizens Bank Park": 9,
   "Truist Park": 145,
   "Guaranteed Rate Field": 127,
+  "Rate Field": 127,
   "loanDepot park": 128,
   "Yankee Stadium": 75,
   "American Family Field": 129,
@@ -645,39 +480,836 @@ const STADIUM_AZIMUTH = {
   "Dodger Stadium": 26,
   "Nationals Park": 28,
   "Citi Field": 13,
- "Las Vegas Ballpark": 39,
+  "Sutter Health Park": 39,
+  "Las Vegas Ballpark": 39
 };
-function angleDiff(a, b) {
-  return Math.abs(((a - b + 540) % 360) - 180);
+
+function normalizeDegrees(value) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) return null;
+
+  return ((number % 360) + 360) % 360;
 }
 
-function classifyWindDirectionForStadium(venueName, degrees) {
+function signedAngleDifference(a, b) {
+  const angleA = normalizeDegrees(a);
+  const angleB = normalizeDegrees(b);
+
+  if (angleA === null || angleB === null) {
+    return null;
+  }
+
+  return ((angleA - angleB + 540) % 360) - 180;
+}
+
+function getWindComponentsForStadium(
+  venueName,
+  windFromDegrees,
+  windSpeedMph
+) {
+  const stadiumAzimuth = Number(
+    STADIUM_AZIMUTH[venueName]
+  );
+
+  const windFrom = normalizeDegrees(
+    windFromDegrees
+  );
+
+  const speed = Number(windSpeedMph);
+
   if (
-    degrees === null ||
-    degrees === undefined ||
-    Number.isNaN(Number(degrees))
+    !Number.isFinite(stadiumAzimuth) ||
+    windFrom === null ||
+    !Number.isFinite(speed)
   ) {
+    return {
+      signedWindMph: 0,
+      crossWindMph: 0,
+      windToDegrees: null
+    };
+  }
+
+  /*
+   * Visual Crossing informa desde dónde viene el viento.
+   * Sumamos 180 grados para saber hacia dónde sopla.
+   */
+  const windToDegrees =
+    normalizeDegrees(windFrom + 180);
+
+  const difference =
+    signedAngleDifference(
+      windToDegrees,
+      stadiumAzimuth
+    );
+
+  const radians =
+    difference * Math.PI / 180;
+
+  return {
+    /*
+     * Positivo = hacia los jardines.
+     * Negativo = hacia home.
+     */
+    signedWindMph:
+      speed * Math.cos(radians),
+
+    /*
+     * Componente lateral del viento.
+     */
+    crossWindMph:
+      speed * Math.sin(radians),
+
+    windToDegrees
+  };
+}
+
+function classifySignedWind(
+  signedWindMph,
+  crossWindMph
+) {
+  const signed = Number(signedWindMph);
+  const cross = Number(crossWindMph);
+
+  if (!Number.isFinite(signed)) {
     return "neutral";
   }
 
-  const stadiumAzimuth = STADIUM_AZIMUTH[venueName];
-
-  if (stadiumAzimuth === null || stadiumAzimuth === undefined) {
-    return "neutral";
+  if (signed >= 1.5) {
+    return "out";
   }
 
-  const windFrom = Number(degrees);
+  if (signed <= -1.5) {
+    return "in";
+  }
 
-  // Visual Crossing = de donde viene el viento
-  const windTo = (windFrom + 180) % 360;
+  if (
+    Number.isFinite(cross) &&
+    Math.abs(cross) >= 1.5
+  ) {
+    return "cross";
+  }
 
-  const outDiff = angleDiff(windTo, stadiumAzimuth);
-  const inDiff = angleDiff(windTo, (stadiumAzimuth + 180) % 360);
+  return "neutral";
+}
 
-  if (outDiff <= 45) return "out";
-  if (inDiff <= 45) return "in";
+async function getWeather(
+  venueName,
+  roofType,
+  gameDate
+) {
+  try {
+    const apiKey =
+      process.env.VISUAL_CROSSING_API_KEY;
 
-  return "cross";
+    if (!apiKey) {
+      return {
+        venue: venueName,
+        speed: 0,
+        signedWindMph: 0,
+        crossWindMph: 0,
+        direction: "neutral",
+        temp: null,
+        humidity: null,
+        pressure: null,
+        dew: null,
+        precipprob: null,
+        precip: null,
+        cloudcover: null,
+        condition: "API key no configurada",
+        raw: "VISUAL_CROSSING_API_KEY missing",
+        active: false,
+        source: "visual_crossing",
+        forecastType:
+          "pregame_3_hour_estimate"
+      };
+    }
+
+    if (roofType === "dome") {
+      return {
+        venue: venueName,
+        speed: 0,
+        signedWindMph: 0,
+        crossWindMph: 0,
+        direction: "neutral",
+        temp: null,
+        humidity: null,
+        pressure: null,
+        dew: null,
+        precipprob: null,
+        precip: null,
+        cloudcover: null,
+        condition: "Dome",
+        raw: "Dome / clima neutralizado",
+        active: false,
+        roofClosedLikely: true,
+        source: "visual_crossing",
+        forecastType:
+          "pregame_3_hour_estimate"
+      };
+    }
+
+    const coords =
+      STADIUM_COORDS[venueName];
+
+    if (!coords) {
+      return {
+        venue: venueName,
+        speed: 0,
+        signedWindMph: 0,
+        crossWindMph: 0,
+        direction: "neutral",
+        temp: null,
+        humidity: null,
+        pressure: null,
+        dew: null,
+        precipprob: null,
+        precip: null,
+        cloudcover: null,
+        condition:
+          "Coordenadas no encontradas",
+        raw: `No coords for ${venueName}`,
+        active: false,
+        source: "visual_crossing",
+        forecastType:
+          "pregame_3_hour_estimate"
+      };
+    }
+
+    const gameDateObj =
+      new Date(gameDate);
+
+    if (
+      Number.isNaN(gameDateObj.getTime())
+    ) {
+      throw new Error(
+        `gameDate inválido: ${gameDate}`
+      );
+    }
+
+    /*
+     * Pedimos el día anterior y posterior
+     * para cubrir cambios de fecha y zona horaria.
+     */
+    const startDate = new Date(
+      gameDateObj.getTime() -
+        24 * 60 * 60 * 1000
+    )
+      .toISOString()
+      .slice(0, 10);
+
+    const endDate = new Date(
+      gameDateObj.getTime() +
+        24 * 60 * 60 * 1000
+    )
+      .toISOString()
+      .slice(0, 10);
+
+    const url =
+      `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/` +
+      `${coords.lat},${coords.lon}/${startDate}/${endDate}` +
+      `?unitGroup=us&include=hours,current&key=${apiKey}&contentType=json`;
+
+    const response = await fetch(url);
+    const rawResponse =
+      await response.text();
+
+    if (!response.ok) {
+      throw new Error(
+        `Visual Crossing ${response.status}: ` +
+        rawResponse.slice(0, 250)
+      );
+    }
+
+    let data;
+
+    try {
+      data = JSON.parse(rawResponse);
+    } catch {
+      throw new Error(
+        `Visual Crossing devolvió texto inválido: ` +
+        rawResponse.slice(0, 250)
+      );
+    }
+
+    const current =
+      data?.currentConditions || {};
+
+    /*
+     * Unimos todas las horas de los días
+     * solicitados en una sola lista.
+     */
+    const allHours =
+      (data?.days || []).flatMap(day =>
+        (day?.hours || []).map(hour => ({
+          ...hour,
+          localDate: day.datetime
+        }))
+      );
+
+    if (!allHours.length) {
+      throw new Error(
+        "Visual Crossing no devolvió datos por hora"
+      );
+    }
+
+    /*
+     * CashEdge estima una duración de tres horas.
+     * No se actualiza durante el juego.
+     */
+    const EXPECTED_GAME_DURATION_MINUTES =
+      180;
+
+    const gameStartMs =
+      gameDateObj.getTime();
+
+    const gameEndMs =
+      gameStartMs +
+      EXPECTED_GAME_DURATION_MINUTES *
+        60 *
+        1000;
+
+    /*
+     * Seleccionamos todas las horas que coincidan
+     * realmente con la ventana del partido.
+     *
+     * Ejemplo para un juego a las 7:40:
+     *
+     * 7:00–8:00 = 20 minutos
+     * 8:00–9:00 = 60 minutos
+     * 9:00–10:00 = 60 minutos
+     * 10:00–11:00 = 40 minutos
+     */
+    const validHours = allHours
+      .map(hour => {
+        const hourEpoch =
+          Number(hour?.datetimeEpoch);
+
+        if (
+          !Number.isFinite(hourEpoch)
+        ) {
+          return null;
+        }
+
+        const hourStartMs =
+          hourEpoch * 1000;
+
+        const hourEndMs =
+          hourStartMs +
+          60 * 60 * 1000;
+
+        const overlapStartMs =
+          Math.max(
+            gameStartMs,
+            hourStartMs
+          );
+
+        const overlapEndMs =
+          Math.min(
+            gameEndMs,
+            hourEndMs
+          );
+
+        const overlapMinutes =
+          Math.max(
+            0,
+            (
+              overlapEndMs -
+              overlapStartMs
+            ) /
+            60000
+          );
+
+        if (overlapMinutes <= 0) {
+          return null;
+        }
+
+        return {
+          ...hour,
+          overlapMinutes
+        };
+      })
+      .filter(Boolean);
+
+    if (!validHours.length) {
+      throw new Error(
+        "No se encontraron horas coincidentes con el horario del juego"
+      );
+    }
+
+    /*
+     * Promedio ponderado por minutos reales.
+     */
+    const weightedValue = callback => {
+      let total = 0;
+      let minutesUsed = 0;
+
+      validHours.forEach(hour => {
+        const value =
+          Number(callback(hour));
+
+        const minutes =
+          Number(hour.overlapMinutes);
+
+        if (
+          Number.isFinite(value) &&
+          Number.isFinite(minutes) &&
+          minutes > 0
+        ) {
+          total += value * minutes;
+          minutesUsed += minutes;
+        }
+      });
+
+      return minutesUsed > 0
+        ? total / minutesUsed
+        : null;
+    };
+
+    const temp =
+      weightedValue(hour => hour.temp);
+
+    const humidity =
+      weightedValue(
+        hour => hour.humidity
+      );
+
+    const pressure =
+      weightedValue(
+        hour => hour.pressure
+      );
+
+    const dew =
+      weightedValue(hour => hour.dew);
+
+    const precipprob =
+      weightedValue(
+        hour => hour.precipprob
+      );
+
+    const precip =
+      weightedValue(
+        hour => hour.precip
+      );
+
+    const cloudcover =
+      weightedValue(
+        hour => hour.cloudcover
+      );
+
+    const averageWindSpeedMph =
+      weightedValue(
+        hour => hour.windspeed
+      );
+
+    /*
+     * Calculamos el viento real hacia afuera
+     * o hacia dentro en cada hora.
+     */
+    const signedWindMph =
+      weightedValue(hour =>
+        getWindComponentsForStadium(
+          venueName,
+          hour.winddir,
+          hour.windspeed
+        ).signedWindMph
+      );
+
+    const crossWindMph =
+      weightedValue(hour =>
+        getWindComponentsForStadium(
+          venueName,
+          hour.winddir,
+          hour.windspeed
+        ).crossWindMph
+      );
+
+    /*
+     * Promedio vectorial de dirección.
+     * No se promedian los grados directamente.
+     */
+    const averageWindX =
+      weightedValue(hour => {
+        const windFrom =
+          normalizeDegrees(hour.winddir);
+
+        const speed =
+          Number(hour.windspeed);
+
+        if (
+          windFrom === null ||
+          !Number.isFinite(speed)
+        ) {
+          return null;
+        }
+
+        const windTo =
+          normalizeDegrees(
+            windFrom + 180
+          );
+
+        const radians =
+          windTo * Math.PI / 180;
+
+        return speed *
+          Math.sin(radians);
+      });
+
+    const averageWindY =
+      weightedValue(hour => {
+        const windFrom =
+          normalizeDegrees(hour.winddir);
+
+        const speed =
+          Number(hour.windspeed);
+
+        if (
+          windFrom === null ||
+          !Number.isFinite(speed)
+        ) {
+          return null;
+        }
+
+        const windTo =
+          normalizeDegrees(
+            windFrom + 180
+          );
+
+        const radians =
+          windTo * Math.PI / 180;
+
+        return speed *
+          Math.cos(radians);
+      });
+
+    let averageWindFromDegrees = null;
+
+    if (
+      Number.isFinite(averageWindX) &&
+      Number.isFinite(averageWindY)
+    ) {
+      const averageWindToDegrees =
+        normalizeDegrees(
+          Math.atan2(
+            averageWindX,
+            averageWindY
+          ) *
+          180 /
+          Math.PI
+        );
+
+      averageWindFromDegrees =
+        normalizeDegrees(
+          averageWindToDegrees + 180
+        );
+    }
+
+    /*
+     * Utilizamos la condición que cubra
+     * más minutos del partido.
+     */
+    const conditionMinutes =
+      new Map();
+
+    validHours.forEach(hour => {
+      const label =
+        String(
+          hour.conditions || ""
+        ).trim();
+
+      if (!label) return;
+
+      conditionMinutes.set(
+        label,
+        (
+          conditionMinutes.get(label) ||
+          0
+        ) +
+        Number(
+          hour.overlapMinutes || 0
+        )
+      );
+    });
+
+    const condition =
+      [...conditionMinutes.entries()]
+        .sort(
+          (a, b) => b[1] - a[1]
+        )[0]?.[0] ||
+      current?.conditions ||
+      "No disponible";
+
+    const conditionLower =
+      String(condition).toLowerCase();
+
+    /*
+     * Estimación del techo retráctil.
+     * No es una confirmación oficial.
+     */
+    const roofClosedLikely =
+      roofType === "retractable" &&
+      (
+        Number(temp) >= 90 ||
+        Number(temp) <= 45 ||
+        Number(precipprob) >= 45 ||
+        conditionLower.includes("rain") ||
+        conditionLower.includes("storm")
+      );
+
+    const effectiveSignedWind =
+      roofClosedLikely
+        ? 0
+        : Number(signedWindMph || 0);
+
+    const effectiveCrossWind =
+      roofClosedLikely
+        ? 0
+        : Number(crossWindMph || 0);
+
+    const direction =
+      roofClosedLikely
+        ? "neutral"
+        : classifySignedWind(
+            effectiveSignedWind,
+            effectiveCrossWind
+          );
+
+    /*
+     * Velocidad que se muestra junto a
+     * OUT, IN o CROSS.
+     */
+    let displayWindSpeed = 0;
+
+    if (
+      direction === "out" ||
+      direction === "in"
+    ) {
+      displayWindSpeed =
+        Math.abs(
+          effectiveSignedWind
+        );
+    } else if (
+      direction === "cross"
+    ) {
+      displayWindSpeed =
+        Math.abs(
+          effectiveCrossWind
+        );
+    } else {
+      displayWindSpeed =
+        Math.hypot(
+          effectiveSignedWind,
+          effectiveCrossWind
+        );
+    }
+
+    console.log(
+      "WEATHER PREGAME WINDOW:",
+      {
+        venue: venueName,
+        gameTimeUTC:
+          gameDateObj.toISOString(),
+
+        forecastEndUTC:
+          new Date(
+            gameEndMs
+          ).toISOString(),
+
+        timezone:
+          data?.timezone,
+
+        hoursUsed:
+          validHours.map(hour => {
+            const components =
+              getWindComponentsForStadium(
+                venueName,
+                hour.winddir,
+                hour.windspeed
+              );
+
+            return {
+              date: hour.localDate,
+              time: hour.datetime,
+
+              overlapMinutes:
+                Number(
+                  hour
+                    .overlapMinutes
+                    .toFixed(1)
+                ),
+
+              temp: hour.temp,
+              humidity: hour.humidity,
+              pressure: hour.pressure,
+              dew: hour.dew,
+              windspeed:
+                hour.windspeed,
+              winddir:
+                hour.winddir,
+
+              signedWindMph:
+                Number(
+                  components
+                    .signedWindMph
+                    .toFixed(2)
+                ),
+
+              crossWindMph:
+                Number(
+                  components
+                    .crossWindMph
+                    .toFixed(2)
+                )
+            };
+          }),
+
+        estimated: {
+          temp,
+          humidity,
+          pressure,
+          dew,
+          precipprob,
+          averageWindSpeedMph,
+          signedWindMph:
+            effectiveSignedWind,
+          crossWindMph:
+            effectiveCrossWind,
+          direction
+        }
+      }
+    );
+
+    return {
+      venue: venueName,
+
+      gameDate:
+        gameDateObj.toISOString(),
+
+      gameTime:
+        gameDateObj.toISOString(),
+
+      forecastWindowStart:
+        gameDateObj.toISOString(),
+
+      forecastWindowEnd:
+        new Date(
+          gameEndMs
+        ).toISOString(),
+
+      forecastDurationMinutes:
+        EXPECTED_GAME_DURATION_MINUTES,
+
+      coordinates: coords,
+
+      speed:
+        roofClosedLikely
+          ? 0
+          : displayWindSpeed,
+
+      averageWindSpeedMph:
+        roofClosedLikely
+          ? 0
+          : Number(
+              averageWindSpeedMph || 0
+            ),
+
+      direction,
+
+      degrees:
+        roofClosedLikely
+          ? null
+          : averageWindFromDegrees,
+
+      signedWindMph:
+        effectiveSignedWind,
+
+      crossWindMph:
+        effectiveCrossWind,
+
+      temp,
+      humidity,
+      pressure,
+      dew,
+      precipprob,
+      precip,
+      cloudcover,
+      condition,
+
+      hoursUsed:
+        validHours.map(hour => ({
+          date: hour.localDate,
+          time: hour.datetime,
+
+          datetimeEpoch:
+            hour.datetimeEpoch,
+
+          overlapMinutes:
+            Number(
+              hour
+                .overlapMinutes
+                .toFixed(1)
+            ),
+
+          temp: hour.temp,
+          humidity: hour.humidity,
+          pressure: hour.pressure,
+          dew: hour.dew,
+          precipprob:
+            hour.precipprob,
+          precip: hour.precip,
+          windspeed:
+            hour.windspeed,
+          winddir: hour.winddir
+        })),
+
+      rawHour:
+        validHours[0]
+          ? `${validHours[0].localDate} ${validHours[0].datetime}`
+          : null,
+
+      raw:
+        roofClosedLikely
+          ? `Retractable roof likely closed: ${condition}, ${Math.round(temp)}F`
+          : `${Math.round(displayWindSpeed)} mph, ` +
+            `${Math.round(averageWindFromDegrees || 0)}°, ` +
+            `${condition}`,
+
+      active: !roofClosedLikely,
+      roofClosedLikely,
+      source: "visual_crossing",
+      weatherSource: "Visual Crossing",
+
+      forecastType:
+        "pregame_3_hour_estimate"
+    };
+  } catch (error) {
+    console.error(
+      "MLB WEATHER ERROR:",
+      error
+    );
+
+    return {
+      venue: venueName,
+      speed: 0,
+      signedWindMph: 0,
+      crossWindMph: 0,
+      direction: "neutral",
+      temp: null,
+      humidity: null,
+      pressure: null,
+      dew: null,
+      precipprob: null,
+      precip: null,
+      cloudcover: null,
+      condition: "No disponible",
+      raw: error.message,
+      active: false,
+      source: "visual_crossing",
+
+      forecastType:
+        "pregame_3_hour_estimate"
+    };
+  }
 }
     const awayPitcherStats = await getPitcherStats(awayPitcher?.id);
     const homePitcherStats = await getPitcherStats(homePitcher?.id);
