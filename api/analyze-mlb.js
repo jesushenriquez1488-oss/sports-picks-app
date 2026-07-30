@@ -1992,11 +1992,11 @@ score *= fatigueFactor;
       const walksPerInning = safeNumber(stats.walksPerInning);
      
 if (innings < 2) {
-  score *= 2.10;
+  score *= 1.15;
 } else if (innings < 3) {
-  score *= 1.70;
+  score *= 1.10;
 } else if (innings < 4) {
-  score *= 1.35;
+  score *= 1.05;
 } else if (innings >= 6) {
   score *= 0.96;
 }
@@ -2147,7 +2147,7 @@ if (!totalLine || Number(totalLine) <= 0) {
     aceBonus = 0.05;
   }
 
-  return clamp(starterShareBase + aceBonus, 0.35, 0.82);
+  return clamp(starterShareBase + aceBonus, 0.15, 0.82);
 }
 
 function calculateExpectedRuns({
