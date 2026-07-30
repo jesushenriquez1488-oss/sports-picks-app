@@ -3012,7 +3012,12 @@ function getBullpenFatigueFactor(bullpen) {
       active: false
     },
 
-    weatherFactor
+    weatherFactor,
+parkFactor,
+runEnvironmentFactor,
+weatherImpactPercent,
+parkImpactPercent,
+combinedEnvironmentImpactPercent
   }
 };
 const teamsSorted = [awayTeam, homeTeam]
