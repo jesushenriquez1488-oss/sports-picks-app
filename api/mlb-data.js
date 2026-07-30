@@ -593,7 +593,7 @@ async function getWeather(venueName, roofType, gameDate) {
   temp,
   humidity,
   condition,
-  rawHour: targetHour?.datetime || null,
+ rawHour: targetHour?.datetime || null,
   raw: roofClosedLikely
     ? `Retractable roof likely closed: ${condition}, ${temp}F`
     : `${windSpeed} mph, ${windDir} degrees, ${condition}`,
