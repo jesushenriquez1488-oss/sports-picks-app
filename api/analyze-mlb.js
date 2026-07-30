@@ -3244,8 +3244,12 @@ homeBullpenFatigueFactor: getBullpenFatigueFactor(mlbData.home?.bullpen),
             awayRunEnvironment: expectedRunsA,
             homeRunEnvironment: expectedRunsB,
 
-            runEnvironmentFactor,
-            parkFactor
+           runEnvironmentFactor,
+parkFactor,
+weatherFactor,
+weatherImpactPercent,
+parkImpactPercent,
+combinedEnvironmentImpactPercent
           }
     });
 
