@@ -2825,9 +2825,16 @@ function ceTempIcon(temp) {
 
 function ceParkIcon(factor) {
   const f = Number(factor || 1);
-  if (f >= 1.05) return `<span style="color:#ff8c1a;">🏟️ Hitter's park (${f.toFixed(2)})</span>`;
-  if (f <= 0.95) return `<span style="color:#4da3ff;">🏟️ Pitcher's park (${f.toFixed(2)})</span>`;
-  return `🏟️ Neutral park (${f.toFixed(2)})`;
+
+  if (f >= 1.05) {
+    return `<span style="color:#ff8c1a;">🏟️ Hitter's park</span>`;
+  }
+
+  if (f <= 0.95) {
+    return `<span style="color:#4da3ff;">🏟️ Pitcher's park</span>`;
+  }
+
+  return `🏟️ Neutral park`;
 }
 
 function generateMLBHighlight(premium, awayTeam, homeTeam) {
