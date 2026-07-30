@@ -1779,114 +1779,426 @@ const dataResponse = await fetch(`${origin}/api/mlb-data`, {
       return 0.5 * (1 + erf((x - mean) / (stdDev * Math.sqrt(2))));
     }
 
+const WEATHER_WIND_RECEPTIVITY = {
+  "Sutter Health Park": 1.25,
+  "Wrigley Field": 1.25,
+
+  "Rate Field": 1.10,
+  "Guaranteed Rate Field": 1.10,
+  "Busch Stadium": 1.10,
+
+  "Truist Park": 1.00,
+  "Target Field": 1.00,
+  "Oracle Park": 1.00,
+  "Coors Field": 1.00,
+
+  "Dodger Stadium": 0.90,
+
+  "Great American Ball Park": 0.75,
+  "Petco Park": 0.75,
+  "Citi Field": 0.75,
+
+  "Tropicana Field": 0
+};
+
+function weatherFiniteNumber(
+  value,
+  fallback = null
+) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return fallback;
+  }
+
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : fallback;
+}
+
+function fahrenheitToCelsius(fahrenheit) {
+  const value =
+    weatherFiniteNumber(fahrenheit);
+
+  if (value === null) {
+    return null;
+  }
+
+  return (value - 32) * 5 / 9;
+}
+
+function calculateAirDensityKgM3({
+  tempF,
+  humidity,
+  pressureHpa
+}) {
+  const tempC =
+    fahrenheitToCelsius(tempF);
+
+  const relativeHumidity =
+    weatherFiniteNumber(humidity);
+
+  const pressure =
+    weatherFiniteNumber(pressureHpa);
+
+  if (
+    tempC === null ||
+    relativeHumidity === null ||
+    pressure === null ||
+    pressure <= 0
+  ) {
+    return null;
+  }
+
+  const tempKelvin =
+    tempC + 273.15;
+
+  /*
+   * Presión de vapor de saturación.
+   * El resultado está en hPa.
+   */
+  const saturationVaporPressure =
+    6.112 *
+    Math.exp(
+      (17.67 * tempC) /
+      (tempC + 243.5)
+    );
+
+  const humidityPercent =
+    clamp(
+      relativeHumidity,
+      0,
+      100
+    );
+
+  const vaporPressure =
+    saturationVaporPressure *
+    humidityPercent /
+    100;
+
+  const dryAirPressurePa =
+    Math.max(
+      0,
+      pressure - vaporPressure
+    ) * 100;
+
+  const vaporPressurePa =
+    Math.max(
+      0,
+      vaporPressure
+    ) * 100;
+
+  const dryAirDensity =
+    dryAirPressurePa /
+    (287.05 * tempKelvin);
+
+  const vaporDensity =
+    vaporPressurePa /
+    (461.495 * tempKelvin);
+
+  return (
+    dryAirDensity +
+    vaporDensity
+  );
+}
+
 function getWeatherRunFactor(weather) {
-  if (!weather || weather.active === false) return 1;
+  /*
+   * Domo, techo probablemente cerrado
+   * o clima no disponible.
+   */
+  if (
+    !weather ||
+    weather.active === false
+  ) {
+    return 1;
+  }
 
-  const raw = String(weather.raw || "").trim();
-
-  const hasRealWeather =
-    raw.length > 0 ||
-    weather.temp !== null ||
-    Number(weather.speed) > 0;
-
-  if (!hasRealWeather) return 1;
-
-  let factor = 1;
-
-  const windSpeed = safeNumber(weather.speed, 0);
   const temp =
-    weather.temp !== null && weather.temp !== undefined
-      ? Number(weather.temp)
-      : null;
-  const humidity = safeNumber(weather.humidity);
+    weatherFiniteNumber(weather.temp);
 
-  // WIND: ahora direction ya viene corregida por estadio
-  if (weather.direction === "out") {
-    if (windSpeed >= 22) factor += 0.26;
-    else if (windSpeed >= 18) factor += 0.22;
-    else if (windSpeed >= 14) factor += 0.17;
-    else if (windSpeed >= 10) factor += 0.11;
-    else if (windSpeed >= 6) factor += 0.06;
+  const humidity =
+    weatherFiniteNumber(
+      weather.humidity
+    );
+
+  const pressure =
+    weatherFiniteNumber(
+      weather.pressure
+    );
+
+  /*
+   * Este es el viento ya calculado con
+   * la orientación real del estadio.
+   *
+   * Positivo = hacia los jardines.
+   * Negativo = hacia home.
+   */
+  const signedWindMph =
+    weatherFiniteNumber(
+      weather.signedWindMph,
+      0
+    );
+
+  const crossWindMph =
+    weatherFiniteNumber(
+      weather.crossWindMph,
+      0
+    );
+
+  const precipprob =
+    weatherFiniteNumber(
+      weather.precipprob,
+      0
+    );
+
+  const precip =
+    weatherFiniteNumber(
+      weather.precip,
+      0
+    );
+
+  const venueName =
+    String(
+      weather.venue || ""
+    ).trim();
+
+  /*
+   * Algunos estadios son más sensibles
+   * al viento que otros.
+   */
+  const receptivity =
+    WEATHER_WIND_RECEPTIVITY[
+      venueName
+    ] ?? 1;
+
+  /*
+   * IMPACTO DEL VIENTO
+   *
+   * Ya no utiliza escalones:
+   *
+   * 5.9 mph = nada
+   * 6 mph = -6%
+   *
+   * Ahora el cambio es continuo.
+   */
+  const windImpact =
+    signedWindMph *
+    0.0085 *
+    receptivity;
+
+  /*
+   * El viento cruzado fuerte no empuja
+   * directamente hacia los jardines ni
+   * hacia home.
+   *
+   * Solo se aplica una penalización pequeña
+   * cuando supera 10 mph efectivos.
+   */
+  const absoluteCrossWind =
+    Math.abs(crossWindMph);
+
+  const crossWindPenalty =
+    absoluteCrossWind > 10
+      ? -Math.min(
+          (
+            absoluteCrossWind - 10
+          ) * 0.0015,
+          0.018
+        )
+      : 0;
+
+  /*
+   * DENSIDAD DEL AIRE
+   *
+   * Se combinan:
+   *
+   * - temperatura;
+   * - humedad;
+   * - presión atmosférica.
+   *
+   * Ambiente neutral:
+   * 72°F, 50% humedad, 1013.25 hPa.
+   */
+  const currentDensity =
+    calculateAirDensityKgM3({
+      tempF: temp,
+      humidity,
+      pressureHpa: pressure
+    });
+
+  const baselineDensity =
+    calculateAirDensityKgM3({
+      tempF: 72,
+      humidity: 50,
+      pressureHpa: 1013.25
+    });
+
+  let airDensityImpact = 0;
+
+  if (
+    currentDensity !== null &&
+    baselineDensity !== null &&
+    currentDensity > 0
+  ) {
+    /*
+     * Menor densidad que el ambiente neutral:
+     * impacto positivo.
+     *
+     * Mayor densidad:
+     * impacto negativo.
+     */
+    const densityDifference =
+      baselineDensity /
+      currentDensity -
+      1;
+
+    /*
+     * La diferencia de densidad no se
+     * convierte uno a uno en carreras.
+     *
+     * Se modera y se limita a ±9%.
+     */
+    airDensityImpact =
+      clamp(
+        densityDifference * 0.70,
+        -0.09,
+        0.09
+      );
   }
 
-  if (weather.direction === "in") {
-    if (windSpeed >= 22) factor -= 0.26;
-    else if (windSpeed >= 18) factor -= 0.22;
-    else if (windSpeed >= 14) factor -= 0.17;
-    else if (windSpeed >= 10) factor -= 0.11;
-    else if (windSpeed >= 6) factor -= 0.06;
+  /*
+   * LLUVIA Y TORMENTA
+   */
+  let precipitationImpact = 0;
+
+  if (
+    precipprob >= 80 ||
+    precip >= 0.25
+  ) {
+    precipitationImpact = -0.045;
+  } else if (
+    precipprob >= 60 ||
+    precip >= 0.10
+  ) {
+    precipitationImpact = -0.030;
+  } else if (
+    precipprob >= 35 ||
+    precip > 0
+  ) {
+    precipitationImpact = -0.015;
   }
 
-  if (weather.direction === "cross") {
-    if (windSpeed >= 22) factor -= 0.04;
-    else if (windSpeed >= 18) factor -= 0.02;
-    else if (windSpeed >= 14) factor += 0.01;
+  const condition =
+    String(
+      weather.condition || ""
+    ).toLowerCase();
+
+  if (
+    condition.includes("storm") ||
+    condition.includes("thunder")
+  ) {
+    precipitationImpact =
+      Math.min(
+        precipitationImpact,
+        -0.045
+      );
   }
 
-  // TEMPERATURE
-  if (temp !== null && Number.isFinite(temp)) {
-    if (temp >= 100) factor += 0.13;
-    else if (temp >= 95) factor += 0.10;
-    else if (temp >= 90) factor += 0.08;
-    else if (temp >= 84) factor += 0.05;
-    else if (temp >= 78) factor += 0.03;
+  /*
+   * WEATHER ONLY
+   *
+   * Aquí todavía no entra el park factor.
+   */
+  const rawWeatherImpact =
+    windImpact +
+    crossWindPenalty +
+    airDensityImpact +
+    precipitationImpact;
 
-    else if (temp <= 38) factor -= 0.13;
-    else if (temp <= 45) factor -= 0.10;
-    else if (temp <= 52) factor -= 0.07;
-    else if (temp <= 58) factor -= 0.04;
-  }
+  /*
+   * El clima por sí solo queda limitado
+   * entre -18% y +18%.
+   */
+  const weatherImpact =
+    clamp(
+      rawWeatherImpact,
+      -0.18,
+      0.18
+    );
 
-  // HUMIDITY / AIR WEIGHT
-  if (humidity !== null && temp !== null && Number.isFinite(temp)) {
-    if (humidity >= 85 && temp >= 88) factor += 0.04;
-    else if (humidity >= 75 && temp >= 84) factor += 0.025;
+  const weatherFactor =
+    1 + weatherImpact;
 
-    if (humidity >= 80 && temp <= 68) factor -= 0.03;
-    if (humidity <= 30 && temp <= 60) factor -= 0.025;
-  }
+  console.log(
+    "MLB WEATHER FACTOR AUDIT:",
+    {
+      venue: venueName,
 
-  // COMBO EFFECTS
-  const strongBadWeather =
-    weather.direction === "in" &&
-    windSpeed >= 14 &&
-    temp !== null &&
-    temp <= 70;
+      forecastType:
+        weather.forecastType ||
+        "pregame_3_hour_estimate",
 
-  const extremeBadWeather =
-    weather.direction === "in" &&
-    windSpeed >= 18 &&
-    temp !== null &&
-    temp <= 65;
+      temp,
+      humidity,
+      pressure,
 
-  const strongGoodWeather =
-    weather.direction === "out" &&
-    windSpeed >= 14 &&
-    temp !== null &&
-    temp >= 78;
+      signedWindMph:
+        Number(
+          signedWindMph.toFixed(2)
+        ),
 
-  const extremeGoodWeather =
-    weather.direction === "out" &&
-    windSpeed >= 18 &&
-    temp !== null &&
-    temp >= 84;
+      crossWindMph:
+        Number(
+          crossWindMph.toFixed(2)
+        ),
 
-  if (strongBadWeather) factor -= 0.04;
-  if (extremeBadWeather) factor -= 0.05;
+      receptivity,
 
-  if (strongGoodWeather) factor += 0.04;
-  if (extremeGoodWeather) factor += 0.05;
+      windImpactPercent:
+        Number(
+          (
+            windImpact * 100
+          ).toFixed(1)
+        ),
 
-  // RAIN / STORM
-  const condition = String(weather.condition || "").toLowerCase();
+      crossWindImpactPercent:
+        Number(
+          (
+            crossWindPenalty * 100
+          ).toFixed(1)
+        ),
 
-  if (condition.includes("storm") || condition.includes("heavy rain")) {
-    factor -= 0.06;
-  } else if (condition.includes("rain")) {
-    factor -= 0.03;
-  }
+      airDensityImpactPercent:
+        Number(
+          (
+            airDensityImpact * 100
+          ).toFixed(1)
+        ),
 
-  return clamp(factor, 0.72, 1.42);
+      precipitationImpactPercent:
+        Number(
+          (
+            precipitationImpact * 100
+          ).toFixed(1)
+        ),
+
+      weatherImpactPercent:
+        Number(
+          (
+            weatherImpact * 100
+          ).toFixed(1)
+        ),
+
+      weatherFactor
+    }
+  );
+
+  return weatherFactor;
 }
     function adjustOffense(batting) {
       if (!batting) return null;
