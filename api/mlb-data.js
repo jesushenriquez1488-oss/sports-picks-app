@@ -502,17 +502,7 @@ async function getWeather(venueName, roofType, gameDate) {
     const response = await fetch(url);
     const data = await response.json();
 
-    const current = data?.currentConditions || {};
-    const day = data?.days?.[0] || {};
-    const hours = day?.hours || [];
- // LOG TEMPORAL — confirmar que tzoffset llega y ver las horas disponibles
-    console.log("TZ CHECK:", {
-      venue: venueName,
-      tzoffset: data?.tzoffset,
-      gameDate,
-      primeraHora: hours?.[0]?.datetime,
-      totalHoras: hours?.length
-   });
+   
    const current = data?.currentConditions || {};
     const day = data?.days?.[0] || {};
     const hours = day?.hours || [];
