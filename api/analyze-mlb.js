@@ -3200,6 +3200,11 @@ if (recommendedCards.length > 0) {
             },
 
             weatherFactor,
+parkFactor,
+runEnvironmentFactor,
+weatherImpactPercent,
+parkImpactPercent,
+combinedEnvironmentImpactPercent,
 
             awayOffense,
             homeOffense,
