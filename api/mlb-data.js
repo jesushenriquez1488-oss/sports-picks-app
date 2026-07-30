@@ -17,6 +17,96 @@ const supabaseAdmin =
 
 const WEATHER_CACHE_TTL_MS = 60 * 60 * 1000;
 
+function buildWeatherCacheKey(venueName, gameDate) {
+  const parsedDate = new Date(gameDate);
+
+  const gameTime = Number.isNaN(parsedDate.getTime())
+    ? String(gameDate || "")
+    : parsedDate.toISOString();
+
+  return `${String(venueName || "").trim().toLowerCase()}|${gameTime}`;
+}
+
+async function readWeatherCache(cacheKey, allowExpired = false) {
+  if (!supabaseAdmin) return null;
+
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("mlb_weather_cache")
+      .select("weather, fetched_at, expires_at")
+      .eq("cache_key", cacheKey)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("WEATHER CACHE READ ERROR:", error.message);
+      return null;
+    }
+
+    if (!data?.weather) return null;
+
+    const isExpired =
+      new Date(data.expires_at).getTime() <= Date.now();
+
+    if (isExpired && !allowExpired) {
+      return null;
+    }
+
+    return {
+      ...data.weather,
+      cacheStatus: isExpired ? "stale" : "fresh",
+      cacheFetchedAt: data.fetched_at
+    };
+
+  } catch (error) {
+    console.warn("WEATHER CACHE READ FAILED:", error.message);
+    return null;
+  }
+}
+
+async function saveWeatherCache(
+  cacheKey,
+  venueName,
+  gameDate,
+  weather
+) {
+  if (!supabaseAdmin || !weather) return;
+
+  try {
+    const now = new Date();
+    const expiresAt = new Date(
+      now.getTime() + WEATHER_CACHE_TTL_MS
+    );
+
+    const parsedGameDate = new Date(gameDate);
+
+    const gameTime = Number.isNaN(parsedGameDate.getTime())
+      ? now.toISOString()
+      : parsedGameDate.toISOString();
+
+    const { error } = await supabaseAdmin
+      .from("mlb_weather_cache")
+      .upsert(
+        {
+          cache_key: cacheKey,
+          venue_name: venueName,
+          game_time: gameTime,
+          weather,
+          fetched_at: now.toISOString(),
+          expires_at: expiresAt.toISOString()
+        },
+        {
+          onConflict: "cache_key"
+        }
+      );
+
+    if (error) {
+      console.warn("WEATHER CACHE SAVE ERROR:", error.message);
+    }
+
+  } catch (error) {
+    console.warn("WEATHER CACHE SAVE FAILED:", error.message);
+  }
+}
 
 const PARK_FACTORS = {
   "Coors Field": {
