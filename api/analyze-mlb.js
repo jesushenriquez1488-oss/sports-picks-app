@@ -2368,10 +2368,33 @@ score *= pitcherPenalty;
       return clamp(score, 10, 90);
     }
 
-    const venue = mlbData.venue || { parkFactor: 1 };
-    const parkFactor = safeNumber(venue.parkFactor, 1);
-    const weatherFactor = getWeatherRunFactor(mlbData.weather);
-    const runEnvironmentFactor = parkFactor * weatherFactor;
+  const venue = mlbData.venue || { parkFactor: 1 };
+
+const parkFactor = safeNumber(
+  venue.parkFactor,
+  1
+);
+
+const weatherFactor =
+  getWeatherRunFactor(mlbData.weather);
+
+const runEnvironmentFactor =
+  parkFactor * weatherFactor;
+
+const weatherImpactPercent =
+  Number(
+    ((weatherFactor - 1) * 100).toFixed(1)
+  );
+
+const parkImpactPercent =
+  Number(
+    ((parkFactor - 1) * 100).toFixed(1)
+  );
+
+const combinedEnvironmentImpactPercent =
+  Number(
+    ((runEnvironmentFactor - 1) * 100).toFixed(1)
+  );
 
     const awayBatting = mlbData.away?.battingProfile || {};
     const homeBatting = mlbData.home?.battingProfile || {};
