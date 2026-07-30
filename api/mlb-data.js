@@ -1,38 +1,223 @@
 const PARK_FACTORS = {
-  "Coors Field": { factor: 1.18, roof: "open" },
-  "Great American Ball Park": { factor: 1.09, roof: "open" },
-  "Fenway Park": { factor: 1.06, roof: "open" },
-  "Yankee Stadium": { factor: 1.04, roof: "open" },
-  "Citizens Bank Park": { factor: 1.04, roof: "open" },
-  "Wrigley Field": { factor: 1.03, roof: "open" },
-  "Globe Life Field": { factor: 1.02, roof: "retractable" },
-  "Chase Field": { factor: 1.02, roof: "retractable" },
-  "Minute Maid Park": { factor: 1.01, roof: "retractable" },
- "Truist Park": { factor: 0.97, roof: "open" },
-  "Oriole Park at Camden Yards": { factor: 1.00, roof: "open" },
-  "Kauffman Stadium": { factor: 1.00, roof: "open" },
-  "Angel Stadium": { factor: 1.00, roof: "open" },
-  "Comerica Park": { factor: 0.99, roof: "open" },
- "Dodger Stadium": { factor: 1.00, roof: "open" },
-  "UNIQLO Field at Dodger Stadium": { factor: 1.00, roof: "open" },
-  "Busch Stadium": { factor: 0.93, roof: "open" },
-  "Progressive Field": { factor: 0.98, roof: "open" },
-  "Nationals Park": { factor: 0.98, roof: "open" },
- "Target Field": { factor: 1.00, roof: "open" },
-  "American Family Field": { factor: 0.97, roof: "retractable" },
-  "Rogers Centre": { factor: 0.97, roof: "retractable" },
-  "loanDepot park": { factor: 0.96, roof: "retractable" },
- "Citi Field": { factor: 0.92, roof: "open" },
-  "PNC Park": { factor: 0.96, roof: "open" },
-  "Guaranteed Rate Field": { factor: 0.97, roof: "open" },
- "Rate Field": { factor: 0.97, roof: "open" },
-  "Tropicana Field": { factor: 0.94, roof: "dome" },
-  "Oakland Coliseum": { factor: 0.94, roof: "open" },
- "Sutter Health Park": { factor: 1.20, roof: "open" },
-  "T-Mobile Park": { factor: 0.93, roof: "retractable" },
-  "Oracle Park": { factor: 0.92, roof: "open" },
- "Petco Park": { factor: 0.93, roof: "open" },
-  "Las Vegas Ballpark": { factor: 1.08, roof: "open" },
+  "Coors Field": {
+    factor: 1.33,
+    roof: "open"
+  },
+
+  "Great American Ball Park": {
+    factor: 1.09,
+    roof: "open"
+  },
+
+  "Fenway Park": {
+    factor: 1.09,
+    roof: "open"
+  },
+
+  "Yankee Stadium": {
+    factor: 1.04,
+    roof: "open"
+  },
+
+  "Citizens Bank Park": {
+    factor: 1.05,
+    roof: "open"
+  },
+
+  "Wrigley Field": {
+    factor: 0.94,
+    roof: "open"
+  },
+
+  "Globe Life Field": {
+    factor: 0.93,
+    roof: "retractable"
+  },
+
+  "Chase Field": {
+    factor: 1.02,
+    roof: "retractable"
+  },
+
+  /*
+   * Es el mismo estadio.
+   * Se incluyen ambos nombres por compatibilidad.
+   */
+  "Daikin Park": {
+    factor: 0.95,
+    roof: "retractable"
+  },
+
+  "Minute Maid Park": {
+    factor: 0.95,
+    roof: "retractable"
+  },
+
+  "Truist Park": {
+    factor: 0.97,
+    roof: "open"
+  },
+
+  "Oriole Park at Camden Yards": {
+    factor: 1.05,
+    roof: "open"
+  },
+
+  "Oriole Park": {
+    factor: 1.05,
+    roof: "open"
+  },
+
+  "Kauffman Stadium": {
+    factor: 1.00,
+    roof: "open"
+  },
+
+  /*
+   *varió entre -4% y +2%.
+   * Usamos -4%, que apareció más veces.
+   */
+  "Angel Stadium": {
+    factor: 0.96,
+    roof: "open"
+  },
+
+  "Comerica Park": {
+    factor: 0.99,
+    roof: "open"
+  },
+
+  "Dodger Stadium": {
+    factor: 1.00,
+    roof: "open"
+  },
+
+  "UNIQLO Field at Dodger Stadium": {
+    factor: 1.00,
+    roof: "open"
+  },
+
+  /*
+   * Las capturas variaron entre -6% y -7%.
+   * Usamos -6%, que fue el más repetido.
+   */
+  "Busch Stadium": {
+    factor: 0.94,
+    roof: "open"
+  },
+
+  "Progressive Field": {
+    factor: 0.99,
+    roof: "open"
+  },
+
+  "Nationals Park": {
+    factor: 1.03,
+    roof: "open"
+  },
+
+  "Target Field": {
+    factor: 1.00,
+    roof: "open"
+  },
+
+  "American Family Field": {
+    factor: 0.97,
+    roof: "retractable"
+  },
+
+  "Rogers Centre": {
+    factor: 0.98,
+    roof: "retractable"
+  },
+
+  /*
+   * Las capturas variaron entre -4% y -5%.
+   * Usamos -5% como base conservadora.
+   */
+  "loanDepot park": {
+    factor: 0.95,
+    roof: "retractable"
+  },
+
+  "Citi Field": {
+    factor: 0.92,
+    roof: "open"
+  },
+
+  "PNC Park": {
+    factor: 0.99,
+    roof: "open"
+  },
+
+  /*
+   *varió entre aproximadamente
+   * -3%, 0% y +1%. Usamos el centro: neutral.
+   */
+  "Guaranteed Rate Field": {
+    factor: 1.00,
+    roof: "open"
+  },
+
+  "Rate Field": {
+    factor: 1.00,
+    roof: "open"
+  },
+
+  "Tropicana Field": {
+    factor: 0.94,
+    roof: "dome"
+  },
+
+  /*
+   * No apareció en las nuevas capturas.
+   * Se conserva el valor existente.
+   */
+  "Oakland Coliseum": {
+    factor: 0.94,
+    roof: "open"
+  },
+
+  /*
+   * Las capturas mostraron +20% y +21%.
+   * El valor central actualizado es +21%.
+   */
+  "Sutter Health Park": {
+    factor: 1.21,
+    roof: "open"
+  },
+
+  "T-Mobile Park": {
+    factor: 0.92,
+    roof: "retractable"
+  },
+
+  /*
+   *varió entre -1% y +2%.
+   * Se utiliza neutral como base estable.
+   */
+  "Oracle Park": {
+    factor: 1.00,
+    roof: "open"
+  },
+
+  /*
+   * Las capturas mostraron principalmente -8%,
+   * con alguna aparición de -7%.
+   */
+  "Petco Park": {
+    factor: 0.92,
+    roof: "open"
+  },
+
+  /*
+   * No apareció en las nuevas capturas.
+   * Se conserva el valor existente.
+   */
+  "Las Vegas Ballpark": {
+    factor: 1.08,
+    roof: "open"
+  }
 };
 const STADIUM_COORDS = {
   "Coors Field": { lat: 39.7559, lon: -104.9942 },
