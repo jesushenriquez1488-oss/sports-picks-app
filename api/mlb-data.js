@@ -897,6 +897,32 @@ async function getWeather(
   gameDate
 ) {
   try {
+        const cacheKey = buildWeatherCacheKey(
+      venueName,
+      gameDate
+    );
+
+    if (roofType !== "dome") {
+      const cachedWeather = await readWeatherCache(
+        cacheKey,
+        false
+      );
+
+      if (cachedWeather) {
+        console.log("✅ WEATHER CACHE HIT:", {
+          venueName,
+          gameDate,
+          cacheStatus: cachedWeather.cacheStatus
+        });
+
+        return cachedWeather;
+      }
+    }
+
+    console.log("🌦️ WEATHER CACHE MISS:", {
+      venueName,
+      gameDate
+    });
     const apiKey =
       process.env.VISUAL_CROSSING_API_KEY;
 
@@ -1477,7 +1503,7 @@ async function getWeather(
       }
     );
 
-    return {
+   const weatherResult = {
       venue: venueName,
 
       gameDate:
@@ -1580,12 +1606,47 @@ async function getWeather(
       forecastType:
         "pregame_3_hour_estimate"
     };
+    await saveWeatherCache(
+  cacheKey,
+  venueName,
+  gameDate,
+  weatherResult
+);
+
+console.log("💾 WEATHER CACHE SAVED:", {
+  venueName,
+  gameDate
+});
+
+return weatherResult;
   } catch (error) {
     console.error(
       "MLB WEATHER ERROR:",
       error
     );
+const fallbackCacheKey = buildWeatherCacheKey(
+  venueName,
+  gameDate
+);
 
+const staleWeather = await readWeatherCache(
+  fallbackCacheKey,
+  true
+);
+
+if (staleWeather) {
+  console.warn("⚠️ USING STALE WEATHER CACHE:", {
+    venueName,
+    gameDate,
+    cacheFetchedAt: staleWeather.cacheFetchedAt
+  });
+
+  return {
+    ...staleWeather,
+    cacheStatus: "stale",
+    weatherSource: "Visual Crossing cached"
+  };
+}
     return {
       venue: venueName,
       speed: 0,
