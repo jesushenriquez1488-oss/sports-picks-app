@@ -512,19 +512,76 @@ async function getWeather(venueName, roofType, gameDate) {
       gameDate,
       primeraHora: hours?.[0]?.datetime,
       totalHoras: hours?.length
+   });
+   const current = data?.currentConditions || {};
+    const day = data?.days?.[0] || {};
+    const hours = day?.hours || [];
+
+    // Hora local del primer lanzamiento usando el tzoffset del estadio
+    const tzOffset = Number(data?.tzoffset || 0);
+    const gameDateObj = new Date(gameDate);
+    const gameUTCHour =
+      gameDateObj.getUTCHours() + gameDateObj.getUTCMinutes() / 60;
+
+    let localStartHour = Math.round(gameUTCHour + tzOffset);
+    if (localStartHour < 0) localStartHour += 24;
+    if (localStartHour > 23) localStartHour -= 24;
+
+    // Tomar el bloque de inicio + las 2 horas siguientes (cubre ~3h de juego)
+    const windowHours = [];
+    for (let i = 0; i < 3; i++) {
+      const h = (localStartHour + i) % 24;
+      const block = hours.find(
+        hr => Number(hr.datetime?.split(":")?.[0]) === h
+      );
+      if (block) windowHours.push(block);
+    }
+
+    // Fallback si no encontró las horas
+    const validHours = windowHours.length > 0 ? windowHours : [day];
+
+    // Pesos: inicio pesa más (más tiempo de juego con ambos abridores)
+    // Se normalizan según cuántas horas encontramos (por si el juego cruza medianoche)
+    const rawWeights = [0.45, 0.35, 0.20];
+    const weights = rawWeights.slice(0, validHours.length);
+    const weightSum = weights.reduce((a, b) => a + b, 0);
+
+    const weightedAvg = (key) => {
+      let total = 0;
+      let wUsed = 0;
+      validHours.forEach((h, i) => {
+        const v = Number(h[key]);
+        if (Number.isFinite(v)) {
+          total += v * weights[i];
+          wUsed += weights[i];
+        }
+      });
+      return wUsed > 0 ? total / wUsed : 0;
+    };
+
+    // Velocidad, temp y humedad: promedio ponderado sobre la ventana
+    const windSpeed = weightedAvg("windspeed");
+    const temp = weightedAvg("temp");
+    const humidity = weightedAvg("humidity");
+
+    // Dirección del viento: tomada de la hora de INICIO (no se promedia — es circular)
+    const windDir = Number(
+      validHours[0]?.winddir ?? current?.winddir ?? day?.winddir ?? 0
+    );
+
+    // Condición: la de la hora de inicio
+    const condition =
+      validHours[0]?.conditions || current?.conditions || day?.conditions || "No disponible";
+
+    // LOG TEMPORAL — verificar que agarró la ventana correcta
+    console.log("WEATHER WINDOW:", {
+      venue: venueName,
+      localStartHour,
+      horasUsadas: validHours.map(h => h.datetime),
+      windSpeed: windSpeed.toFixed(1),
+      temp: temp.toFixed(1),
+      windDir
     });
-    const targetHour =
-      hours.find(h => Number(h.datetime?.split(":")?.[0]) >= 18) ||
-      hours.find(h => Number(h.datetime?.split(":")?.[0]) >= 15) ||
-      current ||
-      day;
-
-    const windSpeed = Number(targetHour?.windspeed || current?.windspeed || day?.windspeed || 0);
-    const windDir = Number(targetHour?.winddir || current?.winddir || day?.winddir || 0);
-    const temp = Number(targetHour?.temp || current?.temp || day?.temp || 0);
-    const humidity = Number(targetHour?.humidity || current?.humidity || day?.humidity || 0);
-    const condition = targetHour?.conditions || current?.conditions || day?.conditions || "No disponible";
-
   const direction = classifyWindDirectionForStadium(venueName, windDir);
     const roofClosedLikely =
       roofType === "retractable" &&
