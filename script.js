@@ -2078,7 +2078,7 @@ ${premium.recommendedCards?.[1] ? `
                   <h4>🌦️ Weather</h4>
                   <p>${premium.weather?.raw || "Not available"}</p>
                   <p>${ceWindIcon(premium.weather?.direction, premium.weather?.speed)} · ${ceTempIcon(premium.weather?.temp)}</p>
-                  <p style="opacity:0.7;">Run impact: ${safe(premium.weatherFactor, 1) >= 1 ? "+" : ""}${((safe(premium.weatherFactor, 1) - 1) * 100).toFixed(1)}%</p>
+                  <p style="opacity:0.7;">Run impact: ${safe(premium.weatherImpactPercent, 0) > 0 ? "+" : ""}${safe(premium.weatherImpactPercent, 0).toFixed(1)}%</p>
                 </div>
                  <div>
                   <h4>📊 Data used</h4>
