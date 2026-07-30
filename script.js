@@ -2783,19 +2783,43 @@ function ceLimitScreenHTML(sportKey) {
   `;
 }
 function ceWindIcon(direction, speed) {
-  const s = Number(speed || 0);
-  if (direction === "out") return `<span style="color:#ff8c1a;">↗ OUT ${s} mph</span>`;
-  if (direction === "in") return `<span style="color:#4da3ff;">↙ IN ${s} mph</span>`;
-  if (direction === "cross") return `<span style="color:#a0b4cc;">⇄ CROSS ${s} mph</span>`;
+  const value = Number(speed);
+  const s = Number.isFinite(value) ? Math.round(value) : 0;
+
+  if (direction === "out") {
+    return `<span style="color:#ff8c1a;">↗ OUT ${s} mph</span>`;
+  }
+
+  if (direction === "in") {
+    return `<span style="color:#4da3ff;">↙ IN ${s} mph</span>`;
+  }
+
+  if (direction === "cross") {
+    return `<span style="color:#a0b4cc;">⇄ CROSS ${s} mph</span>`;
+  }
+
   return `<span style="color:#a0b4cc;">〰 ${s} mph</span>`;
 }
 
 function ceTempIcon(temp) {
-  const t = Number(temp);
-  if (!Number.isFinite(t)) return "";
-  if (t >= 90) return `🌡️🔥 ${t}°F`;
-  if (t >= 78) return `🌡️ ${t}°F <span style="color:#ff8c1a;">warm</span>`;
-  if (t <= 50) return `🌡️❄️ ${t}°F`;
+  const value = Number(temp);
+
+  if (!Number.isFinite(value)) return "";
+
+  const t = Math.round(value);
+
+  if (t >= 90) {
+    return `🌡️🔥 ${t}°F`;
+  }
+
+  if (t >= 78) {
+    return `🌡️ ${t}°F <span style="color:#ff8c1a;">warm</span>`;
+  }
+
+  if (t <= 50) {
+    return `🌡️❄️ ${t}°F`;
+  }
+
   return `🌡️ ${t}°F`;
 }
 
