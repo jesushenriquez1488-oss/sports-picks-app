@@ -1,3 +1,23 @@
+const { createClient } = require("@supabase/supabase-js");
+
+const supabaseAdmin =
+  process.env.SUPABASE_URL &&
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? createClient(
+        process.env.SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+        {
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false
+          }
+        }
+      )
+    : null;
+
+const WEATHER_CACHE_TTL_MS = 60 * 60 * 1000;
+
+
 const PARK_FACTORS = {
   "Coors Field": {
     factor: 1.33,
