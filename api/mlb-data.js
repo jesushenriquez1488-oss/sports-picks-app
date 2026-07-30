@@ -505,7 +505,14 @@ async function getWeather(venueName, roofType, gameDate) {
     const current = data?.currentConditions || {};
     const day = data?.days?.[0] || {};
     const hours = day?.hours || [];
-
+ // LOG TEMPORAL — confirmar que tzoffset llega y ver las horas disponibles
+    console.log("TZ CHECK:", {
+      venue: venueName,
+      tzoffset: data?.tzoffset,
+      gameDate,
+      primeraHora: hours?.[0]?.datetime,
+      totalHoras: hours?.length
+    });
     const targetHour =
       hours.find(h => Number(h.datetime?.split(":")?.[0]) >= 18) ||
       hours.find(h => Number(h.datetime?.split(":")?.[0]) >= 15) ||
