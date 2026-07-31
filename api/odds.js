@@ -6,7 +6,18 @@ const supabaseAdmin = createClient(
 );
 
 const ODDS_CACHE_TIME = 10 * 60 * 1000;
-
+const CASHEDGE_BOOKMAKERS = [
+  "draftkings",
+  "fanduel",
+  "betmgm",
+  "williamhill_us",
+  "betrivers",
+  "fanatics",
+  "hardrockbet",
+  "ballybet",
+  "betparx",
+  "espnbet"
+].join(",");
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -58,14 +69,14 @@ module.exports = async function handler(req, res) {
       sport === "americanfootball_ncaaf";
 
     const markets = isSoccer ? "h2h,totals,spreads" : "h2h,spreads,totals";
-    const regions = isFootball ? "us" : "us,eu";
+    
 
     const url =
-      `https://api.the-odds-api.com/v4/sports/${encodeURIComponent(sport)}/odds/` +
-      `?apiKey=${process.env.ODDS_API_KEY}` +
-      `&regions=${regions}` +
-      `&markets=${markets}` +
-      `&oddsFormat=american`;
+  `https://api.the-odds-api.com/v4/sports/${encodeURIComponent(sport)}/odds/` +
+  `?apiKey=${process.env.ODDS_API_KEY}` +
+  `&bookmakers=${CASHEDGE_BOOKMAKERS}` +
+  `&markets=${markets}` +
+  `&oddsFormat=american`;
 
     const response = await fetch(url);
     const text = await response.text();
