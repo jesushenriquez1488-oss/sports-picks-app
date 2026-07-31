@@ -2092,7 +2092,19 @@ if (data.noPlay) {
     const locked = data.locked;
     const premium = data.premium;
     const isPremiumMLB = data.isPremiumPick;
+const displayedPick = locked
+  ? null
+  : premium?.recommendedCards?.[0]?.play ||
+    data.public?.freePick?.play ||
+    null;
 
+const bestOdds = displayedPick
+  ? getBestOddsForPick(
+      displayedPick,
+      awayTeam,
+      homeTeam
+    )
+  : null;
     const cardsHTML = premium?.recommendedCards?.map(card => `
       <div class="edge-box">
         <h4>${card.title}</h4>
@@ -2201,6 +2213,52 @@ ${premium.recommendedCards?.[0] ? `
     <div style="font-size:11px;color:#556688;line-height:1.5;">Not strong enough to qualify as premium.</div>
   </div>
 `}
+
+${bestOdds ? `
+  <div style="
+    margin-top:12px;
+    padding-top:10px;
+    border-top:1px solid #17243a;
+    text-align:left;
+  ">
+    <div style="
+      font-size:9px;
+      color:#ffd166;
+      font-weight:800;
+      letter-spacing:0.1em;
+      text-transform:uppercase;
+      margin-bottom:5px;
+    ">
+      ⚡ CashEdge Best Odds
+    </div>
+
+    <div style="
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    ">
+      <div>
+        <strong style="font-size:16px;color:#ffffff;">
+          ${bestOdds.formattedPrice}
+        </strong>
+
+        <div style="font-size:11px;color:#8fa2bd;margin-top:2px;">
+          ${bestOdds.bookmaker}
+        </div>
+      </div>
+
+      <div style="
+        font-size:10px;
+        color:#536987;
+        text-align:right;
+      ">
+        Best available price
+      </div>
+    </div>
+  </div>
+` : ``}
+
 </div>
 </div>
 
