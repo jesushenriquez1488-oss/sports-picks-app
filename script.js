@@ -8,7 +8,7 @@ if (!currentSessionId) {
   currentSessionId = crypto.randomUUID();
   localStorage.setItem("cashedge_session_id", currentSessionId); 
 }
-
+let currentOddsGames = [];
 async function trackUserEvent(eventType, options = {}) {
   try {
     const { data: { user } } = await supabaseClient.auth.getUser();
@@ -1395,7 +1395,7 @@ const text = await res.text();
       localStorage.setItem(cacheKey, JSON.stringify(data));
       localStorage.setItem(cacheTimeKey, Date.now().toString());
     }
-
+currentOddsGames = Array.isArray(data) ? data : [];
     function getKansasParts(date) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
@@ -1606,6 +1606,176 @@ function homeTeamSpreadText(spread) {
 
 function escapeText(text) {
   return String(text).replace(/'/g, "\\'");
+}
+function normalizeOddsText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9.+-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function formatAmericanOdds(value) {
+  const odds = Number(value);
+
+  if (!Number.isFinite(odds)) {
+    return "";
+  }
+
+  return odds > 0 ? `+${odds}` : `${odds}`;
+}
+
+function pickContainsTeam(play, teamName) {
+  const cleanPlay = normalizeOddsText(play);
+  const cleanTeam = normalizeOddsText(teamName);
+
+  if (cleanPlay.includes(cleanTeam)) {
+    return true;
+  }
+
+  const teamWords = cleanTeam.split(" ");
+  const nickname = teamWords[teamWords.length - 1];
+
+  return nickname.length >= 3 &&
+    cleanPlay.split(" ").includes(nickname);
+}
+
+function findOddsGame(awayTeam, homeTeam) {
+  const cleanAway = normalizeOddsText(awayTeam);
+  const cleanHome = normalizeOddsText(homeTeam);
+
+  return currentOddsGames.find(game => {
+    return (
+      normalizeOddsText(game.away_team) === cleanAway &&
+      normalizeOddsText(game.home_team) === cleanHome
+    );
+  }) || null;
+}
+
+function getBestOddsForPick(play, awayTeam, homeTeam) {
+  if (!play) {
+    return null;
+  }
+
+  const game = findOddsGame(awayTeam, homeTeam);
+
+  if (!game) {
+    return null;
+  }
+
+  const cleanPlay = normalizeOddsText(play);
+
+  let marketKey = null;
+  let selection = null;
+  let selectedTeam = null;
+  let selectedPoint = null;
+
+  const totalMatch = String(play).match(
+    /\b(over|under)\s*([+-]?\d+(?:\.\d+)?)/i
+  );
+
+  if (totalMatch) {
+    marketKey = "totals";
+    selection =
+      totalMatch[1].toLowerCase() === "over"
+        ? "Over"
+        : "Under";
+
+    selectedPoint = Number(totalMatch[2]);
+  } else if (
+    cleanPlay.includes("draw") ||
+    cleanPlay.includes("tie")
+  ) {
+    marketKey = "h2h";
+    selection = "Draw";
+  } else {
+    if (pickContainsTeam(play, awayTeam)) {
+      selectedTeam = awayTeam;
+    } else if (pickContainsTeam(play, homeTeam)) {
+      selectedTeam = homeTeam;
+    } else {
+      return null;
+    }
+
+    const spreadMatch = String(play).match(
+      /([+-]\d+(?:\.\d+)?)/
+    );
+
+    if (spreadMatch) {
+      marketKey = "spreads";
+      selectedPoint = Number(spreadMatch[1]);
+    } else {
+      marketKey = "h2h";
+    }
+
+    selection = selectedTeam;
+  }
+
+  let bestOdds = null;
+
+  for (const bookmaker of game.bookmakers || []) {
+    const market = (bookmaker.markets || []).find(
+      item => item.key === marketKey
+    );
+
+    if (!market) {
+      continue;
+    }
+
+    for (const outcome of market.outcomes || []) {
+      let isCorrectOutcome = false;
+
+      if (marketKey === "totals") {
+        isCorrectOutcome =
+          normalizeOddsText(outcome.name) ===
+            normalizeOddsText(selection) &&
+          Math.abs(
+            Number(outcome.point) - selectedPoint
+          ) < 0.001;
+      } else if (marketKey === "spreads") {
+        isCorrectOutcome =
+          normalizeOddsText(outcome.name) ===
+            normalizeOddsText(selectedTeam) &&
+          Math.abs(
+            Number(outcome.point) - selectedPoint
+          ) < 0.001;
+      } else {
+        isCorrectOutcome =
+          normalizeOddsText(outcome.name) ===
+          normalizeOddsText(selection);
+      }
+
+      if (!isCorrectOutcome) {
+        continue;
+      }
+
+      const price = Number(outcome.price);
+
+      if (!Number.isFinite(price)) {
+        continue;
+      }
+
+      if (!bestOdds || price > bestOdds.price) {
+        bestOdds = {
+          bookmaker: bookmaker.title,
+          bookmakerKey: bookmaker.key,
+          price,
+          formattedPrice: formatAmericanOdds(price),
+          market: marketKey,
+          selection,
+          point:
+            marketKey === "h2h"
+              ? null
+              : Number(outcome.point),
+          updatedAt: bookmaker.last_update || null
+        };
+      }
+    }
+  }
+
+  return bestOdds;
 }
 function togglePassword(inputId, el) {
 
