@@ -162,7 +162,11 @@ const PARK_FACTORS = {
     factor: 0.95,
     roof: "retractable"
   },
-
+  
+"Daikin Park": {
+  factor: 0.95,
+  roof: "retractable"
+},
   "Truist Park": {
     factor: 0.97,
     roof: "open"
@@ -339,6 +343,7 @@ const STADIUM_COORDS = {
   "Globe Life Field": { lat: 32.7473, lon: -97.0842 },
   "Chase Field": { lat: 33.4455, lon: -112.0667 },
   "Minute Maid Park": { lat: 29.7573, lon: -95.3555 },
+  "Daikin Park": {lat: 29.7573, lon: -95.3555},
   "Truist Park": { lat: 33.8908, lon: -84.4678 },
   "Oriole Park at Camden Yards": { lat: 39.2840, lon: -76.6217 },
   "Kauffman Stadium": { lat: 39.0517, lon: -94.4803 },
@@ -773,6 +778,7 @@ const STADIUM_AZIMUTH = {
   "Coors Field": 4,
   "Comerica Park": 150,
   "Minute Maid Park": 343,
+  "Daikin Park": 343,
   "Kauffman Stadium": 46,
   "Dodger Stadium": 26,
   "UNIQLO Field at Dodger Stadium": 26,
