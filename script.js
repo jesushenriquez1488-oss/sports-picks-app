@@ -1653,6 +1653,18 @@ function findOddsGame(awayTeam, homeTeam) {
     );
   }) || null;
 }
+const CASHEDGE_ALLOWED_BOOKMAKERS = new Set([
+  "draftkings",
+  "fanduel",
+  "betmgm",
+  "williamhill_us",
+  "betrivers",
+  "fanatics",
+  "hardrockbet",
+  "ballybet",
+  "betparx",
+  "espnbet"
+]);
 
 function getBestOddsForPick(play, awayTeam, homeTeam) {
   if (!play) {
@@ -1716,6 +1728,9 @@ function getBestOddsForPick(play, awayTeam, homeTeam) {
   let bestOdds = null;
 
   for (const bookmaker of game.bookmakers || []) {
+    if (!CASHEDGE_ALLOWED_BOOKMAKERS.has(bookmaker.key)) {
+  continue;
+}
     const market = (bookmaker.markets || []).find(
       item => item.key === marketKey
     );
