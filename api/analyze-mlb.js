@@ -2250,41 +2250,22 @@ function getWeatherRunFactor(weather) {
     }
 
     function adjustBullpen(bullpen) {
-      if (!bullpen) return null;
+  if (!bullpen) return null;
 
-      const last7 = bullpen.last7 || null;
-      const last3 = bullpen.last3 || null;
+  // Usa directamente el valor moderado calculado en mlb-data
+  const score = safeNumber(bullpen.runsPerGame);
 
-const baseRuns = safeNumber(bullpen.runsPerGame);
-const last7Runs = safeNumber(last7?.ra9 ?? last7?.era ?? last7?.runsPerGame);
-const last3Runs = safeNumber(last3?.ra9 ?? last3?.era ?? last3?.runsPerGame);
+  if (score === null) return null;
 
-      const fallback = avgValid(baseRuns, last7Runs, last3Runs);
-      if (fallback === null) return null;
+  console.log("BULLPEN SCORE", {
+    team: bullpen?.team || "unknown",
+    bullpenScore: score,
+    fatigue: bullpen?.fatigue,
+    fatigueApplied: false
+  });
 
-      let score =
-        fillMissing(last7Runs, fallback) * 0.95 +
-        fillMissing(last3Runs, fallback) * 0.05;
-
-      const whip = safeNumber(bullpen.whip);
-      const last3Whip = safeNumber(last3?.whip);
-      const fatigue = safeNumber(bullpen.fatigue, 0);
-
-      const fatigueFactor = getBullpenFatigueFactor(bullpen);
-score *= fatigueFactor;
-// PRUEBA TEMPORAL:
-// Sin ajuste por WHIP
-      console.log("BULLPEN SCORE", {
-  team: bullpen?.team || "unknown",
-  baseRuns,
-  last7Runs,
-  last3Runs,
-  fatigue: bullpen?.fatigue,
-  finalScore: score
-});
-      return clamp(score, 1.0, 12.5);
-    }
-
+  return clamp(score, 2.0, 7.5);
+}
     function adjustPitcher(stats, sideStats = null) {
       if (!stats) return null;
 
