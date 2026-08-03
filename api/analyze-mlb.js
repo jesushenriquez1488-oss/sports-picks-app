@@ -2499,9 +2499,9 @@ function calculateExpectedRuns({
     offense * 0.35 +
     opponentPitcher * 0.65;
 
-  const bullpenSegment =
-  offense * 0.45 +
-  opponentBullpen * 0.55;
+const bullpenSegment =
+  offense * 0.60 +
+  opponentBullpen * 0.40;
  
   const teamAllowedAdjustment =
     opponentTeamAllowed * 0.00001;
