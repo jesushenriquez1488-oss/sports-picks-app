@@ -2761,11 +2761,11 @@ if (isPositiveRunline) {
 
       const premiumRule =
   marketType === "ML"
-   ? Math.abs(supportData.projectedMargin) >= 2.5
+    ? Math.abs(supportData.projectedMargin) >= 2.0
     : (
         Number(spread) > 0
           ? protectedEdge >= 3.5
-: protectedEdge >= 5.0
+          : protectedEdge >= 3.0
       );
 
       return {
@@ -2837,8 +2837,8 @@ confidence = clamp(confidence, 0, 99);
   support >= 56 &&
   (
     direction === "OVER"
-      ? totalEdge >= 3.0
-      : totalEdge >= 2.5
+  ? totalEdge >= 2.0
+  : totalEdge >= 2.0
   )
       };
     }
@@ -2976,31 +2976,30 @@ function edgeToPercent(edge, type = "ml") {
   let minEdge;
   let maxEdge;
 
-  switch (type) {
-    case "ml":
-      minEdge = 2.5;
-      maxEdge = 6.0;
-      break;
+ switch (type) {
+  case "ml":
+    minEdge = 2.0;
+    maxEdge = 6.0;
+    break;
 
-    case "total":
-      minEdge = 2.5;
-      maxEdge = 6.5;
-      break;
+  case "total":
+    minEdge = 2.0;
+    maxEdge = 6.5;
+    break;
 
-    case "rlplus":
-      minEdge = 3.5;
-      maxEdge = 8.5;
-      break;
+  case "rlplus":
+    minEdge = 3.5;
+    maxEdge = 8.5;
+    break;
 
-    case "rlminus":
-      minEdge = 4.5;
-      maxEdge = 8.0;
-      break;
+  case "rlminus":
+    minEdge = 3.0;
+    maxEdge = 8.0;
+    break;
 
-    default:
-      return 0;
-  }
-
+  default:
+    return 0;
+}
   if (e < minEdge) return 0;
   if (e >= maxEdge) return 99.0;
 
