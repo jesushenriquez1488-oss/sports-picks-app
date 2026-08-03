@@ -474,8 +474,52 @@ if (!isPregame) {
   gameStatus
 });
 }
-    const awayPitcher = game.teams.away.probablePitcher;
-    const homePitcher = game.teams.home.probablePitcher;
+   let awayPitcher =
+  game.teams?.away?.probablePitcher || null;
+
+let homePitcher =
+  game.teams?.home?.probablePitcher || null;
+
+// Si el schedule no trae alguno de los pitchers,
+// intentar recuperarlo desde el live feed del juego.
+if (!awayPitcher || !homePitcher) {
+  try {
+    const liveUrl =
+      `https://statsapi.mlb.com/api/v1.1/game/${game.gamePk}/feed/live`;
+
+    const liveResponse = await fetch(liveUrl, {
+      cache: "no-store"
+    });
+
+    if (liveResponse.ok) {
+      const liveData = await liveResponse.json();
+
+      const probablePitchers =
+        liveData?.gameData?.probablePitchers || {};
+
+      awayPitcher =
+        awayPitcher ||
+        probablePitchers.away ||
+        null;
+
+      homePitcher =
+        homePitcher ||
+        probablePitchers.home ||
+        null;
+    }
+  } catch (error) {
+    console.warn(
+      "LIVE FEED PITCHER FALLBACK ERROR:",
+      error.message
+    );
+  }
+}
+
+console.log("FINAL PITCHERS:", {
+  gamePk: game.gamePk,
+  away: awayPitcher,
+  home: homePitcher
+});
 console.log("PITCHERS:", { away: awayPitcher, home: homePitcher, gameStatus });
     const venueName = game.venue?.name || "Unknown Stadium";
     const parkInfo = PARK_FACTORS[venueName] || { factor: 1.00, roof: "unknown" };
