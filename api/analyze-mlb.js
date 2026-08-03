@@ -2952,23 +2952,8 @@ function edgeToPercent(edge, type = "ml") {
   return Number(percent.toFixed(1));
 }
 function getBullpenFatigueFactor(bullpen) {
-  if (!bullpen) return 1;
-
-  const fatigue = Number(bullpen.fatigue);
-
-  if (!Number.isFinite(fatigue)) return 1;
-
-  if (fatigue >= 28) return 1.34;
-  if (fatigue >= 24) return 1.28;
-  if (fatigue >= 20) return 1.23;
-  if (fatigue >= 16) return 1.18;
-  if (fatigue >= 12) return 1.12;
-  if (fatigue >= 8) return 1.07;
-  if (fatigue >= 5) return 1.03;
-
-  if (fatigue <= 2.5) return 0.93;
-  if (fatigue <= 4) return 0.97;
-
+  // La fatiga se conserva para mostrarla,
+  // pero no modifica la predicción.
   return 1;
 }
     const fullMlbAnalysis = {
