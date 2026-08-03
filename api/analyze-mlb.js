@@ -2774,6 +2774,7 @@ if (isPositiveRunline) {
         percentage: Number(confidence.toFixed(1)),
         type: marketType,
         team: supportData.teamName,
+       spread: isRunline ? Number(spread) : null,
         supportScore: Number(supportData.support.toFixed(1)),
         modelProbability: Number((supportData.modelProb * 100).toFixed(1)),
         marketProbability: Number((supportData.marketProb * 100).toFixed(1)),
@@ -2885,7 +2886,31 @@ function getCandidateRankingEdge(card) {
     return Number(b.percentage || 0) - Number(a.percentage || 0);
   });
 
-const recommendedCards = premiumCandidates.slice(0, 1);
+const premiumWithoutPositiveRunline =
+  premiumCandidates.filter(candidate => {
+    return !(
+      candidate.type === "RUNLINE" &&
+      Number(candidate.spread) > 0
+    );
+  });
+
+const positiveRunlinePremium =
+  premiumCandidates.filter(candidate => {
+    return (
+      candidate.type === "RUNLINE" &&
+      Number(candidate.spread) > 0
+    );
+  });
+
+const selectedPremiumCandidate =
+  premiumWithoutPositiveRunline[0] ||
+  positiveRunlinePremium[0] ||
+  null;
+
+const recommendedCards =
+  selectedPremiumCandidate
+    ? [selectedPremiumCandidate]
+    : [];
     const locked = recommendedCards.length > 0 && !isPremiumUser;
  // Mejor candidato no-premium para mostrar como jugada destacada free
 // Solo candidatos direccionales válidos (edge real positivo), rankeados por edge
@@ -2905,9 +2930,44 @@ function freeLeanEdge(c) {
   return -999;
 }
 
-const bestFreeCandidate = candidates
-  .filter(c => !c.isPremium && freeLeanEdge(c) > 0)
-  .sort((a, b) => freeLeanEdge(b) - freeLeanEdge(a))[0] || null;
+const validFreeCandidates = candidates
+  .filter(candidate => {
+    return (
+      !candidate.isPremium &&
+      freeLeanEdge(candidate) > 0
+    );
+  });
+
+const freeWithoutPositiveRunline =
+  validFreeCandidates
+    .filter(candidate => {
+      return !(
+        candidate.type === "RUNLINE" &&
+        Number(candidate.spread) > 0
+      );
+    })
+    .sort(
+      (a, b) =>
+        freeLeanEdge(b) - freeLeanEdge(a)
+    );
+
+const positiveRunlineFree =
+  validFreeCandidates
+    .filter(candidate => {
+      return (
+        candidate.type === "RUNLINE" &&
+        Number(candidate.spread) > 0
+      );
+    })
+    .sort(
+      (a, b) =>
+        freeLeanEdge(b) - freeLeanEdge(a)
+    );
+
+const bestFreeCandidate =
+  freeWithoutPositiveRunline[0] ||
+  positiveRunlineFree[0] ||
+  null;
 function edgeToPercent(edge, type = "ml") {
   const e = Math.abs(Number(edge));
 
