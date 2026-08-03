@@ -2764,7 +2764,7 @@ if (isPositiveRunline) {
     ? Math.abs(supportData.projectedMargin) >= 2.0
     : (
         Number(spread) > 0
-          ? protectedEdge >= 3.5
+          ? protectedEdge >= 3.0
           : protectedEdge >= 3.0
       );
 
@@ -2988,7 +2988,7 @@ function edgeToPercent(edge, type = "ml") {
     break;
 
   case "rlplus":
-    minEdge = 3.5;
+    minEdge = 3.0;
     maxEdge = 8.5;
     break;
 
