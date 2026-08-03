@@ -483,11 +483,18 @@ console.log("PITCHERS:", { away: awayPitcher, home: homePitcher, gameStatus });
     async function getPitcherStats(pitcherId) {
       if (!pitcherId) return null;
 
-      const url = `https://statsapi.mlb.com/api/v1/people/${pitcherId}/stats?stats=gameLog&season=2026`;
+      const url =
+  `https://statsapi.mlb.com/api/v1/people/${pitcherId}/stats` +
+  `?stats=gameLog&group=pitching&season=2026&sportId=1`;
       const response = await fetch(url);
       const data = await response.json();
 
-      const splits = data?.stats?.[0]?.splits || [];
+      const pitchingStats = (data?.stats || []).find(
+  item =>
+    String(item?.group?.displayName || "").toLowerCase() === "pitching"
+);
+
+const splits = pitchingStats?.splits || [];
       const last5 = splits.slice(-5);
 
       if (last5.length === 0) return null;
