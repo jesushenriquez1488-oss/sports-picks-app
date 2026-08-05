@@ -524,68 +524,387 @@ console.log("PITCHERS:", { away: awayPitcher, home: homePitcher, gameStatus });
     const venueName = game.venue?.name || "Unknown Stadium";
     const parkInfo = PARK_FACTORS[venueName] || { factor: 1.00, roof: "unknown" };
 
-    async function getPitcherStats(pitcherId) {
-      if (!pitcherId) return null;
+   async function getPitcherStats(pitcherId, expectedSide) {
+  if (!pitcherId) return null;
 
-      const url =
-  `https://statsapi.mlb.com/api/v1/people/${pitcherId}/stats` +
-  `?stats=gameLog&group=pitching&season=2026&sportId=1`;
-      const response = await fetch(url);
-      const data = await response.json();
+  const url =
+    `https://statsapi.mlb.com/api/v1/people/${pitcherId}/stats` +
+    `?stats=gameLog&group=pitching&season=2026&gameType=R`;
 
-      const pitchingStats = (data?.stats || []).find(
-  item =>
-    String(item?.group?.displayName || "").toLowerCase() === "pitching"
-);
+  const response = await fetch(url);
 
-const splits = pitchingStats?.splits || [];
-      const last5 = splits.slice(-5);
+  if (!response.ok) {
+    console.error(
+      "PITCHER GAME LOG ERROR:",
+      pitcherId,
+      response.status
+    );
 
-      if (last5.length === 0) return null;
+    return null;
+  }
 
-      let innings = 0;
-      let runs = 0;
-      let earnedRuns = 0;
-      let hits = 0;
-      let walks = 0;
-      let strikeouts = 0;
-      let homeRuns = 0;
+  const data = await response.json();
 
-      last5.forEach(g => {
-        const stat = g.stat || {};
+  const rawSplits =
+    data?.stats?.[0]?.splits || [];
 
-        innings += parseIP(stat.inningsPitched);
-        runs += Number(stat.runs || 0);
-        earnedRuns += Number(stat.earnedRuns || stat.runs || 0);
-        hits += Number(stat.hits || 0);
-        walks += Number(stat.baseOnBalls || 0);
-        strikeouts += Number(stat.strikeOuts || 0);
-        homeRuns += Number(stat.homeRuns || 0);
-      });
+  /*
+   * Resuelve si la aparición fue:
+   * - apertura real;
+   * - local o visitante.
+   *
+   * Normalmente gameLog ya trae isHome y gamesStarted.
+   * El boxscore queda como respaldo.
+   */
+  async function normalizeAppearance(split) {
+    const stat = split?.stat || {};
 
-      const safeInnings = Math.max(innings, 1);
-      const games = last5.length;
+    const gamePk =
+      split?.game?.gamePk ||
+      split?.gamePk ||
+      null;
 
-      return {
-        games,
-        innings: innings / games,
-        totalInnings: innings,
-        runs,
-        hits,
-        walks,
-        strikeouts,
-        homeRuns,
-        era: (earnedRuns * 9) / safeInnings,
-        runsPerInning: runs / safeInnings,
-        runsPerGame: (runs * 9) / safeInnings,
-        hitsPerInning: hits / safeInnings,
-        walksPerInning: walks / safeInnings,
-        strikeoutsPerInning: strikeouts / safeInnings,
-        homeRunsPerInning: homeRuns / safeInnings,
-        whip: (hits + walks) / safeInnings
-      };
+    let isStarter = null;
+
+    if (
+      stat.gamesStarted !== undefined &&
+      stat.gamesStarted !== null
+    ) {
+      isStarter =
+        Number(stat.gamesStarted || 0) > 0;
     }
 
+    let side = null;
+
+    if (typeof split?.isHome === "boolean") {
+      side = split.isHome ? "home" : "away";
+    }
+
+    /*
+     * Solo consultar el boxscore cuando falte
+     * confirmar la apertura o la condición.
+     */
+    if (
+      gamePk &&
+      (isStarter === null || side === null)
+    ) {
+      try {
+        const boxResponse = await fetch(
+          `https://statsapi.mlb.com/api/v1/game/${gamePk}/boxscore`
+        );
+
+        if (boxResponse.ok) {
+          const box = await boxResponse.json();
+
+          const homePitchers =
+            box?.teams?.home?.pitchers || [];
+
+          const awayPitchers =
+            box?.teams?.away?.pitchers || [];
+
+          const homeStarterId =
+            Number(homePitchers[0] || 0);
+
+          const awayStarterId =
+            Number(awayPitchers[0] || 0);
+
+          if (Number(pitcherId) === homeStarterId) {
+            isStarter = true;
+            side = "home";
+          } else if (
+            Number(pitcherId) === awayStarterId
+          ) {
+            isStarter = true;
+            side = "away";
+          } else if (isStarter === null) {
+            isStarter = false;
+          }
+        }
+      } catch (error) {
+        console.error(
+          "PITCHER BOXSCORE ERROR:",
+          pitcherId,
+          gamePk,
+          error.message
+        );
+      }
+    }
+
+    /*
+     * No usamos apariciones como relevista
+     * ni juegos cuya condición no pudo confirmarse.
+     */
+    if (isStarter !== true || !side) {
+      return null;
+    }
+
+    const innings =
+      parseIP(stat.inningsPitched);
+
+    if (innings <= 0) {
+      return null;
+    }
+
+    const runs =
+      Number(stat.runs || 0);
+
+    const earnedRuns =
+      Number(
+        stat.earnedRuns ??
+        stat.runs ??
+        0
+      );
+
+    const hits =
+      Number(stat.hits || 0);
+
+    const walks =
+      Number(stat.baseOnBalls || 0);
+
+    const strikeouts =
+      Number(stat.strikeOuts || 0);
+
+    const homeRuns =
+      Number(stat.homeRuns || 0);
+
+    return {
+      gamePk,
+
+      date:
+        split?.date ||
+        split?.gameDate ||
+        null,
+
+      side,
+
+      innings,
+      runs,
+      earnedRuns,
+      hits,
+      walks,
+      strikeouts,
+      homeRuns,
+
+      runsPer9:
+        innings > 0
+          ? (runs * 9) / innings
+          : null
+    };
+  }
+
+  const normalizedAppearances =
+    await Promise.all(
+      rawSplits.map(normalizeAppearance)
+    );
+
+  const allStarts =
+    normalizedAppearances
+      .filter(Boolean)
+      .sort((a, b) => {
+        const dateA =
+          new Date(a.date || 0).getTime();
+
+        const dateB =
+          new Date(b.date || 0).getTime();
+
+        return dateB - dateA;
+      });
+
+  if (allStarts.length === 0) {
+    return null;
+  }
+
+  /*
+   * Últimas cinco aperturas generales.
+   */
+  const recentLast5 =
+    allStarts.slice(0, 5);
+
+  /*
+   * Crear una sola muestra de juegos únicos.
+   */
+  const selectedStarts =
+    [...recentLast5];
+
+  const selectedKeys =
+    new Set(
+      selectedStarts.map(start =>
+        start.gamePk ||
+        `${start.date}-${start.side}`
+      )
+    );
+
+  let conditionCount =
+    selectedStarts.filter(
+      start => start.side === expectedSide
+    ).length;
+
+  /*
+   * Buscar hacia atrás únicamente los juegos
+   * necesarios para completar cinco aperturas
+   * en la condición de hoy.
+   */
+  for (const start of allStarts.slice(5)) {
+    if (conditionCount >= 5) break;
+
+    if (start.side !== expectedSide) {
+      continue;
+    }
+
+    const key =
+      start.gamePk ||
+      `${start.date}-${start.side}`;
+
+    if (selectedKeys.has(key)) {
+      continue;
+    }
+
+    selectedStarts.push(start);
+    selectedKeys.add(key);
+    conditionCount += 1;
+  }
+
+  const conditionStarts =
+    selectedStarts.filter(
+      start => start.side === expectedSide
+    );
+
+  const oppositeStarts =
+    selectedStarts.filter(
+      start => start.side !== expectedSide
+    );
+
+  function summarizeStarts(starts) {
+    if (!starts || starts.length === 0) {
+      return null;
+    }
+
+    let innings = 0;
+    let runs = 0;
+    let earnedRuns = 0;
+    let hits = 0;
+    let walks = 0;
+    let strikeouts = 0;
+    let homeRuns = 0;
+
+    starts.forEach(start => {
+      innings += Number(start.innings || 0);
+      runs += Number(start.runs || 0);
+      earnedRuns += Number(
+        start.earnedRuns || 0
+      );
+      hits += Number(start.hits || 0);
+      walks += Number(start.walks || 0);
+      strikeouts += Number(
+        start.strikeouts || 0
+      );
+      homeRuns += Number(
+        start.homeRuns || 0
+      );
+    });
+
+    const safeInnings =
+      Math.max(innings, 1);
+
+    const games = starts.length;
+
+    return {
+      games,
+
+      /*
+       * Promedio de innings por apertura.
+       */
+      innings:
+        innings / games,
+
+      totalInnings:
+        innings,
+
+      runs,
+      earnedRuns,
+      hits,
+      walks,
+      strikeouts,
+      homeRuns,
+
+      era:
+        (earnedRuns * 9) /
+        safeInnings,
+
+      runsPerInning:
+        runs / safeInnings,
+
+      runsPerGame:
+        (runs * 9) /
+        safeInnings,
+
+      hitsPerInning:
+        hits / safeInnings,
+
+      walksPerInning:
+        walks / safeInnings,
+
+      strikeoutsPerInning:
+        strikeouts / safeInnings,
+
+      homeRunsPerInning:
+        homeRuns / safeInnings,
+
+      whip:
+        (hits + walks) /
+        safeInnings,
+
+      starts
+    };
+  }
+
+  const recentStats =
+    summarizeStarts(recentLast5);
+
+  const expandedStats =
+    summarizeStarts(selectedStarts);
+
+  const conditionStats =
+    summarizeStarts(conditionStarts);
+
+  const oppositeStats =
+    summarizeStarts(oppositeStarts);
+
+  /*
+   * Mantener arriba los números actuales de
+   * las últimas cinco para no cambiar todavía
+   * la proyección hasta modificar analyze-mlb.
+   */
+  return {
+    ...recentStats,
+
+    expectedSide,
+
+    recent:
+      recentStats,
+
+    expanded:
+      expandedStats,
+
+    condition:
+      conditionStats,
+
+    opposite:
+      oppositeStats,
+
+    uniqueStartsAnalyzed:
+      selectedStarts.length,
+
+    conditionStartsAnalyzed:
+      conditionStarts.length,
+
+    oppositeStartsAnalyzed:
+      oppositeStarts.length,
+
+    conditionComplete:
+      conditionStarts.length >= 5
+  };
+}
     async function getTeamRecentGames(teamId, limit = 10) {
       const url =
         `https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=${teamId}&season=2026&hydrate=linescore`;
@@ -1727,8 +2046,20 @@ if (staleWeather) {
     };
   }
 }
-    const awayPitcherStats = await getPitcherStats(awayPitcher?.id);
-    const homePitcherStats = await getPitcherStats(homePitcher?.id);
+   const [
+  awayPitcherStats,
+  homePitcherStats
+] = await Promise.all([
+  getPitcherStats(
+    awayPitcher?.id,
+    "away"
+  ),
+
+  getPitcherStats(
+    homePitcher?.id,
+    "home"
+  )
+]);
 
     const awayBatting = await getTeamBattingProfile(
       game.teams.away.team.id,
