@@ -2481,48 +2481,180 @@ function getPitcherProjection(stats) {
     };
   }
 
-  const totalSampleInnings =
-    conditionTotalInnings +
-    oppositeTotalInnings;
+ const totalSampleInnings =
+  conditionTotalInnings +
+  oppositeTotalInnings;
 
-  const conditionWeight =
-    conditionTotalInnings /
-    totalSampleInnings;
+/*
+ * Pesos naturales iniciales.
+ */
+const naturalConditionWeight =
+  conditionTotalInnings /
+  totalSampleInnings;
 
-  const oppositeWeight =
-    oppositeTotalInnings /
-    totalSampleInnings;
+const naturalOppositeWeight =
+  oppositeTotalInnings /
+  totalSampleInnings;
 
-  /*
-   * No usamos 60/40 ni otro porcentaje fijo.
-   * El peso sale de los innings reales.
-   */
-  const score =
-    conditionScore * conditionWeight +
-    oppositeScore * oppositeWeight;
 
-  const innings =
-    conditionAverageInnings *
-      conditionWeight +
-    oppositeAverageInnings *
-      oppositeWeight;
+/*
+ * Mediana de las cinco aperturas
+ * en la condición de hoy.
+ *
+ * Esto evita activar el ajuste por
+ * una sola salida extremadamente mala
+ * o extremadamente buena.
+ */
+function getMedian(values) {
+  const cleanValues = values
+    .map(Number)
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
 
+  if (cleanValues.length === 0) {
+    return null;
+  }
+
+  const middle =
+    Math.floor(cleanValues.length / 2);
+
+  if (cleanValues.length % 2 === 0) {
+    return (
+      cleanValues[middle - 1] +
+      cleanValues[middle]
+    ) / 2;
+  }
+
+  return cleanValues[middle];
+}
+
+const conditionStartRates =
+  Array.isArray(conditionStats.starts)
+    ? conditionStats.starts
+        .map(start =>
+          safeNumber(start?.runsPer9)
+        )
+        .filter(value => value !== null)
+    : [];
+
+const conditionMedianRunsPer9 =
+  getMedian(conditionStartRates);
+
+const conditionRawRuns =
+  safeNumber(
+    conditionStats.runsPerGame
+  );
+
+const oppositeRawRuns =
+  safeNumber(
+    oppositeStats.runsPerGame
+  );
+
+
+/*
+ * El patrón solo se confirma cuando:
+ *
+ * 1. El promedio de condición está por
+ *    encima o debajo del grupo contrario.
+ *
+ * 2. La mediana de las cinco aperturas
+ *    apunta en esa misma dirección.
+ */
+const averageDirection =
+  conditionRawRuns !== null &&
+  oppositeRawRuns !== null
+    ? Math.sign(
+        conditionRawRuns -
+        oppositeRawRuns
+      )
+    : 0;
+
+const medianDirection =
+  conditionMedianRunsPer9 !== null &&
+  oppositeRawRuns !== null
+    ? Math.sign(
+        conditionMedianRunsPer9 -
+        oppositeRawRuns
+      )
+    : 0;
+
+const conditionPatternConfirmed =
+  averageDirection !== 0 &&
+  averageDirection === medianDirection;
+
+
+/*
+ * Diferencia normalizada entre 0 y 1.
+ *
+ * Mientras mayor sea la separación,
+ * menos influencia conserva el grupo
+ * contrario.
+ */
+const conditionSeparation =
+  conditionPatternConfirmed
+    ? clamp(
+        Math.abs(
+          conditionScore -
+          oppositeScore
+        ) /
+          Math.max(
+            Math.abs(conditionScore) +
+              Math.abs(oppositeScore),
+            1
+          ),
+        0,
+        1
+      )
+    : 0;
+
+
+/*
+ * El grupo contrario nunca aumenta
+ * su peso.
+ *
+ * Solo puede conservarlo o perderlo
+ * cuando existe un patrón confirmado.
+ */
+const oppositeWeight =
+  naturalOppositeWeight *
+  (1 - conditionSeparation);
+
+const conditionWeight =
+  1 - oppositeWeight;
+
+
+const score =
+  conditionScore * conditionWeight +
+  oppositeScore * oppositeWeight;
+
+const innings =
+  conditionAverageInnings *
+    conditionWeight +
+  oppositeAverageInnings *
+    oppositeWeight;
   return {
     score:
       clamp(score, 1.0, 12.5),
 
     innings,
 
-    source: "natural_innings_weight",
+    source: "condition_adjusted",
 
     conditionScore,
     oppositeScore,
 
-    conditionWeight,
-    oppositeWeight,
+  naturalConditionWeight,
+naturalOppositeWeight,
 
-    conditionTotalInnings,
-    oppositeTotalInnings,
+conditionWeight,
+oppositeWeight,
+
+conditionMedianRunsPer9,
+conditionPatternConfirmed,
+conditionSeparation,
+
+conditionTotalInnings,
+oppositeTotalInnings,
 
     conditionComplete: true
   };
