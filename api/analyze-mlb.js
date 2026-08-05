@@ -3262,6 +3262,11 @@ combinedEnvironmentImpactPercent,
 
             awayPitcherName: mlbData.away?.pitcher?.name || "No disponible",
             homePitcherName: mlbData.home?.pitcher?.name || "No disponible",
+         awayPitcherStatsDebug:
+  mlbData.away?.pitcher?.stats || null,
+
+homePitcherStatsDebug:
+  mlbData.home?.pitcher?.stats || null,
 
             awayPitcherInnings,
             homePitcherInnings,
