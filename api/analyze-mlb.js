@@ -2266,60 +2266,267 @@ function getWeatherRunFactor(weather) {
 
   return clamp(score, 2.0, 7.5);
 }
-    function adjustPitcher(stats, sideStats = null) {
-      if (!stats) return null;
+   function adjustPitcher(stats) {
+  if (!stats) return null;
 
-      const recentRuns = safeNumber(stats.runsPerGame);
-      const sideRuns = safeNumber(sideStats?.runsPerGame);
-      const innings = safeNumber(stats.innings, 0);
+  const runsPerGame =
+    safeNumber(stats.runsPerGame);
 
-      if (recentRuns === null) return null;
+  const innings =
+    safeNumber(stats.innings, 0);
 
-      let score =
-        sideRuns !== null
-          ? recentRuns * 0.60 + sideRuns * 0.40
-          : recentRuns;
+  if (runsPerGame === null) {
+    return null;
+  }
 
-      const whip = safeNumber(stats.whip);
-      const homeRunsPerInning = safeNumber(stats.homeRunsPerInning);
-      const walksPerInning = safeNumber(stats.walksPerInning);
-     
-if (innings < 2) {
-  score *= 1.15;
-} else if (innings < 3) {
-  score *= 1.10;
-} else if (innings < 4) {
-  score *= 1.05;
-} else if (innings >= 6) {
-  score *= 0.96;
-}
+  let score = runsPerGame;
+
+  const whip =
+    safeNumber(stats.whip);
+
+  const homeRunsPerInning =
+    safeNumber(stats.homeRunsPerInning);
+
+  const walksPerInning =
+    safeNumber(stats.walksPerInning);
+
+  /*
+   * Conservamos exactamente los ajustes
+   * actuales por duración de la apertura.
+   */
+  if (innings < 2) {
+    score *= 1.15;
+  } else if (innings < 3) {
+    score *= 1.10;
+  } else if (innings < 4) {
+    score *= 1.05;
+  } else if (innings >= 6) {
+    score *= 0.96;
+  }
+
   let pitcherPenalty = 1;
 
-if (whip !== null) {
-  if (whip >= 1.65) pitcherPenalty += 0.06;
-  else if (whip >= 1.50) pitcherPenalty += 0.04;
-  else if (whip >= 1.35) pitcherPenalty += 0.02;
-
-  if (whip <= 1.00) pitcherPenalty -= 0.07;
-  else if (whip <= 1.10) pitcherPenalty -= 0.04;
-}
-
-if (homeRunsPerInning !== null) {
-  if (homeRunsPerInning >= 0.24) pitcherPenalty += 0.05;
-  else if (homeRunsPerInning >= 0.18) pitcherPenalty += 0.03;
-}
-
-if (walksPerInning !== null) {
-  if (walksPerInning >= 0.55) pitcherPenalty += 0.04;
-  else if (walksPerInning >= 0.45) pitcherPenalty += 0.02;
-}
-
-pitcherPenalty = clamp(pitcherPenalty, 0.88, 1.12);
-score *= pitcherPenalty;
-
-
-      return clamp(score, 1.0, 12.5);
+  if (whip !== null) {
+    if (whip >= 1.65) {
+      pitcherPenalty += 0.06;
+    } else if (whip >= 1.50) {
+      pitcherPenalty += 0.04;
+    } else if (whip >= 1.35) {
+      pitcherPenalty += 0.02;
     }
+
+    if (whip <= 1.00) {
+      pitcherPenalty -= 0.07;
+    } else if (whip <= 1.10) {
+      pitcherPenalty -= 0.04;
+    }
+  }
+
+  if (homeRunsPerInning !== null) {
+    if (homeRunsPerInning >= 0.24) {
+      pitcherPenalty += 0.05;
+    } else if (homeRunsPerInning >= 0.18) {
+      pitcherPenalty += 0.03;
+    }
+  }
+
+  if (walksPerInning !== null) {
+    if (walksPerInning >= 0.55) {
+      pitcherPenalty += 0.04;
+    } else if (walksPerInning >= 0.45) {
+      pitcherPenalty += 0.02;
+    }
+  }
+
+  pitcherPenalty =
+    clamp(pitcherPenalty, 0.88, 1.12);
+
+  score *= pitcherPenalty;
+
+  return clamp(score, 1.0, 12.5);
+}
+
+
+/*
+ * Construye la proyección casa/visitante
+ * sin duplicar aperturas.
+ */
+function getPitcherProjection(stats) {
+  if (!stats) {
+    return {
+      score: null,
+      innings: 0,
+      source: "missing"
+    };
+  }
+
+  const recentStats =
+    stats.recent || stats;
+
+  const recentScore =
+    adjustPitcher(recentStats);
+
+  const recentInnings =
+    safeNumber(recentStats?.innings, 0);
+
+  const fallback = {
+    score: recentScore,
+    innings: recentInnings,
+
+    source: "recent",
+
+    conditionScore: null,
+    oppositeScore: null,
+
+    conditionWeight: 0,
+    oppositeWeight: 0,
+
+    conditionComplete: false
+  };
+
+  /*
+   * Cuando no existen cinco aperturas en
+   * la condición de hoy, conservamos las
+   * últimas cinco generales.
+   */
+  if (
+    stats.conditionComplete !== true ||
+    !stats.condition
+  ) {
+    return fallback;
+  }
+
+  const conditionStats =
+    stats.condition;
+
+  const oppositeStats =
+    stats.opposite;
+
+  const conditionScore =
+    adjustPitcher(conditionStats);
+
+  const conditionTotalInnings =
+    safeNumber(
+      conditionStats.totalInnings,
+      0
+    );
+
+  const conditionAverageInnings =
+    safeNumber(
+      conditionStats.innings,
+      recentInnings
+    );
+
+  if (
+    conditionScore === null ||
+    conditionTotalInnings <= 0
+  ) {
+    return fallback;
+  }
+
+  /*
+   * Si las últimas cinco fueron todas en
+   * la condición de hoy, no existe grupo
+   * contrario que combinar.
+   */
+  if (!oppositeStats) {
+    return {
+      score: conditionScore,
+      innings: conditionAverageInnings,
+
+      source: "condition_only",
+
+      conditionScore,
+      oppositeScore: null,
+
+      conditionWeight: 1,
+      oppositeWeight: 0,
+
+      conditionComplete: true
+    };
+  }
+
+  const oppositeScore =
+    adjustPitcher(oppositeStats);
+
+  const oppositeTotalInnings =
+    safeNumber(
+      oppositeStats.totalInnings,
+      0
+    );
+
+  const oppositeAverageInnings =
+    safeNumber(
+      oppositeStats.innings,
+      recentInnings
+    );
+
+  if (
+    oppositeScore === null ||
+    oppositeTotalInnings <= 0
+  ) {
+    return {
+      score: conditionScore,
+      innings: conditionAverageInnings,
+
+      source: "condition_only",
+
+      conditionScore,
+      oppositeScore: null,
+
+      conditionWeight: 1,
+      oppositeWeight: 0,
+
+      conditionComplete: true
+    };
+  }
+
+  const totalSampleInnings =
+    conditionTotalInnings +
+    oppositeTotalInnings;
+
+  const conditionWeight =
+    conditionTotalInnings /
+    totalSampleInnings;
+
+  const oppositeWeight =
+    oppositeTotalInnings /
+    totalSampleInnings;
+
+  /*
+   * No usamos 60/40 ni otro porcentaje fijo.
+   * El peso sale de los innings reales.
+   */
+  const score =
+    conditionScore * conditionWeight +
+    oppositeScore * oppositeWeight;
+
+  const innings =
+    conditionAverageInnings *
+      conditionWeight +
+    oppositeAverageInnings *
+      oppositeWeight;
+
+  return {
+    score:
+      clamp(score, 1.0, 12.5),
+
+    innings,
+
+    source: "natural_innings_weight",
+
+    conditionScore,
+    oppositeScore,
+
+    conditionWeight,
+    oppositeWeight,
+
+    conditionTotalInnings,
+    oppositeTotalInnings,
+
+    conditionComplete: true
+  };
+}
 
     function getTeamTrendScore(batting) {
       if (!batting) return 50;
@@ -2433,11 +2640,27 @@ if (!totalLine || Number(totalLine) <= 0) {
     reason: "No valid total line"
   });
 }
-    const awayPitcherRaw = adjustPitcher(awayPitcherStats);
-    const homePitcherRaw = adjustPitcher(homePitcherStats);
+    const awayPitcherProjection =
+  getPitcherProjection(
+    awayPitcherStats
+  );
 
-    const awayPitcherInnings = safeNumber(awayPitcherStats?.innings, 0);
-    const homePitcherInnings = safeNumber(homePitcherStats?.innings, 0);
+const homePitcherProjection =
+  getPitcherProjection(
+    homePitcherStats
+  );
+
+const awayPitcherRaw =
+  awayPitcherProjection.score;
+
+const homePitcherRaw =
+  homePitcherProjection.score;
+
+const awayPitcherInnings =
+  awayPitcherProjection.innings;
+
+const homePitcherInnings =
+  homePitcherProjection.innings;
 
     const awayBullpenRaw = adjustBullpen(mlbData.away?.bullpen);
     const homeBullpenRaw = adjustBullpen(mlbData.home?.bullpen);
@@ -3267,7 +3490,11 @@ combinedEnvironmentImpactPercent,
 
 homePitcherStatsDebug:
   mlbData.home?.pitcher?.stats || null,
+awayPitcherProjectionDebug:
+  awayPitcherProjection,
 
+homePitcherProjectionDebug:
+  homePitcherProjection,
             awayPitcherInnings,
             homePitcherInnings,
 
