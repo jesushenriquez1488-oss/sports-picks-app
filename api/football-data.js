@@ -2428,7 +2428,7 @@ const allGames = enoughCurrentSeasonData
       ...previousSeasonAllGames
     ];
 // ===== GUARD: insufficient data =====
-    const MIN_GAMES_REQUIRED = 3;
+    const MIN_GAMES_REQUIRED = 2;
 
     if (teamAGames.length < MIN_GAMES_REQUIRED || teamBGames.length < MIN_GAMES_REQUIRED) {
       console.log("INSUFFICIENT DATA:", {
