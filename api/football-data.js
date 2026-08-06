@@ -111,11 +111,7 @@ function getDefaultSeason() {
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
 
-  // Antes de octubre todavía no hay suficiente
-  // muestra de la nueva temporada.
-  return month >= 10
-    ? year
-    : year - 1;
+  return month >= 8 ? year : year - 1;
 }
 // Cache en memoria para IDs de equipos resueltos dinámicamente
 const dynamicTeamCache = global.__FOOTBALL_TEAM_ID_CACHE__ || {};
@@ -440,6 +436,25 @@ function buildTeamGamesFromSeason(allGames, teamRef) {
       opponentGamesUsed: opponentAvg.gamesUsedForOpponent
     };
   });
+}
+function blendFootballSeasonGames(
+  currentSeasonGames = [],
+  previousSeasonGames = []
+) {
+  const current = currentSeasonGames.slice(0, MAX_GAMES_USED);
+
+  // Desde el cuarto juego usamos solamente la temporada actual.
+  if (current.length >= 4) {
+    return current;
+  }
+
+  const previousGamesNeeded =
+    MAX_GAMES_USED - current.length;
+
+  return [
+    ...current,
+    ...previousSeasonGames.slice(0, previousGamesNeeded)
+  ];
 }
 const fpiCache = global.__NCAAF_FPI_CACHE__ || {};
 global.__NCAAF_FPI_CACHE__ = fpiCache;
@@ -2302,10 +2317,71 @@ try {
    const teamARef = normalizeTeam(teamA);
     const teamBRef = normalizeTeam(teamB);
     
-    const allGames = await getSeasonGames(type, selectedSeason);
+ const previousSeason = selectedSeason - 1;
 
-    const teamAGames = buildTeamGamesFromSeason(allGames, teamARef);
-    const teamBGames = buildTeamGamesFromSeason(allGames, teamBRef);
+const [
+  currentSeasonAllGames,
+  previousSeasonAllGames
+] = await Promise.all([
+  getSeasonGames(type, selectedSeason),
+  getSeasonGames(type, previousSeason)
+]);
+
+const currentTeamAGames =
+  buildTeamGamesFromSeason(
+    currentSeasonAllGames,
+    teamARef
+  );
+
+const previousTeamAGames =
+  buildTeamGamesFromSeason(
+    previousSeasonAllGames,
+    teamARef
+  );
+
+const currentTeamBGames =
+  buildTeamGamesFromSeason(
+    currentSeasonAllGames,
+    teamBRef
+  );
+
+const previousTeamBGames =
+  buildTeamGamesFromSeason(
+    previousSeasonAllGames,
+    teamBRef
+  );
+
+const teamAGames =
+  blendFootballSeasonGames(
+    currentTeamAGames,
+    previousTeamAGames
+  );
+
+const teamBGames =
+  blendFootballSeasonGames(
+    currentTeamBGames,
+    previousTeamBGames
+  );
+
+/*
+  allGames también se usa después para:
+  - promedio general de la liga
+  - resolver IDs
+  - cálculos relacionados con FPI
+
+  Antes del cuarto partido combinamos ambas temporadas.
+  Desde el cuarto usamos solamente la actual.
+*/
+const enoughCurrentSeasonData =
+  currentTeamAGames.length >= 4 &&
+  currentTeamBGames.length >= 4;
+
+const allGames = enoughCurrentSeasonData
+  ? currentSeasonAllGames
+  : [
+      ...currentSeasonAllGames,
+      ...previousSeasonAllGames
+    ];
 // ===== GUARD: insufficient data =====
     const MIN_GAMES_REQUIRED = 3;
 
