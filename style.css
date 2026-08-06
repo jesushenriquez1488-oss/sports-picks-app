@@ -3141,41 +3141,7 @@ body.logged-in #ceLanding {
   width: 100%;
 }
 
-.player-stats-section {
-  margin-top: 16px;
-}
 
-.player-stats-open-btn {
-  display: flex !important;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100% !important;
-  padding: 14px 16px !important;
-  border: 1px solid rgba(0,255,231,.32) !important;
-  border-radius: 14px !important;
-  background:
-    linear-gradient(
-      135deg,
-      rgba(0,255,231,.09),
-      rgba(124,60,255,.12)
-    ),
-    #080d18 !important;
-  color: #fff !important;
-  box-shadow: none !important;
-  cursor: pointer;
-  text-align: left;
-  text-transform: none !important;
-  letter-spacing: 0 !important;
-  font-size: 14px !important;
-}
-
-.player-stats-open-btn span {
-  color: #7187a4;
-  font-size: 10px;
-  font-weight: 600;
-  text-align: right;
-}
 
 .ps-card {
   overflow: visible;
@@ -3845,14 +3811,7 @@ span:nth-child(3) {
 }
 
 @media (max-width: 700px) {
-  .player-stats-open-btn {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .player-stats-open-btn span {
-    text-align: left;
-  }
+ 
 
   .ps-sticky-bar {
     align-items: flex-start;
@@ -4027,5 +3986,252 @@ span:nth-child(3) {
   .ps-pitcher-game-row {
     padding-left: 8px;
     padding-right: 8px;
+  }
+}
+/* ===== PLAYER STATS LAUNCH BUTTON ===== */
+
+.player-stats-section {
+  margin-top: 14px;
+}
+
+.player-stats-open-btn {
+  position: relative;
+  display: grid !important;
+  grid-template-columns: 40px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 11px;
+
+  width: 100% !important;
+  min-height: 58px;
+  padding: 9px 12px !important;
+
+  overflow: hidden;
+
+  border:
+    1px solid rgba(0, 255, 231, .28) !important;
+
+  border-radius: 13px !important;
+
+  background:
+    linear-gradient(
+      110deg,
+      rgba(0, 255, 231, .075),
+      rgba(17, 25, 43, .96) 45%,
+      rgba(124, 60, 255, .09)
+    ) !important;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .035),
+    0 8px 22px rgba(0, 0, 0, .22) !important;
+
+  color: #fff !important;
+
+  cursor: pointer;
+
+  text-align: left;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+
+  transition:
+    border-color .2s ease,
+    background .2s ease,
+    transform .2s ease,
+    box-shadow .2s ease;
+}
+
+.player-stats-open-btn::before {
+  content: "";
+
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  width: 3px;
+  height: 100%;
+
+  background:
+    linear-gradient(
+      180deg,
+      #00ffe7,
+      #7c3cff
+    );
+
+  box-shadow:
+    0 0 12px rgba(0, 255, 231, .45);
+}
+
+.player-stats-open-btn:hover {
+  transform:
+    translateY(-1px) !important;
+
+  border-color:
+    rgba(0, 255, 231, .55) !important;
+
+  background:
+    linear-gradient(
+      110deg,
+      rgba(0, 255, 231, .12),
+      rgba(17, 25, 43, .98) 45%,
+      rgba(124, 60, 255, .14)
+    ) !important;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .05),
+    0 10px 26px rgba(0, 0, 0, .28),
+    0 0 20px rgba(0, 255, 231, .07) !important;
+}
+
+.player-stats-open-btn:active {
+  transform:
+    scale(.985) !important;
+}
+
+.player-stats-icon {
+  display: grid;
+  place-items: center;
+
+  width: 38px;
+  height: 38px;
+
+  border:
+    1px solid rgba(0, 255, 231, .25);
+
+  border-radius: 10px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(0, 255, 231, .11),
+      rgba(124, 60, 255, .13)
+    );
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .04);
+
+  font-size: 16px;
+}
+
+.player-stats-copy {
+  display: block;
+  min-width: 0;
+}
+
+.player-stats-copy strong {
+  display: block;
+
+  color: #f5f9ff;
+
+  font-size: 11px;
+  font-weight: 900;
+
+  letter-spacing: .12em;
+
+  line-height: 1.2;
+}
+
+.player-stats-copy small {
+  display: block;
+
+  overflow: hidden;
+
+  margin-top: 4px;
+
+  color: #7086a2;
+
+  font-size: 9px;
+  font-weight: 600;
+
+  line-height: 1.2;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-stats-arrow {
+  display: grid;
+  place-items: center;
+
+  width: 24px;
+  height: 24px;
+
+  border:
+    1px solid rgba(124, 60, 255, .28);
+
+  border-radius: 8px;
+
+  background:
+    rgba(124, 60, 255, .08);
+
+  color: #aa8cff;
+
+  font-family: Arial, sans-serif;
+  font-size: 21px;
+  font-weight: 400;
+
+  line-height: 1;
+
+  transition:
+    transform .2s ease,
+    color .2s ease,
+    border-color .2s ease;
+}
+
+.player-stats-open-btn:hover
+.player-stats-arrow {
+  transform:
+    translateX(2px);
+
+  border-color:
+    rgba(0, 255, 231, .35);
+
+  color: #00ffe7;
+}
+
+@media (max-width: 700px) {
+  .player-stats-open-btn {
+    grid-template-columns:
+      38px minmax(0, 1fr) 22px;
+
+    min-height: 56px;
+
+    padding:
+      8px 10px !important;
+  }
+
+  .player-stats-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .player-stats-copy strong {
+    font-size: 10px;
+  }
+
+  .player-stats-copy small {
+    font-size: 8px;
+  }
+}
+@media (max-width: 700px) {
+  .player-stats-open-btn {
+    grid-template-columns:
+      38px minmax(0, 1fr) 22px;
+
+    min-height: 56px;
+
+    padding:
+      8px 10px !important;
+  }
+
+  .player-stats-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .player-stats-copy strong {
+    font-size: 10px;
+  }
+
+  .player-stats-copy small {
+    font-size: 8px;
   }
 }
