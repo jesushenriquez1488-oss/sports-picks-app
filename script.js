@@ -2358,22 +2358,32 @@ ${
   eventId
     ? `
       <div class="player-stats-section">
-        <button
-          type="button"
-          class="player-stats-open-btn"
-          onclick="openMLBPlayerStats(
-            ${index},
-            '${escapeText(eventId || "")}',
-            '${escapeText(awayTeam)}',
-            '${escapeText(homeTeam)}'
-          )"
-        >
-          <strong>📊 PLAYER STATS</strong>
+       <button
+  type="button"
+  class="player-stats-open-btn"
+  onclick="openMLBPlayerStats(
+    ${index},
+    '${escapeText(eventId || "")}',
+    '${escapeText(awayTeam)}',
+    '${escapeText(homeTeam)}'
+  )"
+>
+  <span class="player-stats-icon">
+    📊
+  </span>
 
-          <span>
-            Hot batters · All players · Starting pitchers
-          </span>
-        </button>
+  <span class="player-stats-copy">
+    <strong>PLAYER STATS</strong>
+
+    <small>
+      Hot batters · Rosters · Starters
+    </small>
+  </span>
+
+  <span class="player-stats-arrow">
+    ›
+  </span>
+</button>
       </div>
     `
     : ""
