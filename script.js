@@ -5667,24 +5667,134 @@ function renderMLBStartingPitchers(
     windowKey;
 
   const pitchers =
-    state
-      .data
-      .startingPitchers ||
-    [];
+    state.data.startingPitchers || [];
+
+  const pitcherWindowLabels = {
+    last5: "Last 5 Starts",
+    last10: "Last 10 Starts",
+    last15: "Last 15 Starts",
+    season: "Season"
+  };
+
+  function formatPitcherGameDate(
+    value
+  ) {
+    if (!value) return "—";
+
+    const date = new Date(value);
+
+    if (
+      Number.isNaN(
+        date.getTime()
+      )
+    ) {
+      return "—";
+    }
+
+    return date.toLocaleDateString(
+      "en-US",
+      {
+        month: "short",
+        day: "numeric"
+      }
+    );
+  }
 
   const cards =
     pitchers.length
       ? pitchers
           .map(pitcher => {
             const windowData =
-              pitcher
-                .windows
+              pitcher.windows
                 ?.[windowKey];
 
             const averages =
-              windowData
-                ?.averages ||
-              {};
+              windowData?.averages || {};
+
+            const starts =
+              Number(
+                windowData?.games || 0
+              );
+
+            const gameRows =
+              (
+                windowData?.results ||
+                []
+              )
+                .map(game => `
+                  <div class="ps-pitcher-game-row">
+
+                    <div class="ps-pitcher-game-info">
+                      <strong>
+                        ${formatPitcherGameDate(
+                          game.date
+                        )}
+                      </strong>
+
+                      <small>
+                        ${
+                          game.opponent
+                            ? `vs ${sanitize(
+                                game.opponent
+                              )}`
+                            : "Opponent unavailable"
+                        }
+                      </small>
+                    </div>
+
+                    <div>
+                      <small>K</small>
+                      <strong>
+                        ${Number(
+                          game.strikeOuts ||
+                          0
+                        )}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <small>IP</small>
+                      <strong>
+                        ${Number(
+                          game.innings ||
+                          0
+                        ).toFixed(1)}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <small>H</small>
+                      <strong>
+                        ${Number(
+                          game.hitsAllowed ||
+                          0
+                        )}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <small>ER</small>
+                      <strong>
+                        ${Number(
+                          game.earnedRuns ||
+                          0
+                        )}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <small>BB</small>
+                      <strong>
+                        ${Number(
+                          game.walks ||
+                          0
+                        )}
+                      </strong>
+                    </div>
+
+                  </div>
+                `)
+                .join("");
 
             return `
               <div class="ps-pitcher-card">
@@ -5693,6 +5803,7 @@ function renderMLBStartingPitchers(
 
                   <div>
                     <small>
+                      STARTING PITCHER ·
                       ${sanitize(
                         pitcher.team
                       )}
@@ -5713,11 +5824,21 @@ function renderMLBStartingPitchers(
 
                 </div>
 
+                <div class="ps-pitcher-average-label">
+                  AVERAGES PER START ·
+                  ${
+                    pitcherWindowLabels[
+                      windowKey
+                    ] ||
+                    "Last 5 Starts"
+                  }
+                </div>
+
                 <div class="ps-pitcher-grid">
 
                   <div>
                     <small>
-                      Strikeouts
+                      AVG K / START
                     </small>
 
                     <strong>
@@ -5731,20 +5852,7 @@ function renderMLBStartingPitchers(
 
                   <div>
                     <small>
-                      Outs
-                    </small>
-
-                    <strong>
-                      ${Number(
-                        averages.outs ||
-                        0
-                      ).toFixed(1)}
-                    </strong>
-                  </div>
-
-                  <div>
-                    <small>
-                      Innings
+                      AVG IP / START
                     </small>
 
                     <strong>
@@ -5757,7 +5865,7 @@ function renderMLBStartingPitchers(
 
                   <div>
                     <small>
-                      Hits allowed
+                      AVG H ALLOWED
                     </small>
 
                     <strong>
@@ -5771,7 +5879,7 @@ function renderMLBStartingPitchers(
 
                   <div>
                     <small>
-                      Earned runs
+                      AVG ER / START
                     </small>
 
                     <strong>
@@ -5785,7 +5893,7 @@ function renderMLBStartingPitchers(
 
                   <div>
                     <small>
-                      Walks
+                      AVG BB / START
                     </small>
 
                     <strong>
@@ -5796,15 +5904,56 @@ function renderMLBStartingPitchers(
                     </strong>
                   </div>
 
+                  <div>
+                    <small>
+                      AVG PITCHES
+                    </small>
+
+                    <strong>
+                      ${Number(
+                        averages.pitches ||
+                        0
+                      ).toFixed(0)}
+                    </strong>
+                  </div>
+
                 </div>
 
-                <div class="ps-pitcher-games">
-                  ${Number(
-                    windowData
-                      ?.games ||
-                    0
-                  )}
-                  starts included
+                <div class="ps-pitcher-sample">
+                  Based on ${starts}
+                  ${
+                    starts === 1
+                      ? "start"
+                      : "starts"
+                  }
+                </div>
+
+                <div class="ps-pitcher-history-title">
+                  GAME-BY-GAME RESULTS
+                </div>
+
+                <div class="ps-pitcher-history">
+
+                  <div class="ps-pitcher-game-header">
+
+                    <span>Game</span>
+                    <span>K</span>
+                    <span>IP</span>
+                    <span>H</span>
+                    <span>ER</span>
+                    <span>BB</span>
+
+                  </div>
+
+                  ${
+                    gameRows ||
+                    `
+                      <div class="ps-no-data">
+                        No previous starts available.
+                      </div>
+                    `
+                  }
+
                 </div>
 
               </div>
@@ -5823,13 +5972,12 @@ function renderMLBStartingPitchers(
       id="psPitcherWindows${index}"
     >
 
-      ${
-        [
-          "last5",
-          "last10",
-          "last15",
-          "season"
-        ]
+      ${[
+        "last5",
+        "last10",
+        "last15",
+        "season"
+      ]
         .map(key => `
           <button
             type="button"
@@ -5839,14 +5987,17 @@ function renderMLBStartingPitchers(
               '${key}'
             )"
           >
-            ${playerStatsWindowLabel(
-              key
-            )}
+            ${
+              pitcherWindowLabels[key]
+            }
           </button>
         `)
-        .join("")
-      }
+        .join("")}
 
+    </div>
+
+    <div class="ps-pitcher-explanation">
+      All figures shown below are averages per start. The table shows the result of each individual appearance.
     </div>
 
     <div class="ps-pitcher-cards">
@@ -5858,7 +6009,6 @@ function renderMLBStartingPitchers(
     document.getElementById(
       `psPitcherWindows${index}`
     ),
-
     windowKey
   );
 }
