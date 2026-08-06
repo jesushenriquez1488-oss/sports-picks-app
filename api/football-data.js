@@ -110,7 +110,12 @@ function getDefaultSeason() {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
-  return month >= 8 ? year : year - 1;
+
+  // Antes de octubre todavía no hay suficiente
+  // muestra de la nueva temporada.
+  return month >= 10
+    ? year
+    : year - 1;
 }
 // Cache en memoria para IDs de equipos resueltos dinámicamente
 const dynamicTeamCache = global.__FOOTBALL_TEAM_ID_CACHE__ || {};
