@@ -6,6 +6,7 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY 
 );
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
+const MLB_SEASON = new Date().getFullYear();
 function getDayStart() {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
@@ -81,8 +82,8 @@ async function searchMLBPlayerByName(playerName) {
 async function getPlayerGameLog(playerId) {
   if (!playerId) return [];
 
-  const url = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&season=2026`;
-
+ const url =
+  `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=gameLog&season=${MLB_SEASON}`;
   const response = await fetch(url);
   const data = await response.json();
 
@@ -91,7 +92,8 @@ async function getPlayerGameLog(playerId) {
 async function getPlayerSeasonStats(playerId) {
   if (!playerId) return null;
 
-  const url = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&season=2026`;
+ const url =
+  `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&season=${MLB_SEASON}`;
 
   const response = await fetch(url);
   const data = await response.json();
@@ -105,7 +107,8 @@ async function getPlayerSeasonStats(playerId) {
 async function getPlayerHandSplits(playerId) {
   if (!playerId) return [];
 
-  const url = `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=statSplits&group=hitting&season=2026&sitCodes=vl,vr`;
+ const url =
+  `https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=statSplits&group=hitting&season=${MLB_SEASON}&sitCodes=vl,vr`;
 
   const response = await fetch(url);
   const data = await response.json();
@@ -993,7 +996,7 @@ console.log("SCHEDULE GAMES:", games.map(g => ({
 console.log("TARGET:", { targetAway, targetHome });
 
 if (!match) return null;
-  if (!match) return null;
+
 const boxscoreUrl =
   `https://statsapi.mlb.com/api/v1/game/${match.gamePk}/boxscore`;
 
@@ -1002,30 +1005,1311 @@ const boxscoreData = await boxscoreResponse.json();
 
 const awayPlayerIds = new Set(
   Object.values(boxscoreData?.teams?.away?.players || {})
-    .map(p => p?.person?.id)
+    .map(player => player?.person?.id)
     .filter(Boolean)
 );
 
 const homePlayerIds = new Set(
   Object.values(boxscoreData?.teams?.home?.players || {})
-    .map(p => p?.person?.id)
+    .map(player => player?.person?.id)
     .filter(Boolean)
 );
- return {
+
+function createTeamCode(teamName = "") {
+  const words = String(teamName)
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (!words.length) return "MLB";
+
+  if (words.length === 1) {
+    return words[0].slice(0, 3).toUpperCase();
+  }
+
+  return words
+    .map(word => word[0])
+    .join("")
+    .slice(0, 3)
+    .toUpperCase();
+}
+
+const awayTeamName =
+  match.teams?.away?.team?.name ||
+  event.away_team;
+
+const homeTeamName =
+  match.teams?.home?.team?.name ||
+  event.home_team;
+
+const awayTeamCode =
+  boxscoreData?.teams?.away?.team?.abbreviation ||
+  createTeamCode(awayTeamName);
+
+const homeTeamCode =
+  boxscoreData?.teams?.home?.team?.abbreviation ||
+  createTeamCode(homeTeamName);
+
+function mapTeamPlayers(side, teamName, teamCode) {
+  const teamBoxscore =
+    boxscoreData?.teams?.[side] || {};
+
+  return Object.values(teamBoxscore.players || {})
+    .map(entry => {
+      const position =
+        entry?.position?.abbreviation ||
+        entry?.person?.primaryPosition?.abbreviation ||
+        null;
+
+      return {
+        id: entry?.person?.id || null,
+        fullName:
+          entry?.person?.fullName || null,
+        position,
+        battingOrder:
+          entry?.battingOrder || null,
+        team: teamName,
+        teamCode
+      };
+    })
+    .filter(player =>
+      player.id &&
+      player.fullName
+    );
+}
+
+return {
   gamePk: match.gamePk,
-  venue: match.venue || null,
 
-  awayTeam: match.teams?.away?.team?.name || event.away_team,
-  homeTeam: match.teams?.home?.team?.name || event.home_team,
+  venue:
+    match.venue || null,
+
+  awayTeam:
+    awayTeamName,
+
+  homeTeam:
+    homeTeamName,
+
+  awayTeamCode,
+  homeTeamCode,
+
   awayPlayerIds,
-homePlayerIds,
+  homePlayerIds,
 
-  awayTeamId: match.teams?.away?.team?.id || null,
-  homeTeamId: match.teams?.home?.team?.id || null,
+  awayPlayers:
+    mapTeamPlayers(
+      "away",
+      awayTeamName,
+      awayTeamCode
+    ),
 
-  awayPitcher: match.teams?.away?.probablePitcher || null,
-  homePitcher: match.teams?.home?.probablePitcher || null
+  homePlayers:
+    mapTeamPlayers(
+      "home",
+      homeTeamName,
+      homeTeamCode
+    ),
+
+  awayTeamId:
+    match.teams?.away?.team?.id || null,
+
+  homeTeamId:
+    match.teams?.home?.team?.id || null,
+
+  awayPitcher:
+    match.teams?.away?.probablePitcher || null,
+
+  homePitcher:
+    match.teams?.home?.probablePitcher || null
 };
+}
+function playerStatsNumber(value, fallback = 0) {
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : fallback;
+}
+
+function sortPlayerGameLogs(gameLogs = []) {
+  return [...gameLogs].sort((a, b) => {
+    const dateA = new Date(
+      a?.date ||
+      a?.gameDate ||
+      0
+    ).getTime();
+
+    const dateB = new Date(
+      b?.date ||
+      b?.gameDate ||
+      0
+    ).getTime();
+
+    return dateB - dateA;
+  });
+}
+
+function createPlayerHitRate(successes, games) {
+  return {
+    hits: successes,
+
+    games,
+
+    percentage:
+      games > 0
+        ? Number(
+            (
+              (successes / games) *
+              100
+            ).toFixed(1)
+          )
+        : 0
+  };
+}
+
+function buildBatterStatsWindow(
+  gameLogs = [],
+  limit = null
+) {
+  const sortedLogs =
+    sortPlayerGameLogs(gameLogs);
+
+  const selectedLogs =
+    limit
+      ? sortedLogs.slice(0, limit)
+      : sortedLogs;
+
+  const games = selectedLogs.length;
+
+  const totals = {
+    hits: 0,
+    totalBases: 0,
+    homeRuns: 0,
+    rbi: 0,
+    runs: 0,
+    strikeOuts: 0,
+    atBats: 0,
+    plateAppearances: 0
+  };
+
+  const successes = {
+    hits: 0,
+    totalBases: 0,
+    homeRuns: 0,
+    rbi: 0,
+    runs: 0
+  };
+
+  const results = [];
+
+  selectedLogs.forEach(gameLog => {
+    const stat = gameLog?.stat || {};
+
+    const hits =
+      playerStatsNumber(stat.hits);
+
+    const totalBases =
+      playerStatsNumber(stat.totalBases);
+
+    const homeRuns =
+      playerStatsNumber(stat.homeRuns);
+
+    const rbi =
+      playerStatsNumber(stat.rbi);
+
+    const runs =
+      playerStatsNumber(stat.runs);
+
+    const strikeOuts =
+      playerStatsNumber(stat.strikeOuts);
+
+    const atBats =
+      playerStatsNumber(stat.atBats);
+
+    const plateAppearances =
+      playerStatsNumber(
+        stat.plateAppearances
+      );
+
+    totals.hits += hits;
+    totals.totalBases += totalBases;
+    totals.homeRuns += homeRuns;
+    totals.rbi += rbi;
+    totals.runs += runs;
+    totals.strikeOuts += strikeOuts;
+    totals.atBats += atBats;
+    totals.plateAppearances +=
+      plateAppearances;
+
+    /*
+     * Líneas que mostraremos inicialmente:
+     *
+     * Hits: 1 o más
+     * Total bases: 2 o más
+     * Home run: 1 o más
+     * RBI: 1 o más
+     * Run: 1 o más
+     */
+
+    if (hits >= 1) {
+      successes.hits += 1;
+    }
+
+    if (totalBases >= 2) {
+      successes.totalBases += 1;
+    }
+
+    if (homeRuns >= 1) {
+      successes.homeRuns += 1;
+    }
+
+    if (rbi >= 1) {
+      successes.rbi += 1;
+    }
+
+    if (runs >= 1) {
+      successes.runs += 1;
+    }
+
+    if (results.length < 15) {
+      results.push({
+        date:
+          gameLog?.date ||
+          gameLog?.gameDate ||
+          null,
+
+        opponent:
+          gameLog?.opponent?.name ||
+          null,
+
+        hits,
+        totalBases,
+        homeRuns,
+        rbi,
+        runs,
+        strikeOuts,
+        atBats,
+        plateAppearances
+      });
+    }
+  });
+
+  const divisor =
+    Math.max(games, 1);
+
+  return {
+    games,
+
+    averages: {
+      hits: Number(
+        (
+          totals.hits / divisor
+        ).toFixed(2)
+      ),
+
+      totalBases: Number(
+        (
+          totals.totalBases /
+          divisor
+        ).toFixed(2)
+      ),
+
+      homeRuns: Number(
+        (
+          totals.homeRuns /
+          divisor
+        ).toFixed(2)
+      ),
+
+      rbi: Number(
+        (
+          totals.rbi / divisor
+        ).toFixed(2)
+      ),
+
+      runs: Number(
+        (
+          totals.runs / divisor
+        ).toFixed(2)
+      ),
+
+      strikeOuts: Number(
+        (
+          totals.strikeOuts /
+          divisor
+        ).toFixed(2)
+      ),
+
+      atBats: Number(
+        (
+          totals.atBats / divisor
+        ).toFixed(2)
+      ),
+
+      plateAppearances: Number(
+        (
+          totals.plateAppearances /
+          divisor
+        ).toFixed(2)
+      )
+    },
+
+    hitRates: {
+      hits: createPlayerHitRate(
+        successes.hits,
+        games
+      ),
+
+      totalBases: createPlayerHitRate(
+        successes.totalBases,
+        games
+      ),
+
+      homeRuns: createPlayerHitRate(
+        successes.homeRuns,
+        games
+      ),
+
+      rbi: createPlayerHitRate(
+        successes.rbi,
+        games
+      ),
+
+      runs: createPlayerHitRate(
+        successes.runs,
+        games
+      )
+    },
+
+    results
+  };
+}
+
+function buildBatterStatsProfile(
+  player,
+  gameLogs
+) {
+  return {
+    id: Number(player.id),
+
+    name: player.fullName,
+
+    team: player.team,
+
+    teamCode: player.teamCode,
+
+    position:
+      player.position || null,
+
+    battingOrder:
+      player.battingOrder || null,
+
+    windows: {
+      last5:
+        buildBatterStatsWindow(
+          gameLogs,
+          5
+        ),
+
+      last10:
+        buildBatterStatsWindow(
+          gameLogs,
+          10
+        ),
+
+      last15:
+        buildBatterStatsWindow(
+          gameLogs,
+          15
+        ),
+
+      season:
+        buildBatterStatsWindow(
+          gameLogs,
+          null
+        )
+    }
+  };
+}
+function playerStatsInningsToOuts(
+  inningsPitched
+) {
+  if (
+    inningsPitched === null ||
+    inningsPitched === undefined ||
+    inningsPitched === ""
+  ) {
+    return 0;
+  }
+
+  const parts =
+    String(inningsPitched).split(".");
+
+  const completeInnings =
+    playerStatsNumber(parts[0]);
+
+  const partialInning =
+    parts[1] === "1"
+      ? 1
+      : parts[1] === "2"
+        ? 2
+        : 0;
+
+  return (
+    completeInnings * 3 +
+    partialInning
+  );
+}
+
+function buildPitcherStatsWindow(
+  gameLogs = [],
+  limit = null
+) {
+ const sortedLogs =
+  sortPlayerGameLogs(gameLogs)
+    .filter(gameLog => {
+      const gamesStarted =
+        playerStatsNumber(
+          gameLog?.stat?.gamesStarted
+        );
+
+      return gamesStarted > 0;
+    });
+  const selectedLogs =
+    limit
+      ? sortedLogs.slice(0, limit)
+      : sortedLogs;
+
+  const games = selectedLogs.length;
+
+  const totals = {
+    strikeOuts: 0,
+    outs: 0,
+    hitsAllowed: 0,
+    walks: 0,
+    earnedRuns: 0,
+    homeRunsAllowed: 0,
+    pitches: 0
+  };
+
+  const results = [];
+
+  selectedLogs.forEach(gameLog => {
+    const stat =
+      gameLog?.stat || {};
+
+    const strikeOuts =
+      playerStatsNumber(
+        stat.strikeOuts
+      );
+
+    const outs =
+      stat.outs !== undefined &&
+      stat.outs !== null
+        ? playerStatsNumber(
+            stat.outs
+          )
+        : playerStatsInningsToOuts(
+            stat.inningsPitched
+          );
+
+    const hitsAllowed =
+      playerStatsNumber(
+        stat.hits
+      );
+
+    const walks =
+      playerStatsNumber(
+        stat.baseOnBalls
+      );
+
+    const earnedRuns =
+      playerStatsNumber(
+        stat.earnedRuns
+      );
+
+    const homeRunsAllowed =
+      playerStatsNumber(
+        stat.homeRuns
+      );
+
+    const pitches =
+      playerStatsNumber(
+        stat.numberOfPitches
+      );
+
+    totals.strikeOuts +=
+      strikeOuts;
+
+    totals.outs +=
+      outs;
+
+    totals.hitsAllowed +=
+      hitsAllowed;
+
+    totals.walks +=
+      walks;
+
+    totals.earnedRuns +=
+      earnedRuns;
+
+    totals.homeRunsAllowed +=
+      homeRunsAllowed;
+
+    totals.pitches +=
+      pitches;
+
+    if (results.length < 15) {
+      results.push({
+        date:
+          gameLog?.date ||
+          gameLog?.gameDate ||
+          null,
+
+        opponent:
+          gameLog?.opponent?.name ||
+          null,
+
+        strikeOuts,
+
+        outs,
+
+        innings: Number(
+          (outs / 3).toFixed(1)
+        ),
+
+        hitsAllowed,
+
+        walks,
+
+        earnedRuns,
+
+        homeRunsAllowed,
+
+        pitches
+      });
+    }
+  });
+
+  const divisor =
+    Math.max(games, 1);
+
+  return {
+    games,
+
+    averages: {
+      strikeOuts: Number(
+        (
+          totals.strikeOuts /
+          divisor
+        ).toFixed(2)
+      ),
+
+      outs: Number(
+        (
+          totals.outs /
+          divisor
+        ).toFixed(2)
+      ),
+
+      innings: Number(
+        (
+          totals.outs /
+          divisor /
+          3
+        ).toFixed(2)
+      ),
+
+      hitsAllowed: Number(
+        (
+          totals.hitsAllowed /
+          divisor
+        ).toFixed(2)
+      ),
+
+      walks: Number(
+        (
+          totals.walks /
+          divisor
+        ).toFixed(2)
+      ),
+
+      earnedRuns: Number(
+        (
+          totals.earnedRuns /
+          divisor
+        ).toFixed(2)
+      ),
+
+      homeRunsAllowed: Number(
+        (
+          totals.homeRunsAllowed /
+          divisor
+        ).toFixed(2)
+      ),
+
+      pitches: Number(
+        (
+          totals.pitches /
+          divisor
+        ).toFixed(2)
+      )
+    },
+
+    results
+  };
+}
+
+function buildPitcherStatsProfile(
+  pitcher,
+  team,
+  teamCode,
+  gameLogs
+) {
+  if (
+    !pitcher?.id ||
+    !pitcher?.fullName
+  ) {
+    return null;
+  }
+
+  return {
+    id: Number(pitcher.id),
+
+    name: pitcher.fullName,
+
+    team,
+
+    teamCode,
+
+    windows: {
+      last5:
+        buildPitcherStatsWindow(
+          gameLogs,
+          5
+        ),
+
+      last10:
+        buildPitcherStatsWindow(
+          gameLogs,
+          10
+        ),
+
+      last15:
+        buildPitcherStatsWindow(
+          gameLogs,
+          15
+        ),
+
+      season:
+        buildPitcherStatsWindow(
+          gameLogs,
+          null
+        )
+    }
+  };
+}
+function playerStatsChicagoDateKey(value) {
+  const date = value
+    ? new Date(value)
+    : new Date();
+
+  if (Number.isNaN(date.getTime())) {
+    return new Date()
+      .toISOString()
+      .split("T")[0];
+  }
+
+  return new Intl.DateTimeFormat(
+    "en-CA",
+    {
+      timeZone: "America/Chicago",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }
+  ).format(date);
+}
+
+function playerStatsUniquePlayers(
+  players = []
+) {
+  const usedIds = new Set();
+
+  return players.filter(player => {
+    const playerId =
+      Number(player?.id || 0);
+
+    if (
+      !playerId ||
+      !player?.fullName ||
+      usedIds.has(playerId)
+    ) {
+      return false;
+    }
+
+    usedIds.add(playerId);
+
+    return true;
+  });
+}
+
+function playerStatsIsBatter(player) {
+  const position =
+    String(
+      player?.position || ""
+    ).toUpperCase();
+
+  /*
+   * Excluimos pitchers de la lista
+   * de bateadores.
+   *
+   * Los abridores aparecerán en su
+   * propia sección.
+   */
+
+  return position !== "P";
+}
+
+async function getPlayerStatsActiveRoster(
+  teamId,
+  teamName,
+  teamCode
+) {
+  if (!teamId) return [];
+
+  try {
+    const season =
+      new Date().getFullYear();
+
+    const response = await fetch(
+      `https://statsapi.mlb.com/api/v1/teams/${teamId}/roster?rosterType=active&season=${season}`
+    );
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data =
+      await response.json();
+
+    return (data?.roster || [])
+      .map(entry => ({
+        id:
+          entry?.person?.id ||
+          null,
+
+        fullName:
+          entry?.person?.fullName ||
+          null,
+
+        position:
+          entry?.position
+            ?.abbreviation ||
+          null,
+
+        battingOrder:
+          null,
+
+        team:
+          teamName,
+
+        teamCode
+      }))
+      .filter(player =>
+        player.id &&
+        player.fullName
+      );
+
+  } catch (error) {
+    console.warn(
+      "PLAYER STATS ROSTER ERROR:",
+      teamId,
+      error.message
+    );
+
+    return [];
+  }
+}
+
+async function playerStatsMapWithConcurrency(
+  items,
+  limit,
+  mapper
+) {
+  if (!items?.length) {
+    return [];
+  }
+
+  const output =
+    new Array(items.length);
+
+  let currentIndex = 0;
+
+  async function worker() {
+    while (
+      currentIndex <
+      items.length
+    ) {
+      const itemIndex =
+        currentIndex;
+
+      currentIndex += 1;
+
+      try {
+        output[itemIndex] =
+          await mapper(
+            items[itemIndex],
+            itemIndex
+          );
+
+      } catch (error) {
+        console.warn(
+          "PLAYER STATS ITEM ERROR:",
+          error.message
+        );
+
+        output[itemIndex] =
+          null;
+      }
+    }
+  }
+
+  const workerCount =
+    Math.min(
+      Math.max(
+        Number(limit) || 1,
+        1
+      ),
+      items.length
+    );
+
+  await Promise.all(
+    Array.from(
+      {
+        length: workerCount
+      },
+      () => worker()
+    )
+  );
+
+  return output;
+}
+async function handlePlayerStats(req, res) {
+  const ODDS_API_KEY =
+    process.env.ODDS_API_KEY;
+
+  const selectedEventId =
+    req.query.eventId ||
+    req.body?.eventId ||
+    null;
+
+  if (!selectedEventId) {
+    return res.status(400).json({
+      ok: false,
+      mode: "player-stats",
+      error: "eventId is required"
+    });
+  }
+
+  if (!ODDS_API_KEY) {
+    return res.status(500).json({
+      ok: false,
+      mode: "player-stats",
+      error: "ODDS_API_KEY is not configured"
+    });
+  }
+
+  const eventsResponse =
+    await fetch(
+      `https://api.the-odds-api.com/v4/sports/baseball_mlb/events?apiKey=${ODDS_API_KEY}`
+    );
+
+  if (!eventsResponse.ok) {
+    return res.status(502).json({
+      ok: false,
+      mode: "player-stats",
+      error: "Unable to load MLB events"
+    });
+  }
+
+  const events =
+    await eventsResponse.json();
+
+  const selectedEvent =
+    Array.isArray(events)
+      ? events.find(
+          event =>
+            event.id === selectedEventId
+        )
+      : null;
+
+  if (!selectedEvent) {
+    return res.status(404).json({
+      ok: false,
+      mode: "player-stats",
+      error: "MLB event not found"
+    });
+  }
+
+  const gameDate =
+    playerStatsChicagoDateKey(
+      selectedEvent.commence_time
+    );
+
+  const forceRefresh =
+    req.query.force === "true" ||
+    req.body?.force === true;
+
+  /*
+   * Primero intentamos devolver la
+   * información guardada ese día.
+   */
+
+  if (!forceRefresh) {
+    try {
+      const {
+        data: cached,
+        error: cacheError
+      } = await supabaseAdmin
+        .from("player_stats_cache")
+        .select("stats_json")
+        .eq("sport", "mlb")
+        .eq(
+          "event_id",
+          selectedEvent.id
+        )
+        .eq(
+          "game_date",
+          gameDate
+        )
+        .maybeSingle();
+
+      if (
+        !cacheError &&
+        cached?.stats_json
+      ) {
+        return res
+          .status(200)
+          .json({
+            ...cached.stats_json,
+            cached: true
+          });
+      }
+
+    } catch (error) {
+      console.warn(
+        "PLAYER STATS CACHE READ ERROR:",
+        error.message
+      );
+    }
+  }
+
+  const gameContext =
+    await getMLBGameContextFromStatsAPI(
+      selectedEvent
+    );
+
+  if (!gameContext) {
+    return res.status(200).json({
+      ok: true,
+      mode: "player-stats",
+      noPlay: true,
+      reason:
+        "MLB game information is not available yet"
+    });
+  }
+
+  /*
+   * Traemos siempre el roster activo.
+   *
+   * Después lo combinamos con los
+   * jugadores encontrados en el
+   * boxscore para conservar el orden
+   * al bate cuando esté disponible.
+   */
+
+  const [
+    awayActiveRoster,
+    homeActiveRoster
+  ] = await Promise.all([
+    getPlayerStatsActiveRoster(
+      gameContext.awayTeamId,
+      gameContext.awayTeam,
+      gameContext.awayTeamCode
+    ),
+
+    getPlayerStatsActiveRoster(
+      gameContext.homeTeamId,
+      gameContext.homeTeam,
+      gameContext.homeTeamCode
+    )
+  ]);
+
+  const awayPlayers =
+    playerStatsUniquePlayers([
+      ...(gameContext.awayPlayers || [])
+        .filter(
+          playerStatsIsBatter
+        ),
+
+      ...(awayActiveRoster || [])
+        .filter(
+          playerStatsIsBatter
+        )
+    ]);
+
+  const homePlayers =
+    playerStatsUniquePlayers([
+      ...(gameContext.homePlayers || [])
+        .filter(
+          playerStatsIsBatter
+        ),
+
+      ...(homeActiveRoster || [])
+        .filter(
+          playerStatsIsBatter
+        )
+    ]);
+
+  const allBatters = [
+    ...awayPlayers.map(player => ({
+      ...player,
+
+      team:
+        gameContext.awayTeam,
+
+      teamCode:
+        gameContext.awayTeamCode
+    })),
+
+    ...homePlayers.map(player => ({
+      ...player,
+
+      team:
+        gameContext.homeTeam,
+
+      teamCode:
+        gameContext.homeTeamCode
+    }))
+  ];
+
+  /*
+   * Consultamos los game logs con
+   * un máximo de seis solicitudes
+   * paralelas para no saturar MLB.
+   */
+
+  const batterProfiles = (
+    await playerStatsMapWithConcurrency(
+      allBatters,
+      6,
+      async player => {
+        const gameLogs =
+          await getPlayerGameLog(
+            player.id
+          );
+
+        return buildBatterStatsProfile(
+          player,
+          gameLogs
+        );
+      }
+    )
+  )
+    .filter(Boolean)
+    .sort((playerA, playerB) => {
+      if (
+        playerA.teamCode !==
+        playerB.teamCode
+      ) {
+        return String(
+          playerA.teamCode
+        ).localeCompare(
+          String(playerB.teamCode)
+        );
+      }
+
+      const orderA =
+        playerStatsNumber(
+          playerA.battingOrder,
+          9999
+        );
+
+      const orderB =
+        playerStatsNumber(
+          playerB.battingOrder,
+          9999
+        );
+
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+
+      return String(
+        playerA.name
+      ).localeCompare(
+        String(playerB.name)
+      );
+    });
+
+  /*
+   * Solamente los dos abridores
+   * indicados para el partido.
+   */
+
+  const starterInputs = [
+    {
+      pitcher:
+        gameContext.awayPitcher,
+
+      team:
+        gameContext.awayTeam,
+
+      teamCode:
+        gameContext.awayTeamCode
+    },
+
+    {
+      pitcher:
+        gameContext.homePitcher,
+
+      team:
+        gameContext.homeTeam,
+
+      teamCode:
+        gameContext.homeTeamCode
+    }
+  ].filter(item =>
+    item.pitcher?.id &&
+    item.pitcher?.fullName
+  );
+
+  const startingPitchers = (
+    await playerStatsMapWithConcurrency(
+      starterInputs,
+      2,
+      async item => {
+        const gameLogs =
+          await getPlayerGameLog(
+            item.pitcher.id
+          );
+
+        return buildPitcherStatsProfile(
+          item.pitcher,
+          item.team,
+          item.teamCode,
+          gameLogs
+        );
+      }
+    )
+  ).filter(Boolean);
+
+  const finalResponse = {
+    ok: true,
+
+    mode: "player-stats",
+
+    cached: false,
+
+    eventId:
+      selectedEvent.id,
+
+    gamePk:
+      gameContext.gamePk,
+
+    game:
+      `${selectedEvent.away_team} @ ${selectedEvent.home_team}`,
+
+    gameDate,
+
+    generatedAt:
+      new Date().toISOString(),
+
+    teams: {
+      away: {
+        id:
+          gameContext.awayTeamId,
+
+        name:
+          gameContext.awayTeam,
+
+        code:
+          gameContext.awayTeamCode
+      },
+
+      home: {
+        id:
+          gameContext.homeTeamId,
+
+        name:
+          gameContext.homeTeam,
+
+        code:
+          gameContext.homeTeamCode
+      }
+    },
+
+    batters:
+      batterProfiles,
+
+    startingPitchers
+  };
+
+  /*
+   * Guardamos toda la respuesta.
+   * El mismo partido no volverá a
+   * consultar todos los jugadores
+   * durante ese día.
+   */
+
+  try {
+    const {
+      error: cacheSaveError
+    } = await supabaseAdmin
+      .from("player_stats_cache")
+      .upsert(
+        {
+          sport: "mlb",
+
+          event_id:
+            selectedEvent.id,
+
+          game:
+            finalResponse.game,
+
+          game_date:
+            gameDate,
+
+          stats_json:
+            finalResponse,
+
+          updated_at:
+            new Date().toISOString()
+        },
+        {
+          onConflict:
+            "sport,event_id,game_date"
+        }
+      );
+
+    if (cacheSaveError) {
+      console.warn(
+        "PLAYER STATS CACHE SAVE ERROR:",
+        cacheSaveError.message
+      );
+    }
+
+  } catch (error) {
+    console.warn(
+      "PLAYER STATS CACHE SAVE FAILED:",
+      error.message
+    );
+  }
+
+  return res
+    .status(200)
+    .json(finalResponse);
 }
 async function handlePlayerProps(req, res) {
 
@@ -1404,9 +2688,22 @@ module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
 try {
-  const mode = req.query.mode || req.body?.mode;
+const mode =
+  req.query.mode ||
+  req.body?.mode;
+
+if (mode === "player-stats") {
+  return await handlePlayerStats(
+    req,
+    res
+  );
+}
+
 if (mode === "player-props") {
-  return await handlePlayerProps(req, res);
+  return await handlePlayerProps(
+    req,
+    res
+  );
 }
 const {
     userId,
