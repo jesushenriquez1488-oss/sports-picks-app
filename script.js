@@ -2130,7 +2130,10 @@ const bestOdds = displayedPick
 
  resultDiv.innerHTML = `
  <div class="${isPremiumMLB ? 'premium-result mlb-premium-dashboard' : 'normal-result normal-blue-theme'}">
-
+<div
+  id="mlbAnalysisView${index}"
+  class="mlb-analysis-view"
+>
     ${
       isPremiumMLB
         ? `
@@ -2351,13 +2354,39 @@ ${premium.recommendedCards?.[1] ? `
               <p><strong>MLB analysis not available.</strong></p>
             `
       }
+${
+  eventId
+    ? `
+      <div class="player-stats-section">
+        <button
+          type="button"
+          class="player-stats-open-btn"
+          onclick="openMLBPlayerStats(
+            ${index},
+            '${escapeText(eventId || "")}',
+            '${escapeText(awayTeam)}',
+            '${escapeText(homeTeam)}'
+          )"
+        >
+          <strong>📊 PLAYER STATS</strong>
 
+          <span>
+            Hot batters · All players · Starting pitchers
+          </span>
+        </button>
+      </div>
+    `
+    : ""
+}
     </div>
 
-    ${
+       ${
       locked
         ? `
-        <button class="unlock-btn ce-premium-btn" onclick="openPromoModal()">
+          <button
+            class="unlock-btn ce-premium-btn"
+            onclick="openPromoModal()"
+          >
             🔓 UNLOCK PREMIUM PICK — $${MONTHLY_PRICE}/MO
           </button>
         `
@@ -2365,6 +2394,14 @@ ${premium.recommendedCards?.[1] ? `
     }
 
   </div>
+
+  <div
+    id="mlbPlayerStatsView${index}"
+    class="mlb-player-stats-view"
+    style="display:none;"
+  ></div>
+
+</div>
 `;
     endAnalysisLock(index);
    } catch (error) {
@@ -4076,6 +4113,1734 @@ function toggleGameHighlight(index, premiumJson, awayTeam, homeTeam) {
   box.dataset.loaded = "true";
 }
 window.toggleGameHighlight = toggleGameHighlight;
+const mlbPlayerStatsState = {};
+
+const MLB_PLAYER_STATS_MARKETS = {
+  hits: {
+    label: "1+ Hit",
+    shortLabel: "Hits",
+    averageKey: "hits",
+    resultKey: "hits",
+    threshold: 1
+  },
+
+  totalBases: {
+    label: "2+ Total Bases",
+    shortLabel: "Total Bases",
+    averageKey: "totalBases",
+    resultKey: "totalBases",
+    threshold: 2
+  },
+
+  homeRuns: {
+    label: "1+ Home Run",
+    shortLabel: "Home Runs",
+    averageKey: "homeRuns",
+    resultKey: "homeRuns",
+    threshold: 1
+  },
+
+  rbi: {
+    label: "1+ RBI",
+    shortLabel: "RBI",
+    averageKey: "rbi",
+    resultKey: "rbi",
+    threshold: 1
+  },
+
+  runs: {
+    label: "1+ Run",
+    shortLabel: "Runs",
+    averageKey: "runs",
+    resultKey: "runs",
+    threshold: 1
+  }
+};
+
+function playerStatsWindowLabel(windowKey) {
+  return {
+    last5: "Last 5",
+    last10: "Last 10",
+    last15: "Last 15",
+    season: "Season"
+  }[windowKey] || "Last 5";
+}
+
+function playerStatsPct(rate) {
+  return Number(
+    rate?.percentage || 0
+  ).toFixed(0);
+}
+
+function playerStatsRecord(rate) {
+  return `${
+    Number(rate?.hits || 0)
+  }/${
+    Number(rate?.games || 0)
+  }`;
+}
+
+function activatePlayerStatsButtons(
+  container,
+  value
+) {
+  if (!container) return;
+
+  container
+    .querySelectorAll("[data-ps-value]")
+    .forEach(button => {
+      button.classList.toggle(
+        "active",
+        button.dataset.psValue === value
+      );
+    });
+}
+
+function getMLBPlayerStatsViews(index) {
+  return {
+    analysisView:
+      document.getElementById(
+        `mlbAnalysisView${index}`
+      ),
+
+    statsView:
+      document.getElementById(
+        `mlbPlayerStatsView${index}`
+      )
+  };
+}
+
+function scrollToMLBGameCard(index) {
+  const {
+    analysisView,
+    statsView
+  } = getMLBPlayerStatsViews(index);
+
+  const card =
+    (statsView || analysisView)
+      ?.closest(".card");
+
+  if (card) {
+    card.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+  }
+}
+
+function renderMLBPlayerStatsMessage(
+  index,
+  message
+) {
+  const state =
+    mlbPlayerStatsState[index] || {};
+
+  const {
+    statsView
+  } = getMLBPlayerStatsViews(index);
+
+  if (!statsView) return;
+
+  statsView.innerHTML = `
+    <div class="ps-card">
+
+      <div class="ps-sticky-bar">
+
+        <button
+          type="button"
+          class="ps-back-analysis-btn"
+          onclick="closeMLBPlayerStats(${index})"
+        >
+          ← BACK TO ANALYSIS
+        </button>
+
+        <div class="ps-sticky-game">
+          <small>MLB PLAYER STATS</small>
+
+          <strong>
+            ${sanitize(
+              state.awayTeam || "Away"
+            )}
+            vs
+            ${sanitize(
+              state.homeTeam || "Home"
+            )}
+          </strong>
+        </div>
+
+      </div>
+
+      <div class="ps-empty">
+        ${sanitize(message)}
+      </div>
+
+    </div>
+  `;
+}
+
+async function openMLBPlayerStats(
+  index,
+  eventId,
+  awayTeam,
+  homeTeam
+) {
+  const {
+    analysisView,
+    statsView
+  } = getMLBPlayerStatsViews(index);
+
+  if (
+    !analysisView ||
+    !statsView
+  ) {
+    return;
+  }
+
+  const {
+    data: sessionData
+  } = await supabaseClient
+    .auth
+    .getSession();
+
+  if (!sessionData.session) {
+    alert("You must log in.");
+    return;
+  }
+
+  mlbPlayerStatsState[index] = {
+    ...(
+      mlbPlayerStatsState[index] ||
+      {}
+    ),
+
+    eventId,
+    awayTeam,
+    homeTeam,
+
+    mainView:
+      mlbPlayerStatsState[index]
+        ?.mainView ||
+      "batters",
+
+    batterView:
+      mlbPlayerStatsState[index]
+        ?.batterView ||
+      "hot",
+
+    windowKey:
+      mlbPlayerStatsState[index]
+        ?.windowKey ||
+      "last5",
+
+    pitcherWindowKey:
+      mlbPlayerStatsState[index]
+        ?.pitcherWindowKey ||
+      "last5"
+  };
+
+  /*
+   * Player Stats sustituye
+   * visualmente al análisis.
+   */
+
+  analysisView.style.display =
+    "none";
+
+  statsView.style.display =
+    "block";
+
+  scrollToMLBGameCard(index);
+
+  /*
+   * Si ya se cargó anteriormente,
+   * no consultamos otra vez.
+   */
+
+  if (
+    mlbPlayerStatsState[index]
+      ?.data
+  ) {
+    renderMLBPlayerStatsShell(
+      index
+    );
+
+    return;
+  }
+
+  if (!eventId) {
+    renderMLBPlayerStatsMessage(
+      index,
+      "Player Stats are not available for this game yet."
+    );
+
+    return;
+  }
+
+  renderMLBPlayerStatsMessage(
+    index,
+    "Loading player statistics..."
+  );
+
+  try {
+    const response = await fetch(
+      "/api/analyze-mlb?mode=player-stats",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+
+          "Authorization":
+            `Bearer ${
+              sessionData
+                .session
+                .access_token
+            }`
+        },
+
+        body: JSON.stringify({
+          eventId,
+
+          userId:
+            sessionData
+              .session
+              .user
+              .id
+        })
+      }
+    );
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.error ||
+        "Error loading player statistics"
+      );
+    }
+
+    if (data.noPlay) {
+      renderMLBPlayerStatsMessage(
+        index,
+
+        data.reason ||
+        "Player Stats are not available for this game yet."
+      );
+
+      return;
+    }
+
+    mlbPlayerStatsState[index] = {
+      ...mlbPlayerStatsState[index],
+      data
+    };
+
+    renderMLBPlayerStatsShell(
+      index
+    );
+
+  } catch (error) {
+    renderMLBPlayerStatsMessage(
+      index,
+
+      `Error loading Player Stats: ${
+        error.message
+      }`
+    );
+  }
+}
+
+function closeMLBPlayerStats(index) {
+  const {
+    analysisView,
+    statsView
+  } = getMLBPlayerStatsViews(index);
+
+  if (statsView) {
+    statsView.style.display =
+      "none";
+  }
+
+  if (analysisView) {
+    analysisView.style.display =
+      "block";
+  }
+
+  /*
+   * Regresa a la misma tarjeta,
+   * no al inicio de la página.
+   */
+
+  scrollToMLBGameCard(index);
+}
+
+function renderMLBPlayerStatsShell(
+  index
+) {
+  const state =
+    mlbPlayerStatsState[index];
+
+  const {
+    statsView
+  } = getMLBPlayerStatsViews(index);
+
+  if (
+    !state?.data ||
+    !statsView
+  ) {
+    return;
+  }
+
+  const data = state.data;
+
+  statsView.innerHTML = `
+    <div class="ps-card">
+
+      <div class="ps-sticky-bar">
+
+        <button
+          type="button"
+          class="ps-back-analysis-btn"
+          onclick="closeMLBPlayerStats(${index})"
+        >
+          ← BACK TO ANALYSIS
+        </button>
+
+        <div class="ps-sticky-game">
+          <small>
+            MLB PLAYER STATS
+          </small>
+
+          <strong>
+            ${sanitize(
+              data.teams
+                ?.away
+                ?.code ||
+              "AWAY"
+            )}
+            vs
+            ${sanitize(
+              data.teams
+                ?.home
+                ?.code ||
+              "HOME"
+            )}
+          </strong>
+        </div>
+
+      </div>
+
+      <div class="ps-intro">
+        <h3>Player Stats</h3>
+
+        <p>
+          Hot batters, complete rosters and today’s starting pitchers.
+        </p>
+      </div>
+
+      <div
+        class="ps-main-tabs"
+        id="psMainTabs${index}"
+      >
+
+        <button
+          type="button"
+          data-ps-value="batters"
+          onclick="showMLBPlayerStatsView(
+            ${index},
+            'batters'
+          )"
+        >
+          Batters
+        </button>
+
+        <button
+          type="button"
+          data-ps-value="pitchers"
+          onclick="showMLBPlayerStatsView(
+            ${index},
+            'pitchers'
+          )"
+        >
+          Starting Pitchers
+        </button>
+
+      </div>
+
+      <div
+        id="psContent${index}"
+      ></div>
+
+    </div>
+  `;
+
+  showMLBPlayerStatsView(
+    index,
+
+    state.mainView ||
+    "batters"
+  );
+}
+
+function showMLBPlayerStatsView(
+  index,
+  view
+) {
+  const state =
+    mlbPlayerStatsState[index];
+
+  if (!state?.data) return;
+
+  state.mainView = view;
+
+  activatePlayerStatsButtons(
+    document.getElementById(
+      `psMainTabs${index}`
+    ),
+
+    view
+  );
+
+  if (view === "pitchers") {
+    renderMLBStartingPitchers(
+      index,
+
+      state.pitcherWindowKey ||
+      "last5"
+    );
+
+    return;
+  }
+
+  renderMLBBattersHome(index);
+}
+
+function renderMLBBattersHome(
+  index
+) {
+  const state =
+    mlbPlayerStatsState[index];
+
+  const content =
+    document.getElementById(
+      `psContent${index}`
+    );
+
+  if (
+    !state?.data ||
+    !content
+  ) {
+    return;
+  }
+
+  content.innerHTML = `
+    <div
+      class="ps-sub-tabs"
+      id="psBatterTabs${index}"
+    >
+
+      <button
+        type="button"
+        data-ps-value="hot"
+        onclick="showMLBBatterView(
+          ${index},
+          'hot'
+        )"
+      >
+        Hot Players
+      </button>
+
+      <button
+        type="button"
+        data-ps-value="all"
+        onclick="showMLBBatterView(
+          ${index},
+          'all'
+        )"
+      >
+        All Players
+      </button>
+
+    </div>
+
+    <div
+      id="psBatterContent${index}"
+    ></div>
+  `;
+
+  showMLBBatterView(
+    index,
+
+    state.batterView ||
+    "hot"
+  );
+}
+
+function showMLBBatterView(
+  index,
+  view
+) {
+  const state =
+    mlbPlayerStatsState[index];
+
+  if (!state?.data) return;
+
+  state.batterView = view;
+
+  activatePlayerStatsButtons(
+    document.getElementById(
+      `psBatterTabs${index}`
+    ),
+
+    view
+  );
+
+  if (view === "all") {
+    renderMLBAllPlayers(
+      index,
+      ""
+    );
+
+    return;
+  }
+
+  renderMLBHotPlayers(
+    index,
+
+    state.windowKey ||
+    "last5"
+  );
+}
+
+function rankHotPlayers(
+  players,
+  windowKey,
+  marketKey
+) {
+  const minimumGames = {
+    last5: 3,
+    last10: 5,
+    last15: 7,
+    season: 10
+  }[windowKey] || 3;
+
+  const market =
+    MLB_PLAYER_STATS_MARKETS[
+      marketKey
+    ];
+
+  return (players || [])
+    .map(player => {
+      const windowData =
+        player
+          ?.windows
+          ?.[windowKey];
+
+      const rate =
+        windowData
+          ?.hitRates
+          ?.[marketKey];
+
+      const average =
+        Number(
+          windowData
+            ?.averages
+            ?.[
+              market.averageKey
+            ] ||
+          0
+        );
+
+      return {
+        player,
+        windowData,
+        rate,
+        average
+      };
+    })
+
+    .filter(item =>
+      Number(
+        item
+          .windowData
+          ?.games ||
+        0
+      ) >= minimumGames
+    )
+
+    .sort((a, b) => {
+      const percentageDifference =
+        Number(
+          b.rate
+            ?.percentage ||
+          0
+        ) -
+        Number(
+          a.rate
+            ?.percentage ||
+          0
+        );
+
+      if (
+        percentageDifference !==
+        0
+      ) {
+        return percentageDifference;
+      }
+
+      const averageDifference =
+        b.average -
+        a.average;
+
+      if (
+        averageDifference !==
+        0
+      ) {
+        return averageDifference;
+      }
+
+      return String(
+        a.player.name
+      ).localeCompare(
+        String(
+          b.player.name
+        )
+      );
+    });
+}
+
+function renderMLBHotPlayers(
+  index,
+  windowKey
+) {
+  const state =
+    mlbPlayerStatsState[index];
+
+  const target =
+    document.getElementById(
+      `psBatterContent${index}`
+    );
+
+  if (
+    !state?.data ||
+    !target
+  ) {
+    return;
+  }
+
+  state.windowKey =
+    windowKey;
+
+  const players =
+    state.data.batters ||
+    [];
+
+  const cards =
+    Object.entries(
+      MLB_PLAYER_STATS_MARKETS
+    )
+    .map(
+      ([
+        marketKey,
+        market
+      ]) => {
+        const ranked =
+          rankHotPlayers(
+            players,
+            windowKey,
+            marketKey
+          );
+
+        const topThree =
+          ranked.slice(0, 3);
+
+        const rows =
+          topThree.length
+            ? topThree
+                .map(
+                  (
+                    item,
+                    position
+                  ) => `
+                    <button
+                      type="button"
+                      class="ps-hot-row"
+                      onclick="showMLBPlayerDetail(
+                        ${index},
+                        ${Number(
+                          item
+                            .player
+                            .id
+                        )},
+                        '${marketKey}'
+                      )"
+                    >
+
+                      <span class="ps-hot-rank">
+                        ${position + 1}
+                      </span>
+
+                      <span class="ps-hot-player">
+                        <strong>
+                          ${sanitize(
+                            item
+                              .player
+                              .name
+                          )}
+                        </strong>
+
+                        <small>
+                          ${sanitize(
+                            item
+                              .player
+                              .teamCode
+                          )}
+                        </small>
+                      </span>
+
+                      <span class="ps-hot-record">
+                        <strong>
+                          ${playerStatsRecord(
+                            item.rate
+                          )}
+                        </strong>
+
+                        <small>
+                          ${playerStatsPct(
+                            item.rate
+                          )}%
+                        </small>
+                      </span>
+
+                    </button>
+                  `
+                )
+                .join("")
+            : `
+                <div class="ps-no-data">
+                  Not enough games yet.
+                </div>
+              `;
+
+        return `
+          <div class="ps-hot-card">
+
+            <div class="ps-hot-card-head">
+              <span>
+                ${sanitize(
+                  market.label
+                )}
+              </span>
+
+              <small>
+                ${playerStatsWindowLabel(
+                  windowKey
+                )}
+              </small>
+            </div>
+
+            ${rows}
+
+            <button
+              type="button"
+              class="ps-view-all-category"
+              onclick="showMLBCategoryList(
+                ${index},
+                '${marketKey}',
+                '${windowKey}'
+              )"
+            >
+              VIEW ALL PLAYERS →
+            </button>
+
+          </div>
+        `;
+      }
+    )
+    .join("");
+
+  target.innerHTML = `
+    <div
+      class="ps-window-tabs"
+      id="psHotWindows${index}"
+    >
+
+      ${[
+        "last5",
+        "last10",
+        "last15",
+        "season"
+      ].map(key => `
+        <button
+          type="button"
+          data-ps-value="${key}"
+          onclick="renderMLBHotPlayers(
+            ${index},
+            '${key}'
+          )"
+        >
+          ${playerStatsWindowLabel(
+            key
+          )}
+        </button>
+      `).join("")}
+
+    </div>
+
+    <div class="ps-helper-text">
+      Ranked by hit rate, then by per-game average.
+    </div>
+
+    <div class="ps-hot-grid">
+      ${cards}
+    </div>
+  `;
+
+  activatePlayerStatsButtons(
+    document.getElementById(
+      `psHotWindows${index}`
+    ),
+
+    windowKey
+  );
+}
+
+function showMLBCategoryList(
+  index,
+  marketKey,
+  windowKey
+) {
+  const state =
+    mlbPlayerStatsState[index];
+
+  const content =
+    document.getElementById(
+      `psContent${index}`
+    );
+
+  if (
+    !state?.data ||
+    !content
+  ) {
+    return;
+  }
+
+  const market =
+    MLB_PLAYER_STATS_MARKETS[
+      marketKey
+    ];
+
+  const ranked =
+    rankHotPlayers(
+      state.data.batters ||
+        [],
+
+      windowKey,
+      marketKey
+    );
+
+  content.innerHTML = `
+    <div class="ps-detail-toolbar">
+
+      <button
+        type="button"
+        class="ps-back-btn"
+        onclick="renderMLBBattersHome(${index})"
+      >
+        ← Back to Batters
+      </button>
+
+    </div>
+
+    <div class="ps-section-title">
+
+      <div>
+        <small>
+          ${playerStatsWindowLabel(
+            windowKey
+          )}
+        </small>
+
+        <h4>
+          ${sanitize(
+            market.label
+          )}
+        </h4>
+      </div>
+
+      <span>
+        ${ranked.length} players
+      </span>
+
+    </div>
+
+    <div class="ps-ranked-full-list">
+
+      ${
+        ranked.length
+          ? ranked
+              .map(
+                (
+                  item,
+                  position
+                ) => `
+                  <button
+                    type="button"
+                    class="ps-ranked-full-row"
+                    onclick="showMLBPlayerDetail(
+                      ${index},
+                      ${Number(
+                        item
+                          .player
+                          .id
+                      )},
+                      '${marketKey}'
+                    )"
+                  >
+
+                    <span>
+                      ${position + 1}
+                    </span>
+
+                    <strong>
+                      ${sanitize(
+                        item
+                          .player
+                          .name
+                      )}
+
+                      <small>
+                        ${sanitize(
+                          item
+                            .player
+                            .teamCode
+                        )}
+                      </small>
+                    </strong>
+
+                    <span>
+                      ${playerStatsRecord(
+                        item.rate
+                      )}
+                      ·
+                      ${playerStatsPct(
+                        item.rate
+                      )}%
+                    </span>
+
+                  </button>
+                `
+              )
+              .join("")
+          : `
+              <div class="ps-no-data">
+                Not enough games to rank this category.
+              </div>
+            `
+      }
+
+    </div>
+  `;
+}
+
+function renderMLBAllPlayers(
+  index,
+  query = ""
+) {
+  const state =
+    mlbPlayerStatsState[index];
+
+  const target =
+    document.getElementById(
+      `psBatterContent${index}`
+    );
+
+  if (
+    !state?.data ||
+    !target
+  ) {
+    return;
+  }
+
+  target.innerHTML = `
+    <label class="ps-search">
+
+      <span>
+        Search player
+      </span>
+
+      <input
+        type="search"
+        placeholder="Type a player name..."
+        value="${sanitize(query)}"
+        oninput="filterMLBPlayerList(
+          ${index},
+          this.value
+        )"
+      >
+
+    </label>
+
+    <div
+      id="psPlayerLists${index}"
+    ></div>
+  `;
+
+  renderMLBPlayerTeamLists(
+    index,
+    query
+  );
+}
+
+function filterMLBPlayerList(
+  index,
+  query
+) {
+  renderMLBPlayerTeamLists(
+    index,
+    query
+  );
+}
+
+function renderMLBPlayerTeamLists(
+  index,
+  query = ""
+) {
+  const state =
+    mlbPlayerStatsState[index];
+
+  const target =
+    document.getElementById(
+      `psPlayerLists${index}`
+    );
+
+  if (
+    !state?.data ||
+    !target
+  ) {
+    return;
+  }
+
+  const normalizedQuery =
+    String(query || "")
+      .trim()
+      .toLowerCase();
+
+  const teams = [
+    state.data.teams?.away,
+    state.data.teams?.home
+  ].filter(Boolean);
+
+  target.innerHTML = `
+    <div class="ps-team-columns">
+
+      ${
+        teams
+          .map(team => {
+            const teamPlayers =
+              (
+                state
+                  .data
+                  .batters ||
+                []
+              )
+
+              .filter(player =>
+                player.teamCode ===
+                team.code
+              )
+
+              .filter(player =>
+                !normalizedQuery ||
+
+                String(
+                  player.name
+                )
+                  .toLowerCase()
+                  .includes(
+                    normalizedQuery
+                  )
+              )
+
+              .sort((a, b) =>
+                String(
+                  a.name
+                ).localeCompare(
+                  String(
+                    b.name
+                  )
+                )
+              );
+
+            return `
+              <div class="ps-team-card">
+
+                <div class="ps-team-head">
+                  <strong>
+                    ${sanitize(
+                      team.name
+                    )}
+                  </strong>
+
+                  <span>
+                    ${sanitize(
+                      team.code
+                    )}
+                  </span>
+                </div>
+
+                <div class="ps-team-player-list">
+
+                  ${
+                    teamPlayers.length
+                      ? teamPlayers
+                          .map(
+                            player => `
+                              <button
+                                type="button"
+                                onclick="showMLBPlayerDetail(
+                                  ${index},
+                                  ${Number(
+                                    player.id
+                                  )},
+                                  'hits'
+                                )"
+                              >
+                                <span>
+                                  ${sanitize(
+                                    player.name
+                                  )}
+                                </span>
+
+                                <small>
+                                  ${sanitize(
+                                    player.position ||
+                                    "BAT"
+                                  )}
+                                </small>
+                              </button>
+                            `
+                          )
+                          .join("")
+                      : `
+                          <div class="ps-no-data">
+                            No matching players.
+                          </div>
+                        `
+                  }
+
+                </div>
+
+              </div>
+            `;
+          })
+          .join("")
+      }
+
+    </div>
+  `;
+}
+
+function showMLBPlayerDetail(
+  index,
+  playerId,
+  marketKey = "hits"
+) {
+  const state =
+    mlbPlayerStatsState[index];
+
+  const content =
+    document.getElementById(
+      `psContent${index}`
+    );
+
+  if (
+    !state?.data ||
+    !content
+  ) {
+    return;
+  }
+
+  const player =
+    (
+      state.data.batters ||
+      []
+    ).find(
+      item =>
+        Number(item.id) ===
+        Number(playerId)
+    );
+
+  const market =
+    MLB_PLAYER_STATS_MARKETS[
+      marketKey
+    ] ||
+    MLB_PLAYER_STATS_MARKETS
+      .hits;
+
+  if (!player) return;
+
+  const windowRows = [
+    "last5",
+    "last10",
+    "last15",
+    "season"
+  ]
+    .map(windowKey => {
+      const windowData =
+        player
+          .windows
+          ?.[windowKey];
+
+      const rate =
+        windowData
+          ?.hitRates
+          ?.[marketKey];
+
+      const average =
+        Number(
+          windowData
+            ?.averages
+            ?.[
+              market.averageKey
+            ] ||
+          0
+        ).toFixed(2);
+
+      return `
+        <div class="ps-player-window-row">
+
+          <strong>
+            ${playerStatsWindowLabel(
+              windowKey
+            )}
+          </strong>
+
+          <span>
+            ${playerStatsRecord(
+              rate
+            )}
+          </span>
+
+          <span>
+            ${playerStatsPct(
+              rate
+            )}%
+          </span>
+
+          <small>
+            ${average} avg
+          </small>
+
+        </div>
+      `;
+    })
+    .join("");
+
+  const recent =
+    player
+      .windows
+      ?.last10
+      ?.results ||
+    [];
+
+  const recentValues =
+    recent
+      .map(game =>
+        Number(
+          game
+            ?.[
+              market.resultKey
+            ] ||
+          0
+        )
+      )
+
+      .map(value => `
+        <span
+          class="${
+            value >=
+            Number(
+              market.threshold ||
+              1
+            )
+              ? "hit"
+              : "miss"
+          }"
+        >
+          ${value}
+        </span>
+      `)
+
+      .join("");
+
+  content.innerHTML = `
+    <div class="ps-detail-toolbar">
+
+      <button
+        type="button"
+        class="ps-back-btn"
+        onclick="renderMLBBattersHome(${index})"
+      >
+        ← Back to Batters
+      </button>
+
+    </div>
+
+    <div class="ps-player-detail-card">
+
+      <div class="ps-player-detail-head">
+
+        <div>
+          <small>
+            ${sanitize(
+              player.team
+            )}
+          </small>
+
+          <h4>
+            ${sanitize(
+              player.name
+            )}
+
+            <span>
+              ${sanitize(
+                player.teamCode
+              )}
+            </span>
+          </h4>
+        </div>
+
+        <div class="ps-position-badge">
+          ${sanitize(
+            player.position ||
+            "BAT"
+          )}
+        </div>
+
+      </div>
+
+      <div class="ps-market-tabs">
+
+        ${
+          Object.entries(
+            MLB_PLAYER_STATS_MARKETS
+          )
+          .map(
+            ([
+              key,
+              option
+            ]) => `
+              <button
+                type="button"
+                class="${
+                  key === marketKey
+                    ? "active"
+                    : ""
+                }"
+                onclick="showMLBPlayerDetail(
+                  ${index},
+                  ${Number(
+                    player.id
+                  )},
+                  '${key}'
+                )"
+              >
+                ${sanitize(
+                  option.shortLabel
+                )}
+              </button>
+            `
+          )
+          .join("")
+        }
+
+      </div>
+
+      <div class="ps-selected-market">
+        ${sanitize(
+          market.label
+        )}
+      </div>
+
+      <div class="ps-player-window-table">
+        ${windowRows}
+      </div>
+
+      <div class="ps-recent-title">
+        Last 10 game results
+      </div>
+
+      <div class="ps-recent-results">
+        ${
+          recentValues ||
+          `
+            <span class="ps-no-data">
+              No recent results.
+            </span>
+          `
+        }
+      </div>
+
+    </div>
+  `;
+}
+
+function renderMLBStartingPitchers(
+  index,
+  windowKey = "last5"
+) {
+  const state =
+    mlbPlayerStatsState[index];
+
+  const content =
+    document.getElementById(
+      `psContent${index}`
+    );
+
+  if (
+    !state?.data ||
+    !content
+  ) {
+    return;
+  }
+
+  state.pitcherWindowKey =
+    windowKey;
+
+  const pitchers =
+    state
+      .data
+      .startingPitchers ||
+    [];
+
+  const cards =
+    pitchers.length
+      ? pitchers
+          .map(pitcher => {
+            const windowData =
+              pitcher
+                .windows
+                ?.[windowKey];
+
+            const averages =
+              windowData
+                ?.averages ||
+              {};
+
+            return `
+              <div class="ps-pitcher-card">
+
+                <div class="ps-pitcher-head">
+
+                  <div>
+                    <small>
+                      ${sanitize(
+                        pitcher.team
+                      )}
+                    </small>
+
+                    <h4>
+                      ${sanitize(
+                        pitcher.name
+                      )}
+                    </h4>
+                  </div>
+
+                  <span>
+                    ${sanitize(
+                      pitcher.teamCode
+                    )}
+                  </span>
+
+                </div>
+
+                <div class="ps-pitcher-grid">
+
+                  <div>
+                    <small>
+                      Strikeouts
+                    </small>
+
+                    <strong>
+                      ${Number(
+                        averages
+                          .strikeOuts ||
+                        0
+                      ).toFixed(1)}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <small>
+                      Outs
+                    </small>
+
+                    <strong>
+                      ${Number(
+                        averages.outs ||
+                        0
+                      ).toFixed(1)}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <small>
+                      Innings
+                    </small>
+
+                    <strong>
+                      ${Number(
+                        averages.innings ||
+                        0
+                      ).toFixed(1)}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <small>
+                      Hits allowed
+                    </small>
+
+                    <strong>
+                      ${Number(
+                        averages
+                          .hitsAllowed ||
+                        0
+                      ).toFixed(1)}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <small>
+                      Earned runs
+                    </small>
+
+                    <strong>
+                      ${Number(
+                        averages
+                          .earnedRuns ||
+                        0
+                      ).toFixed(1)}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <small>
+                      Walks
+                    </small>
+
+                    <strong>
+                      ${Number(
+                        averages.walks ||
+                        0
+                      ).toFixed(1)}
+                    </strong>
+                  </div>
+
+                </div>
+
+                <div class="ps-pitcher-games">
+                  ${Number(
+                    windowData
+                      ?.games ||
+                    0
+                  )}
+                  starts included
+                </div>
+
+              </div>
+            `;
+          })
+          .join("")
+      : `
+          <div class="ps-no-data ps-wide">
+            Starting pitchers have not been confirmed.
+          </div>
+        `;
+
+  content.innerHTML = `
+    <div
+      class="ps-window-tabs"
+      id="psPitcherWindows${index}"
+    >
+
+      ${
+        [
+          "last5",
+          "last10",
+          "last15",
+          "season"
+        ]
+        .map(key => `
+          <button
+            type="button"
+            data-ps-value="${key}"
+            onclick="renderMLBStartingPitchers(
+              ${index},
+              '${key}'
+            )"
+          >
+            ${playerStatsWindowLabel(
+              key
+            )}
+          </button>
+        `)
+        .join("")
+      }
+
+    </div>
+
+    <div class="ps-pitcher-cards">
+      ${cards}
+    </div>
+  `;
+
+  activatePlayerStatsButtons(
+    document.getElementById(
+      `psPitcherWindows${index}`
+    ),
+
+    windowKey
+  );
+}
+
+/*
+ * Funciones utilizadas desde
+ * botones HTML inline.
+ */
+
+window.openMLBPlayerStats =
+  openMLBPlayerStats;
+
+window.closeMLBPlayerStats =
+  closeMLBPlayerStats;
+
+window.showMLBPlayerStatsView =
+  showMLBPlayerStatsView;
+
+window.showMLBBatterView =
+  showMLBBatterView;
+
+window.renderMLBBattersHome =
+  renderMLBBattersHome;
+
+window.renderMLBHotPlayers =
+  renderMLBHotPlayers;
+
+window.showMLBCategoryList =
+  showMLBCategoryList;
+
+window.filterMLBPlayerList =
+  filterMLBPlayerList;
+
+window.showMLBPlayerDetail =
+  showMLBPlayerDetail;
+
+window.renderMLBStartingPitchers =
+  renderMLBStartingPitchers;
 async function togglePlayerEdgeProps(index, eventId) {
   const box = document.getElementById(`playerEdge${index}`);
   if (!box) return;
