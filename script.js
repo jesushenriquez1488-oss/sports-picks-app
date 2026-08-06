@@ -2355,7 +2355,12 @@ ${premium.recommendedCards?.[1] ? `
             `
       }
 ${
-  eventId
+  eventId &&
+  (
+    !locked ||
+    IS_ADMIN ||
+    isPremiumUser
+  )
     ? `
       <div class="player-stats-section">
        <button
