@@ -274,126 +274,98 @@ async function getSeasonGames(type, season) {
   const weeks = MAX_WEEKS[type];
 
   const allGames = [];
-  const seenGameIds = new Set();
 
   for (let week = 1; week <= weeks; week++) {
-    /*
-      NFL: una sola llamada.
-
-      NCAAF:
-      groups=80 → FBS
-      groups=81 → FCS
-
-      Se consultan ambos porque puede haber partidos
-      FBS vs FCS.
-    */
-    const groupParams =
+    const groupParam =
       type === "ncaaf"
-        ? [
-            "&groups=80&limit=100",
-            "&groups=81&limit=100"
-          ]
-        : [""];
+        ? "&groups=80"
+        : "";
 
-    for (const groupParam of groupParams) {
-      const url =
-        `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard` +
-        `?dates=${season}` +
-        `&seasontype=2` +
-        `&week=${week}` +
-        groupParam;
+    const url =
+      `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard` +
+      `?dates=${season}` +
+      `&seasontype=2` +
+      `&week=${week}` +
+      groupParam;
 
-      try {
-        const data = await fetchJson(url);
-        const events = data.events || [];
+    try {
+      const data = await fetchJson(url);
+      const events = data.events || [];
 
-        for (const event of events) {
-          const eventId = String(event.id || "");
+      for (const event of events) {
+        const comp = event.competitions?.[0];
+        const competitors =
+          comp?.competitors || [];
 
-          /*
-            Un partido FBS vs FCS puede aparecer
-            en las dos consultas. Evita duplicarlo.
-          */
-          if (eventId && seenGameIds.has(eventId)) {
-            continue;
-          }
-
-          const comp = event.competitions?.[0];
-          const competitors =
-            comp?.competitors || [];
-
-          if (competitors.length !== 2) continue;
-          if (!isCompletedGame(event, comp)) continue;
-
-          const c1 = competitors[0];
-          const c2 = competitors[1];
-
-          const score1 = Number(c1.score);
-          const score2 = Number(c2.score);
-
-          if (
-            !Number.isFinite(score1) ||
-            !Number.isFinite(score2)
-          ) {
-            continue;
-          }
-
-          if (eventId) {
-            seenGameIds.add(eventId);
-          }
-
-          allGames.push({
-            id: event.id,
-            date: event.date,
-            week,
-
-            team1Id:
-              String(c1.team?.id || ""),
-
-            team1Abbr:
-              c1.team?.abbreviation || "",
-
-            team1Name:
-              c1.team?.displayName || "",
-
-            team1ShortName:
-              c1.team?.shortDisplayName || "",
-
-            team1Location:
-              c1.team?.location || "",
-
-            team1Mascot:
-              c1.team?.name || "",
-
-            team1Score: score1,
-
-            team2Id:
-              String(c2.team?.id || ""),
-
-            team2Abbr:
-              c2.team?.abbreviation || "",
-
-            team2Name:
-              c2.team?.displayName || "",
-
-            team2ShortName:
-              c2.team?.shortDisplayName || "",
-
-            team2Location:
-              c2.team?.location || "",
-
-            team2Mascot:
-              c2.team?.name || "",
-
-            team2Score: score2
-          });
+        if (competitors.length !== 2) continue;
+        if (!isCompletedGame(event, comp)) {
+          continue;
         }
-      } catch (err) {
-        console.log(
-          `No se pudo cargar ${type} season ${season} week ${week} ${groupParam}:`,
-          err.message
-        );
+
+        const c1 = competitors[0];
+        const c2 = competitors[1];
+
+        const score1 = Number(c1.score);
+        const score2 = Number(c2.score);
+
+        if (
+          !Number.isFinite(score1) ||
+          !Number.isFinite(score2)
+        ) {
+          continue;
+        }
+
+        allGames.push({
+          id: event.id,
+          date: event.date,
+          week,
+
+          team1Id:
+            String(c1.team?.id || ""),
+
+          team1Abbr:
+            c1.team?.abbreviation || "",
+
+          team1Name:
+            c1.team?.displayName || "",
+
+          team1ShortName:
+            c1.team?.shortDisplayName || "",
+
+          team1Location:
+            c1.team?.location || "",
+
+          team1Mascot:
+            c1.team?.name || "",
+
+          team1Score: score1,
+
+          team2Id:
+            String(c2.team?.id || ""),
+
+          team2Abbr:
+            c2.team?.abbreviation || "",
+
+          team2Name:
+            c2.team?.displayName || "",
+
+          team2ShortName:
+            c2.team?.shortDisplayName || "",
+
+          team2Location:
+            c2.team?.location || "",
+
+          team2Mascot:
+            c2.team?.name || "",
+
+          team2Score: score2
+        });
       }
+    } catch (err) {
+      console.log(
+        `No se pudo cargar ${type} week ${week}:`,
+        err.message
+      );
     }
   }
 
