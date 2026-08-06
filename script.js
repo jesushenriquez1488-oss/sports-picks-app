@@ -4907,11 +4907,21 @@ function renderMLBHotPlayers(
                           )}
                         </strong>
 
-                        <small>
-                          ${playerStatsPct(
-                            item.rate
-                          )}%
-                        </small>
+                       <small
+  class="${
+    Number(
+      item.rate
+        ?.percentage ||
+      0
+    ) >= 70
+      ? "ps-rate-hot"
+      : ""
+  }"
+>
+  ${playerStatsPct(
+    item.rate
+  )}%
+</small>
                       </span>
 
                     </button>
@@ -5027,6 +5037,12 @@ function showMLBCategoryList(
     return;
   }
 
+  state.categoryMarketKey =
+    marketKey;
+
+  state.categoryWindowKey =
+    windowKey;
+
   const market =
     MLB_PLAYER_STATS_MARKETS[
       marketKey
@@ -5034,9 +5050,7 @@ function showMLBCategoryList(
 
   const ranked =
     rankHotPlayers(
-      state.data.batters ||
-        [],
-
+      state.data.batters || [],
       windowKey,
       marketKey
     );
@@ -5049,8 +5063,34 @@ function showMLBCategoryList(
         class="ps-back-btn"
         onclick="renderMLBBattersHome(${index})"
       >
-        ← Back to Batters
+        ← Back to Hot Players
       </button>
+
+    </div>
+
+    <div
+      class="ps-window-tabs ps-category-window-tabs"
+      id="psCategoryWindows${index}"
+    >
+
+      ${[
+        "last5",
+        "last10",
+        "last15",
+        "season"
+      ].map(key => `
+        <button
+          type="button"
+          data-ps-value="${key}"
+          onclick="showMLBCategoryList(
+            ${index},
+            '${marketKey}',
+            '${key}'
+          )"
+        >
+          ${playerStatsWindowLabel(key)}
+        </button>
+      `).join("")}
 
     </div>
 
@@ -5085,53 +5125,63 @@ function showMLBCategoryList(
                 (
                   item,
                   position
-                ) => `
-                  <button
-                    type="button"
-                    class="ps-ranked-full-row"
-                    onclick="showMLBPlayerDetail(
-                      ${index},
-                      ${Number(
-                        item
-                          .player
-                          .id
-                      )},
-                      '${marketKey}'
-                    )"
-                  >
+                ) => {
+                  const percentage =
+                    Number(
+                      item.rate
+                        ?.percentage ||
+                      0
+                    );
 
-                    <span>
-                      ${position + 1}
-                    </span>
+                  return `
+                    <button
+                      type="button"
+                      class="ps-ranked-full-row"
+                      onclick="showMLBPlayerDetail(
+                        ${index},
+                        ${Number(
+                          item.player.id
+                        )},
+                        '${marketKey}'
+                      )"
+                    >
 
-                    <strong>
-                      ${sanitize(
-                        item
-                          .player
-                          .name
-                      )}
+                      <span>
+                        ${position + 1}
+                      </span>
 
-                      <small>
+                      <strong>
                         ${sanitize(
-                          item
-                            .player
-                            .teamCode
+                          item.player.name
                         )}
-                      </small>
-                    </strong>
 
-                    <span>
-                      ${playerStatsRecord(
-                        item.rate
-                      )}
-                      ·
-                      ${playerStatsPct(
-                        item.rate
-                      )}%
-                    </span>
+                        <small>
+                          ${sanitize(
+                            item.player
+                              .teamCode
+                          )}
+                        </small>
+                      </strong>
 
-                  </button>
-                `
+                      <span>
+                        ${playerStatsRecord(
+                          item.rate
+                        )}
+
+                        ·
+
+                        <b class="${
+                          percentage >= 70
+                            ? "ps-rate-hot"
+                            : ""
+                        }">
+                          ${percentage.toFixed(0)}%
+                        </b>
+                      </span>
+
+                    </button>
+                  `;
+                }
               )
               .join("")
           : `
@@ -5143,8 +5193,14 @@ function showMLBCategoryList(
 
     </div>
   `;
-}
 
+  activatePlayerStatsButtons(
+    document.getElementById(
+      `psCategoryWindows${index}`
+    ),
+    windowKey
+  );
+}
 function renderMLBAllPlayers(
   index,
   query = ""
