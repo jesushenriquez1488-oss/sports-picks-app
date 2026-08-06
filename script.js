@@ -2420,9 +2420,19 @@ ${
 `;
     endAnalysisLock(index);
    } catch (error) {
-    if (error.message && (error.message.includes("free analyses") || error.message.includes("every 3 hours") || error.message.includes("unlock 5"))) {
-    resultDiv.innerHTML = ceLimitScreenHTML("mlb");
-    } else {
+   if (
+  error.message &&
+  (
+    error.message.includes("free analyses") ||
+    error.message.includes("every 3 hours") ||
+    error.message.includes("unlock 5")
+  )
+) {
+  delete mlbPlayerStatsState[index];
+
+  resultDiv.innerHTML =
+    ceLimitScreenHTML("mlb");
+} else {
       resultDiv.innerHTML = `
         <div class="normal-result">
           <p><strong>Error analyzing MLB</strong></p>
