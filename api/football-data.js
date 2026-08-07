@@ -21,6 +21,9 @@ const MAX_WEEKS = {
   nfl: 22,
   ncaaf: 16
 };
+const NCAAF_TRANSITION_TEAM_IDS = new Set([
+  "2449" // North Dakota State
+]);
 // ===== AJUSTE POR CALIDAD DE RIVAL (FPI) — SOLO NCAAF =====
 const NCAAF_FPI_ACTIVE = false;   // false = vuelve al comportamiento de hoy
 const NCAAF_FPI_MULT   = 1.0;    // 1.0 = escala del FPI tal cual
@@ -148,6 +151,25 @@ massachusetts: {
     "umass minutemen",
     "massachusetts",
     "massachusetts minutemen"
+  ]
+},
+  "north dakota state": {
+  id: "2449",
+  keys: [
+    "north dakota state",
+    "north dakota state bison",
+    "ndsu",
+    "bison"
+  ]
+},
+
+"north dakota state bison": {
+  id: "2449",
+  keys: [
+    "north dakota state",
+    "north dakota state bison",
+    "ndsu",
+    "bison"
   ]
 }
 };
@@ -2485,9 +2507,24 @@ const allGames = enoughCurrentSeasonData
       ...previousSeasonAllGames
     ];
 // ===== GUARD: insufficient data =====
-    const MIN_GAMES_REQUIRED = 2;
+   const isTransitionTeamA =
+  type === "ncaaf" &&
+  NCAAF_TRANSITION_TEAM_IDS.has(String(teamARef.id));
 
-    if (teamAGames.length < MIN_GAMES_REQUIRED || teamBGames.length < MIN_GAMES_REQUIRED) {
+const isTransitionTeamB =
+  type === "ncaaf" &&
+  NCAAF_TRANSITION_TEAM_IDS.has(String(teamBRef.id));
+
+const minGamesRequiredA =
+  isTransitionTeamA ? 1 : 2;
+
+const minGamesRequiredB =
+  isTransitionTeamB ? 1 : 2;
+
+if (
+  teamAGames.length < minGamesRequiredA ||
+  teamBGames.length < minGamesRequiredB
+) {
       console.log("INSUFFICIENT DATA:", {
         type,
         [teamA]: teamAGames.length,
