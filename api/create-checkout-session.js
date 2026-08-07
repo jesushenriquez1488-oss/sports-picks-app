@@ -69,12 +69,16 @@ module.exports = async function handler(req, res) {
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-   const {
+  const {
   userId,
   email,
   promoCode = "",
-  action = "checkout"
+  action = "checkout",
+  advertisingConsent = "denied"
 } = req.body || {};
+
+const hasAdvertisingConsent =
+  advertisingConsent === "granted";
 
 const cleanPromoCode = String(promoCode || "").trim().toUpperCase();
 console.log("PROMO CODE RECEIVED:", cleanPromoCode);
@@ -114,32 +118,52 @@ console.log("PROMO CODE RECEIVED:", cleanPromoCode);
         error: "Falta email"
       });
     }
-const cookies = parseCookies(req.headers.cookie || "");
-
-const metaEventId = crypto.randomUUID();
-
-const fbp = cookies._fbp || "";
-const fbc = cookies._fbc || "";
-
-const clientIpAddress = getClientIp(req);
-const clientUserAgent = req.headers["user-agent"] || "";
-const eventSourceUrl = req.headers.referer || APP_URL;
-
-const metaMetadata = {
+const baseMetadata = {
   userId: String(userId),
   email: String(email || ""),
   promoCode: cleanPromoCode,
-  metaEventId,
-  eventSourceUrl: String(eventSourceUrl),
-  ...(clientIpAddress
-    ? { clientIpAddress: String(clientIpAddress) }
-    : {}),
-  ...(clientUserAgent
-    ? { clientUserAgent: String(clientUserAgent) }
-    : {}),
-  ...(fbp ? { fbp: String(fbp) } : {}),
-  ...(fbc ? { fbc: String(fbc) } : {})
+  advertisingConsent: hasAdvertisingConsent
+    ? "granted"
+    : "denied"
 };
+
+let metaEventId = null;
+let metaMetadata = { ...baseMetadata };
+
+if (hasAdvertisingConsent) {
+  const cookies = parseCookies(req.headers.cookie || "");
+
+  metaEventId = crypto.randomUUID();
+
+  const fbp = cookies._fbp || "";
+  const fbc = cookies._fbc || "";
+
+  const clientIpAddress = getClientIp(req);
+  const clientUserAgent = req.headers["user-agent"] || "";
+  const eventSourceUrl = req.headers.referer || APP_URL;
+
+  metaMetadata = {
+    ...baseMetadata,
+    metaEventId,
+    eventSourceUrl: String(eventSourceUrl),
+
+    ...(clientIpAddress
+      ? { clientIpAddress: String(clientIpAddress) }
+      : {}),
+
+    ...(clientUserAgent
+      ? { clientUserAgent: String(clientUserAgent) }
+      : {}),
+
+    ...(fbp
+      ? { fbp: String(fbp) }
+      : {}),
+
+    ...(fbc
+      ? { fbc: String(fbc) }
+      : {})
+  };
+}
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
 
@@ -156,10 +180,12 @@ const metaMetadata = {
         }
       ],
 
-    success_url:
+   success_url:
   `${APP_URL}?success=true` +
   `&session_id={CHECKOUT_SESSION_ID}` +
-  `&meta_event_id=${encodeURIComponent(metaEventId)}`,
+  (metaEventId
+    ? `&meta_event_id=${encodeURIComponent(metaEventId)}`
+    : ""),
 
       cancel_url: `${APP_URL}?canceled=true`,
 
