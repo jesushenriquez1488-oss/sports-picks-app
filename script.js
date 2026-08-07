@@ -1989,18 +1989,34 @@ if (
 async function askPushAfterLogin() {
   try {
     if (!("Notification" in window)) return;
+    if (!window.OneSignalDeferred) return;
 
-    if (Notification.permission === "granted") return;
-    if (Notification.permission === "denied") return;
+    let permission = Notification.permission;
 
-    const result = await Notification.requestPermission();
-
-    if (result === "granted" && window.OneSignalDeferred) {
-      OneSignalDeferred.push(async function (OneSignal) {
-        await OneSignal.User.PushSubscription.optIn();
-        console.log("Push notifications activated");
-      });
+    if (permission === "denied") {
+      return;
     }
+
+    if (permission === "default") {
+      permission = await Notification.requestPermission();
+    }
+
+    if (permission !== "granted") {
+      return;
+    }
+
+    OneSignalDeferred.push(async function (OneSignal) {
+
+      await OneSignal.setConsentGiven(true);
+
+      await OneSignal.User.PushSubscription.optIn();
+
+      console.log(
+        "✅ Push notifications activated with user consent."
+      );
+
+    });
+
   } catch (err) {
     console.error("Push permission error:", err);
   }
@@ -2010,18 +2026,20 @@ async function loginUser(email, password) {
     showAuthMessage("Enter your email and password", "error");
     return;
   }
-await askPushAfterLogin();
+
   const { data, error } = await supabaseClient.auth.signInWithPassword({
     email,
     password
   });
 
-  if (error) {
-    showAuthMessage("Incorrect email or password", "error");
-    return;
-  }
+if (error) {
+  showAuthMessage("Incorrect email or password", "error");
+  return;
+}
 
-  const user = data.user;
+await askPushAfterLogin();
+
+const user = data.user;
 
   const { data: profile, error: dbError } = await supabaseClient
     .from("users")
