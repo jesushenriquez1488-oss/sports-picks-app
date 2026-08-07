@@ -3825,7 +3825,7 @@ const parlayCardHTML = parlayData ? `
   LIVE AI TRACKING
 </p>
           <h2>Premium AI Performance</h2>
-        <span>Live premium pick tracking updated automatically by sport.</span>
+        <span>Live Premium Pick results tracking, updated automatically by sport.</span>
         </div>
 
         <div class="performance-cards-row">
