@@ -22,7 +22,8 @@ const MAX_WEEKS = {
   ncaaf: 16
 };
 const NCAAF_TRANSITION_TEAM_IDS = new Set([
-  "2449" // North Dakota State
+  "2449", // North Dakota State
+  "16"    // Sacramento State
 ]);
 // ===== AJUSTE POR CALIDAD DE RIVAL (FPI) — SOLO NCAAF =====
 const NCAAF_FPI_ACTIVE = false;   // false = vuelve al comportamiento de hoy
