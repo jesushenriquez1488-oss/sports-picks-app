@@ -1,63 +1,267 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-JYL25F28XL"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-JYL25F28XL');
-</script>
-  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-
-<script>
-window.OneSignalDeferred = window.OneSignalDeferred || [];
-
-OneSignalDeferred.push(async function(OneSignal) {
-
-  await OneSignal.init({
-    appId: "ef80e3e1-b203-4efd-ac58-936fa06a9108",
-
-    notifyButton: {
-      enable: false
-    },
-
-    allowLocalhostAsSecureOrigin: true
-  });
-
-});
-</script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sports Picks App</title>
   <link rel="stylesheet" href="style.css">
-  <!-- Google Ads Tag -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18266545354"></script>
+
+  <!-- CASHEDGE PRIVACY / CONSENT -->
   <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'AW-18266545354');
+  (function () {
+
+    const KEY = "cashedge_privacy_preferences_v1";
+
+    const GA4_ID = "G-JYL25F28XL";
+    const GOOGLE_ADS_ID = "AW-18266545354";
+    const META_PIXEL_ID = "1360080689410498";
+
+    function getPreferences() {
+      try {
+        const saved = localStorage.getItem(KEY);
+
+        if (!saved) {
+          return {
+            decided: false,
+            analytics: false,
+            advertising: false
+          };
+        }
+
+        const parsed = JSON.parse(saved);
+
+        return {
+          decided: parsed?.decided === true,
+          analytics: parsed?.analytics === true,
+          advertising: parsed?.advertising === true
+        };
+
+      } catch (error) {
+        return {
+          decided: false,
+          analytics: false,
+          advertising: false
+        };
+      }
+    }
+
+    function deleteCookie(name) {
+      const domains = [
+        "",
+        "cashedgeapp.com",
+        ".cashedgeapp.com"
+      ];
+
+      domains.forEach(domain => {
+        const domainPart = domain
+          ? `; domain=${domain}`
+          : "";
+
+        document.cookie =
+          `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/${domainPart}`;
+      });
+    }
+
+    function clearAnalyticsCookies() {
+      document.cookie.split(";").forEach(cookie => {
+        const name = cookie.split("=")[0].trim();
+
+        if (
+          name === "_gid" ||
+          name === "_gat" ||
+          name.startsWith("_ga")
+        ) {
+          deleteCookie(name);
+        }
+      });
+    }
+
+    function clearAdvertisingCookies() {
+      deleteCookie("_fbp");
+      deleteCookie("_fbc");
+    }
+
+    function loadGoogle(preferences) {
+
+      if (
+        !preferences.analytics &&
+        !preferences.advertising
+      ) {
+        return;
+      }
+
+      if (window.__cashEdgeGoogleLoaded) {
+        return;
+      }
+
+      window.__cashEdgeGoogleLoaded = true;
+
+      window.dataLayer = window.dataLayer || [];
+
+      window.gtag = function () {
+        window.dataLayer.push(arguments);
+      };
+
+      window.gtag("js", new Date());
+
+      window.gtag("consent", "default", {
+        analytics_storage:
+          preferences.analytics ? "granted" : "denied",
+
+        ad_storage:
+          preferences.advertising ? "granted" : "denied",
+
+        ad_user_data:
+          preferences.advertising ? "granted" : "denied",
+
+        ad_personalization:
+          preferences.advertising ? "granted" : "denied"
+      });
+
+      if (preferences.analytics) {
+        window.gtag("config", GA4_ID);
+      }
+
+      if (preferences.advertising) {
+        window.gtag("config", GOOGLE_ADS_ID);
+      }
+
+      const tagId = preferences.analytics
+        ? GA4_ID
+        : GOOGLE_ADS_ID;
+
+      const script =
+        document.createElement("script");
+
+      script.async = true;
+      script.src =
+        `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(tagId)}`;
+
+      document.head.appendChild(script);
+    }
+
+    function loadMetaPixel() {
+
+      if (window.__cashEdgeMetaLoaded) {
+        return;
+      }
+
+      window.__cashEdgeMetaLoaded = true;
+
+      !function(f,b,e,v,n,t,s) {
+        if(f.fbq)return;
+
+        n=f.fbq=function(){
+          n.callMethod
+            ? n.callMethod.apply(n,arguments)
+            : n.queue.push(arguments);
+        };
+
+        if(!f._fbq)f._fbq=n;
+
+        n.push=n;
+        n.loaded=true;
+        n.version="2.0";
+        n.queue=[];
+
+        t=b.createElement(e);
+        t.async=true;
+        t.src=v;
+
+        s=b.getElementsByTagName(e)[0];
+        s.parentNode.insertBefore(t,s);
+
+      }(
+        window,
+        document,
+        "script",
+        "https://connect.facebook.net/en_US/fbevents.js"
+      );
+
+      fbq("init", META_PIXEL_ID);
+      fbq("track", "PageView");
+    }
+
+    window.ceGetPrivacyPreferences =
+      getPreferences;
+
+    window.ceSetPrivacyPreferences =
+      function ({
+        analytics = false,
+        advertising = false
+      }) {
+
+        const preferences = {
+          decided: true,
+          analytics: analytics === true,
+          advertising: advertising === true,
+          updatedAt: new Date().toISOString()
+        };
+
+        localStorage.setItem(
+          KEY,
+          JSON.stringify(preferences)
+        );
+
+        if (!preferences.analytics) {
+          clearAnalyticsCookies();
+        }
+
+        if (!preferences.advertising) {
+          clearAdvertisingCookies();
+        }
+
+        window.location.reload();
+      };
+
+    const preferences = getPreferences();
+
+    if (preferences.decided) {
+
+      if (
+        preferences.analytics ||
+        preferences.advertising
+      ) {
+        loadGoogle(preferences);
+      }
+
+      if (preferences.advertising) {
+        loadMetaPixel();
+      }
+    }
+
+  })();
   </script>
-<!-- Meta Pixel Code -->
-<script>
-!function(f,b,e,v,n,t,s)
-{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-n.queue=[];t=b.createElement(e);t.async=!0;
-t.src=v;s=b.getElementsByTagName(e)[0];
-s.parentNode.insertBefore(t,s)}(window, document,'script',
-'https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', '1360080689410498');
-fbq('track', 'PageView');
-</script>
-<noscript><img height="1" width="1" style="display:none"
-src="https://www.facebook.com/tr?id=1360080689410498&ev=PageView&noscript=1"
-/></noscript>
-<!-- End Meta Pixel Code -->
+
+
+  <!-- ONESIGNAL - LO DEJAMOS IGUAL POR AHORA -->
+  <script
+    src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js"
+    defer>
+  </script>
+
+  <script>
+    window.OneSignalDeferred =
+      window.OneSignalDeferred || [];
+
+    OneSignalDeferred.push(
+      async function(OneSignal) {
+
+        await OneSignal.init({
+          appId:
+            "ef80e3e1-b203-4efd-ac58-936fa06a9108",
+
+          notifyButton: {
+            enable: false
+          },
+
+          allowLocalhostAsSecureOrigin: true
+        });
+
+      }
+    );
+  </script>
+
 </head>
 
 <body>
@@ -1164,10 +1368,18 @@ src="https://www.facebook.com/tr?id=1360080689410498&ev=PageView&noscript=1"
     </p>
 
     <div class="footer-links">
-      <a href="/privacy.html">Privacy Policy</a>
-      <a href="/terms.html">Terms of Service</a>
-      <a href="mailto:supportcashedge@gmail.com">Support</a>
-    </div>
+  <a href="/privacy.html">Privacy Policy</a>
+  <a href="/terms.html">Terms of Service</a>
+
+  <a href="#"
+     onclick="ceOpenPrivacyPreferences(); return false;">
+    Cookie Preferences
+  </a>
+
+  <a href="mailto:supportcashedge@gmail.com">
+    Support
+  </a>
+</div>
 
     <p class="footer-disclaimer">
       CashEdge does not guarantee winnings, profits, or betting outcomes.
@@ -1187,7 +1399,307 @@ src="https://www.facebook.com/tr?id=1360080689410498&ev=PageView&noscript=1"
 </main>
 
 </div>
+<!-- CASHEDGE PRIVACY BANNER -->
+<div id="cePrivacyBanner" style="
+  display:none;
+  position:fixed;
+  left:16px;
+  right:16px;
+  bottom:16px;
+  max-width:760px;
+  margin:auto;
+  background:#081120;
+  border:1px solid #1a3655;
+  border-radius:16px;
+  padding:20px;
+  z-index:999999;
+  box-shadow:0 15px 50px rgba(0,0,0,.65);
+  font-family:Arial,sans-serif;
+">
 
+  <div style="
+    color:#fff;
+    font-size:17px;
+    font-weight:800;
+    margin-bottom:8px;
+  ">
+    Your Privacy Choices
+  </div>
+
+  <div style="
+    color:#a0b4cc;
+    font-size:12px;
+    line-height:1.6;
+    margin-bottom:16px;
+  ">
+    We use cookies and similar technologies to operate CashEdge,
+    understand usage, measure advertising performance, and improve
+    our services. You can accept all cookies, reject non-essential
+    cookies, or manage your preferences.
+  </div>
+
+  <div style="
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+  ">
+
+    <button
+      onclick="ceAcceptAllPrivacy()"
+      style="
+        flex:1;
+        min-width:150px;
+        padding:12px;
+        border:0;
+        border-radius:9px;
+        background:#00ffe7;
+        color:#020814;
+        font-weight:800;
+        cursor:pointer;
+      ">
+      Accept All
+    </button>
+
+    <button
+      onclick="ceRejectPrivacy()"
+      style="
+        flex:1;
+        min-width:150px;
+        padding:12px;
+        border:1px solid #42516b;
+        border-radius:9px;
+        background:#10192b;
+        color:#fff;
+        font-weight:700;
+        cursor:pointer;
+      ">
+      Reject Non-Essential
+    </button>
+
+    <button
+      onclick="ceOpenPrivacyPreferences()"
+      style="
+        flex:1;
+        min-width:150px;
+        padding:12px;
+        border:1px solid #42516b;
+        border-radius:9px;
+        background:transparent;
+        color:#d0dcec;
+        font-weight:700;
+        cursor:pointer;
+      ">
+      Manage Preferences
+    </button>
+
+  </div>
+</div>
+
+
+<!-- PRIVACY PREFERENCES MODAL -->
+<div id="cePrivacyModal" style="
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.75);
+  z-index:1000000;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+">
+
+  <div style="
+    width:100%;
+    max-width:460px;
+    background:#081120;
+    border:1px solid #1a3655;
+    border-radius:16px;
+    padding:24px;
+    font-family:Arial,sans-serif;
+  ">
+
+    <h2 style="
+      margin:0 0 8px;
+      color:#fff;
+      font-size:20px;
+    ">
+      Privacy Preferences
+    </h2>
+
+    <p style="
+      color:#8899bb;
+      font-size:12px;
+      line-height:1.6;
+    ">
+      Choose which optional technologies CashEdge may use.
+    </p>
+
+    <div style="
+      padding:14px 0;
+      border-bottom:1px solid #1a2240;
+    ">
+      <label style="color:#fff;font-weight:700;">
+        <input type="checkbox" checked disabled>
+        Necessary
+      </label>
+
+      <div style="
+        color:#667b98;
+        font-size:11px;
+        margin-top:5px;
+      ">
+        Required for login, security, subscriptions and core platform functions.
+      </div>
+    </div>
+
+    <div style="
+      padding:14px 0;
+      border-bottom:1px solid #1a2240;
+    ">
+      <label style="color:#fff;font-weight:700;">
+        <input
+          id="ceAnalyticsPreference"
+          type="checkbox">
+        Analytics
+      </label>
+
+      <div style="
+        color:#667b98;
+        font-size:11px;
+        margin-top:5px;
+      ">
+        Helps us understand platform usage and improve CashEdge.
+      </div>
+    </div>
+
+    <div style="
+      padding:14px 0;
+    ">
+      <label style="color:#fff;font-weight:700;">
+        <input
+          id="ceAdvertisingPreference"
+          type="checkbox">
+        Advertising
+      </label>
+
+      <div style="
+        color:#667b98;
+        font-size:11px;
+        margin-top:5px;
+      ">
+        Allows advertising measurement through services such as Meta and Google.
+      </div>
+    </div>
+
+    <button
+      onclick="ceSavePrivacyPreferences()"
+      style="
+        width:100%;
+        padding:13px;
+        border:0;
+        border-radius:9px;
+        background:linear-gradient(135deg,#00ffe7,#7c3cff);
+        color:#020814;
+        font-weight:900;
+        cursor:pointer;
+        margin-top:10px;
+      ">
+      Save Preferences
+    </button>
+
+    <button
+      onclick="ceClosePrivacyPreferences()"
+      style="
+        width:100%;
+        padding:11px;
+        border:0;
+        background:transparent;
+        color:#8899bb;
+        cursor:pointer;
+        margin-top:5px;
+      ">
+      Cancel
+    </button>
+
+  </div>
+</div>
+
+
+<script>
+function ceAcceptAllPrivacy() {
+  window.ceSetPrivacyPreferences({
+    analytics: true,
+    advertising: true
+  });
+}
+
+function ceRejectPrivacy() {
+  window.ceSetPrivacyPreferences({
+    analytics: false,
+    advertising: false
+  });
+}
+
+function ceOpenPrivacyPreferences() {
+
+  const preferences =
+    window.ceGetPrivacyPreferences();
+
+  document.getElementById(
+    "ceAnalyticsPreference"
+  ).checked =
+    preferences.analytics === true;
+
+  document.getElementById(
+    "ceAdvertisingPreference"
+  ).checked =
+    preferences.advertising === true;
+
+  document.getElementById(
+    "cePrivacyModal"
+  ).style.display = "flex";
+}
+
+function ceClosePrivacyPreferences() {
+  document.getElementById(
+    "cePrivacyModal"
+  ).style.display = "none";
+}
+
+function ceSavePrivacyPreferences() {
+
+  const analytics =
+    document.getElementById(
+      "ceAnalyticsPreference"
+    ).checked;
+
+  const advertising =
+    document.getElementById(
+      "ceAdvertisingPreference"
+    ).checked;
+
+  window.ceSetPrivacyPreferences({
+    analytics,
+    advertising
+  });
+}
+
+document.addEventListener(
+  "DOMContentLoaded",
+  function () {
+
+    const preferences =
+      window.ceGetPrivacyPreferences();
+
+    if (!preferences.decided) {
+      document.getElementById(
+        "cePrivacyBanner"
+      ).style.display = "block";
+    }
+
+  }
+);
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="script.js"></script>
 
