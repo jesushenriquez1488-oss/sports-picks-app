@@ -91,8 +91,65 @@ const TEAM_MAP = {
   texas:                { id: "251",  keys: ["texas", "texas longhorns", "longhorns"] },
   oregon:               { id: "2483", keys: ["oregon", "oregon ducks", "ducks"] },
   michigan:             { id: "130",  keys: ["michigan", "michigan wolverines", "wolverines"] },
-  fsu:                  { id: "52",   keys: ["fsu", "florida state", "florida state seminoles", "seminoles"] },
-  "florida state":      { id: "52",   keys: ["fsu", "florida state", "florida state seminoles", "seminoles"] }
+ fsu: {
+  id: "52",
+  keys: [
+    "fsu",
+    "florida state",
+    "florida state seminoles",
+    "seminoles"
+  ]
+},
+
+"florida state": {
+  id: "52",
+  keys: [
+    "fsu",
+    "florida state",
+    "florida state seminoles",
+    "seminoles"
+  ]
+},
+
+umass: {
+  id: "113",
+  keys: [
+    "umass",
+    "umass minutemen",
+    "massachusetts",
+    "massachusetts minutemen"
+  ]
+},
+
+"umass minutemen": {
+  id: "113",
+  keys: [
+    "umass",
+    "umass minutemen",
+    "massachusetts",
+    "massachusetts minutemen"
+  ]
+},
+
+massachusetts: {
+  id: "113",
+  keys: [
+    "umass",
+    "umass minutemen",
+    "massachusetts",
+    "massachusetts minutemen"
+  ]
+},
+
+"massachusetts minutemen": {
+  id: "113",
+  keys: [
+    "umass",
+    "umass minutemen",
+    "massachusetts",
+    "massachusetts minutemen"
+  ]
+}
 };
 function cleanText(value) {
   return String(value || "")
