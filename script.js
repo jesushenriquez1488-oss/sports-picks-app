@@ -4188,25 +4188,62 @@ if (enableBtn) {
 
     try {
 
-      const permission = await Notification.requestPermission();
+      if (!("Notification" in window)) {
+        enableBtn.innerHTML = "❌ NOTIFICATIONS NOT SUPPORTED";
+        return;
+      }
 
-      if (permission === "granted") {
+      if (!window.OneSignalDeferred) {
+        console.warn("OneSignal is not available.");
+        return;
+      }
 
-        await OneSignal.User.PushSubscription.optIn();
+      let permission = Notification.permission;
 
-        enableBtn.innerHTML =
-          "✅ PREMIUM ALERTS ENABLED";
+      if (permission === "default") {
+        permission = await Notification.requestPermission();
+      }
 
-      } else {
-
+      if (permission !== "granted") {
         enableBtn.innerHTML =
           "❌ ALERTS BLOCKED";
-
+        return;
       }
+
+      OneSignalDeferred.push(
+        async function (OneSignal) {
+
+          try {
+
+            await OneSignal.setConsentGiven(true);
+
+            await OneSignal.User.PushSubscription.optIn();
+
+            enableBtn.innerHTML =
+              "✅ PREMIUM ALERTS ENABLED";
+
+            console.log(
+              "✅ Premium alerts enabled with user consent."
+            );
+
+          } catch (err) {
+
+            console.log(
+              "Push subscription error:",
+              err
+            );
+
+          }
+
+        }
+      );
 
     } catch (err) {
 
-      console.log("Push error:", err);
+      console.log(
+        "Push permission error:",
+        err
+      );
 
     }
 
