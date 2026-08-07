@@ -240,27 +240,29 @@
     defer>
   </script>
 
-  <script>
-    window.OneSignalDeferred =
-      window.OneSignalDeferred || [];
+<script>
+  window.OneSignalDeferred =
+    window.OneSignalDeferred || [];
 
-    OneSignalDeferred.push(
-      async function(OneSignal) {
+  OneSignalDeferred.push(
+    async function(OneSignal) {
 
-        await OneSignal.init({
-  appId:
-    "ef80e3e1-b203-4efd-ac58-936fa06a9108",
+      await OneSignal.init({
+        appId:
+          "ef80e3e1-b203-4efd-ac58-936fa06a9108",
 
-  requiresUserPrivacyConsent: true,
+        requiresUserPrivacyConsent: true,
 
-  notifyButton: {
-    enable: false
-  },
+        notifyButton: {
+          enable: false
+        },
 
-  allowLocalhostAsSecureOrigin: true
-});
-  </script>
+        allowLocalhostAsSecureOrigin: true
+      });
 
+    }
+  );
+</script>
 </head>
 
 <body>
