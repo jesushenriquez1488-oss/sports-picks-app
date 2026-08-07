@@ -196,51 +196,93 @@ const metaConversionStorageKey =
       );
     }
 
-    const conversionAlreadySent =
-      localStorage.getItem(conversionStorageKey) === "sent";
+    const advertisingAllowed = hasAdvertisingConsent();
 
-    if (!conversionAlreadySent) {
-      if (typeof window.gtag !== "function") {
-        throw new Error("La etiqueta de Google Ads no está disponible.");
-      }
+/* =========================
+   GOOGLE ADS PURCHASE
+========================= */
 
-      window.gtag("event", "conversion", {
-        send_to: "AW-18266545354/le8_CMnWsMQcEMq5IYZE",
-        value: Number(verification.value || 19.99),
-        currency: String(verification.currency || "USD").toUpperCase(),
-        transaction_id:
-          verification.transactionId || stripeSessionId
-      });
+const conversionAlreadySent =
+  localStorage.getItem(conversionStorageKey) === "sent";
 
-      localStorage.setItem(conversionStorageKey, "sent");
+if (advertisingAllowed && !conversionAlreadySent) {
 
-      console.log("✅ Conversión Premium enviada a Google Ads:", {
-        transactionId:
-          verification.transactionId || stripeSessionId,
-        value: verification.value,
-        currency: verification.currency
-      });
-    } else {
-      console.log("Conversión ya enviada anteriormente:", stripeSessionId);
-    }
+  if (typeof window.gtag === "function") {
+
+    window.gtag("event", "conversion", {
+      send_to: "AW-18266545354/le8_CMnWsMQcEMq5IYZE",
+      value: Number(verification.value || 19.99),
+      currency: String(
+        verification.currency || "USD"
+      ).toUpperCase(),
+      transaction_id:
+        verification.transactionId || stripeSessionId
+    });
+
+    localStorage.setItem(
+      conversionStorageKey,
+      "sent"
+    );
+
+    console.log(
+      "✅ Google Ads Purchase enviado."
+    );
+
+  } else {
+    console.warn(
+      "⚠️ Google Ads no disponible."
+    );
+  }
+
+} else if (!advertisingAllowed) {
+
+  console.log(
+    "ℹ️ Google Ads Purchase omitido: advertising consent denied."
+  );
+
+}
+
+
+/* =========================
+   META PIXEL PURCHASE
+========================= */
+
 const metaConversionAlreadySent =
   localStorage.getItem(metaConversionStorageKey) === "sent";
 
-if (!metaConversionAlreadySent) {
+if (
+  advertisingAllowed &&
+  !metaConversionAlreadySent
+) {
+
   if (!metaEventId) {
-    console.warn("Meta Purchase no enviado: falta meta_event_id.");
-  } else if (typeof window.fbq !== "function") {
-    console.warn("Meta Purchase no enviado: Pixel no disponible.");
+
+    console.warn(
+      "Meta Purchase no enviado: falta meta_event_id."
+    );
+
+  } else if (
+    typeof window.fbq !== "function"
+  ) {
+
+    console.warn(
+      "Meta Purchase no enviado: Pixel no disponible."
+    );
+
   } else {
+
     window.fbq(
       "track",
       "Purchase",
       {
-        value: Number(verification.value || 19.99),
+        value: Number(
+          verification.value || 19.99
+        ),
         currency: String(
           verification.currency || "USD"
         ).toUpperCase(),
-        content_name: "CashEdge Premium Subscription",
+        content_name:
+          "CashEdge Premium Subscription",
         content_type: "product"
       },
       {
@@ -248,18 +290,23 @@ if (!metaConversionAlreadySent) {
       }
     );
 
-    localStorage.setItem(metaConversionStorageKey, "sent");
+    localStorage.setItem(
+      metaConversionStorageKey,
+      "sent"
+    );
 
-    console.log("✅ Purchase enviado al Meta Pixel:", {
-      eventId: metaEventId,
-      transactionId:
-        verification.transactionId || stripeSessionId,
-      value: verification.value,
-      currency: verification.currency
-    });
+    console.log(
+      "✅ Meta Pixel Purchase enviado."
+    );
   }
+
+} else if (!advertisingAllowed) {
+
+  console.log(
+    "ℹ️ Meta Pixel Purchase omitido: advertising consent denied."
+  );
+
 }
-    alert("✅ Premium confirmado correctamente.");
 
   } catch (error) {
     console.error("❌ Error verificando la compra:", error);
