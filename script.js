@@ -308,7 +308,9 @@ if (
 
 }
 
-  } catch (error) {
+alert("✅ Premium confirmado correctamente.");
+
+} catch (error) {
     console.error("❌ Error verificando la compra:", error);
 
     alert(
