@@ -187,24 +187,42 @@ if (session.payment_status !== "paid") {
       }
 
       console.log("✅ PREMIUM ACTIVADO:", data);
-     await sendMetaPurchase({
-  email,
-  userId,
-  value: Number(session.amount_total || 0) / 100,
-  currency: session.currency?.toUpperCase() || "USD",
-  eventId: session.metadata?.metaEventId || session.id,
-  eventSourceUrl:
-    session.metadata?.eventSourceUrl ||
-    "https://www.cashedgeapp.com/",
-  clientIpAddress:
-    session.metadata?.clientIpAddress || null,
-  clientUserAgent:
-    session.metadata?.clientUserAgent || null,
-  fbp:
-    session.metadata?.fbp || null,
-  fbc:
-    session.metadata?.fbc || null,
-});
+    const advertisingConsent =
+  session.metadata?.advertisingConsent === "granted";
+
+if (advertisingConsent) {
+
+  await sendMetaPurchase({
+    email,
+    userId,
+    value: Number(session.amount_total || 0) / 100,
+    currency: session.currency?.toUpperCase() || "USD",
+    eventId:
+      session.metadata?.metaEventId || session.id,
+    eventSourceUrl:
+      session.metadata?.eventSourceUrl ||
+      "https://www.cashedgeapp.com/",
+    clientIpAddress:
+      session.metadata?.clientIpAddress || null,
+    clientUserAgent:
+      session.metadata?.clientUserAgent || null,
+    fbp:
+      session.metadata?.fbp || null,
+    fbc:
+      session.metadata?.fbc || null,
+  });
+
+  console.log(
+    "✅ Meta CAPI Purchase sent with advertising consent."
+  );
+
+} else {
+
+  console.log(
+    "ℹ️ Meta CAPI Purchase skipped: advertising consent not granted."
+  );
+
+}
       const promoCode = String(session.metadata?.promoCode || "")
   .trim()
   .toUpperCase();
