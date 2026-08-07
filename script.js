@@ -4253,7 +4253,7 @@ if (enableBtn) {
 function startHeroTypewriter() {
   const el = document.getElementById("heroTypewriter");
   if (!el) return;
- const text = "AI-powered sports picks. Every prediction tracked live, every result public.";
+const text = "AI-powered sports analytics. Premium Pick results tracked publicly.";
   let i = 0;
   el.innerText = "";
   const interval = setInterval(() => {
@@ -6697,7 +6697,8 @@ async function ceLoadLandingStats() {
     if (accEl) ceAnimateCounter(accEl, overallAcc);
 
     const recEl = document.getElementById("ceHeroRecord");
-    if (recEl) recEl.textContent = `${totalW}W · ${totalL}L · ${totalP}P — tracked live, every result public`;
+  if (recEl) recEl.textContent =
+  `${totalW}W · ${totalL}L · ${totalP}P — Premium Pick results tracked publicly`;
 
     const grid = document.getElementById("ceSportsGrid");
     if (grid) {
