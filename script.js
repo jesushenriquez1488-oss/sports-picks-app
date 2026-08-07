@@ -2,23 +2,87 @@ const SUPABASE_URL = "https://chwuftiqbxqjbhdixdwk.supabase.co";
 const SUPABASE_KEY = "sb_publishable_WLTdeKrWOWO404USqEcqtg_bSfDTzJ3";
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-let currentSessionId = localStorage.getItem("cashedge_session_id");
+const CE_PRIVACY_KEY = "cashedge_privacy_preferences_v1";
 
-if (!currentSessionId) {
-  currentSessionId = crypto.randomUUID();
-  localStorage.setItem("cashedge_session_id", currentSessionId); 
+function getCashEdgePrivacyPreferences() {
+  try {
+    const saved = localStorage.getItem(CE_PRIVACY_KEY);
+
+    if (!saved) {
+      return {
+        decided: false,
+        analytics: false,
+        advertising: false
+      };
+    }
+
+    const parsed = JSON.parse(saved);
+
+    return {
+      decided: parsed?.decided === true,
+      analytics: parsed?.analytics === true,
+      advertising: parsed?.advertising === true
+    };
+
+  } catch (error) {
+    return {
+      decided: false,
+      analytics: false,
+      advertising: false
+    };
+  }
 }
+
+function hasAnalyticsConsent() {
+  return getCashEdgePrivacyPreferences().analytics === true;
+}
+
+function hasAdvertisingConsent() {
+  return getCashEdgePrivacyPreferences().advertising === true;
+}
+
+function getAdvertisingConsentValue() {
+  return hasAdvertisingConsent() ? "granted" : "denied";
+}
+
+let currentSessionId = null;
+
+function getTrackingSessionId() {
+  if (!hasAnalyticsConsent()) return null;
+
+  if (currentSessionId) return currentSessionId;
+
+  currentSessionId = localStorage.getItem("cashedge_session_id");
+
+  if (!currentSessionId) {
+    currentSessionId = crypto.randomUUID();
+    localStorage.setItem("cashedge_session_id", currentSessionId);
+  }
+
+  return currentSessionId;
+}
+
 let currentOddsGames = [];
+
 async function trackUserEvent(eventType, options = {}) {
   try {
-    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!hasAnalyticsConsent()) {
+      return;
+    }
 
-    await supabaseClient.from("user_tracking").insert({ 
+    const sessionId = getTrackingSessionId();
+    if (!sessionId) return;
+
+    const {
+      data: { user }
+    } = await supabaseClient.auth.getUser();
+
+    await supabaseClient.from("user_tracking").insert({
       user_id: user?.id || null,
       email: user?.email || null,
       event_type: eventType,
       sport: options.sport || null,
-      session_id: currentSessionId,
+      session_id: sessionId,
       page: options.page || null,
       metadata: options.metadata || {}
     });
@@ -309,22 +373,35 @@ async function goPremiumMonthly() {
 
   if (error || !user || !user.id || !user.email) {
     alert("Debes iniciar sesión antes de comprar Premium.");
-    document.getElementById("authBox").scrollIntoView({ behavior: "smooth" });
+    document
+      .getElementById("authBox")
+      .scrollIntoView({ behavior: "smooth" });
     return;
   }
-const promoCode =
-  document.getElementById("promoCodeInput")?.value?.trim().toUpperCase() || "";
+
+  const promoCode =
+    document
+      .getElementById("promoCodeInput")
+      ?.value
+      ?.trim()
+      .toUpperCase() || "";
+
+  const advertisingConsent =
+    getAdvertisingConsentValue();
+
   try {
     const res = await fetch("/api/create-checkout-session", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
+
       body: JSON.stringify({
-  userId: user.id,
-  email: user.email,
-  promoCode
-})
+        userId: user.id,
+        email: user.email,
+        promoCode,
+        advertisingConsent
+      })
     });
 
     const data = await res.json();
@@ -345,7 +422,6 @@ const promoCode =
     alert("Error con Stripe");
   }
 }
-
     
 
 async function unlockPick() {
@@ -1841,13 +1917,19 @@ async function registerUser(email, password) {
     return;
   }
 // Registrar creación exitosa de cuenta
-if (typeof window.gtag === "function") {
+if (
+  hasAnalyticsConsent() &&
+  typeof window.gtag === "function"
+) {
   window.gtag("event", "sign_up", {
-    method: "email",
+    method: "email"
   });
 }
 
-if (typeof window.fbq === "function") {
+if (
+  hasAdvertisingConsent() &&
+  typeof window.fbq === "function"
+) {
   window.fbq("track", "CompleteRegistration");
 }
   showAuthMessage("✅ Account created. Check your email " + email + " to verify your account before logging in.", "success");
