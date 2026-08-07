@@ -192,31 +192,42 @@ if (session.payment_status !== "paid") {
 
 if (advertisingConsent) {
 
-  await sendMetaPurchase({
-    email,
-    userId,
-    value: Number(session.amount_total || 0) / 100,
-    currency: session.currency?.toUpperCase() || "USD",
-    eventId:
-      session.metadata?.metaEventId || session.id,
-    eventSourceUrl:
-      session.metadata?.eventSourceUrl ||
-      "https://www.cashedgeapp.com/",
-    clientIpAddress:
-      session.metadata?.clientIpAddress || null,
-    clientUserAgent:
-      session.metadata?.clientUserAgent || null,
-    fbp:
-      session.metadata?.fbp || null,
-    fbc:
-      session.metadata?.fbc || null,
-  });
+  try {
 
-  console.log(
-    "✅ Meta CAPI Purchase sent with advertising consent."
-  );
+    await sendMetaPurchase({
+      email,
+      userId,
+      value: Number(session.amount_total || 0) / 100,
+      currency: session.currency?.toUpperCase() || "USD",
+      eventId:
+        session.metadata?.metaEventId || session.id,
+      eventSourceUrl:
+        session.metadata?.eventSourceUrl ||
+        "https://www.cashedgeapp.com/",
+      clientIpAddress:
+        session.metadata?.clientIpAddress || null,
+      clientUserAgent:
+        session.metadata?.clientUserAgent || null,
+      fbp:
+        session.metadata?.fbp || null,
+      fbc:
+        session.metadata?.fbc || null,
+    });
 
-} else {
+    console.log(
+      "✅ Meta CAPI Purchase sent with advertising consent."
+    );
+
+  } catch (metaError) {
+
+    console.error(
+      "⚠️ Meta CAPI failed, Stripe processing continues:",
+      metaError.message
+    );
+
+  }
+
+}else {
 
   console.log(
     "ℹ️ Meta CAPI Purchase skipped: advertising consent not granted."
