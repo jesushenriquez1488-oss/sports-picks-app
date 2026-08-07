@@ -102,21 +102,21 @@
         window.dataLayer.push(arguments);
       };
 
-      window.gtag("js", new Date());
+     window.gtag("consent", "default", {
+  analytics_storage:
+    preferences.analytics ? "granted" : "denied",
 
-      window.gtag("consent", "default", {
-        analytics_storage:
-          preferences.analytics ? "granted" : "denied",
+  ad_storage:
+    preferences.advertising ? "granted" : "denied",
 
-        ad_storage:
-          preferences.advertising ? "granted" : "denied",
+  ad_user_data:
+    preferences.advertising ? "granted" : "denied",
 
-        ad_user_data:
-          preferences.advertising ? "granted" : "denied",
+  ad_personalization:
+    preferences.advertising ? "granted" : "denied"
+});
 
-        ad_personalization:
-          preferences.advertising ? "granted" : "denied"
-      });
+window.gtag("js", new Date());
 
       if (preferences.analytics) {
         window.gtag("config", GA4_ID);
