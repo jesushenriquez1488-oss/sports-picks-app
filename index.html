@@ -248,18 +248,17 @@
       async function(OneSignal) {
 
         await OneSignal.init({
-          appId:
-            "ef80e3e1-b203-4efd-ac58-936fa06a9108",
+  appId:
+    "ef80e3e1-b203-4efd-ac58-936fa06a9108",
 
-          notifyButton: {
-            enable: false
-          },
+  requiresUserPrivacyConsent: true,
 
-          allowLocalhostAsSecureOrigin: true
-        });
+  notifyButton: {
+    enable: false
+  },
 
-      }
-    );
+  allowLocalhostAsSecureOrigin: true
+});
   </script>
 
 </head>
