@@ -1566,12 +1566,35 @@ const isFootballSport = [
 let allowedDates = [];
 let upcomingGames = [];
 if (isFootballSport) {
-  // NFL/NCAAF: mostrar los próximos juegos disponibles sin límite de fecha
- upcomingGames = data
-  .filter(game => new Date(game.commence_time) > now)
-  .sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time));
-  
-  status.innerHTML = `Games found: ${upcomingGames.length}`;
+  const futureGames = data
+    .filter(game => new Date(game.commence_time) > now)
+    .sort(
+      (a, b) =>
+        new Date(a.commence_time) -
+        new Date(b.commence_time)
+    );
+
+  if (futureGames.length > 0) {
+    const firstGameTime =
+      new Date(futureGames[0].commence_time);
+
+    const weekEnd =
+      new Date(firstGameTime);
+
+    weekEnd.setDate(
+      weekEnd.getDate() + 7
+    );
+
+    upcomingGames = futureGames.filter(game => {
+      const gameTime =
+        new Date(game.commence_time);
+
+      return gameTime < weekEnd;
+    });
+  }
+
+  status.innerHTML =
+    `Games found: ${upcomingGames.length}`;
 
   if (upcomingGames.length === 0) {
     gamesDiv.innerHTML = `
