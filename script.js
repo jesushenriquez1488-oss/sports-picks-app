@@ -2486,19 +2486,22 @@ ${premium.recommendedCards?.[1] ? `
                 <div id="playerEdge${index}" class="player-edge-box"></div>
               </div>
 
-             <div class="mlb-info-grid">
+           <div class="mlb-info-grid">
 
   <div>
     <h4>🏟️ BALLPARK</h4>
     <p>
       ${premium?.venue?.name || "N/A"}
-      — roof: ${premium?.venue?.roof || "N/A"}
+      — roof:
+      ${premium?.venue?.roof || "N/A"}
     </p>
   </div>
 
   <div>
     <h4>🌦️ WEATHER</h4>
-    <p>${premium?.weather?.raw || "Not available"}</p>
+    <p>
+      ${premium?.weather?.raw || "Not available"}
+    </p>
     <p>
       ${ceWindIcon(
         premium?.weather?.direction,
@@ -2509,19 +2512,55 @@ ${premium.recommendedCards?.[1] ? `
         premium?.weather?.temp
       )}
     </p>
-  </div>
-
-  <div>
-    <h4>📊 MODEL ANALYSIS</h4>
-    <p>
-      Offensive, defensive, pitching and bullpen data analyzed by the CashEdge model.
+    <p style="opacity:0.7;">
+      Run impact:
+      ${safe(premium?.weatherImpactPercent, 0) > 0 ? "+" : ""}
+      ${safe(premium?.weatherImpactPercent, 0).toFixed(1)}%
     </p>
   </div>
 
   <div>
-    <h4>⚾ PITCHING / BULLPEN</h4>
+    <h4>📊 DATA USED</h4>
     <p>
-      Starting pitching and bullpen conditions are included in the model analysis.
+      ${awayTeam}: offense ${safe(premium?.awayOffense).toFixed(2)},
+      defense ${safe(premium?.awayTeamAllowed).toFixed(2)},
+      pitcher ${safe(premium?.awayPitcherAllowed).toFixed(2)},
+      bullpen ${safe(premium?.awayBullpenAllowed).toFixed(2)}
+    </p>
+
+    <p>
+      ${homeTeam}: offense ${safe(premium?.homeOffense).toFixed(2)},
+      defense ${safe(premium?.homeTeamAllowed).toFixed(2)},
+      pitcher ${safe(premium?.homePitcherAllowed).toFixed(2)},
+      bullpen ${safe(premium?.homeBullpenAllowed).toFixed(2)}
+    </p>
+  </div>
+
+  <div>
+    <h4>⚾ PITCHERS / BULLPEN</h4>
+
+    <p>
+      ${awayTeam}:
+      ${premium?.awayPitcherName || "N/A"}
+      — innings:
+      ${safe(premium?.awayPitcherInnings).toFixed(1)}
+    </p>
+
+    <p>
+      ${homeTeam}:
+      ${premium?.homePitcherName || "N/A"}
+      — innings:
+      ${safe(premium?.homePitcherInnings).toFixed(1)}
+    </p>
+
+    <p>
+      ${awayTeam} bullpen fatigue:
+      ${safe(premium?.awayBullpenFatigue).toFixed(1)}
+    </p>
+
+    <p>
+      ${homeTeam} bullpen fatigue:
+      ${safe(premium?.homeBullpenFatigue).toFixed(1)}
     </p>
   </div>
 
