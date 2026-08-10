@@ -377,6 +377,20 @@ res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 if (req.method === "OPTIONS") {
   return res.status(200).end();
 }
+  const expectedSecret =
+  process.env.INTERNAL_API_SECRET;
+
+const receivedSecret =
+  req.headers["x-internal-secret"];
+
+if (
+  !expectedSecret ||
+  receivedSecret !== expectedSecret
+) {
+  return res.status(401).json({
+    error: "Unauthorized"
+  });
+}
   try {
 const { awayTeam, homeTeam, gameTime, eventId } = req.body;
 const gameDate = gameTime ? new Date(gameTime) : new Date();
