@@ -2893,19 +2893,81 @@ if (type === "ncaaf") {
   } else {
 
     // DESDE AQUÍ EL MODELO ES EXACTAMENTE EL MISMO DE SIEMPRE.
-    teamAAdj = buildFPIProfile(
-      teamAEdges,
-      fA,
-      baseA,
-      leagueAvg
-    );
+   const teamAEdgesForFPI = derivedA
+  ? {
+      gamesUsed: derivedA.games.length,
 
-    teamBAdj = buildFPIProfile(
-      teamBEdges,
-      fB,
-      baseB,
-      leagueAvg
-    );
+      avgPointsScored: round(
+        average(derivedA.games.map(g => Number(g.teamPoints)))
+      ),
+
+      avgPointsAllowed: round(
+        average(derivedA.games.map(g => Number(g.pointsAllowed)))
+      ),
+
+      sosDef: round(
+        average(derivedA.games.map(g => Number(g.expectedPF)))
+      ),
+
+      sosOff: round(
+        average(derivedA.games.map(g => Number(g.expectedPA)))
+      ),
+
+      avgOffensiveEdge: round(
+        average(derivedA.games.map(g => Number(g.derivedOff)))
+      ),
+
+      avgDefensiveEdge: round(
+        average(derivedA.games.map(g => -Number(g.derivedDef)))
+      )
+    }
+  : teamAEdges;
+
+
+const teamBEdgesForFPI = derivedB
+  ? {
+      gamesUsed: derivedB.games.length,
+
+      avgPointsScored: round(
+        average(derivedB.games.map(g => Number(g.teamPoints)))
+      ),
+
+      avgPointsAllowed: round(
+        average(derivedB.games.map(g => Number(g.pointsAllowed)))
+      ),
+
+      sosDef: round(
+        average(derivedB.games.map(g => Number(g.expectedPF)))
+      ),
+
+      sosOff: round(
+        average(derivedB.games.map(g => Number(g.expectedPA)))
+      ),
+
+      avgOffensiveEdge: round(
+        average(derivedB.games.map(g => Number(g.derivedOff)))
+      ),
+
+      avgDefensiveEdge: round(
+        average(derivedB.games.map(g => -Number(g.derivedDef)))
+      )
+    }
+  : teamBEdges;
+
+
+teamAAdj = buildFPIProfile(
+  teamAEdgesForFPI,
+  fA,
+  baseA,
+  leagueAvg
+);
+
+teamBAdj = buildFPIProfile(
+  teamBEdgesForFPI,
+  fB,
+  baseB,
+  leagueAvg
+);
 
     fpiAdj = {
       active: true,
