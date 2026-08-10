@@ -154,6 +154,25 @@ massachusetts: {
     "massachusetts minutemen"
   ]
 },
+  "sacramento state": {
+  id: "16",
+  keys: [
+    "sacramento state",
+    "sacramento state hornets",
+    "sac state",
+    "hornets"
+  ]
+},
+
+"sacramento state hornets": {
+  id: "16",
+  keys: [
+    "sacramento state",
+    "sacramento state hornets",
+    "sac state",
+    "hornets"
+  ]
+},
   "north dakota state": {
   id: "2449",
   keys: [
