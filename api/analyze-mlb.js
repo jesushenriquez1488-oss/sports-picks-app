@@ -2706,7 +2706,6 @@ if (mode === "player-props") {
   );
 }
 const {
-    userId,
     awayTeam,
     homeTeam,
     awaySpread,
@@ -2978,6 +2977,35 @@ await updateSportRecord();
     details
   });
 }
+ const authHeader =
+  String(req.headers.authorization || "");
+
+const token =
+  authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : null;
+
+if (!token) {
+  return res.status(401).json({
+    error: "Unauthorized"
+  });
+}
+
+const {
+  data: authData,
+  error: authError
+} = await supabaseAdmin.auth.getUser(token);
+
+if (
+  authError ||
+  !authData?.user?.id
+) {
+  return res.status(401).json({
+    error: "Unauthorized"
+  });
+}
+
+const userId = authData.user.id;
   let isPremiumUser = false;
 let isAdmin = false;
 let isUnlimited = false;
@@ -3007,10 +3035,13 @@ if (userId && userId !== "null" && userId !== "undefined" && userId !== "guest")
 }
     const origin = "https://www.cashedgeapp.com";
 const dataResponse = await fetch(`${origin}/api/mlb-data`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-     body: JSON.stringify({ awayTeam, homeTeam, gameTime, eventId })
-    });
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "X-Internal-Secret": process.env.INTERNAL_API_SECRET
+  },
+  body: JSON.stringify({ awayTeam, homeTeam, gameTime, eventId })
+});
 
     const mlbData = await dataResponse.json();
 
