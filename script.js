@@ -2242,11 +2242,12 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
       return;
     }
 
-    const response = await fetch("/api/analyze-mlb", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+   const response = await fetch("/api/analyze-mlb", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${sessionData.session.access_token}`
+  },
      body: JSON.stringify({
         userId: sessionData.session.user.id,
         awayTeam,
