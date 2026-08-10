@@ -4876,103 +4876,110 @@ if (recommendedCards.length > 0) {
   if (recommendedCards.length === 0) {
           await recordFreeAnalysis(userId, isUnlimited, "analyze-mlb");
     }
-    return res.status(200).json({
-      locked,
-      isPremiumPick: recommendedCards.length > 0,
-    public: {
-        awayTeam,
-        homeTeam,
-        totalLine,
-        confidence: recommendedCards[0]?.percentage || null,
-        freePick: bestFreeCandidate
+const clientRecommendedCards =
+  locked
+    ? []
+    : recommendedCards
+        .slice(0, 1)
+        .map(card => ({
+          title: card?.title || "CashEdge Pick",
+          play: card?.play || null,
+          percentage: Number(card?.percentage || 0)
+        }));
+
+const clientPremium =
+  locked
+    ? null
+    : {
+        recommendedCards: clientRecommendedCards,
+
+        expectedRunsA: Number(
+          Number(expectedRunsA || 0).toFixed(2)
+        ),
+
+        expectedRunsB: Number(
+          Number(expectedRunsB || 0).toFixed(2)
+        ),
+
+        projectedTotal: Number(
+          Number(projectedTotal || 0).toFixed(2)
+        ),
+
+        totalLine: Number(totalLine),
+
+        totalDiff: Number(
+          (
+            Number(projectedTotal || 0) -
+            Number(totalLine || 0)
+          ).toFixed(2)
+        ),
+
+        venue: {
+          name:
+            mlbData?.venue?.name ||
+            "Unknown Stadium",
+
+          roof:
+            mlbData?.venue?.roof ||
+            "unknown"
+        },
+
+        weather: {
+          raw:
+            mlbData?.weather?.raw ||
+            "Not available",
+
+          direction:
+            mlbData?.weather?.direction ||
+            "neutral",
+
+          speed:
+            Number(
+              mlbData?.weather?.speed || 0
+            ),
+
+          temp:
+            mlbData?.weather?.temp ?? null
+        }
+      };
+
+return res.status(200).json({
+  locked,
+
+  isPremiumPick:
+    recommendedCards.length > 0,
+
+  public: {
+    awayTeam,
+    homeTeam,
+
+    totalLine:
+      locked
+        ? null
+        : Number(totalLine),
+
+    confidence:
+      locked
+        ? null
+        : (
+            clientRecommendedCards[0]
+              ?.percentage ??
+            null
+          ),
+
+    freePick:
+      locked
+        ? null
+        : bestFreeCandidate
           ? {
               title: "Model's lean",
               play: bestFreeCandidate.play
             }
           : null
-      },
-      premium: locked
-        ? null
-        : {
-            recommendedCards,
+  },
 
-            favoriteToWin: modelProbA > modelProbB ? awayTeam : homeTeam,
-            favoriteProb: Math.max(modelProbA, modelProbB) * 100,
-
-            expectedRunsA,
-            expectedRunsB,
-            projectedTotal,
-            totalLine,
-            totalDiff: projectedTotal - totalLine,
-
-            overProbability: overProb,
-            underProbability: underProb,
-            totalPick,
-            totalEdge,
-
-            venue: mlbData.venue || {
-              name: "Unknown Stadium",
-              parkFactor: 1,
-              roof: "unknown"
-            },
-
-            weather: mlbData.weather || {
-              raw: "No disponible",
-              direction: "neutral",
-              speed: 0,
-              temp: null,
-              active: false
-            },
-
-            weatherFactor,
-parkFactor,
-runEnvironmentFactor,
-weatherImpactPercent,
-parkImpactPercent,
-combinedEnvironmentImpactPercent,
-
-            awayOffense,
-            homeOffense,
-
-            awayTeamAllowed,
-            homeTeamAllowed,
-
-            awayPitcherAllowed: awayPitcher,
-            homePitcherAllowed: homePitcher,
-
-            awayBullpenAllowed: awayBullpen,
-            homeBullpenAllowed: homeBullpen,
-
-            awayPitcherName: mlbData.away?.pitcher?.name || "No disponible",
-            homePitcherName: mlbData.home?.pitcher?.name || "No disponible",
-         
-            awayPitcherInnings,
-            homePitcherInnings,
-
-            awayBullpenFatigue: mlbData.away?.bullpen?.fatigue || 0,
-            homeBullpenFatigue: mlbData.home?.bullpen?.fatigue || 0,
-          awayBullpenWhip: mlbData.away?.bullpen?.whip || null,
-homeBullpenWhip: mlbData.home?.bullpen?.whip || null,
-
-awayBullpenLast3Whip: mlbData.away?.bullpen?.last3?.whip || null,
-homeBullpenLast3Whip: mlbData.home?.bullpen?.last3?.whip || null,
-
-awayBullpenLast7RA9: mlbData.away?.bullpen?.last7?.ra9 || null,
-homeBullpenLast7RA9: mlbData.home?.bullpen?.last7?.ra9 || null,
-
-awayBullpenLast3RA9: mlbData.away?.bullpen?.last3?.ra9 || null,
-homeBullpenLast3RA9: mlbData.home?.bullpen?.last3?.ra9 || null,
-
-            awayBullpenFatigueFactor: getBullpenFatigueFactor(mlbData.away?.bullpen),
-homeBullpenFatigueFactor: getBullpenFatigueFactor(mlbData.home?.bullpen),
-
-            awayRunEnvironment: expectedRunsA,
-            homeRunEnvironment: expectedRunsB,
-
-           
-          }
-    });
-
+  premium: clientPremium
+});
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
