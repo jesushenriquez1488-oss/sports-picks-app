@@ -1405,6 +1405,32 @@ side: shouldHide ? "Suscríbete para desbloquear" : pick.side || null
     totalPick: sanitizePick(picks.totalPick)
   };
 }
+function buildFootballPublicResponse(full, isPremiumUser) {
+  return {
+    sport: full?.sport || null,
+
+    odds: full?.odds || null,
+
+    picks: sanitizePicksForPublic(
+      full?.picks,
+      isPremiumUser
+    ),
+
+    publicConfidence:
+      Number(full?.publicConfidence || 0),
+
+    projectedScore:
+      full?.projectedScore || {},
+
+    projectedTotal:
+      Number(full?.projectedTotal || 0),
+
+    projectedSpread:
+      Number(full?.projectedSpread || 0),
+
+    isPremiumUser
+  };
+}
 // ============================================================
 // NFL/NCAAF INJURY IMPACT SYSTEM
 // ============================================================
@@ -2649,11 +2675,12 @@ try {
           if (!isPremiumUser && !cachedIsPremium) {
             await recordFreeAnalysis(authUserId, false, "analyze-football");
           }
-          return res.status(200).json({
-            ...full,
-            isPremiumUser,
-            picks: sanitizePicksForPublic(full.picks, isPremiumUser)
-          });
+          return res.status(200).json(
+  buildFootballPublicResponse(
+    full,
+    isPremiumUser
+  )
+);
         }
       }
     } catch {}
