@@ -4924,24 +4924,79 @@ const clientPremium =
             "unknown"
         },
 
-        weather: {
-          raw:
-            mlbData?.weather?.raw ||
-            "Not available",
+       weather: {
+  raw:
+    mlbData?.weather?.raw ||
+    "Not available",
 
-          direction:
-            mlbData?.weather?.direction ||
-            "neutral",
+  direction:
+    mlbData?.weather?.direction ||
+    "neutral",
 
-          speed:
-            Number(
-              mlbData?.weather?.speed || 0
-            ),
+  speed:
+    Number(
+      mlbData?.weather?.speed || 0
+    ),
 
-          temp:
-            mlbData?.weather?.temp ?? null
-        }
-      };
+  temp:
+    mlbData?.weather?.temp ?? null
+},
+
+weatherImpactPercent:
+  Number(
+    Number(
+      weatherImpactPercent || 0
+    ).toFixed(1)
+  ),
+
+awayOffense:
+  Number(awayOffense || 0),
+
+homeOffense:
+  Number(homeOffense || 0),
+
+awayTeamAllowed:
+  Number(awayTeamAllowed || 0),
+
+homeTeamAllowed:
+  Number(homeTeamAllowed || 0),
+
+awayPitcherAllowed:
+  Number(awayPitcher || 0),
+
+homePitcherAllowed:
+  Number(homePitcher || 0),
+
+awayBullpenAllowed:
+  Number(awayBullpen || 0),
+
+homeBullpenAllowed:
+  Number(homeBullpen || 0),
+
+awayPitcherName:
+  mlbData.away?.pitcher?.name ||
+  "N/A",
+
+homePitcherName:
+  mlbData.home?.pitcher?.name ||
+  "N/A",
+
+awayPitcherInnings:
+  Number(awayPitcherInnings || 0),
+
+homePitcherInnings:
+  Number(homePitcherInnings || 0),
+
+awayBullpenFatigue:
+  Number(
+    mlbData.away?.bullpen?.fatigue || 0
+  ),
+
+homeBullpenFatigue:
+  Number(
+    mlbData.home?.bullpen?.fatigue || 0
+  )
+};
 
 return res.status(200).json({
   locked,
