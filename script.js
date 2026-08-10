@@ -1567,10 +1567,9 @@ let allowedDates = [];
 let upcomingGames = [];
 if (isFootballSport) {
   // NFL/NCAAF: mostrar los próximos juegos disponibles sin límite de fecha
-  upcomingGames = data
-    .filter(game => new Date(game.commence_time) > now)
-    .sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time))
-    .slice(0, 16);
+ upcomingGames = data
+  .filter(game => new Date(game.commence_time) > now)
+  .sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time));
   
   status.innerHTML = `Games found: ${upcomingGames.length}`;
 
