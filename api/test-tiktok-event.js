@@ -31,24 +31,22 @@ module.exports = async function handler(req, res) {
     const userAgent =
       req.headers["user-agent"] || "";
 
-    const payload = {
-      event_source: "web",
+  const payload = {
+  event_source: "web",
 
-      event_source_id: pixelId,
+  event_source_id: pixelId,
 
-      data: [
-        {
-          event: "Purchase",
+  test_event_code: "TEST82466",
 
-          event_time:
-            Math.floor(Date.now() / 1000),
+  data: [
+    {
+      event: "Purchase",
 
-          event_id:
-            crypto.randomUUID(),
+      event_time:
+        Math.floor(Date.now() / 1000),
 
-          test_event_code:
-            "TEST82466",
-
+      event_id:
+        crypto.randomUUID(),
           user: {
             ...(ip ? { ip } : {}),
             ...(userAgent
