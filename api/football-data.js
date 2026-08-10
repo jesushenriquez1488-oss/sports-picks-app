@@ -154,6 +154,27 @@ massachusetts: {
     "massachusetts minutemen"
   ]
 },
+  "liu": {
+  id: "112358",
+  keys: [
+    "liu",
+    "liu sharks",
+    "long island",
+    "long island university",
+    "long island sharks"
+  ]
+},
+
+"liu sharks": {
+  id: "112358",
+  keys: [
+    "liu",
+    "liu sharks",
+    "long island",
+    "long island university",
+    "long island sharks"
+  ]
+},
   albany: {
   id: "399",
   keys: [
