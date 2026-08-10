@@ -435,10 +435,35 @@ async function goPremiumMonthly() {
       ?.trim()
       .toUpperCase() || "";
 
-  const advertisingConsent =
-    getAdvertisingConsentValue();
+ const advertisingConsent =
+  getAdvertisingConsentValue();
 
-  try {
+const urlParams =
+  new URLSearchParams(window.location.search);
+
+const ttclidFromUrl =
+  urlParams.get("ttclid") || "";
+
+if (
+  advertisingConsent === "granted" &&
+  ttclidFromUrl
+) {
+  localStorage.setItem(
+    "cashedge_ttclid",
+    ttclidFromUrl
+  );
+}
+
+const ttclid =
+  advertisingConsent === "granted"
+    ? (
+        ttclidFromUrl ||
+        localStorage.getItem("cashedge_ttclid") ||
+        ""
+      )
+    : "";
+
+try {
     const res = await fetch("/api/create-checkout-session", {
       method: "POST",
       headers: {
@@ -446,11 +471,12 @@ async function goPremiumMonthly() {
       },
 
       body: JSON.stringify({
-        userId: user.id,
-        email: user.email,
-        promoCode,
-        advertisingConsent
-      })
+  userId: user.id,
+  email: user.email,
+  promoCode,
+  advertisingConsent,
+  ttclid
+})
     });
 
     const data = await res.json();
