@@ -689,6 +689,168 @@ async function getFPIMap(season) {
     return null;
   }
 }
+// ======================================================
+// CASHEDGE FCS -> FBS DERIVED POWER RATING
+//
+// Crea un rating tipo FPI para equipos SIN FPI propio,
+// usando EXCLUSIVAMENTE sus partidos contra rivales FBS
+// que sí tengan FPI.
+//
+// IMPORTANTE:
+// - SIN clamp del rendimiento
+// - SIN regresión al promedio
+// - SIN usar partidos FCS vs FCS
+// ======================================================
+
+function deriveFCSGameRating(game, fpiMap, leagueAvg) {
+  if (!game || !fpiMap) return null;
+
+  const opponentFPI = fpiMap[String(game.opponentId)];
+
+  // Solo sirve si el rival tenía FPI -> rival FBS válido
+  if (!opponentFPI) return null;
+
+  const pf = Number(game.teamPoints);
+  const pa = Number(game.pointsAllowed);
+
+  const oppOff = Number(opponentFPI.off);
+  const oppDef = Number(opponentFPI.def);
+
+  if (
+    !Number.isFinite(pf) ||
+    !Number.isFinite(pa) ||
+    !Number.isFinite(oppOff) ||
+    !Number.isFinite(oppDef)
+  ) {
+    return null;
+  }
+
+  // Lo que un ataque FBS promedio debería anotar
+  // contra la defensa de ese rival.
+  const expectedPF = leagueAvg - oppDef;
+
+  // Lo que la ofensiva de ese rival debería anotar
+  // contra una defensa FBS promedio.
+  const expectedPA = leagueAvg + oppOff;
+
+  // Rating ofensivo:
+  // + = mejor que ataque FBS promedio
+  // - = peor que ataque FBS promedio
+  //
+  // NO CLAMP.
+  const derivedOff = pf - expectedPF;
+
+  // Rating defensivo:
+  // + = mejor defensa que FBS promedio
+  // - = peor defensa que FBS promedio
+  //
+  // NO CLAMP.
+  const derivedDef = expectedPA - pa;
+
+  return {
+    date: game.date,
+    opponent: game.opponent,
+    opponentId: String(game.opponentId),
+
+    teamPoints: pf,
+    pointsAllowed: pa,
+
+    opponentFPI: {
+      off: oppOff,
+      def: oppDef
+    },
+
+    expectedPF: round(expectedPF),
+    expectedPA: round(expectedPA),
+
+    derivedOff: round(derivedOff),
+    derivedDef: round(derivedDef)
+  };
+}
+
+
+function buildDerivedFCSRating({
+  currentGames = [],
+  previousGames = [],
+  currentFpiMap = null,
+  previousFpiMap = null,
+  currentLeagueAvg,
+  previousLeagueAvg
+}) {
+  const currentRatings = currentGames
+    .map(game =>
+      deriveFCSGameRating(
+        game,
+        currentFpiMap,
+        currentLeagueAvg
+      )
+    )
+    .filter(Boolean);
+
+  const previousRatings = previousGames
+    .map(game =>
+      deriveFCSGameRating(
+        game,
+        previousFpiMap,
+        previousLeagueAvg
+      )
+    )
+    .filter(Boolean);
+
+  // Misma transición que definimos para football:
+  //
+  // 0 actuales -> 7 anteriores
+  // 1 actual    -> 1 + 6
+  // 2 actuales -> 2 + 5
+  // 3 actuales -> 3 + 4
+  // 4+ actuales -> SOLO temporada actual
+  let gamesUsed;
+
+  if (currentRatings.length >= 4) {
+    gamesUsed = currentRatings.slice(0, MAX_GAMES_USED);
+  } else {
+    const previousNeeded =
+      MAX_GAMES_USED - currentRatings.length;
+
+    gamesUsed = [
+      ...currentRatings,
+      ...previousRatings.slice(0, previousNeeded)
+    ];
+  }
+
+  if (!gamesUsed.length) return null;
+
+  const off = average(
+    gamesUsed.map(game => game.derivedOff)
+  );
+
+  const def = average(
+    gamesUsed.map(game => game.derivedDef)
+  );
+
+  return {
+    source: "CashEdge FCS vs FBS derived",
+
+    gamesUsed: gamesUsed.length,
+
+    // Misma escala conceptual que ESPN FPI:
+    // off positivo = bueno
+    // def positivo = bueno
+    //
+    // SIN CLAMP.
+    off: round(off),
+    def: round(def),
+
+    games: gamesUsed
+  };
+}
+
+
+// Proyección especial cuando existe un rating FCS derivado.
+//
+// Ambos ratings están en la misma escala:
+// leagueAvg + offense - defense.
+//
 
 // Nivel promedio de los rivales que este equipo ya enfrentó
 function getScheduleBaseline(games, fpiMap) {
@@ -2605,45 +2767,208 @@ if (
    const teamAEdges = calculateFootballEdges(teamAGames);
     const teamBEdges = calculateFootballEdges(teamBGames);
 
-    // ===== CALENDARIO VÍA FPI =====
-    const leagueAvg = computeLeagueBaseline(allGames);
-    let fpiAdj = { active: false, reason: "no aplica (solo ncaaf)" };
-    let teamAProjection, teamBProjection, teamAAdj, teamBAdj;
+// ===== CALENDARIO VÍA FPI =====
+const leagueAvg = computeLeagueBaseline(allGames);
+let fpiAdj = { active: false, reason: "no aplica (solo ncaaf)" };
+let teamAProjection, teamBProjection, teamAAdj, teamBAdj;
 
-    if (type === "ncaaf") {
-      const fpiMap = await getFPIMap(selectedSeason) || await getFPIMap(selectedSeason - 1);
-      const idA = resolveTeamIdFromGames(allGames, teamARef);
-      const idB = resolveTeamIdFromGames(allGames, teamBRef);
-      const fA = fpiMap?.[String(idA)];
-      const fB = fpiMap?.[String(idB)];
-      const baseA = fpiMap ? getScheduleBaseline(teamAGames, fpiMap) : null;
-      const baseB = fpiMap ? getScheduleBaseline(teamBGames, fpiMap) : null;
+if (type === "ncaaf") {
 
-      if (!fpiMap)               fpiAdj = { active: false, reason: "FPI no disponible" };
-      else if (!fA || !fB)       fpiAdj = { active: false, reason: "equipo sin FPI", idA, idB };
-      else if (!baseA || !baseB) fpiAdj = { active: false, reason: "sin rivales con FPI" };
-      else {
-        teamAAdj = buildFPIProfile(teamAEdges, fA, baseA, leagueAvg);
-        teamBAdj = buildFPIProfile(teamBEdges, fB, baseB, leagueAvg);
-        fpiAdj = {
-          active: true,
-          leagueAvg,
-          [teamA]: { fpi: fA, baseline: baseA, perfil: teamAAdj },
-          [teamB]: { fpi: fB, baseline: baseB, perfil: teamBAdj }
-        };
+  // Cargamos ambos por separado porque el FCS derivado debe evaluar
+  // cada juego con el FPI correspondiente a ESA temporada.
+  const currentFpiMap = await getFPIMap(selectedSeason);
+  const previousFpiMap = await getFPIMap(selectedSeason - 1);
+
+  // Mantiene el comportamiento normal del modelo para equipos FBS.
+  const fpiMap = currentFpiMap || previousFpiMap;
+
+  const idA = resolveTeamIdFromGames(allGames, teamARef);
+  const idB = resolveTeamIdFromGames(allGames, teamBRef);
+
+  let fA = fpiMap?.[String(idA)] || null;
+  let fB = fpiMap?.[String(idB)] || null;
+
+  let derivedA = null;
+  let derivedB = null;
+
+  // ====================================================
+  // SOLO SI ESPN NO TIENE FPI:
+  // intentar construir un FPI equivalente con partidos
+  // históricos contra equipos FBS.
+  // ====================================================
+
+  if (!fA) {
+    derivedA = buildDerivedFCSRating({
+      currentGames: currentTeamAGames,
+      previousGames: previousTeamAGames,
+      currentFpiMap,
+      previousFpiMap,
+      currentLeagueAvg: computeLeagueBaseline(currentSeasonAllGames),
+      previousLeagueAvg: computeLeagueBaseline(previousSeasonAllGames)
+    });
+
+    if (derivedA) {
+      fA = {
+        off: derivedA.off,
+        def: derivedA.def
+      };
+    }
+  }
+
+  if (!fB) {
+    derivedB = buildDerivedFCSRating({
+      currentGames: currentTeamBGames,
+      previousGames: previousTeamBGames,
+      currentFpiMap,
+      previousFpiMap,
+      currentLeagueAvg: computeLeagueBaseline(currentSeasonAllGames),
+      previousLeagueAvg: computeLeagueBaseline(previousSeasonAllGames)
+    });
+
+    if (derivedB) {
+      fB = {
+        off: derivedB.off,
+        def: derivedB.def
+      };
+    }
+  }
+
+  // ====================================================
+  // BASELINE DEL CALENDARIO
+  //
+  // Si es FCS derivado, usamos exactamente los FPI de
+  // los rivales y temporadas que produjeron ese rating.
+  //
+  // Si es FBS normal, se mantiene getScheduleBaseline().
+  // ====================================================
+
+  const baseA = derivedA
+    ? {
+        avgOppDef: average(
+          derivedA.games.map(g => Number(g.opponentFPI.def))
+        ),
+        avgOppOff: average(
+          derivedA.games.map(g => Number(g.opponentFPI.off))
+        ),
+        matched: derivedA.games.length
       }
-    }
+    : fpiMap
+      ? getScheduleBaseline(teamAGames, fpiMap)
+      : null;
 
-    if (fpiAdj.active) {
-      teamAProjection = projectFootballTeamFPI(teamAAdj, teamBAdj, alpha, beta);
-      teamBProjection = projectFootballTeamFPI(teamBAdj, teamAAdj, alpha, beta);
-    } else {
-      // Fallback: NFL, o NCAAF sin FPI
-      teamAAdj = teamAEdges;
-      teamBAdj = teamBEdges;
-      teamAProjection = projectFootballTeam(teamAAdj, teamBAdj, alpha, beta);
-      teamBProjection = projectFootballTeam(teamBAdj, teamAAdj, alpha, beta);
-    }
+  const baseB = derivedB
+    ? {
+        avgOppDef: average(
+          derivedB.games.map(g => Number(g.opponentFPI.def))
+        ),
+        avgOppOff: average(
+          derivedB.games.map(g => Number(g.opponentFPI.off))
+        ),
+        matched: derivedB.games.length
+      }
+    : fpiMap
+      ? getScheduleBaseline(teamBGames, fpiMap)
+      : null;
+
+  if (!fpiMap && !derivedA && !derivedB) {
+    fpiAdj = {
+      active: false,
+      reason: "FPI no disponible"
+    };
+
+  } else if (!fA || !fB) {
+    fpiAdj = {
+      active: false,
+      reason: "equipo sin FPI ni rating derivado",
+      idA,
+      idB
+    };
+
+  } else if (!baseA || !baseB) {
+    fpiAdj = {
+      active: false,
+      reason: "sin rivales con FPI"
+    };
+
+  } else {
+
+    // DESDE AQUÍ EL MODELO ES EXACTAMENTE EL MISMO DE SIEMPRE.
+    teamAAdj = buildFPIProfile(
+      teamAEdges,
+      fA,
+      baseA,
+      leagueAvg
+    );
+
+    teamBAdj = buildFPIProfile(
+      teamBEdges,
+      fB,
+      baseB,
+      leagueAvg
+    );
+
+    fpiAdj = {
+      active: true,
+      leagueAvg,
+
+      [teamA]: {
+        fpi: fA,
+        fpiSource: derivedA
+          ? "CashEdge FCS derived"
+          : "ESPN FPI",
+        derivedRating: derivedA,
+        baseline: baseA,
+        perfil: teamAAdj
+      },
+
+      [teamB]: {
+        fpi: fB,
+        fpiSource: derivedB
+          ? "CashEdge FCS derived"
+          : "ESPN FPI",
+        derivedRating: derivedB,
+        baseline: baseB,
+        perfil: teamBAdj
+      }
+    };
+  }
+}
+
+if (fpiAdj.active) {
+  teamAProjection = projectFootballTeamFPI(
+    teamAAdj,
+    teamBAdj,
+    alpha,
+    beta
+  );
+
+  teamBProjection = projectFootballTeamFPI(
+    teamBAdj,
+    teamAAdj,
+    alpha,
+    beta
+  );
+
+} else {
+
+  // Fallback existente
+  teamAAdj = teamAEdges;
+  teamBAdj = teamBEdges;
+
+  teamAProjection = projectFootballTeam(
+    teamAAdj,
+    teamBAdj,
+    alpha,
+    beta
+  );
+
+  teamBProjection = projectFootballTeam(
+    teamBAdj,
+    teamAAdj,
+    alpha,
+    beta
+  );
+}
     
 const projectedTeamA = teamAProjection.finalProjection;
 const projectedTeamB = teamBProjection.finalProjection;
