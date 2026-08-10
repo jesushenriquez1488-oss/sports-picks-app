@@ -154,6 +154,27 @@ massachusetts: {
     "massachusetts minutemen"
   ]
 },
+  albany: {
+  id: "399",
+  keys: [
+    "albany",
+    "ualbany",
+    "albany great danes",
+    "ualbany great danes",
+    "great danes"
+  ]
+},
+
+"albany great danes": {
+  id: "399",
+  keys: [
+    "albany",
+    "ualbany",
+    "albany great danes",
+    "ualbany great danes",
+    "great danes"
+  ]
+},
   "sacramento state": {
   id: "16",
   keys: [
