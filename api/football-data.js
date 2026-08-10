@@ -1382,20 +1382,43 @@ function buildFootballPicks({
 function sanitizePicksForPublic(picks, isPremiumUser) {
   if (!picks || !picks.available) return picks;
 
+  const hasPremium =
+    picks?.spreadPick?.isPremium === true ||
+    picks?.totalPick?.isPremium === true;
+
+  // FREE + existe Premium:
+  // no revelar si es spread o total.
+  if (!isPremiumUser && hasPremium) {
+    const lockedPick = {
+      available: true,
+      isPremium: true,
+      confidence: null,
+      edge: null,
+      locked: true,
+      type: "premium",
+      pick: "🔒 Premium Pick",
+      side: null
+    };
+
+    return {
+      available: true,
+      spreadPick: { ...lockedPick },
+      totalPick: { ...lockedPick }
+    };
+  }
+
   const sanitizePick = (pick) => {
     if (!pick) return null;
-
-    const shouldHide = pick.isPremium && !isPremiumUser;
 
     return {
       available: true,
       isPremium: pick.isPremium,
-      confidence: shouldHide ? null : pick.confidence,
-edge: shouldHide ? null : pick.edge,
-      locked: shouldHide,
-      type: pick.isPremium ? "premium" : pick.type,
-      pick: shouldHide ? "🔒 Premium Pick" : pick.pick,
-side: shouldHide ? "Suscríbete para desbloquear" : pick.side || null
+      confidence: pick.confidence,
+      edge: pick.edge,
+      locked: false,
+      type: pick.type,
+      pick: pick.pick,
+      side: pick.side || null
     };
   };
 
