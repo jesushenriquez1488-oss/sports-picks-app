@@ -1406,27 +1406,41 @@ side: shouldHide ? "Suscríbete para desbloquear" : pick.side || null
   };
 }
 function buildFootballPublicResponse(full, isPremiumUser) {
+  const publicPicks = sanitizePicksForPublic(
+    full?.picks,
+    isPremiumUser
+  );
+
+  const hasLockedPremium =
+    publicPicks?.spreadPick?.locked === true ||
+    publicPicks?.totalPick?.locked === true;
+
   return {
     sport: full?.sport || null,
 
     odds: full?.odds || null,
 
-    picks: sanitizePicksForPublic(
-      full?.picks,
-      isPremiumUser
-    ),
+    picks: publicPicks,
 
     publicConfidence:
-      Number(full?.publicConfidence || 0),
+      hasLockedPremium
+        ? null
+        : Number(full?.publicConfidence || 0),
 
     projectedScore:
-      full?.projectedScore || {},
+      hasLockedPremium
+        ? null
+        : full?.projectedScore || {},
 
     projectedTotal:
-      Number(full?.projectedTotal || 0),
+      hasLockedPremium
+        ? null
+        : Number(full?.projectedTotal || 0),
 
     projectedSpread:
-      Number(full?.projectedSpread || 0),
+      hasLockedPremium
+        ? null
+        : Number(full?.projectedSpread || 0),
 
     isPremiumUser
   };
