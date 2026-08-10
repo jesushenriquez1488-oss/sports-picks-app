@@ -3262,11 +3262,12 @@ if (!isPremiumPick) {
   await recordFreeAnalysis(authUserId, isPremiumUser, "analyze-football");
 }
 
-return res.status(200).json({
-  ...fullResponse,
-  isPremiumUser,
-  picks
-});
+return res.status(200).json(
+  buildFootballPublicResponse(
+    fullResponse,
+    isPremiumUser
+  )
+);
   } catch (error) {
     console.error("ERROR FOOTBALL DATA:", error);
 
