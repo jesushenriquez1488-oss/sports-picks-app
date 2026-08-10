@@ -2739,12 +2739,8 @@ const isTransitionTeamB =
   type === "ncaaf" &&
   NCAAF_TRANSITION_TEAM_IDS.has(String(teamBRef.id));
 
-const minGamesRequiredA =
-  isTransitionTeamA ? 1 : 2;
-
-const minGamesRequiredB =
-  isTransitionTeamB ? 1 : 2;
-
+const minGamesRequiredA = type === "ncaaf" ? 1 : 2;
+const minGamesRequiredB = type === "ncaaf" ? 1 : 2;
 if (
   teamAGames.length < minGamesRequiredA ||
   teamBGames.length < minGamesRequiredB
