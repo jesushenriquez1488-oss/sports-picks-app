@@ -305,35 +305,146 @@ window.gtag("js", new Date());
     window.ceGetPrivacyPreferences =
       getPreferences;
 
-    window.ceSetPrivacyPreferences =
-      function ({
-        analytics = false,
-        advertising = false
-      }) {
+   window.ceSetPrivacyPreferences =
+  function ({
+    analytics = false,
+    advertising = false
+  }) {
 
-        const preferences = {
-          decided: true,
-          analytics: analytics === true,
-          advertising: advertising === true,
-          updatedAt: new Date().toISOString()
-        };
+    const previousPreferences =
+      getPreferences();
 
-        localStorage.setItem(
-          KEY,
-          JSON.stringify(preferences)
+    const preferences = {
+      decided: true,
+      analytics: analytics === true,
+      advertising: advertising === true,
+      updatedAt: new Date().toISOString()
+    };
+
+    localStorage.setItem(
+      KEY,
+      JSON.stringify(preferences)
+    );
+
+    if (!preferences.analytics) {
+      clearAnalyticsCookies();
+    }
+
+    if (!preferences.advertising) {
+      clearAdvertisingCookies();
+    }
+
+    /*
+      Si el usuario ya había autorizado algo
+      anteriormente y ahora lo revoca,
+      recargamos para retirar completamente
+      los trackers que ya estaban cargados.
+    */
+    const revokedPreviousConsent =
+      previousPreferences.decided === true &&
+      (
+        (
+          previousPreferences.analytics &&
+          !preferences.analytics
+        ) ||
+        (
+          previousPreferences.advertising &&
+          !preferences.advertising
+        )
+      );
+
+    if (revokedPreviousConsent) {
+      window.location.reload();
+      return;
+    }
+
+    /*
+      Primera decisión o consentimiento nuevo:
+      aplicar inmediatamente SIN recargar.
+    */
+    if (
+      preferences.analytics ||
+      preferences.advertising
+    ) {
+
+      if (!window.__cashEdgeGoogleLoaded) {
+
+        loadGoogle(preferences);
+
+      } else if (
+        typeof window.gtag === "function"
+      ) {
+
+        window.gtag(
+          "consent",
+          "update",
+          {
+            analytics_storage:
+              preferences.analytics
+                ? "granted"
+                : "denied",
+
+            ad_storage:
+              preferences.advertising
+                ? "granted"
+                : "denied",
+
+            ad_user_data:
+              preferences.advertising
+                ? "granted"
+                : "denied",
+
+            ad_personalization:
+              preferences.advertising
+                ? "granted"
+                : "denied"
+          }
         );
 
-        if (!preferences.analytics) {
-          clearAnalyticsCookies();
+        if (
+          preferences.analytics &&
+          !previousPreferences.analytics
+        ) {
+          window.gtag(
+            "config",
+            GA4_ID
+          );
         }
 
-        if (!preferences.advertising) {
-          clearAdvertisingCookies();
+        if (
+          preferences.advertising &&
+          !previousPreferences.advertising
+        ) {
+          window.gtag(
+            "config",
+            GOOGLE_ADS_ID
+          );
         }
+      }
+    }
 
-        window.location.reload();
-      };
+    if (preferences.advertising) {
+      loadMetaPixel();
+    }
 
+    const banner =
+      document.getElementById(
+        "cePrivacyBanner"
+      );
+
+    if (banner) {
+      banner.style.display = "none";
+    }
+
+    const modal =
+      document.getElementById(
+        "cePrivacyModal"
+      );
+
+    if (modal) {
+      modal.style.display = "none";
+    }
+  };
     const preferences = getPreferences();
 
     if (preferences.decided) {
