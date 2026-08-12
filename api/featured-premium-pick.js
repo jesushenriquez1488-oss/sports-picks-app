@@ -24,18 +24,20 @@ module.exports = async function handler(req, res) {
 
     const today = getChicagoDate();
 
-    const { data, error } = await supabaseAdmin
-      .from("landing_featured_picks")
-      .select(`
-        display_date,
-        source_game_date,
-        sport,
-        result,
-        final_score,
-        display_payload
-      `)
-      .eq("display_date", today)
-      .maybeSingle();
+   const { data, error } = await supabaseAdmin
+  .from("landing_featured_picks")
+  .select(`
+    display_date,
+    source_game_date,
+    sport,
+    result,
+    final_score,
+    display_payload
+  `)
+  .lte("display_date", today)
+  .order("display_date", { ascending: false })
+  .limit(1)
+  .maybeSingle();
 
     if (error) {
       throw error;
