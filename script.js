@@ -6835,8 +6835,8 @@ async function ceInitLanding() {
     } else {
       landing.style.display = "block";
       if (authBox) authBox.style.display = "none";
-      ceLoadLandingStats();
-      ceLoadPublicPick();
+     ceLoadLandingStats();
+ceLoadFeaturedPremiumPick();
     }
   } catch (err) {
     console.log("ceInitLanding error:", err.message);
@@ -6845,28 +6845,1100 @@ async function ceInitLanding() {
 
 document.addEventListener("DOMContentLoaded", ceInitLanding);
 // Trae el pick premium del día y llena la tarjeta
-async function ceLoadPublicPick() {
-  try {
-    const res = await fetch("/api/public-pick");
-    const data = await res.json();
-    if (!data.available) return;
+// ============================================================
+// LANDING — REAL FEATURED PREMIUM PICK
+// ============================================================
 
-    const set = (id, val) => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = val;
+function ceFeaturedEsc(value = "") {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function ceFeaturedNum(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function ceFeaturedTeamShort(team = "") {
+  const parts = String(team).trim().split(/\s+/);
+  return parts[parts.length - 1] || team;
+}
+
+function ceFeaturedDisplayPick(featured, premium = {}) {
+  let pick =
+    String(
+      premium.pick ||
+      premium.recommendedCards?.[0]?.play ||
+      featured.pick ||
+      ""
+    ).trim();
+
+  if (
+    /^(over|under)$/i.test(pick) &&
+    Number.isFinite(Number(featured.line))
+  ) {
+    pick += ` ${featured.line}`;
+  }
+
+  return pick;
+}
+
+function ceFeaturedDateLabel(value) {
+  if (!value) return "";
+
+  const [year, month, day] =
+    String(value).split("-").map(Number);
+
+  if (!year || !month || !day) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC"
+  }).format(
+    new Date(Date.UTC(year, month - 1, day))
+  );
+}
+
+function ceFeaturedResultHeader(featured) {
+  const result =
+    String(featured.result || "").toLowerCase();
+
+  const isWin = result === "win";
+
+  const color =
+    isWin ? "#00ffe7" : "#ff5566";
+
+  const icon =
+    isWin ? "✓" : "✕";
+
+  return `
+    <div style="
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      background:#080e1a;
+      border:1px solid ${color}55;
+      border-radius:11px;
+      padding:11px 14px;
+      margin-bottom:10px;
+    ">
+
+      <div style="text-align:left;">
+        <div style="
+          font-size:9px;
+          color:#5a7a9a;
+          letter-spacing:.1em;
+          font-weight:700;
+          text-transform:uppercase;
+          margin-bottom:3px;
+        ">
+          ${ceFeaturedEsc(
+            ceFeaturedDateLabel(
+              featured.sourceGameDate ||
+              featured.game_date
+            )
+          )}
+        </div>
+
+        <div style="
+          font-size:11px;
+          color:#d0dcec;
+          font-weight:700;
+        ">
+          FINAL · ${ceFeaturedEsc(featured.finalScore || featured.final_score || "")}
+        </div>
+      </div>
+
+      <div style="
+        flex-shrink:0;
+        padding:6px 11px;
+        border-radius:20px;
+        background:${color}14;
+        border:1px solid ${color}66;
+        color:${color};
+        font-size:12px;
+        font-weight:900;
+        letter-spacing:.08em;
+      ">
+        ${icon} ${result.toUpperCase()}
+      </div>
+
+    </div>
+  `;
+}
+
+
+// ============================================================
+// MLB
+// ============================================================
+
+function ceRenderFeaturedMLB(featured) {
+
+  const analysis =
+    featured.analysis || {};
+
+  const premium =
+    analysis.premium || {};
+
+  const awayTeam =
+    featured.away_team ||
+    analysis.public?.awayTeam ||
+    "";
+
+  const homeTeam =
+    featured.home_team ||
+    analysis.public?.homeTeam ||
+    "";
+
+  const card =
+    premium.recommendedCards?.[0] || {
+      play: featured.pick,
+      percentage: featured.confidence,
+      title: "Premium Pick"
     };
 
-    set("ceLockedSport", data.sport);
-    set("ceLockedMatchup", data.matchup);
-    set("ceLockedConf", data.confidence + "%");
-    set("ceLockedEdge", data.edge);
+  const confidence =
+    ceFeaturedNum(
+      card.percentage,
+      featured.confidence
+    );
 
-    const t = new Date(data.gameTime);
-    set("ceLockedTime", t.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }));
+  const expectedRunsA =
+    ceFeaturedNum(premium.expectedRunsA);
 
-    const wrap = document.getElementById("ceLockedPickWrap");
-    if (wrap) wrap.style.display = "block";
-  } catch (err) {
-    console.log("Public pick error:", err.message);
+  const expectedRunsB =
+    ceFeaturedNum(premium.expectedRunsB);
+
+  const projectedTotal =
+    ceFeaturedNum(premium.projectedTotal);
+
+  const totalLine =
+    ceFeaturedNum(premium.totalLine);
+
+  const totalDiff =
+    ceFeaturedNum(
+      premium.totalDiff,
+      projectedTotal - totalLine
+    );
+
+  let highlight = "";
+
+  try {
+    if (
+      typeof generateMLBHighlight === "function"
+    ) {
+      highlight =
+        generateMLBHighlight(
+          premium,
+          awayTeam,
+          homeTeam
+        )
+        .replace(
+          /today's slate/gi,
+          "that day's slate"
+        );
+    }
+  } catch (e) {}
+
+  return `
+    ${ceFeaturedResultHeader(featured)}
+
+    <div class="premium-result mlb-premium-dashboard">
+
+      <div class="mlb-analysis-view">
+
+        <div style="
+          display:inline-flex;
+          align-items:center;
+          gap:6px;
+          background:rgba(0,255,231,0.08);
+          border:1px solid rgba(0,255,231,0.25);
+          border-radius:20px;
+          padding:4px 12px;
+          font-size:10px;
+          color:#00ffe7;
+          font-weight:600;
+          letter-spacing:1px;
+          margin-bottom:12px;
+        ">
+          <span style="
+            width:6px;
+            height:6px;
+            border-radius:50%;
+            background:#00ffe7;
+            display:inline-block;
+          "></span>
+          🔥 PREMIUM PICK · MLB
+        </div>
+
+        <div class="result-content mlb-premium-content">
+
+          <div class="mlb-premium-title">
+
+            <div>
+              <span class="mlb-report-label">
+                AI PREDICTIVE REPORT
+              </span>
+
+              <h2>
+                ⚾ ${ceFeaturedEsc(awayTeam)}
+                vs
+                ${ceFeaturedEsc(homeTeam)}
+              </h2>
+            </div>
+
+            <div class="mlb-gold-shield">
+              <span>${confidence.toFixed(1)}%</span>
+              <small>PROB.</small>
+            </div>
+
+          </div>
+
+          <div class="mlb-top-grid">
+
+            <div class="mlb-main-pick-box ce-premium-glow">
+
+              <span style="
+                font-size:9px;
+                color:#a07cff;
+                letter-spacing:.1em;
+                text-transform:uppercase;
+                font-weight:700;
+              ">
+                🔥 ${ceFeaturedEsc(card.title || "Premium Pick")}
+              </span>
+
+              <strong style="
+                display:block;
+                font-size:19px;
+                font-weight:800;
+                color:#fff;
+                letter-spacing:.3px;
+                margin-top:3px;
+              ">
+                ${ceFeaturedEsc(card.play || featured.pick)}
+              </strong>
+
+            </div>
+
+          </div>
+
+          <div style="
+            display:grid;
+            grid-template-columns:repeat(3,1fr);
+            gap:1px;
+            background:#0b1322;
+            border:1px solid #10203a;
+            border-radius:10px;
+            overflow:hidden;
+            margin-bottom:12px;
+          ">
+
+            <div style="
+              background:#070d1a;
+              padding:12px 8px;
+              text-align:center;
+            ">
+              <div style="
+                font-size:8px;
+                color:#4a5f7f;
+                text-transform:uppercase;
+                letter-spacing:.08em;
+                margin-bottom:4px;
+              ">
+                ${ceFeaturedEsc(
+                  ceFeaturedTeamShort(awayTeam)
+                )} RUNS
+              </div>
+
+              <div style="
+                font-size:17px;
+                font-weight:800;
+                color:#c9d6e8;
+              ">
+                ${expectedRunsA.toFixed(1)}
+              </div>
+            </div>
+
+            <div style="
+              background:#070d1a;
+              padding:12px 8px;
+              text-align:center;
+            ">
+              <div style="
+                font-size:8px;
+                color:#4a5f7f;
+                text-transform:uppercase;
+                letter-spacing:.08em;
+                margin-bottom:4px;
+              ">
+                ${ceFeaturedEsc(
+                  ceFeaturedTeamShort(homeTeam)
+                )} RUNS
+              </div>
+
+              <div style="
+                font-size:17px;
+                font-weight:800;
+                color:#c9d6e8;
+              ">
+                ${expectedRunsB.toFixed(1)}
+              </div>
+            </div>
+
+            <div style="
+              background:#070d1a;
+              padding:12px 8px;
+              text-align:center;
+            ">
+              <div style="
+                font-size:8px;
+                color:#4a5f7f;
+                text-transform:uppercase;
+                letter-spacing:.08em;
+                margin-bottom:4px;
+              ">
+                MODEL VS LINE
+              </div>
+
+              <div style="
+                font-size:17px;
+                font-weight:800;
+                color:#c9d6e8;
+              ">
+                ${projectedTotal.toFixed(1)}
+                <span style="
+                  color:#4a5f7f;
+                  font-size:11px;
+                ">
+                  / ${totalLine.toFixed(1)}
+                </span>
+              </div>
+
+              <div style="
+                font-size:10px;
+                font-weight:700;
+                color:${totalDiff >= 0 ? "#ff8c1a" : "#4da3ff"};
+                margin-top:2px;
+              ">
+                ${totalDiff >= 0 ? "▲ +" : "▼ "}
+                ${totalDiff.toFixed(1)} runs
+              </div>
+
+            </div>
+
+          </div>
+
+          <div class="mlb-info-grid">
+
+            <div>
+              <h4>🏟️ BALLPARK</h4>
+              <p>
+                ${ceFeaturedEsc(
+                  premium.venue?.name || "N/A"
+                )}
+                — roof:
+                ${ceFeaturedEsc(
+                  premium.venue?.roof || "N/A"
+                )}
+              </p>
+            </div>
+
+            <div>
+              <h4>🌤️ CONDITIONS</h4>
+              <p>
+                ${ceFeaturedEsc(
+                  premium.weather?.raw || "N/A"
+                )}
+              </p>
+            </div>
+
+          </div>
+
+          ${
+            highlight
+              ? `
+                <div style="
+                  background:#0a1220;
+                  border:1px solid rgba(255,140,26,0.25);
+                  border-left:3px solid #ff8c1a;
+                  border-radius:8px;
+                  padding:14px 16px;
+                  margin-top:10px;
+                  text-align:left;
+                ">
+                  <div style="
+                    font-size:10px;
+                    color:#ff8c1a;
+                    letter-spacing:.08em;
+                    text-transform:uppercase;
+                    font-weight:700;
+                    margin-bottom:8px;
+                  ">
+                    🎯 GAME HIGHLIGHT
+                  </div>
+
+                  <div style="
+                    font-size:12px;
+                    color:#d0dcec;
+                    line-height:1.7;
+                  ">
+                    ${highlight}
+                  </div>
+                </div>
+              `
+              : ""
+          }
+
+          ${ceFeaturedLockedFeatures()}
+
+        </div>
+
+      </div>
+
+    </div>
+  `;
+}
+
+
+// ============================================================
+// NBA / WNBA / NCAAB
+// ============================================================
+
+function ceRenderFeaturedBasketball(featured) {
+
+  const analysis =
+    featured.analysis || {};
+
+  const premium =
+    analysis.premium || {};
+
+  const awayTeam =
+    featured.away_team || "";
+
+  const homeTeam =
+    featured.home_team || "";
+
+  const league =
+    String(featured.sport || "nba")
+      .toUpperCase();
+
+  const confidence =
+    ceFeaturedNum(
+      premium.confidence,
+      featured.confidence
+    );
+
+  const edge =
+    ceFeaturedNum(premium.mainEdge);
+
+  const projA =
+    ceFeaturedNum(premium.projA);
+
+  const projB =
+    ceFeaturedNum(premium.projB);
+
+  const totalProj =
+    ceFeaturedNum(premium.totalProj);
+
+  const totalLine =
+    ceFeaturedNum(
+      premium.totalLine,
+      featured.line
+    );
+
+  let displayPick =
+    ceFeaturedDisplayPick(
+      featured,
+      premium
+    );
+
+  let highlight = "";
+
+  try {
+    if (
+      typeof generateBasketHighlight ===
+      "function"
+    ) {
+      highlight =
+        generateBasketHighlight(
+          premium,
+          awayTeam,
+          homeTeam
+        )
+        .replace(
+          /today's slate/gi,
+          "that day's slate"
+        );
+    }
+  } catch (e) {}
+
+  return `
+    ${ceFeaturedResultHeader(featured)}
+
+    <div class="ce-premium-basket-card">
+
+      <div class="ce-premium-basket-badge-row">
+        ▲ HOT PICK · ${ceFeaturedEsc(league)}
+      </div>
+
+      <div style="
+        font-size:12px;
+        color:#8899bb;
+        margin-bottom:10px;
+      ">
+        ${ceFeaturedEsc(awayTeam)}
+        vs
+        ${ceFeaturedEsc(homeTeam)}
+      </div>
+
+      <div class="ce-premium-basket-header">
+
+        <div class="ce-premium-basket-left">
+          <div class="ce-premium-basket-pick">
+            ${ceFeaturedEsc(displayPick)}
+          </div>
+        </div>
+
+        <div class="ce-premium-basket-circle">
+          <span>${confidence.toFixed(1)}%</span>
+          <small>PROB.</small>
+        </div>
+
+      </div>
+
+      <div class="ce-premium-basket-stats">
+
+        <div>
+          <small>EDGE</small>
+          <strong>${edge.toFixed(1)}</strong>
+        </div>
+
+        <div>
+          <small>${ceFeaturedEsc(
+            ceFeaturedTeamShort(awayTeam)
+          )}</small>
+          <strong>${projA.toFixed(1)}</strong>
+        </div>
+
+        <div>
+          <small>${ceFeaturedEsc(
+            ceFeaturedTeamShort(homeTeam)
+          )}</small>
+          <strong>${projB.toFixed(1)}</strong>
+        </div>
+
+        <div>
+          <small>MODEL VS LINE</small>
+          <strong>
+            ${totalProj.toFixed(1)}
+            ${
+              totalLine > 0
+                ? `<span style="color:#4a5f7f;font-size:11px;"> / ${totalLine.toFixed(1)}</span>`
+                : ""
+            }
+          </strong>
+        </div>
+
+      </div>
+
+      <div class="ce-basket-info-section">
+
+        <div class="ce-basket-info-box">
+          <h4>😴 REST</h4>
+          <p>
+            ${ceFeaturedEsc(awayTeam)}:
+            ${ceFeaturedEsc(
+              premium.awayRestNote || "N/A"
+            )}
+          </p>
+          <p>
+            ${ceFeaturedEsc(homeTeam)}:
+            ${ceFeaturedEsc(
+              premium.homeRestNote || "N/A"
+            )}
+          </p>
+        </div>
+
+        <div class="ce-basket-info-box">
+          <h4>🚑 INJURIES</h4>
+
+          <p>
+            ${ceFeaturedEsc(
+              premium.awayInjuryPublic || "N/A"
+            )}
+          </p>
+
+          <p>
+            ${ceFeaturedEsc(
+              premium.homeInjuryPublic || "N/A"
+            )}
+          </p>
+
+        </div>
+
+      </div>
+
+      ${
+        highlight
+          ? `
+            <div style="
+              background:#0a1220;
+              border:1px solid rgba(255,140,26,0.25);
+              border-left:3px solid #ff8c1a;
+              border-radius:8px;
+              padding:14px 16px;
+              margin-top:10px;
+              text-align:left;
+            ">
+              <div style="
+                font-size:10px;
+                color:#ff8c1a;
+                font-weight:700;
+                letter-spacing:.08em;
+                margin-bottom:7px;
+              ">
+                🎯 GAME HIGHLIGHT
+              </div>
+
+              <div style="
+                font-size:12px;
+                color:#d0dcec;
+                line-height:1.7;
+              ">
+                ${highlight}
+              </div>
+            </div>
+          `
+          : ""
+      }
+
+      ${ceFeaturedLockedFeatures()}
+
+    </div>
+  `;
+}
+
+
+// ============================================================
+// NFL / NCAAF
+// ============================================================
+
+function ceRenderFeaturedFootball(featured) {
+
+  const analysis =
+    featured.analysis || {};
+
+  const premium =
+    analysis.premium || {};
+
+  const awayTeam =
+    featured.away_team || "";
+
+  const homeTeam =
+    featured.home_team || "";
+
+  const sport =
+    String(featured.sport || "nfl")
+      .toUpperCase();
+
+  const confidence =
+    ceFeaturedNum(
+      premium.confidence,
+      featured.confidence
+    );
+
+  const edge =
+    ceFeaturedNum(premium.mainEdge);
+
+  const projectedTotal =
+    ceFeaturedNum(
+      premium.projectedTotal
+    );
+
+  const projectedScore =
+    premium.projectedScore || {};
+
+  const awayProjection =
+    ceFeaturedNum(
+      projectedScore[awayTeam]
+    );
+
+  const homeProjection =
+    ceFeaturedNum(
+      projectedScore[homeTeam]
+    );
+
+  const displayPick =
+    ceFeaturedDisplayPick(
+      featured,
+      premium
+    );
+
+  const dash =
+    Math.round(
+      (confidence / 100) * 188
+    );
+
+  return `
+    ${ceFeaturedResultHeader(featured)}
+
+    <div class="ce-premium-basket-card ce-nfl-premium">
+
+      <div class="ce-premium-tag">
+        <span style="
+          width:6px;
+          height:6px;
+          border-radius:50%;
+          background:#00ffe7;
+          display:inline-block;
+        "></span>
+
+        🔥 PREMIUM PICK · ${ceFeaturedEsc(sport)}
+      </div>
+
+      <div style="
+        font-size:12px;
+        color:#8899bb;
+        margin:12px 0;
+      ">
+        ${ceFeaturedEsc(awayTeam)}
+        vs
+        ${ceFeaturedEsc(homeTeam)}
+      </div>
+
+      <div style="
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        margin-bottom:12px;
+        gap:12px;
+      ">
+
+        <div style="flex:1;">
+
+          <div style="
+            font-size:24px;
+            font-weight:800;
+            letter-spacing:.3px;
+            margin-bottom:3px;
+            color:#fff;
+          ">
+            ${ceFeaturedEsc(displayPick)}
+          </div>
+
+          <div style="
+            font-size:11px;
+            color:#a07cff;
+          ">
+            Edge ${edge.toFixed(1)}
+            ·
+            ${
+              ceFeaturedNum(
+                premium.odds_american,
+                featured.odds_american
+              ) > 0
+                ? "+"
+                : ""
+            }${ceFeaturedNum(
+              premium.odds_american,
+              featured.odds_american || -110
+            )}
+          </div>
+
+        </div>
+
+        <div style="
+          position:relative;
+          width:72px;
+          height:72px;
+          flex-shrink:0;
+        ">
+
+          <svg
+            width="72"
+            height="72"
+            viewBox="0 0 72 72"
+            style="position:absolute;top:0;left:0;"
+          >
+            <circle
+              cx="36"
+              cy="36"
+              r="30"
+              fill="none"
+              stroke="#1a2240"
+              stroke-width="4"
+            />
+
+            <circle
+              cx="36"
+              cy="36"
+              r="30"
+              fill="none"
+              stroke="#ff8c1a"
+              stroke-width="4"
+              stroke-dasharray="${dash} 188"
+              stroke-linecap="round"
+              transform="rotate(-90 36 36)"
+            />
+          </svg>
+
+          <div style="
+            position:absolute;
+            inset:0;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            justify-content:center;
+          ">
+            <span style="
+              font-size:15px;
+              font-weight:700;
+              color:#ff8c1a;
+            ">
+              ${confidence.toFixed(1)}%
+            </span>
+
+            <small style="
+              font-size:8px;
+              color:#ff8c1a;
+              opacity:.7;
+            ">
+              PROB.
+            </small>
+          </div>
+
+        </div>
+
+      </div>
+
+      <div style="
+        display:grid;
+        grid-template-columns:repeat(4,1fr);
+        gap:6px;
+        margin-bottom:10px;
+      ">
+
+        ${[
+          [
+            ceFeaturedTeamShort(awayTeam),
+            awayProjection.toFixed(1)
+          ],
+          [
+            ceFeaturedTeamShort(homeTeam),
+            homeProjection.toFixed(1)
+          ],
+          [
+            "TOTAL MOD.",
+            projectedTotal.toFixed(1)
+          ],
+          [
+            "EDGE",
+            edge.toFixed(1)
+          ]
+        ].map(([label, value]) => `
+          <div style="
+            background:#0f1628;
+            border-radius:6px;
+            padding:8px 4px;
+            text-align:center;
+          ">
+            <div style="
+              font-size:8px;
+              color:#00ffe7;
+              text-transform:uppercase;
+              letter-spacing:.06em;
+              margin-bottom:3px;
+              opacity:.8;
+            ">
+              ${ceFeaturedEsc(label)}
+            </div>
+
+            <div style="
+              font-size:14px;
+              font-weight:700;
+              color:#fff;
+            ">
+              ${ceFeaturedEsc(value)}
+            </div>
+          </div>
+        `).join("")}
+
+      </div>
+
+      ${ceFeaturedLockedFeatures()}
+
+    </div>
+  `;
+}
+
+
+// ============================================================
+// FEATURES QUE REQUIEREN CUENTA
+// ============================================================
+
+function ceFeaturedLockedFeatures() {
+  return `
+    <div style="
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+      margin-top:12px;
+    ">
+
+      <button
+        type="button"
+        onclick="ceShowAuth()"
+        style="
+          padding:11px 8px;
+          background:#0f1628;
+          border:1px solid #1a3050;
+          border-radius:8px;
+          color:#a0b4cc;
+          font-size:10px;
+          font-weight:700;
+          cursor:pointer;
+        "
+      >
+        🔒 PLAYER PROPS
+      </button>
+
+      <button
+        type="button"
+        onclick="ceShowAuth()"
+        style="
+          padding:11px 8px;
+          background:#0f1628;
+          border:1px solid #1a3050;
+          border-radius:8px;
+          color:#a0b4cc;
+          font-size:10px;
+          font-weight:700;
+          cursor:pointer;
+        "
+      >
+        🔒 PLAYER STATS
+      </button>
+
+    </div>
+  `;
+}
+
+
+// ============================================================
+// LOAD
+// ============================================================
+
+async function ceLoadFeaturedPremiumPick() {
+
+  const wrap =
+    document.getElementById(
+      "ceFeaturedPremiumWrap"
+    );
+
+  if (!wrap) return;
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/featured-premium-pick"
+      );
+
+    const data =
+      await response.json();
+
+    if (
+      !response.ok ||
+      !data?.available ||
+      !data?.featured
+    ) {
+      wrap.innerHTML = `
+        <div style="
+          background:#0a0f1e;
+          border:1px solid #1a2240;
+          border-radius:14px;
+          padding:24px;
+          text-align:center;
+          color:#8899bb;
+          font-size:12px;
+          line-height:1.6;
+        ">
+          Yesterday's Premium results are still being finalized.
+        </div>
+      `;
+
+      return;
+    }
+
+    const featured =
+      data.featured;
+
+    const sport =
+      String(featured.sport || "")
+        .toLowerCase();
+
+    if (sport === "mlb") {
+
+      wrap.innerHTML =
+        ceRenderFeaturedMLB(featured);
+
+    } else if (
+      sport === "nba" ||
+      sport === "wnba" ||
+      sport === "ncaab"
+    ) {
+
+      wrap.innerHTML =
+        ceRenderFeaturedBasketball(
+          featured
+        );
+
+    } else if (
+      sport === "nfl" ||
+      sport === "ncaaf"
+    ) {
+
+      wrap.innerHTML =
+        ceRenderFeaturedFootball(
+          featured
+        );
+
+    } else {
+
+      throw new Error(
+        "Unsupported featured sport"
+      );
+    }
+
+  } catch (error) {
+
+    console.log(
+      "Featured Premium Pick error:",
+      error.message
+    );
+
+    wrap.innerHTML = `
+      <div style="
+        background:#0a0f1e;
+        border:1px solid #1a2240;
+        border-radius:14px;
+        padding:24px;
+        text-align:center;
+        color:#8899bb;
+        font-size:12px;
+      ">
+        Unable to load the featured Premium Pick.
+      </div>
+    `;
   }
 }
