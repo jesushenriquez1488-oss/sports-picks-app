@@ -184,27 +184,70 @@ function sanitizeMlbAnalysis(
   const premium = analysis?.premium || {};
   const publicData = analysis?.public || {};
 
-  const cards =
-    Array.isArray(premium.recommendedCards)
-      ? premium.recommendedCards.map(card => ({
-          title: card?.title || null,
-          play: card?.play || null,
-          percentage:
-            safeNumber(card?.percentage),
-          type: card?.type || null,
-          team: card?.team || null,
-          odds_american:
-            safeNumber(card?.odds_american)
-        }))
-      : [];
+  const historyConfidence =
+    safeNumber(history.confidence, 0);
+
+  const historyType =
+    String(history.pick_type || "")
+      .toLowerCase();
+
+  let cardTitle = "Premium Pick";
+  let cardType = null;
+
+  if (
+    historyType === "ml" ||
+    historyType === "moneyline"
+  ) {
+    cardTitle = "Premium ML Play";
+    cardType = "ML";
+
+  } else if (
+    historyType === "runline" ||
+    historyType === "spread"
+  ) {
+    cardTitle = "Premium Runline Play";
+    cardType = "RUNLINE";
+
+  } else if (historyType === "total") {
+    cardTitle = "Total Premium";
+    cardType =
+      String(
+        history.pick_direction || ""
+      ).toUpperCase() || null;
+  }
+
+  /*
+    IMPORTANTE:
+    El Premium Pick histórico viene SIEMPRE
+    de picks_history.
+
+    No dependemos de recommendedCards actual
+    porque daily_picks puede haberse actualizado.
+  */
+  const historicalCard = {
+    title: cardTitle,
+    play: history.pick || null,
+    percentage: historyConfidence,
+    type: cardType,
+    team: history.pick_team || null,
+    odds_american:
+      safeNumber(
+        history.odds_american,
+        -110
+      )
+  };
 
   return {
     public: {
       awayTeam:
-        publicData.awayTeam || null,
+        history.away_team ||
+        publicData.awayTeam ||
+        null,
 
       homeTeam:
-        publicData.homeTeam || null,
+        history.home_team ||
+        publicData.homeTeam ||
+        null,
 
       totalLine:
         safeNumber(
@@ -213,29 +256,36 @@ function sanitizeMlbAnalysis(
         ),
 
       confidence:
-        safeNumber(
-          publicData.confidence,
-          history.confidence
-        )
+        historyConfidence
     },
 
     premium: {
-      recommendedCards: cards,
+      recommendedCards: [
+        historicalCard
+      ],
 
       favoriteToWin:
         premium.favoriteToWin || null,
 
       favoriteProb:
-        safeNumber(premium.favoriteProb),
+        safeNumber(
+          premium.favoriteProb
+        ),
 
       expectedRunsA:
-        safeNumber(premium.expectedRunsA),
+        safeNumber(
+          premium.expectedRunsA
+        ),
 
       expectedRunsB:
-        safeNumber(premium.expectedRunsB),
+        safeNumber(
+          premium.expectedRunsB
+        ),
 
       projectedTotal:
-        safeNumber(premium.projectedTotal),
+        safeNumber(
+          premium.projectedTotal
+        ),
 
       totalLine:
         safeNumber(
@@ -244,19 +294,27 @@ function sanitizeMlbAnalysis(
         ),
 
       totalDiff:
-        safeNumber(premium.totalDiff),
+        safeNumber(
+          premium.totalDiff
+        ),
 
       overProbability:
-        safeNumber(premium.overProbability),
+        safeNumber(
+          premium.overProbability
+        ),
 
       underProbability:
-        safeNumber(premium.underProbability),
+        safeNumber(
+          premium.underProbability
+        ),
 
       totalPick:
         premium.totalPick || null,
 
       totalEdge:
-        safeNumber(premium.totalEdge),
+        safeNumber(
+          premium.totalEdge
+        ),
 
       venue: premium.venue
         ? {
@@ -297,10 +355,14 @@ function sanitizeMlbAnalysis(
         : null,
 
       weatherFactor:
-        safeNumber(premium.weatherFactor),
+        safeNumber(
+          premium.weatherFactor
+        ),
 
       parkFactor:
-        safeNumber(premium.parkFactor),
+        safeNumber(
+          premium.parkFactor
+        ),
 
       runEnvironmentFactor:
         safeNumber(
@@ -324,7 +386,6 @@ function sanitizeMlbAnalysis(
     }
   };
 }
-
 function sanitizeFootballAnalysis(
   analysis,
   history
