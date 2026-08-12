@@ -621,7 +621,10 @@ const chicagoHour = Number(
   }).format(new Date())
 );
 
-if (chicagoHour !== 8) {
+const forceRun =
+  req.query.force === "true";
+
+if (!forceRun && chicagoHour !== 8) {
   return res.status(200).json({
     ok: true,
     skipped: true,
