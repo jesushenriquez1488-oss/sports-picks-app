@@ -608,6 +608,26 @@ module.exports = async function handler(
         error: "Unauthorized"
       });
     }
+    /* ==============================
+   SOLO 8 AM EN KANSAS
+   Maneja automáticamente CDT/CST
+============================== */
+
+const chicagoHour = Number(
+  new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    hour: "2-digit",
+    hour12: false
+  }).format(new Date())
+);
+
+if (chicagoHour !== 8) {
+  return res.status(200).json({
+    ok: true,
+    skipped: true,
+    reason: "Outside featured-pick selection hour"
+  });
+}
 
     /* ==============================
        FECHAS
