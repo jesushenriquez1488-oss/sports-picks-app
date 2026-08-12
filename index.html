@@ -560,9 +560,13 @@ window.gtag("js", new Date());
     only what cleared the bar.
   </p>
 
-  <button type="button" onclick="ceShowAuth()" style="display:block;width:100%;max-width:560px;margin:0 auto;padding:17px;border:none;border-radius:12px;background:linear-gradient(135deg,#00ffe7,#7c3cff);color:#020814;font-size:15px;font-weight:900;letter-spacing:0.5px;cursor:pointer;text-transform:uppercase;">
-    See today's board — free →
-  </button>
+<button
+  type="button"
+  onclick="document.getElementById('ceFeaturedPremiumSection')?.scrollIntoView({behavior:'smooth',block:'start'})"
+  style="display:block;width:100%;max-width:560px;margin:0 auto;padding:17px;border:none;border-radius:12px;background:linear-gradient(135deg,#00ffe7,#7c3cff);color:#020814;font-size:15px;font-weight:900;letter-spacing:0.5px;cursor:pointer;text-transform:uppercase;"
+>
+  SEE A REAL PREMIUM PICK →
+</button>
 
   <div style="font-size:11px;color:#5a7a9a;margin-top:12px;">
   No card required · 5 free analyses daily · Premium Pick results tracked publicly
@@ -722,42 +726,110 @@ graded against the line recorded when it was released, including losses.
   </div>
 
 </div>
-  <!-- ===== 6. EL PICK REAL DE HOY ===== -->
+ <!-- ===== 6. REAL PREMIUM PICK ===== -->
 
-<div id="ceLockedPickWrap" class="ce-locked-wrap" style="display:none;margin-top:44px;">
-  <div class="ce-locked-toplabel">
-    <span class="ce-locked-flame">⚡</span>
-    ONE THE MODEL FLAGGED TODAY
+<div
+  id="ceFeaturedPremiumSection"
+  style="margin:44px 0 0;scroll-margin-top:24px;"
+>
+
+  <div style="
+    text-align:center;
+    font-size:10px;
+    color:#00ffe7;
+    letter-spacing:1.5px;
+    font-weight:800;
+    margin-bottom:7px;
+  ">
+    REAL PREMIUM PICK · PREVIOUSLY RELEASED
   </div>
 
-  <div class="ce-locked-card">
-    <div class="ce-locked-head">
-      <span id="ceLockedSport" class="ce-locked-badge">NBA</span>
-      <span id="ceLockedTime" class="ce-locked-time"></span>
-    </div>
+  <div style="
+    text-align:center;
+    font-size:24px;
+    line-height:1.25;
+    color:#fff;
+    font-weight:900;
+    margin-bottom:8px;
+  ">
+    See what CashEdge Premium looks like.
+  </div>
 
-    <p id="ceLockedMatchup" class="ce-locked-matchup">Loading...</p>
+  <div style="
+    text-align:center;
+    font-size:12px;
+    line-height:1.6;
+    color:#6f84a3;
+    max-width:500px;
+    margin:0 auto 20px;
+  ">
+    One real Premium Pick from yesterday's tracked results,
+    shown with its final outcome.
+  </div>
 
-    <div class="ce-locked-divider"></div>
-
-    <div class="ce-locked-body">
-      <div class="ce-locked-metric">
-        <span class="ce-locked-metric-label">EDGE DETECTED</span>
-        <span id="ceLockedEdge" class="ce-locked-metric-value">--</span>
-      </div>
-      <div class="ce-locked-circle">
-        <span id="ceLockedConf">--%</span>
-        <small>CONFIDENCE</small>
-      </div>
-    </div>
-
-    <div class="ce-locked-pickrow">
-      <span class="ce-locked-lockicon">🔒</span>
-      <span class="ce-locked-pickmask">PREMIUM PICK LOCKED</span>
+  <div id="ceFeaturedPremiumWrap">
+    <div style="
+      background:#0a0f1e;
+      border:1px solid #1a2240;
+      border-radius:14px;
+      padding:26px;
+      text-align:center;
+      color:#8899bb;
+      font-size:12px;
+    ">
+      Loading real Premium Pick...
     </div>
   </div>
+
+  <div style="
+    text-align:center;
+    margin-top:22px;
+    padding:20px 18px;
+    background:#0a0f1e;
+    border:1px solid rgba(0,255,231,0.18);
+    border-radius:12px;
+  ">
+
+    <div style="
+      font-size:16px;
+      color:#fff;
+      font-weight:800;
+      margin-bottom:5px;
+    ">
+      Want to see today's board?
+    </div>
+
+    <div style="
+      font-size:11px;
+      color:#6f84a3;
+      margin-bottom:14px;
+    ">
+      Create your free account and run today's analyses.
+    </div>
+
+    <button
+      type="button"
+      onclick="ceShowAuth()"
+      style="
+        width:100%;
+        padding:15px;
+        border:none;
+        border-radius:10px;
+        background:linear-gradient(135deg,#00ffe7,#7c3cff);
+        color:#020814;
+        font-size:13px;
+        font-weight:900;
+        letter-spacing:.5px;
+        cursor:pointer;
+        text-transform:uppercase;
+      "
+    >
+      CREATE FREE ACCOUNT →
+    </button>
+
+  </div>
+
 </div>
-
 
 <!-- ===== 7. CÓMO SE CONSTRUYE ===== -->
 
