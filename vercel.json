@@ -40,6 +40,14 @@
     { "path": "/api/twitter-bot?type=morning", "schedule": "0 14 * * *" },
 { "path": "/api/twitter-bot?type=pick", "schedule": "0 17 * * *" },
 { "path": "/api/twitter-bot?type=teaser", "schedule": "0 23 * * *" },
-{ "path": "/api/twitter-bot?type=results", "schedule": "0 3 * * *" }
+{ "path": "/api/twitter-bot?type=results", "schedule": "0 3 * * *" },
+    {
+  "path": "/api/select-featured-pick",
+  "schedule": "15 13 * * *"
+},
+{
+  "path": "/api/select-featured-pick",
+  "schedule": "15 14 * * *"
+}
   ]
 }
