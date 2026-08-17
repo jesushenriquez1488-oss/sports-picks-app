@@ -870,13 +870,14 @@ const analyzeBody =
       gameTime: game.commence_time,
         forceRefresh: req.query.force === "true"
       };
-          const analyzeRes = await fetch(`${origin}${sport.endpoint}`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify(analyzeBody)
-          });
+         const analyzeRes = await fetch(`${origin}${sport.endpoint}`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "X-Internal-Secret": validSecret
+  },
+  body: JSON.stringify(analyzeBody)
+});
 
           const analyzeData = await analyzeRes.json().catch(() => null);
 
@@ -1957,7 +1958,57 @@ if (req.method === "GET" && req.query.mode === "parlay-performance") {
     let user = null;
     let isPremiumUser = false;
     let isUnlimited = false;
+const internalSecret = String(
+  req.headers["x-internal-secret"] || ""
+);
 
+const validInternalSecret = String(
+  process.env.CRON_SECRET ||
+  process.env.GENERATE_DAILY_SECRET ||
+  ""
+);
+
+const isInternalRequest =
+  validInternalSecret &&
+  internalSecret === validInternalSecret;
+
+if (isInternalRequest) {
+  user = {
+    id: "system-generate-daily",
+    email: ADMIN_EMAIL
+  };
+
+  isPremiumUser = true;
+  isUnlimited = true;
+} else {
+  const authHeader = String(
+    req.headers.authorization || ""
+  );
+
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : null;
+
+  if (!token) {
+    return res.status(401).json({
+      error: "Unauthorized"
+    });
+  }
+
+  const {
+    data: authCheck,
+    error: authCheckError
+  } = await supabaseAdmin.auth.getUser(token);
+
+  if (
+    authCheckError ||
+    !authCheck?.user?.id
+  ) {
+    return res.status(401).json({
+      error: "Unauthorized"
+    });
+  }
+}
     try {
       const authHeader = req.headers.authorization || "";
       const token = authHeader.replace("Bearer ", "");
