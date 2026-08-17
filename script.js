@@ -586,15 +586,10 @@ window.addEventListener("load", async () => {
 async function handleUserSession(user) {
   
   const { data: profile, error } = await supabaseClient
-    .from("users")
-    .upsert({
-      id: user.id,
-      email: user.email,
-      subscription_status: "free"
-    }, { onConflict: "id" })
-    .select()
-    .single();
-
+  .from("users")
+  .select("is_premium, subscription_status")
+  .eq("id", user.id)
+  .maybeSingle();
   if (!error && profile) {
     _setPremiumUser(profile.is_premium);
 
@@ -2132,17 +2127,11 @@ await askPushAfterLogin();
 
 const user = data.user;
 
-  const { data: profile, error: dbError } = await supabaseClient
-    .from("users")
-    .upsert({
-      id: user.id,
-      email: user.email,
-      subscription_status: "free"
-    }, {
-      onConflict: "id"
-    })
-    .select()
-    .single();
+const { data: profile, error: dbError } = await supabaseClient
+  .from("users")
+  .select("is_premium, subscription_status")
+  .eq("id", user.id)
+  .maybeSingle();
 
   if (dbError) {
     console.log("DB ERROR:", dbError);
