@@ -184,9 +184,24 @@ const metaConversionStorageKey =
   try {
     alert("✅ Pago recibido. Verificando suscripción...");
 
-    const response = await fetch(
-      `/api/verify-checkout-session?session_id=${encodeURIComponent(stripeSessionId)}`
-    );
+const {
+  data: { session }
+} = await supabaseClient.auth.getSession();
+
+if (!session?.access_token) {
+  throw new Error(
+    "No authenticated session available."
+  );
+}
+
+const response = await fetch(
+  `https://www.cashedgeapp.com/api/verify-checkout-session?session_id=${encodeURIComponent(stripeSessionId)}`,
+  {
+    headers: {
+      "Authorization": `Bearer ${session.access_token}`
+    }
+  }
+);
 
     const verification = await response.json();
 
