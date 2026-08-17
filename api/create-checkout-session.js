@@ -89,16 +89,59 @@ module.exports = async function handler(req, res) {
       process.env.STRIPE_SECRET_KEY
     );
 
-    const {
-      userId,
-      email,
-      promoCode = "",
-      action = "checkout",
-      advertisingConsent = "denied",
+   const {
+  promoCode = "",
+  action = "checkout",
+  advertisingConsent = "denied",
 
-      // TikTok
-      ttclid = ""
-    } = req.body || {};
+  // TikTok
+  ttclid = ""
+} = req.body || {};
+
+/*
+ * =========================
+ * AUTHENTICATION
+ * =========================
+ */
+
+const authHeader =
+  String(
+    req.headers.authorization || ""
+  );
+
+const token =
+  authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : null;
+
+if (!token) {
+  return res.status(401).json({
+    error: "Unauthorized"
+  });
+}
+
+const {
+  data: authData,
+  error: authError
+} =
+  await supabaseAdmin.auth.getUser(
+    token
+  );
+
+if (
+  authError ||
+  !authData?.user?.id
+) {
+  return res.status(401).json({
+    error: "Unauthorized"
+  });
+}
+
+const userId =
+  authData.user.id;
+
+const email =
+  authData.user.email || "";
 
     const hasAdvertisingConsent =
       advertisingConsent === "granted";
