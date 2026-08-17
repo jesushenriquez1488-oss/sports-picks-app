@@ -2168,6 +2168,62 @@ function projectRBRushingYards({
 // ---- Handler NFL Player Props ----
  
 async function handleNFLPlayerProps(req, res) {
+
+  // =========================
+  // PREMIUM AUTH
+  // =========================
+
+  const authHeader = String(req.headers.authorization || "");
+
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : null;
+
+  if (!token) {
+    return res.status(401).json({
+      error: "Unauthorized"
+    });
+  }
+
+  const {
+    data: authData,
+    error: authError
+  } = await supabaseAdmin.auth.getUser(token);
+
+  if (
+    authError ||
+    !authData?.user?.id
+  ) {
+    return res.status(401).json({
+      error: "Unauthorized"
+    });
+  }
+
+  const { data: profile, error: profileError } =
+    await supabaseAdmin
+      .from("users")
+      .select("is_premium, subscription_status")
+      .eq("id", authData.user.id)
+      .maybeSingle();
+
+  if (profileError) {
+    return res.status(500).json({
+      error: "Unable to verify subscription"
+    });
+  }
+
+  const isPremiumUser =
+    profile?.is_premium === true ||
+    profile?.subscription_status === "active" ||
+    profile?.subscription_status === "trialing" ||
+    authData.user.email === ADMIN_EMAIL;
+
+  if (!isPremiumUser) {
+    return res.status(403).json({
+      error: "Premium required"
+    });
+  }
+
   const ODDS_API_KEY = process.env.ODDS_API_KEY;
   const NFL_SEASON   = 2025;
  
