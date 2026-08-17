@@ -415,12 +415,20 @@ if (orbEl) {
 }
 
 async function goPremiumMonthly() {
-  const {
-    data: { user },
-    error
-  } = await supabaseClient.auth.getUser();
+ const {
+  data: { session },
+  error
+} = await supabaseClient.auth.getSession();
 
-  if (error || !user || !user.id || !user.email) {
+const user = session?.user;
+
+if (
+  error ||
+  !session?.access_token ||
+  !user ||
+  !user.id ||
+  !user.email
+) {
     alert("Debes iniciar sesión antes de comprar Premium.");
     document
       .getElementById("authBox")
@@ -467,9 +475,9 @@ try {
     const res = await fetch("/api/create-checkout-session", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
-      },
-
+  "Content-Type": "application/json",
+  "Authorization": `Bearer ${session.access_token}`
+},
       body: JSON.stringify({
   userId: user.id,
   email: user.email,
@@ -4001,19 +4009,25 @@ async function openCustomerPortal() {
   try {
 
     const {
-      data: { user }
-   } = await supabaseClient.auth.getUser();
+  data: { session }
+} = await supabaseClient.auth.getSession();
 
-    if (!user) {
+const user = session?.user;
+
+if (
+  !session?.access_token ||
+  !user
+) {
       alert("Please log in first.");
       return;
     }
 
     const response = await fetch("/api/create-checkout-session", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+     headers: {
+  "Content-Type": "application/json",
+  "Authorization": `Bearer ${session.access_token}`
+},
       body: JSON.stringify({
         userId: user.id,
         action: "portal"
