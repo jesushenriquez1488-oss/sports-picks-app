@@ -311,6 +311,60 @@ function calculateNBAPropProjection({ market, line, side, seasonStats, opponentD
 }
 
 async function handleNBAPlayerProps(req, res) {
+
+  // =========================
+  // PREMIUM AUTH
+  // =========================
+
+  const authHeader = String(req.headers.authorization || "");
+
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : null;
+
+  if (!token) {
+    return res.status(401).json({
+      error: "Unauthorized"
+    });
+  }
+
+  const {
+    data: authData,
+    error: authError
+  } = await supabaseAdmin.auth.getUser(token);
+
+  if (
+    authError ||
+    !authData?.user?.id
+  ) {
+    return res.status(401).json({
+      error: "Unauthorized"
+    });
+  }
+
+  const { data: profile, error: profileError } =
+    await supabaseAdmin
+      .from("users")
+      .select("is_premium")
+      .eq("id", authData.user.id)
+      .maybeSingle();
+
+  if (profileError) {
+    return res.status(500).json({
+      error: "Unable to verify subscription"
+    });
+  }
+
+  const isPremiumUser =
+    profile?.is_premium === true ||
+    authData.user.email === ADMIN_EMAIL;
+
+  if (!isPremiumUser) {
+    return res.status(403).json({
+      error: "Premium required"
+    });
+  }
+
   const ODDS_API_KEY = process.env.ODDS_API_KEY;
   const today = new Date().toISOString().split("T")[0];
   const force = req.query.force === "true" || req.body?.force === true;
