@@ -3032,41 +3032,69 @@ await updateSportRecord();
     details
   });
 }
- const authHeader =
-  String(req.headers.authorization || "");
+const internalSecret = String(
+  req.headers["x-internal-secret"] || ""
+);
 
-const token =
-  authHeader.startsWith("Bearer ")
-    ? authHeader.slice(7)
-    : null;
+const validInternalSecret = String(
+  process.env.CRON_SECRET ||
+  process.env.GENERATE_DAILY_SECRET ||
+  ""
+);
 
-if (!token) {
-  return res.status(401).json({
-    error: "Unauthorized"
-  });
-}
+const isInternalRequest =
+  Boolean(
+    validInternalSecret &&
+    internalSecret === validInternalSecret
+  );
 
-const {
-  data: authData,
-  error: authError
-} = await supabaseAdmin.auth.getUser(token);
-
-if (
-  authError ||
-  !authData?.user?.id
-) {
-  return res.status(401).json({
-    error: "Unauthorized"
-  });
-}
-
-const userId = authData.user.id;
-  let isPremiumUser = false;
+let userId = null;
+let isPremiumUser = false;
 let isAdmin = false;
 let isUnlimited = false;
 let profile = null;
 
-if (userId && userId !== "null" && userId !== "undefined" && userId !== "guest") {
+if (isInternalRequest) {
+
+  // Llamada segura desde generate-daily
+  userId = "system-generate-daily";
+  isPremiumUser = true;
+  isAdmin = true;
+  isUnlimited = true;
+
+} else {
+
+  // Usuario normal
+  const authHeader =
+    String(req.headers.authorization || "");
+
+  const token =
+    authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : null;
+
+  if (!token) {
+    return res.status(401).json({
+      error: "Unauthorized"
+    });
+  }
+
+  const {
+    data: authData,
+    error: authError
+  } = await supabaseAdmin.auth.getUser(token);
+
+  if (
+    authError ||
+    !authData?.user?.id
+  ) {
+    return res.status(401).json({
+      error: "Unauthorized"
+    });
+  }
+
+  userId = authData.user.id;
+
   const { data } = await supabaseAdmin
     .from("users")
     .select("is_premium, email")
@@ -3074,11 +3102,22 @@ if (userId && userId !== "null" && userId !== "undefined" && userId !== "guest")
     .maybeSingle();
 
   profile = data;
-  isPremiumUser = profile?.is_premium === true;
-  isAdmin = profile?.email === ADMIN_EMAIL;
-  isUnlimited = isPremiumUser || isAdmin;
 
-  const usageCheck = await checkFreeAnalysisLimit(userId, isUnlimited);
+  isPremiumUser =
+    profile?.is_premium === true;
+
+  isAdmin =
+    authData.user.email === ADMIN_EMAIL ||
+    profile?.email === ADMIN_EMAIL;
+
+  isUnlimited =
+    isPremiumUser || isAdmin;
+
+  const usageCheck =
+    await checkFreeAnalysisLimit(
+      userId,
+      isUnlimited
+    );
 
   if (!usageCheck.allowed) {
     return res.status(429).json({
