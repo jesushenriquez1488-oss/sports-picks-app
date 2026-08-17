@@ -5,7 +5,48 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sports Picks App</title>
   <link rel="stylesheet" href="style.css">
+<script>
+(function () {
+  const params = new URLSearchParams(window.location.search);
 
+  const success = params.get("success");
+  const canceled = params.get("canceled");
+  const sessionId = params.get("session_id");
+  const metaEventId = params.get("meta_event_id");
+
+  if (success === "true" && sessionId) {
+    sessionStorage.setItem(
+      "ce_stripe_return",
+      JSON.stringify({
+        success: true,
+        sessionId,
+        metaEventId
+      })
+    );
+
+    window.history.replaceState(
+      {},
+      document.title,
+      window.location.pathname
+    );
+  }
+
+  if (canceled === "true") {
+    sessionStorage.setItem(
+      "ce_stripe_return",
+      JSON.stringify({
+        canceled: true
+      })
+    );
+
+    window.history.replaceState(
+      {},
+      document.title,
+      window.location.pathname
+    );
+  }
+})();
+</script>
   <!-- CASHEDGE PRIVACY / CONSENT -->
   <script>
   (function () {
