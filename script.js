@@ -146,10 +146,29 @@ function sanitize(str) {
 const urlParams = new URLSearchParams(window.location.search);
 
 async function handleStripeReturn() {
-  const paymentSuccess = urlParams.get("success") === "true";
-  const paymentCanceled = urlParams.get("canceled") === "true";
-  const stripeSessionId = urlParams.get("session_id");
-const metaEventId = urlParams.get("meta_event_id");
+  let storedStripeReturn = null;
+
+  try {
+    storedStripeReturn = JSON.parse(
+      sessionStorage.getItem("ce_stripe_return") || "null"
+    );
+  } catch (_) {}
+
+  const paymentSuccess =
+    storedStripeReturn?.success === true ||
+    urlParams.get("success") === "true";
+
+  const paymentCanceled =
+    storedStripeReturn?.canceled === true ||
+    urlParams.get("canceled") === "true";
+
+  const stripeSessionId =
+    storedStripeReturn?.sessionId ||
+    urlParams.get("session_id");
+
+  const metaEventId =
+    storedStripeReturn?.metaEventId ||
+    urlParams.get("meta_event_id");
   if (paymentCanceled) {
     alert("Pago cancelado.");
 
@@ -334,6 +353,7 @@ alert("✅ Premium confirmado correctamente.");
     );
 
   } finally {
+    sessionStorage.removeItem("ce_stripe_return");
     window.history.replaceState(
       {},
       document.title,
