@@ -610,7 +610,22 @@ async function handleUserSession(user) {
 async function loadTeams() {
   if (allTeams.length > 0) return;
 
-  const res = await fetch("/api/nba-data?type=teams");
+ const {
+  data: { session }
+} = await supabaseClient.auth.getSession();
+
+if (!session?.access_token) {
+  throw new Error("Unauthorized");
+}
+
+const res = await fetch(
+  "https://www.cashedgeapp.com/api/nba-data?type=teams",
+  {
+    headers: {
+      "Authorization": `Bearer ${session.access_token}`
+    }
+  }
+);
 
   const text = await res.text();
   if (!res.ok) throw new Error("Error loading teams: " + text);
@@ -648,7 +663,22 @@ async function getRecentGamesByTeamId(teamId) {
 
   await waitBeforeRequest();
 
-  const res = await fetch(`/api/nba-data?type=games&teamId=${encodeURIComponent(teamId)}`);
+ const {
+  data: { session }
+} = await supabaseClient.auth.getSession();
+
+if (!session?.access_token) {
+  throw new Error("Unauthorized");
+}
+
+const res = await fetch(
+  `https://www.cashedgeapp.com/api/nba-data?type=games&teamId=${encodeURIComponent(teamId)}`,
+  {
+    headers: {
+      "Authorization": `Bearer ${session.access_token}`
+    }
+  }
+);
 
  
 
@@ -713,7 +743,22 @@ async function getRecentGames(teamName) {
   if (selectedSport !== "basketball_nba") {
   const league = getLeagueSlug(selectedSport);
 
-  const res = await fetch(`/api/basketball-recent-games?team=${encodeURIComponent(teamName)}&league=${league}`);
+const {
+  data: { session }
+} = await supabaseClient.auth.getSession();
+
+if (!session?.access_token) {
+  throw new Error("Unauthorized");
+}
+
+const res = await fetch(
+  `https://www.cashedgeapp.com/api/basketball-recent-games?team=${encodeURIComponent(teamName)}&league=${league}`,
+  {
+    headers: {
+      "Authorization": `Bearer ${session.access_token}`
+    }
+  }
+);
  const games = await res.json();
 
 if (!res.ok) {
