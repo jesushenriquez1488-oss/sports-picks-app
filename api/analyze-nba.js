@@ -2216,13 +2216,23 @@ if (
   selectedLeague === "ncaab"
 ) {
 
-  awayGames = await fetchJson(
-    `${origin}/api/basketball-recent-games?league=${selectedLeague}&team=${encodeURIComponent(awayTeam)}`
-  );
+const downstreamOptions = {
+  headers: {
+    "Authorization": String(
+      req.headers.authorization || ""
+    )
+  }
+};
 
-  homeGames = await fetchJson(
-    `${origin}/api/basketball-recent-games?league=${selectedLeague}&team=${encodeURIComponent(homeTeam)}`
-  );
+awayGames = await fetchJson(
+  `${origin}/api/basketball-recent-games?league=${selectedLeague}&team=${encodeURIComponent(awayTeam)}`,
+  downstreamOptions
+);
+
+homeGames = await fetchJson(
+  `${origin}/api/basketball-recent-games?league=${selectedLeague}&team=${encodeURIComponent(homeTeam)}`,
+  downstreamOptions
+);
 
   awayAll = awayGames;
   homeAll = homeGames;
@@ -2506,14 +2516,14 @@ function getOrigin(req) {
   return "https://sports-picks-app-two.vercel.app";
 }
 
-async function fetchJson(url) {
+async function fetchJson(url, options = {}) {
   const cached = cache[url];
 
   if (cached && Date.now() - cached.time < CACHE_TIME) {
     return cached.data;
   }
 
-  const res = await fetch(url);
+  const res = await fetch(url, options);
   const text = await res.text();
 
   if (!res.ok) throw new Error(text);
