@@ -3109,58 +3109,20 @@ async function updateSportRecordAuto(sport, result) {
     return;
   }
 
-  // Ordenar de más reciente a más antiguo.
-  const sortedRows =
-    [...(gradedRows || [])].sort((a, b) => {
-      const dateA =
-        new Date(
-          a.graded_at ||
-          a.created_at ||
-          0
-        ).getTime();
+ const wins =
+  gradedRows.filter(
+    row => row.result === "win"
+  ).length;
 
-      const dateB =
-        new Date(
-          b.graded_at ||
-          b.created_at ||
-          0
-        ).getTime();
+const losses =
+  gradedRows.filter(
+    row => row.result === "loss"
+  ).length;
 
-      return dateB - dateA;
-    });
-
-  // Un solo resultado por juego.
-  // Si por algún error histórico existen duplicados,
-  // solo cuenta la fila más reciente.
-  const uniqueGames = new Map();
-
-  for (const row of sortedRows) {
-    const key =
-      row.game_id ||
-      `row-${row.id}`;
-
-    if (!uniqueGames.has(key)) {
-      uniqueGames.set(key, row);
-    }
-  }
-
-  const cleanRows =
-    Array.from(uniqueGames.values());
-
-  const wins =
-    cleanRows.filter(
-      row => row.result === "win"
-    ).length;
-
-  const losses =
-    cleanRows.filter(
-      row => row.result === "loss"
-    ).length;
-
-  const pushes =
-    cleanRows.filter(
-      row => row.result === "push"
-    ).length;
+const pushes =
+  gradedRows.filter(
+    row => row.result === "push"
+  ).length;
 
   const { error: recordError } =
     await supabaseAdmin
