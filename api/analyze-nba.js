@@ -3082,33 +3082,109 @@ function calculateBasketballResult({ pick, home, away }) {
   return null;
 }
 async function updateSportRecordAuto(sport, result) {
-  const recordSport = String(sport || "").toLowerCase();
+  const recordSport =
+    String(sport || "").toLowerCase();
 
-  if (!["win", "loss", "push"].includes(result)) return;
+  if (
+    !["win", "loss", "push"].includes(result)
+  ) {
+    return;
+  }
 
-  const { data: currentRecord, error } = await supabaseAdmin
-    .from("sport_records")
-    .select("real_wins, real_losses, pushes")
-    .eq("sport", recordSport)
-    .maybeSingle();
+  const { data: gradedRows, error } =
+    await supabaseAdmin
+      .from("picks_history")
+      .select(
+        "id, game_id, result, created_at, graded_at"
+      )
+      .eq("sport", recordSport)
+      .eq("is_premium", true)
+      .in("result", ["win", "loss", "push"]);
 
-  if (error || !currentRecord) return;
+  if (error) {
+    console.error(
+      "Error recalculando sport record:",
+      error.message
+    );
+    return;
+  }
 
-  const updates = {
-    real_wins: Number(currentRecord.real_wins || 0),
-    real_losses: Number(currentRecord.real_losses || 0),
-    pushes: Number(currentRecord.pushes || 0),
-    updated_at: new Date().toISOString()
-  };
+  // Ordenar de más reciente a más antiguo.
+  const sortedRows =
+    [...(gradedRows || [])].sort((a, b) => {
+      const dateA =
+        new Date(
+          a.graded_at ||
+          a.created_at ||
+          0
+        ).getTime();
 
-  if (result === "win") updates.real_wins += 1;
-  if (result === "loss") updates.real_losses += 1;
-  if (result === "push") updates.pushes += 1;
+      const dateB =
+        new Date(
+          b.graded_at ||
+          b.created_at ||
+          0
+        ).getTime();
 
-  await supabaseAdmin
-    .from("sport_records")
-    .update(updates)
-    .eq("sport", recordSport);
+      return dateB - dateA;
+    });
+
+  // Un solo resultado por juego.
+  // Si por algún error histórico existen duplicados,
+  // solo cuenta la fila más reciente.
+  const uniqueGames = new Map();
+
+  for (const row of sortedRows) {
+    const key =
+      row.game_id ||
+      `row-${row.id}`;
+
+    if (!uniqueGames.has(key)) {
+      uniqueGames.set(key, row);
+    }
+  }
+
+  const cleanRows =
+    Array.from(uniqueGames.values());
+
+  const wins =
+    cleanRows.filter(
+      row => row.result === "win"
+    ).length;
+
+  const losses =
+    cleanRows.filter(
+      row => row.result === "loss"
+    ).length;
+
+  const pushes =
+    cleanRows.filter(
+      row => row.result === "push"
+    ).length;
+
+  const { error: recordError } =
+    await supabaseAdmin
+      .from("sport_records")
+      .upsert(
+        {
+          sport: recordSport,
+          real_wins: wins,
+          real_losses: losses,
+          pushes,
+          updated_at:
+            new Date().toISOString()
+        },
+        {
+          onConflict: "sport"
+        }
+      );
+
+  if (recordError) {
+    console.error(
+      "Error actualizando sport record:",
+      recordError.message
+    );
+  }
 }
 async function enforceDailyPremiumLimits() {
   const todayDate = new Date().toISOString().split("T")[0];
