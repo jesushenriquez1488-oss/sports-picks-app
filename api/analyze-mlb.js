@@ -4906,6 +4906,15 @@ if (dailyPickError) {
   );
 }
 
+// Limpiar el Premium pendiente anterior de este juego.
+// Si después del recálculo ya no es Premium, no debe quedar en tracking.
+await supabaseAdmin
+  .from("picks_history")
+  .delete()
+  .eq("sport", "mlb")
+  .eq("game_id", gameId)
+  .eq("result", "pending");
+
 if (recommendedCards.length > 0) {
   const card = recommendedCards[0];
 
@@ -4966,11 +4975,7 @@ if (recommendedCards.length > 0) {
     .eq("sport", "mlb")
     .eq("game_id", gameId);
 
-  await supabaseAdmin
-    .from("picks_history")
-   .delete()
-    .eq("sport", "mlb")
-    .eq("game_id", gameId);
+
 
   const { error: historyError } = await supabaseAdmin
     .from("picks_history")
