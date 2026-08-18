@@ -2176,33 +2176,123 @@ const forceRefresh =
   req.query.force === "true" ||
   req.body?.force === true ||
   req.body?.forceRefresh === true;
-    
-    if (existing?.analysis_json && !forceRefresh && cacheAge < 2 * 60 * 60 * 1000) {
-      if (!existing.game_date) {
-  await supabaseAdmin
-    .from("daily_picks")
-    .update({
-      game_date: gameDate,
-      updated_at: new Date().toISOString()
-    })
-    .eq("sport", selectedLeague)
-    .eq("game_id", gameId);
-}
-      const cachedAnalysis = existing.analysis_json;
-      const locked = cachedAnalysis.isPremiumPick && !isPremiumUser;
-      if (!cachedAnalysis.isPremiumPick) {
-        await recordFreeAnalysis(user?.id, isUnlimited, "analyze-nba");
-      }
 
-      return res.status(200).json({
-        locked,
-        isPremiumPick: cachedAnalysis.isPremiumPick,
-        noPlay: cachedAnalysis.noPlay,
-        public: cachedAnalysis.public,
-        premium: locked ? null : cachedAnalysis.premium
-      });
+// =====================================================
+// CONGELAR PREMIUM 30 MINUTOS ANTES DEL JUEGO
+// =====================================================
+
+const gameStartMs = gameTime
+  ? new Date(gameTime).getTime()
+  : NaN;
+
+const premiumFrozen =
+  Number.isFinite(gameStartMs) &&
+  Date.now() >= gameStartMs - 30 * 60 * 1000;
+
+
+// Si faltan 30 minutos o menos:
+// NO recalcular, NO aceptar nueva línea,
+// NO crear un Premium nuevo.
+if (premiumFrozen) {
+
+  // Si ya existe análisis, devolver exactamente
+  // lo que estaba guardado antes del cierre.
+  if (existing?.analysis_json) {
+    const cachedAnalysis = existing.analysis_json;
+
+    const locked =
+      cachedAnalysis.isPremiumPick &&
+      !isPremiumUser;
+
+    if (!cachedAnalysis.isPremiumPick) {
+      await recordFreeAnalysis(
+        user?.id,
+        isUnlimited,
+        "analyze-nba"
+      );
     }
 
+    return res.status(200).json({
+      locked,
+      isPremiumPick:
+        cachedAnalysis.isPremiumPick,
+      noPlay:
+        cachedAnalysis.noPlay,
+      public:
+        cachedAnalysis.public,
+      premium:
+        locked
+          ? null
+          : cachedAnalysis.premium
+    });
+  }
+
+  // Si nunca hubo análisis antes del cierre,
+  // ya no puede aparecer una Premium nueva.
+  return res.status(200).json({
+    locked: false,
+    isPremiumPick: false,
+    noPlay: true,
+    public: {
+      awayTeam,
+      homeTeam,
+      confidence: null,
+      freePick: null
+    },
+    premium: null,
+    reason:
+      "Premium window locked 30 minutes before game time"
+  });
+}
+
+
+// Caché normal mientras todavía faltan
+// más de 30 minutos.
+if (
+  existing?.analysis_json &&
+  !forceRefresh &&
+  cacheAge < 2 * 60 * 60 * 1000
+) {
+  if (!existing.game_date) {
+    await supabaseAdmin
+      .from("daily_picks")
+      .update({
+        game_date: gameDate,
+        updated_at: new Date().toISOString()
+      })
+      .eq("sport", selectedLeague)
+      .eq("game_id", gameId);
+  }
+
+  const cachedAnalysis =
+    existing.analysis_json;
+
+  const locked =
+    cachedAnalysis.isPremiumPick &&
+    !isPremiumUser;
+
+  if (!cachedAnalysis.isPremiumPick) {
+    await recordFreeAnalysis(
+      user?.id,
+      isUnlimited,
+      "analyze-nba"
+    );
+  }
+
+  return res.status(200).json({
+    locked,
+    isPremiumPick:
+      cachedAnalysis.isPremiumPick,
+    noPlay:
+      cachedAnalysis.noPlay,
+    public:
+      cachedAnalysis.public,
+    premium:
+      locked
+        ? null
+        : cachedAnalysis.premium
+  });
+}
     const origin = getOrigin(req);
 
 
