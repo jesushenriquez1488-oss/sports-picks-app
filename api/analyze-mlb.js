@@ -2935,16 +2935,35 @@ updated_at: new Date().toISOString()
     );
 
     for (const pick of picksForDate) {
-      const matchingGame = games.find(g => {
-        const apiAway = g?.teams?.away?.team?.name || "";
-        const apiHome = g?.teams?.home?.team?.name || "";
+     const gamePkMatch =
+  String(pick.game_id || "").match(/-(\d+)$/);
 
-        return (
-          normalize(apiAway) === normalize(pick.away_team) &&
-          normalize(apiHome) === normalize(pick.home_team)
-        );
-      });
+const pickGamePk =
+  gamePkMatch
+    ? Number(gamePkMatch[1])
+    : null;
 
+const matchingGame = games.find(g => {
+  // Si picks_history tiene gamePk, usamos ese juego exacto.
+  // Esto evita confundir juegos de doubleheader.
+  if (Number.isFinite(pickGamePk)) {
+    return Number(g?.gamePk) === pickGamePk;
+  }
+
+  // Fallback para registros históricos viejos sin gamePk.
+  const apiAway =
+    g?.teams?.away?.team?.name || "";
+
+  const apiHome =
+    g?.teams?.home?.team?.name || "";
+
+  return (
+    normalize(apiAway) ===
+      normalize(pick.away_team) &&
+    normalize(apiHome) ===
+      normalize(pick.home_team)
+  );
+});
       if (!matchingGame) {
         skipped++;
         details.push({
