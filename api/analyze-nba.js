@@ -851,6 +851,7 @@ const analyzeBody =
         awaySpreadPrice,
         homeSpreadPrice,
         outcomes,
+      gameTime: game.commence_time,
         totalLine: totalLine || 8,
         overPrice,
         underPrice,
