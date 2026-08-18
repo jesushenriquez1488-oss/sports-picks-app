@@ -3636,9 +3636,10 @@ function getWeatherRunFactor(weather) {
 
       if (fallbackRuns === null || fallbackAllowed === null) return null;
 
-      let offense =
-        fillMissing(last7Runs, fallbackRuns) * 0.60 +
-        fillMissing(splitRuns, fallbackRuns) * 0.40;
+    let offense =
+  last7Runs !== null
+    ? last7Runs
+    : fallbackRuns;
 
       let defense =
         fillMissing(last7Allowed, fallbackAllowed) * 0.60 +
@@ -4270,13 +4271,13 @@ function calculateExpectedRuns({
   const starterShare = getStarterShare(opponentStarterInnings, opponentPitcher);
   const bullpenShare = 1 - starterShare;
 
-  const starterSegment =
-    offense * 0.35 +
-    opponentPitcher * 0.65;
+ const starterSegment =
+  offense * 0.60 +
+  opponentPitcher * 0.40;
 
 const bullpenSegment =
-  offense * 0.70 +
-  opponentBullpen * 0.30;
+  offense * 0.75 +
+  opponentBullpen * 0.25;
  
   const teamAllowedAdjustment =
     opponentTeamAllowed * 0.00001;
@@ -4487,15 +4488,10 @@ console.log("MLB TOTAL AUDIT", {
 
  if (spreadNumber > 0) {
   // RL +1.5 debe valer más que ML porque tiene protección extra
- const baseRlConfidence = edgeToPercent(
+ confidence = edgeToPercent(
   protectedEdgeForPercent,
   "rlplus"
 );
-
-  const protectionBonus = Math.min(5, spreadNumber * 3.4);
-
-  confidence = clamp(baseRlConfidence + protectionBonus, 0, 98);
-
 } else {
   // RL -1.5 es más difícil que ML
  confidence = edgeToPercent(
@@ -4538,10 +4534,10 @@ if (isPositiveRunline) {
 
       const premiumRule =
   marketType === "ML"
-    ? Math.abs(supportData.projectedMargin) >= 2.0
+    ? Math.abs(supportData.projectedMargin) >= 2.75
     : (
         Number(spread) > 0
-          ? protectedEdge >= 3.0
+          ? protectedEdge >= 3.25
           : protectedEdge >= 3.0
       );
 
@@ -4595,7 +4591,10 @@ if (isPositiveRunline) {
 
       support = clamp(support, 0, 100);
 
-    let confidence = edgeToPercent(totalEdge, "total");
+    let confidence = edgeToPercent(
+  totalEdge,
+  isOver ? "over" : "under"
+);
 if (probability < 62) confidence = 0;
 
 confidence = clamp(confidence, 0, 99);
@@ -4614,8 +4613,8 @@ confidence = clamp(confidence, 0, 99);
   support >= 56 &&
   (
     direction === "OVER"
-  ? totalEdge >= 2.0
-  : totalEdge >= 2.0
+  ? totalEdge >= 1.25
+  : totalEdge >= 1.75
   )
       };
     }
@@ -4755,17 +4754,27 @@ function edgeToPercent(edge, type = "ml") {
 
  switch (type) {
   case "ml":
-    minEdge = 2.0;
+    minEdge = 2.75;
     maxEdge = 6.0;
     break;
 
-  case "total":
-    minEdge = 2.0;
-    maxEdge = 6.5;
-    break;
+  case "over":
+  minEdge = 1.25;
+  maxEdge = 6.5;
+  break;
+
+case "under":
+  minEdge = 1.75;
+  maxEdge = 6.5;
+  break;
+
+case "total":
+  minEdge = 2.0;
+  maxEdge = 6.5;
+  break;
 
   case "rlplus":
-    minEdge = 3.0;
+    minEdge = 3.25;
     maxEdge = 8.5;
     break;
 
