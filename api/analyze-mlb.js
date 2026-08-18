@@ -3161,7 +3161,93 @@ const dataResponse = await fetch(`${origin}/api/mlb-data`, {
     if (!dataResponse.ok) {
       throw new Error(mlbData.error || "No se pudo cargar data MLB");
     }
+// =====================================================
+// CONGELAR PREMIUM MLB 30 MINUTOS ANTES DEL JUEGO
+// =====================================================
 
+const lockGameStartMs = gameTime
+  ? new Date(gameTime).getTime()
+  : NaN;
+
+const mlbPremiumFrozen =
+  Number.isFinite(lockGameStartMs) &&
+  Date.now() >= lockGameStartMs - 30 * 60 * 1000;
+
+if (mlbPremiumFrozen) {
+  const lockTeamsSorted = [awayTeam, homeTeam]
+    .map(t => String(t).trim())
+    .sort();
+
+  const lockGameDate =
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Chicago",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).format(
+      gameTime
+        ? new Date(gameTime)
+        : new Date()
+    );
+
+  const lockGameId = mlbData.gamePk
+    ? `mlb-${lockGameDate}-${lockTeamsSorted.join("-")}-${mlbData.gamePk}`
+    : `mlb-${lockGameDate}-${lockTeamsSorted.join("-")}`;
+
+  const {
+    data: frozenExisting,
+    error: frozenExistingError
+  } = await supabaseAdmin
+    .from("daily_picks")
+    .select("analysis_json")
+    .eq("sport", "mlb")
+    .eq("game_id", lockGameId)
+    .maybeSingle();
+
+  if (frozenExistingError) {
+    throw frozenExistingError;
+  }
+
+  // Ya existía análisis antes del cierre:
+  // devolver exactamente esa versión.
+  if (frozenExisting?.analysis_json) {
+    const cachedAnalysis =
+      frozenExisting.analysis_json;
+
+    const locked =
+      cachedAnalysis.isPremiumPick &&
+      !isPremiumUser;
+
+    return res.status(200).json({
+      ...cachedAnalysis,
+      locked,
+      premium:
+        locked
+          ? null
+          : cachedAnalysis.premium,
+      premiumFrozen: true
+    });
+  }
+
+  // Si nunca existió antes de los 30 minutos,
+  // ya no puede aparecer un Premium nuevo.
+  return res.status(200).json({
+    locked: false,
+    isPremiumPick: false,
+    noPlay: true,
+    public: {
+      awayTeam,
+      homeTeam,
+      totalLine,
+      confidence: null,
+      freePick: null
+    },
+    premium: null,
+    premiumFrozen: true,
+    reason:
+      "Premium window locked 30 minutes before game time"
+  });
+}
     const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
     const safeNumber = (value, fallback = null) => {
