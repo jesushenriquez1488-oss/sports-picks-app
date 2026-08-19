@@ -2250,11 +2250,25 @@ if (premiumFrozen) {
   });
 }
 
+const currentMarket = {
+  awaySpread: Number(awaySpread ?? 0),
+  homeSpread: Number(homeSpread ?? 0),
+  total: Number(total ?? 0)
+};
 
+const cachedMarket =
+  existing?.analysis_json?.marketSnapshot;
+
+const marketUnchanged =
+  cachedMarket &&
+  Number(cachedMarket.awaySpread) === currentMarket.awaySpread &&
+  Number(cachedMarket.homeSpread) === currentMarket.homeSpread &&
+  Number(cachedMarket.total) === currentMarket.total;
 // Caché normal mientras todavía faltan
 // más de 30 minutos.
 if (
   existing?.analysis_json &&
+  marketUnchanged &&
   !forceRefresh &&
   cacheAge < 2 * 60 * 60 * 1000
 ) {
@@ -2446,6 +2460,7 @@ if (
         locked: false,
         isPremiumPick: false,
         noPlay: true,
+        marketSnapshot: currentMarket,
        public: {
           title: "No clear edge",
           message: "The model didn't find enough edge to recommend a play on this game.",
@@ -2477,6 +2492,7 @@ const risk = isPremiumPick ? "Bajo" : "Medio";
       locked: false,
       isPremiumPick,
       noPlay: false,
+      marketSnapshot: currentMarket,
       public: {
         confidence,
         risk,
