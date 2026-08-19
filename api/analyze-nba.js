@@ -2153,13 +2153,17 @@ if (
     const teamsSorted = [awayTeam, homeTeam]
   .map(t => String(t).trim())
   .sort();
-
+if (!gameTime) {
+  return res.status(400).json({
+    error: "Missing gameTime"
+  });
+}
 const gameDate = new Intl.DateTimeFormat("en-CA", {
   timeZone: "America/Chicago",
   year: "numeric",
   month: "2-digit",
   day: "2-digit"
-}).format(new Date(gameTime || Date.now()));
+}).format(new Date(gameTime));
 const gameId =
   `${selectedLeague}-${gameDate}-${teamsSorted.join("-")}`;
 
