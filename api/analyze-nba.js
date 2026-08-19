@@ -3182,60 +3182,61 @@ async function updateSportRecordAuto(sport, result) {
     return;
   }
 
-  const { data: gradedRows, error } =
-    await supabaseAdmin
-      .from("picks_history")
-      .select(
-        "id, game_id, result, created_at, graded_at"
-      )
-      .eq("sport", recordSport)
-      .eq("is_premium", true)
-      .in("result", ["win", "loss", "push"]);
+  const {
+    data: currentRecord,
+    error
+  } = await supabaseAdmin
+    .from("sport_records")
+    .select(
+      "real_wins, real_losses, pushes"
+    )
+    .eq("sport", recordSport)
+    .maybeSingle();
 
-  if (error) {
+  if (error || !currentRecord) {
     console.error(
-      "Error recalculando sport record:",
-      error.message
+      "Error leyendo sport record:",
+      error?.message
     );
     return;
   }
 
- const wins =
-  gradedRows.filter(
-    row => row.result === "win"
-  ).length;
+  const updates = {
+    real_wins:
+      Number(currentRecord.real_wins || 0),
 
-const losses =
-  gradedRows.filter(
-    row => row.result === "loss"
-  ).length;
+    real_losses:
+      Number(currentRecord.real_losses || 0),
 
-const pushes =
-  gradedRows.filter(
-    row => row.result === "push"
-  ).length;
+    pushes:
+      Number(currentRecord.pushes || 0),
 
-  const { error: recordError } =
+    updated_at:
+      new Date().toISOString()
+  };
+
+  if (result === "win") {
+    updates.real_wins += 1;
+  }
+
+  if (result === "loss") {
+    updates.real_losses += 1;
+  }
+
+  if (result === "push") {
+    updates.pushes += 1;
+  }
+
+  const { error: updateError } =
     await supabaseAdmin
       .from("sport_records")
-      .upsert(
-        {
-          sport: recordSport,
-          real_wins: wins,
-          real_losses: losses,
-          pushes,
-          updated_at:
-            new Date().toISOString()
-        },
-        {
-          onConflict: "sport"
-        }
-      );
+      .update(updates)
+      .eq("sport", recordSport);
 
-  if (recordError) {
+  if (updateError) {
     console.error(
       "Error actualizando sport record:",
-      recordError.message
+      updateError.message
     );
   }
 }
