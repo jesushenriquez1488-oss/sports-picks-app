@@ -1829,7 +1829,7 @@ if (window.currentSport === "wnba") {
           <p><strong>Total:</strong> ${total || "Not available"}</p>
           ${
   useBasketballFormula
-    ? `<button onclick="analyzeAuto('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index})">
+    ? `<button onclick="analyzeAuto('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index}, '${game.commence_time}')">
         View AI Prediction
       </button>`
     : useMLBFormula
