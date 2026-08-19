@@ -1016,7 +1016,7 @@ function getModelAnalysis(verdict) {
   return `El modelo no detecta suficiente ventaja para recomendar entrada fuerte.`;
 }
 
-async function analyzeAuto(awayTeam, homeTeam, awaySpread, homeSpread, total, index) {
+async function analyzeAuto( awayTeam, homeTeam, awaySpread, homeSpread, total, index, gameTime) {
   const resultDiv = document.getElementById(`result${index}`);
   if (!startAnalysisLock(index, "Analyzing...")) return;
   resultDiv.innerHTML = `<div class="loading-analysis">Analyzing NBA...</div>`;
@@ -1075,12 +1075,13 @@ if (
         "Content-Type": "application/json",
         "Authorization": `Bearer ${sessionData.session.access_token}`
       },
-   body: JSON.stringify({
+  body: JSON.stringify({
   awayTeam,
   homeTeam,
   awaySpread,
   homeSpread,
   total,
+  gameTime,
   league: window.currentSport || "nba"
 })
     });
