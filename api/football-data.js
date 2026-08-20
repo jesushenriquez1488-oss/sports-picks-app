@@ -7007,7 +7007,66 @@ if (!isPremiumUser) {
   const homeLastGameId =
     homeSource
       .lastCompletedGameId;
+// -------------------------
+// CHECK CURRENT ROSTERS
+// -------------------------
 
+const [
+  awayRoster,
+  homeRoster
+] = await Promise.all([
+  getNFLCurrentSkillRoster(
+    awayTeamId
+  ),
+
+  getNFLCurrentSkillRoster(
+    homeTeamId
+  )
+]);
+
+
+const awayRosterFingerprint =
+  nflPlayerStatsRosterFingerprint(
+    awayRoster
+  );
+
+
+const homeRosterFingerprint =
+  nflPlayerStatsRosterFingerprint(
+    homeRoster
+  );
+
+
+const cachedAwayRosterFingerprint =
+  String(
+    cached
+      ?.stats_json
+      ?.meta
+      ?.awayRosterFingerprint ||
+    ""
+  );
+
+
+const cachedHomeRosterFingerprint =
+  String(
+    cached
+      ?.stats_json
+      ?.meta
+      ?.homeRosterFingerprint ||
+    ""
+  );
+
+
+const sameRoster =
+  cached &&
+  cachedAwayRosterFingerprint ===
+    String(
+      awayRosterFingerprint
+    ) &&
+  cachedHomeRosterFingerprint ===
+    String(
+      homeRosterFingerprint
+    );
 
   // -------------------------
   // CACHE STILL VALID
@@ -7035,15 +7094,16 @@ if (!isPremiumUser) {
       );
 
 
-  if (
-    !forceRefresh &&
-    cached?.stats_json &&
-    sameSource &&
-    Number(
-      cached.data_version
-    ) ===
-      NFL_PLAYER_STATS_DATA_VERSION
-  ) {
+if (
+  !forceRefresh &&
+  cached?.stats_json &&
+  sameSource &&
+  sameRoster &&
+  Number(
+    cached.data_version
+  ) ===
+    NFL_PLAYER_STATS_DATA_VERSION
+) {
 
     const checkedAt =
       new Date()
@@ -7151,22 +7211,6 @@ const homePlayers =
     boxscoreMap:
       boxscoreData.byGameId
   });
-// -------------------------
-// CURRENT NFL ROSTERS
-// -------------------------
-
-const [
-  awayRoster,
-  homeRoster
-] = await Promise.all([
-  getNFLCurrentSkillRoster(
-    awayTeamId
-  ),
-
-  getNFLCurrentSkillRoster(
-    homeTeamId
-  )
-]);
 
 
 // -------------------------
@@ -7225,15 +7269,7 @@ const [
 // FINAL MATCHUP CACHE
 // -------------------------
 
-const awayRosterFingerprint =
-  nflPlayerStatsRosterFingerprint(
-    awayRoster
-  );
 
-const homeRosterFingerprint =
-  nflPlayerStatsRosterFingerprint(
-    homeRoster
-  );
 
 
 const finalStatsJson = {
