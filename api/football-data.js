@@ -1459,13 +1459,22 @@ function buildFootballPublicResponse(full, isPremiumUser) {
       hasLockedPremium
         ? null
         : Number(full?.projectedTotal || 0),
+projectedSpread:
+  hasLockedPremium
+    ? null
+    : Number(full?.projectedSpread || 0),
 
-    projectedSpread:
-      hasLockedPremium
-        ? null
-        : Number(full?.projectedSpread || 0),
+paceEfficiencyAdjustment:
+  hasLockedPremium
+    ? null
+    : full?.paceEfficiencyAdjustment || null,
 
-    isPremiumUser
+injuryImpact:
+  hasLockedPremium
+    ? null
+    : full?.injuryImpact || null,
+
+isPremiumUser
   };
 }
 // ============================================================
