@@ -3358,8 +3358,14 @@ if (!eventId) {
       margin-top:8px;
     ">
       <div style="font-size:11px;color:#ff6b7a;">
-        NFL Props API Error:
-        ${data.error || data.reason || `HTTP ${res.status}`}
+       NFL Props API Error:
+${data.error || data.reason || `HTTP ${res.status}`}
+
+${data.details ? `
+  <div style="margin-top:6px;color:#ff9aa5;">
+    Details: ${data.details}
+  </div>
+` : ""}
       </div>
 
       <div style="font-size:10px;color:#8a6570;margin-top:5px;">
