@@ -3384,6 +3384,10 @@ if (req.method === "OPTIONS") {
   if (mode === "nfl-player-props") {
     return await handleNFLPlayerProps(req, res);
   }
+    if (mode === "nfl-player-stats") {
+    return await handleNFLPlayerStats(req, res);
+  }
+
     const { type = "nfl", teamA, teamB, season } = req.query;
 
     if (!teamA || !teamB) {
