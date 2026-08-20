@@ -4493,6 +4493,55 @@ players.push({
 // FIN NFL PLAYER STATS — CURRENT ROSTER
 // ============================================================
 // ============================================================
+// NFL PLAYER STATS — ROSTER FINGERPRINT
+// ============================================================
+
+function nflPlayerStatsRosterFingerprint(
+  roster = []
+) {
+  const normalized =
+    (Array.isArray(roster)
+      ? roster
+      : []
+    )
+      .map(player => ({
+        id:
+          String(
+            player?.id || ""
+          ),
+
+        position:
+          String(
+            player?.position || ""
+          ),
+
+        status:
+          String(
+            player?.status || ""
+          )
+      }))
+      .sort(
+        (a, b) =>
+          a.id.localeCompare(
+            b.id
+          )
+      );
+
+  return crypto
+    .createHash("sha256")
+    .update(
+      JSON.stringify(
+        normalized
+      )
+    )
+    .digest("hex");
+}
+
+
+// ============================================================
+// FIN NFL PLAYER STATS — ROSTER FINGERPRINT
+// ============================================================
+// ============================================================
 // NFL PLAYER STATS — ATHLETE GAMELOG
 // ============================================================
 
@@ -7144,6 +7193,179 @@ const [
 
 ]);
   // -------------------------
+// FINAL MATCHUP CACHE
+// -------------------------
+
+const awayRosterFingerprint =
+  nflPlayerStatsRosterFingerprint(
+    awayRoster
+  );
+
+const homeRosterFingerprint =
+  nflPlayerStatsRosterFingerprint(
+    homeRoster
+  );
+
+
+const finalStatsJson = {
+  ok: true,
+
+  mode:
+    "nfl-player-stats",
+
+  stage:
+    "complete",
+
+  eventId,
+
+  game:
+    `${awayTeam} @ ${homeTeam}`,
+
+  gameDate,
+
+  season:
+    playerStatsCurrentSeason,
+
+  meta: {
+    dataVersion:
+      NFL_PLAYER_STATS_DATA_VERSION,
+
+    awayRosterFingerprint,
+
+    homeRosterFingerprint,
+
+    sourceLastGameAway:
+      awaySource.lastCompletedGameId ||
+      null,
+
+    sourceLastGameHome:
+      homeSource.lastCompletedGameId ||
+      null
+  },
+
+  teams: {
+
+    away: {
+      id:
+        awayTeamId,
+
+      name:
+        awayTeam,
+
+      rosterCount:
+        awayRoster.length,
+
+      playerCount:
+        awaySmartPlayers.length,
+
+      players:
+        awaySmartPlayers
+    },
+
+
+    home: {
+      id:
+        homeTeamId,
+
+      name:
+        homeTeam,
+
+      rosterCount:
+        homeRoster.length,
+
+      playerCount:
+        homeSmartPlayers.length,
+
+      players:
+        homeSmartPlayers
+    }
+  }
+};
+
+
+const now =
+  new Date().toISOString();
+
+
+const {
+  error: finalCacheError
+} =
+  await supabaseAdmin
+    .from(
+      "nfl_player_stats_cache"
+    )
+    .upsert(
+      {
+        event_id:
+          String(eventId),
+
+        game:
+          `${awayTeam} @ ${homeTeam}`,
+
+        game_date:
+          gameDate,
+
+        away_team:
+          awayTeam,
+
+        home_team:
+          homeTeam,
+
+        away_team_id:
+          String(
+            awayTeamId || ""
+          ),
+
+        home_team_id:
+          String(
+            homeTeamId || ""
+          ),
+
+        source_last_game_away:
+          awaySource.lastCompletedGameId ||
+          null,
+
+        source_last_game_home:
+          homeSource.lastCompletedGameId ||
+          null,
+
+        source_season_away:
+          awaySource.seasonUsed ||
+          null,
+
+        source_season_home:
+          homeSource.seasonUsed ||
+          null,
+
+        data_version:
+          NFL_PLAYER_STATS_DATA_VERSION,
+
+        stats_json:
+          finalStatsJson,
+
+        generated_at:
+          now,
+
+        last_checked_at:
+          now,
+
+        updated_at:
+          now
+      },
+      {
+        onConflict:
+          "event_id"
+      }
+    );
+
+
+if (finalCacheError) {
+  console.warn(
+    "NFL final player stats cache save:",
+    finalCacheError.message
+  );
+}
+  // -------------------------
 // TEMP DEBUG — PLAYER GAMELOG
 // -------------------------
 
@@ -7251,79 +7473,28 @@ if (wantsGamelogDebug) {
 return res
   .status(200)
   .json({
-    ok: true,
-
-    mode:
-      "nfl-player-stats",
-
-    rebuildRequired: true,
+    ...finalStatsJson,
 
     cached: false,
 
-   stage:
-  "smart-windows-enriched",
-
-    eventId,
-gamelogDebug,
-    game:
-      `${awayTeam} @ ${homeTeam}`,
-
-    gameDate,
+    cacheSaved:
+      !finalCacheError,
 
     boxscores: {
       requested:
-        boxscoreData
-          .requestedCount,
+        boxscoreData.requestedCount,
 
       fromCache:
-        boxscoreData
-          .cachedCount,
+        boxscoreData.cachedCount,
 
       downloaded:
-        boxscoreData
-          .fetchedCount,
+        boxscoreData.fetchedCount,
 
       failed:
-        boxscoreData
-          .failedCount
+        boxscoreData.failedCount
     },
 
-   teams: {
-  away: {
-    name: awayTeam,
-    id: awayTeamId,
-    season: awaySource.seasonUsed,
-
-    recentGames:
-      awaySource.recentGames.length,
-
-    seasonGames:
-      awaySource.seasonGames.length,
-
-playerCount:
-  awaySmartPlayers.length,
-
-players:
-  awaySmartPlayers
-  },
-
-  home: {
-    name: homeTeam,
-    id: homeTeamId,
-    season: homeSource.seasonUsed,
-
-    recentGames:
-      homeSource.recentGames.length,
-
-    seasonGames:
-      homeSource.seasonGames.length,
-playerCount:
-  homeSmartPlayers.length,
-
-players:
-  homeSmartPlayers
-  }
-}
+    gamelogDebug
   });
 }
 
