@@ -4708,22 +4708,6 @@ function buildNFLPlayerStatsTeamProfiles({
     profiles.values()
   ) {
 
-    /*
-     * Por ahora solamente nos interesan
-     * skill positions.
-     */
-    if (
-      ![
-        "QB",
-        "RB",
-        "WR",
-        "TE"
-      ].includes(
-        profile.position
-      )
-    ) {
-      continue;
-    }
 
 
     profile.recentLogs.sort(
