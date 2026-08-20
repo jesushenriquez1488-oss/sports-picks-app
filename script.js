@@ -4107,7 +4107,6 @@ function showNFLPlayerDetail(
 
   if (!player) return;
 
-
   const logs =
     (player.gameLogs || [])
       .slice()
@@ -4118,85 +4117,182 @@ function showNFLPlayerDetail(
       )
       .slice(0, 10);
 
+  const summaryBlock = (label, statsHtml) => `
+    <div style="
+      background:#0f1628;
+      border:1px solid #1a2240;
+      border-radius:12px;
+      padding:10px;
+    ">
+      <div style="
+        font-size:10px;
+        color:#7d90aa;
+        margin-bottom:8px;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+      ">
+        ${label}
+      </div>
 
-  const gameStats = log => {
+      <div style="
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:8px;
+      ">
+        ${statsHtml}
+      </div>
+    </div>
+  `;
 
-    if (player.position === "QB") {
+  const statItem = (value, label) => `
+    <div style="
+      background:rgba(255,255,255,.02);
+      border-radius:10px;
+      padding:8px;
+      text-align:center;
+    ">
+      <div style="
+        color:#fff;
+        font-size:16px;
+        font-weight:800;
+        line-height:1.1;
+      ">
+        ${value}
+      </div>
+
+      <div style="
+        color:#7d90aa;
+        font-size:9px;
+        margin-top:4px;
+        text-transform:uppercase;
+        letter-spacing:.04em;
+      ">
+        ${label}
+      </div>
+    </div>
+  `;
+
+  function playerSummaryForWindow(windowKey) {
+    const s = player?.[windowKey] || {};
+    const pos = player?.position || "";
+
+    if (pos === "QB") {
+      return summaryBlock(
+        windowKey.toUpperCase(),
+        `
+          ${statItem(Number(s.passing?.yards || 0).toFixed(1), "Pass Yds")}
+          ${statItem(Number(s.passing?.touchdowns || 0).toFixed(1), "Pass TD")}
+          ${statItem(Number(s.passing?.interceptions || 0).toFixed(1), "INT")}
+          ${statItem(Number(s.rushing?.yards || 0).toFixed(1), "Rush Yds")}
+        `
+      );
+    }
+
+    if (pos === "RB") {
+      return summaryBlock(
+        windowKey.toUpperCase(),
+        `
+          ${statItem(Number(s.rushing?.yards || 0).toFixed(1), "Rush Yds")}
+          ${statItem(Number(s.rushing?.attempts || 0).toFixed(1), "Carries")}
+          ${statItem(Number(s.receiving?.yards || 0).toFixed(1), "Rec Yds")}
+          ${statItem(Number(s.receiving?.targets || 0).toFixed(1), "Targets")}
+        `
+      );
+    }
+
+    return summaryBlock(
+      windowKey.toUpperCase(),
+      `
+        ${statItem(Number(s.receiving?.receptions || 0).toFixed(1), "Rec")}
+        ${statItem(Number(s.receiving?.targets || 0).toFixed(1), "Targets")}
+        ${statItem(Number(s.receiving?.yards || 0).toFixed(1), "Rec Yds")}
+        ${statItem(Number(s.receiving?.touchdowns || 0).toFixed(1), "Rec TD")}
+      `
+    );
+  }
+
+  function gameLine(log) {
+    const pos = player?.position || "";
+
+    if (pos === "QB") {
       return `
-        <span>
-          <b>
-            ${Number(log.passing?.completions || 0)}/${Number(log.passing?.attempts || 0)}
-          </b>
-          <small>CMP/ATT</small>
-        </span>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          <div style="flex:1;min-width:90px;background:#111b31;border-radius:10px;padding:8px;">
+            <div style="font-size:15px;font-weight:800;color:#fff;">
+              ${Number(log.passing?.yards || 0)}
+            </div>
+            <div style="font-size:9px;color:#7d90aa;">PASS YDS</div>
+          </div>
 
-        <span>
-          <b>
-            ${Number(log.passing?.yards || 0)}
-          </b>
-          <small>PASS YDS</small>
-        </span>
+          <div style="flex:1;min-width:90px;background:#111b31;border-radius:10px;padding:8px;">
+            <div style="font-size:15px;font-weight:800;color:#fff;">
+              ${Number(log.passing?.completions || 0)}/${Number(log.passing?.attempts || 0)}
+            </div>
+            <div style="font-size:9px;color:#7d90aa;">CMP/ATT</div>
+          </div>
 
-        <span>
-          <b>
-            ${Number(log.passing?.touchdowns || 0)}-${Number(log.passing?.interceptions || 0)}
-          </b>
-          <small>TD-INT</small>
-        </span>
+          <div style="flex:1;min-width:90px;background:#111b31;border-radius:10px;padding:8px;">
+            <div style="font-size:15px;font-weight:800;color:#fff;">
+              ${Number(log.passing?.touchdowns || 0)}-${Number(log.passing?.interceptions || 0)}
+            </div>
+            <div style="font-size:9px;color:#7d90aa;">TD-INT</div>
+          </div>
+        </div>
       `;
     }
 
-
-    if (player.position === "RB") {
+    if (pos === "RB") {
       return `
-        <span>
-          <b>
-            ${Number(log.rushing?.attempts || 0)}
-          </b>
-          <small>CAR</small>
-        </span>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          <div style="flex:1;min-width:90px;background:#111b31;border-radius:10px;padding:8px;">
+            <div style="font-size:15px;font-weight:800;color:#fff;">
+              ${Number(log.rushing?.yards || 0)}
+            </div>
+            <div style="font-size:9px;color:#7d90aa;">RUSH YDS</div>
+          </div>
 
-        <span>
-          <b>
-            ${Number(log.rushing?.yards || 0)}
-          </b>
-          <small>RUSH YDS</small>
-        </span>
+          <div style="flex:1;min-width:90px;background:#111b31;border-radius:10px;padding:8px;">
+            <div style="font-size:15px;font-weight:800;color:#fff;">
+              ${Number(log.rushing?.attempts || 0)}
+            </div>
+            <div style="font-size:9px;color:#7d90aa;">CARRIES</div>
+          </div>
 
-        <span>
-          <b>
-            ${Number(log.receiving?.receptions || 0)}/${Number(log.receiving?.targets || 0)}
-          </b>
-          <small>REC/TGT</small>
-        </span>
+          <div style="flex:1;min-width:90px;background:#111b31;border-radius:10px;padding:8px;">
+            <div style="font-size:15px;font-weight:800;color:#fff;">
+              ${Number(log.receiving?.receptions || 0)}/${Number(log.receiving?.targets || 0)}
+            </div>
+            <div style="font-size:9px;color:#7d90aa;">REC/TGT</div>
+          </div>
+        </div>
       `;
     }
-
 
     return `
-      <span>
-        <b>
-          ${Number(log.receiving?.receptions || 0)}/${Number(log.receiving?.targets || 0)}
-        </b>
-        <small>REC/TGT</small>
-      </span>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        <div style="flex:1;min-width:90px;background:#111b31;border-radius:10px;padding:8px;">
+          <div style="font-size:15px;font-weight:800;color:#fff;">
+            ${Number(log.receiving?.yards || 0)}
+          </div>
+          <div style="font-size:9px;color:#7d90aa;">REC YDS</div>
+        </div>
 
-      <span>
-        <b>
-          ${Number(log.receiving?.yards || 0)}
-        </b>
-        <small>REC YDS</small>
-      </span>
+        <div style="flex:1;min-width:90px;background:#111b31;border-radius:10px;padding:8px;">
+          <div style="font-size:15px;font-weight:800;color:#fff;">
+            ${Number(log.receiving?.receptions || 0)}/${Number(log.receiving?.targets || 0)}
+          </div>
+          <div style="font-size:9px;color:#7d90aa;">REC/TGT</div>
+        </div>
 
-      <span>
-        <b>
-          ${Number(log.receiving?.touchdowns || 0)}
-        </b>
-        <small>REC TD</small>
-      </span>
+        <div style="flex:1;min-width:90px;background:#111b31;border-radius:10px;padding:8px;">
+          <div style="font-size:15px;font-weight:800;color:#fff;">
+            ${Number(log.receiving?.touchdowns || 0)}
+          </div>
+          <div style="font-size:9px;color:#7d90aa;">REC TD</div>
+        </div>
+      </div>
     `;
-  };
-
+  }
 
   box.innerHTML = `
     <div class="ps-card">
@@ -4214,114 +4310,149 @@ function showNFLPlayerDetail(
         </button>
       </div>
 
-
-      <div class="ps-player-detail-card">
-
-        <div class="ps-player-detail-head">
-
-          <div>
-            <small>
-              ${sanitize(
-                player.team || ""
-              )}
-            </small>
-
-            <h4>
-              ${sanitize(player.name)}
-            </h4>
-          </div>
-
-          <div class="ps-position-badge">
-            ${sanitize(player.position)}
-          </div>
-
-        </div>
-
-
-        <div class="ps-recent-title">
-          Last 10 Game Log
-        </div>
-
-
+      <div style="
+        background:#0f1628;
+        border:1px solid #1a2240;
+        border-radius:14px;
+        padding:14px;
+        margin-bottom:12px;
+      ">
         <div style="
           display:flex;
-          flex-direction:column;
-          gap:6px;
+          justify-content:space-between;
+          align-items:flex-start;
+          gap:10px;
+          margin-bottom:10px;
         ">
+          <div>
+            <div style="
+              font-size:11px;
+              color:#7d90aa;
+              margin-bottom:4px;
+            ">
+              ${sanitize(player.team || "")}
+            </div>
 
-          ${
-            logs.length
-              ? logs.map(log => {
+            <div style="
+              font-size:28px;
+              line-height:1.1;
+              font-weight:800;
+              color:#fff;
+            ">
+              ${sanitize(player.name)}
+            </div>
+          </div>
 
-                  const date =
-                    log.date
-                      ? new Date(
-                          log.date
-                        ).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric"
-                          }
-                        )
-                      : "—";
-
-                  return `
-                    <div style="
-                      display:grid;
-                      grid-template-columns:
-                        minmax(100px,1.3fr)
-                        repeat(3,minmax(52px,.7fr));
-                      gap:5px;
-                      align-items:center;
-                      padding:10px 4px;
-                      border-bottom:1px solid #18243a;
-                      min-width:0;
-                    ">
-
-                      <div style="min-width:0;">
-
-                        <strong style="
-                          color:#fff;
-                          font-size:10px;
-                          display:block;
-                          overflow:hidden;
-                          text-overflow:ellipsis;
-                          white-space:nowrap;
-                        ">
-                          ${sanitize(
-                            log.opponent || "Opponent"
-                          )}
-                        </strong>
-
-                        <small style="
-                          color:#556688;
-                          font-size:8px;
-                        ">
-                          ${date}
-                          ·
-                          ${sanitize(
-                            log.result || ""
-                          )}
-                        </small>
-
-                      </div>
-
-
-                      ${gameStats(log)}
-
-                    </div>
-                  `;
-                }).join("")
-              : `
-                  <div class="ps-no-data">
-                    No game log available.
-                  </div>
-                `
-          }
-
+          <div style="
+            padding:8px 10px;
+            border-radius:999px;
+            border:1px solid rgba(0,255,231,.35);
+            background:rgba(0,255,231,.08);
+            color:#00ffe7;
+            font-size:11px;
+            font-weight:700;
+            white-space:nowrap;
+          ">
+            ${sanitize(player.position)}
+          </div>
         </div>
 
+        <div style="
+          display:grid;
+          grid-template-columns:1fr;
+          gap:10px;
+        ">
+          ${playerSummaryForWindow("last3")}
+          ${playerSummaryForWindow("last5")}
+          ${playerSummaryForWindow("season")}
+        </div>
+      </div>
+
+      <div style="
+        font-size:11px;
+        color:#7d90aa;
+        margin:2px 2px 10px;
+        text-transform:uppercase;
+        letter-spacing:.08em;
+      ">
+        Last 10 Game Log
+      </div>
+
+      <div style="
+        display:flex;
+        flex-direction:column;
+        gap:10px;
+      ">
+        ${
+          logs.length
+            ? logs.map(log => {
+                const date =
+                  log.date
+                    ? new Date(log.date).toLocaleDateString(
+                        "en-US",
+                        {
+                          month: "short",
+                          day: "numeric"
+                        }
+                      )
+                    : "—";
+
+                return `
+                  <div style="
+                    background:#0f1628;
+                    border:1px solid #1a2240;
+                    border-radius:14px;
+                    padding:12px;
+                  ">
+                    <div style="
+                      display:flex;
+                      justify-content:space-between;
+                      align-items:flex-start;
+                      gap:10px;
+                      margin-bottom:10px;
+                    ">
+                      <div style="min-width:0;">
+                        <div style="
+                          color:#fff;
+                          font-size:14px;
+                          font-weight:700;
+                          line-height:1.2;
+                        ">
+                          ${sanitize(log.opponent || "Opponent")}
+                        </div>
+
+                        <div style="
+                          color:#7d90aa;
+                          font-size:10px;
+                          margin-top:3px;
+                        ">
+                          ${date}
+                          ${log.result ? `· ${sanitize(log.result)}` : ""}
+                        </div>
+                      </div>
+
+                      <div style="
+                        padding:5px 8px;
+                        border-radius:999px;
+                        background:#111b31;
+                        color:#7d90aa;
+                        font-size:10px;
+                        white-space:nowrap;
+                      ">
+                        ${sanitize(log.homeAway || "")}
+                      </div>
+                    </div>
+
+                    ${gameLine(log)}
+                  </div>
+                `;
+              }).join("")
+            : `
+                <div class="ps-no-data">
+                  No game log available.
+                </div>
+              `
+        }
       </div>
 
     </div>
