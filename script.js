@@ -3600,8 +3600,9 @@ function renderNFLPlayerStats(index) {
     padding:0;
     background:transparent;
     color:#fff;
-    font:inherit;
-    font-weight:700;
+    font-size:12px;
+line-height:1.15;
+font-weight:700;
     text-align:left;
     cursor:pointer;
   "
