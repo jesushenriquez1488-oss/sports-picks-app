@@ -6012,6 +6012,490 @@ function mergeNFLCurrentRosterWithHistory({
 // ============================================================
 // FIN NFL PLAYER STATS — CURRENT ROSTER MERGE
 // ============================================================
+// ============================================================
+// NFL PLAYER STATS — SMART SEASON WINDOWS
+// ============================================================
+
+function buildNFLPlayerSmartWindows({
+  player,
+  historicalLogs = [],
+  currentSeason
+}) {
+  if (!player) {
+    return player;
+  }
+
+  const seasonNumber =
+    Number(currentSeason);
+
+  const teamLogs =
+    Array.isArray(player?.gameLogs)
+      ? player.gameLogs
+      : [];
+
+  const extraLogs =
+    Array.isArray(historicalLogs)
+      ? historicalLogs
+      : [];
+
+
+  // -------------------------
+  // UNIR HISTORIAL
+  // -------------------------
+
+  const unique =
+    new Map();
+
+
+  /*
+   * Primero ponemos historial externo.
+   */
+  for (const log of extraLogs) {
+
+    const gameId =
+      String(
+        log?.gameId || ""
+      );
+
+    if (!gameId) {
+      continue;
+    }
+
+    unique.set(
+      gameId,
+      log
+    );
+  }
+
+
+  /*
+   * Después ponemos los boxscores
+   * del equipo actual.
+   *
+   * Si existe el mismo gameId,
+   * este tiene prioridad.
+   */
+  for (const log of teamLogs) {
+
+    const gameId =
+      String(
+        log?.gameId || ""
+      );
+
+    if (!gameId) {
+      continue;
+    }
+
+    unique.set(
+      gameId,
+      log
+    );
+  }
+
+
+  const allLogs =
+    Array.from(
+      unique.values()
+    );
+
+
+  allLogs.sort(
+    (a, b) =>
+      new Date(
+        b?.date || 0
+      ) -
+      new Date(
+        a?.date || 0
+      )
+  );
+
+
+  // -------------------------
+  // TEMPORADA ACTUAL
+  // -------------------------
+
+  const currentLogs =
+    allLogs.filter(
+      log =>
+        Number(
+          log?.season
+        ) ===
+        seasonNumber
+    );
+
+
+  // -------------------------
+  // TEMPORADAS ANTERIORES
+  // -------------------------
+
+  const previousLogs =
+    allLogs.filter(
+      log =>
+        Number(
+          log?.season
+        ) <
+        seasonNumber
+    );
+
+
+  let recentSource =
+    [];
+
+  let usingPreviousSeason =
+    false;
+
+
+  /*
+   * REGLA CASHEDGE
+   *
+   * 0 juegos 2026:
+   * usamos 2025
+   *
+   * 1 juego 2026:
+   * seguimos usando 2025
+   *
+   * 2 juegos 2026:
+   * seguimos usando 2025
+   *
+   * 3+ juegos 2026:
+   * abandonamos 2025 completamente
+   * para Last 3 / Last 5 / Last 10.
+   */
+if (
+  currentLogs.length < 3
+) {
+
+  /*
+   * Si existe historial 2025,
+   * usamos 2025 durante los
+   * primeros 0, 1 y 2 juegos de 2026.
+   */
+  if (
+    previousLogs.length > 0
+  ) {
+
+    recentSource =
+      previousLogs;
+
+    usingPreviousSeason =
+      true;
+
+  } else {
+
+    /*
+     * Rookie / jugador sin historial.
+     *
+     * Si no existe 2025, usamos los
+     * juegos disponibles de 2026
+     * en lugar de mostrar ceros.
+     */
+    recentSource =
+      currentLogs;
+
+    usingPreviousSeason =
+      false;
+  }
+
+} else {
+
+  /*
+   * Desde que tiene 3 juegos
+   * completos de 2026,
+   * dejamos 2025 completamente.
+   */
+  recentSource =
+    currentLogs;
+
+  usingPreviousSeason =
+    false;
+}
+
+
+  // -------------------------
+  // LAST 3
+  // -------------------------
+
+  const last3Logs =
+    recentSource.slice(
+      0,
+      Math.min(
+        3,
+        recentSource.length
+      )
+    );
+
+
+  // -------------------------
+  // LAST 5
+  // -------------------------
+
+  const last5Logs =
+    recentSource.slice(
+      0,
+      Math.min(
+        5,
+        recentSource.length
+      )
+    );
+
+
+  // -------------------------
+  // LAST 10
+  // -------------------------
+
+  const last10Logs =
+    recentSource.slice(
+      0,
+      Math.min(
+        10,
+        recentSource.length
+      )
+    );
+
+
+  return {
+    ...player,
+
+    hasHistory:
+      allLogs.length > 0,
+
+    usingPreviousSeason,
+
+
+    /*
+     * Nos permitirá mostrar en frontend
+     * exactamente cuántos juegos
+     * está usando cada ventana.
+     */
+    gamesAvailable: {
+
+      currentSeason:
+        currentLogs.length,
+
+      previousSeason:
+        previousLogs.length,
+
+      last3:
+        last3Logs.length,
+
+      last5:
+        last5Logs.length,
+
+      last10:
+        last10Logs.length,
+
+      season:
+        currentLogs.length
+    },
+
+
+    last3:
+      nflPlayerStatsBuildWindow(
+        last3Logs
+      ),
+
+
+    last5:
+      nflPlayerStatsBuildWindow(
+        last5Logs
+      ),
+
+
+    last10:
+      nflPlayerStatsBuildWindow(
+        last10Logs
+      ),
+
+
+    /*
+     * SEASON:
+     *
+     * SIEMPRE solamente la temporada
+     * actual.
+     *
+     * Nunca mezclamos 2025 aquí.
+     */
+    season:
+      nflPlayerStatsBuildWindow(
+        currentLogs
+      ),
+
+
+    /*
+     * Guardamos todo el historial
+     * para Game Logs.
+     */
+    gameLogs:
+      allLogs
+  };
+}
+
+
+// ============================================================
+// FIN NFL PLAYER STATS — SMART SEASON WINDOWS
+// ============================================================
+// ============================================================
+// NFL PLAYER STATS — SMART ROSTER ENRICHMENT
+// ============================================================
+
+async function enrichNFLPlayersWithSmartWindows({
+  players = [],
+  currentSeason
+}) {
+  const seasonNumber =
+    Number(currentSeason);
+
+  const previousSeason =
+    seasonNumber - 1;
+
+
+  return await nflPlayerStatsMapConcurrency(
+    players,
+    4,
+    async player => {
+
+      const existingLogs =
+        Array.isArray(player?.gameLogs)
+          ? player.gameLogs
+          : [];
+
+
+      /*
+       * Juegos de la temporada actual.
+       */
+      const currentLogs =
+        existingLogs.filter(
+          log =>
+            Number(log?.season) ===
+            seasonNumber
+        );
+
+
+      /*
+       * Historial que ya tenemos gracias
+       * a los boxscores del equipo.
+       */
+      const previousLogs =
+        existingLogs.filter(
+          log =>
+            Number(log?.season) ===
+            previousSeason
+        );
+
+
+      let historicalLogs =
+        previousLogs;
+
+
+      let historySource =
+        previousLogs.length > 0
+          ? "team-boxscores"
+          : "none";
+
+
+      let historicalGamelogFromCache =
+        false;
+
+
+      let historicalGamelogFetched =
+        false;
+
+
+      /*
+       * Solamente necesitamos buscar
+       * historial externo cuando:
+       *
+       * 1. Es veterano.
+       * 2. Todavía no tiene 3 juegos
+       *    de la temporada actual.
+       * 3. No tenemos ningún juego de
+       *    la temporada anterior desde
+       *    los boxscores del equipo actual.
+       *
+       * Esto identifica principalmente
+       * transfers / free agents.
+       */
+      const needsExternalHistory =
+        Boolean(player?.id) &&
+        nflSafeNum(
+          player?.experienceYears
+        ) > 0 &&
+        currentLogs.length < 3 &&
+        previousLogs.length === 0;
+
+
+      if (needsExternalHistory) {
+
+        try {
+
+          const gamelogResult =
+            await loadNFLPlayerGamelogCached(
+              player.id,
+              previousSeason
+            );
+
+
+          if (
+            Array.isArray(
+              gamelogResult?.logs
+            ) &&
+            gamelogResult.logs.length > 0
+          ) {
+
+            historicalLogs =
+              gamelogResult.logs;
+
+
+            historicalGamelogFromCache =
+              gamelogResult.fromCache === true;
+
+
+            historicalGamelogFetched =
+              gamelogResult.fetched === true;
+
+
+            historySource =
+              gamelogResult.fromCache
+                ? "player-gamelog-cache"
+                : "espn-player-gamelog";
+          }
+
+        } catch (error) {
+
+          console.warn(
+            `NFL historical gamelog failed for ${player?.name || player?.id}:`,
+            error.message
+          );
+        }
+      }
+
+
+      const enrichedPlayer =
+        buildNFLPlayerSmartWindows({
+          player,
+          historicalLogs,
+          currentSeason:
+            seasonNumber
+        });
+
+
+      return {
+        ...enrichedPlayer,
+
+        historySource,
+
+        historicalGamelogFromCache,
+
+        historicalGamelogFetched
+      };
+    }
+  );
+}
+
+
+// ============================================================
+// FIN NFL PLAYER STATS — SMART ROSTER ENRICHMENT
+// ============================================================
 async function handleNFLPlayerStats(
   req,
   res
@@ -6629,6 +7113,37 @@ const homeCurrentPlayers =
     teamName: homeTeam
   });
   // -------------------------
+// SMART PLAYER WINDOWS
+// -------------------------
+
+const playerStatsCurrentSeason =
+  getNFLPlayerStatsSeasonYear();
+
+
+const [
+  awaySmartPlayers,
+  homeSmartPlayers
+] = await Promise.all([
+
+  enrichNFLPlayersWithSmartWindows({
+    players:
+      awayCurrentPlayers,
+
+    currentSeason:
+      playerStatsCurrentSeason
+  }),
+
+
+  enrichNFLPlayersWithSmartWindows({
+    players:
+      homeCurrentPlayers,
+
+    currentSeason:
+      playerStatsCurrentSeason
+  })
+
+]);
+  // -------------------------
 // TEMP DEBUG — PLAYER GAMELOG
 // -------------------------
 
@@ -6745,7 +7260,8 @@ return res
 
     cached: false,
 
-    stage: "current-roster-merged",
+   stage:
+  "smart-windows-enriched",
 
     eventId,
 gamelogDebug,
@@ -6784,11 +7300,11 @@ gamelogDebug,
     seasonGames:
       awaySource.seasonGames.length,
 
-   playerCount:
-  awayCurrentPlayers.length,
+playerCount:
+  awaySmartPlayers.length,
 
 players:
-  awayCurrentPlayers
+  awaySmartPlayers
   },
 
   home: {
@@ -6801,12 +7317,11 @@ players:
 
     seasonGames:
       homeSource.seasonGames.length,
-
- playerCount:
-  homeCurrentPlayers.length,
+playerCount:
+  homeSmartPlayers.length,
 
 players:
-  homeCurrentPlayers
+  homeSmartPlayers
   }
 }
   });
