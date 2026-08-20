@@ -3533,7 +3533,15 @@ function renderNFLPlayerStats(index) {
               ? topThree
                   .map(
                     (item, position) => `
-                      <div class="ps-hot-row">
+                     <div
+  class="ps-hot-row"
+  style="
+    width:100%;
+    box-sizing:border-box;
+    grid-template-columns:32px minmax(0,1fr) 82px;
+    overflow:hidden;
+  "
+>
 
                         <span class="ps-hot-rank">
                           ${position + 1}
@@ -3558,16 +3566,23 @@ function renderNFLPlayerStats(index) {
                             )}
                           </small>
                         </span>
+<span
+  class="ps-hot-record"
+  style="
+    min-width:78px;
+    text-align:right;
+    white-space:nowrap;
+    flex-shrink:0;
+  "
+>
+  <strong>
+    ${item.value.toFixed(1)}
+  </strong>
 
-                        <span class="ps-hot-record">
-                          <strong>
-                            ${item.value.toFixed(1)}
-                          </strong>
-
-                          <small>
-                            AVG
-                          </small>
-                        </span>
+  <small>
+    AVG
+  </small>
+</span>
 
                       </div>
                     `
@@ -3579,7 +3594,17 @@ function renderNFLPlayerStats(index) {
                   </div>
                 `
           }
-
+<button
+  type="button"
+  class="ps-view-all-category"
+  onclick="showNFLCategoryList(
+    ${index},
+    '${market.key}',
+    '${windowKey}'
+  )"
+>
+  VIEW ALL PLAYERS →
+</button>
         </div>
       `;
     })
@@ -3777,6 +3802,265 @@ function showNFLPlayerStatsView(
 
   renderNFLPlayerStats(index);
 }
+function showNFLCategoryList(
+  index,
+  marketKey,
+  windowKey
+) {
+  const state =
+    nflPlayerStatsState[index];
+
+  const box =
+    document.getElementById(
+      `nflPlayerStatsView${index}`
+    );
+
+  if (!state?.data || !box) {
+    return;
+  }
+
+
+  const data = state.data;
+
+  const allPlayers = [
+    ...(data.teams?.away?.players || []),
+    ...(data.teams?.home?.players || [])
+  ];
+
+
+  const market = {
+    passingYards: {
+      label: "Passing Yards",
+      positions: ["QB"],
+      unit: "YDS/G",
+      value: p =>
+        Number(
+          p?.[windowKey]
+            ?.passing?.yards || 0
+        )
+    },
+
+    rushingYards: {
+      label: "Rushing Yards",
+      positions: ["QB", "RB", "WR"],
+      unit: "YDS/G",
+      value: p =>
+        Number(
+          p?.[windowKey]
+            ?.rushing?.yards || 0
+        )
+    },
+
+    receivingYards: {
+      label: "Receiving Yards",
+      positions: ["RB", "WR", "TE"],
+      unit: "YDS/G",
+      value: p =>
+        Number(
+          p?.[windowKey]
+            ?.receiving?.yards || 0
+        )
+    },
+
+    receptions: {
+      label: "Receptions",
+      positions: ["RB", "WR", "TE"],
+      unit: "REC/G",
+      value: p =>
+        Number(
+          p?.[windowKey]
+            ?.receiving?.receptions || 0
+        )
+    },
+
+    targets: {
+      label: "Targets",
+      positions: ["RB", "WR", "TE"],
+      unit: "TGT/G",
+      value: p =>
+        Number(
+          p?.[windowKey]
+            ?.receiving?.targets || 0
+        )
+    }
+  }[marketKey];
+
+
+  if (!market) return;
+
+
+  const awayIds =
+    new Set(
+      (data.teams?.away?.players || [])
+        .map(p => String(p.id))
+    );
+
+
+  const ranked =
+    allPlayers
+
+      .filter(player =>
+        market.positions.includes(
+          player.position
+        )
+      )
+
+      .filter(player =>
+        Number(
+          player.gamesAvailable
+            ?.[windowKey] || 0
+        ) > 0
+      )
+
+      .map(player => ({
+        player,
+        value:
+          market.value(player),
+
+        team:
+          awayIds.has(
+            String(player.id)
+          )
+            ? data.teams.away.name
+            : data.teams.home.name
+      }))
+
+      .sort(
+        (a, b) =>
+          b.value - a.value
+      );
+
+
+  const windowLabel = {
+    last3: "LAST 3",
+    last5: "LAST 5",
+    last10: "LAST 10",
+    season: "SEASON"
+  };
+
+
+  box.innerHTML = `
+    <div class="ps-card">
+
+      <div class="ps-detail-toolbar">
+
+        <button
+          type="button"
+          class="ps-back-btn"
+          onclick="showNFLPlayerStatsView(
+            ${index},
+            'hot'
+          )"
+        >
+          ← Back to Hot Players
+        </button>
+
+      </div>
+
+
+      <div class="ps-section-title">
+
+        <div>
+          <small>
+            ${windowLabel[windowKey]}
+          </small>
+
+          <h4>
+            ${market.label}
+          </h4>
+        </div>
+
+        <span>
+          ${ranked.length} players
+        </span>
+
+      </div>
+
+
+      <div class="ps-ranked-full-list">
+
+        ${
+          ranked.map(
+            (item, position) => `
+              <div
+                class="ps-ranked-full-row"
+                style="
+                  width:100%;
+                  box-sizing:border-box;
+                  display:grid;
+                  grid-template-columns:30px minmax(0,1fr) 92px;
+                  align-items:center;
+                  gap:8px;
+                "
+              >
+
+                <span>
+                  ${position + 1}
+                </span>
+
+                <strong
+                  style="
+                    min-width:0;
+                    overflow:hidden;
+                  "
+                >
+                  ${sanitize(
+                    item.player.name
+                  )}
+
+                  <small
+                    style="
+                      display:block;
+                      overflow:hidden;
+                      text-overflow:ellipsis;
+                      white-space:nowrap;
+                    "
+                  >
+                    ${sanitize(
+                      item.team
+                        .split(" ")
+                        .pop()
+                    )}
+                    ·
+                    ${sanitize(
+                      item.player.position
+                    )}
+                    ·
+                    ${
+                      item.player
+                        .gamesAvailable
+                        ?.[windowKey] || 0
+                    } G
+                  </small>
+                </strong>
+
+                <span
+                  style="
+                    text-align:right;
+                    white-space:nowrap;
+                  "
+                >
+                  <b>
+                    ${item.value.toFixed(1)}
+                  </b>
+
+                  <small
+                    style="display:block;"
+                  >
+                    ${market.unit}
+                  </small>
+                </span>
+
+              </div>
+            `
+          ).join("")
+        }
+
+      </div>
+
+    </div>
+  `;
+}
 
 function showNFLPlayerStatsWindow(index, windowKey) {
   if (!nflPlayerStatsState[index]) return;
@@ -3911,6 +4195,8 @@ window.closeNFLPlayerStats =
 
 window.showNFLPlayerStatsView =
   showNFLPlayerStatsView;
+window.showNFLCategoryList =
+  showNFLCategoryList;
 
 
 // ============================================================
