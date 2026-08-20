@@ -4425,26 +4425,32 @@ async function getNFLCurrentSkillRoster(
         continue;
       }
 
+players.push({
+  id:
+    athleteId,
 
-      players.push({
-        id:
-          athleteId,
+  name,
 
-        name,
+  jersey:
+    athlete?.jersey ||
+    null,
 
-        jersey:
-          athlete?.jersey ||
-          null,
+  position,
 
-        position,
+  status:
+    athlete?.status
+      ?.name ||
+    athlete?.status
+      ?.type ||
+    null,
 
-        status:
-          athlete?.status
-            ?.name ||
-          athlete?.status
-            ?.type ||
-          null
-      });
+  experienceYears:
+    nflSafeNum(
+      athlete?.experience?.years ??
+      athlete?.experience?.value ??
+      0
+    )
+});
     }
   }
 
@@ -5036,6 +5042,10 @@ function mergeNFLCurrentRosterWithHistory({
           rosterPlayer.position ||
           history.position ||
           null,
+        experienceYears:
+  nflSafeNum(
+    rosterPlayer.experienceYears
+  ),
 
         teamId:
           String(
@@ -5086,6 +5096,10 @@ function mergeNFLCurrentRosterWithHistory({
       position:
         rosterPlayer.position ||
         null,
+      experienceYears:
+  nflSafeNum(
+    rosterPlayer.experienceYears
+  ),
 
       teamId:
         String(
