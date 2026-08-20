@@ -4525,6 +4525,452 @@ async function getNFLPlayerGamelogRaw(
 // FIN NFL PLAYER STATS — ATHLETE GAMELOG
 // ============================================================
 // ============================================================
+// NFL PLAYER STATS — ATHLETE GAMELOG PARSER
+// ============================================================
+
+function parseNFLPlayerGamelogRaw(
+  raw,
+  season
+) {
+  if (!raw) {
+    return [];
+  }
+
+  const statNames =
+    Array.isArray(raw?.names)
+      ? raw.names
+      : [];
+
+
+  const seasonTypes =
+    Array.isArray(raw?.seasonTypes)
+      ? raw.seasonTypes
+      : [];
+
+
+  /*
+   * Solo Regular Season.
+   * No mezclamos playoffs con Last 3/5/10
+   * de temporada regular.
+   */
+  const regularSeason =
+    seasonTypes.find(
+      item =>
+        String(
+          item?.displayName || ""
+        )
+          .toLowerCase()
+          .includes(
+            "regular season"
+          )
+    );
+
+
+  if (!regularSeason) {
+    return [];
+  }
+
+
+  const categories =
+    Array.isArray(
+      regularSeason?.categories
+    )
+      ? regularSeason.categories
+      : [];
+
+
+  /*
+   * Puede haber más de una categoría,
+   * así que recogemos todos los eventos.
+   */
+  const eventRows = [];
+
+  for (const category of categories) {
+
+    if (
+      !Array.isArray(
+        category?.events
+      )
+    ) {
+      continue;
+    }
+
+    for (
+      const event of
+      category.events
+    ) {
+      eventRows.push(
+        event
+      );
+    }
+  }
+
+
+  function statValue(
+    statMap,
+    ...keys
+  ) {
+
+    for (const key of keys) {
+
+      if (
+        Object.prototype
+          .hasOwnProperty
+          .call(
+            statMap,
+            key
+          )
+      ) {
+
+        const value =
+          statMap[key];
+
+        if (
+          value === "-" ||
+          value === null ||
+          value === undefined ||
+          value === ""
+        ) {
+          return 0;
+        }
+
+        return nflSafeNum(
+          value
+        );
+      }
+    }
+
+    return 0;
+  }
+
+
+  const logs = [];
+
+
+  for (
+    const eventRow of
+    eventRows
+  ) {
+
+    const eventId =
+      String(
+        eventRow?.eventId ||
+        ""
+      );
+
+    if (!eventId) {
+      continue;
+    }
+
+
+    const stats =
+      Array.isArray(
+        eventRow?.stats
+      )
+        ? eventRow.stats
+        : [];
+
+
+    const statMap = {};
+
+    for (
+      let i = 0;
+      i < statNames.length;
+      i++
+    ) {
+
+      statMap[
+        statNames[i]
+      ] =
+        stats[i] ?? 0;
+    }
+
+
+    const eventMeta =
+      raw?.events?.[
+        eventId
+      ] || {};
+
+
+    const opponentId =
+      eventMeta?.opponent?.id
+        ? String(
+            eventMeta.opponent.id
+          )
+        : null;
+
+
+    const homeTeamId =
+      eventMeta?.homeTeamId
+        ? String(
+            eventMeta.homeTeamId
+          )
+        : null;
+
+
+    const awayTeamId =
+      eventMeta?.awayTeamId
+        ? String(
+            eventMeta.awayTeamId
+          )
+        : null;
+
+
+    let homeAway = null;
+    let teamScore = null;
+    let opponentScore = null;
+
+
+    /*
+     * Identificamos el equipo del jugador
+     * usando el opponentId.
+     */
+    if (
+      opponentId &&
+      opponentId ===
+        homeTeamId
+    ) {
+
+      homeAway =
+        "away";
+
+      teamScore =
+        nflSafeNum(
+          eventMeta
+            ?.awayTeamScore
+        );
+
+      opponentScore =
+        nflSafeNum(
+          eventMeta
+            ?.homeTeamScore
+        );
+
+    } else if (
+      opponentId &&
+      opponentId ===
+        awayTeamId
+    ) {
+
+      homeAway =
+        "home";
+
+      teamScore =
+        nflSafeNum(
+          eventMeta
+            ?.homeTeamScore
+        );
+
+      opponentScore =
+        nflSafeNum(
+          eventMeta
+            ?.awayTeamScore
+        );
+
+    } else {
+
+      /*
+       * Fallback de ESPN:
+       * "@" = away
+       * "vs" = home
+       */
+      homeAway =
+        eventMeta?.atVs === "@"
+          ? "away"
+          : "home";
+    }
+
+
+    logs.push({
+
+      gameId:
+        eventId,
+
+      date:
+        eventMeta?.gameDate ||
+        null,
+
+      season:
+        Number(
+          season
+        ),
+
+      week:
+        nflSafeNum(
+          eventMeta?.week
+        ),
+
+      opponentId,
+
+      opponent:
+        eventMeta
+          ?.opponent
+          ?.displayName ||
+        eventMeta
+          ?.opponent
+          ?.abbreviation ||
+        null,
+
+      homeAway,
+
+      result:
+        eventMeta?.gameResult ||
+        null,
+
+      teamScore,
+
+      opponentScore,
+
+
+      passing: {
+
+        completions:
+          statValue(
+            statMap,
+            "completions",
+            "passingCompletions"
+          ),
+
+        attempts:
+          statValue(
+            statMap,
+            "passingAttempts",
+            "attempts"
+          ),
+
+        yards:
+          statValue(
+            statMap,
+            "passingYards"
+          ),
+
+        touchdowns:
+          statValue(
+            statMap,
+            "passingTouchdowns"
+          ),
+
+        interceptions:
+          statValue(
+            statMap,
+            "interceptions",
+            "passingInterceptions"
+          )
+      },
+
+
+      rushing: {
+
+        attempts:
+          statValue(
+            statMap,
+            "rushingAttempts"
+          ),
+
+        yards:
+          statValue(
+            statMap,
+            "rushingYards"
+          ),
+
+        touchdowns:
+          statValue(
+            statMap,
+            "rushingTouchdowns"
+          ),
+
+        long:
+          statValue(
+            statMap,
+            "longRushing",
+            "longRush"
+          )
+      },
+
+
+      receiving: {
+
+        receptions:
+          statValue(
+            statMap,
+            "receptions"
+          ),
+
+        targets:
+          statValue(
+            statMap,
+            "receivingTargets",
+            "targets"
+          ),
+
+        yards:
+          statValue(
+            statMap,
+            "receivingYards"
+          ),
+
+        touchdowns:
+          statValue(
+            statMap,
+            "receivingTouchdowns"
+          ),
+
+        long:
+          statValue(
+            statMap,
+            "longReception"
+          )
+      }
+    });
+  }
+
+
+  /*
+   * Más reciente primero.
+   */
+  logs.sort(
+    (a, b) =>
+      new Date(
+        b.date || 0
+      ) -
+      new Date(
+        a.date || 0
+      )
+  );
+
+
+  /*
+   * Protección contra duplicados.
+   */
+  const unique =
+    new Map();
+
+
+  for (const log of logs) {
+
+    if (
+      !unique.has(
+        log.gameId
+      )
+    ) {
+      unique.set(
+        log.gameId,
+        log
+      );
+    }
+  }
+
+
+  return Array.from(
+    unique.values()
+  );
+}
+
+
+// ============================================================
+// FIN NFL PLAYER STATS — ATHLETE GAMELOG PARSER
+// ============================================================
+// ============================================================
 // NFL PLAYER STATS — TEAM PROFILE BUILDER
 // ============================================================
 
@@ -5997,10 +6443,16 @@ if (wantsGamelogDebug) {
         },
 
         season:
-          debugSeason,
+  debugSeason,
 
-        raw:
-          rawGamelog
+parsed:
+  parseNFLPlayerGamelogRaw(
+    rawGamelog,
+    debugSeason
+  ),
+
+raw:
+  rawGamelog
       };
 
     } catch (error) {
