@@ -3550,7 +3550,7 @@ function renderNFLPlayerStats(index) {
                         <span class="ps-hot-player">
                           <button
   type="button"
-  onclick="showNFLPlayerDetail(
+ onclick="window.showNFLPlayerDetail(
     ${index},
     '${String(item.player.id).replace(/'/g, "\\'")}'
   )"
