@@ -1838,9 +1838,14 @@ if (window.currentSport === "wnba") {
         View AI Prediction
    </button>`
     : useFootballFormula
-    ? `<button onclick="analyzeFootball('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${index})">
-        View ${selectedSportName} Prediction
-      </button>`
+   ? `<button onclick="analyzeFootball(
+    '${escapeText(game.away_team)}',
+    '${escapeText(game.home_team)}',
+    ${index},
+    '${game.id || ""}'
+  )">
+    View ${selectedSportName} Prediction
+  </button>`
     : `<button onclick="analyzeOtherLeague('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index})">
        View AI Prediction
       </button>`
