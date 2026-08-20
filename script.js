@@ -3580,8 +3580,17 @@ const statsButtonHTML =
     <div style="font-size:14px;font-weight:700;color:#fff;">${locked ? "??.?" : projectedTotal.toFixed(1)}</div>
   </div>
   <div style="background:#0f1628;border-radius:6px;padding:8px 4px;text-align:center;${locked ? 'filter:blur(4px);pointer-events:none;' : ''}">
-    <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">EDGE</div>
-    <div style="font-size:14px;font-weight:700;color:#fff;">${locked ? "??.?" : Number(bestPick?.edge || 0).toFixed(1)}</div>
+    <div style="font-size:8px;color:#00ffe7;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;opacity:0.8;">
+  PACE ADJ.
+</div>
+
+<div style="font-size:14px;font-weight:700;color:#fff;">
+  ${
+    locked
+      ? "??.?"
+      : `${Number(data.paceEfficiencyAdjustment?.adjustment || 0) > 0 ? "+" : ""}${Number(data.paceEfficiencyAdjustment?.adjustment || 0).toFixed(1)}`
+  }
+</div>
   </div>
 </div>
  
@@ -3601,61 +3610,7 @@ const statsButtonHTML =
     </button>
 
   ` : `
- ${(() => {
-      const pe = data.paceEfficiencyAdjustment || {};
-      const aOff = Number(pe.teamAOffenseScore || 1);
-      const bOff = Number(pe.teamBOffenseScore || 1);
-      const aDef = Number(pe.teamADefenseScore || 1);
-      const bDef = Number(pe.teamBDefenseScore || 1);
-      const hasData = [aOff, bOff, aDef, bDef].some(v => v !== 1);
-      if (!hasData) return "";
-      const toPct = v => Math.max(8, Math.min(100, Math.round((v - 0.8) / 0.5 * 100)));
-      const toScore = v => Math.max(1, Math.min(99, Math.round((v - 0.8) / 0.5 * 100)));
-      const row = (label, val, color) => `
-        <div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
-            <span style="font-size:10px;color:#8899bb;">${label}</span>
-            <span style="font-size:12px;font-weight:700;color:${color};">${toScore(val)}</span>
-          </div>
-          <div style="height:5px;border-radius:3px;background:#14243d;overflow:hidden;">
-            <div style="height:100%;width:${toPct(val)}%;border-radius:3px;background:linear-gradient(90deg,#00ffe7,#7c3cff);"></div>
-          </div>
-        </div>`;
-      return `
-    <div style="background:#0f1628;border-radius:10px;padding:14px;margin-bottom:10px;">
-      <div style="font-size:10px;color:#7c3cff;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin-bottom:12px;">📊 Matchup breakdown</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;">
-        ${row(`${awayTeam.split(" ").pop()} offense`, aOff, "#00ffe7")}
-        ${row(`${homeTeam.split(" ").pop()} offense`, bOff, "#00ffe7")}
-        ${row(`${awayTeam.split(" ").pop()} defense`, aDef, "#a07cff")}
-        ${row(`${homeTeam.split(" ").pop()} defense`, bDef, "#a07cff")}
-      </div>
-    </div>`;
-    })()}
-    ${(() => {
-      const inj = data.injuryImpact || {};
-      const awayInj = inj[awayTeam] || {};
-      const homeInj = inj[homeTeam] || {};
-      const clean = n => String(n || "").trim();
-      const awayNote = clean(awayInj.note);
-      const homeNote = clean(homeInj.note);
-      const noData = t => !t || /no key injuries|injury data unavailable/i.test(t);
-      if (noData(awayNote) && noData(homeNote)) return "";
-      return `
-      <div style="background:#0a1220;border:1px solid #16263f;border-radius:10px;padding:12px 14px;margin-bottom:10px;">
-        <div style="font-size:10px;font-weight:700;color:#00ffe7;letter-spacing:0.08em;margin-bottom:6px;">🚑 INJURY REPORT</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          <div>
-            <div style="font-size:9px;color:#4a5f7f;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">${awayTeam.split(" ").pop()}</div>
-            <div style="font-size:11px;color:#d0dcec;line-height:1.5;">${noData(awayNote) ? "No key injuries reported." : awayNote}</div>
-          </div>
-          <div>
-            <div style="font-size:9px;color:#4a5f7f;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">${homeTeam.split(" ").pop()}</div>
-            <div style="font-size:11px;color:#d0dcec;line-height:1.5;">${noData(homeNote) ? "No key injuries reported." : homeNote}</div>
-          </div>
-        </div>
-      </div>`;
-    })()}
+ ${gameIntelligenceHTML}
     <div style="background:#0a1628;border:1px solid rgba(0,255,231,0.15);border-left:3px solid ${circleColor};border-radius:8px;padding:12px 14px;margin-bottom:10px;">
       <div style="font-size:10px;color:${circleColor};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;font-weight:600;">⚡ Model analysis</div>
       <div style="font-size:12px;color:#aabbcc;line-height:1.6;">${analysisText}</div>
