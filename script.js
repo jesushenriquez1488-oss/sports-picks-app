@@ -3970,7 +3970,29 @@ function showNFLCategoryList(
         </button>
 
       </div>
-
+<div
+  class="ps-window-tabs ps-category-window-tabs"
+  style="margin:10px 0;"
+>
+  ${[
+    "last3",
+    "last5",
+    "last10",
+    "season"
+  ].map(key => `
+    <button
+      type="button"
+      class="${key === windowKey ? "active" : ""}"
+      onclick="window.showNFLCategoryList(
+        ${index},
+        '${marketKey}',
+        '${key}'
+      )"
+    >
+      ${windowLabel[key]}
+    </button>
+  `).join("")}
+</div>
 
       <div class="ps-section-title">
 
