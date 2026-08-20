@@ -3996,8 +3996,16 @@ function showNFLCategoryList(
         ${
           ranked.map(
             (item, position) => `
-              <div
-                class="ps-ranked-full-row"
+              <button
+  type="button"
+  class="ps-ranked-full-row"
+  onclick="window.showNFLPlayerDetail(
+    ${index},
+    '${String(item.player.id).replace(/'/g, "\\'")}',
+    'category',
+    '${marketKey}',
+    '${windowKey}'
+  )"
                 style="
                   width:100%;
                   box-sizing:border-box;
@@ -4065,7 +4073,7 @@ function showNFLCategoryList(
                   </small>
                 </span>
 
-              </div>
+              </button>
             `
           ).join("")
         }
@@ -4077,19 +4085,19 @@ function showNFLCategoryList(
 }
 function showNFLPlayerDetail(
   index,
-  playerId
+  playerId,
+  source = "hot",
+  marketKey = null,
+  windowKey = "last3"
 ) {
-  const state =
-    nflPlayerStatsState[index];
+  const state = nflPlayerStatsState[index];
 
   const box =
     document.getElementById(
       `nflPlayerStatsView${index}`
     );
 
-  if (!state?.data || !box) {
-    return;
-  }
+  if (!state?.data || !box) return;
 
   const data = state.data;
 
@@ -4100,12 +4108,127 @@ function showNFLPlayerDetail(
 
   const player =
     players.find(
-      p =>
-        String(p.id) ===
-        String(playerId)
+      p => String(p.id) === String(playerId)
     );
 
   if (!player) return;
+
+
+  const stats =
+    player?.[windowKey] || {};
+
+
+  const windowLabels = {
+    last3: "LAST 3",
+    last5: "LAST 5",
+    last10: "LAST 10",
+    season: "SEASON"
+  };
+
+
+  const stat = (value, label) => `
+    <div style="text-align:center;">
+      <strong style="
+        display:block;
+        color:#fff;
+        font-size:16px;
+      ">
+        ${value}
+      </strong>
+
+      <small style="
+        color:#71839f;
+        font-size:8px;
+      ">
+        ${label}
+      </small>
+    </div>
+  `;
+
+
+  let summary = "";
+
+  if (player.position === "QB") {
+    summary = `
+      ${stat(
+        Number(stats.passing?.yards || 0).toFixed(1),
+        "PASS YDS"
+      )}
+
+      ${stat(
+        Number(stats.passing?.touchdowns || 0).toFixed(1),
+        "PASS TD"
+      )}
+
+      ${stat(
+        Number(stats.passing?.interceptions || 0).toFixed(1),
+        "INT"
+      )}
+
+      ${stat(
+        Number(stats.rushing?.yards || 0).toFixed(1),
+        "RUSH YDS"
+      )}
+    `;
+  } else if (player.position === "RB") {
+    summary = `
+      ${stat(
+        Number(stats.rushing?.yards || 0).toFixed(1),
+        "RUSH YDS"
+      )}
+
+      ${stat(
+        Number(stats.rushing?.attempts || 0).toFixed(1),
+        "CARRIES"
+      )}
+
+      ${stat(
+        Number(stats.receiving?.yards || 0).toFixed(1),
+        "REC YDS"
+      )}
+
+      ${stat(
+        Number(stats.receiving?.targets || 0).toFixed(1),
+        "TARGETS"
+      )}
+    `;
+  } else {
+    summary = `
+      ${stat(
+        Number(stats.receiving?.receptions || 0).toFixed(1),
+        "REC"
+      )}
+
+      ${stat(
+        Number(stats.receiving?.targets || 0).toFixed(1),
+        "TARGETS"
+      )}
+
+      ${stat(
+        Number(stats.receiving?.yards || 0).toFixed(1),
+        "REC YDS"
+      )}
+
+      ${stat(
+        Number(stats.receiving?.touchdowns || 0).toFixed(1),
+        "REC TD"
+      )}
+    `;
+  }
+
+
+  const backAction =
+    source === "category"
+      ? `window.showNFLCategoryList(
+          ${index},
+          '${marketKey}',
+          '${windowKey}'
+        )`
+      : `window.showNFLPlayerStatsView(
+          ${index},
+          'hot'
+        )`;
+
 
   const logs =
     (player.gameLogs || [])
@@ -4117,343 +4240,255 @@ function showNFLPlayerDetail(
       )
       .slice(0, 10);
 
-  const summaryBlock = (label, statsHtml) => `
-    <div style="
-      background:#0f1628;
-      border:1px solid #1a2240;
-      border-radius:12px;
-      padding:10px;
-    ">
-      <div style="
-        font-size:10px;
-        color:#7d90aa;
-        margin-bottom:8px;
-        letter-spacing:.08em;
-        text-transform:uppercase;
-      ">
-        ${label}
-      </div>
 
-      <div style="
-        display:grid;
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:8px;
-      ">
-        ${statsHtml}
-      </div>
-    </div>
-  `;
+  const gameNumbers = log => {
 
-  const statItem = (value, label) => `
-    <div style="
-      background:rgba(255,255,255,.02);
-      border-radius:10px;
-      padding:8px;
-      text-align:center;
-    ">
-      <div style="
-        color:#fff;
-        font-size:16px;
-        font-weight:800;
-        line-height:1.1;
-      ">
-        ${value}
-      </div>
-
-      <div style="
-        color:#7d90aa;
-        font-size:9px;
-        margin-top:4px;
-        text-transform:uppercase;
-        letter-spacing:.04em;
-      ">
-        ${label}
-      </div>
-    </div>
-  `;
-
-  function playerSummaryForWindow(windowKey) {
-    const s = player?.[windowKey] || {};
-    const pos = player?.position || "";
-
-    if (pos === "QB") {
-      return summaryBlock(
-        windowKey.toUpperCase(),
-        `
-          ${statItem(Number(s.passing?.yards || 0).toFixed(1), "Pass Yds")}
-          ${statItem(Number(s.passing?.touchdowns || 0).toFixed(1), "Pass TD")}
-          ${statItem(Number(s.passing?.interceptions || 0).toFixed(1), "INT")}
-          ${statItem(Number(s.rushing?.yards || 0).toFixed(1), "Rush Yds")}
-        `
-      );
-    }
-
-    if (pos === "RB") {
-      return summaryBlock(
-        windowKey.toUpperCase(),
-        `
-          ${statItem(Number(s.rushing?.yards || 0).toFixed(1), "Rush Yds")}
-          ${statItem(Number(s.rushing?.attempts || 0).toFixed(1), "Carries")}
-          ${statItem(Number(s.receiving?.yards || 0).toFixed(1), "Rec Yds")}
-          ${statItem(Number(s.receiving?.targets || 0).toFixed(1), "Targets")}
-        `
-      );
-    }
-
-    return summaryBlock(
-      windowKey.toUpperCase(),
-      `
-        ${statItem(Number(s.receiving?.receptions || 0).toFixed(1), "Rec")}
-        ${statItem(Number(s.receiving?.targets || 0).toFixed(1), "Targets")}
-        ${statItem(Number(s.receiving?.yards || 0).toFixed(1), "Rec Yds")}
-        ${statItem(Number(s.receiving?.touchdowns || 0).toFixed(1), "Rec TD")}
-      `
-    );
-  }
-
-  function gameLine(log) {
-    const pos = player?.position || "";
-
-    if (pos === "QB") {
+    if (player.position === "QB") {
       return `
-        <div style="display:flex;flex-wrap:wrap;gap:8px;">
-          <div style="flex:1;min-width:90px;background:#111b31;border-radius:10px;padding:8px;">
-            <div style="font-size:15px;font-weight:800;color:#fff;">
-              ${Number(log.passing?.yards || 0)}
-            </div>
-            <div style="font-size:9px;color:#7d90aa;">PASS YDS</div>
-          </div>
+        ${stat(
+          Number(log.passing?.yards || 0),
+          "PASS YDS"
+        )}
 
-          <div style="flex:1;min-width:90px;background:#111b31;border-radius:10px;padding:8px;">
-            <div style="font-size:15px;font-weight:800;color:#fff;">
-              ${Number(log.passing?.completions || 0)}/${Number(log.passing?.attempts || 0)}
-            </div>
-            <div style="font-size:9px;color:#7d90aa;">CMP/ATT</div>
-          </div>
+        ${stat(
+          `${Number(log.passing?.completions || 0)}/${Number(log.passing?.attempts || 0)}`,
+          "CMP/ATT"
+        )}
 
-          <div style="flex:1;min-width:90px;background:#111b31;border-radius:10px;padding:8px;">
-            <div style="font-size:15px;font-weight:800;color:#fff;">
-              ${Number(log.passing?.touchdowns || 0)}-${Number(log.passing?.interceptions || 0)}
-            </div>
-            <div style="font-size:9px;color:#7d90aa;">TD-INT</div>
-          </div>
-        </div>
+        ${stat(
+          `${Number(log.passing?.touchdowns || 0)}-${Number(log.passing?.interceptions || 0)}`,
+          "TD-INT"
+        )}
       `;
     }
 
-    if (pos === "RB") {
+
+    if (player.position === "RB") {
       return `
-        <div style="display:flex;flex-wrap:wrap;gap:8px;">
-          <div style="flex:1;min-width:90px;background:#111b31;border-radius:10px;padding:8px;">
-            <div style="font-size:15px;font-weight:800;color:#fff;">
-              ${Number(log.rushing?.yards || 0)}
-            </div>
-            <div style="font-size:9px;color:#7d90aa;">RUSH YDS</div>
-          </div>
+        ${stat(
+          Number(log.rushing?.yards || 0),
+          "RUSH YDS"
+        )}
 
-          <div style="flex:1;min-width:90px;background:#111b31;border-radius:10px;padding:8px;">
-            <div style="font-size:15px;font-weight:800;color:#fff;">
-              ${Number(log.rushing?.attempts || 0)}
-            </div>
-            <div style="font-size:9px;color:#7d90aa;">CARRIES</div>
-          </div>
+        ${stat(
+          Number(log.rushing?.attempts || 0),
+          "CAR"
+        )}
 
-          <div style="flex:1;min-width:90px;background:#111b31;border-radius:10px;padding:8px;">
-            <div style="font-size:15px;font-weight:800;color:#fff;">
-              ${Number(log.receiving?.receptions || 0)}/${Number(log.receiving?.targets || 0)}
-            </div>
-            <div style="font-size:9px;color:#7d90aa;">REC/TGT</div>
-          </div>
-        </div>
+        ${stat(
+          `${Number(log.receiving?.receptions || 0)}/${Number(log.receiving?.targets || 0)}`,
+          "REC/TGT"
+        )}
       `;
     }
+
 
     return `
-      <div style="display:flex;flex-wrap:wrap;gap:8px;">
-        <div style="flex:1;min-width:90px;background:#111b31;border-radius:10px;padding:8px;">
-          <div style="font-size:15px;font-weight:800;color:#fff;">
-            ${Number(log.receiving?.yards || 0)}
-          </div>
-          <div style="font-size:9px;color:#7d90aa;">REC YDS</div>
-        </div>
+      ${stat(
+        Number(log.receiving?.yards || 0),
+        "REC YDS"
+      )}
 
-        <div style="flex:1;min-width:90px;background:#111b31;border-radius:10px;padding:8px;">
-          <div style="font-size:15px;font-weight:800;color:#fff;">
-            ${Number(log.receiving?.receptions || 0)}/${Number(log.receiving?.targets || 0)}
-          </div>
-          <div style="font-size:9px;color:#7d90aa;">REC/TGT</div>
-        </div>
+      ${stat(
+        `${Number(log.receiving?.receptions || 0)}/${Number(log.receiving?.targets || 0)}`,
+        "REC/TGT"
+      )}
 
-        <div style="flex:1;min-width:90px;background:#111b31;border-radius:10px;padding:8px;">
-          <div style="font-size:15px;font-weight:800;color:#fff;">
-            ${Number(log.receiving?.touchdowns || 0)}
-          </div>
-          <div style="font-size:9px;color:#7d90aa;">REC TD</div>
-        </div>
-      </div>
+      ${stat(
+        Number(log.receiving?.touchdowns || 0),
+        "REC TD"
+      )}
     `;
-  }
+  };
+
 
   box.innerHTML = `
     <div class="ps-card">
 
-      <div class="ps-detail-toolbar">
-        <button
-          type="button"
-          class="ps-back-btn"
-          onclick="showNFLPlayerStatsView(
-            ${index},
-            'hot'
-          )"
-        >
-          ← Back to Hot Players
-        </button>
-      </div>
+      <button
+        type="button"
+        class="ps-back-btn"
+        onclick="${backAction}"
+      >
+        ← BACK
+      </button>
 
-      <div style="
-        background:#0f1628;
-        border:1px solid #1a2240;
-        border-radius:14px;
-        padding:14px;
-        margin-bottom:12px;
-      ">
-        <div style="
-          display:flex;
-          justify-content:space-between;
-          align-items:flex-start;
-          gap:10px;
-          margin-bottom:10px;
-        ">
-          <div>
-            <div style="
-              font-size:11px;
-              color:#7d90aa;
-              margin-bottom:4px;
-            ">
-              ${sanitize(player.team || "")}
-            </div>
-
-            <div style="
-              font-size:28px;
-              line-height:1.1;
-              font-weight:800;
-              color:#fff;
-            ">
-              ${sanitize(player.name)}
-            </div>
-          </div>
-
-          <div style="
-            padding:8px 10px;
-            border-radius:999px;
-            border:1px solid rgba(0,255,231,.35);
-            background:rgba(0,255,231,.08);
-            color:#00ffe7;
-            font-size:11px;
-            font-weight:700;
-            white-space:nowrap;
-          ">
-            ${sanitize(player.position)}
-          </div>
-        </div>
-
-        <div style="
-          display:grid;
-          grid-template-columns:1fr;
-          gap:10px;
-        ">
-          ${playerSummaryForWindow("last3")}
-          ${playerSummaryForWindow("last5")}
-          ${playerSummaryForWindow("season")}
-        </div>
-      </div>
-
-      <div style="
-        font-size:11px;
-        color:#7d90aa;
-        margin:2px 2px 10px;
-        text-transform:uppercase;
-        letter-spacing:.08em;
-      ">
-        Last 10 Game Log
-      </div>
 
       <div style="
         display:flex;
-        flex-direction:column;
-        gap:10px;
+        justify-content:space-between;
+        align-items:center;
+        margin:14px 0 12px;
       ">
-        ${
-          logs.length
-            ? logs.map(log => {
-                const date =
-                  log.date
-                    ? new Date(log.date).toLocaleDateString(
-                        "en-US",
-                        {
-                          month: "short",
-                          day: "numeric"
-                        }
-                      )
-                    : "—";
 
-                return `
-                  <div style="
-                    background:#0f1628;
-                    border:1px solid #1a2240;
-                    border-radius:14px;
-                    padding:12px;
-                  ">
-                    <div style="
-                      display:flex;
-                      justify-content:space-between;
-                      align-items:flex-start;
-                      gap:10px;
-                      margin-bottom:10px;
-                    ">
-                      <div style="min-width:0;">
-                        <div style="
-                          color:#fff;
-                          font-size:14px;
-                          font-weight:700;
-                          line-height:1.2;
-                        ">
-                          ${sanitize(log.opponent || "Opponent")}
-                        </div>
+        <div>
+          <small style="color:#71839f;">
+            ${sanitize(player.team || "")}
+          </small>
 
-                        <div style="
-                          color:#7d90aa;
-                          font-size:10px;
-                          margin-top:3px;
-                        ">
-                          ${date}
-                          ${log.result ? `· ${sanitize(log.result)}` : ""}
-                        </div>
-                      </div>
+          <div style="
+            color:#fff;
+            font-size:22px;
+            font-weight:800;
+          ">
+            ${sanitize(player.name)}
+          </div>
+        </div>
 
-                      <div style="
-                        padding:5px 8px;
-                        border-radius:999px;
-                        background:#111b31;
-                        color:#7d90aa;
-                        font-size:10px;
-                        white-space:nowrap;
-                      ">
-                        ${sanitize(log.homeAway || "")}
-                      </div>
-                    </div>
+        <span style="
+          color:#00ffe7;
+          border:1px solid rgba(0,255,231,.3);
+          border-radius:20px;
+          padding:6px 10px;
+          font-size:10px;
+          font-weight:700;
+        ">
+          ${sanitize(player.position)}
+        </span>
 
-                    ${gameLine(log)}
-                  </div>
-                `;
-              }).join("")
-            : `
-                <div class="ps-no-data">
-                  No game log available.
-                </div>
-              `
-        }
       </div>
+
+
+      <div style="
+        display:grid;
+        grid-template-columns:repeat(4,1fr);
+        gap:5px;
+        margin-bottom:10px;
+      ">
+
+        ${[
+          "last3",
+          "last5",
+          "last10",
+          "season"
+        ].map(key => `
+          <button
+            onclick="window.showNFLPlayerDetail(
+              ${index},
+              '${String(player.id).replace(/'/g, "\\'")}',
+              '${source}',
+              '${marketKey || ""}',
+              '${key}'
+            )"
+            style="
+              padding:7px 2px;
+              border-radius:7px;
+              border:1px solid ${
+                key === windowKey
+                  ? "#00ffe7"
+                  : "#1a2240"
+              };
+              background:${
+                key === windowKey
+                  ? "rgba(0,255,231,.08)"
+                  : "#0f1628"
+              };
+              color:${
+                key === windowKey
+                  ? "#00ffe7"
+                  : "#71839f"
+              };
+              font-size:8px;
+              font-weight:700;
+            "
+          >
+            ${windowLabels[key]}
+          </button>
+        `).join("")}
+
+      </div>
+
+
+      <div style="
+        display:grid;
+        grid-template-columns:repeat(4,1fr);
+        gap:6px;
+        background:#0f1628;
+        border:1px solid #1a2240;
+        border-radius:10px;
+        padding:10px 6px;
+        margin-bottom:16px;
+      ">
+        ${summary}
+      </div>
+
+
+      <div style="
+        font-size:10px;
+        color:#71839f;
+        letter-spacing:.08em;
+        margin-bottom:5px;
+      ">
+        LAST 10 GAME LOG
+      </div>
+
+
+      ${
+        logs.map(log => {
+
+          const date =
+            log.date
+              ? new Date(log.date)
+                  .toLocaleDateString(
+                    "en-US",
+                    {
+                      month: "short",
+                      day: "numeric"
+                    }
+                  )
+              : "—";
+
+          return `
+            <div style="
+              padding:10px 2px;
+              border-bottom:1px solid #18243a;
+            ">
+
+              <div style="
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                margin-bottom:7px;
+              ">
+
+                <div>
+                  <strong style="
+                    display:block;
+                    color:#fff;
+                    font-size:12px;
+                  ">
+                    ${sanitize(
+                      log.opponent || "Opponent"
+                    )}
+                  </strong>
+
+                  <small style="
+                    color:#556688;
+                    font-size:8px;
+                  ">
+                    ${date}
+                    ·
+                    ${sanitize(
+                      log.homeAway || ""
+                    )}
+                  </small>
+                </div>
+
+              </div>
+
+
+              <div style="
+                display:grid;
+                grid-template-columns:repeat(3,1fr);
+                gap:6px;
+              ">
+                ${gameNumbers(log)}
+              </div>
+
+            </div>
+          `;
+        }).join("")
+      }
 
     </div>
   `;
