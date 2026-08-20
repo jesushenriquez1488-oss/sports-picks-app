@@ -4322,27 +4322,27 @@ function showNFLPlayerDetail(
       ">
 
         <div>
-          <small style="color:#71839f;">
-            ${sanitize(player.team || "")}
-          </small>
-
-          <div style="
-            color:#fff;
-            font-size:22px;
-            font-weight:800;
-          ">
+          <small style="color:#71839f;font-size:10px;">
+  ${sanitize(player.team || "")}
+</small>
+<div style="
+  color:#fff;
+  font-size:16px;
+  font-weight:800;
+  line-height:1.15;
+">
             ${sanitize(player.name)}
           </div>
         </div>
 
         <span style="
-          color:#00ffe7;
-          border:1px solid rgba(0,255,231,.3);
-          border-radius:20px;
-          padding:6px 10px;
-          font-size:10px;
-          font-weight:700;
-        ">
+  color:#00ffe7;
+  border:1px solid rgba(0,255,231,.3);
+  border-radius:16px;
+  padding:4px 8px;
+  font-size:9px;
+  font-weight:700;
+">
           ${sanitize(player.position)}
         </span>
 
@@ -4371,7 +4371,7 @@ function showNFLPlayerDetail(
               '${key}'
             )"
             style="
-              padding:7px 2px;
+              padding:6px 2px;
               border-radius:7px;
               border:1px solid ${
                 key === windowKey
@@ -4452,20 +4452,21 @@ function showNFLPlayerDetail(
               ">
 
                 <div>
-                  <strong style="
-                    display:block;
-                    color:#fff;
-                    font-size:12px;
-                  ">
+                 <strong style="
+  display:block;
+  color:#fff;
+  font-size:10px;
+  line-height:1.2;
+">
                     ${sanitize(
                       log.opponent || "Opponent"
                     )}
                   </strong>
 
-                  <small style="
-                    color:#556688;
-                    font-size:8px;
-                  ">
+                <small style="
+  color:#556688;
+  font-size:7px;
+">
                     ${date}
                     ·
                     ${sanitize(
