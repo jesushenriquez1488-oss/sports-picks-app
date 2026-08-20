@@ -8270,8 +8270,13 @@ const paceModule = calculatePaceEfficiencyAdjustment({
 console.log("PACE MODULE:", {
   adjustment: paceModule.adjustment,
   gameEdge: paceModule.gameEdge,
+
   teamAOffenseScore: paceModule.teamAOffenseScore,
   teamBOffenseScore: paceModule.teamBOffenseScore,
+
+  teamADefenseScore: paceModule.teamADefenseScore,
+  teamBDefenseScore: paceModule.teamBDefenseScore,
+
   teamAProfile,
   teamBProfile
 });
