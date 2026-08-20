@@ -3383,65 +3383,280 @@ function nflPlayerStatsMetric(player, windowKey) {
 
 function renderNFLPlayerStats(index) {
   const state = nflPlayerStatsState[index];
-  const box = document.getElementById(`nflPlayerStatsView${index}`);
+  const box = document.getElementById(
+    `nflPlayerStatsView${index}`
+  );
 
   if (!state?.data || !box) return;
 
-  const windowKey = state.windowKey || "last5";
   const data = state.data;
+  const windowKey = state.windowKey || "last5";
+  const view = state.view || "hot";
 
-  const renderTeam = team => {
-    const players = (team?.players || [])
-      .filter(p => p.hasHistory)
-      .filter(p => ["QB", "RB", "WR", "TE"].includes(p.position));
+  const allPlayers = [
+    ...(data.teams?.away?.players || []),
+    ...(data.teams?.home?.players || [])
+  ].filter(p => p.hasHistory);
 
-    return `
-      <div style="background:#0f1628;border:1px solid #1a2240;border-radius:10px;padding:12px;">
-        <div style="font-size:13px;font-weight:800;color:#fff;margin-bottom:10px;">
-          ${sanitize(team?.name || "")}
-        </div>
 
-        ${players.map(player => `
-          <div style="padding:10px 0;border-top:1px solid #18243a;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;">
-              <div>
-                <strong style="font-size:12px;color:#fff;">
-                  ${sanitize(player.name)}
-                </strong>
+  const teamName = player => {
+    const awayPlayers =
+      data.teams?.away?.players || [];
 
-                <span style="font-size:9px;color:#00ffe7;margin-left:6px;">
-                  ${sanitize(player.position)}
-                </span>
-              </div>
-
-              <small style="color:#556688;font-size:9px;">
-                ${
-                  player.gamesAvailable?.[windowKey] || 0
-                } G
-              </small>
-            </div>
-
-            <div style="
-              display:grid;
-              grid-template-columns:repeat(4,1fr);
-              gap:5px;
-              font-size:9px;
-              color:#71839f;
-              text-align:center;
-            ">
-              ${nflPlayerStatsMetric(player, windowKey)}
-            </div>
-          </div>
-        `).join("")}
-      </div>
-    `;
+    return awayPlayers.some(
+      p => String(p.id) === String(player.id)
+    )
+      ? data.teams.away.name
+      : data.teams.home.name;
   };
+
+
+  const shortTeam = player =>
+    String(teamName(player) || "")
+      .split(" ")
+      .pop();
+
+
+  const markets = [
+    {
+      key: "passingYards",
+      label: "Passing Yards",
+      positions: ["QB"],
+      value: p =>
+        Number(
+          p?.[windowKey]
+            ?.passing?.yards || 0
+        )
+    },
+
+    {
+      key: "rushingYards",
+      label: "Rushing Yards",
+      positions: ["QB", "RB", "WR"],
+      value: p =>
+        Number(
+          p?.[windowKey]
+            ?.rushing?.yards || 0
+        )
+    },
+
+    {
+      key: "receivingYards",
+      label: "Receiving Yards",
+      positions: ["RB", "WR", "TE"],
+      value: p =>
+        Number(
+          p?.[windowKey]
+            ?.receiving?.yards || 0
+        )
+    },
+
+    {
+      key: "receptions",
+      label: "Receptions",
+      positions: ["RB", "WR", "TE"],
+      value: p =>
+        Number(
+          p?.[windowKey]
+            ?.receiving?.receptions || 0
+        )
+    },
+
+    {
+      key: "targets",
+      label: "Targets",
+      positions: ["RB", "WR", "TE"],
+      value: p =>
+        Number(
+          p?.[windowKey]
+            ?.receiving?.targets || 0
+        )
+    }
+  ];
+
+
+  const windowLabel = {
+    last3: "LAST 3",
+    last5: "LAST 5",
+    last10: "LAST 10",
+    season: "SEASON"
+  };
+
+
+  const hotCards = markets
+    .map(market => {
+
+      const ranked = allPlayers
+        .filter(player =>
+          market.positions.includes(
+            player.position
+          )
+        )
+        .filter(player =>
+          Number(
+            player.gamesAvailable
+              ?.[windowKey] || 0
+          ) > 0
+        )
+        .map(player => ({
+          player,
+          value: market.value(player)
+        }))
+        .filter(item =>
+          item.value > 0
+        )
+        .sort(
+          (a, b) =>
+            b.value - a.value
+        );
+
+
+      const topThree =
+        ranked.slice(0, 3);
+
+
+      return `
+        <div class="ps-hot-card">
+
+          <div class="ps-hot-card-head">
+            <span>
+              ${market.label}
+            </span>
+
+            <small>
+              ${windowLabel[windowKey]}
+            </small>
+          </div>
+
+          ${
+            topThree.length
+              ? topThree
+                  .map(
+                    (item, position) => `
+                      <div class="ps-hot-row">
+
+                        <span class="ps-hot-rank">
+                          ${position + 1}
+                        </span>
+
+                        <span class="ps-hot-player">
+                          <strong>
+                            ${sanitize(
+                              item.player.name
+                            )}
+                          </strong>
+
+                          <small>
+                            ${sanitize(
+                              shortTeam(
+                                item.player
+                              )
+                            )}
+                            ·
+                            ${sanitize(
+                              item.player.position
+                            )}
+                          </small>
+                        </span>
+
+                        <span class="ps-hot-record">
+                          <strong>
+                            ${item.value.toFixed(1)}
+                          </strong>
+
+                          <small>
+                            AVG
+                          </small>
+                        </span>
+
+                      </div>
+                    `
+                  )
+                  .join("")
+              : `
+                  <div class="ps-no-data">
+                    Not enough data yet.
+                  </div>
+                `
+          }
+
+        </div>
+      `;
+    })
+    .join("");
+
+
+  const renderTeam = team => `
+    <div class="ps-team-card">
+
+      <div class="ps-team-head">
+        <strong>
+          ${sanitize(team?.name || "")}
+        </strong>
+
+        <span>
+          ${team?.playerCount || 0}
+        </span>
+      </div>
+
+      <div class="ps-team-player-list">
+
+        ${
+          (team?.players || [])
+            .filter(p =>
+              ["QB", "RB", "WR", "TE"]
+                .includes(p.position)
+            )
+            .map(player => `
+              <div
+                style="
+                  display:flex;
+                  justify-content:space-between;
+                  padding:9px 2px;
+                  border-bottom:1px solid #18243a;
+                "
+              >
+                <span>
+                  <strong
+                    style="
+                      color:#fff;
+                      font-size:11px;
+                    "
+                  >
+                    ${sanitize(player.name)}
+                  </strong>
+
+                  <small
+                    style="
+                      color:#00ffe7;
+                      margin-left:5px;
+                    "
+                  >
+                    ${sanitize(player.position)}
+                  </small>
+                </span>
+
+                <small style="color:#556688;">
+                  ${
+                    player.gamesAvailable
+                      ?.[windowKey] || 0
+                  } G
+                </small>
+              </div>
+            `)
+            .join("")
+        }
+
+      </div>
+    </div>
+  `;
 
 
   box.innerHTML = `
     <div class="ps-card">
 
       <div class="ps-sticky-bar">
+
         <button
           type="button"
           class="ps-back-analysis-btn"
@@ -3452,59 +3667,116 @@ function renderNFLPlayerStats(index) {
 
         <div class="ps-sticky-game">
           <small>NFL PLAYER STATS</small>
+
           <strong>
-            ${sanitize(data.teams?.away?.name || "Away")}
+            ${sanitize(
+              data.teams?.away?.name || ""
+            )}
             vs
-            ${sanitize(data.teams?.home?.name || "Home")}
+            ${sanitize(
+              data.teams?.home?.name || ""
+            )}
           </strong>
         </div>
+
       </div>
 
 
-      <div style="
-        display:grid;
-        grid-template-columns:repeat(4,1fr);
-        gap:6px;
-        margin:12px 0;
-      ">
+      <div
+        class="ps-sub-tabs"
+        style="margin-top:12px;"
+      >
+
+        <button
+          class="${view === "hot" ? "active" : ""}"
+          onclick="showNFLPlayerStatsView(
+            ${index},
+            'hot'
+          )"
+        >
+          Hot Players
+        </button>
+
+        <button
+          class="${view === "all" ? "active" : ""}"
+          onclick="showNFLPlayerStatsView(
+            ${index},
+            'all'
+          )"
+        >
+          All Players
+        </button>
+
+      </div>
+
+
+      <div class="ps-window-tabs">
+
         ${[
-          ["last3", "LAST 3"],
-          ["last5", "LAST 5"],
-          ["last10", "LAST 10"],
-          ["season", "SEASON"]
-        ].map(([key, label]) => `
+          "last3",
+          "last5",
+          "last10",
+          "season"
+        ].map(key => `
           <button
-            onclick="showNFLPlayerStatsWindow(${index}, '${key}')"
-            style="
-              padding:8px 4px;
-              border-radius:7px;
-              border:1px solid ${windowKey === key ? "#00ffe7" : "#1a2240"};
-              background:${windowKey === key ? "rgba(0,255,231,.08)" : "#0f1628"};
-              color:${windowKey === key ? "#00ffe7" : "#71839f"};
-              font-size:9px;
-              font-weight:700;
-              cursor:pointer;
-            "
+            class="${
+              windowKey === key
+                ? "active"
+                : ""
+            }"
+            onclick="showNFLPlayerStatsWindow(
+              ${index},
+              '${key}'
+            )"
           >
-            ${label}
+            ${windowLabel[key]}
           </button>
         `).join("")}
+
       </div>
 
 
-      <div style="
-        display:grid;
-        grid-template-columns:1fr 1fr;
-        gap:10px;
-      ">
-        ${renderTeam(data.teams?.away)}
-        ${renderTeam(data.teams?.home)}
-      </div>
+      ${
+        view === "hot"
+          ? `
+              <div class="ps-helper-text">
+                Ranked across both teams by
+                per-game production.
+              </div>
+
+              <div class="ps-hot-grid">
+                ${hotCards}
+              </div>
+            `
+          : `
+              <div class="ps-team-columns">
+                ${renderTeam(
+                  data.teams?.away
+                )}
+
+                ${renderTeam(
+                  data.teams?.home
+                )}
+              </div>
+            `
+      }
 
     </div>
   `;
 }
+function showNFLPlayerStatsView(
+  index,
+  view
+) {
+  if (!nflPlayerStatsState[index]) {
+    return;
+  }
 
+  nflPlayerStatsState[index].view =
+    view;
+
+  renderNFLPlayerStats(index);
+}
 
 function showNFLPlayerStatsWindow(index, windowKey) {
   if (!nflPlayerStatsState[index]) return;
@@ -3637,8 +3909,8 @@ window.openNFLPlayerStats =
 window.closeNFLPlayerStats =
   closeNFLPlayerStats;
 
-window.showNFLPlayerStatsWindow =
-  showNFLPlayerStatsWindow;
+window.showNFLPlayerStatsView =
+  showNFLPlayerStatsView;
 
 
 // ============================================================
