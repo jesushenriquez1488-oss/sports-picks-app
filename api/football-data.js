@@ -4493,6 +4493,38 @@ players.push({
 // FIN NFL PLAYER STATS — CURRENT ROSTER
 // ============================================================
 // ============================================================
+// NFL PLAYER STATS — ATHLETE GAMELOG
+// ============================================================
+
+async function getNFLPlayerGamelogRaw(
+  athleteId,
+  season
+) {
+  if (!athleteId) {
+    return null;
+  }
+
+  const url =
+    `https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/athletes/${encodeURIComponent(athleteId)}/gamelog` +
+    `?season=${encodeURIComponent(season)}`;
+
+  const res =
+    await fetch(url);
+
+  if (!res.ok) {
+    throw new Error(
+      `ESPN NFL gamelog ${res.status} for athlete ${athleteId}`
+    );
+  }
+
+  return await res.json();
+}
+
+
+// ============================================================
+// FIN NFL PLAYER STATS — ATHLETE GAMELOG
+// ============================================================
+// ============================================================
 // NFL PLAYER STATS — TEAM PROFILE BUILDER
 // ============================================================
 
@@ -5885,6 +5917,104 @@ const homeCurrentPlayers =
     teamId: homeTeamId,
     teamName: homeTeam
   });
+  // -------------------------
+// TEMP DEBUG — PLAYER GAMELOG
+// -------------------------
+
+let gamelogDebug = null;
+
+const wantsGamelogDebug =
+  req.query.debugGamelog === "true" ||
+  req.body?.debugGamelog === true;
+
+
+if (wantsGamelogDebug) {
+
+  /*
+   * Preferimos probar primero un
+   * WR/TE veterano nuevo en el equipo.
+   *
+   * Ejemplo probable:
+   * A.J. Brown / Romeo Doubs /
+   * Nick Vannett
+   */
+  const allCurrentPlayers = [
+    ...awayCurrentPlayers,
+    ...homeCurrentPlayers
+  ];
+
+
+  const debugPlayer =
+    allCurrentPlayers.find(
+      player =>
+        player?.id &&
+        player?.hasHistory === false &&
+        nflSafeNum(
+          player?.experienceYears
+        ) > 0 &&
+        ["WR", "TE"].includes(
+          player?.position
+        )
+    ) ||
+
+    allCurrentPlayers.find(
+      player =>
+        player?.id &&
+        player?.hasHistory === false &&
+        nflSafeNum(
+          player?.experienceYears
+        ) > 0
+    );
+
+
+  if (debugPlayer) {
+
+    const debugSeason =
+      getNFLPlayerStatsSeasonYear() - 1;
+
+    try {
+
+      const rawGamelog =
+        await getNFLPlayerGamelogRaw(
+          debugPlayer.id,
+          debugSeason
+        );
+
+
+      gamelogDebug = {
+        player: {
+          id:
+            debugPlayer.id,
+
+          name:
+            debugPlayer.name,
+
+          position:
+            debugPlayer.position,
+
+          experienceYears:
+            debugPlayer.experienceYears
+        },
+
+        season:
+          debugSeason,
+
+        raw:
+          rawGamelog
+      };
+
+    } catch (error) {
+
+      gamelogDebug = {
+        player:
+          debugPlayer,
+
+        error:
+          error.message
+      };
+    }
+  }
+}
 return res
   .status(200)
   .json({
@@ -5900,7 +6030,7 @@ return res
     stage: "current-roster-merged",
 
     eventId,
-
+gamelogDebug,
     game:
       `${awayTeam} @ ${homeTeam}`,
 
