@@ -1194,64 +1194,117 @@ function findStatValue(data, statName, section = "stats") {
 async function getTeamStatsProfile(type, teamRef, season) {
   const sportPath = SPORT_PATHS[type];
 
-  if (teamRef.needsDynamicResolution && type === "ncaaf") {
-    const resolved = await findNCAAFTeamIdDynamic(teamRef.id);
+  const fallbackProfile =
+    type === "nfl"
+      ? {
+          plays: 62,
+          yards: 335,
+          thirdDown: 39,
+          redZone: 58,
+          defPoints: 22,
+          defYards: 335,
+          defThirdDown: 39,
+          defRedZone: 58
+        }
+      : {
+          plays: 68,
+          yards: 390,
+          thirdDown: 40,
+          redZone: 60,
+          defPoints: 27,
+          defYards: 390,
+          defThirdDown: 40,
+          defRedZone: 60
+        };
+
+  if (
+    teamRef.needsDynamicResolution &&
+    type === "ncaaf"
+  ) {
+    const resolved =
+      await findNCAAFTeamIdDynamic(teamRef.id);
+
     if (resolved) {
-      teamRef = { ...teamRef, ...resolved, needsDynamicResolution: false };
-    } else {
-      return {
-        plays: 68, yards: 390, thirdDown: 40, redZone: 60,
-        defPoints: 27, defYards: 390, defThirdDown: 40, defRedZone: 60
+      teamRef = {
+        ...teamRef,
+        ...resolved,
+        needsDynamicResolution: false
       };
+    } else {
+      return fallbackProfile;
     }
   }
-const url = `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/teams/${teamRef.id}/statistics?season=${season}`;
+
+  const url =
+    `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/teams/${teamRef.id}/statistics?season=${season}`;
+
   let data;
+
   try {
     data = await fetchJson(url);
-catch (err) {
-  console.log(
-    `Stats no disponibles para team ${teamRef.id}:`,
-    err.message
-  );
+  } catch (err) {
+    console.log(
+      `Stats no disponibles para team ${teamRef.id}:`,
+      err.message
+    );
 
-  if (type === "nfl") {
-    return {
-      plays: 62,
-      yards: 335,
-      thirdDown: 39,
-      redZone: 58,
-      defPoints: 22,
-      defYards: 335,
-      defThirdDown: 39,
-      defRedZone: 58
-    };
+    return fallbackProfile;
   }
 
   return {
-    plays: 68,
-    yards: 390,
-    thirdDown: 40,
-    redZone: 60,
-    defPoints: 27,
-    defYards: 390,
-    defThirdDown: 40,
-    defRedZone: 60
+    plays:
+      findStatValue(
+        data,
+        "totalOffensivePlays"
+      ),
+
+    yards:
+      findStatValue(
+        data,
+        "yardsPerGame"
+      ),
+
+    thirdDown:
+      findStatValue(
+        data,
+        "thirdDownConvPct"
+      ),
+
+    redZone:
+      findStatValue(
+        data,
+        "redzoneScoringPct"
+      ),
+
+    defPoints:
+      findStatValue(
+        data,
+        "totalPointsPerGame",
+        "opponent"
+      ),
+
+    defYards:
+      findStatValue(
+        data,
+        "yardsPerGame",
+        "opponent"
+      ),
+
+    defThirdDown:
+      findStatValue(
+        data,
+        "thirdDownConvPct",
+        "opponent"
+      ),
+
+    defRedZone:
+      findStatValue(
+        data,
+        "redzoneScoringPct",
+        "opponent"
+      )
   };
 }
-
-  return {
-    plays: findStatValue(data, "totalOffensivePlays"),
-    yards: findStatValue(data, "yardsPerGame"),
-    thirdDown: findStatValue(data, "thirdDownConvPct"),
-    redZone: findStatValue(data, "redzoneScoringPct"),
-    defPoints: findStatValue(data, "totalPointsPerGame", "opponent"),
-    defYards: findStatValue(data, "yardsPerGame", "opponent"),
-    defThirdDown: findStatValue(data, "thirdDownConvPct", "opponent"),
-    defRedZone: findStatValue(data, "redzoneScoringPct", "opponent")
-  };
-}
-
 function calculatePaceEfficiencyAdjustment({ type, projectedTotal, teamAProfile, teamBProfile }) {
    if (type === "ncaaf") return { adjustment: 0, gameEdge: 0, teamAOffenseScore: 1, teamBOffenseScore: 1, teamADefenseScore: 1, teamBDefenseScore: 1 };
   const leagueAvg = {
