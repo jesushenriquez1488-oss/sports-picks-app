@@ -1209,13 +1209,36 @@ const url = `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/teams/${
   let data;
   try {
     data = await fetchJson(url);
-  } catch (err) {
-    console.log(`Stats no disponibles para team ${teamRef.id}:`, err.message);
+catch (err) {
+  console.log(
+    `Stats no disponibles para team ${teamRef.id}:`,
+    err.message
+  );
+
+  if (type === "nfl") {
     return {
-      plays: 68, yards: 390, thirdDown: 40, redZone: 60,
-      defPoints: 27, defYards: 390, defThirdDown: 40, defRedZone: 60
+      plays: 62,
+      yards: 335,
+      thirdDown: 39,
+      redZone: 58,
+      defPoints: 22,
+      defYards: 335,
+      defThirdDown: 39,
+      defRedZone: 58
     };
   }
+
+  return {
+    plays: 68,
+    yards: 390,
+    thirdDown: 40,
+    redZone: 60,
+    defPoints: 27,
+    defYards: 390,
+    defThirdDown: 40,
+    defRedZone: 60
+  };
+}
 
   return {
     plays: findStatValue(data, "totalOffensivePlays"),
