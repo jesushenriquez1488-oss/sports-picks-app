@@ -8141,11 +8141,41 @@ const injuryAdjB = NFL_INJURY_ACTIVE ? teamBInjuries.pointsImpact : 0;
 
 const projectedTeamAInj = round(projectedTeamA + injuryAdjA);
 const projectedTeamBInj = round(projectedTeamB + injuryAdjB);
-const [teamAProfile, teamBProfile] = await Promise.all([
-  getTeamStatsProfile(type, teamARef, selectedSeason),
-  getTeamStatsProfile(type, teamBRef, selectedSeason)
-]);
+// ============================================================
+// PACE PROFILE — EARLY SEASON STABILIZATION
+// ============================================================
 
+const paceSeasonA =
+  type === "nfl" &&
+  currentTeamAGames.length < 4
+    ? previousSeason
+    : selectedSeason;
+
+const paceSeasonB =
+  type === "nfl" &&
+  currentTeamBGames.length < 4
+    ? previousSeason
+    : selectedSeason;
+
+
+const [
+  teamAProfile,
+  teamBProfile
+] = await Promise.all([
+
+  getTeamStatsProfile(
+    type,
+    teamARef,
+    paceSeasonA
+  ),
+
+  getTeamStatsProfile(
+    type,
+    teamBRef,
+    paceSeasonB
+  )
+
+]);
 const paceModule = calculatePaceEfficiencyAdjustment({
   type,
   projectedTotal: round(projectedTeamAInj + projectedTeamBInj),
