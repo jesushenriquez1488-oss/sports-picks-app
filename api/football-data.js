@@ -4527,14 +4527,43 @@ function nflPlayerStatsRosterFingerprint(
           )
       );
 
-  return crypto
-    .createHash("sha256")
-    .update(
-      JSON.stringify(
-        normalized
-      )
-    )
-    .digest("hex");
+
+  const source =
+    JSON.stringify(
+      normalized
+    );
+
+
+  /*
+   * Hash simple y determinístico.
+   * No necesitamos criptografía;
+   * solamente detectar cambios
+   * en el roster.
+   */
+  let hash =
+    2166136261;
+
+
+  for (
+    let i = 0;
+    i < source.length;
+    i++
+  ) {
+
+    hash ^=
+      source.charCodeAt(i);
+
+    hash =
+      Math.imul(
+        hash,
+        16777619
+      );
+  }
+
+
+  return (
+    hash >>> 0
+  ).toString(16);
 }
 
 
