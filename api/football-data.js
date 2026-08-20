@@ -2244,7 +2244,9 @@ const selectedEventId =
   req.query.eventId ||
   req.body?.eventId ||
   null;
-
+const force =
+  req.query.force === "true" ||
+  req.body?.force === true;
 if (!selectedEventId) {
   return res.status(400).json({
     ok: false,
