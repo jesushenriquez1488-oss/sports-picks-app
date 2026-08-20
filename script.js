@@ -3059,7 +3059,391 @@ if (data.limitReached === true || data.upgradeRequired === true) {
     const isUnder = realType === "total" && pickText.includes("UNDER");
     const bestPickFixed = bestPick ? { ...bestPick, type: realType, isOver, isUnder } : null;
     const analysisText = bestPickFixed ? generateNFLAnalysisText(data, awayTeam, homeTeam, bestPickFixed) : "";
- 
+ const gameIntelligenceHTML = (() => {
+
+  if (!bestPick || locked) return "";
+
+  const pe =
+    data.paceEfficiencyAdjustment || {};
+
+  const aOff =
+    Number(pe.teamAOffenseScore || 1);
+
+  const bOff =
+    Number(pe.teamBOffenseScore || 1);
+
+  const aDef =
+    Number(pe.teamADefenseScore || 1);
+
+  const bDef =
+    Number(pe.teamBDefenseScore || 1);
+
+
+  const hasMatchupData =
+    [aOff, bOff, aDef, bDef]
+      .some(v => v !== 1);
+
+
+  const toScore = value =>
+    Math.max(
+      1,
+      Math.min(
+        99,
+        Math.round(
+          ((value - 0.8) / 0.5) * 100
+        )
+      )
+    );
+
+
+  // =====================================
+  // MARKET VS MODEL
+  // =====================================
+
+  let marketLabel = "";
+  let modelLabel = "";
+  let marketValue = "";
+  let modelValue = "";
+
+
+  if (realType === "total") {
+
+    marketLabel = "MARKET TOTAL";
+    modelLabel = "MODEL TOTAL";
+
+    marketValue =
+      Number.isFinite(Number(odds.totalLine))
+        ? Number(odds.totalLine).toFixed(1)
+        : "—";
+
+    modelValue =
+      projectedTotal.toFixed(1);
+
+  } else {
+
+    const pickedAway =
+      pickText.includes(
+        awayTeam.toUpperCase()
+      );
+
+    const marketSpread =
+      pickedAway
+        ? Number(odds.spreadLineA)
+        : Number(odds.spreadLineB);
+
+    const modelSpread =
+      pickedAway
+        ? -projectedSpread
+        : projectedSpread;
+
+
+    marketLabel = "MARKET SPREAD";
+    modelLabel = "MODEL SPREAD";
+
+    marketValue =
+      Number.isFinite(marketSpread)
+        ? `${marketSpread > 0 ? "+" : ""}${marketSpread.toFixed(1)}`
+        : "—";
+
+    modelValue =
+      `${modelSpread > 0 ? "+" : ""}${modelSpread.toFixed(1)}`;
+  }
+
+
+  // =====================================
+  // INJURIES
+  // =====================================
+
+  const injuries =
+    data.injuryImpact || {};
+
+  const awayInjury =
+    String(
+      injuries?.[awayTeam]?.note || ""
+    ).trim();
+
+  const homeInjury =
+    String(
+      injuries?.[homeTeam]?.note || ""
+    ).trim();
+
+
+  const cleanInjury = text => {
+
+    if (
+      !text ||
+      /no key injuries|injury data unavailable/i.test(text)
+    ) {
+      return "No major impact";
+    }
+
+    return text;
+  };
+
+
+  const ratingRow = (
+    team,
+    offense,
+    defense
+  ) => `
+
+    <div style="
+      display:grid;
+      grid-template-columns:minmax(0,1fr) 52px 52px;
+      gap:8px;
+      align-items:center;
+      padding:6px 0;
+      border-bottom:1px solid #162238;
+    ">
+
+      <div style="
+        font-size:10px;
+        color:#c7d2e3;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+      ">
+        ${team.split(" ").pop()}
+      </div>
+
+      <div style="text-align:center;">
+        <div style="
+          font-size:7px;
+          color:#556688;
+          margin-bottom:2px;
+        ">
+          OFF
+        </div>
+
+        <strong style="
+          font-size:12px;
+          color:#00ffe7;
+        ">
+          ${toScore(offense)}
+        </strong>
+      </div>
+
+      <div style="text-align:center;">
+        <div style="
+          font-size:7px;
+          color:#556688;
+          margin-bottom:2px;
+        ">
+          DEF
+        </div>
+
+        <strong style="
+          font-size:12px;
+          color:#a07cff;
+        ">
+          ${toScore(defense)}
+        </strong>
+      </div>
+
+    </div>
+  `;
+
+
+  return `
+
+    <div style="
+      background:#0b1220;
+      border:1px solid #17243a;
+      border-radius:10px;
+      padding:11px 12px;
+      margin-bottom:10px;
+    ">
+
+      <div style="
+        font-size:9px;
+        color:#00ffe7;
+        font-weight:800;
+        letter-spacing:.08em;
+        margin-bottom:9px;
+      ">
+        ⚡ GAME INTELLIGENCE
+      </div>
+
+
+      <!-- MARKET VS MODEL -->
+
+      <div style="
+        font-size:8px;
+        color:#667995;
+        font-weight:700;
+        letter-spacing:.08em;
+        margin-bottom:5px;
+      ">
+        MARKET VS MODEL
+      </div>
+
+      <div style="
+        display:grid;
+        grid-template-columns:1fr 1fr 1fr;
+        gap:6px;
+        margin-bottom:12px;
+      ">
+
+        <div style="
+          background:#0f1829;
+          border-radius:6px;
+          padding:7px 4px;
+          text-align:center;
+        ">
+          <div style="
+            font-size:7px;
+            color:#61718a;
+            margin-bottom:3px;
+          ">
+            ${marketLabel}
+          </div>
+
+          <strong style="
+            font-size:13px;
+            color:#fff;
+          ">
+            ${marketValue}
+          </strong>
+        </div>
+
+
+        <div style="
+          background:#0f1829;
+          border-radius:6px;
+          padding:7px 4px;
+          text-align:center;
+        ">
+          <div style="
+            font-size:7px;
+            color:#61718a;
+            margin-bottom:3px;
+          ">
+            ${modelLabel}
+          </div>
+
+          <strong style="
+            font-size:13px;
+            color:#00ffe7;
+          ">
+            ${modelValue}
+          </strong>
+        </div>
+
+
+        <div style="
+          background:#0f1829;
+          border-radius:6px;
+          padding:7px 4px;
+          text-align:center;
+        ">
+          <div style="
+            font-size:7px;
+            color:#61718a;
+            margin-bottom:3px;
+          ">
+            EDGE
+          </div>
+
+          <strong style="
+            font-size:13px;
+            color:#a07cff;
+          ">
+            +${Number(bestPick.edge || 0).toFixed(1)}
+          </strong>
+        </div>
+
+      </div>
+
+
+      ${hasMatchupData ? `
+
+        <div style="
+          font-size:8px;
+          color:#667995;
+          font-weight:700;
+          letter-spacing:.08em;
+          margin-bottom:2px;
+        ">
+          MATCHUP RATINGS
+        </div>
+
+        ${ratingRow(
+          awayTeam,
+          aOff,
+          aDef
+        )}
+
+        ${ratingRow(
+          homeTeam,
+          bOff,
+          bDef
+        )}
+
+      ` : ""}
+
+
+      <div style="
+        font-size:8px;
+        color:#667995;
+        font-weight:700;
+        letter-spacing:.08em;
+        margin-top:10px;
+        margin-bottom:5px;
+      ">
+        INJURY WATCH
+      </div>
+
+
+      <div style="
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:8px;
+      ">
+
+        <div>
+          <div style="
+            font-size:8px;
+            color:#71839f;
+            margin-bottom:2px;
+          ">
+            ${awayTeam.split(" ").pop()}
+          </div>
+
+          <div style="
+            font-size:9px;
+            color:#d1d9e5;
+            line-height:1.35;
+          ">
+            ${cleanInjury(awayInjury)}
+          </div>
+        </div>
+
+
+        <div>
+          <div style="
+            font-size:8px;
+            color:#71839f;
+            margin-bottom:2px;
+          ">
+            ${homeTeam.split(" ").pop()}
+          </div>
+
+          <div style="
+            font-size:9px;
+            color:#d1d9e5;
+            line-height:1.35;
+          ">
+            ${cleanInjury(homeInjury)}
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  `;
+
+})();
    const circleColor = isPremium ? "#ff8c1a" : "#00ffe7";
  
     const awayEsc = awayTeam.replace(/'/g, "\\'");
@@ -3337,7 +3721,7 @@ ${propsPanelHTML}
       <div style="font-size:14px;font-weight:700;color:#fff;">${Number(data.paceEfficiencyAdjustment?.adjustment || 0) > 0 ? "+" : ""}${Number(data.paceEfficiencyAdjustment?.adjustment || 0).toFixed(1)}</div>
     </div>
   </div>
-
+${gameIntelligenceHTML}
   ${analysisText ? `
   <div style="background:#0a1628;border:1px solid rgba(0,255,231,0.12);border-left:3px solid #00ffe7;border-radius:8px;padding:12px 14px;margin-bottom:10px;">
     <div style="font-size:10px;color:#00ffe7;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;font-weight:600;">⚡ Model analysis</div>
