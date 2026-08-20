@@ -3025,76 +3025,7 @@ async function analyzeFootball(
 if (data.limitReached === true || data.upgradeRequired === true) {
   throw new Error("You have used your 5 free analyses. More free analyses unlock every 3 hours.");
 }
-    // =============================================
-// TEMP TEST — NFL PLAYER STATS CACHE
-// =============================================
-
-if (type === "nfl" && eventId) {
-  try {
-    const params = new URLSearchParams({
-      mode: "nfl-player-stats",
-      eventId: String(eventId),
-      awayTeam: String(awayTeam),
-      homeTeam: String(homeTeam),
-      gameTime: String(gameTime || "")
-    });
-
-    // PRIMERA LLAMADA
-    const statsRes1 = await fetch(
-      `/api/football-data?${params.toString()}`,
-      {
-        headers: {
-          "Authorization":
-            `Bearer ${sessionData.session.access_token}`
-        }
-      }
-    );
-
-    const statsData1 =
-      await statsRes1.json();
-
-    console.log(
-      "NFL PLAYER STATS TEST #1",
-      {
-        status: statsRes1.status,
-        data: statsData1
-      }
-    );
-
-
-    // SEGUNDA LLAMADA
-    const statsRes2 = await fetch(
-      `/api/football-data?${params.toString()}`,
-      {
-        headers: {
-          "Authorization":
-            `Bearer ${sessionData.session.access_token}`
-        }
-      }
-    );
-
-    const statsData2 =
-      await statsRes2.json();
-
-    console.log(
-      "NFL PLAYER STATS TEST #2",
-      {
-        status: statsRes2.status,
-        data: statsData2
-      }
-    );
-
-  } catch (error) {
-    console.error(
-      "NFL PLAYER STATS TEST ERROR:",
-      error
-    );
-  }
-}
-
-// =============================================
-// END TEMP TEST
-// =============================================
+  
     const projAway = Number(data.projectedScore?.[awayTeam] || 0);
     const projHome = Number(data.projectedScore?.[homeTeam] || 0);
     const projectedTotal = Number(data.projectedTotal || 0);
