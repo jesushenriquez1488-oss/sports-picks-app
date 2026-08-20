@@ -2226,9 +2226,9 @@ if (premiumFrozen) {
     const locked =
       cachedAnalysis.isPremiumPick &&
       !isPremiumUser;
-
-    if (
+if (
   !cachedAnalysis.isPremiumPick &&
+  !cachedAnalysis.noPlay &&
   !freeUsageCheck.allowed
 ) {
   return res.status(429).json({
@@ -2238,7 +2238,10 @@ if (premiumFrozen) {
   });
 }
 
-if (!cachedAnalysis.isPremiumPick) {
+if (
+  !cachedAnalysis.isPremiumPick &&
+  !cachedAnalysis.noPlay
+) {
   await recordFreeAnalysis(
     user?.id,
     isUnlimited,
@@ -2319,8 +2322,9 @@ if (
     cachedAnalysis.isPremiumPick &&
     !isPremiumUser;
 
- if (
+if (
   !cachedAnalysis.isPremiumPick &&
+  !cachedAnalysis.noPlay &&
   !freeUsageCheck.allowed
 ) {
   return res.status(429).json({
@@ -2330,7 +2334,10 @@ if (
   });
 }
 
-if (!cachedAnalysis.isPremiumPick) {
+if (
+  !cachedAnalysis.isPremiumPick &&
+  !cachedAnalysis.noPlay
+) {
   await recordFreeAnalysis(
     user?.id,
     isUnlimited,
@@ -2518,20 +2525,6 @@ if (
 updated_at: new Date().toISOString(),
 game_date: new Date().toISOString().split("T")[0]
       });
-if (!freeUsageCheck.allowed) {
-  return res.status(429).json({
-    error: freeUsageCheck.message,
-    limitReached: true,
-    upgradeRequired: true
-  });
-}
-
-await recordFreeAnalysis(
-  user?.id,
-  isUnlimited,
-  "analyze-nba"
-);
-
 return res.status(200).json(noPlayData);
     }
 
