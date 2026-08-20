@@ -3038,7 +3038,186 @@ async function handleNFLPlayerStats(
     nflPlayerStatsDateKey(
       gameTime
     );
+// -------------------------
+// PLAYER STATS ACCESS GATE
+// -------------------------
 
+const {
+  data: profile,
+  error: profileError
+} =
+  await supabaseAdmin
+    .from("users")
+    .select(
+      "is_premium, subscription_status, email"
+    )
+    .or(
+      `id.eq.${authData.user.id},email.eq.${authData.user.email}`
+    )
+    .maybeSingle();
+
+if (profileError) {
+  console.warn(
+    "NFL PLAYER STATS PROFILE ERROR:",
+    profileError.message
+  );
+
+  return res.status(500).json({
+    ok: false,
+    mode: "nfl-player-stats",
+    error:
+      "Unable to verify account access"
+  });
+}
+
+const isPremiumUser =
+  profile?.is_premium === true ||
+  profile?.subscription_status ===
+    "active" ||
+  profile?.subscription_status ===
+    "trialing" ||
+  authData.user.email === ADMIN_EMAIL;
+
+
+// --------------------------------
+// FREE DAILY ANALYSIS LIMIT
+// --------------------------------
+//
+// IMPORTANTE:
+// Player Stats NO registra otro uso.
+//
+// Solamente comprueba si el usuario
+// todavía puede acceder a análisis.
+//
+// Cuando cambies el límite central
+// de 5 a 3, este módulo hereda
+// automáticamente ese cambio.
+// --------------------------------
+
+const usageCheck =
+  await checkFreeAnalysisLimit(
+    authData.user.id,
+    isPremiumUser
+  );
+
+if (!usageCheck.allowed) {
+  return res.status(429).json({
+    ok: false,
+    mode: "nfl-player-stats",
+
+    limitReached: true,
+    upgradeRequired: true,
+
+    error:
+      usageCheck.message ||
+      "Daily analysis limit reached"
+  });
+}
+
+
+// --------------------------------
+// FREE USER:
+// VERIFY GAME IS NOT PREMIUM LOCKED
+// --------------------------------
+
+if (!isPremiumUser) {
+
+  const teamsSorted = [
+    awayTeam,
+    homeTeam
+  ]
+    .map(team =>
+      String(team).trim()
+    )
+    .sort();
+
+  const analysisGameId =
+    `nfl-${gameDate}-${teamsSorted.join("-")}`;
+
+  const {
+    data: analysisRow,
+    error: analysisError
+  } =
+    await supabaseAdmin
+      .from("daily_picks")
+      .select(
+        "game_id, analysis_json"
+      )
+      .eq(
+        "sport",
+        "nfl"
+      )
+      .eq(
+        "game_id",
+        analysisGameId
+      )
+      .maybeSingle();
+
+
+  if (analysisError) {
+    console.warn(
+      "NFL PLAYER STATS ANALYSIS ACCESS ERROR:",
+      analysisError.message
+    );
+  }
+
+
+  /*
+   * Si el usuario intenta llamar
+   * Player Stats directamente antes
+   * de analizar el juego, no dejamos
+   * que use este endpoint como bypass.
+   */
+  if (!analysisRow?.analysis_json) {
+
+    return res.status(409).json({
+      ok: false,
+      mode:
+        "nfl-player-stats",
+
+      analysisRequired: true,
+
+      error:
+        "Analyze this game before viewing Player Stats."
+    });
+  }
+
+
+  const storedAnalysis =
+    analysisRow.analysis_json;
+
+  const full =
+    storedAnalysis?.fullResponse ||
+    {};
+
+  const gameIsPremium =
+    storedAnalysis
+      ?.isPremiumPick === true ||
+
+    full?.picks
+      ?.spreadPick
+      ?.isPremium === true ||
+
+    full?.picks
+      ?.totalPick
+      ?.isPremium === true;
+
+
+  if (gameIsPremium) {
+
+    return res.status(403).json({
+      ok: false,
+      mode:
+        "nfl-player-stats",
+
+      premiumGameLocked: true,
+      upgradeRequired: true,
+
+      error:
+        "Player Stats are unavailable while this Premium Pick is locked."
+    });
+  }
+}
 
   // -------------------------
   // READ CACHE
