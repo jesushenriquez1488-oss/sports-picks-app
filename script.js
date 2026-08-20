@@ -3073,19 +3073,39 @@ if (data.limitReached === true || data.upgradeRequired === true) {
 const propsButtonHTML = type === "nfl"
   ? `
     <button
+      type="button"
       onclick="toggleNFLPlayerProps(
         ${index},
         '${awayEsc}',
         '${homeEsc}',
         '${eventIdEsc}'
       )"
-      style="width:100%;padding:11px;border-radius:8px;border:1px solid #1a2240;background:#0f1628;color:#00ffe7;font-size:12px;font-weight:600;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;"
+      style="
+        width:100%;
+        min-height:46px;
+        padding:8px 6px;
+        border-radius:10px;
+        border:1px solid rgba(124,60,255,.30);
+        background:#0f1628;
+        color:#fff;
+        font-size:10px;
+        font-weight:800;
+        letter-spacing:.05em;
+        cursor:pointer;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+      "
     >
-      ⚡ VIEW PLAYER PROPS
+      ⚡ PLAYER PROPS
     </button>
-
-    <div id="nflProps${index}"></div>
   `
+  : "";
+
+
+const propsPanelHTML = type === "nfl"
+  ? `<div id="nflProps${index}"></div>`
   : "";
  const gameTimeEsc =
   String(gameTime || "")
@@ -3096,32 +3116,35 @@ const statsButtonHTML =
   !locked &&
   eventId
     ? `
-      <div class="player-stats-section">
-        <button
-          type="button"
-          class="player-stats-open-btn"
-          onclick="openNFLPlayerStats(
-            ${index},
-            '${eventIdEsc}',
-            '${awayEsc}',
-            '${homeEsc}',
-            '${gameTimeEsc}'
-          )"
-        >
-          <span class="player-stats-icon">
-            📊
-          </span>
-
-          <span class="player-stats-copy">
-            <strong>PLAYER STATS</strong>
-            <small>QB · RB · WR · TE · Last 3/5/10 · Season</small>
-          </span>
-
-          <span class="player-stats-arrow">
-            ›
-          </span>
-        </button>
-      </div>
+      <button
+        type="button"
+        onclick="openNFLPlayerStats(
+          ${index},
+          '${eventIdEsc}',
+          '${awayEsc}',
+          '${homeEsc}',
+          '${gameTimeEsc}'
+        )"
+        style="
+          width:100%;
+          min-height:46px;
+          padding:8px 6px;
+          border-radius:10px;
+          border:1px solid rgba(0,255,231,.25);
+          background:#0f1628;
+          color:#fff;
+          font-size:10px;
+          font-weight:800;
+          letter-spacing:.05em;
+          cursor:pointer;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          gap:6px;
+        "
+      >
+        📊 PLAYER STATS
+      </button>
     `
     : "";
    const footballAnalysisHTML = isPremium ? `
@@ -3253,8 +3276,17 @@ const statsButtonHTML =
       <div style="font-size:10px;color:${circleColor};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;font-weight:600;">⚡ Model analysis</div>
       <div style="font-size:12px;color:#aabbcc;line-height:1.6;">${analysisText}</div>
     </div>
-    ${statsButtonHTML}
-${propsButtonHTML}
+   <div style="
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-top:10px;
+">
+  ${statsButtonHTML}
+  ${propsButtonHTML}
+</div>
+
+${propsPanelHTML}
   `}
  
 </div>
@@ -3313,8 +3345,17 @@ ${propsButtonHTML}
   </div>
   ` : ""}
 
- ${statsButtonHTML}
-${propsButtonHTML}
+ <div style="
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-top:10px;
+">
+  ${statsButtonHTML}
+  ${propsButtonHTML}
+</div>
+
+${propsPanelHTML}
 
 </div>
  
