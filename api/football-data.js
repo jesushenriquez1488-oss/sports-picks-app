@@ -4309,6 +4309,184 @@ function nflPlayerStatsBuildWindow(
 // ============================================================
 
 // ============================================================
+// NFL PLAYER STATS — CURRENT ROSTER
+// ============================================================
+
+function nflPlayerStatsRosterPosition(
+  value
+) {
+  const clean =
+    String(value || "")
+      .toLowerCase()
+      .trim();
+
+  const aliases = {
+    "quarterback": "QB",
+    "qb": "QB",
+
+    "running back": "RB",
+    "halfback": "RB",
+    "fullback": "RB",
+    "rb": "RB",
+    "hb": "RB",
+    "fb": "RB",
+
+    "wide receiver": "WR",
+    "receiver": "WR",
+    "wr": "WR",
+
+    "tight end": "TE",
+    "te": "TE"
+  };
+
+  return (
+    aliases[clean] ||
+    nflPlayerStatsPosition(
+      value
+    )
+  );
+}
+
+
+async function getNFLCurrentSkillRoster(
+  espnTeamId
+) {
+  if (!espnTeamId) {
+    return [];
+  }
+
+  const url =
+    `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${espnTeamId}/roster`;
+
+  const data =
+    await espnFetchNFL(url);
+
+  const groups =
+    Array.isArray(data?.athletes)
+      ? data.athletes
+      : [];
+
+  const players = [];
+
+
+  for (const group of groups) {
+
+    const groupPosition =
+      nflPlayerStatsRosterPosition(
+        group?.position
+      );
+
+    const items =
+      Array.isArray(group?.items)
+        ? group.items
+        : [];
+
+
+    for (const athlete of items) {
+
+      const position =
+        nflPlayerStatsRosterPosition(
+          athlete?.position
+            ?.abbreviation ||
+          athlete?.position
+            ?.name ||
+          groupPosition
+        );
+
+
+      if (
+        ![
+          "QB",
+          "RB",
+          "WR",
+          "TE"
+        ].includes(position)
+      ) {
+        continue;
+      }
+
+
+      const athleteId =
+        athlete?.id
+          ? String(
+              athlete.id
+            )
+          : null;
+
+
+      const name =
+        athlete?.displayName ||
+        athlete?.fullName ||
+        athlete?.shortName ||
+        null;
+
+
+      if (!name) {
+        continue;
+      }
+
+
+      players.push({
+        id:
+          athleteId,
+
+        name,
+
+        jersey:
+          athlete?.jersey ||
+          null,
+
+        position,
+
+        status:
+          athlete?.status
+            ?.name ||
+          athlete?.status
+            ?.type ||
+          null
+      });
+    }
+  }
+
+
+  /*
+   * Deduplicar por ESPN athlete ID.
+   */
+  const unique =
+    new Map();
+
+
+  for (const player of players) {
+
+    const key =
+      player.id
+        ? `id:${player.id}`
+        : `name:${String(
+            player.name
+          )
+            .toLowerCase()
+            .trim()}`;
+
+
+    if (!unique.has(key)) {
+      unique.set(
+        key,
+        player
+      );
+    }
+  }
+
+
+  return Array.from(
+    unique.values()
+  );
+}
+
+
+// ============================================================
+// FIN NFL PLAYER STATS — CURRENT ROSTER
+// ============================================================
+// ============================================================
 // NFL PLAYER STATS — TEAM PROFILE BUILDER
 // ============================================================
 
