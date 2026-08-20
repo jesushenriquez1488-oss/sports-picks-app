@@ -3825,7 +3825,934 @@ async function loadNFLPlayerStatsBoxscores(
 // ============================================================
 // NFL PLAYER STATS HANDLER
 // ============================================================
+// ============================================================
+// NFL PLAYER STATS — PLAYER PROFILE ENGINE
+// ============================================================
 
+function nflPlayerStatsPlayerKey(player) {
+  if (player?.id) {
+    return `id:${String(player.id)}`;
+  }
+
+  return `name:${String(player?.name || "")
+    .toLowerCase()
+    .trim()}`;
+}
+
+
+function nflPlayerStatsNormalizePosition(player) {
+  const position =
+    nflPlayerStatsPosition(
+      player?.position
+    );
+
+  if (
+    ["QB", "RB", "WR", "TE"].includes(position)
+  ) {
+    return position;
+  }
+
+  /*
+   * Fallback solamente cuando ESPN
+   * no entrega posición.
+   */
+  const passAttempts =
+    nflSafeNum(
+      player?.passing?.attempts
+    );
+
+  const rushAttempts =
+    nflSafeNum(
+      player?.rushing?.attempts
+    );
+
+  const targets =
+    nflSafeNum(
+      player?.receiving?.targets
+    );
+
+  if (passAttempts > 0) {
+    return "QB";
+  }
+
+  if (
+    rushAttempts >= 3 &&
+    targets <= 4
+  ) {
+    return "RB";
+  }
+
+  /*
+   * No intentamos adivinar WR vs TE
+   * si ESPN no entrega posición.
+   */
+  return position || null;
+}
+
+
+function nflPlayerStatsGameLog(
+  boxscore,
+  teamId,
+  player
+) {
+  const team =
+    boxscore?.teams?.[
+      String(teamId)
+    ];
+
+  if (!team) {
+    return null;
+  }
+
+  const opponentTeam =
+    team?.opponentId
+      ? boxscore?.teams?.[
+          String(team.opponentId)
+        ]
+      : null;
+
+  return {
+    gameId:
+      String(
+        boxscore?.gameId || ""
+      ),
+
+    date:
+      boxscore?.date || null,
+
+    season:
+      Number(
+        boxscore?.season || 0
+      ),
+
+    opponent:
+      team?.opponent || null,
+
+    opponentId:
+      team?.opponentId || null,
+
+    homeAway:
+      team?.homeAway || null,
+
+    teamScore:
+      nflSafeNum(
+        team?.score
+      ),
+
+    opponentScore:
+      nflSafeNum(
+        opponentTeam?.score
+      ),
+
+    passing: {
+      completions:
+        nflSafeNum(
+          player?.passing
+            ?.completions
+        ),
+
+      attempts:
+        nflSafeNum(
+          player?.passing
+            ?.attempts
+        ),
+
+      yards:
+        nflSafeNum(
+          player?.passing
+            ?.yards
+        ),
+
+      touchdowns:
+        nflSafeNum(
+          player?.passing
+            ?.touchdowns
+        ),
+
+      interceptions:
+        nflSafeNum(
+          player?.passing
+            ?.interceptions
+        )
+    },
+
+    rushing: {
+      attempts:
+        nflSafeNum(
+          player?.rushing
+            ?.attempts
+        ),
+
+      yards:
+        nflSafeNum(
+          player?.rushing
+            ?.yards
+        ),
+
+      touchdowns:
+        nflSafeNum(
+          player?.rushing
+            ?.touchdowns
+        )
+    },
+
+    receiving: {
+      receptions:
+        nflSafeNum(
+          player?.receiving
+            ?.receptions
+        ),
+
+      targets:
+        nflSafeNum(
+          player?.receiving
+            ?.targets
+        ),
+
+      yards:
+        nflSafeNum(
+          player?.receiving
+            ?.yards
+        ),
+
+      touchdowns:
+        nflSafeNum(
+          player?.receiving
+            ?.touchdowns
+        )
+    }
+  };
+}
+
+
+function nflPlayerStatsAverage(
+  values
+) {
+  const clean =
+    values
+      .map(value =>
+        Number(value)
+      )
+      .filter(
+        Number.isFinite
+      );
+
+  if (!clean.length) {
+    return 0;
+  }
+
+  return (
+    clean.reduce(
+      (sum, value) =>
+        sum + value,
+      0
+    ) / clean.length
+  );
+}
+
+
+function nflPlayerStatsRound(
+  value,
+  decimals = 1
+) {
+  const factor =
+    10 ** decimals;
+
+  return (
+    Math.round(
+      nflSafeNum(value) *
+      factor
+    ) / factor
+  );
+}
+
+
+function nflPlayerStatsBuildWindow(
+  logs = []
+) {
+  if (!logs.length) {
+    return {
+      games: 0,
+
+      passing: {
+        completions: 0,
+        attempts: 0,
+        yards: 0,
+        touchdowns: 0,
+        interceptions: 0,
+        completionPct: 0
+      },
+
+      rushing: {
+        attempts: 0,
+        yards: 0,
+        touchdowns: 0,
+        yardsPerCarry: 0
+      },
+
+      receiving: {
+        receptions: 0,
+        targets: 0,
+        yards: 0,
+        touchdowns: 0,
+        catchPct: 0,
+        yardsPerReception: 0
+      }
+    };
+  }
+
+
+  const avgPassCompletions =
+    nflPlayerStatsAverage(
+      logs.map(
+        log =>
+          log.passing
+            .completions
+      )
+    );
+
+  const avgPassAttempts =
+    nflPlayerStatsAverage(
+      logs.map(
+        log =>
+          log.passing
+            .attempts
+      )
+    );
+
+  const avgRushAttempts =
+    nflPlayerStatsAverage(
+      logs.map(
+        log =>
+          log.rushing
+            .attempts
+      )
+    );
+
+  const avgRushYards =
+    nflPlayerStatsAverage(
+      logs.map(
+        log =>
+          log.rushing
+            .yards
+      )
+    );
+
+  const avgReceptions =
+    nflPlayerStatsAverage(
+      logs.map(
+        log =>
+          log.receiving
+            .receptions
+      )
+    );
+
+  const avgTargets =
+    nflPlayerStatsAverage(
+      logs.map(
+        log =>
+          log.receiving
+            .targets
+      )
+    );
+
+  const avgReceivingYards =
+    nflPlayerStatsAverage(
+      logs.map(
+        log =>
+          log.receiving
+            .yards
+      )
+    );
+
+
+  return {
+    games:
+      logs.length,
+
+    passing: {
+      completions:
+        nflPlayerStatsRound(
+          avgPassCompletions
+        ),
+
+      attempts:
+        nflPlayerStatsRound(
+          avgPassAttempts
+        ),
+
+      yards:
+        nflPlayerStatsRound(
+          nflPlayerStatsAverage(
+            logs.map(
+              log =>
+                log.passing.yards
+            )
+          )
+        ),
+
+      touchdowns:
+        nflPlayerStatsRound(
+          nflPlayerStatsAverage(
+            logs.map(
+              log =>
+                log.passing
+                  .touchdowns
+            )
+          )
+        ),
+
+      interceptions:
+        nflPlayerStatsRound(
+          nflPlayerStatsAverage(
+            logs.map(
+              log =>
+                log.passing
+                  .interceptions
+            )
+          )
+        ),
+
+      completionPct:
+        avgPassAttempts > 0
+          ? nflPlayerStatsRound(
+              (
+                avgPassCompletions /
+                avgPassAttempts
+              ) * 100
+            )
+          : 0
+    },
+
+    rushing: {
+      attempts:
+        nflPlayerStatsRound(
+          avgRushAttempts
+        ),
+
+      yards:
+        nflPlayerStatsRound(
+          avgRushYards
+        ),
+
+      touchdowns:
+        nflPlayerStatsRound(
+          nflPlayerStatsAverage(
+            logs.map(
+              log =>
+                log.rushing
+                  .touchdowns
+            )
+          )
+        ),
+
+      yardsPerCarry:
+        avgRushAttempts > 0
+          ? nflPlayerStatsRound(
+              avgRushYards /
+              avgRushAttempts
+            )
+          : 0
+    },
+
+    receiving: {
+      receptions:
+        nflPlayerStatsRound(
+          avgReceptions
+        ),
+
+      targets:
+        nflPlayerStatsRound(
+          avgTargets
+        ),
+
+      yards:
+        nflPlayerStatsRound(
+          avgReceivingYards
+        ),
+
+      touchdowns:
+        nflPlayerStatsRound(
+          nflPlayerStatsAverage(
+            logs.map(
+              log =>
+                log.receiving
+                  .touchdowns
+            )
+          )
+        ),
+
+      catchPct:
+        avgTargets > 0
+          ? nflPlayerStatsRound(
+              (
+                avgReceptions /
+                avgTargets
+              ) * 100
+            )
+          : 0,
+
+      yardsPerReception:
+        avgReceptions > 0
+          ? nflPlayerStatsRound(
+              avgReceivingYards /
+              avgReceptions
+            )
+          : 0
+    }
+  };
+}
+
+
+// ============================================================
+// FIN NFL PLAYER STATS — PLAYER PROFILE ENGINE
+// ============================================================
+
+// ============================================================
+// NFL PLAYER STATS — TEAM PROFILE BUILDER
+// ============================================================
+
+function buildNFLPlayerStatsTeamProfiles({
+  teamId,
+  teamName,
+  recentGames = [],
+  seasonGames = [],
+  boxscoreMap
+}) {
+  const teamIdString =
+    String(teamId || "");
+
+  const profiles =
+    new Map();
+
+
+  /*
+   * Crea o recupera el perfil base
+   * de un jugador.
+   */
+  function ensurePlayer(player) {
+    const key =
+      nflPlayerStatsPlayerKey(
+        player
+      );
+
+    if (!key) {
+      return null;
+    }
+
+    if (!profiles.has(key)) {
+      profiles.set(
+        key,
+        {
+          id:
+            player?.id
+              ? String(player.id)
+              : null,
+
+          name:
+            player?.name || null,
+
+          jersey:
+            player?.jersey || null,
+
+          position:
+            nflPlayerStatsNormalizePosition(
+              player
+            ),
+
+          teamId:
+            teamIdString,
+
+          team:
+            teamName || null,
+
+          recentLogs: [],
+
+          seasonLogs: []
+        }
+      );
+    }
+
+
+    const profile =
+      profiles.get(key);
+
+
+    /*
+     * Si en un boxscore viejo ESPN
+     * no entregó posición pero en otro
+     * sí, conservamos la válida.
+     */
+    if (
+      !profile.position &&
+      player?.position
+    ) {
+      profile.position =
+        nflPlayerStatsNormalizePosition(
+          player
+        );
+    }
+
+
+    if (
+      !profile.jersey &&
+      player?.jersey
+    ) {
+      profile.jersey =
+        player.jersey;
+    }
+
+
+    return profile;
+  }
+
+
+  /*
+   * Procesa una colección de juegos.
+   *
+   * destination:
+   * "recentLogs"
+   * "seasonLogs"
+   */
+  function collectGames(
+    games,
+    destination
+  ) {
+    for (const game of games) {
+
+      const gameId =
+        String(
+          game?.id || ""
+        );
+
+      if (!gameId) continue;
+
+
+      const boxscore =
+        boxscoreMap?.get(
+          gameId
+        );
+
+      if (!boxscore) {
+        continue;
+      }
+
+
+      const team =
+        boxscore?.teams?.[
+          teamIdString
+        ];
+
+      if (!team) {
+        continue;
+      }
+
+
+      for (
+        const player of
+        team?.players || []
+      ) {
+
+        const profile =
+          ensurePlayer(
+            player
+          );
+
+        if (!profile) {
+          continue;
+        }
+
+
+        const log =
+          nflPlayerStatsGameLog(
+            boxscore,
+            teamIdString,
+            player
+          );
+
+        if (!log) {
+          continue;
+        }
+
+
+        /*
+         * Evitamos duplicar el mismo
+         * partido por seguridad.
+         */
+        const alreadyExists =
+          profile[
+            destination
+          ].some(
+            existing =>
+              String(
+                existing.gameId
+              ) ===
+              String(
+                log.gameId
+              )
+          );
+
+        if (!alreadyExists) {
+          profile[
+            destination
+          ].push(log);
+        }
+      }
+    }
+  }
+
+
+  // -----------------------------
+  // LAST 10 SOURCE
+  // -----------------------------
+
+  collectGames(
+    recentGames,
+    "recentLogs"
+  );
+
+
+  // -----------------------------
+  // SEASON SOURCE
+  // -----------------------------
+
+  collectGames(
+    seasonGames,
+    "seasonLogs"
+  );
+
+
+  const result = [];
+
+
+  for (
+    const profile of
+    profiles.values()
+  ) {
+
+    /*
+     * Por ahora solamente nos interesan
+     * skill positions.
+     */
+    if (
+      ![
+        "QB",
+        "RB",
+        "WR",
+        "TE"
+      ].includes(
+        profile.position
+      )
+    ) {
+      continue;
+    }
+
+
+    profile.recentLogs.sort(
+      (a, b) =>
+        new Date(
+          b.date || 0
+        ) -
+        new Date(
+          a.date || 0
+        )
+    );
+
+
+    profile.seasonLogs.sort(
+      (a, b) =>
+        new Date(
+          b.date || 0
+        ) -
+        new Date(
+          a.date || 0
+        )
+    );
+
+
+    const last3Logs =
+      profile.recentLogs
+        .slice(0, 3);
+
+    const last5Logs =
+      profile.recentLogs
+        .slice(0, 5);
+
+    const last10Logs =
+      profile.recentLogs
+        .slice(0, 10);
+
+
+    const playerProfile = {
+      id:
+        profile.id,
+
+      name:
+        profile.name,
+
+      jersey:
+        profile.jersey,
+
+      position:
+        profile.position,
+
+      teamId:
+        profile.teamId,
+
+      team:
+        profile.team,
+
+
+      // -------------------------
+      // SAMPLE SIZES
+      // -------------------------
+
+      gamesAvailable: {
+        recent:
+          profile
+            .recentLogs
+            .length,
+
+        season:
+          profile
+            .seasonLogs
+            .length
+      },
+
+
+      // -------------------------
+      // WINDOWS
+      // -------------------------
+
+      last3:
+        nflPlayerStatsBuildWindow(
+          last3Logs
+        ),
+
+      last5:
+        nflPlayerStatsBuildWindow(
+          last5Logs
+        ),
+
+      last10:
+        nflPlayerStatsBuildWindow(
+          last10Logs
+        ),
+
+      season:
+        nflPlayerStatsBuildWindow(
+          profile.seasonLogs
+        ),
+
+
+      // -------------------------
+      // GAME-BY-GAME
+      // -------------------------
+
+      gameLogs:
+        profile.recentLogs
+          .slice(0, 10)
+    };
+
+
+    result.push(
+      playerProfile
+    );
+  }
+
+
+  /*
+   * Orden inicial:
+   *
+   * QB
+   * RB
+   * WR
+   * TE
+   *
+   * Dentro de la posición,
+   * mayor volumen reciente primero.
+   */
+  const positionOrder = {
+    QB: 1,
+    RB: 2,
+    WR: 3,
+    TE: 4
+  };
+
+
+  result.sort(
+    (a, b) => {
+
+      const posDiff =
+        (
+          positionOrder[
+            a.position
+          ] || 99
+        ) -
+        (
+          positionOrder[
+            b.position
+          ] || 99
+        );
+
+      if (posDiff !== 0) {
+        return posDiff;
+      }
+
+
+      function usage(player) {
+        if (
+          player.position ===
+          "QB"
+        ) {
+          return nflSafeNum(
+            player?.last5
+              ?.passing
+              ?.attempts
+          );
+        }
+
+        if (
+          player.position ===
+          "RB"
+        ) {
+          return (
+            nflSafeNum(
+              player?.last5
+                ?.rushing
+                ?.attempts
+            ) +
+            nflSafeNum(
+              player?.last5
+                ?.receiving
+                ?.targets
+            )
+          );
+        }
+
+        return nflSafeNum(
+          player?.last5
+            ?.receiving
+            ?.targets
+        );
+      }
+
+
+      return (
+        usage(b) -
+        usage(a)
+      );
+    }
+  );
+
+
+  return result;
+}
+
+
+// ============================================================
+// FIN NFL PLAYER STATS — TEAM PROFILE BUILDER
+// ============================================================
 async function handleNFLPlayerStats(
   req,
   res
@@ -4369,7 +5296,40 @@ const boxscoreData =
   await loadNFLPlayerStatsBoxscores(
     requiredGames
   );
+// -------------------------
+// BUILD PLAYER PROFILES
+// -------------------------
 
+const awayPlayers =
+  buildNFLPlayerStatsTeamProfiles({
+    teamId: awayTeamId,
+    teamName: awayTeam,
+
+    recentGames:
+      awaySource.recentGames,
+
+    seasonGames:
+      awaySource.seasonGames,
+
+    boxscoreMap:
+      boxscoreData.byGameId
+  });
+
+
+const homePlayers =
+  buildNFLPlayerStatsTeamProfiles({
+    teamId: homeTeamId,
+    teamName: homeTeam,
+
+    recentGames:
+      homeSource.recentGames,
+
+    seasonGames:
+      homeSource.seasonGames,
+
+    boxscoreMap:
+      boxscoreData.byGameId
+  });
 
 return res
   .status(200)
@@ -4411,51 +5371,43 @@ return res
           .failedCount
     },
 
-    teams: {
-      away: {
-        name:
-          awayTeam,
+   teams: {
+  away: {
+    name: awayTeam,
+    id: awayTeamId,
+    season: awaySource.seasonUsed,
 
-        id:
-          awayTeamId,
+    recentGames:
+      awaySource.recentGames.length,
 
-        season:
-          awaySource
-            .seasonUsed,
+    seasonGames:
+      awaySource.seasonGames.length,
 
-        recentGames:
-          awaySource
-            .recentGames
-            .length,
+    playerCount:
+      awayPlayers.length,
 
-        seasonGames:
-          awaySource
-            .seasonGames
-            .length
-      },
+    players:
+      awayPlayers
+  },
 
-      home: {
-        name:
-          homeTeam,
+  home: {
+    name: homeTeam,
+    id: homeTeamId,
+    season: homeSource.seasonUsed,
 
-        id:
-          homeTeamId,
+    recentGames:
+      homeSource.recentGames.length,
 
-        season:
-          homeSource
-            .seasonUsed,
+    seasonGames:
+      homeSource.seasonGames.length,
 
-        recentGames:
-          homeSource
-            .recentGames
-            .length,
+    playerCount:
+      homePlayers.length,
 
-        seasonGames:
-          homeSource
-            .seasonGames
-            .length
-      }
-    }
+    players:
+      homePlayers
+  }
+}
   });
 }
 
