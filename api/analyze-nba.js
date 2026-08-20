@@ -31,29 +31,46 @@ function getDayStart() {
 }
 
 async function checkFreeAnalysisLimit(userId, isUnlimited) {
-  if (isUnlimited) return { allowed: true, remaining: null };
-
-  const { count, error } = await supabaseAdmin
-    .from("analysis_usage")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .gte("created_at", getDayStart());
-
-  if (error) return { allowed: true, remaining: null };
-
-  const used = count || 0;
-
-  if (used >= 5) {
+  if (isUnlimited) {
     return {
-      allowed: false,
-      remaining: 0,
-      message: "You've used today's 5 free analyses. More free analyses will be available tomorrow."
+      allowed: true,
+      remaining: null
     };
   }
 
-  return { allowed: true, remaining: 5 - used };
-}
+  const { count, error } = await supabaseAdmin
+    .from("analysis_usage")
+    .select("id", {
+      count: "exact",
+      head: true
+    })
+    .eq("user_id", userId)
+    .gte("created_at", getDayStart());
 
+  if (error) {
+    return {
+      allowed: true,
+      remaining: null
+    };
+  }
+
+  const used = count || 0;
+  const limit = 3;
+
+  if (used >= limit) {
+    return {
+      allowed: false,
+      remaining: 0,
+      message:
+        "You've used today's 3 free analyses. More free analyses will be available tomorrow."
+    };
+  }
+
+  return {
+    allowed: true,
+    remaining: limit - used
+  };
+}
 async function recordFreeAnalysis(userId, isUnlimited, endpoint) {
   if (isUnlimited) return;
   if (!userId || userId === "null" || userId === "undefined" || userId === "guest") return;
@@ -1959,6 +1976,11 @@ if (req.method === "GET" && req.query.mode === "parlay-performance") {
     let user = null;
     let isPremiumUser = false;
     let isUnlimited = false;
+    let freeUsageCheck = {
+  allowed: true,
+  remaining: null,
+  message: ""
+};
 const internalSecret = String(
   req.headers["x-internal-secret"] || ""
 );
@@ -2036,15 +2058,11 @@ if (isInternalRequest) {
   user?.email === ADMIN_EMAIL;
 isUnlimited = isPremiumUser || isAdmin;
 
-const usageCheck = await checkFreeAnalysisLimit(user.id, isUnlimited);
-
-if (!usageCheck.allowed) {
-  return res.status(429).json({
-    error: usageCheck.message,
-    limitReached: true,
-    upgradeRequired: true
-  });
-}
+freeUsageCheck =
+  await checkFreeAnalysisLimit(
+    user.id,
+    isUnlimited
+  );
 const userKey =
   user?.id || req.headers["x-forwarded-for"] || "guest";
 
@@ -2209,13 +2227,24 @@ if (premiumFrozen) {
       cachedAnalysis.isPremiumPick &&
       !isPremiumUser;
 
-    if (!cachedAnalysis.isPremiumPick) {
-      await recordFreeAnalysis(
-        user?.id,
-        isUnlimited,
-        "analyze-nba"
-      );
-    }
+    if (
+  !cachedAnalysis.isPremiumPick &&
+  !freeUsageCheck.allowed
+) {
+  return res.status(429).json({
+    error: freeUsageCheck.message,
+    limitReached: true,
+    upgradeRequired: true
+  });
+}
+
+if (!cachedAnalysis.isPremiumPick) {
+  await recordFreeAnalysis(
+    user?.id,
+    isUnlimited,
+    "analyze-nba"
+  );
+}
 
     return res.status(200).json({
       locked,
@@ -2290,13 +2319,24 @@ if (
     cachedAnalysis.isPremiumPick &&
     !isPremiumUser;
 
-  if (!cachedAnalysis.isPremiumPick) {
-    await recordFreeAnalysis(
-      user?.id,
-      isUnlimited,
-      "analyze-nba"
-    );
-  }
+ if (
+  !cachedAnalysis.isPremiumPick &&
+  !freeUsageCheck.allowed
+) {
+  return res.status(429).json({
+    error: freeUsageCheck.message,
+    limitReached: true,
+    upgradeRequired: true
+  });
+}
+
+if (!cachedAnalysis.isPremiumPick) {
+  await recordFreeAnalysis(
+    user?.id,
+    isUnlimited,
+    "analyze-nba"
+  );
+}
 
   return res.status(200).json({
     locked,
@@ -2478,8 +2518,21 @@ if (
 updated_at: new Date().toISOString(),
 game_date: new Date().toISOString().split("T")[0]
       });
-await recordFreeAnalysis(user?.id, isUnlimited, "analyze-nba");
-      return res.status(200).json(noPlayData);
+if (!freeUsageCheck.allowed) {
+  return res.status(429).json({
+    error: freeUsageCheck.message,
+    limitReached: true,
+    upgradeRequired: true
+  });
+}
+
+await recordFreeAnalysis(
+  user?.id,
+  isUnlimited,
+  "analyze-nba"
+);
+
+return res.status(200).json(noPlayData);
     }
 
     const isPremiumPick = mainEdge >= 13;
@@ -2634,9 +2687,24 @@ if (isPremiumPick === true) {
     }
   }
 }
-    if (!isPremiumPick) {
-   await recordFreeAnalysis(user?.id, isUnlimited, "analyze-nba");
- }
+  if (
+  !isPremiumPick &&
+  !freeUsageCheck.allowed
+) {
+  return res.status(429).json({
+    error: freeUsageCheck.message,
+    limitReached: true,
+    upgradeRequired: true
+  });
+}
+
+if (!isPremiumPick) {
+  await recordFreeAnalysis(
+    user?.id,
+    isUnlimited,
+    "analyze-nba"
+  );
+}
  return res.status(200).json({
       locked,
       isPremiumPick,
