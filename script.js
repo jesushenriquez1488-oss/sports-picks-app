@@ -1839,11 +1839,12 @@ if (window.currentSport === "wnba") {
    </button>`
     : useFootballFormula
    ? `<button onclick="analyzeFootball(
-    '${escapeText(game.away_team)}',
-    '${escapeText(game.home_team)}',
-    ${index},
-    '${game.id || ""}'
-  )">
+  '${escapeText(game.away_team)}',
+  '${escapeText(game.home_team)}',
+  ${index},
+  '${game.id || ""}',
+  '${game.commence_time || ""}'
+)">
     View ${selectedSportName} Prediction
   </button>`
     : `<button onclick="analyzeOtherLeague('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index})">
@@ -2989,7 +2990,8 @@ async function analyzeFootball(
   awayTeam,
   homeTeam,
   index,
-  eventId = null
+  eventId = null,
+  gameTime = null
 ) {
   const resultDiv = document.getElementById(`result${index}`);
   resultDiv.innerHTML = `<div class="loading-analysis">Analyzing ${selectedSportName}...</div>`;
