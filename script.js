@@ -3348,15 +3348,48 @@ if (!eventId) {
 );
     const data = await res.json();
  
-    if (!res.ok || data.noPlay || !data.props?.length) {
-      box.innerHTML = `
-        <div style="background:#0f1628;border-radius:8px;padding:12px;margin-top:8px;text-align:center;">
-          <div style="font-size:11px;color:#556688;">No player props available for this game yet. They appear ~1-2 weeks before kickoff.</div>
-        </div>
-      `;
-      box.dataset.loaded = "true";
-      return;
-    }
+    if (!res.ok) {
+  box.innerHTML = `
+    <div style="
+      background:#241018;
+      border:1px solid #662233;
+      border-radius:8px;
+      padding:12px;
+      margin-top:8px;
+    ">
+      <div style="font-size:11px;color:#ff6b7a;">
+        NFL Props API Error:
+        ${data.error || data.reason || `HTTP ${res.status}`}
+      </div>
+
+      <div style="font-size:10px;color:#8a6570;margin-top:5px;">
+        Event ID: ${eventId}
+      </div>
+    </div>
+  `;
+
+  box.dataset.loaded = "true";
+  return;
+}
+
+if (data.noPlay || !data.props?.length) {
+  box.innerHTML = `
+    <div style="
+      background:#0f1628;
+      border-radius:8px;
+      padding:12px;
+      margin-top:8px;
+      text-align:center;
+    ">
+      <div style="font-size:11px;color:#556688;">
+        ${data.reason || "No player props available for this game yet."}
+      </div>
+    </div>
+  `;
+
+  box.dataset.loaded = "true";
+  return;
+}
  
     const propsHTML = data.props.slice(0, 3).map(prop => {
       const marketLabels = {
