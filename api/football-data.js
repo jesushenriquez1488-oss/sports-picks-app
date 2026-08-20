@@ -2718,32 +2718,24 @@ function nflPlayerStatsCacheIsFresh(
 async function getNFLPlayerStatsCompletedGames(
   espnTeamId,
   season,
-  limit = 10
+  limit = 25
 ) {
-  if (!espnTeamId) {
-    return [];
-  }
+  if (!espnTeamId) return [];
 
   const url =
     `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${espnTeamId}/schedule` +
-    `?season=${season}` +
-    `&seasontype=2`;
+    `?season=${season}&seasontype=2`;
 
-  const data =
-    await espnFetchNFL(url);
+  const data = await espnFetchNFL(url);
 
-  const events =
-    Array.isArray(data?.events)
-      ? data.events
-      : [];
+  const events = Array.isArray(data?.events)
+    ? data.events
+    : [];
 
   return events
     .filter(event => {
-      const comp =
-        event?.competitions?.[0];
-
-      const status =
-        comp?.status?.type;
+      const comp = event?.competitions?.[0];
+      const status = comp?.status?.type;
 
       return (
         status?.state === "post" ||
@@ -2751,57 +2743,42 @@ async function getNFLPlayerStatsCompletedGames(
       );
     })
     .map(event => {
-      const comp =
-        event?.competitions?.[0];
+      const comp = event?.competitions?.[0];
+      const competitors = comp?.competitors || [];
 
-      const competitors =
-        comp?.competitors || [];
+      const ownTeam = competitors.find(
+        item =>
+          String(item?.team?.id || "") ===
+          String(espnTeamId)
+      );
 
-      const ownTeam =
-        competitors.find(
-          item =>
-            String(item?.team?.id || "") ===
-            String(espnTeamId)
-        );
-
-      const opponent =
-        competitors.find(
-          item =>
-            String(item?.team?.id || "") !==
-            String(espnTeamId)
-        );
+      const opponent = competitors.find(
+        item =>
+          String(item?.team?.id || "") !==
+          String(espnTeamId)
+      );
 
       return {
-        id:
-          String(event?.id || ""),
-
-        date:
-          event?.date || null,
+        id: String(event?.id || ""),
+        season: Number(season),
+        date: event?.date || null,
 
         opponentId:
           opponent?.team?.id
-            ? String(
-                opponent.team.id
-              )
+            ? String(opponent.team.id)
             : null,
 
         opponent:
-          opponent?.team
-            ?.displayName ||
-          opponent?.team
-            ?.shortDisplayName ||
-          opponent?.team
-            ?.name ||
+          opponent?.team?.displayName ||
+          opponent?.team?.shortDisplayName ||
+          opponent?.team?.name ||
           null,
 
         homeAway:
-          ownTeam?.homeAway ||
-          null
+          ownTeam?.homeAway || null
       };
     })
-    .filter(game =>
-      Boolean(game.id)
-    )
+    .filter(game => Boolean(game.id))
     .sort(
       (a, b) =>
         new Date(b.date || 0) -
@@ -2809,23 +2786,6 @@ async function getNFLPlayerStatsCompletedGames(
     )
     .slice(0, limit);
 }
-
-
-/*
- * Selecciona el historial que
- * utilizaremos para Player Stats.
- *
- * Ejemplo inicio de 2026:
- *
- * 2026: 2 partidos
- * 2025: 8 partidos
- *
- * Last 10 =
- * 2 actuales + 8 anteriores
- *
- * Una vez existan 10 en 2026,
- * 2025 deja de utilizarse.
- */
 async function getNFLPlayerStatsSourceGames(
   espnTeamId
 ) {
@@ -2835,24 +2795,35 @@ async function getNFLPlayerStatsSourceGames(
   const previousSeason =
     currentSeason - 1;
 
-  const currentGames =
-    await getNFLPlayerStatsCompletedGames(
+  /*
+   * Traemos la temporada regular completa.
+   * Máximo real NFL ≈ 17 juegos,
+   * dejamos 25 por seguridad.
+   */
+  const [
+    currentGames,
+    previousGames
+  ] = await Promise.all([
+    getNFLPlayerStatsCompletedGames(
       espnTeamId,
       currentSeason,
-      10
-    );
+      25
+    ),
 
-  let previousGames = [];
+    getNFLPlayerStatsCompletedGames(
+      espnTeamId,
+      previousSeason,
+      25
+    )
+  ]);
 
-  if (currentGames.length < 10) {
-    previousGames =
-      await getNFLPlayerStatsCompletedGames(
-        espnTeamId,
-        previousSeason,
-        10
-      );
-  }
-
+  /*
+   * Last 10:
+   *
+   * La temporada actual tiene prioridad.
+   * Si todavía no hay 10 partidos,
+   * completamos con la anterior.
+   */
   const recentGames = [
     ...currentGames,
     ...previousGames
@@ -2865,12 +2836,13 @@ async function getNFLPlayerStatsSourceGames(
     .slice(0, 10);
 
   /*
-   * Season significa temporada actual
-   * si ya comenzó.
+   * SEASON:
    *
-   * Si aún no existe ningún partido
-   * regular actual, mostramos la
-   * temporada anterior.
+   * Si 2026 ya comenzó:
+   * solamente 2026.
+   *
+   * Si todavía no comenzó:
+   * temporada 2025 completa.
    */
   const seasonGames =
     currentGames.length
@@ -2894,12 +2866,962 @@ async function getNFLPlayerStatsSourceGames(
     seasonGames,
 
     lastCompletedGameId:
-      recentGames[0]?.id ||
-      null
+      recentGames[0]?.id || null
+  };
+}
+
+// ============================================================
+// NFL PLAYER STATS — BOXSCORE DATA ENGINE
+// ============================================================
+
+const NFL_BOXSCORE_SCHEMA_VERSION = 1;
+
+
+/*
+ * Evita volver a pedir un mismo partido
+ * cuando aparece en ambos equipos.
+ */
+function nflPlayerStatsUniqueGames(
+  games = []
+) {
+  const map = new Map();
+
+  for (const game of games) {
+    if (!game?.id) continue;
+
+    const key = String(game.id);
+
+    if (!map.has(key)) {
+      map.set(key, game);
+    }
+  }
+
+  return Array.from(map.values());
+}
+
+
+function nflPlayerStatsPosition(
+  value
+) {
+  const position =
+    String(value || "")
+      .toUpperCase()
+      .trim();
+
+  if (
+    position === "HB" ||
+    position === "FB"
+  ) {
+    return "RB";
+  }
+
+  return position || null;
+}
+
+
+function nflPlayerStatsFindKey(
+  keys = [],
+  aliases = []
+) {
+  for (const alias of aliases) {
+    const index =
+      keys.indexOf(alias);
+
+    if (index >= 0) {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
+
+function nflPlayerStatsValue(
+  keys,
+  stats,
+  aliases,
+  fallback = 0
+) {
+  const index =
+    nflPlayerStatsFindKey(
+      keys,
+      aliases
+    );
+
+  if (index < 0) {
+    return fallback;
+  }
+
+  return nflSafeNum(
+    stats?.[index],
+    fallback
+  );
+}
+
+
+/*
+ * ESPN puede entregar C/ATT como:
+ *
+ * "22/31"
+ *
+ * o como campos separados.
+ */
+function nflPlayerStatsPassAttempts(
+  keys,
+  stats
+) {
+  const combinedIndex =
+    nflPlayerStatsFindKey(
+      keys,
+      [
+        "completions/passingAttempts",
+        "completionsPassingAttempts"
+      ]
+    );
+
+  if (combinedIndex >= 0) {
+    const raw =
+      String(
+        stats?.[combinedIndex] ||
+        ""
+      );
+
+    const pieces =
+      raw.split("/");
+
+    if (pieces.length === 2) {
+      return {
+        completions:
+          nflSafeNum(
+            pieces[0]
+          ),
+
+        attempts:
+          nflSafeNum(
+            pieces[1]
+          )
+      };
+    }
+  }
+
+  return {
+    completions:
+      nflPlayerStatsValue(
+        keys,
+        stats,
+        ["completions"]
+      ),
+
+    attempts:
+      nflPlayerStatsValue(
+        keys,
+        stats,
+        [
+          "passingAttempts",
+          "attempts"
+        ]
+      )
   };
 }
 
 
+/*
+ * Convierte un ESPN summary completo
+ * en nuestro formato compacto.
+ *
+ * NO guardamos el JSON gigante de ESPN.
+ */
+function parseNFLPlayerStatsBoxscore(
+  data,
+  gameMeta = {}
+) {
+  const competition =
+    data?.header
+      ?.competitions?.[0] ||
+    null;
+
+  const competitors =
+    competition
+      ?.competitors ||
+    [];
+
+  const competitorById =
+    new Map();
+
+  for (const competitor of competitors) {
+    const teamId =
+      String(
+        competitor?.team?.id ||
+        ""
+      );
+
+    if (teamId) {
+      competitorById.set(
+        teamId,
+        competitor
+      );
+    }
+  }
+
+
+  const awayCompetitor =
+    competitors.find(
+      competitor =>
+        competitor?.homeAway ===
+        "away"
+    );
+
+  const homeCompetitor =
+    competitors.find(
+      competitor =>
+        competitor?.homeAway ===
+        "home"
+    );
+
+
+  const result = {
+    schemaVersion:
+      NFL_BOXSCORE_SCHEMA_VERSION,
+
+    gameId:
+      String(
+        gameMeta?.id ||
+        competition?.id ||
+        ""
+      ),
+
+    season:
+      Number(
+        gameMeta?.season ||
+        0
+      ),
+
+    date:
+      gameMeta?.date ||
+      competition?.date ||
+      null,
+
+    away: {
+      id:
+        awayCompetitor?.team?.id
+          ? String(
+              awayCompetitor.team.id
+            )
+          : null,
+
+      name:
+        awayCompetitor?.team
+          ?.displayName ||
+        awayCompetitor?.team
+          ?.shortDisplayName ||
+        null,
+
+      score:
+        nflSafeNum(
+          awayCompetitor?.score
+        )
+    },
+
+    home: {
+      id:
+        homeCompetitor?.team?.id
+          ? String(
+              homeCompetitor.team.id
+            )
+          : null,
+
+      name:
+        homeCompetitor?.team
+          ?.displayName ||
+        homeCompetitor?.team
+          ?.shortDisplayName ||
+        null,
+
+      score:
+        nflSafeNum(
+          homeCompetitor?.score
+        )
+    },
+
+    teams: {}
+  };
+
+
+  const teamBlocks =
+    data?.boxscore?.players ||
+    [];
+
+
+  for (const teamBlock of teamBlocks) {
+
+    const teamId =
+      String(
+        teamBlock?.team?.id ||
+        ""
+      );
+
+    if (!teamId) continue;
+
+
+    const competitor =
+      competitorById.get(
+        teamId
+      );
+
+
+    const opponent =
+      competitors.find(
+        item =>
+          String(
+            item?.team?.id ||
+            ""
+          ) !== teamId
+      );
+
+
+    const teamResult = {
+      id:
+        teamId,
+
+      name:
+        teamBlock?.team
+          ?.displayName ||
+        teamBlock?.team
+          ?.shortDisplayName ||
+        teamBlock?.team?.name ||
+        null,
+
+      abbreviation:
+        teamBlock?.team
+          ?.abbreviation ||
+        null,
+
+      homeAway:
+        competitor?.homeAway ||
+        null,
+
+      score:
+        nflSafeNum(
+          competitor?.score
+        ),
+
+      opponentId:
+        opponent?.team?.id
+          ? String(
+              opponent.team.id
+            )
+          : null,
+
+      opponent:
+        opponent?.team
+          ?.displayName ||
+        opponent?.team
+          ?.shortDisplayName ||
+        opponent?.team?.name ||
+        null,
+
+      players: []
+    };
+
+
+    const playerMap =
+      new Map();
+
+
+    for (
+      const statGroup of
+      teamBlock?.statistics || []
+    ) {
+
+      const category =
+        String(
+          statGroup?.name ||
+          ""
+        )
+          .toLowerCase();
+
+      const keys =
+        statGroup?.keys || [];
+
+      const athletes =
+        statGroup?.athletes || [];
+
+
+      for (const entry of athletes) {
+
+        const athlete =
+          entry?.athlete || {};
+
+        const athleteId =
+          athlete?.id
+            ? String(athlete.id)
+            : null;
+
+        const name =
+          athlete?.displayName ||
+          athlete?.shortName ||
+          null;
+
+        if (!name) continue;
+
+
+        const playerKey =
+          athleteId
+            ? `id:${athleteId}`
+            : `name:${String(name)
+                .toLowerCase()
+                .trim()}`;
+
+
+        if (!playerMap.has(playerKey)) {
+
+          playerMap.set(
+            playerKey,
+            {
+              id:
+                athleteId,
+
+              name,
+
+              jersey:
+                athlete?.jersey ||
+                null,
+
+              position:
+                nflPlayerStatsPosition(
+                  athlete?.position
+                    ?.abbreviation ||
+                  athlete?.position
+                    ?.name ||
+                  null
+                ),
+
+              passing: {
+                completions: 0,
+                attempts: 0,
+                yards: 0,
+                touchdowns: 0,
+                interceptions: 0
+              },
+
+              rushing: {
+                attempts: 0,
+                yards: 0,
+                touchdowns: 0,
+                long: 0
+              },
+
+              receiving: {
+                receptions: 0,
+                targets: 0,
+                yards: 0,
+                touchdowns: 0,
+                long: 0
+              }
+            }
+          );
+        }
+
+
+        const player =
+          playerMap.get(
+            playerKey
+          );
+
+        const stats =
+          entry?.stats || [];
+
+
+        // -------------------
+        // PASSING
+        // -------------------
+
+        if (
+          category.includes(
+            "passing"
+          )
+        ) {
+
+          const pass =
+            nflPlayerStatsPassAttempts(
+              keys,
+              stats
+            );
+
+          player.passing.completions =
+            pass.completions;
+
+          player.passing.attempts =
+            pass.attempts;
+
+          player.passing.yards =
+            nflPlayerStatsValue(
+              keys,
+              stats,
+              ["passingYards"]
+            );
+
+          player.passing.touchdowns =
+            nflPlayerStatsValue(
+              keys,
+              stats,
+              [
+                "passingTouchdowns",
+                "touchdownPasses"
+              ]
+            );
+
+          player.passing.interceptions =
+            nflPlayerStatsValue(
+              keys,
+              stats,
+              [
+                "interceptions",
+                "interceptionsThrown"
+              ]
+            );
+        }
+
+
+        // -------------------
+        // RUSHING
+        // -------------------
+
+        if (
+          category.includes(
+            "rushing"
+          )
+        ) {
+
+          player.rushing.attempts =
+            nflPlayerStatsValue(
+              keys,
+              stats,
+              [
+                "rushingAttempts",
+                "carries"
+              ]
+            );
+
+          player.rushing.yards =
+            nflPlayerStatsValue(
+              keys,
+              stats,
+              ["rushingYards"]
+            );
+
+          player.rushing.touchdowns =
+            nflPlayerStatsValue(
+              keys,
+              stats,
+              ["rushingTouchdowns"]
+            );
+
+          player.rushing.long =
+            nflPlayerStatsValue(
+              keys,
+              stats,
+              [
+                "longRushing",
+                "longRush"
+              ]
+            );
+        }
+
+
+        // -------------------
+        // RECEIVING
+        // -------------------
+
+        if (
+          category.includes(
+            "receiving"
+          )
+        ) {
+
+          player.receiving.receptions =
+            nflPlayerStatsValue(
+              keys,
+              stats,
+              ["receptions"]
+            );
+
+          player.receiving.targets =
+            nflPlayerStatsValue(
+              keys,
+              stats,
+              [
+                "receivingTargets",
+                "targets"
+              ]
+            );
+
+          player.receiving.yards =
+            nflPlayerStatsValue(
+              keys,
+              stats,
+              ["receivingYards"]
+            );
+
+          player.receiving.touchdowns =
+            nflPlayerStatsValue(
+              keys,
+              stats,
+              ["receivingTouchdowns"]
+            );
+
+          player.receiving.long =
+            nflPlayerStatsValue(
+              keys,
+              stats,
+              [
+                "longReception",
+                "longReceiving"
+              ]
+            );
+        }
+      }
+    }
+
+
+    teamResult.players =
+      Array.from(
+        playerMap.values()
+      );
+
+
+    result.teams[teamId] =
+      teamResult;
+  }
+
+
+  return result;
+}
+
+
+/*
+ * Worker pool para no disparar
+ * 30 requests ESPN simultáneos.
+ */
+async function nflPlayerStatsMapConcurrency(
+  items,
+  concurrency,
+  workerFn
+) {
+  const output =
+    new Array(items.length);
+
+  let nextIndex = 0;
+
+  async function worker() {
+    while (true) {
+
+      const index =
+        nextIndex++;
+
+      if (
+        index >=
+        items.length
+      ) {
+        return;
+      }
+
+      try {
+        output[index] =
+          await workerFn(
+            items[index],
+            index
+          );
+      } catch (error) {
+
+        console.warn(
+          "NFL BOXSCORE WORKER ERROR:",
+          items[index]?.id,
+          error.message
+        );
+
+        output[index] =
+          null;
+      }
+    }
+  }
+
+  const count =
+    Math.min(
+      Math.max(
+        Number(concurrency) || 1,
+        1
+      ),
+      items.length || 1
+    );
+
+  await Promise.all(
+    Array.from(
+      { length: count },
+      () => worker()
+    )
+  );
+
+  return output;
+}
+
+
+/*
+ * Carga todos los boxscores necesarios.
+ *
+ * 1. Busca todos los IDs de una vez
+ *    en Supabase.
+ *
+ * 2. Detecta cuáles faltan.
+ *
+ * 3. Solamente esos van a ESPN.
+ *
+ * 4. Los nuevos se guardan para siempre.
+ */
+async function loadNFLPlayerStatsBoxscores(
+  games = []
+) {
+
+  const uniqueGames =
+    nflPlayerStatsUniqueGames(
+      games
+    );
+
+  if (!uniqueGames.length) {
+    return {
+      requestedCount: 0,
+      cachedCount: 0,
+      fetchedCount: 0,
+      byGameId: new Map()
+    };
+  }
+
+
+  const gameIds =
+    uniqueGames.map(
+      game =>
+        String(game.id)
+    );
+
+
+  const {
+    data: cachedRows,
+    error: cacheError
+  } =
+    await supabaseAdmin
+      .from(
+        "nfl_boxscore_cache"
+      )
+      .select(
+        "game_id, stats_json"
+      )
+      .in(
+        "game_id",
+        gameIds
+      );
+
+
+  if (cacheError) {
+    throw new Error(
+      `NFL boxscore cache read failed: ${cacheError.message}`
+    );
+  }
+
+
+  const byGameId =
+    new Map();
+
+
+  for (
+    const row of
+    cachedRows || []
+  ) {
+
+    if (
+      row?.stats_json &&
+      Number(
+        row.stats_json
+          ?.schemaVersion
+      ) ===
+        NFL_BOXSCORE_SCHEMA_VERSION
+    ) {
+
+      byGameId.set(
+        String(row.game_id),
+        row.stats_json
+      );
+    }
+  }
+
+
+  const missingGames =
+    uniqueGames.filter(
+      game =>
+        !byGameId.has(
+          String(game.id)
+        )
+    );
+
+
+  const fetched =
+    await nflPlayerStatsMapConcurrency(
+      missingGames,
+
+      /*
+       * 6 es suficientemente rápido
+       * sin golpear ESPN con 30 requests
+       * simultáneos.
+       */
+      6,
+
+      async game => {
+
+        const url =
+          `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${encodeURIComponent(game.id)}`;
+
+        const data =
+          await espnFetchNFL(url);
+
+        const parsed =
+          parseNFLPlayerStatsBoxscore(
+            data,
+            game
+          );
+
+        if (
+          !parsed?.gameId
+        ) {
+          return null;
+        }
+
+        return {
+          game,
+          parsed
+        };
+      }
+    );
+
+
+  const goodFetched =
+    fetched.filter(
+      Boolean
+    );
+
+
+  if (goodFetched.length) {
+
+    const rows =
+      goodFetched.map(
+        item => ({
+          game_id:
+            String(
+              item.game.id
+            ),
+
+          season:
+            Number(
+              item.game.season ||
+              item.parsed.season ||
+              getNFLPlayerStatsSeasonYear()
+            ),
+
+          game_date:
+            nflPlayerStatsDateKey(
+              item.game.date ||
+              item.parsed.date
+            ),
+
+          away_team:
+            item.parsed
+              ?.away?.name ||
+            null,
+
+          home_team:
+            item.parsed
+              ?.home?.name ||
+            null,
+
+          away_team_id:
+            item.parsed
+              ?.away?.id ||
+            null,
+
+          home_team_id:
+            item.parsed
+              ?.home?.id ||
+            null,
+
+          stats_json:
+            item.parsed,
+
+          updated_at:
+            new Date()
+              .toISOString()
+        })
+      );
+
+
+    const {
+      error: upsertError
+    } =
+      await supabaseAdmin
+        .from(
+          "nfl_boxscore_cache"
+        )
+        .upsert(
+          rows,
+          {
+            onConflict:
+              "game_id"
+          }
+        );
+
+
+    if (upsertError) {
+      throw new Error(
+        `NFL boxscore cache write failed: ${upsertError.message}`
+      );
+    }
+
+
+    for (
+      const item of
+      goodFetched
+    ) {
+
+      byGameId.set(
+        String(
+          item.game.id
+        ),
+        item.parsed
+      );
+    }
+  }
+
+
+  return {
+    requestedCount:
+      uniqueGames.length,
+
+    cachedCount:
+      uniqueGames.length -
+      missingGames.length,
+
+    fetchedCount:
+      goodFetched.length,
+
+    failedCount:
+      missingGames.length -
+      goodFetched.length,
+
+    byGameId
+  };
+}
+
+
+// ============================================================
+// FIN NFL PLAYER STATS — BOXSCORE DATA ENGINE
+// ============================================================
 // ============================================================
 // NFL PLAYER STATS HANDLER
 // ============================================================
@@ -3429,67 +4351,112 @@ if (!isPremiumUser) {
   // y reemplazaremos este return.
   // -------------------------
 
-  return res
-    .status(200)
-    .json({
-      ok: true,
+// -------------------------
+// LOAD REQUIRED BOXSCORES
+// -------------------------
 
-      mode:
-        "nfl-player-stats",
+const requiredGames =
+  nflPlayerStatsUniqueGames([
+    ...(awaySource.recentGames || []),
+    ...(awaySource.seasonGames || []),
 
-      rebuildRequired: true,
+    ...(homeSource.recentGames || []),
+    ...(homeSource.seasonGames || [])
+  ]);
 
-      cached: false,
 
-      eventId,
+const boxscoreData =
+  await loadNFLPlayerStatsBoxscores(
+    requiredGames
+  );
 
-      game:
-        `${awayTeam} @ ${homeTeam}`,
 
-      gameDate,
+return res
+  .status(200)
+  .json({
+    ok: true,
 
-      teams: {
-        away: {
-          name:
-            awayTeam,
+    mode:
+      "nfl-player-stats",
 
-          id:
-            awayTeamId,
+    rebuildRequired: true,
 
-          lastCompletedGameId:
-            awayLastGameId,
+    cached: false,
 
-          season:
-            awaySource
-              .seasonUsed,
+    stage:
+      "boxscores-loaded",
 
-          recentGames:
-            awaySource
-              .recentGames
-              .length
-        },
+    eventId,
 
-        home: {
-          name:
-            homeTeam,
+    game:
+      `${awayTeam} @ ${homeTeam}`,
 
-          id:
-            homeTeamId,
+    gameDate,
 
-          lastCompletedGameId:
-            homeLastGameId,
+    boxscores: {
+      requested:
+        boxscoreData
+          .requestedCount,
 
-          season:
-            homeSource
-              .seasonUsed,
+      fromCache:
+        boxscoreData
+          .cachedCount,
 
-          recentGames:
-            homeSource
-              .recentGames
-              .length
-        }
+      downloaded:
+        boxscoreData
+          .fetchedCount,
+
+      failed:
+        boxscoreData
+          .failedCount
+    },
+
+    teams: {
+      away: {
+        name:
+          awayTeam,
+
+        id:
+          awayTeamId,
+
+        season:
+          awaySource
+            .seasonUsed,
+
+        recentGames:
+          awaySource
+            .recentGames
+            .length,
+
+        seasonGames:
+          awaySource
+            .seasonGames
+            .length
+      },
+
+      home: {
+        name:
+          homeTeam,
+
+        id:
+          homeTeamId,
+
+        season:
+          homeSource
+            .seasonUsed,
+
+        recentGames:
+          homeSource
+            .recentGames
+            .length,
+
+        seasonGames:
+          homeSource
+            .seasonGames
+            .length
       }
-    });
+    }
+  });
 }
 
 
