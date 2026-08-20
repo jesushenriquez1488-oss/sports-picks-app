@@ -3087,8 +3087,44 @@ const propsButtonHTML = type === "nfl"
     <div id="nflProps${index}"></div>
   `
   : "";
- 
-    resultDiv.innerHTML = isPremium ? `
+ const gameTimeEsc =
+  String(gameTime || "")
+    .replace(/'/g, "\\'");
+
+const statsButtonHTML =
+  type === "nfl" &&
+  !locked &&
+  eventId
+    ? `
+      <div class="player-stats-section">
+        <button
+          type="button"
+          class="player-stats-open-btn"
+          onclick="openNFLPlayerStats(
+            ${index},
+            '${eventIdEsc}',
+            '${awayEsc}',
+            '${homeEsc}',
+            '${gameTimeEsc}'
+          )"
+        >
+          <span class="player-stats-icon">
+            📊
+          </span>
+
+          <span class="player-stats-copy">
+            <strong>PLAYER STATS</strong>
+            <small>QB · RB · WR · TE · Last 3/5/10 · Season</small>
+          </span>
+
+          <span class="player-stats-arrow">
+            ›
+          </span>
+        </button>
+      </div>
+    `
+    : "";
+   const footballAnalysisHTML = isPremium ? `
  
 <div class="ce-premium-basket-card ce-nfl-premium">
  
@@ -3217,7 +3253,8 @@ const propsButtonHTML = type === "nfl"
       <div style="font-size:10px;color:${circleColor};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;font-weight:600;">⚡ Model analysis</div>
       <div style="font-size:12px;color:#aabbcc;line-height:1.6;">${analysisText}</div>
     </div>
-    ${propsButtonHTML}
+    ${statsButtonHTML}
+${propsButtonHTML}
   `}
  
 </div>
@@ -3276,12 +3313,22 @@ const propsButtonHTML = type === "nfl"
   </div>
   ` : ""}
 
-  ${propsButtonHTML}
+ ${statsButtonHTML}
+${propsButtonHTML}
 
 </div>
  
 `;
- 
+ resultDiv.innerHTML = `
+  <div id="nflAnalysisView${index}">
+    ${footballAnalysisHTML}
+  </div>
+
+  <div
+    id="nflPlayerStatsView${index}"
+    style="display:none;"
+  ></div>
+`;
 } catch (err) {
     const msg = err?.message || String(err);
     if (msg.includes("free analyses") || msg.includes("every 3 hours") || msg.includes("unlock 5")) {
@@ -3296,6 +3343,307 @@ const propsButtonHTML = type === "nfl"
     }
   }
   }
+// ============================================================
+// NFL PLAYER STATS — FRONTEND
+// ============================================================
+
+const nflPlayerStatsState = {};
+
+
+function nflPlayerStatsMetric(player, windowKey) {
+  const s = player?.[windowKey] || {};
+  const pos = player?.position || "";
+
+  if (pos === "QB") {
+    return `
+      <span><b>${Number(s.passing?.yards || 0).toFixed(1)}</b> PASS YDS</span>
+      <span><b>${Number(s.passing?.touchdowns || 0).toFixed(1)}</b> PASS TD</span>
+      <span><b>${Number(s.passing?.interceptions || 0).toFixed(1)}</b> INT</span>
+      <span><b>${Number(s.rushing?.yards || 0).toFixed(1)}</b> RUSH YDS</span>
+    `;
+  }
+
+  if (pos === "RB") {
+    return `
+      <span><b>${Number(s.rushing?.yards || 0).toFixed(1)}</b> RUSH YDS</span>
+      <span><b>${Number(s.rushing?.touchdowns || 0).toFixed(1)}</b> RUSH TD</span>
+      <span><b>${Number(s.receiving?.yards || 0).toFixed(1)}</b> REC YDS</span>
+      <span><b>${Number(s.receiving?.targets || 0).toFixed(1)}</b> TGTS</span>
+    `;
+  }
+
+  return `
+    <span><b>${Number(s.receiving?.receptions || 0).toFixed(1)}</b> REC</span>
+    <span><b>${Number(s.receiving?.targets || 0).toFixed(1)}</b> TGTS</span>
+    <span><b>${Number(s.receiving?.yards || 0).toFixed(1)}</b> REC YDS</span>
+    <span><b>${Number(s.receiving?.touchdowns || 0).toFixed(1)}</b> REC TD</span>
+  `;
+}
+
+
+function renderNFLPlayerStats(index) {
+  const state = nflPlayerStatsState[index];
+  const box = document.getElementById(`nflPlayerStatsView${index}`);
+
+  if (!state?.data || !box) return;
+
+  const windowKey = state.windowKey || "last5";
+  const data = state.data;
+
+  const renderTeam = team => {
+    const players = (team?.players || [])
+      .filter(p => p.hasHistory)
+      .filter(p => ["QB", "RB", "WR", "TE"].includes(p.position));
+
+    return `
+      <div style="background:#0f1628;border:1px solid #1a2240;border-radius:10px;padding:12px;">
+        <div style="font-size:13px;font-weight:800;color:#fff;margin-bottom:10px;">
+          ${sanitize(team?.name || "")}
+        </div>
+
+        ${players.map(player => `
+          <div style="padding:10px 0;border-top:1px solid #18243a;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;">
+              <div>
+                <strong style="font-size:12px;color:#fff;">
+                  ${sanitize(player.name)}
+                </strong>
+
+                <span style="font-size:9px;color:#00ffe7;margin-left:6px;">
+                  ${sanitize(player.position)}
+                </span>
+              </div>
+
+              <small style="color:#556688;font-size:9px;">
+                ${
+                  player.gamesAvailable?.[windowKey] || 0
+                } G
+              </small>
+            </div>
+
+            <div style="
+              display:grid;
+              grid-template-columns:repeat(4,1fr);
+              gap:5px;
+              font-size:9px;
+              color:#71839f;
+              text-align:center;
+            ">
+              ${nflPlayerStatsMetric(player, windowKey)}
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  };
+
+
+  box.innerHTML = `
+    <div class="ps-card">
+
+      <div class="ps-sticky-bar">
+        <button
+          type="button"
+          class="ps-back-analysis-btn"
+          onclick="closeNFLPlayerStats(${index})"
+        >
+          ← BACK TO ANALYSIS
+        </button>
+
+        <div class="ps-sticky-game">
+          <small>NFL PLAYER STATS</small>
+          <strong>
+            ${sanitize(data.teams?.away?.name || "Away")}
+            vs
+            ${sanitize(data.teams?.home?.name || "Home")}
+          </strong>
+        </div>
+      </div>
+
+
+      <div style="
+        display:grid;
+        grid-template-columns:repeat(4,1fr);
+        gap:6px;
+        margin:12px 0;
+      ">
+        ${[
+          ["last3", "LAST 3"],
+          ["last5", "LAST 5"],
+          ["last10", "LAST 10"],
+          ["season", "SEASON"]
+        ].map(([key, label]) => `
+          <button
+            onclick="showNFLPlayerStatsWindow(${index}, '${key}')"
+            style="
+              padding:8px 4px;
+              border-radius:7px;
+              border:1px solid ${windowKey === key ? "#00ffe7" : "#1a2240"};
+              background:${windowKey === key ? "rgba(0,255,231,.08)" : "#0f1628"};
+              color:${windowKey === key ? "#00ffe7" : "#71839f"};
+              font-size:9px;
+              font-weight:700;
+              cursor:pointer;
+            "
+          >
+            ${label}
+          </button>
+        `).join("")}
+      </div>
+
+
+      <div style="
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:10px;
+      ">
+        ${renderTeam(data.teams?.away)}
+        ${renderTeam(data.teams?.home)}
+      </div>
+
+    </div>
+  `;
+}
+
+
+function showNFLPlayerStatsWindow(index, windowKey) {
+  if (!nflPlayerStatsState[index]) return;
+
+  nflPlayerStatsState[index].windowKey = windowKey;
+  renderNFLPlayerStats(index);
+}
+
+
+async function openNFLPlayerStats(
+  index,
+  eventId,
+  awayTeam,
+  homeTeam,
+  gameTime
+) {
+  const analysisView =
+    document.getElementById(`nflAnalysisView${index}`);
+
+  const statsView =
+    document.getElementById(`nflPlayerStatsView${index}`);
+
+  if (!analysisView || !statsView) return;
+
+  analysisView.style.display = "none";
+  statsView.style.display = "block";
+
+
+  if (nflPlayerStatsState[index]?.data) {
+    renderNFLPlayerStats(index);
+    return;
+  }
+
+
+  statsView.innerHTML = `
+    <div class="loading-analysis">
+      Loading Player Stats...
+    </div>
+  `;
+
+
+  try {
+    const { data: sessionData } =
+      await supabaseClient.auth.getSession();
+
+    if (!sessionData.session) {
+      throw new Error("You must sign in.");
+    }
+
+
+    const params = new URLSearchParams({
+      mode: "nfl-player-stats",
+      eventId,
+      awayTeam,
+      homeTeam,
+      gameTime
+    });
+
+
+    const response = await fetch(
+      `/api/football-data?${params.toString()}`,
+      {
+        headers: {
+          Authorization:
+            `Bearer ${sessionData.session.access_token}`
+        }
+      }
+    );
+
+
+    const data = await response.json();
+
+
+    if (!response.ok) {
+      throw new Error(
+        data.error ||
+        "Player Stats are not available."
+      );
+    }
+
+
+    nflPlayerStatsState[index] = {
+      data,
+      windowKey: "last5"
+    };
+
+
+    renderNFLPlayerStats(index);
+
+  } catch (error) {
+
+    statsView.innerHTML = `
+      <div class="ps-card">
+        <button
+          class="ps-back-analysis-btn"
+          onclick="closeNFLPlayerStats(${index})"
+        >
+          ← BACK TO ANALYSIS
+        </button>
+
+        <div class="ps-empty">
+          ${sanitize(error.message)}
+        </div>
+      </div>
+    `;
+  }
+}
+
+
+function closeNFLPlayerStats(index) {
+  const analysisView =
+    document.getElementById(`nflAnalysisView${index}`);
+
+  const statsView =
+    document.getElementById(`nflPlayerStatsView${index}`);
+
+  if (statsView) {
+    statsView.style.display = "none";
+  }
+
+  if (analysisView) {
+    analysisView.style.display = "block";
+  }
+}
+
+
+window.openNFLPlayerStats =
+  openNFLPlayerStats;
+
+window.closeNFLPlayerStats =
+  closeNFLPlayerStats;
+
+window.showNFLPlayerStatsWindow =
+  showNFLPlayerStatsWindow;
+
+
+// ============================================================
+// FIN NFL PLAYER STATS — FRONTEND
+// ============================================================
 async function toggleNFLPlayerProps(
   index,
   awayTeam,
