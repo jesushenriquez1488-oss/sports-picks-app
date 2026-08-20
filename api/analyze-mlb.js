@@ -22,29 +22,44 @@ function getDayStart() {
 }
 
 async function checkFreeAnalysisLimit(userId, isUnlimited) {
-  if (isUnlimited) return { allowed: true, remaining: null };
+  if (isUnlimited) {
+    return {
+      allowed: true,
+      remaining: null
+    };
+  }
 
   const { count, error } = await supabaseAdmin
     .from("analysis_usage")
-    .select("id", { count: "exact", head: true })
+    .select("id", {
+      count: "exact",
+      head: true
+    })
     .eq("user_id", userId)
     .gte("created_at", getDayStart());
 
   if (error) {
-    throw new Error("Error checking free analysis limit");
+    throw new Error(
+      "Error checking free analysis limit"
+    );
   }
 
   const used = count || 0;
+  const limit = 3;
 
-  if (used >= 5) {
+  if (used >= limit) {
     return {
       allowed: false,
       remaining: 0,
-      message: "You've used today's 5 free analyses. More free analyses will be available tomorrow."
+      message:
+        "You've used today's 3 free analyses. More free analyses will be available tomorrow."
     };
   }
 
-  return { allowed: true, remaining: 5 - used };
+  return {
+    allowed: true,
+    remaining: limit - used
+  };
 }
 
 async function recordFreeAnalysis(userId, isUnlimited, endpoint) {
