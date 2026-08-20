@@ -2240,12 +2240,33 @@ async function handleNFLPlayerProps(req, res) {
     });
   }
  
-  const selectedEventId = req.query.eventId || req.body?.eventId || null;
-  const force = req.query.force === "true" || req.body?.force === true;
- 
-  const selectedEvent = selectedEventId
-    ? events.find(e => e.id === selectedEventId)
-    : events[0];
+const selectedEventId =
+  req.query.eventId ||
+  req.body?.eventId ||
+  null;
+
+if (!selectedEventId) {
+  return res.status(400).json({
+    ok: false,
+    mode: "nfl-player-props",
+    error: "eventId is required"
+  });
+}
+
+const selectedEvent =
+  events.find(
+    event =>
+      String(event.id) ===
+      String(selectedEventId)
+  );
+
+if (!selectedEvent) {
+  return res.status(404).json({
+    ok: false,
+    mode: "nfl-player-props",
+    error: "NFL event not found"
+  });
+}
  
   if (!selectedEvent?.id) {
     return res.status(200).json({
