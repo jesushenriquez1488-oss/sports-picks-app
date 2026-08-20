@@ -2985,7 +2985,12 @@ else if (isSpread && pickedInjNote) {
 
   return s.join(" ");
 }
-async function analyzeFootball(awayTeam, homeTeam, index) {
+async function analyzeFootball(
+  awayTeam,
+  homeTeam,
+  index,
+  eventId = null
+) {
   const resultDiv = document.getElementById(`result${index}`);
   resultDiv.innerHTML = `<div class="loading-analysis">Analyzing ${selectedSportName}...</div>`;
 
@@ -3057,9 +3062,28 @@ if (data.limitReached === true || data.upgradeRequired === true) {
     const awayEsc = awayTeam.replace(/'/g, "\\'");
     const homeEsc = homeTeam.replace(/'/g, "\\'");
  
-    const propsButtonHTML = type === "nfl"
-      ? `<button onclick="toggleNFLPlayerProps(${index}, '${awayEsc}', '${homeEsc}', this)" style="width:100%;padding:11px;border-radius:8px;border:1px solid #1a2240;background:#0f1628;color:#00ffe7;font-size:12px;font-weight:600;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">⚡ VIEW PLAYER PROPS</button><div id="nflProps${index}"></div>`
-      : "";
+   const eventIdEsc =
+  String(eventId || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'");
+
+const propsButtonHTML = type === "nfl"
+  ? `
+    <button
+      onclick="toggleNFLPlayerProps(
+        ${index},
+        '${awayEsc}',
+        '${homeEsc}',
+        '${eventIdEsc}'
+      )"
+      style="width:100%;padding:11px;border-radius:8px;border:1px solid #1a2240;background:#0f1628;color:#00ffe7;font-size:12px;font-weight:600;letter-spacing:0.08em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;"
+    >
+      ⚡ VIEW PLAYER PROPS
+    </button>
+
+    <div id="nflProps${index}"></div>
+  `
+  : "";
  
     resultDiv.innerHTML = isPremium ? `
  
@@ -3269,7 +3293,12 @@ if (data.limitReached === true || data.upgradeRequired === true) {
     }
   }
   }
-async function toggleNFLPlayerProps(index, awayTeam, homeTeam) {
+async function toggleNFLPlayerProps(
+  index,
+  awayTeam,
+  homeTeam,
+  eventId
+) {
   const box = document.getElementById(`nflProps${index}`);
   if (!box) return;
  
@@ -3299,12 +3328,24 @@ async function toggleNFLPlayerProps(index, awayTeam, homeTeam) {
   }
  
   box.innerHTML = `<div class="loading-analysis" style="margin-top:8px;">Loading NFL player props...</div>`;
- 
+if (!eventId) {
+  box.innerHTML = `
+    <div style="font-size:11px;color:#556688;padding:8px;">
+      Player props are not available for this game.
+    </div>
+  `;
+  box.dataset.loaded = "true";
+  return;
+} 
   try {
     const res = await fetch(
-      `/api/football-data?mode=nfl-player-props&teamA=${encodeURIComponent(awayTeam)}&teamB=${encodeURIComponent(homeTeam)}`,
-      { headers: { "Authorization": `Bearer ${sessionData.session.access_token}` } }
-    );
+  `/api/football-data?mode=nfl-player-props&eventId=${encodeURIComponent(eventId)}`,
+  {
+    headers: {
+      "Authorization": `Bearer ${sessionData.session.access_token}`
+    }
+  }
+);
     const data = await res.json();
  
     if (!res.ok || data.noPlay || !data.props?.length) {
