@@ -4971,6 +4971,271 @@ function parseNFLPlayerGamelogRaw(
 // FIN NFL PLAYER STATS — ATHLETE GAMELOG PARSER
 // ============================================================
 // ============================================================
+// NFL PLAYER STATS — GAMELOG CACHE
+// ============================================================
+
+const NFL_PLAYER_GAMELOG_DATA_VERSION = 1;
+const NFL_PLAYER_GAMELOG_CACHE_HOURS = 24;
+
+
+function nflPlayerGamelogCacheFresh(value) {
+  if (!value) return false;
+
+  const checkedAt =
+    new Date(value).getTime();
+
+  if (!Number.isFinite(checkedAt)) {
+    return false;
+  }
+
+  const ageMs =
+    Date.now() - checkedAt;
+
+  return (
+    ageMs <
+    NFL_PLAYER_GAMELOG_CACHE_HOURS *
+      60 *
+      60 *
+      1000
+  );
+}
+
+
+async function loadNFLPlayerGamelogCached(
+  athleteId,
+  season,
+  force = false
+) {
+  if (!athleteId || !season) {
+    return {
+      logs: [],
+      fromCache: false,
+      fetched: false
+    };
+  }
+
+  const athleteKey =
+    String(athleteId);
+
+  const seasonNumber =
+    Number(season);
+
+
+  // -------------------------
+  // READ CACHE
+  // -------------------------
+
+  const {
+    data: cachedRow,
+    error: cacheError
+  } =
+    await supabaseAdmin
+      .from(
+        "nfl_player_gamelog_cache"
+      )
+      .select("*")
+      .eq(
+        "athlete_id",
+        athleteKey
+      )
+      .eq(
+        "season",
+        seasonNumber
+      )
+      .maybeSingle();
+
+
+  if (cacheError) {
+    console.warn(
+      "NFL player gamelog cache read:",
+      cacheError.message
+    );
+  }
+
+
+  const cachedLogs =
+    Array.isArray(
+      cachedRow
+        ?.stats_json
+        ?.logs
+    )
+      ? cachedRow.stats_json.logs
+      : [];
+
+
+  const cacheVersionValid =
+    Number(
+      cachedRow?.data_version
+    ) ===
+      NFL_PLAYER_GAMELOG_DATA_VERSION &&
+    Number(
+      cachedRow
+        ?.stats_json
+        ?.schemaVersion
+    ) ===
+      NFL_PLAYER_GAMELOG_DATA_VERSION;
+
+
+  /*
+   * Temporadas anteriores ya están terminadas.
+   * Una vez guardadas, no necesitamos
+   * volver a llamar ESPN.
+   */
+  const currentSeason =
+    getNFLPlayerStatsSeasonYear();
+
+  const completedSeason =
+    seasonNumber <
+    currentSeason;
+
+
+  if (
+    !force &&
+    cachedRow &&
+    cacheVersionValid &&
+    (
+      completedSeason ||
+      nflPlayerGamelogCacheFresh(
+        cachedRow.last_checked_at
+      )
+    )
+  ) {
+    return {
+      logs: cachedLogs,
+      fromCache: true,
+      fetched: false,
+
+      athleteId:
+        athleteKey,
+
+      season:
+        seasonNumber,
+
+      lastEventId:
+        cachedRow.last_event_id ||
+        null
+    };
+  }
+
+
+  // -------------------------
+  // ESPN FETCH
+  // -------------------------
+
+  const raw =
+    await getNFLPlayerGamelogRaw(
+      athleteKey,
+      seasonNumber
+    );
+
+
+  const logs =
+    parseNFLPlayerGamelogRaw(
+      raw,
+      seasonNumber
+    );
+
+
+  const lastEventId =
+    logs?.[0]?.gameId
+      ? String(
+          logs[0].gameId
+        )
+      : null;
+
+
+  const now =
+    new Date().toISOString();
+
+
+  const statsJson = {
+    schemaVersion:
+      NFL_PLAYER_GAMELOG_DATA_VERSION,
+
+    athleteId:
+      athleteKey,
+
+    season:
+      seasonNumber,
+
+    logs
+  };
+
+
+  // -------------------------
+  // SAVE CACHE
+  // -------------------------
+
+  const {
+    error: saveError
+  } =
+    await supabaseAdmin
+      .from(
+        "nfl_player_gamelog_cache"
+      )
+      .upsert(
+        {
+          athlete_id:
+            athleteKey,
+
+          season:
+            seasonNumber,
+
+          data_version:
+            NFL_PLAYER_GAMELOG_DATA_VERSION,
+
+          last_event_id:
+            lastEventId,
+
+          stats_json:
+            statsJson,
+
+          generated_at:
+            now,
+
+          last_checked_at:
+            now,
+
+          updated_at:
+            now
+        },
+        {
+          onConflict:
+            "athlete_id,season"
+        }
+      );
+
+
+  if (saveError) {
+    console.warn(
+      "NFL player gamelog cache save:",
+      saveError.message
+    );
+  }
+
+
+  return {
+    logs,
+
+    fromCache: false,
+
+    fetched: true,
+
+    athleteId:
+      athleteKey,
+
+    season:
+      seasonNumber,
+
+    lastEventId
+  };
+}
+
+
+// ============================================================
+// FIN NFL PLAYER STATS — GAMELOG CACHE
+// ============================================================
+// ============================================================
 // NFL PLAYER STATS — TEAM PROFILE BUILDER
 // ============================================================
 
@@ -6420,41 +6685,42 @@ if (wantsGamelogDebug) {
 
     try {
 
-      const rawGamelog =
-        await getNFLPlayerGamelogRaw(
-          debugPlayer.id,
-          debugSeason
-        );
-
-
-      gamelogDebug = {
-        player: {
-          id:
-            debugPlayer.id,
-
-          name:
-            debugPlayer.name,
-
-          position:
-            debugPlayer.position,
-
-          experienceYears:
-            debugPlayer.experienceYears
-        },
-
-        season:
-  debugSeason,
-
-parsed:
-  parseNFLPlayerGamelogRaw(
-    rawGamelog,
+     const gamelogResult =
+  await loadNFLPlayerGamelogCached(
+    debugPlayer.id,
     debugSeason
-  ),
+  );
 
-raw:
-  rawGamelog
-      };
+   gamelogDebug = {
+  player: {
+    id:
+      debugPlayer.id,
 
+    name:
+      debugPlayer.name,
+
+    position:
+      debugPlayer.position,
+
+    experienceYears:
+      debugPlayer.experienceYears
+  },
+
+  season:
+    debugSeason,
+
+  fromCache:
+    gamelogResult.fromCache,
+
+  fetched:
+    gamelogResult.fetched,
+
+  games:
+    gamelogResult.logs.length,
+
+  parsed:
+    gamelogResult.logs
+};
     } catch (error) {
 
       gamelogDebug = {
