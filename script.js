@@ -4131,14 +4131,14 @@ function showNFLPlayerDetail(
       <strong style="
         display:block;
         color:#fff;
-        font-size:16px;
+       font-size:14px;
       ">
         ${value}
       </strong>
 
       <small style="
         color:#71839f;
-        font-size:8px;
+        font-size:7px;
       ">
         ${label}
       </small>
@@ -4318,7 +4318,7 @@ function showNFLPlayerDetail(
         display:flex;
         justify-content:space-between;
         align-items:center;
-        margin:14px 0 12px;
+        margin:10px 0 10px;
       ">
 
         <div>
@@ -4440,7 +4440,7 @@ function showNFLPlayerDetail(
 
           return `
             <div style="
-              padding:10px 2px;
+              padding:8px 2px;
               border-bottom:1px solid #18243a;
             ">
 
