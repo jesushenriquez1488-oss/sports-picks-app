@@ -4931,6 +4931,346 @@ function buildNFLPlayerStatsTeamProfiles({
 // ============================================================
 // FIN NFL PLAYER STATS — TEAM PROFILE BUILDER
 // ============================================================
+// ============================================================
+// NFL PLAYER STATS — CURRENT ROSTER MERGE
+// ============================================================
+
+function mergeNFLCurrentRosterWithHistory({
+  roster = [],
+  historicalProfiles = [],
+  teamId,
+  teamName
+}) {
+  const historyById =
+    new Map();
+
+  const historyByName =
+    new Map();
+
+
+  for (
+    const profile of
+    historicalProfiles
+  ) {
+
+    if (profile?.id) {
+      historyById.set(
+        String(profile.id),
+        profile
+      );
+    }
+
+    if (profile?.name) {
+      historyByName.set(
+        String(profile.name)
+          .toLowerCase()
+          .trim(),
+        profile
+      );
+    }
+  }
+
+
+  const players = [];
+
+
+  for (
+    const rosterPlayer of
+    roster
+  ) {
+
+    const rosterId =
+      rosterPlayer?.id
+        ? String(
+            rosterPlayer.id
+          )
+        : null;
+
+    const rosterNameKey =
+      String(
+        rosterPlayer?.name ||
+        ""
+      )
+        .toLowerCase()
+        .trim();
+
+
+    let history = null;
+
+
+    if (
+      rosterId &&
+      historyById.has(
+        rosterId
+      )
+    ) {
+
+      history =
+        historyById.get(
+          rosterId
+        );
+
+    } else if (
+      rosterNameKey &&
+      historyByName.has(
+        rosterNameKey
+      )
+    ) {
+
+      history =
+        historyByName.get(
+          rosterNameKey
+        );
+    }
+
+
+    /*
+     * Jugador actual que también
+     * aparece en los boxscores
+     * históricos de este equipo.
+     */
+    if (history) {
+
+      players.push({
+        ...history,
+
+        id:
+          rosterId ||
+          history.id ||
+          null,
+
+        name:
+          rosterPlayer.name ||
+          history.name,
+
+        jersey:
+          rosterPlayer.jersey ||
+          history.jersey ||
+          null,
+
+        position:
+          rosterPlayer.position ||
+          history.position ||
+          null,
+
+        teamId:
+          String(
+            teamId || ""
+          ),
+
+        team:
+          teamName || null,
+
+        status:
+          rosterPlayer.status ||
+          null,
+
+        currentRoster:
+          true,
+
+        hasHistory:
+          true
+      });
+
+      continue;
+    }
+
+
+    /*
+     * Jugador que está en el roster
+     * actual pero no apareció en
+     * los boxscores históricos de
+     * este equipo.
+     *
+     * Puede ser rookie, free agent,
+     * trade, etc.
+     *
+     * NO inventamos estadísticas.
+     */
+    players.push({
+      id:
+        rosterId,
+
+      name:
+        rosterPlayer.name ||
+        null,
+
+      jersey:
+        rosterPlayer.jersey ||
+        null,
+
+      position:
+        rosterPlayer.position ||
+        null,
+
+      teamId:
+        String(
+          teamId || ""
+        ),
+
+      team:
+        teamName || null,
+
+      status:
+        rosterPlayer.status ||
+        null,
+
+      currentRoster:
+        true,
+
+      hasHistory:
+        false,
+
+      gamesAvailable: {
+        recent: 0,
+        season: 0
+      },
+
+      last3:
+        nflPlayerStatsBuildWindow(
+          []
+        ),
+
+      last5:
+        nflPlayerStatsBuildWindow(
+          []
+        ),
+
+      last10:
+        nflPlayerStatsBuildWindow(
+          []
+        ),
+
+      season:
+        nflPlayerStatsBuildWindow(
+          []
+        ),
+
+      gameLogs: []
+    });
+  }
+
+
+  /*
+   * Orden:
+   *
+   * QB
+   * RB
+   * WR
+   * TE
+   *
+   * Dentro de la posición,
+   * historial/uso primero.
+   */
+
+  const positionOrder = {
+    QB: 1,
+    RB: 2,
+    WR: 3,
+    TE: 4
+  };
+
+
+  function playerUsage(
+    player
+  ) {
+
+    if (
+      player?.position ===
+      "QB"
+    ) {
+
+      return nflSafeNum(
+        player?.last5
+          ?.passing
+          ?.attempts
+      );
+    }
+
+
+    if (
+      player?.position ===
+      "RB"
+    ) {
+
+      return (
+        nflSafeNum(
+          player?.last5
+            ?.rushing
+            ?.attempts
+        ) +
+
+        nflSafeNum(
+          player?.last5
+            ?.receiving
+            ?.targets
+        )
+      );
+    }
+
+
+    return nflSafeNum(
+      player?.last5
+        ?.receiving
+        ?.targets
+    );
+  }
+
+
+  players.sort(
+    (a, b) => {
+
+      const positionDiff =
+        (
+          positionOrder[
+            a.position
+          ] || 99
+        ) -
+        (
+          positionOrder[
+            b.position
+          ] || 99
+        );
+
+
+      if (
+        positionDiff !== 0
+      ) {
+        return positionDiff;
+      }
+
+
+      /*
+       * Jugadores con historial
+       * primero.
+       */
+
+      if (
+        a.hasHistory !==
+        b.hasHistory
+      ) {
+
+        return a.hasHistory
+          ? -1
+          : 1;
+      }
+
+
+      return (
+        playerUsage(b) -
+        playerUsage(a)
+      );
+    }
+  );
+
+
+  return players;
+}
+
+
+// ============================================================
+// FIN NFL PLAYER STATS — CURRENT ROSTER MERGE
+// ============================================================
 async function handleNFLPlayerStats(
   req,
   res
@@ -5508,7 +5848,45 @@ const homePlayers =
     boxscoreMap:
       boxscoreData.byGameId
   });
+// -------------------------
+// CURRENT NFL ROSTERS
+// -------------------------
 
+const [
+  awayRoster,
+  homeRoster
+] = await Promise.all([
+  getNFLCurrentSkillRoster(
+    awayTeamId
+  ),
+
+  getNFLCurrentSkillRoster(
+    homeTeamId
+  )
+]);
+
+
+// -------------------------
+// MERGE CURRENT ROSTER
+// WITH HISTORICAL STATS
+// -------------------------
+
+const awayCurrentPlayers =
+  mergeNFLCurrentRosterWithHistory({
+    roster: awayRoster,
+    historicalProfiles: awayPlayers,
+    teamId: awayTeamId,
+    teamName: awayTeam
+  });
+
+
+const homeCurrentPlayers =
+  mergeNFLCurrentRosterWithHistory({
+    roster: homeRoster,
+    historicalProfiles: homePlayers,
+    teamId: homeTeamId,
+    teamName: homeTeam
+  });
 return res
   .status(200)
   .json({
@@ -5521,8 +5899,7 @@ return res
 
     cached: false,
 
-    stage:
-      "boxscores-loaded",
+    stage: "current-roster-merged",
 
     eventId,
 
@@ -5561,11 +5938,11 @@ return res
     seasonGames:
       awaySource.seasonGames.length,
 
-    playerCount:
-      awayPlayers.length,
+   playerCount:
+  awayCurrentPlayers.length,
 
-    players:
-      awayPlayers
+players:
+  awayCurrentPlayers
   },
 
   home: {
@@ -5579,11 +5956,11 @@ return res
     seasonGames:
       homeSource.seasonGames.length,
 
-    playerCount:
-      homePlayers.length,
+ playerCount:
+  homeCurrentPlayers.length,
 
-    players:
-      homePlayers
+players:
+  homeCurrentPlayers
   }
 }
   });
