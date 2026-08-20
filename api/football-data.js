@@ -2621,6 +2621,702 @@ if (!selectedEvent) {
 // ============================================================
 // FIN BLOQUE NFL PLAYER PROPS
 // ============================================================
+// ============================================================
+// NFL PLAYER STATS — CACHE MANAGER
+// ============================================================
+
+const NFL_PLAYER_STATS_CACHE_HOURS = 24;
+const NFL_PLAYER_STATS_DATA_VERSION = 1;
+
+
+/*
+ * Temporada NFL.
+ *
+ * Enero / febrero todavía pertenecen a
+ * la temporada iniciada el año anterior.
+ */
+function getNFLPlayerStatsSeasonYear() {
+  const now = new Date();
+
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+
+  return month <= 2
+    ? year - 1
+    : year;
+}
+
+
+/*
+ * Fecha en America/Chicago.
+ */
+function nflPlayerStatsDateKey(value) {
+  const date = value
+    ? new Date(value)
+    : new Date();
+
+  if (Number.isNaN(date.getTime())) {
+    return new Date()
+      .toISOString()
+      .split("T")[0];
+  }
+
+  return new Intl.DateTimeFormat(
+    "en-CA",
+    {
+      timeZone: "America/Chicago",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }
+  ).format(date);
+}
+
+
+/*
+ * ¿El cache fue comprobado hace
+ * menos de 24 horas?
+ */
+function nflPlayerStatsCacheIsFresh(
+  lastCheckedAt
+) {
+  if (!lastCheckedAt) {
+    return false;
+  }
+
+  const checked =
+    new Date(lastCheckedAt).getTime();
+
+  if (!Number.isFinite(checked)) {
+    return false;
+  }
+
+  const ageMs =
+    Date.now() - checked;
+
+  return (
+    ageMs >= 0 &&
+    ageMs <
+      NFL_PLAYER_STATS_CACHE_HOURS *
+      60 *
+      60 *
+      1000
+  );
+}
+
+
+/*
+ * Trae partidos REGULARES completados
+ * de un equipo.
+ *
+ * Esta función es exclusiva de
+ * NFL Player Stats.
+ *
+ * No modificamos la función utilizada
+ * actualmente por Player Props.
+ */
+async function getNFLPlayerStatsCompletedGames(
+  espnTeamId,
+  season,
+  limit = 10
+) {
+  if (!espnTeamId) {
+    return [];
+  }
+
+  const url =
+    `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${espnTeamId}/schedule` +
+    `?season=${season}` +
+    `&seasontype=2`;
+
+  const data =
+    await espnFetchNFL(url);
+
+  const events =
+    Array.isArray(data?.events)
+      ? data.events
+      : [];
+
+  return events
+    .filter(event => {
+      const comp =
+        event?.competitions?.[0];
+
+      const status =
+        comp?.status?.type;
+
+      return (
+        status?.state === "post" ||
+        status?.completed === true
+      );
+    })
+    .map(event => {
+      const comp =
+        event?.competitions?.[0];
+
+      const competitors =
+        comp?.competitors || [];
+
+      const ownTeam =
+        competitors.find(
+          item =>
+            String(item?.team?.id || "") ===
+            String(espnTeamId)
+        );
+
+      const opponent =
+        competitors.find(
+          item =>
+            String(item?.team?.id || "") !==
+            String(espnTeamId)
+        );
+
+      return {
+        id:
+          String(event?.id || ""),
+
+        date:
+          event?.date || null,
+
+        opponentId:
+          opponent?.team?.id
+            ? String(
+                opponent.team.id
+              )
+            : null,
+
+        opponent:
+          opponent?.team
+            ?.displayName ||
+          opponent?.team
+            ?.shortDisplayName ||
+          opponent?.team
+            ?.name ||
+          null,
+
+        homeAway:
+          ownTeam?.homeAway ||
+          null
+      };
+    })
+    .filter(game =>
+      Boolean(game.id)
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.date || 0) -
+        new Date(a.date || 0)
+    )
+    .slice(0, limit);
+}
+
+
+/*
+ * Selecciona el historial que
+ * utilizaremos para Player Stats.
+ *
+ * Ejemplo inicio de 2026:
+ *
+ * 2026: 2 partidos
+ * 2025: 8 partidos
+ *
+ * Last 10 =
+ * 2 actuales + 8 anteriores
+ *
+ * Una vez existan 10 en 2026,
+ * 2025 deja de utilizarse.
+ */
+async function getNFLPlayerStatsSourceGames(
+  espnTeamId
+) {
+  const currentSeason =
+    getNFLPlayerStatsSeasonYear();
+
+  const previousSeason =
+    currentSeason - 1;
+
+  const currentGames =
+    await getNFLPlayerStatsCompletedGames(
+      espnTeamId,
+      currentSeason,
+      10
+    );
+
+  let previousGames = [];
+
+  if (currentGames.length < 10) {
+    previousGames =
+      await getNFLPlayerStatsCompletedGames(
+        espnTeamId,
+        previousSeason,
+        10
+      );
+  }
+
+  const recentGames = [
+    ...currentGames,
+    ...previousGames
+  ]
+    .sort(
+      (a, b) =>
+        new Date(b.date || 0) -
+        new Date(a.date || 0)
+    )
+    .slice(0, 10);
+
+  /*
+   * Season significa temporada actual
+   * si ya comenzó.
+   *
+   * Si aún no existe ningún partido
+   * regular actual, mostramos la
+   * temporada anterior.
+   */
+  const seasonGames =
+    currentGames.length
+      ? currentGames
+      : previousGames;
+
+  const seasonUsed =
+    currentGames.length
+      ? currentSeason
+      : previousSeason;
+
+  return {
+    currentSeason,
+    previousSeason,
+    seasonUsed,
+
+    currentGames,
+    previousGames,
+
+    recentGames,
+    seasonGames,
+
+    lastCompletedGameId:
+      recentGames[0]?.id ||
+      null
+  };
+}
+
+
+// ============================================================
+// NFL PLAYER STATS HANDLER
+// ============================================================
+
+async function handleNFLPlayerStats(
+  req,
+  res
+) {
+
+  // -------------------------
+  // LOGIN REQUIRED
+  // -------------------------
+
+  const authHeader =
+    String(
+      req.headers.authorization ||
+      ""
+    );
+
+  const token =
+    authHeader.startsWith(
+      "Bearer "
+    )
+      ? authHeader.slice(7)
+      : null;
+
+  if (!token) {
+    return res.status(401).json({
+      ok: false,
+      mode:
+        "nfl-player-stats",
+      error:
+        "Unauthorized"
+    });
+  }
+
+  const {
+    data: authData,
+    error: authError
+  } =
+    await supabaseAdmin
+      .auth
+      .getUser(token);
+
+  if (
+    authError ||
+    !authData?.user?.id
+  ) {
+    return res.status(401).json({
+      ok: false,
+      mode:
+        "nfl-player-stats",
+      error:
+        "Unauthorized"
+    });
+  }
+
+
+  // -------------------------
+  // MATCHUP
+  // -------------------------
+
+  const eventId =
+    req.query.eventId ||
+    req.body?.eventId ||
+    null;
+
+  const awayTeam =
+    req.query.awayTeam ||
+    req.body?.awayTeam ||
+    null;
+
+  const homeTeam =
+    req.query.homeTeam ||
+    req.body?.homeTeam ||
+    null;
+
+  const gameTime =
+    req.query.gameTime ||
+    req.body?.gameTime ||
+    null;
+
+  const forceRefresh =
+    req.query.force === "true" ||
+    req.body?.force === true;
+
+
+  if (
+    !eventId ||
+    !awayTeam ||
+    !homeTeam
+  ) {
+    return res.status(400).json({
+      ok: false,
+      mode:
+        "nfl-player-stats",
+      error:
+        "eventId, awayTeam and homeTeam are required"
+    });
+  }
+
+
+  // -------------------------
+  // ESPN TEAM IDS
+  // -------------------------
+
+  const awayTeamId =
+    findESPNTeamId(
+      awayTeam
+    );
+
+  const homeTeamId =
+    findESPNTeamId(
+      homeTeam
+    );
+
+  if (
+    !awayTeamId ||
+    !homeTeamId
+  ) {
+    return res.status(404).json({
+      ok: false,
+      mode:
+        "nfl-player-stats",
+      error:
+        "Unable to resolve NFL teams",
+      teams: {
+        away: awayTeam,
+        home: homeTeam
+      }
+    });
+  }
+
+
+  const gameDate =
+    nflPlayerStatsDateKey(
+      gameTime
+    );
+
+
+  // -------------------------
+  // READ CACHE
+  // -------------------------
+
+  let cached = null;
+
+  try {
+
+    const {
+      data,
+      error
+    } =
+      await supabaseAdmin
+        .from(
+          "nfl_player_stats_cache"
+        )
+        .select(
+          [
+            "event_id",
+            "game",
+            "game_date",
+            "away_team",
+            "home_team",
+            "away_team_id",
+            "home_team_id",
+            "source_last_game_away",
+            "source_last_game_home",
+            "source_season_away",
+            "source_season_home",
+            "data_version",
+            "stats_json",
+            "generated_at",
+            "last_checked_at",
+            "updated_at"
+          ].join(",")
+        )
+        .eq(
+          "event_id",
+          eventId
+        )
+        .maybeSingle();
+
+    if (error) {
+      console.warn(
+        "NFL PLAYER STATS CACHE READ:",
+        error.message
+      );
+    } else {
+      cached = data || null;
+    }
+
+  } catch (error) {
+
+    console.warn(
+      "NFL PLAYER STATS CACHE READ:",
+      error.message
+    );
+  }
+
+
+  // -------------------------
+  // CACHE < 24 HOURS
+  // -------------------------
+
+  if (
+    !forceRefresh &&
+    cached?.stats_json &&
+    Number(
+      cached.data_version
+    ) ===
+      NFL_PLAYER_STATS_DATA_VERSION &&
+    nflPlayerStatsCacheIsFresh(
+      cached.last_checked_at
+    )
+  ) {
+
+    return res
+      .status(200)
+      .json({
+        ...cached.stats_json,
+
+        cached: true,
+
+        cacheStatus:
+          "fresh",
+
+        cacheCheckedAt:
+          cached.last_checked_at
+      });
+  }
+
+
+  // -------------------------
+  // CHECK SOURCE
+  // -------------------------
+
+  const [
+    awaySource,
+    homeSource
+  ] =
+    await Promise.all([
+      getNFLPlayerStatsSourceGames(
+        awayTeamId
+      ),
+
+      getNFLPlayerStatsSourceGames(
+        homeTeamId
+      )
+    ]);
+
+
+  const awayLastGameId =
+    awaySource
+      .lastCompletedGameId;
+
+  const homeLastGameId =
+    homeSource
+      .lastCompletedGameId;
+
+
+  // -------------------------
+  // CACHE STILL VALID
+  // -------------------------
+
+  const sameSource =
+    cached &&
+    String(
+      cached
+        .source_last_game_away ||
+      ""
+    ) ===
+      String(
+        awayLastGameId ||
+        ""
+      ) &&
+    String(
+      cached
+        .source_last_game_home ||
+      ""
+    ) ===
+      String(
+        homeLastGameId ||
+        ""
+      );
+
+
+  if (
+    !forceRefresh &&
+    cached?.stats_json &&
+    sameSource &&
+    Number(
+      cached.data_version
+    ) ===
+      NFL_PLAYER_STATS_DATA_VERSION
+  ) {
+
+    const checkedAt =
+      new Date()
+        .toISOString();
+
+    await supabaseAdmin
+      .from(
+        "nfl_player_stats_cache"
+      )
+      .update({
+        last_checked_at:
+          checkedAt
+      })
+      .eq(
+        "event_id",
+        eventId
+      );
+
+    return res
+      .status(200)
+      .json({
+        ...cached.stats_json,
+
+        cached: true,
+
+        cacheStatus:
+          "validated",
+
+        cacheCheckedAt:
+          checkedAt
+      });
+  }
+
+
+  // -------------------------
+  // NEEDS REBUILD
+  // -------------------------
+  //
+  // Todavía NO guardamos nada.
+  //
+  // En el siguiente bloque
+  // construiremos:
+  //
+  // roster
+  // boxscores
+  // players
+  // Last 3
+  // Last 5
+  // Last 10
+  // Season
+  // Hot Players
+  //
+  // y reemplazaremos este return.
+  // -------------------------
+
+  return res
+    .status(200)
+    .json({
+      ok: true,
+
+      mode:
+        "nfl-player-stats",
+
+      rebuildRequired: true,
+
+      cached: false,
+
+      eventId,
+
+      game:
+        `${awayTeam} @ ${homeTeam}`,
+
+      gameDate,
+
+      teams: {
+        away: {
+          name:
+            awayTeam,
+
+          id:
+            awayTeamId,
+
+          lastCompletedGameId:
+            awayLastGameId,
+
+          season:
+            awaySource
+              .seasonUsed,
+
+          recentGames:
+            awaySource
+              .recentGames
+              .length
+        },
+
+        home: {
+          name:
+            homeTeam,
+
+          id:
+            homeTeamId,
+
+          lastCompletedGameId:
+            homeLastGameId,
+
+          season:
+            homeSource
+              .seasonUsed,
+
+          recentGames:
+            homeSource
+              .recentGames
+              .length
+        }
+      }
+    });
+}
+
+
+// ============================================================
+// FIN NFL PLAYER STATS — CACHE MANAGER
+// ============================================================
  function getDayStart() {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
