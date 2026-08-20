@@ -3548,11 +3548,25 @@ function renderNFLPlayerStats(index) {
                         </span>
 
                         <span class="ps-hot-player">
-                          <strong>
-                            ${sanitize(
-                              item.player.name
-                            )}
-                          </strong>
+                          <button
+  type="button"
+  onclick="showNFLPlayerDetail(
+    ${index},
+    '${String(item.player.id).replace(/'/g, "\\'")}'
+  )"
+  style="
+    border:0;
+    padding:0;
+    background:transparent;
+    color:#fff;
+    font:inherit;
+    font-weight:700;
+    text-align:left;
+    cursor:pointer;
+  "
+>
+  ${sanitize(item.player.name)}
+</button>
 
                           <small>
                             ${sanitize(
@@ -4061,7 +4075,258 @@ function showNFLCategoryList(
     </div>
   `;
 }
+function showNFLPlayerDetail(
+  index,
+  playerId
+) {
+  const state =
+    nflPlayerStatsState[index];
 
+  const box =
+    document.getElementById(
+      `nflPlayerStatsView${index}`
+    );
+
+  if (!state?.data || !box) {
+    return;
+  }
+
+  const data = state.data;
+
+  const players = [
+    ...(data.teams?.away?.players || []),
+    ...(data.teams?.home?.players || [])
+  ];
+
+  const player =
+    players.find(
+      p =>
+        String(p.id) ===
+        String(playerId)
+    );
+
+  if (!player) return;
+
+
+  const logs =
+    (player.gameLogs || [])
+      .slice()
+      .sort(
+        (a, b) =>
+          new Date(b.date || 0) -
+          new Date(a.date || 0)
+      )
+      .slice(0, 10);
+
+
+  const gameStats = log => {
+
+    if (player.position === "QB") {
+      return `
+        <span>
+          <b>
+            ${Number(log.passing?.completions || 0)}/${Number(log.passing?.attempts || 0)}
+          </b>
+          <small>CMP/ATT</small>
+        </span>
+
+        <span>
+          <b>
+            ${Number(log.passing?.yards || 0)}
+          </b>
+          <small>PASS YDS</small>
+        </span>
+
+        <span>
+          <b>
+            ${Number(log.passing?.touchdowns || 0)}-${Number(log.passing?.interceptions || 0)}
+          </b>
+          <small>TD-INT</small>
+        </span>
+      `;
+    }
+
+
+    if (player.position === "RB") {
+      return `
+        <span>
+          <b>
+            ${Number(log.rushing?.attempts || 0)}
+          </b>
+          <small>CAR</small>
+        </span>
+
+        <span>
+          <b>
+            ${Number(log.rushing?.yards || 0)}
+          </b>
+          <small>RUSH YDS</small>
+        </span>
+
+        <span>
+          <b>
+            ${Number(log.receiving?.receptions || 0)}/${Number(log.receiving?.targets || 0)}
+          </b>
+          <small>REC/TGT</small>
+        </span>
+      `;
+    }
+
+
+    return `
+      <span>
+        <b>
+          ${Number(log.receiving?.receptions || 0)}/${Number(log.receiving?.targets || 0)}
+        </b>
+        <small>REC/TGT</small>
+      </span>
+
+      <span>
+        <b>
+          ${Number(log.receiving?.yards || 0)}
+        </b>
+        <small>REC YDS</small>
+      </span>
+
+      <span>
+        <b>
+          ${Number(log.receiving?.touchdowns || 0)}
+        </b>
+        <small>REC TD</small>
+      </span>
+    `;
+  };
+
+
+  box.innerHTML = `
+    <div class="ps-card">
+
+      <div class="ps-detail-toolbar">
+        <button
+          type="button"
+          class="ps-back-btn"
+          onclick="showNFLPlayerStatsView(
+            ${index},
+            'hot'
+          )"
+        >
+          ← Back to Hot Players
+        </button>
+      </div>
+
+
+      <div class="ps-player-detail-card">
+
+        <div class="ps-player-detail-head">
+
+          <div>
+            <small>
+              ${sanitize(
+                player.team || ""
+              )}
+            </small>
+
+            <h4>
+              ${sanitize(player.name)}
+            </h4>
+          </div>
+
+          <div class="ps-position-badge">
+            ${sanitize(player.position)}
+          </div>
+
+        </div>
+
+
+        <div class="ps-recent-title">
+          Last 10 Game Log
+        </div>
+
+
+        <div style="
+          display:flex;
+          flex-direction:column;
+          gap:6px;
+        ">
+
+          ${
+            logs.length
+              ? logs.map(log => {
+
+                  const date =
+                    log.date
+                      ? new Date(
+                          log.date
+                        ).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric"
+                          }
+                        )
+                      : "—";
+
+                  return `
+                    <div style="
+                      display:grid;
+                      grid-template-columns:
+                        minmax(100px,1.3fr)
+                        repeat(3,minmax(52px,.7fr));
+                      gap:5px;
+                      align-items:center;
+                      padding:10px 4px;
+                      border-bottom:1px solid #18243a;
+                      min-width:0;
+                    ">
+
+                      <div style="min-width:0;">
+
+                        <strong style="
+                          color:#fff;
+                          font-size:10px;
+                          display:block;
+                          overflow:hidden;
+                          text-overflow:ellipsis;
+                          white-space:nowrap;
+                        ">
+                          ${sanitize(
+                            log.opponent || "Opponent"
+                          )}
+                        </strong>
+
+                        <small style="
+                          color:#556688;
+                          font-size:8px;
+                        ">
+                          ${date}
+                          ·
+                          ${sanitize(
+                            log.result || ""
+                          )}
+                        </small>
+
+                      </div>
+
+
+                      ${gameStats(log)}
+
+                    </div>
+                  `;
+                }).join("")
+              : `
+                  <div class="ps-no-data">
+                    No game log available.
+                  </div>
+                `
+          }
+
+        </div>
+
+      </div>
+
+    </div>
+  `;
+}
 function showNFLPlayerStatsWindow(index, windowKey) {
   if (!nflPlayerStatsState[index]) return;
 
@@ -4197,6 +4462,8 @@ window.showNFLPlayerStatsView =
   showNFLPlayerStatsView;
 window.showNFLCategoryList =
   showNFLCategoryList;
+window.showNFLPlayerDetail =
+  showNFLPlayerDetail;
 
 
 // ============================================================
