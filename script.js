@@ -4190,97 +4190,64 @@ function nflPlayerStatsMetric(player, windowKey) {
 
 function renderNFLPlayerStats(index) {
   const state = nflPlayerStatsState[index];
-  const box = document.getElementById(
-    `nflPlayerStatsView${index}`
-  );
+  const box = document.getElementById(`nflPlayerStatsView${index}`);
 
   if (!state?.data || !box) return;
 
   const data = state.data;
   const windowKey = state.windowKey || "last5";
-  const view = state.view || "hot";
 
   const allPlayers = [
     ...(data.teams?.away?.players || []),
     ...(data.teams?.home?.players || [])
-  ].filter(p => p.hasHistory);
+  ].filter(player => player.hasHistory);
 
+  const awayIds = new Set(
+    (data.teams?.away?.players || []).map(player => String(player.id))
+  );
 
-  const teamName = player => {
-    const awayPlayers =
-      data.teams?.away?.players || [];
-
-    return awayPlayers.some(
-      p => String(p.id) === String(player.id)
-    )
-      ? data.teams.away.name
-      : data.teams.home.name;
-  };
-
+  const teamName = player =>
+    awayIds.has(String(player.id))
+      ? data.teams?.away?.name || ""
+      : data.teams?.home?.name || "";
 
   const shortTeam = player =>
     String(teamName(player) || "")
       .split(" ")
       .pop();
 
-
   const markets = [
     {
       key: "passingYards",
       label: "Passing Yards",
       positions: ["QB"],
-      value: p =>
-        Number(
-          p?.[windowKey]
-            ?.passing?.yards || 0
-        )
+      value: player => Number(player?.[windowKey]?.passing?.yards || 0)
     },
-
     {
       key: "rushingYards",
       label: "Rushing Yards",
       positions: ["QB", "RB", "WR"],
-      value: p =>
-        Number(
-          p?.[windowKey]
-            ?.rushing?.yards || 0
-        )
+      value: player => Number(player?.[windowKey]?.rushing?.yards || 0)
     },
-
     {
       key: "receivingYards",
       label: "Receiving Yards",
       positions: ["RB", "WR", "TE"],
-      value: p =>
-        Number(
-          p?.[windowKey]
-            ?.receiving?.yards || 0
-        )
+      value: player => Number(player?.[windowKey]?.receiving?.yards || 0)
     },
-
     {
       key: "receptions",
       label: "Receptions",
       positions: ["RB", "WR", "TE"],
-      value: p =>
-        Number(
-          p?.[windowKey]
-            ?.receiving?.receptions || 0
-        )
+      value: player => Number(player?.[windowKey]?.receiving?.receptions || 0)
     },
-
     {
       key: "targets",
       label: "Targets",
       positions: ["RB", "WR", "TE"],
-      value: p =>
-        Number(
-          p?.[windowKey]
-            ?.receiving?.targets || 0
-        )
+      value: player => Number(player?.[windowKey]?.receiving?.targets || 0)
     }
   ];
-
 
   const windowLabel = {
     last3: "LAST 3",
@@ -4289,221 +4256,108 @@ function renderNFLPlayerStats(index) {
     season: "SEASON"
   };
 
+  const hotCards = markets.map(market => {
+    const ranked = allPlayers
+      .filter(player => market.positions.includes(player.position))
+      .filter(player => Number(player.gamesAvailable?.[windowKey] || 0) > 0)
+      .map(player => ({
+        player,
+        value: market.value(player)
+      }))
+      .filter(item => item.value > 0)
+      .sort((a, b) => b.value - a.value);
 
-  const hotCards = markets
-    .map(market => {
+    const topThree = ranked.slice(0, 3);
 
-      const ranked = allPlayers
-        .filter(player =>
-          market.positions.includes(
-            player.position
-          )
-        )
-        .filter(player =>
-          Number(
-            player.gamesAvailable
-              ?.[windowKey] || 0
-          ) > 0
-        )
-        .map(player => ({
-          player,
-          value: market.value(player)
-        }))
-        .filter(item =>
-          item.value > 0
-        )
-        .sort(
-          (a, b) =>
-            b.value - a.value
-        );
-
-
-      const topThree =
-        ranked.slice(0, 3);
-
-
-      return `
-        <div class="ps-hot-card">
-
-          <div class="ps-hot-card-head">
-            <span>
-              ${market.label}
-            </span>
-
-            <small>
-              ${windowLabel[windowKey]}
-            </small>
-          </div>
-
-          ${
-            topThree.length
-              ? topThree
-                  .map(
-                    (item, position) => `
-                     <div
-  class="ps-hot-row"
-  style="
-    width:100%;
-    box-sizing:border-box;
-    grid-template-columns:32px minmax(0,1fr) 82px;
-    overflow:hidden;
-  "
->
-
-                        <span class="ps-hot-rank">
-                          ${position + 1}
-                        </span>
-
-                        <span class="ps-hot-player">
-                          <button
-  type="button"
- onclick="window.showNFLPlayerDetail(
-    ${index},
-    '${String(item.player.id).replace(/'/g, "\\'")}'
-  )"
-  style="
-    border:0;
-    padding:0;
-    background:transparent;
-    color:#fff;
-    font-size:12px;
-line-height:1.15;
-font-weight:700;
-    text-align:left;
-    cursor:pointer;
-  "
->
-  ${sanitize(item.player.name)}
-</button>
-
-                          <small>
-                            ${sanitize(
-                              shortTeam(
-                                item.player
-                              )
-                            )}
-                            ·
-                            ${sanitize(
-                              item.player.position
-                            )}
-                          </small>
-                        </span>
-<span
-  class="ps-hot-record"
-  style="
-    min-width:78px;
-    text-align:right;
-    white-space:nowrap;
-    flex-shrink:0;
-  "
->
-  <strong>
-    ${item.value.toFixed(1)}
-  </strong>
-
-  <small>
-    AVG
-  </small>
-</span>
-
-                      </div>
-                    `
-                  )
-                  .join("")
-              : `
-                  <div class="ps-no-data">
-                    Not enough data yet.
-                  </div>
-                `
-          }
-<button
-  type="button"
-  class="ps-view-all-category"
-  onclick="showNFLCategoryList(
-    ${index},
-    '${market.key}',
-    '${windowKey}'
-  )"
->
-  VIEW ALL PLAYERS →
-</button>
+    return `
+      <div class="ps-hot-card" style="padding:12px 12px 10px;">
+        <div class="ps-hot-card-head" style="margin-bottom:6px;">
+          <span>${market.label}</span>
+          <small>${windowLabel[windowKey]}</small>
         </div>
-      `;
-    })
-    .join("");
-
-
-  const renderTeam = team => `
-    <div class="ps-team-card">
-
-      <div class="ps-team-head">
-        <strong>
-          ${sanitize(team?.name || "")}
-        </strong>
-
-        <span>
-          ${team?.playerCount || 0}
-        </span>
-      </div>
-
-      <div class="ps-team-player-list">
 
         ${
-          (team?.players || [])
-            .filter(p =>
-              ["QB", "RB", "WR", "TE"]
-                .includes(p.position)
-            )
-            .map(player => `
-              <div
-                style="
-                  display:flex;
-                  justify-content:space-between;
-                  padding:9px 2px;
-                  border-bottom:1px solid #18243a;
-                "
-              >
-                <span>
-                  <strong
-                    style="
-                      color:#fff;
-                      font-size:11px;
-                    "
-                  >
-                    ${sanitize(player.name)}
-                  </strong>
+          topThree.length
+            ? topThree.map((item, position) => `
+                <div
+                  class="ps-hot-row"
+                  style="
+                    width:100%;
+                    box-sizing:border-box;
+                    grid-template-columns:28px minmax(0,1fr) 74px;
+                    min-height:48px;
+                    overflow:hidden;
+                  "
+                >
+                  <span class="ps-hot-rank">${position + 1}</span>
 
-                  <small
-                    style="
-                      color:#00ffe7;
-                      margin-left:5px;
-                    "
-                  >
-                    ${sanitize(player.position)}
-                  </small>
-                </span>
+                  <span class="ps-hot-player" style="min-width:0;">
+                    <button
+                      type="button"
+                      onclick="window.showNFLPlayerDetail(
+                        ${index},
+                        '${String(item.player.id).replace(/'/g, "\\'")}',
+                        'hot',
+                        '${market.key}',
+                        '${windowKey}'
+                      )"
+                      style="
+                        display:block;
+                        width:100%;
+                        border:0;
+                        padding:0;
+                        background:transparent;
+                        color:#fff;
+                        font-size:12px;
+                        line-height:1.15;
+                        font-weight:800;
+                        text-align:left;
+                        cursor:pointer;
+                        overflow:hidden;
+                        text-overflow:ellipsis;
+                        white-space:nowrap;
+                      "
+                    >
+                      ${sanitize(item.player.name)}
+                    </button>
 
-                <small style="color:#556688;">
-                  ${
-                    player.gamesAvailable
-                      ?.[windowKey] || 0
-                  } G
-                </small>
-              </div>
-            `)
-            .join("")
+                    <small>
+                      ${sanitize(shortTeam(item.player))}
+                      ·
+                      ${sanitize(item.player.position)}
+                    </small>
+                  </span>
+
+                  <span
+                    class="ps-hot-record"
+                    style="text-align:right;white-space:nowrap;"
+                  >
+                    <strong>${item.value.toFixed(1)}</strong>
+                    <small>AVG</small>
+                  </span>
+                </div>
+              `).join("")
+            : `<div class="ps-no-data">Not enough data yet.</div>`
         }
 
+        <button
+          type="button"
+          class="ps-view-all-category"
+          onclick="window.showNFLCategoryList(
+            ${index},
+            '${market.key}',
+            '${windowKey}'
+          )"
+        >
+          VIEW ALL PLAYERS →
+        </button>
       </div>
-    </div>
-  `;
-
+    `;
+  }).join("");
 
   box.innerHTML = `
     <div class="ps-card">
-
       <div class="ps-sticky-bar">
-
         <button
           type="button"
           class="ps-back-analysis-btn"
@@ -4514,103 +4368,36 @@ font-weight:700;
 
         <div class="ps-sticky-game">
           <small>NFL PLAYER STATS</small>
-
           <strong>
-            ${sanitize(
-              data.teams?.away?.name || ""
-            )}
+            ${sanitize(data.teams?.away?.name || "")}
             vs
-            ${sanitize(
-              data.teams?.home?.name || ""
-            )}
+            ${sanitize(data.teams?.home?.name || "")}
           </strong>
         </div>
-
       </div>
 
-
-      <div
-        class="ps-sub-tabs"
-        style="margin-top:12px;"
-      >
-
-        <button
-          class="${view === "hot" ? "active" : ""}"
-          onclick="showNFLPlayerStatsView(
-            ${index},
-            'hot'
-          )"
-        >
-          Hot Players
-        </button>
-
-        <button
-          class="${view === "all" ? "active" : ""}"
-          onclick="showNFLPlayerStatsView(
-            ${index},
-            'all'
-          )"
-        >
-          All Players
-        </button>
-
-      </div>
-
-
-      <div class="ps-window-tabs">
-
-        ${[
-          "last3",
-          "last5",
-          "last10",
-          "season"
-        ].map(key => `
+      <div class="ps-window-tabs" style="margin-top:12px;">
+        ${["last3", "last5", "last10", "season"].map(key => `
           <button
-            class="${
-              windowKey === key
-                ? "active"
-                : ""
-            }"
-            onclick="showNFLPlayerStatsWindow(
-              ${index},
-              '${key}'
-            )"
+            class="${windowKey === key ? "active" : ""}"
+            onclick="showNFLPlayerStatsWindow(${index}, '${key}')"
           >
             ${windowLabel[key]}
           </button>
         `).join("")}
-
       </div>
 
+      <div class="ps-helper-text" style="margin:8px 0 10px;">
+        Top players from this matchup by per-game production.
+      </div>
 
-      ${
-        view === "hot"
-          ? `
-              <div class="ps-helper-text">
-                Ranked across both teams by
-                per-game production.
-              </div>
-
-              <div class="ps-hot-grid">
-                ${hotCards}
-              </div>
-            `
-          : `
-              <div class="ps-team-columns">
-                ${renderTeam(
-                  data.teams?.away
-                )}
-
-                ${renderTeam(
-                  data.teams?.home
-                )}
-              </div>
-            `
-      }
-
+      <div class="ps-hot-grid">
+        ${hotCards}
+      </div>
     </div>
   `;
 }
+
 function showNFLPlayerStatsView(
   index,
   view
@@ -4624,134 +4411,70 @@ function showNFLPlayerStatsView(
 
   renderNFLPlayerStats(index);
 }
-function showNFLCategoryList(
-  index,
-  marketKey,
-  windowKey
-) {
-  const state =
-    nflPlayerStatsState[index];
+function showNFLCategoryList(index, marketKey, windowKey) {
+  const state = nflPlayerStatsState[index];
+  const box = document.getElementById(`nflPlayerStatsView${index}`);
 
-  const box =
-    document.getElementById(
-      `nflPlayerStatsView${index}`
-    );
-
-  if (!state?.data || !box) {
-    return;
-  }
-
+  if (!state?.data || !box) return;
 
   const data = state.data;
 
   const allPlayers = [
     ...(data.teams?.away?.players || []),
     ...(data.teams?.home?.players || [])
-  ];
-
+  ].filter(player => player.hasHistory);
 
   const market = {
     passingYards: {
       label: "Passing Yards",
       positions: ["QB"],
       unit: "YDS/G",
-      value: p =>
-        Number(
-          p?.[windowKey]
-            ?.passing?.yards || 0
-        )
+      value: player => Number(player?.[windowKey]?.passing?.yards || 0)
     },
-
     rushingYards: {
       label: "Rushing Yards",
       positions: ["QB", "RB", "WR"],
       unit: "YDS/G",
-      value: p =>
-        Number(
-          p?.[windowKey]
-            ?.rushing?.yards || 0
-        )
+      value: player => Number(player?.[windowKey]?.rushing?.yards || 0)
     },
-
     receivingYards: {
       label: "Receiving Yards",
       positions: ["RB", "WR", "TE"],
       unit: "YDS/G",
-      value: p =>
-        Number(
-          p?.[windowKey]
-            ?.receiving?.yards || 0
-        )
+      value: player => Number(player?.[windowKey]?.receiving?.yards || 0)
     },
-
     receptions: {
       label: "Receptions",
       positions: ["RB", "WR", "TE"],
       unit: "REC/G",
-      value: p =>
-        Number(
-          p?.[windowKey]
-            ?.receiving?.receptions || 0
-        )
+      value: player => Number(player?.[windowKey]?.receiving?.receptions || 0)
     },
-
     targets: {
       label: "Targets",
       positions: ["RB", "WR", "TE"],
       unit: "TGT/G",
-      value: p =>
-        Number(
-          p?.[windowKey]
-            ?.receiving?.targets || 0
-        )
+      value: player => Number(player?.[windowKey]?.receiving?.targets || 0)
     }
   }[marketKey];
 
-
   if (!market) return;
 
+  const awayIds = new Set(
+    (data.teams?.away?.players || []).map(player => String(player.id))
+  );
 
-  const awayIds =
-    new Set(
-      (data.teams?.away?.players || [])
-        .map(p => String(p.id))
-    );
-
-
-  const ranked =
-    allPlayers
-
-      .filter(player =>
-        market.positions.includes(
-          player.position
-        )
-      )
-
-      .filter(player =>
-        Number(
-          player.gamesAvailable
-            ?.[windowKey] || 0
-        ) > 0
-      )
-
-      .map(player => ({
-        player,
-        value:
-          market.value(player),
-
-        team:
-          awayIds.has(
-            String(player.id)
-          )
-            ? data.teams.away.name
-            : data.teams.home.name
-      }))
-
-      .sort(
-        (a, b) =>
-          b.value - a.value
-      );
-
+  const ranked = allPlayers
+    .filter(player => market.positions.includes(player.position))
+    .filter(player => Number(player.gamesAvailable?.[windowKey] || 0) > 0)
+    .map(player => ({
+      player,
+      value: market.value(player),
+      team: awayIds.has(String(player.id))
+        ? data.teams?.away?.name || ""
+        : data.teams?.home?.name || ""
+    }))
+    .filter(item => item.value > 0)
+    .sort((a, b) => b.value - a.value);
 
   const windowLabel = {
     last3: "LAST 3",
@@ -4760,172 +4483,111 @@ function showNFLCategoryList(
     season: "SEASON"
   };
 
-
   box.innerHTML = `
     <div class="ps-card">
-
       <div class="ps-detail-toolbar">
-
         <button
           type="button"
           class="ps-back-btn"
-          onclick="showNFLPlayerStatsView(
-            ${index},
-            'hot'
-          )"
+          onclick="window.showNFLPlayerStatsView(${index}, 'hot')"
         >
-          ← Back to Hot Players
+          ← BACK TO HOT PLAYERS
         </button>
-
       </div>
-<div
-  class="ps-window-tabs ps-category-window-tabs"
-  style="margin:10px 0;"
->
-  ${[
-    "last3",
-    "last5",
-    "last10",
-    "season"
-  ].map(key => `
-    <button
-      type="button"
-      class="${key === windowKey ? "active" : ""}"
-      onclick="window.showNFLCategoryList(
-        ${index},
-        '${marketKey}',
-        '${key}'
-      )"
-    >
-      ${windowLabel[key]}
-    </button>
-  `).join("")}
-</div>
 
-      <div class="ps-section-title">
+      <div
+        class="ps-window-tabs ps-category-window-tabs"
+        style="margin:10px 0 12px;"
+      >
+        ${["last3", "last5", "last10", "season"].map(key => `
+          <button
+            type="button"
+            class="${key === windowKey ? "active" : ""}"
+            onclick="window.showNFLCategoryList(
+              ${index},
+              '${marketKey}',
+              '${key}'
+            )"
+          >
+            ${windowLabel[key]}
+          </button>
+        `).join("")}
+      </div>
 
+      <div class="ps-section-title" style="margin-bottom:8px;">
         <div>
-          <small>
-            ${windowLabel[windowKey]}
-          </small>
-
-          <h4>
-            ${market.label}
-          </h4>
+          <small>${windowLabel[windowKey]}</small>
+          <h4>${market.label}</h4>
         </div>
-
-        <span>
-          ${ranked.length} players
-        </span>
-
+        <span>${ranked.length} players</span>
       </div>
-
 
       <div class="ps-ranked-full-list">
-
         ${
-          ranked.map(
-            (item, position) => `
-              <button
-  type="button"
-  class="ps-ranked-full-row"
-  onclick="window.showNFLPlayerDetail(
-    ${index},
-    '${String(item.player.id).replace(/'/g, "\\'")}',
-    'category',
-    '${marketKey}',
-    '${windowKey}'
-  )"
-                style="
-                  width:100%;
-                  box-sizing:border-box;
-                  display:grid;
-                  grid-template-columns:30px minmax(0,1fr) 92px;
-                  align-items:center;
-                  gap:8px;
-                "
-              >
-
-                <span>
-                  ${position + 1}
-                </span>
-
-                <strong
+          ranked.length
+            ? ranked.map((item, position) => `
+                <button
+                  type="button"
+                  class="ps-ranked-full-row"
+                  onclick="window.showNFLPlayerDetail(
+                    ${index},
+                    '${String(item.player.id).replace(/'/g, "\\'")}',
+                    'category',
+                    '${marketKey}',
+                    '${windowKey}'
+                  )"
                   style="
-                    min-width:0;
-                    overflow:hidden;
+                    width:100%;
+                    box-sizing:border-box;
+                    display:grid;
+                    grid-template-columns:28px minmax(0,1fr) 84px;
+                    align-items:center;
+                    gap:8px;
+                    min-height:50px;
                   "
                 >
-                  ${sanitize(
-                    item.player.name
-                  )}
+                  <span>${position + 1}</span>
 
-                  <small
-                    style="
-                      display:block;
-                      overflow:hidden;
-                      text-overflow:ellipsis;
-                      white-space:nowrap;
-                    "
-                  >
-                    ${sanitize(
-                      item.team
-                        .split(" ")
-                        .pop()
-                    )}
-                    ·
-                    ${sanitize(
-                      item.player.position
-                    )}
-                    ·
-                    ${
-                      item.player
-                        .gamesAvailable
-                        ?.[windowKey] || 0
-                    } G
-                  </small>
-                </strong>
+                  <strong style="min-width:0;overflow:hidden;">
+                    ${sanitize(item.player.name)}
+                    <small
+                      style="
+                        display:block;
+                        overflow:hidden;
+                        text-overflow:ellipsis;
+                        white-space:nowrap;
+                      "
+                    >
+                      ${sanitize(item.team.split(" ").pop())}
+                      ·
+                      ${sanitize(item.player.position)}
+                      ·
+                      ${item.player.gamesAvailable?.[windowKey] || 0} G
+                    </small>
+                  </strong>
 
-                <span
-                  style="
-                    text-align:right;
-                    white-space:nowrap;
-                  "
-                >
-                  <b>
-                    ${item.value.toFixed(1)}
-                  </b>
-
-                  <small
-                    style="display:block;"
-                  >
-                    ${market.unit}
-                  </small>
-                </span>
-
-              </button>
-            `
-          ).join("")
+                  <span style="text-align:right;white-space:nowrap;">
+                    <b>${item.value.toFixed(1)}</b>
+                    <small style="display:block;">${market.unit}</small>
+                  </span>
+                </button>
+              `).join("")
+            : `<div class="ps-no-data">No players with production in this window.</div>`
         }
-
       </div>
-
     </div>
   `;
 }
+
 function showNFLPlayerDetail(
   index,
   playerId,
   source = "hot",
   marketKey = null,
-  windowKey = "last3"
+  windowKey = "last5"
 ) {
   const state = nflPlayerStatsState[index];
-
-  const box =
-    document.getElementById(
-      `nflPlayerStatsView${index}`
-    );
+  const box = document.getElementById(`nflPlayerStatsView${index}`);
 
   if (!state?.data || !box) return;
 
@@ -4936,17 +4598,21 @@ function showNFLPlayerDetail(
     ...(data.teams?.home?.players || [])
   ];
 
-  const player =
-    players.find(
-      p => String(p.id) === String(playerId)
-    );
+  const player = players.find(
+    item => String(item.id) === String(playerId)
+  );
 
   if (!player) return;
 
+  const awayIds = new Set(
+    (data.teams?.away?.players || []).map(item => String(item.id))
+  );
 
-  const stats =
-    player?.[windowKey] || {};
+  const playerTeam = awayIds.has(String(player.id))
+    ? data.teams?.away?.name || player.team || ""
+    : data.teams?.home?.name || player.team || "";
 
+  const stats = player?.[windowKey] || {};
 
   const windowLabels = {
     last3: "LAST 3",
@@ -4955,244 +4621,364 @@ function showNFLPlayerDetail(
     season: "SEASON"
   };
 
+  const marketLabels = {
+    passingYards: "PASSING YARDS",
+    rushingYards: "RUSHING YARDS",
+    receivingYards: "RECEIVING YARDS",
+    receptions: "RECEPTIONS",
+    targets: "TARGETS"
+  };
 
-  const stat = (value, label) => `
-    <div style="text-align:center;">
+  const n = value => Number(value || 0);
+  const one = value => n(value).toFixed(1);
+  const percent = (part, total) =>
+    n(total) > 0 ? `${((n(part) / n(total)) * 100).toFixed(1)}%` : "0.0%";
+
+  const metric = (value, label, accent = false) => `
+    <div style="min-width:0;padding:9px 6px;text-align:center;">
       <strong style="
         display:block;
-        color:#fff;
-       font-size:14px;
-      ">
-        ${value}
-      </strong>
-
+        color:${accent ? "#00ffe7" : "#fff"};
+        font-size:18px;
+        line-height:1.05;
+        font-weight:850;
+        white-space:nowrap;
+      ">${value}</strong>
       <small style="
+        display:block;
+        margin-top:5px;
         color:#71839f;
         font-size:7px;
-      ">
-        ${label}
-      </small>
+        line-height:1.15;
+        font-weight:700;
+        letter-spacing:.05em;
+      ">${label}</small>
     </div>
   `;
 
-
-  let summary = "";
+  let currentMetrics = "";
 
   if (player.position === "QB") {
-    summary = `
-      ${stat(
-        Number(stats.passing?.yards || 0).toFixed(1),
-        "PASS YDS"
-      )}
-
-      ${stat(
-        Number(stats.passing?.touchdowns || 0).toFixed(1),
-        "PASS TD"
-      )}
-
-      ${stat(
-        Number(stats.passing?.interceptions || 0).toFixed(1),
-        "INT"
-      )}
-
-      ${stat(
-        Number(stats.rushing?.yards || 0).toFixed(1),
-        "RUSH YDS"
-      )}
+    currentMetrics = `
+      ${metric(one(stats.passing?.yards), "PASS YDS", true)}
+      ${metric(one(stats.passing?.attempts), "ATTEMPTS / GAME")}
+      ${metric(percent(stats.passing?.completions, stats.passing?.attempts), "COMPLETION RATE")}
+      ${metric(one(stats.passing?.touchdowns), "PASS TD")}
+      ${metric(one(stats.passing?.interceptions), "INT")}
+      ${metric(one(stats.rushing?.yards), "RUSH YDS")}
     `;
   } else if (player.position === "RB") {
-    summary = `
-      ${stat(
-        Number(stats.rushing?.yards || 0).toFixed(1),
-        "RUSH YDS"
-      )}
+    const ypc = n(stats.rushing?.attempts) > 0
+      ? n(stats.rushing?.yards) / n(stats.rushing?.attempts)
+      : 0;
 
-      ${stat(
-        Number(stats.rushing?.attempts || 0).toFixed(1),
-        "CARRIES"
-      )}
+    const totalYards = n(stats.rushing?.yards) + n(stats.receiving?.yards);
 
-      ${stat(
-        Number(stats.receiving?.yards || 0).toFixed(1),
-        "REC YDS"
-      )}
-
-      ${stat(
-        Number(stats.receiving?.targets || 0).toFixed(1),
-        "TARGETS"
-      )}
+    currentMetrics = `
+      ${metric(one(stats.rushing?.yards), "RUSH YDS", true)}
+      ${metric(one(stats.rushing?.attempts), "CARRIES")}
+      ${metric(ypc.toFixed(1), "YARDS / CARRY")}
+      ${metric(one(stats.receiving?.receptions), "RECEPTIONS")}
+      ${metric(one(stats.receiving?.targets), "TARGETS")}
+      ${metric(one(stats.receiving?.yards), "REC YDS")}
+      ${metric(totalYards.toFixed(1), "RUSH + REC YDS", true)}
     `;
   } else {
-    summary = `
-      ${stat(
-        Number(stats.receiving?.receptions || 0).toFixed(1),
-        "REC"
-      )}
+    const yardsPerCatch = n(stats.receiving?.receptions) > 0
+      ? n(stats.receiving?.yards) / n(stats.receiving?.receptions)
+      : 0;
 
-      ${stat(
-        Number(stats.receiving?.targets || 0).toFixed(1),
-        "TARGETS"
-      )}
-
-      ${stat(
-        Number(stats.receiving?.yards || 0).toFixed(1),
-        "REC YDS"
-      )}
-
-      ${stat(
-        Number(stats.receiving?.touchdowns || 0).toFixed(1),
-        "REC TD"
-      )}
+    currentMetrics = `
+      ${metric(one(stats.receiving?.yards), "REC YDS", true)}
+      ${metric(one(stats.receiving?.receptions), "RECEPTIONS")}
+      ${metric(one(stats.receiving?.targets), "TARGETS")}
+      ${metric(percent(stats.receiving?.receptions, stats.receiving?.targets), "CATCH RATE")}
+      ${metric(yardsPerCatch.toFixed(1), "YARDS / CATCH")}
+      ${metric(one(stats.receiving?.touchdowns), "REC TD")}
     `;
   }
 
+  const primaryLabel =
+    player.position === "QB"
+      ? "PASS YDS"
+      : player.position === "RB"
+        ? "RUSH YDS"
+        : "REC YDS";
 
-  const backAction =
-    source === "category"
-      ? `window.showNFLCategoryList(
-          ${index},
-          '${marketKey}',
-          '${windowKey}'
-        )`
-      : `window.showNFLPlayerStatsView(
-          ${index},
-          'hot'
-        )`;
-
-
-  const logs =
-    (player.gameLogs || [])
-      .slice()
-      .sort(
-        (a, b) =>
-          new Date(b.date || 0) -
-          new Date(a.date || 0)
-      )
-      .slice(0, 10);
-
-
-  const gameNumbers = log => {
+  const primaryWindowValue = key => {
+    const windowStats = player?.[key] || {};
 
     if (player.position === "QB") {
-      return `
-        ${stat(
-          Number(log.passing?.yards || 0),
-          "PASS YDS"
-        )}
-
-        ${stat(
-          `${Number(log.passing?.completions || 0)}/${Number(log.passing?.attempts || 0)}`,
-          "CMP/ATT"
-        )}
-
-        ${stat(
-          `${Number(log.passing?.touchdowns || 0)}-${Number(log.passing?.interceptions || 0)}`,
-          "TD-INT"
-        )}
-      `;
+      return n(windowStats.passing?.yards);
     }
-
 
     if (player.position === "RB") {
-      return `
-        ${stat(
-          Number(log.rushing?.yards || 0),
-          "RUSH YDS"
-        )}
-
-        ${stat(
-          Number(log.rushing?.attempts || 0),
-          "CAR"
-        )}
-
-        ${stat(
-          `${Number(log.receiving?.receptions || 0)}/${Number(log.receiving?.targets || 0)}`,
-          "REC/TGT"
-        )}
-      `;
+      return n(windowStats.rushing?.yards);
     }
 
-
-    return `
-      ${stat(
-        Number(log.receiving?.yards || 0),
-        "REC YDS"
-      )}
-
-      ${stat(
-        `${Number(log.receiving?.receptions || 0)}/${Number(log.receiving?.targets || 0)}`,
-        "REC/TGT"
-      )}
-
-      ${stat(
-        Number(log.receiving?.touchdowns || 0),
-        "REC TD"
-      )}
-    `;
+    return n(windowStats.receiving?.yards);
   };
 
+  const logs = (player.gameLogs || [])
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(b.date || 0) - new Date(a.date || 0)
+    )
+    .slice(0, 10);
+
+  const primaryGameValue = log => {
+    if (player.position === "QB") {
+      return n(log.passing?.yards);
+    }
+
+    if (player.position === "RB") {
+      return n(log.rushing?.yards);
+    }
+
+    return n(log.receiving?.yards);
+  };
+
+  const last5Values = logs.slice(0, 5).map(primaryGameValue);
+
+  const median = values => {
+    if (!values.length) return 0;
+    const sorted = values.slice().sort((a, b) => a - b);
+    const middle = Math.floor(sorted.length / 2);
+
+    return sorted.length % 2
+      ? sorted[middle]
+      : (sorted[middle - 1] + sorted[middle]) / 2;
+  };
+
+  const mean = last5Values.length
+    ? last5Values.reduce((sum, value) => sum + value, 0) / last5Values.length
+    : 0;
+
+  const variance = last5Values.length > 1
+    ? last5Values.reduce(
+        (sum, value) => sum + Math.pow(value - mean, 2),
+        0
+      ) / last5Values.length
+    : 0;
+
+  const standardDeviation = Math.sqrt(variance);
+  const variation = mean > 0 ? standardDeviation / mean : null;
+
+  let consistency = "NOT ENOUGH DATA";
+  let consistencyText = "More recent games are needed.";
+
+  if (variation !== null && last5Values.length >= 2) {
+    if (variation <= 0.20) {
+      consistency = "HIGH";
+      consistencyText = "Production has stayed very steady game to game.";
+    } else if (variation <= 0.40) {
+      consistency = "MEDIUM";
+      consistencyText = "Production has moved around some game to game.";
+    } else {
+      consistency = "LOW";
+      consistencyText = "Production has changed a lot from game to game.";
+    }
+  }
+
+  const trendWindowKey = windowKey === "season" ? "last5" : windowKey;
+  const trendCurrent = primaryWindowValue(trendWindowKey);
+  const seasonValue = primaryWindowValue("season");
+  const trendPercent = seasonValue > 0
+    ? ((trendCurrent - seasonValue) / seasonValue) * 100
+    : null;
+
+  let trendLabel = "NOT ENOUGH DATA";
+  let trendColor = "#71839f";
+  let trendSymbol = "→";
+
+  if (trendPercent !== null) {
+    if (trendPercent > 5) {
+      trendLabel = "TRENDING UP";
+      trendColor = "#00ffe7";
+      trendSymbol = "↑";
+    } else if (trendPercent < -5) {
+      trendLabel = "TRENDING DOWN";
+      trendColor = "#ff6b6b";
+      trendSymbol = "↓";
+    } else {
+      trendLabel = "STABLE";
+      trendColor = "#d6dfef";
+      trendSymbol = "→";
+    }
+  }
+
+  const trendVsSeason = trendPercent === null
+    ? "Season comparison unavailable"
+    : `${trendPercent >= 0 ? "+" : ""}${trendPercent.toFixed(1)}% vs Season`;
+
+  const bestLast5 = last5Values.length ? Math.max(...last5Values) : null;
+  const lowestLast5 = last5Values.length ? Math.min(...last5Values) : null;
+  const typicalLast5 = last5Values.length ? median(last5Values) : null;
+
+  const backAction = source === "category"
+    ? `window.showNFLCategoryList(
+        ${index},
+        '${marketKey}',
+        '${windowKey}'
+      )`
+    : `window.showNFLPlayerStatsView(${index}, 'hot')`;
+
+  const backLabel = source === "category" && marketLabels[marketKey]
+    ? `← BACK TO ${marketLabels[marketKey]}`
+    : "← BACK TO HOT PLAYERS";
+
+  const gameNumbers = log => {
+    if (player.position === "QB") {
+      return [
+        [n(log.passing?.yards), "PASS YDS"],
+        [`${n(log.passing?.completions)}/${n(log.passing?.attempts)}`, "CMP/ATT"],
+        [`${n(log.passing?.touchdowns)}-${n(log.passing?.interceptions)}`, "TD-INT"],
+        [n(log.rushing?.yards), "RUSH YDS"]
+      ];
+    }
+
+    if (player.position === "RB") {
+      return [
+        [n(log.rushing?.yards), "RUSH YDS"],
+        [n(log.rushing?.attempts), "CARRIES"],
+        [`${n(log.receiving?.receptions)}/${n(log.receiving?.targets)}`, "REC/TGT"],
+        [n(log.rushing?.yards) + n(log.receiving?.yards), "TOTAL YDS"]
+      ];
+    }
+
+    return [
+      [n(log.receiving?.yards), "REC YDS"],
+      [`${n(log.receiving?.receptions)}/${n(log.receiving?.targets)}`, "REC/TGT"],
+      [percent(log.receiving?.receptions, log.receiving?.targets), "CATCH RATE"],
+      [n(log.receiving?.touchdowns), "REC TD"]
+    ];
+  };
+
+  const recentGamesHTML = logs.length
+    ? logs.map(log => {
+        const date = log.date
+          ? new Date(log.date).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric"
+            })
+          : "—";
+
+        const homeAway = String(log.homeAway || "").toUpperCase();
+
+        return `
+          <div style="padding:10px 0;border-bottom:1px solid #18243a;">
+            <div style="
+              display:flex;
+              justify-content:space-between;
+              align-items:flex-start;
+              gap:10px;
+              margin-bottom:7px;
+            ">
+              <div style="min-width:0;">
+                <strong style="
+                  display:block;
+                  color:#fff;
+                  font-size:11px;
+                  line-height:1.2;
+                  overflow:hidden;
+                  text-overflow:ellipsis;
+                  white-space:nowrap;
+                ">${sanitize(log.opponent || "Opponent")}</strong>
+
+                <small style="color:#60708d;font-size:8px;">
+                  ${date}${homeAway ? ` · ${sanitize(homeAway)}` : ""}
+                </small>
+              </div>
+            </div>
+
+            <div style="
+              display:grid;
+              grid-template-columns:repeat(4,minmax(0,1fr));
+              gap:5px;
+            ">
+              ${gameNumbers(log).map(([value, label]) => `
+                <div style="min-width:0;">
+                  <strong style="
+                    display:block;
+                    color:#dfe7f5;
+                    font-size:10px;
+                    line-height:1.1;
+                    white-space:nowrap;
+                  ">${value}</strong>
+                  <small style="
+                    display:block;
+                    margin-top:3px;
+                    color:#556688;
+                    font-size:6.5px;
+                    line-height:1.1;
+                  ">${label}</small>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        `;
+      }).join("")
+    : `<div class="ps-no-data">No recent game log available.</div>`;
 
   box.innerHTML = `
     <div class="ps-card">
-
       <button
         type="button"
         class="ps-back-btn"
         onclick="${backAction}"
+        style="margin-bottom:10px;"
       >
-        ← BACK
+        ${backLabel}
       </button>
-
 
       <div style="
         display:flex;
         justify-content:space-between;
-        align-items:center;
-        margin:10px 0 10px;
+        align-items:flex-start;
+        gap:12px;
+        margin-bottom:12px;
       ">
+        <div style="min-width:0;">
+          <small style="
+            display:block;
+            color:#71839f;
+            font-size:9px;
+            line-height:1.2;
+            margin-bottom:4px;
+          ">${sanitize(playerTeam)}</small>
 
-        <div>
-          <small style="color:#71839f;font-size:10px;">
-  ${sanitize(player.team || "")}
-</small>
-<div style="
-  color:#fff;
-  font-size:16px;
-  font-weight:800;
-  line-height:1.15;
-">
-            ${sanitize(player.name)}
-          </div>
+          <div style="
+            color:#fff;
+            font-size:19px;
+            font-weight:850;
+            line-height:1.1;
+            overflow:hidden;
+            text-overflow:ellipsis;
+          ">${sanitize(player.name)}</div>
         </div>
 
         <span style="
-  color:#00ffe7;
-  border:1px solid rgba(0,255,231,.3);
-  border-radius:16px;
-  padding:4px 8px;
-  font-size:9px;
-  font-weight:700;
-">
-          ${sanitize(player.position)}
-        </span>
-
+          color:#00ffe7;
+          border:1px solid rgba(0,255,231,.28);
+          background:rgba(0,255,231,.06);
+          border-radius:14px;
+          padding:4px 8px;
+          font-size:9px;
+          font-weight:800;
+          flex-shrink:0;
+        ">${sanitize(player.position)}</span>
       </div>
-
 
       <div style="
         display:grid;
-        grid-template-columns:repeat(4,1fr);
+        grid-template-columns:repeat(4,minmax(0,1fr));
         gap:5px;
-        margin-bottom:10px;
+        margin-bottom:12px;
       ">
-
-        ${[
-          "last3",
-          "last5",
-          "last10",
-          "season"
-        ].map(key => `
+        ${["last3", "last5", "last10", "season"].map(key => `
           <button
+            type="button"
             onclick="window.showNFLPlayerDetail(
               ${index},
               '${String(player.id).replace(/'/g, "\\'")}',
@@ -5201,126 +4987,187 @@ function showNFLPlayerDetail(
               '${key}'
             )"
             style="
-              padding:6px 2px;
-              border-radius:7px;
-              border:1px solid ${
-                key === windowKey
-                  ? "#00ffe7"
-                  : "#1a2240"
-              };
-              background:${
-                key === windowKey
-                  ? "rgba(0,255,231,.08)"
-                  : "#0f1628"
-              };
-              color:${
-                key === windowKey
-                  ? "#00ffe7"
-                  : "#71839f"
-              };
+              padding:7px 2px;
+              border-radius:8px;
+              border:1px solid ${key === windowKey ? "#00ffe7" : "#1a2740"};
+              background:${key === windowKey ? "rgba(0,255,231,.08)" : "#0b1323"};
+              color:${key === windowKey ? "#00ffe7" : "#71839f"};
               font-size:8px;
-              font-weight:700;
+              font-weight:800;
+              cursor:pointer;
             "
           >
             ${windowLabels[key]}
           </button>
         `).join("")}
-
       </div>
 
+      <div style="
+        background:#0b1323;
+        border:1px solid #1a2740;
+        border-radius:12px;
+        padding:11px 8px 8px;
+        margin-bottom:9px;
+      ">
+        <div style="
+          color:#71839f;
+          font-size:8px;
+          font-weight:800;
+          letter-spacing:.08em;
+          margin:0 4px 5px;
+        ">CURRENT PERFORMANCE · ${windowLabels[windowKey]}</div>
+
+        <div style="
+          display:grid;
+          grid-template-columns:repeat(3,minmax(0,1fr));
+          gap:2px;
+        ">
+          ${currentMetrics}
+        </div>
+      </div>
 
       <div style="
         display:grid;
-        grid-template-columns:repeat(4,1fr);
-        gap:6px;
-        background:#0f1628;
-        border:1px solid #1a2240;
-        border-radius:10px;
-        padding:10px 6px;
-        margin-bottom:16px;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:8px;
+        margin-bottom:9px;
       ">
-        ${summary}
-      </div>
+        <div style="
+          background:#0b1323;
+          border:1px solid #1a2740;
+          border-radius:11px;
+          padding:11px;
+        ">
+          <div style="color:#71839f;font-size:8px;font-weight:800;letter-spacing:.07em;">
+            RECENT TREND
+          </div>
+          <div style="
+            margin-top:7px;
+            color:${trendColor};
+            font-size:14px;
+            font-weight:850;
+            line-height:1.1;
+          ">${trendSymbol} ${trendLabel}</div>
+          <div style="margin-top:5px;color:#71839f;font-size:8px;line-height:1.3;">
+            ${trendVsSeason}
+          </div>
+        </div>
 
+        <div style="
+          background:#0b1323;
+          border:1px solid #1a2740;
+          border-radius:11px;
+          padding:11px;
+        ">
+          <div style="color:#71839f;font-size:8px;font-weight:800;letter-spacing:.07em;">
+            CONSISTENCY
+          </div>
+          <div style="
+            margin-top:7px;
+            color:#fff;
+            font-size:14px;
+            font-weight:850;
+            line-height:1.1;
+          ">${consistency}</div>
+          <div style="margin-top:5px;color:#71839f;font-size:8px;line-height:1.3;">
+            ${consistencyText}
+          </div>
+        </div>
+      </div>
 
       <div style="
-        font-size:10px;
-        color:#71839f;
-        letter-spacing:.08em;
-        margin-bottom:5px;
+        background:#0b1323;
+        border:1px solid #1a2740;
+        border-radius:11px;
+        padding:11px 9px;
+        margin-bottom:9px;
       ">
-        LAST 10 GAME LOG
+        <div style="
+          color:#71839f;
+          font-size:8px;
+          font-weight:800;
+          letter-spacing:.07em;
+          margin-bottom:9px;
+        ">RECENT PERFORMANCE</div>
+
+        <div style="
+          display:grid;
+          grid-template-columns:repeat(4,minmax(0,1fr));
+          gap:5px;
+        ">
+          ${["last3", "last5", "last10", "season"].map(key => `
+            <div style="
+              min-width:0;
+              text-align:center;
+              padding:7px 2px;
+              border-radius:8px;
+              border:1px solid ${key === windowKey ? "rgba(0,255,231,.32)" : "transparent"};
+              background:${key === windowKey ? "rgba(0,255,231,.045)" : "transparent"};
+            ">
+              <small style="display:block;color:${key === windowKey ? "#00ffe7" : "#60708d"};font-size:7px;font-weight:800;">
+                ${windowLabels[key]}
+              </small>
+              <strong style="display:block;margin-top:5px;color:#fff;font-size:14px;line-height:1;">
+                ${primaryWindowValue(key).toFixed(1)}
+              </strong>
+              <small style="display:block;margin-top:4px;color:#556688;font-size:6.5px;">
+                ${primaryLabel}
+              </small>
+            </div>
+          `).join("")}
+        </div>
       </div>
 
+      <div style="
+        background:#0b1323;
+        border:1px solid #1a2740;
+        border-radius:11px;
+        padding:11px;
+        margin-bottom:13px;
+      ">
+        <div style="
+          color:#71839f;
+          font-size:8px;
+          font-weight:800;
+          letter-spacing:.07em;
+          margin-bottom:9px;
+        ">LAST 5 PERFORMANCE</div>
 
-      ${
-        logs.map(log => {
-
-          const date =
-            log.date
-              ? new Date(log.date)
-                  .toLocaleDateString(
-                    "en-US",
-                    {
-                      month: "short",
-                      day: "numeric"
-                    }
-                  )
-              : "—";
-
-          return `
-            <div style="
-              padding:8px 2px;
-              border-bottom:1px solid #18243a;
-            ">
-
-              <div style="
-                display:flex;
-                justify-content:space-between;
-                align-items:center;
-                margin-bottom:7px;
-              ">
-
-                <div>
-                 <strong style="
-  display:block;
-  color:#fff;
-  font-size:10px;
-  line-height:1.2;
-">
-                    ${sanitize(
-                      log.opponent || "Opponent"
-                    )}
-                  </strong>
-
-                <small style="
-  color:#556688;
-  font-size:7px;
-">
-                    ${date}
-                    ·
-                    ${sanitize(
-                      log.homeAway || ""
-                    )}
-                  </small>
+        ${
+          last5Values.length
+            ? `
+                <div style="
+                  display:grid;
+                  grid-template-columns:repeat(3,minmax(0,1fr));
+                  gap:8px;
+                ">
+                  <div>
+                    <small style="display:block;color:#60708d;font-size:7px;">BEST GAME</small>
+                    <strong style="display:block;margin-top:4px;color:#fff;font-size:14px;">${bestLast5.toFixed(0)} YDS</strong>
+                  </div>
+                  <div>
+                    <small style="display:block;color:#60708d;font-size:7px;">LOWEST GAME</small>
+                    <strong style="display:block;margin-top:4px;color:#fff;font-size:14px;">${lowestLast5.toFixed(0)} YDS</strong>
+                  </div>
+                  <div>
+                    <small style="display:block;color:#60708d;font-size:7px;">TYPICAL GAME</small>
+                    <strong style="display:block;margin-top:4px;color:#00ffe7;font-size:14px;">${typicalLast5.toFixed(0)} YDS</strong>
+                  </div>
                 </div>
+              `
+            : `<div class="ps-no-data">Not enough recent games yet.</div>`
+        }
+      </div>
 
-              </div>
+      <div style="
+        color:#71839f;
+        font-size:8px;
+        font-weight:800;
+        letter-spacing:.08em;
+        margin-bottom:2px;
+      ">RECENT GAMES</div>
 
-
-              <div style="
-                display:grid;
-                grid-template-columns:repeat(3,1fr);
-                gap:6px;
-              ">
-                ${gameNumbers(log)}
-              </div>
-
-            </div>
-          `;
-        }).join("")
-      }
-
+      ${recentGamesHTML}
     </div>
   `;
 }
