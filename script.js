@@ -4155,7 +4155,54 @@ ${propsPanelHTML}
 // ============================================================
 
 const nflPlayerStatsState = {};
+// Una sola respuesta de NFL Player Props por eventId durante la sesión de página.
+// Player Props y Player Stats comparten exactamente el mismo payload.
+const nflPlayerPropsSharedCache = {};
 
+async function getNFLPlayerPropsShared(
+  eventId,
+  accessToken
+) {
+  const key = String(eventId || "");
+
+  if (!key) {
+    return {
+      ok: false,
+      status: 400,
+      data: {
+        error: "eventId is required"
+      }
+    };
+  }
+
+  if (nflPlayerPropsSharedCache[key]) {
+    return nflPlayerPropsSharedCache[key];
+  }
+
+  const response = await fetch(
+    `/api/football-data?mode=nfl-player-props&eventId=${encodeURIComponent(key)}`,
+    {
+      headers: {
+        Authorization:
+          `Bearer ${accessToken}`
+      }
+    }
+  );
+
+  const data = await response.json();
+
+  const payload = {
+    ok: response.ok,
+    status: response.status,
+    data
+  };
+
+  if (response.ok) {
+    nflPlayerPropsSharedCache[key] = payload;
+  }
+
+  return payload;
+}
 
 function nflPlayerStatsMetric(player, windowKey) {
   const s = player?.[windowKey] || {};
@@ -5744,23 +5791,35 @@ async function openNFLPlayerStats(
 
     if ((IS_ADMIN || isPremiumUser) && eventId) {
       try {
-        const propsResponse = await fetch(
-          `/api/football-data?mode=nfl-player-props&eventId=${encodeURIComponent(eventId)}`,
-          {
-            headers: {
-              Authorization:
-                `Bearer ${sessionData.session.access_token}`
-            }
+        const sharedProps =
+          await getNFLPlayerPropsShared(
+            eventId,
+            sessionData.session.access_token
+          );
+
+        const propsData =
+          sharedProps.data || {};
+
+        if (sharedProps.ok) {
+          if (Array.isArray(propsData.playerLines)) {
+            currentProps =
+              propsData.playerLines;
+          } else {
+            currentProps = [
+              ...(Array.isArray(propsData.props)
+                ? propsData.props
+                : []),
+              ...(Array.isArray(propsData.lockedProps)
+                ? propsData.lockedProps
+                : [])
+            ];
           }
-        );
-
-        const propsData = await propsResponse.json();
-
-        if (propsResponse.ok && Array.isArray(propsData?.props)) {
-          currentProps = propsData.props;
         }
       } catch (propsError) {
-        console.warn("NFL Player Stats: current props unavailable", propsError);
+        console.warn(
+          "NFL Player Stats: current props unavailable",
+          propsError
+        );
       }
     }
 
@@ -5873,18 +5932,17 @@ if (!eventId) {
   box.dataset.loaded = "true";
   return;
 } 
-  try {
-    const res = await fetch(
-  `/api/football-data?mode=nfl-player-props&eventId=${encodeURIComponent(eventId)}`,
-  {
-    headers: {
-      "Authorization": `Bearer ${sessionData.session.access_token}`
-    }
-  }
-);
-    const data = await res.json();
- 
-    if (!res.ok) {
+   try {
+    const sharedProps =
+      await getNFLPlayerPropsShared(
+        eventId,
+        sessionData.session.access_token
+      );
+
+    const data =
+      sharedProps.data || {};
+
+    if (!sharedProps.ok) {
   box.innerHTML = `
     <div style="
       background:#241018;
@@ -5895,7 +5953,7 @@ if (!eventId) {
     ">
       <div style="font-size:11px;color:#ff6b7a;">
        NFL Props API Error:
-${data.error || data.reason || `HTTP ${res.status}`}
+${data.error || data.reason || `HTTP ${sharedProps.status}`}
 
 ${data.details ? `
   <div style="margin-top:6px;color:#ff9aa5;">
