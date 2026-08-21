@@ -2967,12 +2967,100 @@ const seasonRec =
     : recent5Rec;
  
     let projection = 0;
+    let projectionDebug = null;
  
   if (market === "player_pass_yds") {
   if (recent5PassYds <= 0) {
     propsDebug.noMarketStats++;
     continue;
   }
+    const qbPaceInput =
+  paceScore * leaguePlays;
+
+const qbPassRateInput =
+  teamPassRateScore * recent5PassYds;
+
+const qbGameScriptInput =
+  gameScriptScore * recent5PassYds;
+
+projectionDebug = {
+  recent5: recent5PassYds,
+  season: seasonPassYds,
+
+  oppPassDefScore,
+
+  paceScore,
+  qbPaceInput,
+
+  teamPassRate,
+  teamPassRateScore,
+  qbPassRateInput,
+
+  winProb,
+  gameScriptScore,
+  qbGameScriptInput,
+
+  teamStats: {
+    passingYardsPerGame:
+      teamStats?.passingYardsPerGame,
+
+    passAttemptsPerGame:
+      teamStats?.passAttemptsPerGame,
+
+    totalPlaysPerGame:
+      teamStats?.totalPlaysPerGame
+  },
+
+  opponentStats: {
+    passYardsAllowed:
+      oppStats?.oppPassYardsAllowed,
+
+    yardsPerPassAllowed:
+      oppStats?.oppYardsPerPassAllowed,
+
+    passTDAllowed:
+      oppStats?.oppPassTDAllowed,
+
+    sacksPerGame:
+      oppStats?.oppSacksPerGame
+  },
+
+  components: {
+    recent:
+      Number(
+        (recent5PassYds * 0.35).toFixed(2)
+      ),
+
+    season:
+      Number(
+        (seasonPassYds * 0.20).toFixed(2)
+      ),
+
+    opponent:
+      Number(
+        (
+          recent5PassYds *
+          oppPassDefScore *
+          0.25
+        ).toFixed(2)
+      ),
+
+    pace:
+      Number(
+        (qbPaceInput * 0.10).toFixed(2)
+      ),
+
+    passRate:
+      Number(
+        (qbPassRateInput * 0.05).toFixed(2)
+      ),
+
+    gameScript:
+      Number(
+        (qbGameScriptInput * 0.05).toFixed(2)
+      )
+  }
+};
       projection = projectQBPassingYards({
         recent5:           recent5PassYds,
         seasonAvg:         seasonPassYds,
@@ -3063,6 +3151,7 @@ const seasonRec =
       line,
       projection,
       edge,
+      projectionDebug,
       recent5: {
         passYds: Number(recent5PassYds.toFixed(1)),
         rushYds: Number(recent5RushYds.toFixed(1)),
