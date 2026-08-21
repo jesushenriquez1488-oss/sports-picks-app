@@ -2823,9 +2823,20 @@ if (!selectedEvent) {
       .eq("event_id", selectedEvent.id)
       .eq("game_date", today)
       .maybeSingle();
- 
-    if (cached?.analysis_json) {
-      return res.status(200).json({ ...cached.analysis_json, cached: true });
+ if (cached?.analysis_json) {
+      const cachedJson = cached.analysis_json;
+
+      // Cache nuevo: ya contiene el board completo de líneas para Player Stats.
+      // Si el cache es de una versión anterior, lo reconstruimos una sola vez.
+      if (
+        cachedJson.playerLinesVersion === 1 &&
+        Array.isArray(cachedJson.playerLines)
+      ) {
+        return res.status(200).json({
+          ...cachedJson,
+          cached: true
+        });
+      }
     }
   }
  
@@ -2871,41 +2882,144 @@ if (!selectedEvent) {
   const awayWinProb = getGameScriptFromMoneyline(awayMoneyline);
   const homeWinProb = getGameScriptFromMoneyline(homeMoneyline);
  
-  // 3. Extraer props — solo OVER, solo líneas >= mínimo
-  const bookPriority = ["DraftKings","FanDuel","BetMGM","Caesars","Bovada","BetRivers"];
+  // 3. Extraer props de la MISMA respuesta de The Odds API.
+  //
+  // playerLines:
+  //   board completo para Player Stats. NO aplica los mínimos del modelo.
+  //
+  // rawProps:
+  //   conserva exactamente los mínimos anti-trivial usados por CashEdge
+  //   para analizar y recomendar Player Props.
+  const bookPriority = [
+    "DraftKings",
+    "FanDuel",
+    "BetMGM",
+    "Caesars",
+    "Bovada",
+    "BetRivers"
+  ];
+
+  const supportedPlayerMarkets =
+    new Set(Object.keys(NFL_MIN_LINES));
+
+  const allPlayerLinesRaw = [];
   const rawProps = [];
- 
+
   for (const bk of oddsData?.bookmakers || []) {
     for (const mkt of bk?.markets || []) {
-      if (!NFL_MIN_LINES[mkt.key]) continue;
+      if (!supportedPlayerMarkets.has(mkt.key)) {
+        continue;
+      }
+
       for (const o of mkt?.outcomes || []) {
-        if (String(o.name || "").toUpperCase() !== "OVER") continue;
+        if (
+          String(o.name || "").toUpperCase() !==
+          "OVER"
+        ) {
+          continue;
+        }
+
         const line = nflSafeNum(o.point);
-        if (line < NFL_MIN_LINES[mkt.key]) continue;
-        rawProps.push({
-          player:    o.description,
-          market:    mkt.key,
-          side:      "OVER",
+
+        if (!(line > 0) || !o.description) {
+          continue;
+        }
+
+        const marketProp = {
+          player: o.description,
+          market: mkt.key,
+          side: "OVER",
           line,
-          odds:      o.price,
+          odds: o.price,
           bookmaker: bk.title
-        });
+        };
+
+        // Board de investigación:
+        // conserva cualquier línea real publicada.
+        allPlayerLinesRaw.push(marketProp);
+
+        // Modelo CashEdge:
+        // mantiene sus filtros actuales sin cambios.
+        if (line < NFL_MIN_LINES[mkt.key]) {
+          continue;
+        }
+
+        rawProps.push(marketProp);
       }
     }
   }
- 
-  // Deduplicar por jugador+mercado+línea, priorizar bookmaker
-  const uniqueMap = new Map();
-  for (const prop of rawProps) {
-    const key = `${prop.player}|${prop.market}|${prop.line}`;
-    const cur = uniqueMap.get(key);
-    if (!cur) { uniqueMap.set(key, prop); continue; }
-    const curR = bookPriority.indexOf(cur.bookmaker);
-    const newR = bookPriority.indexOf(prop.bookmaker);
-    if ((newR === -1 ? 999 : newR) < (curR === -1 ? 999 : curR)) uniqueMap.set(key, prop);
+
+  // Una línea de mercado por jugador + mercado para Player Stats.
+  // Si varias casas ofrecen el mercado, usamos la casa de mayor prioridad.
+  // No inventamos ni promediamos una línea que ninguna casa esté ofreciendo.
+  const playerLineMap = new Map();
+
+  for (const prop of allPlayerLinesRaw) {
+    const key =
+      `${cleanText(prop.player)}|${prop.market}`;
+
+    const current =
+      playerLineMap.get(key);
+
+    if (!current) {
+      playerLineMap.set(key, prop);
+      continue;
+    }
+
+    const currentRank =
+      bookPriority.indexOf(current.bookmaker);
+
+    const newRank =
+      bookPriority.indexOf(prop.bookmaker);
+
+    const safeCurrentRank =
+      currentRank === -1 ? 999 : currentRank;
+
+    const safeNewRank =
+      newRank === -1 ? 999 : newRank;
+
+    if (safeNewRank < safeCurrentRank) {
+      playerLineMap.set(key, prop);
+    }
   }
- 
-  const uniqueProps = Array.from(uniqueMap.values()).slice(0, 100);
+
+  const playerLines =
+    Array.from(playerLineMap.values());
+
+  // El flujo del modelo sigue igual:
+  // deduplicar jugador + mercado + línea y luego analizar.
+  const uniqueMap = new Map();
+
+  for (const prop of rawProps) {
+    const key =
+      `${prop.player}|${prop.market}|${prop.line}`;
+
+    const cur =
+      uniqueMap.get(key);
+
+    if (!cur) {
+      uniqueMap.set(key, prop);
+      continue;
+    }
+
+    const curR =
+      bookPriority.indexOf(cur.bookmaker);
+
+    const newR =
+      bookPriority.indexOf(prop.bookmaker);
+
+    if (
+      (newR === -1 ? 999 : newR) <
+      (curR === -1 ? 999 : curR)
+    ) {
+      uniqueMap.set(key, prop);
+    }
+  }
+
+  const uniqueProps =
+    Array.from(uniqueMap.values())
+      .slice(0, 100);
+
  
   if (!uniqueProps.length) {
     return res.status(200).json({
@@ -3495,12 +3609,20 @@ for (const prop of analyzedProps) {
     eventId:             selectedEvent.id,
     game:                `${selectedEvent.away_team} @ ${selectedEvent.home_team}`,
     gameDate:            today,
-    generatedAt:         new Date().toISOString(),
-   totalRawProps: rawProps.length,
-totalAnalyzedProps: analyzedProps.length,
-debug: propsDebug,
-    props:               uniquePlayerProps.slice(0, 3),
-lockedProps:         uniquePlayerProps.slice(3, 40)
+   generatedAt:         new Date().toISOString(),
+
+    // Board completo de mercado para Player Stats.
+    // Sale de la misma respuesta de Odds API; no hace otra consulta.
+    playerLinesVersion: 1,
+    totalPlayerLines:   playerLines.length,
+    playerLines,
+
+    // Recomendaciones CashEdge: lógica actual intacta.
+    totalRawProps:      rawProps.length,
+    totalAnalyzedProps: analyzedProps.length,
+    debug:              propsDebug,
+    props:              uniquePlayerProps.slice(0, 3),
+    lockedProps:        uniquePlayerProps.slice(3, 40)
   };
  
   // Guardar cache
