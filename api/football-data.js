@@ -2747,7 +2747,8 @@ const propsDebug = {
   noMarketStats: 0,
   noProjection: 0,
   noConfidence: 0,
-  analyzed: 0
+  analyzed: 0,
+  rejectedConfidence: []
 };
  
   for (const prop of uniqueProps) {
@@ -3017,8 +3018,34 @@ const seasonRec =
     const edge       = Number((projection - line).toFixed(2));
     const confidence = calculateNFLConfidence(market, edge);
  
-  if (confidence <= 0) {
+ if (confidence <= 0) {
   propsDebug.noConfidence++;
+
+  if (propsDebug.rejectedConfidence.length < 12) {
+    propsDebug.rejectedConfidence.push({
+      player,
+      market,
+      line,
+      projection,
+      edge,
+      recent5: {
+        passYds: Number(recent5PassYds.toFixed(1)),
+        rushYds: Number(recent5RushYds.toFixed(1)),
+        carries: Number(recent5Carries.toFixed(1)),
+        recYds: Number(recent5RecYds.toFixed(1)),
+        receptions: Number(recent5Rec.toFixed(1)),
+        targets: Number(recent5Targets.toFixed(1))
+      },
+      season: {
+        passYds: Number(seasonPassYds.toFixed(1)),
+        rushYds: Number(seasonRushYds.toFixed(1)),
+        carries: Number(seasonCarries.toFixed(1)),
+        recYds: Number(seasonRecYds.toFixed(1)),
+        receptions: Number(seasonRec.toFixed(1))
+      }
+    });
+  }
+
   continue;
 }
  
