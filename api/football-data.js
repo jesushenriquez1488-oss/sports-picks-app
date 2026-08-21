@@ -2253,9 +2253,30 @@ async function getNFLTeamSeasonStats(espnTeamId, season) {
  
   function findOff(name) {
     const groups = data?.results?.stats?.categories || data?.stats?.categories || [];
-    for (const cat of groups)
-      for (const s of cat?.stats || [])
-        if (s.name === name) return nflSafeNum(s.perGameValue ?? s.value);
+    for (const cat of groups) {
+  for (const s of cat?.stats || []) {
+
+    const statName =
+      String(s?.name || "");
+
+    if (
+      statName.toLowerCase().includes("attempt")
+    ) {
+      console.log("NFL OFF ATTEMPT STAT:", {
+        name: s.name,
+        value: s.value,
+        perGameValue: s.perGameValue,
+        displayValue: s.displayValue
+      });
+    }
+
+    if (s.name === name) {
+      return nflSafeNum(
+        s.perGameValue ?? s.value
+      );
+    }
+  }
+}
     return 0;
   }
  
