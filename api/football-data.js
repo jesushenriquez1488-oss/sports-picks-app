@@ -2672,7 +2672,38 @@ if (!selectedEvent) {
     });
   }
  
-  analyzedProps.sort((a, b) => b.confidence - a.confidence);
+ analyzedProps.sort((a, b) => {
+  const confDiff =
+    Number(b.confidence || 0) -
+    Number(a.confidence || 0);
+
+  if (confDiff !== 0) return confDiff;
+
+  return (
+    Number(b.edge || 0) -
+    Number(a.edge || 0)
+  );
+});
+
+// =====================================================
+// UN SOLO PROP POR JUGADOR
+// conservar únicamente su mejor recomendación
+// =====================================================
+
+const uniquePlayerProps = [];
+const usedPlayers = new Set();
+
+for (const prop of analyzedProps) {
+  const playerKey = String(prop.player || "")
+    .trim()
+    .toLowerCase();
+
+  if (!playerKey) continue;
+  if (usedPlayers.has(playerKey)) continue;
+
+  usedPlayers.add(playerKey);
+  uniquePlayerProps.push(prop);
+}
  
   const finalResponse = {
     ok:                  true,
@@ -2683,9 +2714,9 @@ if (!selectedEvent) {
     gameDate:            today,
     generatedAt:         new Date().toISOString(),
     totalRawProps:       rawProps.length,
-    totalAnalyzedProps:  analyzedProps.length,
-    props:               analyzedProps.slice(0, 3),
-    lockedProps:         analyzedProps.slice(3, 40)
+   totalAnalyzedProps:  uniquePlayerProps.length,
+    props:               uniquePlayerProps.slice(0, 3),
+lockedProps:         uniquePlayerProps.slice(3, 40)
   };
  
   // Guardar cache
