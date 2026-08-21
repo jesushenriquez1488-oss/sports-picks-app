@@ -2739,7 +2739,16 @@ const playerSeasonStatsCache = new Map();
   }
  
   // 6. Analizar cada prop
-  const analyzedProps = [];
+const analyzedProps = [];
+
+const propsDebug = {
+  totalUnique: uniqueProps.length,
+  noPlayerHistory: 0,
+  noMarketStats: 0,
+  noProjection: 0,
+  noConfidence: 0,
+  analyzed: 0
+};
  
   for (const prop of uniqueProps) {
     const { player, market, line } = prop;
@@ -2804,7 +2813,10 @@ if (athleteId) {
       }
     }
  
-    if (!playerGameStats.length) continue;
+   if (!playerGameStats.length) {
+  propsDebug.noPlayerHistory++;
+  continue;
+}
  
     // Promedios recientes
     const avgStat = (key) => {
@@ -2920,8 +2932,11 @@ const seasonRec =
  
     let projection = 0;
  
-    if (market === "player_pass_yds") {
-      if (recent5PassYds <= 0) continue;
+  if (market === "player_pass_yds") {
+  if (recent5PassYds <= 0) {
+    propsDebug.noMarketStats++;
+    continue;
+  }
       projection = projectQBPassingYards({
         recent5:           recent5PassYds,
         seasonAvg:         seasonPassYds,
@@ -2932,8 +2947,11 @@ const seasonRec =
       });
     }
  
-    else if (market === "player_rush_yds") {
-      if (recent5RushYds <= 0 && recent5Carries <= 0) continue;
+   else if (market === "player_rush_yds") {
+  if (recent5RushYds <= 0 && recent5Carries <= 0) {
+    propsDebug.noMarketStats++;
+    continue;
+  }
       projection = projectRBRushingYards({
         recent5Yds:              recent5RushYds,
         seasonYds:               seasonRushYds,
@@ -2943,9 +2961,11 @@ const seasonRec =
         paceScore:               paceScore * recent5RushYds
       });
     }
- 
-    else if (market === "player_rush_attempts") {
-      if (recent5Carries <= 0) continue;
+ else if (market === "player_rush_attempts") {
+  if (recent5Carries <= 0) {
+    propsDebug.noMarketStats++;
+    continue;
+  }
       projection = projectRBRushingAttempts({
         recent5Carries,
         seasonCarries,
@@ -2956,8 +2976,11 @@ const seasonRec =
       });
     }
  
-    else if (market === "player_receptions") {
-      if (recent5Rec <= 0 && recent5Targets <= 0) continue;
+   else if (market === "player_receptions") {
+  if (recent5Rec <= 0 && recent5Targets <= 0) {
+    propsDebug.noMarketStats++;
+    continue;
+  }
       projection = projectWRReceptions({
         recent5Rec,
         seasonRec,
@@ -2968,8 +2991,11 @@ const seasonRec =
       });
     }
  
-    else if (market === "player_reception_yds") {
-      if (recent5RecYds <= 0) continue;
+  else if (market === "player_reception_yds") {
+  if (recent5RecYds <= 0) {
+    propsDebug.noMarketStats++;
+    continue;
+  }
       const ypr = recent5Rec > 0 ? recent5RecYds / recent5Rec : 11;
       projection = projectWRReceivingYards({
         recent5Yds:              recent5RecYds,
@@ -2982,13 +3008,19 @@ const seasonRec =
       });
     }
  
-    if (!projection || projection <= 0) continue;
+   if (!projection || projection <= 0) {
+  propsDebug.noProjection++;
+  continue;
+}
  
     projection = Number(projection.toFixed(1));
     const edge       = Number((projection - line).toFixed(2));
     const confidence = calculateNFLConfidence(market, edge);
  
-    if (confidence <= 0) continue;
+  if (confidence <= 0) {
+  propsDebug.noConfidence++;
+  continue;
+}
  
     analyzedProps.push({
       player,
@@ -3002,6 +3034,7 @@ const seasonRec =
       confidence,
       isPremium:  confidence >= 75
     });
+    propsDebug.analyzed++;
   }
  
  analyzedProps.sort((a, b) => {
@@ -3045,8 +3078,9 @@ for (const prop of analyzedProps) {
     game:                `${selectedEvent.away_team} @ ${selectedEvent.home_team}`,
     gameDate:            today,
     generatedAt:         new Date().toISOString(),
-    totalRawProps:       rawProps.length,
-   totalAnalyzedProps:  uniquePlayerProps.length,
+   totalRawProps: rawProps.length,
+totalAnalyzedProps: analyzedProps.length,
+debug: propsDebug,
     props:               uniquePlayerProps.slice(0, 3),
 lockedProps:         uniquePlayerProps.slice(3, 40)
   };
