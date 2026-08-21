@@ -4579,12 +4579,156 @@ function showNFLCategoryList(index, marketKey, windowKey) {
   `;
 }
 
+function ceNFLNormalizePersonName(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\b(jr|sr|ii|iii|iv)\b/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function ceNFLNamesMatch(a, b) {
+  const left = ceNFLNormalizePersonName(a);
+  const right = ceNFLNormalizePersonName(b);
+
+  if (!left || !right) return false;
+  if (left === right) return true;
+
+  const l = left.split(" ").filter(Boolean);
+  const r = right.split(" ").filter(Boolean);
+
+  if (!l.length || !r.length) return false;
+
+  return (
+    l[l.length - 1] === r[r.length - 1] &&
+    l[0]?.[0] === r[0]?.[0]
+  );
+}
+
+function ceNFLTeamAliases(teamName) {
+  const normalized = String(teamName || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+  if (!normalized) return new Set();
+
+  const known = {
+    "arizona cardinals": "ari",
+    "atlanta falcons": "atl",
+    "baltimore ravens": "bal",
+    "buffalo bills": "buf",
+    "carolina panthers": "car",
+    "chicago bears": "chi",
+    "cincinnati bengals": "cin",
+    "cleveland browns": "cle",
+    "dallas cowboys": "dal",
+    "denver broncos": "den",
+    "detroit lions": "det",
+    "green bay packers": "gb",
+    "houston texans": "hou",
+    "indianapolis colts": "ind",
+    "jacksonville jaguars": "jax",
+    "kansas city chiefs": "kc",
+    "las vegas raiders": "lv",
+    "los angeles chargers": "lac",
+    "los angeles rams": "lar",
+    "miami dolphins": "mia",
+    "minnesota vikings": "min",
+    "new england patriots": "ne",
+    "new orleans saints": "no",
+    "new york giants": "nyg",
+    "new york jets": "nyj",
+    "philadelphia eagles": "phi",
+    "pittsburgh steelers": "pit",
+    "san francisco 49ers": "sf",
+    "seattle seahawks": "sea",
+    "tampa bay buccaneers": "tb",
+    "tennessee titans": "ten",
+    "washington commanders": "was"
+  };
+
+  const aliases = new Set([normalized]);
+  const words = normalized.split(" ").filter(Boolean);
+  if (words.length) aliases.add(words[words.length - 1]);
+  if (known[normalized]) aliases.add(known[normalized]);
+
+  return aliases;
+}
+
+function ceNFLTeamMatches(logOpponent, teamName) {
+  const opponent = String(logOpponent || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+  if (!opponent) return false;
+
+  const aliases = ceNFLTeamAliases(teamName);
+  if (aliases.has(opponent)) return true;
+
+  for (const alias of aliases) {
+    if (alias.length >= 4 && (
+      opponent.includes(alias) ||
+      alias.includes(opponent)
+    )) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function ceNFLPropMeta(market) {
+  const map = {
+    player_pass_yds: {
+      short: "PASS YDS",
+      label: "Passing Yards",
+      unit: "YDS",
+      value: log => log?.passing?.yards != null ? Number(log.passing.yards) : null
+    },
+    player_rush_yds: {
+      short: "RUSH YDS",
+      label: "Rushing Yards",
+      unit: "YDS",
+      value: log => log?.rushing?.yards != null ? Number(log.rushing.yards) : null
+    },
+    player_rush_attempts: {
+      short: "RUSH ATT",
+      label: "Rush Attempts",
+      unit: "ATT",
+      value: log => log?.rushing?.attempts != null ? Number(log.rushing.attempts) : null
+    },
+    player_receptions: {
+      short: "RECEPTIONS",
+      label: "Receptions",
+      unit: "REC",
+      value: log => log?.receiving?.receptions != null ? Number(log.receiving.receptions) : null
+    },
+    player_reception_yds: {
+      short: "REC YDS",
+      label: "Receiving Yards",
+      unit: "YDS",
+      value: log => log?.receiving?.yards != null ? Number(log.receiving.yards) : null
+    }
+  };
+
+  return map[market] || null;
+}
+
 function showNFLPlayerDetail(
   index,
   playerId,
   source = "hot",
   marketKey = null,
-  windowKey = "last5"
+  windowKey = "last5",
+  selectedPropMarket = ""
 ) {
   const state = nflPlayerStatsState[index];
   const box = document.getElementById(`nflPlayerStatsView${index}`);
@@ -4608,9 +4752,15 @@ function showNFLPlayerDetail(
     (data.teams?.away?.players || []).map(item => String(item.id))
   );
 
-  const playerTeam = awayIds.has(String(player.id))
+  const isAwayPlayer = awayIds.has(String(player.id));
+
+  const playerTeam = isAwayPlayer
     ? data.teams?.away?.name || player.team || ""
     : data.teams?.home?.name || player.team || "";
+
+  const opponentTeam = isAwayPlayer
+    ? data.teams?.home?.name || state.homeTeam || ""
+    : data.teams?.away?.name || state.awayTeam || "";
 
   const stats = player?.[windowKey] || {};
 
@@ -4627,6 +4777,13 @@ function showNFLPlayerDetail(
     receivingYards: "RECEIVING YARDS",
     receptions: "RECEPTIONS",
     targets: "TARGETS"
+  };
+
+  const categoryToPropMarket = {
+    passingYards: "player_pass_yds",
+    rushingYards: "player_rush_yds",
+    receivingYards: "player_reception_yds",
+    receptions: "player_receptions"
   };
 
   const n = value => Number(value || 0);
@@ -4719,13 +4876,15 @@ function showNFLPlayerDetail(
     return n(windowStats.receiving?.yards);
   };
 
-  const logs = (player.gameLogs || [])
+  const allLogs = (player.gameLogs || [])
     .slice()
+    .filter(log => log && log.date)
     .sort(
       (a, b) =>
         new Date(b.date || 0) - new Date(a.date || 0)
-    )
-    .slice(0, 10);
+    );
+
+  const logs = allLogs.slice(0, 10);
 
   const primaryGameValue = log => {
     if (player.position === "QB") {
@@ -4828,12 +4987,327 @@ function showNFLPlayerDetail(
     ? `← BACK TO ${marketLabels[marketKey]}`
     : "← BACK TO HOT PLAYERS";
 
+  const rawPlayerProps = Array.isArray(state.currentProps)
+    ? state.currentProps
+    : [];
+
+  const playerProps = rawPlayerProps
+    .filter(prop => ceNFLNamesMatch(prop?.player, player.name))
+    .filter(prop => ceNFLPropMeta(prop?.market))
+    .reduce((acc, prop) => {
+      const existing = acc.find(item => item.market === prop.market);
+
+      if (!existing) {
+        acc.push(prop);
+        return acc;
+      }
+
+      const existingScore = Number(existing.confidence || existing.edge || 0);
+      const newScore = Number(prop.confidence || prop.edge || 0);
+
+      if (newScore > existingScore) {
+        const position = acc.indexOf(existing);
+        acc[position] = prop;
+      }
+
+      return acc;
+    }, []);
+
+  const categoryPreferredMarket = categoryToPropMarket[marketKey] || "";
+
+  let selectedProp = null;
+
+  if (selectedPropMarket) {
+    selectedProp = playerProps.find(prop => prop.market === selectedPropMarket) || null;
+  }
+
+  if (!selectedProp && categoryPreferredMarket) {
+    selectedProp = playerProps.find(prop => prop.market === categoryPreferredMarket) || null;
+  }
+
+  if (!selectedProp && playerProps.length) {
+    selectedProp = playerProps[0];
+  }
+
+  const selectedMeta = selectedProp ? ceNFLPropMeta(selectedProp.market) : null;
+  const propLine = selectedProp ? Number(selectedProp.line) : null;
+  const propSide = String(selectedProp?.side || "Over").toLowerCase() === "under"
+    ? "Under"
+    : "Over";
+
+  const gradePropValue = value => {
+    if (!selectedProp || !Number.isFinite(propLine) || !Number.isFinite(value)) return null;
+    if (value === propLine) return "push";
+    if (propSide === "Under") return value < propLine ? "hit" : "miss";
+    return value > propLine ? "hit" : "miss";
+  };
+
+  const hitRateForLogs = sampleLogs => {
+    if (!selectedMeta || !selectedProp) {
+      return { hits: 0, total: 0, pct: null, pushes: 0 };
+    }
+
+    const graded = sampleLogs
+      .map(log => ({
+        value: selectedMeta.value(log),
+        grade: gradePropValue(selectedMeta.value(log))
+      }))
+      .filter(item => Number.isFinite(item.value));
+
+    const hits = graded.filter(item => item.grade === "hit").length;
+    const pushes = graded.filter(item => item.grade === "push").length;
+    const total = graded.length;
+
+    return {
+      hits,
+      total,
+      pushes,
+      pct: total ? (hits / total) * 100 : null
+    };
+  };
+
+  const hitWindows = selectedProp
+    ? {
+        last3: hitRateForLogs(allLogs.slice(0, 3)),
+        last5: hitRateForLogs(allLogs.slice(0, 5)),
+        last10: hitRateForLogs(allLogs.slice(0, 10)),
+        season: hitRateForLogs(allLogs)
+      }
+    : null;
+
+  const hitRateCard = selectedProp && selectedMeta && Number.isFinite(propLine)
+    ? `
+      <div style="
+        background:#0b1323;
+        border:1px solid rgba(0,255,231,.24);
+        border-radius:12px;
+        padding:12px 10px;
+        margin-bottom:9px;
+      ">
+        <div style="
+          display:flex;
+          justify-content:space-between;
+          align-items:flex-start;
+          gap:12px;
+          margin-bottom:${playerProps.length > 1 ? "10px" : "8px"};
+        ">
+          <div>
+            <div style="color:#71839f;font-size:8px;font-weight:800;letter-spacing:.08em;">
+              TODAY'S PROP
+            </div>
+            <div style="margin-top:5px;color:#fff;font-size:14px;font-weight:850;line-height:1.15;">
+              ${propSide.toUpperCase()} ${propLine} ${selectedMeta.short}
+            </div>
+            <div style="margin-top:4px;color:#60708d;font-size:8px;line-height:1.3;">
+              ${Number.isFinite(Number(selectedProp.projection)) ? `Model projection ${Number(selectedProp.projection).toFixed(1)} ${selectedMeta.unit}` : "Current market line"}
+              ${selectedProp.bookmaker ? ` · ${sanitize(selectedProp.bookmaker)}` : ""}
+            </div>
+          </div>
+          ${Number.isFinite(Number(selectedProp.confidence)) ? `
+            <div style="text-align:right;flex-shrink:0;">
+              <strong style="display:block;color:#00ffe7;font-size:18px;line-height:1;">
+                ${Number(selectedProp.confidence).toFixed(1)}%
+              </strong>
+              <small style="display:block;margin-top:4px;color:#60708d;font-size:7px;">MODEL</small>
+            </div>
+          ` : ""}
+        </div>
+
+        ${playerProps.length > 1 ? `
+          <div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;padding-bottom:2px;">
+            ${playerProps.map(prop => {
+              const meta = ceNFLPropMeta(prop.market);
+              const active = prop.market === selectedProp.market;
+              return `
+                <button
+                  type="button"
+                  onclick="window.showNFLPlayerDetail(
+                    ${index},
+                    '${String(player.id).replace(/'/g, "\\'")}',
+                    '${source}',
+                    '${marketKey || ""}',
+                    '${windowKey}',
+                    '${prop.market}'
+                  )"
+                  style="
+                    flex:0 0 auto;
+                    border:1px solid ${active ? "#00ffe7" : "#1a2740"};
+                    background:${active ? "rgba(0,255,231,.08)" : "#0f1628"};
+                    color:${active ? "#00ffe7" : "#71839f"};
+                    border-radius:14px;
+                    padding:5px 9px;
+                    font-size:7px;
+                    font-weight:800;
+                    cursor:pointer;
+                  "
+                >${meta?.short || sanitize(prop.market)}</button>
+              `;
+            }).join("")}
+          </div>
+        ` : ""}
+
+        <div style="color:#71839f;font-size:8px;font-weight:800;letter-spacing:.08em;margin-bottom:9px;">
+          RECENT HIT RATE
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;">
+          ${["last3", "last5", "last10", "season"].map(key => {
+            const result = hitWindows[key];
+            const strong = result?.total ? `${result.hits}/${result.total}` : "—";
+            const pct = result?.pct !== null && result?.pct !== undefined
+              ? `${result.pct.toFixed(0)}%`
+              : "NO DATA";
+
+            return `
+              <div style="text-align:center;padding:7px 2px;border-radius:8px;background:#0f1628;">
+                <small style="display:block;color:#60708d;font-size:7px;font-weight:800;">
+                  ${windowLabels[key]}
+                </small>
+                <strong style="display:block;margin-top:5px;color:#fff;font-size:16px;line-height:1;">
+                  ${strong}
+                </strong>
+                <small style="display:block;margin-top:4px;color:${result?.pct >= 70 ? "#00ffe7" : "#71839f"};font-size:7px;font-weight:800;">
+                  ${pct}
+                </small>
+              </div>
+            `;
+          }).join("")}
+        </div>
+
+        <div style="margin-top:8px;color:#556688;font-size:7.5px;line-height:1.35;">
+          Historical hit rate vs today's line. It is not the model's probability for today's game.
+        </div>
+      </div>
+    `
+    : `
+      <div style="
+        background:#0b1323;
+        border:1px solid #1a2740;
+        border-radius:11px;
+        padding:10px 11px;
+        margin-bottom:9px;
+      ">
+        <div style="color:#71839f;font-size:8px;font-weight:800;letter-spacing:.07em;">TODAY'S PROP</div>
+        <div style="margin-top:5px;color:#60708d;font-size:9px;line-height:1.4;">
+          No current CashEdge prop is available for this player.
+        </div>
+      </div>
+    `;
+
+  const opponentLogs = allLogs.filter(log =>
+    ceNFLTeamMatches(log.opponent, opponentTeam)
+  );
+
+  const matchupValue = selectedMeta
+    ? log => selectedMeta.value(log)
+    : primaryGameValue;
+
+  const matchupValues = opponentLogs
+    .map(matchupValue)
+    .filter(value => Number.isFinite(value));
+
+  const matchupAvg = matchupValues.length
+    ? matchupValues.reduce((sum, value) => sum + value, 0) / matchupValues.length
+    : null;
+
+  const matchupBest = matchupValues.length ? Math.max(...matchupValues) : null;
+  const matchupHit = selectedProp ? hitRateForLogs(opponentLogs) : null;
+
+  const matchupLabel = selectedMeta?.short || primaryLabel;
+
+  const matchupGamesHTML = opponentLogs.slice(0, 3).map(log => {
+    const value = matchupValue(log);
+    const date = log.date
+      ? new Date(log.date).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric"
+        })
+      : "—";
+
+    const grade = selectedProp ? gradePropValue(value) : null;
+    const gradeSymbol = grade === "hit" ? "✓" : grade === "miss" ? "✕" : grade === "push" ? "—" : "";
+    const gradeColor = grade === "hit" ? "#00ffe7" : grade === "miss" ? "#ff6b6b" : "#71839f";
+
+    return `
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:7px 0;border-top:1px solid #18243a;">
+        <span style="color:#71839f;font-size:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          ${date}${log.homeAway ? ` · ${sanitize(String(log.homeAway).toUpperCase())}` : ""}
+        </span>
+        <strong style="color:#fff;font-size:10px;white-space:nowrap;">
+          ${Number(value).toFixed(selectedMeta?.unit === "YDS" ? 0 : 1)} ${matchupLabel}
+        </strong>
+        ${selectedProp ? `<strong style="color:${gradeColor};font-size:12px;width:12px;text-align:center;">${gradeSymbol}</strong>` : ""}
+      </div>
+    `;
+  }).join("");
+
+  const matchupCard = `
+    <div style="
+      background:#0b1323;
+      border:1px solid #1a2740;
+      border-radius:11px;
+      padding:11px;
+      margin-bottom:9px;
+    ">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;">
+        <div>
+          <div style="color:#71839f;font-size:8px;font-weight:800;letter-spacing:.07em;">
+            VS TODAY'S OPPONENT
+          </div>
+          <strong style="display:block;margin-top:5px;color:#fff;font-size:12px;line-height:1.2;">
+            ${sanitize(opponentTeam || "Opponent")}
+          </strong>
+        </div>
+        <small style="color:#60708d;font-size:7px;text-align:right;line-height:1.3;">
+          ${opponentLogs.length ? `${opponentLogs.length} MEETING${opponentLogs.length === 1 ? "" : "S"}` : "NO RECENT HISTORY"}
+        </small>
+      </div>
+
+      ${opponentLogs.length ? `
+        <div style="display:grid;grid-template-columns:repeat(${selectedProp ? 3 : 2},minmax(0,1fr));gap:6px;margin-bottom:${matchupGamesHTML ? "5px" : "0"};">
+          <div style="background:#0f1628;border-radius:8px;padding:8px;text-align:center;">
+            <small style="display:block;color:#60708d;font-size:7px;">AVG VS ${sanitize(String(opponentTeam || "OPP").split(" ").pop().toUpperCase())}</small>
+            <strong style="display:block;margin-top:5px;color:#fff;font-size:14px;">${matchupAvg !== null ? matchupAvg.toFixed(1) : "—"}</strong>
+            <small style="display:block;margin-top:3px;color:#556688;font-size:6.5px;">${matchupLabel}</small>
+          </div>
+
+          <div style="background:#0f1628;border-radius:8px;padding:8px;text-align:center;">
+            <small style="display:block;color:#60708d;font-size:7px;">BEST GAME</small>
+            <strong style="display:block;margin-top:5px;color:#fff;font-size:14px;">${matchupBest !== null ? matchupBest.toFixed(1) : "—"}</strong>
+            <small style="display:block;margin-top:3px;color:#556688;font-size:6.5px;">${matchupLabel}</small>
+          </div>
+
+          ${selectedProp ? `
+            <div style="background:#0f1628;border-radius:8px;padding:8px;text-align:center;">
+              <small style="display:block;color:#60708d;font-size:7px;">HIT VS OPP</small>
+              <strong style="display:block;margin-top:5px;color:#00ffe7;font-size:14px;">${matchupHit?.total ? `${matchupHit.hits}/${matchupHit.total}` : "—"}</strong>
+              <small style="display:block;margin-top:3px;color:#556688;font-size:6.5px;">VS ${propSide.toUpperCase()} ${propLine}</small>
+            </div>
+          ` : ""}
+        </div>
+
+        ${opponentLogs.length === 1 ? `
+          <div style="color:#8a7b55;font-size:7.5px;line-height:1.3;margin:7px 0 2px;">
+            Limited matchup history — only one recent meeting is available.
+          </div>
+        ` : ""}
+
+        ${matchupGamesHTML}
+      ` : `
+        <div style="color:#60708d;font-size:9px;line-height:1.45;">
+          No recent head-to-head game log is available for this player against ${sanitize(opponentTeam || "today's opponent")}.
+        </div>
+      `}
+    </div>
+  `;
+
   const gameNumbers = log => {
     if (player.position === "QB") {
       return [
         [n(log.passing?.yards), "PASS YDS"],
         [`${n(log.passing?.completions)}/${n(log.passing?.attempts)}`, "CMP/ATT"],
-        [`${n(log.passing?.touchdowns)}-${n(log.passing?.interceptions)}`, "TD-INT"],
+        [`${n(log.passing?.touchdowns)}-${n(log.passing?.interceptions)}`, "TD/INT"],
         [n(log.rushing?.yards), "RUSH YDS"]
       ];
     }
@@ -4843,7 +5317,7 @@ function showNFLPlayerDetail(
         [n(log.rushing?.yards), "RUSH YDS"],
         [n(log.rushing?.attempts), "CARRIES"],
         [`${n(log.receiving?.receptions)}/${n(log.receiving?.targets)}`, "REC/TGT"],
-        [n(log.rushing?.yards) + n(log.receiving?.yards), "TOTAL YDS"]
+        [n(log.receiving?.yards), "REC YDS"]
       ];
     }
 
@@ -4865,6 +5339,10 @@ function showNFLPlayerDetail(
           : "—";
 
         const homeAway = String(log.homeAway || "").toUpperCase();
+        const propValue = selectedMeta ? selectedMeta.value(log) : null;
+        const grade = selectedProp && selectedMeta ? gradePropValue(propValue) : null;
+        const gradeSymbol = grade === "hit" ? "✓" : grade === "miss" ? "✕" : grade === "push" ? "—" : "";
+        const gradeColor = grade === "hit" ? "#00ffe7" : grade === "miss" ? "#ff6b6b" : "#71839f";
 
         return `
           <div style="padding:10px 0;border-bottom:1px solid #18243a;">
@@ -4890,6 +5368,15 @@ function showNFLPlayerDetail(
                   ${date}${homeAway ? ` · ${sanitize(homeAway)}` : ""}
                 </small>
               </div>
+
+              ${selectedProp && selectedMeta ? `
+                <div style="text-align:right;flex-shrink:0;">
+                  <strong style="color:${gradeColor};font-size:12px;">${gradeSymbol}</strong>
+                  <small style="display:block;margin-top:2px;color:#60708d;font-size:7px;">
+                    ${Number(propValue).toFixed(selectedMeta.unit === "YDS" ? 0 : 1)} vs ${propLine}
+                  </small>
+                </div>
+              ` : ""}
             </div>
 
             <div style="
@@ -4984,7 +5471,8 @@ function showNFLPlayerDetail(
               '${String(player.id).replace(/'/g, "\\'")}',
               '${source}',
               '${marketKey || ""}',
-              '${key}'
+              '${key}',
+              '${selectedProp?.market || ""}'
             )"
             style="
               padding:7px 2px;
@@ -5001,6 +5489,9 @@ function showNFLPlayerDetail(
           </button>
         `).join("")}
       </div>
+
+      ${hitRateCard}
+      ${matchupCard}
 
       <div style="
         background:#0b1323;
@@ -5171,6 +5662,7 @@ function showNFLPlayerDetail(
     </div>
   `;
 }
+
 function showNFLPlayerStatsWindow(index, windowKey) {
   if (!nflPlayerStatsState[index]) return;
 
@@ -5197,19 +5689,21 @@ async function openNFLPlayerStats(
   analysisView.style.display = "none";
   statsView.style.display = "block";
 
-
   if (nflPlayerStatsState[index]?.data) {
+    const state = nflPlayerStatsState[index];
+    state.eventId = state.eventId || eventId;
+    state.awayTeam = state.awayTeam || awayTeam;
+    state.homeTeam = state.homeTeam || homeTeam;
+    state.gameTime = state.gameTime || gameTime;
     renderNFLPlayerStats(index);
     return;
   }
-
 
   statsView.innerHTML = `
     <div class="loading-analysis">
       Loading Player Stats...
     </div>
   `;
-
 
   try {
     const { data: sessionData } =
@@ -5219,7 +5713,6 @@ async function openNFLPlayerStats(
       throw new Error("You must sign in.");
     }
 
-
     const params = new URLSearchParams({
       mode: "nfl-player-stats",
       eventId,
@@ -5227,7 +5720,6 @@ async function openNFLPlayerStats(
       homeTeam,
       gameTime
     });
-
 
     const response = await fetch(
       `/api/football-data?${params.toString()}`,
@@ -5239,9 +5731,7 @@ async function openNFLPlayerStats(
       }
     );
 
-
     const data = await response.json();
-
 
     if (!response.ok) {
       throw new Error(
@@ -5250,17 +5740,43 @@ async function openNFLPlayerStats(
       );
     }
 
+    let currentProps = [];
+
+    if ((IS_ADMIN || isPremiumUser) && eventId) {
+      try {
+        const propsResponse = await fetch(
+          `/api/football-data?mode=nfl-player-props&eventId=${encodeURIComponent(eventId)}`,
+          {
+            headers: {
+              Authorization:
+                `Bearer ${sessionData.session.access_token}`
+            }
+          }
+        );
+
+        const propsData = await propsResponse.json();
+
+        if (propsResponse.ok && Array.isArray(propsData?.props)) {
+          currentProps = propsData.props;
+        }
+      } catch (propsError) {
+        console.warn("NFL Player Stats: current props unavailable", propsError);
+      }
+    }
 
     nflPlayerStatsState[index] = {
       data,
-      windowKey: "last5"
+      windowKey: "last5",
+      eventId,
+      awayTeam,
+      homeTeam,
+      gameTime,
+      currentProps
     };
-
 
     renderNFLPlayerStats(index);
 
   } catch (error) {
-
     statsView.innerHTML = `
       <div class="ps-card">
         <button
