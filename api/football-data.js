@@ -2881,7 +2881,8 @@ const propsDebug = {
   noProjection: 0,
   noConfidence: 0,
   analyzed: 0,
-  rejectedConfidence: []
+  rejectedConfidence: [],
+  qbDiagnostics: []
 };
  
   for (const prop of uniqueProps) {
@@ -3242,6 +3243,40 @@ projectionDebug = {
  
     projection = Number(projection.toFixed(1));
     const edge       = Number((projection - line).toFixed(2));
+    if (
+  market === "player_pass_yds" &&
+  propsDebug.qbDiagnostics.length < 10
+) {
+  propsDebug.qbDiagnostics.push({
+    player,
+    line,
+    projection,
+    edge,
+
+    lastGames:
+      playerGameStats
+        .map(s => nflSafeNum(s.passingYards))
+        .filter(v => v > 0),
+
+    recent5Avg:
+      Number(recent5PassYds.toFixed(1)),
+
+    seasonAvg:
+      Number(seasonPassYds.toFixed(1)),
+
+    oppPassDefScore:
+      Number(oppPassDefScore.toFixed(3)),
+
+    paceScore:
+      Number(paceScore.toFixed(3)),
+
+    teamPassRateScore:
+      Number(teamPassRateScore.toFixed(3)),
+
+    gameScriptScore:
+      Number(gameScriptScore.toFixed(3))
+  });
+}
     const confidence = calculateNFLConfidence(market, edge);
  
  if (confidence <= 0) {
