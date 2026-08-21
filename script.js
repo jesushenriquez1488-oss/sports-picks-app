@@ -5734,18 +5734,45 @@ async function openNFLPlayerStats(
   if (!analysisView || !statsView) return;
 
   analysisView.style.display = "none";
-  statsView.style.display = "block";
+statsView.style.display = "block";
+
+// Llevar al usuario directamente a Player Stats
+requestAnimationFrame(() => {
+  const top =
+    statsView.getBoundingClientRect().top +
+    window.scrollY -
+    12;
+
+  window.scrollTo({
+    top,
+    behavior: "smooth"
+  });
+});
 
   if (nflPlayerStatsState[index]?.data) {
-    const state = nflPlayerStatsState[index];
-    state.eventId = state.eventId || eventId;
-    state.awayTeam = state.awayTeam || awayTeam;
-    state.homeTeam = state.homeTeam || homeTeam;
-    state.gameTime = state.gameTime || gameTime;
-    renderNFLPlayerStats(index);
-    return;
-  }
+  const state = nflPlayerStatsState[index];
 
+  state.eventId = state.eventId || eventId;
+  state.awayTeam = state.awayTeam || awayTeam;
+  state.homeTeam = state.homeTeam || homeTeam;
+  state.gameTime = state.gameTime || gameTime;
+
+  renderNFLPlayerStats(index);
+
+  requestAnimationFrame(() => {
+    const top =
+      statsView.getBoundingClientRect().top +
+      window.scrollY -
+      12;
+
+    window.scrollTo({
+      top,
+      behavior: "smooth"
+    });
+  });
+
+  return;
+}
   statsView.innerHTML = `
     <div class="loading-analysis">
       Loading Player Stats...
@@ -5865,9 +5892,21 @@ function closeNFLPlayerStats(index) {
     statsView.style.display = "none";
   }
 
-  if (analysisView) {
-    analysisView.style.display = "block";
-  }
+ if (analysisView) {
+  analysisView.style.display = "block";
+
+  requestAnimationFrame(() => {
+    const top =
+      analysisView.getBoundingClientRect().top +
+      window.scrollY -
+      12;
+
+    window.scrollTo({
+      top,
+      behavior: "smooth"
+    });
+  });
+}
 }
 
 
