@@ -1953,12 +1953,40 @@ async function getNFLPlayerStatsFromBoxscore(gameId, playerName) {
         }
  
         if (category.includes("rushing")) {
-          const yIdx = keys.indexOf("rushingYards");
-          const cIdx = keys.indexOf("carries");
-          if (yIdx >= 0) result.rushingYards  = nflSafeNum(stats[yIdx]);
-          if (cIdx >= 0) result.rushingCarries = nflSafeNum(stats[cIdx]);
-          result.found = true;
-        }
+
+  const yIdx =
+    keys.indexOf("rushingYards");
+
+  let cIdx =
+    keys.indexOf("carries");
+
+  if (cIdx < 0) {
+    cIdx =
+      keys.indexOf("rushingAttempts");
+  }
+
+  if (cIdx < 0) {
+    cIdx =
+      keys.indexOf("rushAttempts");
+  }
+
+  if (cIdx < 0) {
+    cIdx =
+      keys.indexOf("attempts");
+  }
+
+  if (yIdx >= 0) {
+    result.rushingYards =
+      nflSafeNum(stats[yIdx]);
+  }
+
+  if (cIdx >= 0) {
+    result.rushingCarries =
+      nflSafeNum(stats[cIdx]);
+  }
+
+  result.found = true;
+}
  
         if (category.includes("receiving")) {
           const yIdx = keys.indexOf("receivingYards");
