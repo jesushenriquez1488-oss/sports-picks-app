@@ -36,6 +36,7 @@ const SOS_RATIO_MAX   = 1.80;
 const CONSENSUS_BETA  = 0.15;  // cuánto se inclina el consenso. 0 = 50/50 fijo. CALIBRAR DESPUÉS.
 const CONSENSUS_SCALE = 10;    // pts de diferencia para inclinar el peso
 const MIN_PROJECTION  = 3;
+const NFL_HOME_FIELD_ADVANTAGE = 1.5;
 
 const TEAM_MAP = {
   // NFL
@@ -1334,23 +1335,41 @@ function calculatePaceEfficiencyAdjustment({ type, projectedTotal, teamAProfile,
 
   if (!leagueAvg) return { adjustment: 0 };
 
-  function offenseScore(p) {
-    return (
-      (p.plays / leagueAvg.plays) * 0.45 +
-      (p.yards / leagueAvg.yards) * 0.25 +
-      (p.thirdDown / leagueAvg.thirdDown) * 0.15 +
-      (p.redZone / leagueAvg.redZone) * 0.15
-    );
+ function safeRatio(numerator, denominator) {
+  const n = Number(numerator);
+  const d = Number(denominator);
+
+  // Dato faltante o 0 = neutral.
+  // Nunca permitimos Infinity ni inflamos el ajuste.
+  if (
+    !Number.isFinite(n) ||
+    !Number.isFinite(d) ||
+    n <= 0 ||
+    d <= 0
+  ) {
+    return 1;
   }
 
-  function defenseScore(p) {
-    return (
-      (leagueAvg.defPoints / p.defPoints) * 0.35 +
-      (leagueAvg.defYards / p.defYards) * 0.35 +
-      (leagueAvg.defThirdDown / p.defThirdDown) * 0.15 +
-      (leagueAvg.defRedZone / p.defRedZone) * 0.15
-    );
-  }
+  return n / d;
+}
+
+function offenseScore(p) {
+  return (
+    safeRatio(p.plays, leagueAvg.plays) * 0.45 +
+    safeRatio(p.yards, leagueAvg.yards) * 0.25 +
+    safeRatio(p.thirdDown, leagueAvg.thirdDown) * 0.15 +
+    safeRatio(p.redZone, leagueAvg.redZone) * 0.15
+  );
+}
+
+function defenseScore(p) {
+  return (
+    safeRatio(leagueAvg.defPoints, p.defPoints) * 0.35 +
+    safeRatio(leagueAvg.defYards, p.defYards) * 0.35 +
+    safeRatio(leagueAvg.defThirdDown, p.defThirdDown) * 0.15 +
+    safeRatio(leagueAvg.defRedZone, p.defRedZone) * 0.15
+  );
+}
 
   const teamAEdge = offenseScore(teamAProfile) - defenseScore(teamBProfile);
   const teamBEdge = offenseScore(teamBProfile) - defenseScore(teamAProfile);
@@ -1694,7 +1713,13 @@ async function getNFLStarterQBId(teamRef, type, season) {
     return null;
   }
 }
-async function getInjuryAdjustmentNFL(teamName, teamRef, type, season) {
+async function getInjuryAdjustmentNFL(
+  teamName,
+  teamRef,
+  type,
+  season,
+  teamGames = []
+) {
   try {
     const [injuries, starterQBId] = await Promise.all([
       getNFLTeamInjuriesList(teamName, type),
@@ -1710,16 +1735,46 @@ async function getInjuryAdjustmentNFL(teamName, teamRef, type, season) {
       // Lesión ya resuelta según ESPN
       if (player.returnDate && new Date(player.returnDate).getTime() < Date.now()) continue;
 
-      if (player.startDate) {
-        const days = (Date.now() - new Date(player.startDate).getTime()) / 86400000;
-        const estimatedGamesMissed = Math.floor(days / 7); // NFL: 1 juego por semana
+    if (player.startDate) {
+  const injuryStart =
+    new Date(player.startDate).getTime();
 
-        // Ya se perdió 5+ juegos: los últimos juegos del equipo ya reflejan su ausencia
-        if (estimatedGamesMissed > 5) continue;
+  const now =
+    Date.now();
 
-        // Lesión vieja sin gravedad (no Out/IR) — probablemente resuelta
-        if (peso < 4 && days > 30) continue;
-      }
+  const days =
+    Number.isFinite(injuryStart)
+      ? (now - injuryStart) / 86400000
+      : 0;
+
+  const gamesSinceInjury =
+    Array.isArray(teamGames)
+      ? teamGames.filter(game => {
+          const gameDate =
+            new Date(game?.date || 0)
+              .getTime();
+
+          return (
+            Number.isFinite(gameDate) &&
+            Number.isFinite(injuryStart) &&
+            gameDate >= injuryStart &&
+            gameDate <= now
+          );
+        }).length
+      : 0;
+
+  // Si ya jugó el equipo 5+ partidos sin él,
+  // nuestra muestra reciente ya refleja su ausencia.
+  if (gamesSinceInjury >= 5) {
+    continue;
+  }
+
+  // Mantener protección contra reportes viejos
+  // de lesiones menores.
+  if (peso < 4 && days > 30) {
+    continue;
+  }
+}
       const pos = normalizeNFLPosition(player.position);
        // Solo posiciones con impacto medible cuentan (QB/RB/WR/TE)
       if (!NFL_POS_LEAGUE_AVG[pos]) continue;
@@ -9161,9 +9216,34 @@ if (fpiAdj.active) {
   );
 }
     
-const projectedTeamA = teamAProjection.finalProjection;
-const projectedTeamB = teamBProjection.finalProjection;
+const projectedTeamABase =
+  teamAProjection.finalProjection;
 
+const projectedTeamBBase =
+  teamBProjection.finalProjection;
+
+// NFL:
+// teamA = AWAY
+// teamB = HOME
+//
+// Dividimos el HFA entre ambos lados para
+// mover el spread sin modificar el total.
+const homeFieldHalf =
+  type === "nfl"
+    ? NFL_HOME_FIELD_ADVANTAGE / 2
+    : 0;
+
+const projectedTeamA =
+  round(
+    projectedTeamABase -
+    homeFieldHalf
+  );
+
+const projectedTeamB =
+  round(
+    projectedTeamBBase +
+    homeFieldHalf
+  );
    // Comparativo: modelo viejo (sin FPI, sin ajustes)
     const rawA = projectFootballTeam(teamAEdges, teamBEdges, 0, 0).finalProjection;
     const rawB = projectFootballTeam(teamBEdges, teamAEdges, 0, 0).finalProjection;
@@ -9171,10 +9251,24 @@ const projectedTeamB = teamBProjection.finalProjection;
   
     
 // Ajuste por lesiones (modo sombra si NFL_INJURY_ACTIVE = false)
-const [teamAInjuries, teamBInjuries] = await Promise.all([
- getInjuryAdjustmentNFL(teamA, teamARef, type, selectedSeason),
-    getInjuryAdjustmentNFL(teamB, teamBRef, type, selectedSeason)
-]);
+const [teamAInjuries, teamBInjuries] =
+  await Promise.all([
+    getInjuryAdjustmentNFL(
+      teamA,
+      teamARef,
+      type,
+      selectedSeason,
+      teamAGames
+    ),
+
+    getInjuryAdjustmentNFL(
+      teamB,
+      teamBRef,
+      type,
+      selectedSeason,
+      teamBGames
+    )
+  ]);
 
 const injuryAdjA = NFL_INJURY_ACTIVE ? teamAInjuries.pointsImpact : 0;
 const injuryAdjB = NFL_INJURY_ACTIVE ? teamBInjuries.pointsImpact : 0;
