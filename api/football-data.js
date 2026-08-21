@@ -2259,30 +2259,41 @@ async function getNFLTeamSeasonStats(espnTeamId, season) {
     return 0;
   }
  
-  function findDef(name) {
-    const groups =
-      data?.results?.stats?.opponent ||
-      data?.results?.opponent ||
-      data?.stats?.opponent || [];
-    for (const cat of groups)
-      for (const s of cat?.stats || [])
-        if (s.name === name) {
+function findDef(name) {
+  const groups =
+    data?.results?.stats?.opponent ||
+    data?.results?.opponent ||
+    data?.stats?.opponent ||
+    [];
 
-  if (name === "netPassingYardsPerGame") {
-    console.log("NFL DEF PASS YDS RAW:", {
-      name: s.name,
-      value: s.value,
-      perGameValue: s.perGameValue,
-      displayValue: s.displayValue
-    });
+  const USE_RAW_VALUE = new Set([
+    "netPassingYardsPerGame",
+    "rushingYardsPerGame",
+    "yardsPerRushAttempt",
+    "yardsPerPassAttempt"
+  ]);
+
+  for (const cat of groups) {
+    for (const s of cat?.stats || []) {
+
+      if (s.name !== name) {
+        continue;
+      }
+
+      if (USE_RAW_VALUE.has(name)) {
+        return nflSafeNum(
+          s.value ?? s.perGameValue
+        );
+      }
+
+      return nflSafeNum(
+        s.perGameValue ?? s.value
+      );
+    }
   }
 
-  return nflSafeNum(
-    s.perGameValue ?? s.value
-  );
+  return 0;
 }
-    return 0;
-  }
  
   return {
     // Offense
