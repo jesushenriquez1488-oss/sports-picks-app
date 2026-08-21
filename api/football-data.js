@@ -2266,7 +2266,21 @@ async function getNFLTeamSeasonStats(espnTeamId, season) {
       data?.stats?.opponent || [];
     for (const cat of groups)
       for (const s of cat?.stats || [])
-        if (s.name === name) return nflSafeNum(s.perGameValue ?? s.value);
+        if (s.name === name) {
+
+  if (name === "netPassingYardsPerGame") {
+    console.log("NFL DEF PASS YDS RAW:", {
+      name: s.name,
+      value: s.value,
+      perGameValue: s.perGameValue,
+      displayValue: s.displayValue
+    });
+  }
+
+  return nflSafeNum(
+    s.perGameValue ?? s.value
+  );
+}
     return 0;
   }
  
