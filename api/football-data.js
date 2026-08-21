@@ -2259,16 +2259,7 @@ async function getNFLTeamSeasonStats(espnTeamId, season) {
     const statName =
       String(s?.name || "");
 
-    if (
-      statName.toLowerCase().includes("attempt")
-    ) {
-      console.log("NFL OFF ATTEMPT STAT:", {
-        name: s.name,
-        value: s.value,
-        perGameValue: s.perGameValue,
-        displayValue: s.displayValue
-      });
-    }
+ 
 
     if (s.name === name) {
       return nflSafeNum(
@@ -2320,7 +2311,7 @@ function findDef(name) {
     // Offense
     passingYardsPerGame:    findOff("netPassingYardsPerGame"),
     rushingYardsPerGame:    findOff("rushingYardsPerGame"),
-    passAttemptsPerGame:    findOff("passAttemptsPerGame"),
+   passAttemptsPerGame: findOff("passingAttempts"),
     rushAttemptsPerGame:    findOff("rushAttemptsPerGame"),
     totalPlaysPerGame:      findOff("totalOffensivePlays"),
     yardsPerPassAttempt:    findOff("yardsPerPassAttempt"),
