@@ -2959,6 +2959,10 @@ if (athleteId) {
     };
  
     const recent5PassYds = avgStat("passingYards");
+    const recent5PassYdsRaw =
+  playerGameStats
+    .map(s => nflSafeNum(s.passingYards))
+    .filter(v => v > 0);
     const recent5RushYds = avgStat("rushingYards");
     const recent5Carries = avgStat("rushingCarries");
     const recent5RecYds  = avgStat("receivingYards");
@@ -3083,6 +3087,7 @@ const qbGameScriptInput =
 
 projectionDebug = {
   recent5: recent5PassYds,
+  recent5PassYdsRaw,
   season: seasonPassYds,
 
   oppPassDefScore,
@@ -3271,18 +3276,23 @@ projectionDebug = {
   continue;
 }
  
-    analyzedProps.push({
-      player,
-      market,
-      side: "OVER",
-      line,
-      odds:       prop.odds,
-      bookmaker:  prop.bookmaker,
-      projection,
-      edge,
-      confidence,
-      isPremium:  confidence >= 75
-    });
+ analyzedProps.push({
+  player,
+  market,
+  side: "OVER",
+  line,
+  odds: prop.odds,
+  bookmaker: prop.bookmaker,
+  projection,
+  edge,
+  confidence,
+  isPremium: confidence >= 75,
+
+  debug:
+    market === "player_pass_yds"
+      ? projectionDebug
+      : undefined
+});
     propsDebug.analyzed++;
   }
  
