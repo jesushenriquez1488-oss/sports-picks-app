@@ -1923,9 +1923,8 @@ async function getNFLPlayerStatsFromBoxscore(gameId, playerName) {
     found:           false
   };
  
-  const cleanName = n => String(n || "").toLowerCase().trim();
-  const targetClean = cleanName(playerName);
-  const targetLastName = targetClean.split(" ").slice(-1)[0];
+ const targetClean =
+  normalizeNFLPlayerName(playerName);
  
   const allPlayers = data?.boxscore?.players || [];
  
@@ -1935,14 +1934,20 @@ async function getNFLPlayerStatsFromBoxscore(gameId, playerName) {
       const keys = statGroup?.keys || [];
       const athletes = statGroup?.athletes || [];
  
-      for (const entry of athletes) {
-        const athleteName = cleanName(
-          entry?.athlete?.displayName || entry?.athlete?.shortName || ""
-        );
- 
-        const matchFull = athleteName.includes(targetClean) || targetClean.includes(athleteName);
-        const matchLast = athleteName.includes(targetLastName);
-        if (!matchFull && !matchLast) continue;
+    const athleteName =
+  normalizeNFLPlayerName(
+    entry?.athlete?.displayName ||
+    entry?.athlete?.fullName ||
+    entry?.athlete?.shortName ||
+    ""
+  );
+
+if (
+  !athleteName ||
+  athleteName !== targetClean
+) {
+  continue;
+}
  
         const stats = entry?.stats || [];
  
