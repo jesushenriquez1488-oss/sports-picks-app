@@ -2413,17 +2413,78 @@ function projectQBPassingYards({
   teamPassRateScore,
   gameScriptScore
 }) {
-  // OpponentPassDefenseScore ya viene normalizado (>1 = defensa mala)
-  const oppComponent = recent5 * oppPassDefenseScore;
- 
-  return (
-    recent5           * 0.35 +
-    seasonAvg         * 0.20 +
-    oppComponent      * 0.25 +
-    paceScore         * 0.10 +
-    teamPassRateScore * 0.05 +
-    gameScriptScore   * 0.05
-  );
+
+  // Baseline del jugador:
+  // mayor peso a forma reciente, sin perder temporada.
+  const baseline =
+    recent5 * 0.60 +
+    seasonAvg * 0.40;
+
+  if (!baseline || baseline <= 0) {
+    return 0;
+  }
+
+  // Defensa:
+  // score 1.00 = neutral.
+  // Reducimos la amplitud para evitar movimientos irreales.
+  const defenseAdj =
+    nflClamp(
+      1 + (oppPassDefenseScore - 1) * 0.35,
+      0.90,
+      1.12
+    );
+
+  // Pace:
+  // paceScore ya viene alrededor de 1.00.
+  const paceAdj =
+    nflClamp(
+      1 + (paceScore - 1) * 0.30,
+      0.96,
+      1.05
+    );
+
+  // Pass rate:
+  // 1.00 = neutral.
+  // Si ESPN no entrega pass attempts y llega 0,
+  // lo tratamos como neutral, NO como cero.
+  const safePassRateScore =
+    teamPassRateScore > 0
+      ? teamPassRateScore
+      : 1;
+
+  const passRateAdj =
+    nflClamp(
+      1 + (safePassRateScore - 1) * 0.25,
+      0.95,
+      1.06
+    );
+
+  // Game script:
+  // 0.50 = neutral.
+  // Underdog suele necesitar lanzar un poco más.
+  const gameScriptAdj =
+    nflClamp(
+      1 + (0.50 - gameScriptScore) * 0.15,
+      0.96,
+      1.04
+    );
+
+  let projection =
+    baseline *
+    defenseAdj *
+    paceAdj *
+    passRateAdj *
+    gameScriptAdj;
+
+  // Protección final contra extremos de matchup.
+  projection =
+    nflClamp(
+      projection,
+      baseline * 0.85,
+      baseline * 1.15
+    );
+
+  return projection;
 }
  
 // 2. RB Rushing Attempts
@@ -3062,13 +3123,13 @@ projectionDebug = {
   }
 };
       projection = projectQBPassingYards({
-        recent5:           recent5PassYds,
-        seasonAvg:         seasonPassYds,
-        oppPassDefenseScore: oppPassDefScore,
-        paceScore:         paceScore * leaguePlays,  // en yardas equivalentes
-        teamPassRateScore: teamPassRateScore * recent5PassYds,
-        gameScriptScore:   gameScriptScore * recent5PassYds
-      });
+  recent5: recent5PassYds,
+  seasonAvg: seasonPassYds,
+  oppPassDefenseScore: oppPassDefScore,
+  paceScore,
+  teamPassRateScore,
+  gameScriptScore
+});
     }
  
    else if (market === "player_rush_yds") {
