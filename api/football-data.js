@@ -1932,9 +1932,11 @@ async function getNFLPlayerStatsFromBoxscore(gameId, playerName) {
     for (const statGroup of teamBlock?.statistics || []) {
       const category = String(statGroup?.name || "").toLowerCase();
       const keys = statGroup?.keys || [];
-      const athletes = statGroup?.athletes || [];
- 
-    const athleteName =
+     const athletes = statGroup?.athletes || [];
+
+for (const entry of athletes) {
+
+  const athleteName =
   normalizeNFLPlayerName(
     entry?.athlete?.displayName ||
     entry?.athlete?.fullName ||
