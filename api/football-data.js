@@ -1807,21 +1807,72 @@ function calculateNFLConfidence(market, edge) {
   }
  
   const scales = {
-    player_pass_yds: [
-      [15, 75], [20, 80], [25, 85], [30, 90], [35, 95], [40, 99]
-    ],
-    player_rush_attempts: [
-      [2.0, 75], [3.0, 85], [4.0, 92], [5.0, 99]
-    ],
-    player_receptions: [
-      [0.8, 75], [1.2, 82], [1.6, 88], [2.0, 94], [2.5, 99]
-    ],
-    player_reception_yds: [
-      [10, 75], [15, 82], [20, 90], [25, 95], [30, 99]
-    ],
-    player_rush_yds: [
-      [10, 75], [15, 82], [20, 90], [25, 95], [30, 99]
-    ]
+   player_pass_yds: [
+  [15, 75],
+  [20, 78],
+  [25, 81],
+  [30, 84],
+  [35, 86],
+  [40, 88],
+  [45, 91],
+  [50, 93],
+  [55, 95],
+  [60, 96],
+  [65, 98],
+  [70, 99]
+],
+   player_rush_attempts: [
+  [2.0, 75],
+  [3.0, 78],
+  [4.0, 81],
+  [5.0, 84],
+  [6.0, 87],
+  [7.0, 91],
+  [8.0, 95],
+  [9.0, 99]
+],
+
+player_receptions: [
+  [0.8, 75],
+  [1.2, 78],
+  [1.6, 81],
+  [2.0, 84],
+  [2.5, 87],
+  [3.0, 90],
+  [3.5, 93],
+  [4.0, 96],
+  [4.5, 99]
+],
+
+player_reception_yds: [
+  [10, 75],
+  [15, 78],
+  [20, 81],
+  [25, 84],
+  [30, 86],
+  [35, 88],
+  [40, 91],
+  [45, 93],
+  [50, 95],
+  [55, 96],
+  [60, 98],
+  [65, 99]
+],
+
+player_rush_yds: [
+  [10, 75],
+  [15, 78],
+  [20, 81],
+  [25, 84],
+  [30, 86],
+  [35, 88],
+  [40, 91],
+  [45, 93],
+  [50, 95],
+  [55, 96],
+  [60, 98],
+  [65, 99]
+]
   };
  
   const scale = scales[market];
@@ -3318,8 +3369,39 @@ projectionDebug = {
     gameScriptScore:
       Number(gameScriptScore.toFixed(3))
   });
+}let confidence =
+  calculateNFLConfidence(market, edge);
+
+if (
+  market === "player_pass_yds" &&
+  confidence > 0
+) {
+  const recentStdDev =
+    nflStdDev(recent5PassYdsRaw);
+
+  const volatilityRatio =
+    recent5PassYds > 0
+      ? recentStdDev / recent5PassYds
+      : 0;
+
+  let volatilityPenalty = 0;
+
+  if (volatilityRatio > 0.30) {
+    volatilityPenalty = 3;
+  } else if (volatilityRatio > 0.22) {
+    volatilityPenalty = 2;
+  } else if (volatilityRatio > 0.15) {
+    volatilityPenalty = 1;
+  }
+
+  confidence =
+    Number(
+      Math.max(
+        0,
+        confidence - volatilityPenalty
+      ).toFixed(1)
+    );
 }
-    const confidence = calculateNFLConfidence(market, edge);
  
  if (confidence <= 0) {
   propsDebug.noConfidence++;
