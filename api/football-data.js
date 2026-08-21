@@ -2438,13 +2438,36 @@ function getGameScriptFromMoneyline(moneylineOdds) {
     ? 100 / (ml + 100)
     : Math.abs(ml) / (Math.abs(ml) + 100);
 }
- 
+ function nflStdDev(values = []) {
+  const nums =
+    values
+      .map(Number)
+      .filter(Number.isFinite);
+
+  if (nums.length < 2) {
+    return 0;
+  }
+
+  const mean =
+    nums.reduce((a, b) => a + b, 0) /
+    nums.length;
+
+  const variance =
+    nums.reduce(
+      (sum, value) =>
+        sum + Math.pow(value - mean, 2),
+      0
+    ) / nums.length;
+
+  return Math.sqrt(variance);
+}
 // ---- Fórmulas de proyección ----
  
 // 1. QB Passing Yards
 function projectQBPassingYards({
   recent5,
   seasonAvg,
+  recentGames,
   oppPassDefenseScore,
   paceScore,
   teamPassRateScore,
@@ -2453,9 +2476,27 @@ function projectQBPassingYards({
 
   // Baseline del jugador:
   // mayor peso a forma reciente, sin perder temporada.
-  const baseline =
-    recent5 * 0.60 +
-    seasonAvg * 0.40;
+ const recentStdDev =
+  nflStdDev(recentGames);
+
+const volatilityRatio =
+  recent5 > 0
+    ? recentStdDev / recent5
+    : 0;
+
+const recentWeight =
+  nflClamp(
+    0.60 - volatilityRatio * 0.60,
+    0.30,
+    0.60
+  );
+
+const seasonWeight =
+  1 - recentWeight;
+
+const baseline =
+  recent5 * recentWeight +
+  seasonAvg * seasonWeight;
 
   if (!baseline || baseline <= 0) {
     return 0;
@@ -3168,6 +3209,7 @@ projectionDebug = {
       projection = projectQBPassingYards({
   recent5: recent5PassYds,
   seasonAvg: seasonPassYds,
+  recentGames: recent5PassYdsRaw,
   oppPassDefenseScore: oppPassDefScore,
   paceScore,
   teamPassRateScore,
