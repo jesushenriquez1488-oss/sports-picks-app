@@ -1985,7 +1985,232 @@ async function getNFLPlayerStatsFromBoxscore(gameId, playerName) {
  
   return result;
 }
- 
+ function normalizeNFLPlayerName(name = "") {
+  return String(name)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\b(jr|sr|ii|iii|iv)\b\.?/g, "")
+    .replace(/[^a-z0-9 ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function getNFLTeamRosterPlayers(espnTeamId, season) {
+  if (!espnTeamId) return [];
+
+  try {
+    const url =
+      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${espnTeamId}/roster?season=${season}`;
+
+    const data = await espnFetchNFL(url);
+
+    const groups = Array.isArray(data?.athletes)
+      ? data.athletes
+      : [];
+
+    const athletes = groups.flatMap(group => {
+      if (Array.isArray(group?.items)) {
+        return group.items;
+      }
+
+      return group?.id ? [group] : [];
+    });
+
+    return athletes
+      .filter(a => a?.id)
+      .map(a => ({
+        id: String(a.id),
+        name: String(
+          a.displayName ||
+          a.fullName ||
+          a.shortName ||
+          ""
+        ),
+        cleanName: normalizeNFLPlayerName(
+          a.displayName ||
+          a.fullName ||
+          a.shortName ||
+          ""
+        ),
+        position:
+          a?.position?.abbreviation ||
+          a?.position?.name ||
+          ""
+      }));
+
+  } catch (error) {
+    console.log(
+      "NFL ROSTER ERROR:",
+      espnTeamId,
+      error.message
+    );
+
+    return [];
+  }
+}
+
+function findNFLAthleteId(playerName, rosters = []) {
+  const target =
+    normalizeNFLPlayerName(playerName);
+
+  if (!target) return null;
+
+  const exact = rosters.find(
+    p => p.cleanName === target
+  );
+
+  if (exact) {
+    return exact.id;
+  }
+
+  const lastName =
+    target.split(" ").slice(-1)[0];
+
+  if (!lastName) return null;
+
+  const lastMatches = rosters.filter(p => {
+    const playerLast =
+      p.cleanName.split(" ").slice(-1)[0];
+
+    return playerLast === lastName;
+  });
+
+  // Solo usar apellido si no hay ambigüedad.
+  if (lastMatches.length === 1) {
+    return lastMatches[0].id;
+  }
+
+  return null;
+}
+
+async function getNFLPlayerSeasonAverages(
+  athleteId,
+  season
+) {
+  if (!athleteId || !season) {
+    return null;
+  }
+
+  try {
+    const url =
+      `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${season}/types/2/athletes/${athleteId}/statistics`;
+
+    const data = await espnFetchNFL(url);
+
+    const categories =
+      data?.splits?.categories ||
+      data?.categories ||
+      [];
+
+    function findStat(names) {
+      const wanted = names.map(
+        n => String(n).toLowerCase()
+      );
+
+      for (const category of categories) {
+        for (const stat of category?.stats || []) {
+          const statName =
+            String(stat?.name || "")
+              .toLowerCase();
+
+          if (wanted.includes(statName)) {
+            return stat;
+          }
+        }
+      }
+
+      return null;
+    }
+
+    const gamesStat = findStat([
+      "gamesPlayed",
+      "games"
+    ]);
+
+    const games =
+      nflSafeNum(
+        gamesStat?.value ??
+        gamesStat?.displayValue,
+        0
+      );
+
+    function getPerGame(names) {
+      const stat = findStat(names);
+
+      if (!stat) return 0;
+
+      const direct =
+        Number(stat?.perGameValue);
+
+      if (
+        Number.isFinite(direct) &&
+        direct >= 0
+      ) {
+        return direct;
+      }
+
+      const total =
+        nflSafeNum(
+          stat?.value ??
+          stat?.displayValue,
+          0
+        );
+
+      if (games > 0) {
+        return total / games;
+      }
+
+      return 0;
+    }
+
+    return {
+      games,
+
+      passingYardsPerGame:
+        getPerGame([
+          "passingYards"
+        ]),
+
+      rushingYardsPerGame:
+        getPerGame([
+          "rushingYards"
+        ]),
+
+      rushAttemptsPerGame:
+        getPerGame([
+          "rushingAttempts",
+          "carries"
+        ]),
+
+      receivingYardsPerGame:
+        getPerGame([
+          "receivingYards"
+        ]),
+
+      receptionsPerGame:
+        getPerGame([
+          "receptions"
+        ]),
+
+      targetsPerGame:
+        getPerGame([
+          "receivingTargets",
+          "targets"
+        ])
+    };
+
+  } catch (error) {
+    console.log(
+      "NFL PLAYER SEASON STATS ERROR:",
+      athleteId,
+      season,
+      error.message
+    );
+
+    return null;
+  }
+}
 // Stats de temporada del equipo ESPN (offense + defense)
 async function getNFLTeamSeasonStats(espnTeamId, season) {
   const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${espnTeamId}/statistics?season=${season}`;
@@ -2469,7 +2694,27 @@ if (!selectedEvent) {
   // 4. ESPN IDs y stats de temporada
   const awayESPNId = findESPNTeamId(selectedEvent.away_team);
   const homeESPNId = findESPNTeamId(selectedEvent.home_team);
- 
+ const CURRENT_NFL_ROSTER_SEASON =
+  new Date().getFullYear();
+
+const [awayRoster, homeRoster] =
+  await Promise.all([
+    getNFLTeamRosterPlayers(
+      awayESPNId,
+      CURRENT_NFL_ROSTER_SEASON
+    ),
+    getNFLTeamRosterPlayers(
+      homeESPNId,
+      CURRENT_NFL_ROSTER_SEASON
+    )
+  ]);
+
+const allCurrentRoster = [
+  ...awayRoster,
+  ...homeRoster
+];
+
+const playerSeasonStatsCache = new Map();
   const [awayTeamStats, homeTeamStats] = await Promise.all([
     awayESPNId ? getNFLTeamSeasonStats(awayESPNId, NFL_SEASON).catch(() => null) : Promise.resolve(null),
     homeESPNId ? getNFLTeamSeasonStats(homeESPNId, NFL_SEASON).catch(() => null) : Promise.resolve(null)
@@ -2498,7 +2743,40 @@ if (!selectedEvent) {
  
   for (const prop of uniqueProps) {
     const { player, market, line } = prop;
- 
+ const athleteId =
+  findNFLAthleteId(
+    player,
+    allCurrentRoster
+  );
+
+let playerSeasonStats = null;
+
+if (athleteId) {
+  const seasonCacheKey =
+    `${athleteId}|${NFL_SEASON}`;
+
+  if (
+    playerSeasonStatsCache.has(
+      seasonCacheKey
+    )
+  ) {
+    playerSeasonStats =
+      playerSeasonStatsCache.get(
+        seasonCacheKey
+      );
+  } else {
+    playerSeasonStats =
+      await getNFLPlayerSeasonAverages(
+        athleteId,
+        NFL_SEASON
+      );
+
+    playerSeasonStatsCache.set(
+      seasonCacheKey,
+      playerSeasonStats
+    );
+  }
+}
     // Intentar away primero, luego home
     let gameIds    = awayGameIds;
     let teamStats  = awayTeamStats;
@@ -2579,12 +2857,66 @@ if (!selectedEvent) {
     const oppRecYardsDefScore= calcOppRecYardsDefenseScore(oppStats);
  
     // Season averages
-    const seasonPassYds = nflSafeNum(teamStats?.passingYardsPerGame, recent5PassYds);
-    const seasonRushYds = nflSafeNum(teamStats?.rushingYardsPerGame, recent5RushYds);
-    const seasonCarries = nflSafeNum(teamStats?.rushAttemptsPerGame, recent5Carries);
-    // Para WR usamos proporcional: passing yards * share estimada
-    const seasonRecYds  = seasonPassYds * 0.22;
-    const seasonRec     = passAttempts * 0.18;
+  // =====================================================
+// SEASON AVERAGES REALES DEL JUGADOR
+// Si ESPN no tiene temporada válida, usamos Last 5,
+// nunca estadísticas del equipo como si fueran del player.
+// =====================================================
+
+const seasonPassYds =
+  nflSafeNum(
+    playerSeasonStats?.passingYardsPerGame,
+    recent5PassYds
+  ) > 0
+    ? nflSafeNum(
+        playerSeasonStats?.passingYardsPerGame,
+        recent5PassYds
+      )
+    : recent5PassYds;
+
+const seasonRushYds =
+  nflSafeNum(
+    playerSeasonStats?.rushingYardsPerGame,
+    recent5RushYds
+  ) > 0
+    ? nflSafeNum(
+        playerSeasonStats?.rushingYardsPerGame,
+        recent5RushYds
+      )
+    : recent5RushYds;
+
+const seasonCarries =
+  nflSafeNum(
+    playerSeasonStats?.rushAttemptsPerGame,
+    recent5Carries
+  ) > 0
+    ? nflSafeNum(
+        playerSeasonStats?.rushAttemptsPerGame,
+        recent5Carries
+      )
+    : recent5Carries;
+
+const seasonRecYds =
+  nflSafeNum(
+    playerSeasonStats?.receivingYardsPerGame,
+    recent5RecYds
+  ) > 0
+    ? nflSafeNum(
+        playerSeasonStats?.receivingYardsPerGame,
+        recent5RecYds
+      )
+    : recent5RecYds;
+
+const seasonRec =
+  nflSafeNum(
+    playerSeasonStats?.receptionsPerGame,
+    recent5Rec
+  ) > 0
+    ? nflSafeNum(
+        playerSeasonStats?.receptionsPerGame,
+        recent5Rec
+      )
+    : recent5Rec;
  
     let projection = 0;
  
