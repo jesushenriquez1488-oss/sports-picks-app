@@ -2498,7 +2498,17 @@ const adjustedDefEdge =
           round(distance),
 
         multiplier,
+rawOffEdge:
+  round(rawOffEdge),
 
+rawDefEdge:
+  round(rawDefEdge),
+
+adjustedOffEdge:
+  round(adjustedOffEdge),
+
+adjustedDefEdge:
+  round(adjustedDefEdge),
         originalFCSPoints:
           Number(game.teamPoints),
 
