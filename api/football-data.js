@@ -643,8 +643,21 @@ function blendFootballSeasonGames(
     ...previousSeasonGames.slice(0, previousGamesNeeded)
   ];
 }
-const fpiCache = global.__NCAAF_FPI_CACHE__ || {};
+const fpiCache =
+  global.__NCAAF_FPI_CACHE__ || {};
+
 global.__NCAAF_FPI_CACHE__ = fpiCache;
+
+const fpiCacheUpdatedAt =
+  global.__NCAAF_FPI_CACHE_UPDATED_AT__ || {};
+
+global.__NCAAF_FPI_CACHE_UPDATED_AT__ =
+  fpiCacheUpdatedAt;
+
+// Temporada activa: refrescar como máximo una vez cada 7 días.
+// Temporadas anteriores: el cache queda permanente.
+const NCAAF_POWER_CACHE_TTL_MS =
+  7 * 24 * 60 * 60 * 1000;
 function resolveTeamIdFromGames(allGames, teamRef) {
   if (teamRef?.id && /^\d+$/.test(String(teamRef.id))) return String(teamRef.id);
   for (const g of allGames) {
@@ -653,40 +666,289 @@ function resolveTeamIdFromGames(allGames, teamRef) {
   }
   return null;
 }
-// Devuelve { teamId: { off, def } } — null si falla
 async function getFPIMap(season) {
-  const key = `ncaaf-${season}`;
-  if (fpiCache[key] !== undefined) return fpiCache[key];
+  const seasonNumber = Number(season);
+
+  if (!Number.isFinite(seasonNumber)) {
+    return null;
+  }
+
+  const key = `ncaaf-${seasonNumber}`;
+
+  const activeSeason =
+    getDefaultSeason();
+
+  const isHistoricalSeason =
+    seasonNumber < activeSeason;
+
+  const now = Date.now();
+
+  // ====================================================
+  // 1. CACHE EN MEMORIA
+  // ====================================================
+
+  const memoryMap =
+    fpiCache[key];
+
+  const memoryUpdatedAt =
+    Number(fpiCacheUpdatedAt[key]) || 0;
+
+  const memoryIsFresh =
+    isHistoricalSeason ||
+    (
+      memoryUpdatedAt > 0 &&
+      now - memoryUpdatedAt <
+        NCAAF_POWER_CACHE_TTL_MS
+    );
+
+  if (
+    memoryMap &&
+    memoryIsFresh
+  ) {
+    return memoryMap;
+  }
+
+  // ====================================================
+  // 2. CACHE PERSISTENTE EN SUPABASE
+  // ====================================================
+
+  let storedCache = null;
 
   try {
-    const url = `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${season}/powerindex?limit=200`;
-    const res = await fetch(url);
-    if (!res.ok) { fpiCache[key] = null; return null; }
-    const data = await res.json();
+    const {
+      data,
+      error
+    } =
+      await supabaseAdmin
+        .from("ncaaf_power_cache")
+        .select(
+          "power_json, updated_at"
+        )
+        .eq(
+          "season",
+          seasonNumber
+        )
+        .eq(
+          "source",
+          "espn_fbs"
+        )
+        .maybeSingle();
 
-    const map = {};
-    for (const item of data?.items || []) {
-      const ref = item?.team?.$ref || "";
-      const m = ref.match(/teams\/(\d+)/);
-      if (!m) continue;
+    if (!error && data?.power_json) {
+      storedCache = data;
 
-      const find = (n) => {
-        const p = (item.predictives || []).find(x => x.name === n);
-        return p ? Number(p.value) : null;
-      };
+      const storedUpdatedAt =
+        new Date(
+          data.updated_at
+        ).getTime();
 
-      const off = find("epaoffense");
-      const def = find("epadefense");
-      if (off === null || def === null) continue;
+      const storedIsFresh =
+        isHistoricalSeason ||
+        (
+          Number.isFinite(
+            storedUpdatedAt
+          ) &&
+          now - storedUpdatedAt <
+            NCAAF_POWER_CACHE_TTL_MS
+        );
 
-      map[m[1]] = { off, def };
+      if (storedIsFresh) {
+        fpiCache[key] =
+          data.power_json;
+
+        fpiCacheUpdatedAt[key] =
+          Number.isFinite(
+            storedUpdatedAt
+          )
+            ? storedUpdatedAt
+            : now;
+
+        return data.power_json;
+      }
+    }
+  } catch (error) {
+    console.log(
+      "NCAAF Power cache read error:",
+      error.message
+    );
+  }
+
+  // ====================================================
+  // 3. ESPN POWER INDEX
+  // ====================================================
+
+  try {
+    const url =
+      `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/${seasonNumber}/powerindex?limit=200`;
+
+    const res =
+      await fetch(url);
+
+    if (!res.ok) {
+      throw new Error(
+        `ESPN Power Index ${res.status}`
+      );
     }
 
-    const result = Object.keys(map).length ? map : null;
-    fpiCache[key] = result;
+    const data =
+      await res.json();
+
+    const map = {};
+
+    for (
+      const item of
+      data?.items || []
+    ) {
+      const ref =
+        item?.team?.$ref || "";
+
+      const match =
+        ref.match(
+          /teams\/(\d+)/
+        );
+
+      if (!match) continue;
+
+      const find = (name) => {
+        const predictive =
+          (
+            item.predictives ||
+            []
+          ).find(
+            value =>
+              value.name === name
+          );
+
+        return predictive
+          ? Number(
+              predictive.value
+            )
+          : null;
+      };
+
+      const off =
+        find("epaoffense");
+
+      const def =
+        find("epadefense");
+
+      if (
+        !Number.isFinite(off) ||
+        !Number.isFinite(def)
+      ) {
+        continue;
+      }
+
+      map[match[1]] = {
+        off,
+        def
+      };
+    }
+
+    const result =
+      Object.keys(map).length
+        ? map
+        : null;
+
+    if (!result) {
+      throw new Error(
+        "ESPN returned empty Power Index"
+      );
+    }
+
+    const updatedAt =
+      new Date().toISOString();
+
+    // ==================================================
+    // GUARDAR EN SUPABASE
+    // ==================================================
+
+    try {
+      const { error } =
+        await supabaseAdmin
+          .from(
+            "ncaaf_power_cache"
+          )
+          .upsert(
+            {
+              season:
+                seasonNumber,
+
+              source:
+                "espn_fbs",
+
+              power_json:
+                result,
+
+              updated_at:
+                updatedAt
+            },
+            {
+              onConflict:
+                "season,source"
+            }
+          );
+
+      if (error) {
+        console.log(
+          "NCAAF Power cache write error:",
+          error.message
+        );
+      }
+    } catch (error) {
+      console.log(
+        "NCAAF Power cache write error:",
+        error.message
+      );
+    }
+
+    // Cache local también
+    fpiCache[key] =
+      result;
+
+    fpiCacheUpdatedAt[key] =
+      now;
+
     return result;
-  } catch {
-    fpiCache[key] = null;
+
+  } catch (error) {
+    console.log(
+      `NCAAF ESPN Power error ${seasonNumber}:`,
+      error.message
+    );
+
+    // ==================================================
+    // SI ESPN FALLA:
+    // usar el último cache persistente aunque esté viejo
+    // ==================================================
+
+    if (
+      storedCache?.power_json
+    ) {
+      const storedUpdatedAt =
+        new Date(
+          storedCache.updated_at
+        ).getTime();
+
+      fpiCache[key] =
+        storedCache.power_json;
+
+      fpiCacheUpdatedAt[key] =
+        Number.isFinite(
+          storedUpdatedAt
+        )
+          ? storedUpdatedAt
+          : now;
+
+      return storedCache.power_json;
+    }
+
+    // Última protección:
+    // memoria vieja si existiera.
+    if (memoryMap) {
+      return memoryMap;
+    }
+
     return null;
   }
 }
