@@ -2256,7 +2256,578 @@ function calculateFootballEdges(games = []) {
     avgDefensiveEdge: round(average(defensiveEdges))
   };
 }
+// ======================================================
+// NCAAF MATCHUP POWER ENGINE
+// ======================================================
 
+// Si no encontramos un matchup suficientemente parecido:
+// 5 puntos Power = 4 puntos Edge.
+const NCAAF_POWER_EDGE_MULT = 0.8;
+
+// Distancia total OFF + DEF para considerar
+// dos rivales como comparables.
+const NCAAF_SIMILAR_MATCHUP_DISTANCE = 10;
+
+
+// ------------------------------------------------------
+// Distancia entre dos perfiles Power.
+// Menor = matchup más parecido.
+// ------------------------------------------------------
+function getNCAAFPowerDistance(powerA, powerB) {
+  if (!powerA || !powerB) return Infinity;
+
+  const offA = Number(powerA.off);
+  const defA = Number(powerA.def);
+
+  const offB = Number(powerB.off);
+  const defB = Number(powerB.def);
+
+  if (
+    !Number.isFinite(offA) ||
+    !Number.isFinite(defA) ||
+    !Number.isFinite(offB) ||
+    !Number.isFinite(defB)
+  ) {
+    return Infinity;
+  }
+
+  return (
+    Math.abs(offA - offB) +
+    Math.abs(defA - defB)
+  );
+}
+
+
+// ------------------------------------------------------
+// Selecciona los matchups que realmente se parecen.
+//
+// Si hay comparables:
+//   usamos SOLO los comparables
+//   y diferencia Power completa.
+//
+// Si no hay:
+//   usamos todos
+//   y fallback 0.8.
+// ------------------------------------------------------
+function selectNCAAFMatchupSamples(samples = []) {
+  const valid =
+    samples.filter(
+      sample =>
+        Number.isFinite(sample.distance)
+    );
+
+  if (!valid.length) {
+    return {
+      mode: "none",
+      multiplier: NCAAF_POWER_EDGE_MULT,
+      samples: []
+    };
+  }
+
+  const similar =
+    valid.filter(
+      sample =>
+        sample.distance <=
+        NCAAF_SIMILAR_MATCHUP_DISTANCE
+    );
+
+  if (similar.length) {
+    return {
+      mode: "similar",
+      multiplier: 1,
+      samples: similar
+    };
+  }
+
+  return {
+    mode: "fallback_4_of_5",
+    multiplier: NCAAF_POWER_EDGE_MULT,
+    samples: valid
+  };
+}
+
+
+// ======================================================
+// FCS vs FBS
+//
+// IMPORTANTE:
+// Esta función usa SOLO los partidos contra FBS
+// que ya fueron usados para construir el Power FCS.
+//
+// NO usa FCS vs FCS.
+// NO usa Edge contra calendarios FCS.
+// ======================================================
+function projectFCSAgainstFBS({
+  derivedRating,
+  todayOpponentPower
+}) {
+  if (
+    !derivedRating?.games?.length ||
+    !todayOpponentPower
+  ) {
+    return null;
+  }
+
+  const todayOff =
+    Number(todayOpponentPower.off);
+
+  const todayDef =
+    Number(todayOpponentPower.def);
+
+  if (
+    !Number.isFinite(todayOff) ||
+    !Number.isFinite(todayDef)
+  ) {
+    return null;
+  }
+
+  const candidates =
+    derivedRating.games
+      .map(game => {
+        const historicalPower =
+          game.opponentFPI;
+
+        if (!historicalPower) {
+          return null;
+        }
+
+        const histOff =
+          Number(historicalPower.off);
+
+        const histDef =
+          Number(historicalPower.def);
+
+        const teamPoints =
+          Number(game.teamPoints);
+
+        const pointsAllowed =
+          Number(game.pointsAllowed);
+
+        if (
+          !Number.isFinite(histOff) ||
+          !Number.isFinite(histDef) ||
+          !Number.isFinite(teamPoints) ||
+          !Number.isFinite(pointsAllowed)
+        ) {
+          return null;
+        }
+
+        return {
+          game,
+          histOff,
+          histDef,
+
+          distance:
+            getNCAAFPowerDistance(
+              historicalPower,
+              todayOpponentPower
+            )
+        };
+      })
+      .filter(Boolean);
+
+  const selection =
+    selectNCAAFMatchupSamples(
+      candidates
+    );
+
+  if (!selection.samples.length) {
+    return null;
+  }
+
+  const multiplier =
+    selection.multiplier;
+
+  const translated =
+    selection.samples.map(sample => {
+      const {
+        game,
+        histOff,
+        histDef,
+        distance
+      } = sample;
+
+      // FCS ofensivamente:
+      // defensa de hoy más fuerte -> baja puntos.
+      const projectedFCSPoints =
+        Number(game.teamPoints) -
+        (
+          todayDef -
+          histDef
+        ) *
+        multiplier;
+
+      // FCS defensivamente:
+      // ofensiva de hoy más fuerte -> permite más.
+      const projectedOpponentPoints =
+        Number(game.pointsAllowed) +
+        (
+          todayOff -
+          histOff
+        ) *
+        multiplier;
+
+      return {
+        opponent:
+          game.opponent,
+
+        opponentId:
+          game.opponentId,
+
+        historicalOff:
+          round(histOff),
+
+        historicalDef:
+          round(histDef),
+
+        distance:
+          round(distance),
+
+        multiplier,
+
+        originalFCSPoints:
+          Number(game.teamPoints),
+
+        originalOpponentPoints:
+          Number(game.pointsAllowed),
+
+        projectedFCSPoints:
+          round(projectedFCSPoints),
+
+        projectedOpponentPoints:
+          round(projectedOpponentPoints)
+      };
+    });
+
+  return {
+    mode:
+      selection.mode,
+
+    multiplier,
+
+    gamesUsed:
+      translated.length,
+
+    projectedFCSPoints:
+      round(
+        average(
+          translated.map(
+            game =>
+              game.projectedFCSPoints
+          )
+        )
+      ),
+
+    projectedOpponentPoints:
+      round(
+        average(
+          translated.map(
+            game =>
+              game.projectedOpponentPoints
+          )
+        )
+      ),
+
+    // Estas bases servirán después
+    // para las dos vías 50/50.
+    avgFBSPointsScored:
+      round(
+        average(
+          selection.samples.map(
+            sample =>
+              Number(
+                sample.game.teamPoints
+              )
+          )
+        )
+      ),
+
+    avgFBSPointsAllowed:
+      round(
+        average(
+          selection.samples.map(
+            sample =>
+              Number(
+                sample.game.pointsAllowed
+              )
+          )
+        )
+      ),
+
+    games:
+      translated
+  };
+}
+// ======================================================
+// NCAAF FBS MATCHUP-ADJUSTED EDGES
+// ======================================================
+
+function calculateFBSMatchupAdjustedEdges({
+  currentGames = [],
+  previousGames = [],
+  currentPowerMap = null,
+  previousPowerMap = null,
+  todayOpponentPower = null
+}) {
+  if (!todayOpponentPower) return null;
+
+  const todayOff =
+    Number(todayOpponentPower.off);
+
+  const todayDef =
+    Number(todayOpponentPower.def);
+
+  if (
+    !Number.isFinite(todayOff) ||
+    !Number.isFinite(todayDef)
+  ) {
+    return null;
+  }
+
+  const current =
+    currentGames.slice(
+      0,
+      MAX_GAMES_USED
+    );
+
+  // Misma transición normal del modelo:
+  // 0-3 actuales -> completar con temporada anterior.
+  // 4+ actuales -> solamente temporada actual.
+  const gamesToUse =
+    current.length >= 4
+      ? current.map(game => ({
+          game,
+          powerMap: currentPowerMap
+        }))
+      : [
+          ...current.map(game => ({
+            game,
+            powerMap: currentPowerMap
+          })),
+
+          ...previousGames
+            .slice(
+              0,
+              MAX_GAMES_USED -
+                current.length
+            )
+            .map(game => ({
+              game,
+              powerMap: previousPowerMap
+            }))
+        ];
+
+  const candidates = [];
+
+  for (
+    const {
+      game,
+      powerMap
+    } of gamesToUse
+  ) {
+    if (
+      Number(game.opponentGamesUsed) <= 0
+    ) {
+      continue;
+    }
+
+    const historicalPower =
+      powerMap?.[
+        String(game.opponentId)
+      ];
+
+    if (!historicalPower) {
+      continue;
+    }
+
+    const histOff =
+      Number(historicalPower.off);
+
+    const histDef =
+      Number(historicalPower.def);
+
+    if (
+      !Number.isFinite(histOff) ||
+      !Number.isFinite(histDef)
+    ) {
+      continue;
+    }
+
+    const rawOffEdge =
+      Number(game.teamPoints) -
+      Number(
+        game.opponentAvgPointsAllowed
+      );
+
+    const rawDefEdge =
+      Number(game.pointsAllowed) -
+      Number(
+        game.opponentAvgPointsScored
+      );
+
+    if (
+      !Number.isFinite(rawOffEdge) ||
+      !Number.isFinite(rawDefEdge)
+    ) {
+      continue;
+    }
+
+    candidates.push({
+      game,
+
+      histOff,
+      histDef,
+
+      rawOffEdge,
+      rawDefEdge,
+
+      distance:
+        getNCAAFPowerDistance(
+          historicalPower,
+          todayOpponentPower
+        )
+    });
+  }
+
+  const selection =
+    selectNCAAFMatchupSamples(
+      candidates
+    );
+
+  if (!selection.samples.length) {
+    return null;
+  }
+
+  const multiplier =
+    selection.multiplier;
+
+  const translated =
+    selection.samples.map(sample => {
+      const {
+        game,
+        histOff,
+        histDef,
+        rawOffEdge,
+        rawDefEdge,
+        distance
+      } = sample;
+
+      // OFF:
+      // defensa actual más fuerte
+      // -> Edge ofensivo baja.
+      const adjustedOffEdge =
+        rawOffEdge -
+        (
+          todayDef -
+          histDef
+        ) *
+        multiplier;
+
+      // DEF:
+      // ofensiva actual más fuerte
+      // -> Defensive Edge empeora.
+      //
+      // Recuerda:
+      // positivo = defensa mala.
+      const adjustedDefEdge =
+        rawDefEdge +
+        (
+          todayOff -
+          histOff
+        ) *
+        multiplier;
+
+      return {
+        opponent:
+          game.opponent,
+
+        opponentId:
+          String(game.opponentId),
+
+        distance:
+          round(distance),
+
+        multiplier,
+
+        historicalOff:
+          round(histOff),
+
+        historicalDef:
+          round(histDef),
+
+        rawOffEdge:
+          round(rawOffEdge),
+
+        rawDefEdge:
+          round(rawDefEdge),
+
+        adjustedOffEdge:
+          round(adjustedOffEdge),
+
+        adjustedDefEdge:
+          round(adjustedDefEdge),
+
+        teamPoints:
+          Number(game.teamPoints),
+
+        pointsAllowed:
+          Number(game.pointsAllowed)
+      };
+    });
+
+  return {
+    mode:
+      selection.mode,
+
+    multiplier,
+
+    gamesUsed:
+      translated.length,
+
+    avgOffensiveEdge:
+      round(
+        average(
+          translated.map(
+            game =>
+              game.adjustedOffEdge
+          )
+        )
+      ),
+
+    avgDefensiveEdge:
+      round(
+        average(
+          translated.map(
+            game =>
+              game.adjustedDefEdge
+          )
+        )
+      ),
+
+    avgPointsScored:
+      round(
+        average(
+          translated.map(
+            game =>
+              game.teamPoints
+          )
+        )
+      ),
+
+    avgPointsAllowed:
+      round(
+        average(
+          translated.map(
+            game =>
+              game.pointsAllowed
+          )
+        )
+      ),
+
+    games:
+      translated
+  };
+}
 // team = equipo que anota (A), opponent = equipo que defiende (B)
 function projectFootballTeam(team, opponent, alpha = SOS_ALPHA, beta = CONSENSUS_BETA) {
   // --- VÍA 1: Edge ofensivo de A sobre la base defensiva de B ---
@@ -10344,7 +10915,71 @@ const fpiMap =
       };
     }
   }
+// ======================================================
+// NCAAF NEW MATCHUP ENGINE - SHADOW TEST
+// NO MODIFICA PRODUCCION
+// ======================================================
 
+let ncaafMatchupShadow = null;
+
+if (fA && fB) {
+  // A = FCS derivado / B = FBS
+  if (derivedA && !derivedB) {
+    ncaafMatchupShadow = {
+      matchup: `${teamA} vs ${teamB}`,
+
+      fcsTeam: teamA,
+      fbsTeam: teamB,
+
+      fcsProjection: projectFCSAgainstFBS({
+        derivedRating: derivedA,
+        todayOpponentPower: fB
+      }),
+
+      fbsAdjustedEdges: calculateFBSMatchupAdjustedEdges({
+        currentGames: currentTeamBGames,
+        previousGames: previousTeamBGames,
+        currentPowerMap: currentFpiMap,
+        previousPowerMap: previousFpiMap,
+        todayOpponentPower: fA
+      })
+    };
+  }
+
+  // A = FBS / B = FCS derivado
+  else if (!derivedA && derivedB) {
+    ncaafMatchupShadow = {
+      matchup: `${teamA} vs ${teamB}`,
+
+      fcsTeam: teamB,
+      fbsTeam: teamA,
+
+      fcsProjection: projectFCSAgainstFBS({
+        derivedRating: derivedB,
+        todayOpponentPower: fA
+      }),
+
+      fbsAdjustedEdges: calculateFBSMatchupAdjustedEdges({
+        currentGames: currentTeamAGames,
+        previousGames: previousTeamAGames,
+        currentPowerMap: currentFpiMap,
+        previousPowerMap: previousFpiMap,
+        todayOpponentPower: fB
+      })
+    };
+  }
+}
+
+if (ncaafMatchupShadow) {
+  console.log(
+    "NCAAF_MATCHUP_SHADOW",
+    JSON.stringify(
+      ncaafMatchupShadow,
+      null,
+      2
+    )
+  );
+}
   // ====================================================
   // BASELINE DEL CALENDARIO
   //
