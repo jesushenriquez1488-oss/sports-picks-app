@@ -2446,7 +2446,21 @@ function projectFCSAgainstFBS({
         histDef,
         distance
       } = sample;
+const rawOffEdge =
+  Number(game.derivedOff);
 
+const rawDefEdge =
+  -Number(game.derivedDef);
+
+const adjustedOffEdge =
+  rawOffEdge -
+  (todayDef - histDef) *
+  multiplier;
+
+const adjustedDefEdge =
+  rawDefEdge +
+  (todayOff - histOff) *
+  multiplier;
       // FCS ofensivamente:
       // defensa de hoy más fuerte -> baja puntos.
       const projectedFCSPoints =
@@ -2507,7 +2521,23 @@ function projectFCSAgainstFBS({
 
     gamesUsed:
       translated.length,
+   avgOffensiveEdge:
+  round(
+    average(
+      translated.map(
+        game => game.adjustedOffEdge
+      )
+    )
+  ),
 
+avgDefensiveEdge:
+  round(
+    average(
+      translated.map(
+        game => game.adjustedDefEdge
+      )
+    )
+  ),
     projectedFCSPoints:
       round(
         average(
@@ -10969,7 +10999,50 @@ if (fA && fB) {
     };
   }
 }
+if (
+  ncaafMatchupShadow?.fcsProjection &&
+  ncaafMatchupShadow?.fbsAdjustedEdges
+) {
+  const fcs = ncaafMatchupShadow.fcsProjection;
+  const fbs = ncaafMatchupShadow.fbsAdjustedEdges;
 
+  const fbsVia1 =
+    Number(fcs.avgFBSPointsAllowed) +
+    Number(fbs.avgOffensiveEdge);
+
+  const fbsVia2 =
+    Number(fbs.avgPointsScored) +
+    Number(fcs.avgDefensiveEdge);
+
+  const fcsVia1 =
+    Number(fbs.avgPointsAllowed) +
+    Number(fcs.avgOffensiveEdge);
+
+  const fcsVia2 =
+    Number(fcs.avgFBSPointsScored) +
+    Number(fbs.avgDefensiveEdge);
+
+  ncaafMatchupShadow.finalProjection = {
+    fbsVia1: round(fbsVia1),
+    fbsVia2: round(fbsVia2),
+    fcsVia1: round(fcsVia1),
+    fcsVia2: round(fcsVia2),
+
+    fbsPoints: round(
+      Math.max(
+        MIN_PROJECTION,
+        (fbsVia1 + fbsVia2) / 2
+      )
+    ),
+
+    fcsPoints: round(
+      Math.max(
+        MIN_PROJECTION,
+        (fcsVia1 + fcsVia2) / 2
+      )
+    )
+  };
+}
 if (ncaafMatchupShadow) {
   console.log(
     "NCAAF_MATCHUP_SHADOW",
