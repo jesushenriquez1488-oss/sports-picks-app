@@ -10282,62 +10282,14 @@ if (type === "ncaaf") {
 
   // Cargamos ambos por separado porque el FCS derivado debe evaluar
   // cada juego con el FPI correspondiente a ESA temporada.
- const currentFpiMap =
-  await getFPIMap(
-    selectedSeason
-  );
+const currentFpiMap =
+  await getFPIMap(selectedSeason);
 
 const previousFpiMap =
-  await getFPIMap(
-    previousSeason
-  );
+  await getFPIMap(previousSeason);
 
-// ======================================================
-// CASHEDGE FCS POWER
-// ======================================================
-//
-// Temporada actual:
-// solo intentamos construirla si ya existen juegos
-// completados de la temporada.
-//
-// Temporada anterior:
-// sirve como fallback y, al ser histórica,
-// quedará permanentemente cacheada.
-// ======================================================
-
-const [
-  currentFcsPowerMap,
-  previousFcsPowerMap
-] = await Promise.all([
-
-  currentSeasonAllGames.length
-    ? getFCSPowerMap(
-        selectedSeason,
-        currentSeasonAllGames,
-        currentFpiMap
-      )
-    : Promise.resolve(null),
-
-  getFCSPowerMap(
-    previousSeason,
-    previousSeasonAllGames,
-    previousFpiMap
-  )
-
-]);
-
-// Si un FCS ya tiene Power de la temporada actual,
-// ese número manda.
-//
-// Si todavía no lo tiene, conserva el Power anterior.
-const fcsPowerMap = {
-  ...(previousFcsPowerMap || {}),
-  ...(currentFcsPowerMap || {})
-};
-
-
-// Mantiene por ahora el comportamiento normal
-// del modelo FBS existente.
+// Temporada actual manda.
+// Año anterior solamente fallback.
 const fpiMap =
   currentFpiMap ||
   previousFpiMap;
