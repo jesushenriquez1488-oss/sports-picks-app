@@ -9250,31 +9250,59 @@ const projectedTeamB =
     
   
     
-// Ajuste por lesiones (modo sombra si NFL_INJURY_ACTIVE = false)
-const [teamAInjuries, teamBInjuries] =
-  await Promise.all([
-    getInjuryAdjustmentNFL(
-      teamA,
-      teamARef,
-      type,
-      selectedSeason,
-      teamAGames
-    ),
+// ============================================================
+// NFL INJURY ADJUSTMENT
+// NCAAF queda completamente fuera de este modelo.
+// ============================================================
 
-    getInjuryAdjustmentNFL(
-      teamB,
-      teamBRef,
-      type,
-      selectedSeason,
-      teamBGames
-    )
-  ]);
+let teamAInjuries = {
+  pointsImpact: 0,
+  note: "NCAAF injury model not applied."
+};
 
-const injuryAdjA = NFL_INJURY_ACTIVE ? teamAInjuries.pointsImpact : 0;
-const injuryAdjB = NFL_INJURY_ACTIVE ? teamBInjuries.pointsImpact : 0;
+let teamBInjuries = {
+  pointsImpact: 0,
+  note: "NCAAF injury model not applied."
+};
 
-const projectedTeamAInj = round(projectedTeamA + injuryAdjA);
-const projectedTeamBInj = round(projectedTeamB + injuryAdjB);
+if (type === "nfl") {
+  [teamAInjuries, teamBInjuries] =
+    await Promise.all([
+      getInjuryAdjustmentNFL(
+        teamA,
+        teamARef,
+        type,
+        selectedSeason,
+        teamAGames
+      ),
+
+      getInjuryAdjustmentNFL(
+        teamB,
+        teamBRef,
+        type,
+        selectedSeason,
+        teamBGames
+      )
+    ]);
+}
+
+const injuryAdjA =
+  type === "nfl" &&
+  NFL_INJURY_ACTIVE
+    ? teamAInjuries.pointsImpact
+    : 0;
+
+const injuryAdjB =
+  type === "nfl" &&
+  NFL_INJURY_ACTIVE
+    ? teamBInjuries.pointsImpact
+    : 0;
+
+const projectedTeamAInj =
+  round(projectedTeamA + injuryAdjA);
+
+const projectedTeamBInj =
+  round(projectedTeamB + injuryAdjB);
 // ============================================================
 // PACE PROFILE — EARLY SEASON STABILIZATION
 // ============================================================
