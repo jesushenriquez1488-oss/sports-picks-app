@@ -411,24 +411,31 @@ function competitorMatchesTeam(competitor, teamRef) {
   });
 }
 
-async function getSeasonGames(type, season) {
+async function getSeasonGames(type, season, ncaafGroup = 80) {
   const sportPath = SPORT_PATHS[type];
   const weeks = MAX_WEEKS[type];
 
   const allGames = [];
 
   for (let week = 1; week <= weeks; week++) {
-    const groupParam =
-      type === "ncaaf"
-        ? "&groups=80"
-        : "";
+  const groupParam =
+  type === "ncaaf"
+    ? `&groups=${ncaafGroup}`
+    : "";
 
-    const url =
-      `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard` +
-      `?dates=${season}` +
-      `&seasontype=2` +
-      `&week=${week}` +
-      groupParam;
+const limitParam =
+  type === "ncaaf" &&
+  Number(ncaafGroup) === 81
+    ? "&limit=500"
+    : "";
+
+   const url =
+  `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard` +
+  `?dates=${season}` +
+  `&seasontype=2` +
+  `&week=${week}` +
+  groupParam +
+  limitParam;
 
     try {
       const data = await fetchJson(url);
@@ -945,6 +952,1029 @@ async function getFPIMap(season) {
 
     // Última protección:
     // memoria vieja si existiera.
+    if (memoryMap) {
+      return memoryMap;
+    }
+
+    return null;
+  }
+}
+// ======================================================
+// NCAAF FCS TEAM IDS
+// ======================================================
+
+const fcsTeamIdCache =
+  global.__NCAAF_FCS_TEAM_IDS_CACHE__ || {};
+
+global.__NCAAF_FCS_TEAM_IDS_CACHE__ =
+  fcsTeamIdCache;
+
+async function getFCSTeamIdSet(season) {
+  const seasonNumber = Number(season);
+
+  if (!Number.isFinite(seasonNumber)) {
+    return new Set();
+  }
+
+  const cacheKey =
+    String(seasonNumber);
+
+  if (fcsTeamIdCache[cacheKey]) {
+    return fcsTeamIdCache[cacheKey];
+  }
+
+  try {
+    const url =
+      `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/teams` +
+      `?limit=500` +
+      `&groups=81` +
+      `&season=${seasonNumber}`;
+
+    const res =
+      await fetch(url);
+
+    if (!res.ok) {
+      throw new Error(
+        `ESPN FCS teams ${res.status}`
+      );
+    }
+
+    const data =
+      await res.json();
+
+    const ids =
+      new Set();
+
+    for (
+      const item of
+      data?.items || []
+    ) {
+      const ref =
+        item?.$ref ||
+        item?.team?.$ref ||
+        "";
+
+      const match =
+        String(ref).match(
+          /teams\/(\d+)/
+        );
+
+      if (match) {
+        ids.add(
+          String(match[1])
+        );
+
+        continue;
+      }
+
+      if (item?.id) {
+        ids.add(
+          String(item.id)
+        );
+      }
+    }
+
+    if (!ids.size) {
+      throw new Error(
+        "ESPN returned no FCS team IDs"
+      );
+    }
+
+    fcsTeamIdCache[cacheKey] =
+      ids;
+
+    return ids;
+
+  } catch (error) {
+    console.log(
+      `NCAAF FCS team IDs error ${seasonNumber}:`,
+      error.message
+    );
+
+    return new Set();
+  }
+}
+// ======================================================
+// CASHEDGE FCS POWER - DIRECT FBS ANCHORS
+// ======================================================
+
+function derivePowerFromKnownOpponent({
+  game,
+  teamId,
+  opponentPower,
+  leagueAvg
+}) {
+  if (
+    !game ||
+    !teamId ||
+    !opponentPower
+  ) {
+    return null;
+  }
+
+  const id =
+    String(teamId);
+
+  const isTeam1 =
+    String(game.team1Id) === id;
+
+  const isTeam2 =
+    String(game.team2Id) === id;
+
+  if (!isTeam1 && !isTeam2) {
+    return null;
+  }
+
+  const pf =
+    Number(
+      isTeam1
+        ? game.team1Score
+        : game.team2Score
+    );
+
+  const pa =
+    Number(
+      isTeam1
+        ? game.team2Score
+        : game.team1Score
+    );
+
+  const opponentId =
+    String(
+      isTeam1
+        ? game.team2Id
+        : game.team1Id
+    );
+
+  const opponentOff =
+    Number(opponentPower.off);
+
+  const opponentDef =
+    Number(opponentPower.def);
+
+  if (
+    !Number.isFinite(pf) ||
+    !Number.isFinite(pa) ||
+    !Number.isFinite(opponentOff) ||
+    !Number.isFinite(opponentDef) ||
+    !Number.isFinite(Number(leagueAvg))
+  ) {
+    return null;
+  }
+
+  const expectedPF =
+    Number(leagueAvg) -
+    opponentDef;
+
+  const expectedPA =
+    Number(leagueAvg) +
+    opponentOff;
+
+  const derivedOff =
+    pf - expectedPF;
+
+  const derivedDef =
+    expectedPA - pa;
+
+  return {
+    opponentId,
+
+    off:
+      derivedOff,
+
+    def:
+      derivedDef,
+
+    pf,
+    pa,
+
+    opponentOff,
+    opponentDef
+  };
+}
+
+
+function buildDirectFCSPowerSeeds({
+  allGames = [],
+  fcsIds = new Set(),
+  fbsPowerMap = null,
+  leagueAvg
+}) {
+  if (
+    !Array.isArray(allGames) ||
+    !allGames.length ||
+    !fcsIds?.size ||
+    !fbsPowerMap
+  ) {
+    return {};
+  }
+
+  const samples = {};
+
+  const addSample = (
+    teamId,
+    sample
+  ) => {
+    if (!sample) return;
+
+    const id =
+      String(teamId);
+
+    if (!samples[id]) {
+      samples[id] = [];
+    }
+
+    samples[id].push(sample);
+  };
+
+  for (const game of allGames) {
+    const team1Id =
+      String(game.team1Id || "");
+
+    const team2Id =
+      String(game.team2Id || "");
+
+    if (!team1Id || !team2Id) {
+      continue;
+    }
+
+    const team1IsFCS =
+      fcsIds.has(team1Id);
+
+    const team2IsFCS =
+      fcsIds.has(team2Id);
+
+    // FCS team1 vs FBS team2
+    if (
+      team1IsFCS &&
+      !team2IsFCS &&
+      fbsPowerMap[team2Id]
+    ) {
+      addSample(
+        team1Id,
+        derivePowerFromKnownOpponent({
+          game,
+          teamId: team1Id,
+          opponentPower:
+            fbsPowerMap[team2Id],
+          leagueAvg
+        })
+      );
+    }
+
+    // FBS team1 vs FCS team2
+    if (
+      team2IsFCS &&
+      !team1IsFCS &&
+      fbsPowerMap[team1Id]
+    ) {
+      addSample(
+        team2Id,
+        derivePowerFromKnownOpponent({
+          game,
+          teamId: team2Id,
+          opponentPower:
+            fbsPowerMap[team1Id],
+          leagueAvg
+        })
+      );
+    }
+  }
+
+  const map = {};
+
+  for (
+    const [teamId, games]
+    of Object.entries(samples)
+  ) {
+    if (!games.length) {
+      continue;
+    }
+
+    const off =
+      average(
+        games.map(
+          game => game.off
+        )
+      );
+
+    const def =
+      average(
+        games.map(
+          game => game.def
+        )
+      );
+
+    map[teamId] = {
+      off: round(off),
+      def: round(def),
+
+      gamesUsed:
+        games.length,
+
+      anchorGames:
+        games.length,
+
+      source:
+        "cashedge_fcs_direct_fbs"
+    };
+  }
+
+  return map;
+}
+// ======================================================
+// CASHEDGE FCS POWER - FULL FCS NETWORK
+// ======================================================
+
+function buildFCSPowerNetwork({
+  allGames = [],
+  fcsIds = new Set(),
+  fbsPowerMap = null,
+  leagueAvg
+}) {
+  if (
+    !Array.isArray(allGames) ||
+    !allGames.length ||
+    !fcsIds?.size ||
+    !fbsPowerMap ||
+    !Number.isFinite(Number(leagueAvg))
+  ) {
+    return {};
+  }
+
+  // ----------------------------------------------------
+  // 1. Indexar partidos por equipo FCS
+  // ----------------------------------------------------
+
+  const gamesByTeam = {};
+
+  const addGame = (
+    teamId,
+    game
+  ) => {
+    const id =
+      String(teamId);
+
+    if (!gamesByTeam[id]) {
+      gamesByTeam[id] = [];
+    }
+
+    gamesByTeam[id].push(game);
+  };
+
+  for (const game of allGames) {
+    const team1Id =
+      String(game.team1Id || "");
+
+    const team2Id =
+      String(game.team2Id || "");
+
+    if (
+      team1Id &&
+      fcsIds.has(team1Id)
+    ) {
+      addGame(
+        team1Id,
+        game
+      );
+    }
+
+    if (
+      team2Id &&
+      fcsIds.has(team2Id)
+    ) {
+      addGame(
+        team2Id,
+        game
+      );
+    }
+  }
+
+  // ----------------------------------------------------
+  // 2. Semillas directamente ancladas contra FBS
+  // ----------------------------------------------------
+
+  const directSeeds =
+    buildDirectFCSPowerSeeds({
+      allGames,
+      fcsIds,
+      fbsPowerMap,
+      leagueAvg
+    });
+
+  if (!Object.keys(directSeeds).length) {
+    return {};
+  }
+
+  // Ratings iniciales.
+  // Solo existen equipos que ya tienen conexión con FBS.
+  let ratings = {};
+
+  for (
+    const [teamId, seed]
+    of Object.entries(directSeeds)
+  ) {
+    ratings[teamId] = {
+      off:
+        Number(seed.off),
+
+      def:
+        Number(seed.def),
+
+      anchorGames:
+        Number(
+          seed.anchorGames
+        ) || 0,
+
+      networkGames: 0
+    };
+  }
+
+  // ----------------------------------------------------
+  // 3. Resolver la red iterativamente
+  // ----------------------------------------------------
+
+  const MAX_ITERATIONS = 30;
+
+  // Esto NO es regresión al promedio.
+  // Solo estabiliza la solución matemática entre
+  // equipos FCS conectados entre sí.
+  const DAMPING = 0.50;
+
+  const CONVERGENCE_THRESHOLD =
+    0.01;
+
+  let iterationsUsed = 0;
+
+  for (
+    let iteration = 0;
+    iteration < MAX_ITERATIONS;
+    iteration++
+  ) {
+    const nextRatings = {};
+
+    let maxChange = 0;
+
+    let discoveredNewTeam =
+      false;
+
+    for (
+      const [
+        teamId,
+        teamGames
+      ]
+      of Object.entries(
+        gamesByTeam
+      )
+    ) {
+      const samples = [];
+
+      let anchorGames = 0;
+      let networkGames = 0;
+
+      for (
+        const game of teamGames
+      ) {
+        const isTeam1 =
+          String(
+            game.team1Id
+          ) ===
+          String(teamId);
+
+        const opponentId =
+          String(
+            isTeam1
+              ? game.team2Id
+              : game.team1Id
+          );
+
+        if (!opponentId) {
+          continue;
+        }
+
+        let opponentPower =
+          null;
+
+        let isFBSAnchor =
+          false;
+
+        // ----------------------------------------------
+        // Rival FBS:
+        // ESPN Power es el ancla absoluta.
+        // ----------------------------------------------
+
+        if (
+          fbsPowerMap[
+            opponentId
+          ]
+        ) {
+          opponentPower =
+            fbsPowerMap[
+              opponentId
+            ];
+
+          isFBSAnchor = true;
+        }
+
+        // ----------------------------------------------
+        // Rival FCS:
+        // solo sirve si ya tiene Power resuelto
+        // desde la iteración anterior.
+        // ----------------------------------------------
+
+        else if (
+          fcsIds.has(
+            opponentId
+          ) &&
+          ratings[
+            opponentId
+          ]
+        ) {
+          opponentPower =
+            ratings[
+              opponentId
+            ];
+        }
+
+        if (!opponentPower) {
+          continue;
+        }
+
+        const sample =
+          derivePowerFromKnownOpponent({
+            game,
+            teamId,
+            opponentPower,
+            leagueAvg
+          });
+
+        if (!sample) {
+          continue;
+        }
+
+        samples.push(
+          sample
+        );
+
+        if (isFBSAnchor) {
+          anchorGames++;
+        } else {
+          networkGames++;
+        }
+      }
+
+      if (!samples.length) {
+        continue;
+      }
+
+      const candidateOff =
+        average(
+          samples.map(
+            sample =>
+              sample.off
+          )
+        );
+
+      const candidateDef =
+        average(
+          samples.map(
+            sample =>
+              sample.def
+          )
+        );
+
+      const previous =
+        ratings[teamId];
+
+      let newOff =
+        candidateOff;
+
+      let newDef =
+        candidateDef;
+
+      // Damping matemático para evitar oscilaciones
+      // FCS A -> FCS B -> FCS A.
+      //
+      // NO lleva el rating hacia cero.
+      // Solo ayuda a que la red llegue a su
+      // solución estable.
+      if (previous) {
+        newOff =
+          previous.off *
+            (1 - DAMPING) +
+          candidateOff *
+            DAMPING;
+
+        newDef =
+          previous.def *
+            (1 - DAMPING) +
+          candidateDef *
+            DAMPING;
+
+        maxChange =
+          Math.max(
+            maxChange,
+            Math.abs(
+              newOff -
+              previous.off
+            ),
+            Math.abs(
+              newDef -
+              previous.def
+            )
+          );
+      } else {
+        discoveredNewTeam =
+          true;
+      }
+
+      nextRatings[teamId] = {
+        off: newOff,
+        def: newDef,
+
+        anchorGames,
+        networkGames
+      };
+    }
+
+    ratings =
+      nextRatings;
+
+    iterationsUsed =
+      iteration + 1;
+
+    if (
+      !discoveredNewTeam &&
+      maxChange <
+        CONVERGENCE_THRESHOLD
+    ) {
+      break;
+    }
+  }
+
+  // ----------------------------------------------------
+  // 4. Resultado final
+  // ----------------------------------------------------
+
+  const finalMap = {};
+
+  for (
+    const [
+      teamId,
+      rating
+    ]
+    of Object.entries(ratings)
+  ) {
+    if (
+      !Number.isFinite(
+        Number(rating.off)
+      ) ||
+      !Number.isFinite(
+        Number(rating.def)
+      )
+    ) {
+      continue;
+    }
+
+    finalMap[teamId] = {
+      off:
+        round(
+          rating.off
+        ),
+
+      def:
+        round(
+          rating.def
+        ),
+
+      anchorGames:
+        Number(
+          rating.anchorGames
+        ) || 0,
+
+      networkGames:
+        Number(
+          rating.networkGames
+        ) || 0,
+
+      source:
+        "cashedge_fcs_network",
+
+      iterations:
+        iterationsUsed
+    };
+  }
+
+  return finalMap;
+}
+// ======================================================
+// CASHEDGE FCS POWER - PERSISTENT WEEKLY CACHE
+// ======================================================
+
+const fcsNetworkPowerCache =
+  global.__NCAAF_FCS_POWER_CACHE__ || {};
+
+global.__NCAAF_FCS_POWER_CACHE__ =
+  fcsNetworkPowerCache;
+
+const fcsNetworkPowerCacheUpdatedAt =
+  global.__NCAAF_FCS_POWER_CACHE_UPDATED_AT__ || {};
+
+global.__NCAAF_FCS_POWER_CACHE_UPDATED_AT__ =
+  fcsNetworkPowerCacheUpdatedAt;
+
+
+async function getFCSPowerMap(
+  season,
+  fbsAllGames = [],
+  suppliedFbsPowerMap = null
+) {
+  const seasonNumber =
+    Number(season);
+
+  if (!Number.isFinite(seasonNumber)) {
+    return null;
+  }
+
+  const key =
+    `ncaaf-fcs-${seasonNumber}`;
+
+  const activeSeason =
+    getDefaultSeason();
+
+  const isHistoricalSeason =
+    seasonNumber < activeSeason;
+
+  const now =
+    Date.now();
+
+  // ====================================================
+  // 1. CACHE EN MEMORIA
+  // ====================================================
+
+  const memoryMap =
+    fcsNetworkPowerCache[key];
+
+  const memoryUpdatedAt =
+    Number(
+      fcsNetworkPowerCacheUpdatedAt[key]
+    ) || 0;
+
+  const memoryIsFresh =
+    isHistoricalSeason ||
+    (
+      memoryUpdatedAt > 0 &&
+      now - memoryUpdatedAt <
+        NCAAF_POWER_CACHE_TTL_MS
+    );
+
+  if (
+    memoryMap &&
+    memoryIsFresh
+  ) {
+    return memoryMap;
+  }
+
+  // ====================================================
+  // 2. CACHE PERSISTENTE SUPABASE
+  // ====================================================
+
+  let storedCache =
+    null;
+
+  try {
+    const {
+      data,
+      error
+    } =
+      await supabaseAdmin
+        .from(
+          "ncaaf_power_cache"
+        )
+        .select(
+          "power_json, updated_at"
+        )
+        .eq(
+          "season",
+          seasonNumber
+        )
+        .eq(
+          "source",
+          "cashedge_fcs"
+        )
+        .maybeSingle();
+
+    if (
+      !error &&
+      data?.power_json
+    ) {
+      storedCache =
+        data;
+
+      const storedUpdatedAt =
+        new Date(
+          data.updated_at
+        ).getTime();
+
+      const storedIsFresh =
+        isHistoricalSeason ||
+        (
+          Number.isFinite(
+            storedUpdatedAt
+          ) &&
+          now - storedUpdatedAt <
+            NCAAF_POWER_CACHE_TTL_MS
+        );
+
+      if (storedIsFresh) {
+        fcsNetworkPowerCache[key] =
+          data.power_json;
+
+        fcsNetworkPowerCacheUpdatedAt[key] =
+          Number.isFinite(
+            storedUpdatedAt
+          )
+            ? storedUpdatedAt
+            : now;
+
+        return data.power_json;
+      }
+    }
+  } catch (error) {
+    console.log(
+      "NCAAF FCS Power cache read error:",
+      error.message
+    );
+  }
+
+  // ====================================================
+  // 3. CONSTRUIR FCS POWER
+  // ====================================================
+
+  try {
+    const fbsPowerMap =
+      suppliedFbsPowerMap ||
+      await getFPIMap(
+        seasonNumber
+      );
+
+    if (!fbsPowerMap) {
+      throw new Error(
+        "No FBS Power map available"
+      );
+    }
+
+    const fcsIds =
+      await getFCSTeamIdSet(
+        seasonNumber
+      );
+
+    if (!fcsIds.size) {
+      throw new Error(
+        "No FCS team IDs available"
+      );
+    }
+
+    // Red completa FCS.
+    const fcsGames =
+      await getSeasonGames(
+        "ncaaf",
+        seasonNumber,
+        81
+      );
+
+    // Para mantener el Power FCS en la misma escala
+    // conceptual que ESPN FBS, usamos como baseline
+    // los juegos FBS.
+    let baselineGames =
+      Array.isArray(
+        fbsAllGames
+      )
+        ? fbsAllGames
+        : [];
+
+    if (!baselineGames.length) {
+      baselineGames =
+        await getSeasonGames(
+          "ncaaf",
+          seasonNumber,
+          80
+        );
+    }
+
+    const leagueAvg =
+      computeLeagueBaseline(
+        baselineGames
+      );
+
+    const result =
+      buildFCSPowerNetwork({
+        allGames:
+          fcsGames,
+
+        fcsIds,
+
+        fbsPowerMap,
+
+        leagueAvg
+      });
+
+    if (
+      !result ||
+      !Object.keys(result).length
+    ) {
+      throw new Error(
+        "CashEdge FCS Power returned empty map"
+      );
+    }
+
+    const updatedAt =
+      new Date().toISOString();
+
+    // ==================================================
+    // 4. GUARDAR EN SUPABASE
+    // ==================================================
+
+    try {
+      const { error } =
+        await supabaseAdmin
+          .from(
+            "ncaaf_power_cache"
+          )
+          .upsert(
+            {
+              season:
+                seasonNumber,
+
+              source:
+                "cashedge_fcs",
+
+              power_json:
+                result,
+
+              updated_at:
+                updatedAt
+            },
+            {
+              onConflict:
+                "season,source"
+            }
+          );
+
+      if (error) {
+        console.log(
+          "NCAAF FCS Power cache write error:",
+          error.message
+        );
+      }
+    } catch (error) {
+      console.log(
+        "NCAAF FCS Power cache write error:",
+        error.message
+      );
+    }
+
+    // ==================================================
+    // 5. CACHE LOCAL
+    // ==================================================
+
+    fcsNetworkPowerCache[key] =
+      result;
+
+    fcsNetworkPowerCacheUpdatedAt[key] =
+      now;
+
+    return result;
+
+  } catch (error) {
+    console.log(
+      `NCAAF FCS Power error ${seasonNumber}:`,
+      error.message
+    );
+
+    // Si toca refrescar y algo externo falla,
+    // conservar el último Power conocido.
+    if (
+      storedCache?.power_json
+    ) {
+      const storedUpdatedAt =
+        new Date(
+          storedCache.updated_at
+        ).getTime();
+
+      fcsNetworkPowerCache[key] =
+        storedCache.power_json;
+
+      fcsNetworkPowerCacheUpdatedAt[key] =
+        Number.isFinite(
+          storedUpdatedAt
+        )
+          ? storedUpdatedAt
+          : now;
+
+      return storedCache.power_json;
+    }
+
     if (memoryMap) {
       return memoryMap;
     }
@@ -9222,11 +10252,65 @@ if (type === "ncaaf") {
 
   // Cargamos ambos por separado porque el FCS derivado debe evaluar
   // cada juego con el FPI correspondiente a ESA temporada.
-  const currentFpiMap = await getFPIMap(selectedSeason);
-  const previousFpiMap = await getFPIMap(selectedSeason - 1);
+ const currentFpiMap =
+  await getFPIMap(
+    selectedSeason
+  );
 
-  // Mantiene el comportamiento normal del modelo para equipos FBS.
-  const fpiMap = currentFpiMap || previousFpiMap;
+const previousFpiMap =
+  await getFPIMap(
+    previousSeason
+  );
+
+// ======================================================
+// CASHEDGE FCS POWER
+// ======================================================
+//
+// Temporada actual:
+// solo intentamos construirla si ya existen juegos
+// completados de la temporada.
+//
+// Temporada anterior:
+// sirve como fallback y, al ser histórica,
+// quedará permanentemente cacheada.
+// ======================================================
+
+const [
+  currentFcsPowerMap,
+  previousFcsPowerMap
+] = await Promise.all([
+
+  currentSeasonAllGames.length
+    ? getFCSPowerMap(
+        selectedSeason,
+        currentSeasonAllGames,
+        currentFpiMap
+      )
+    : Promise.resolve(null),
+
+  getFCSPowerMap(
+    previousSeason,
+    previousSeasonAllGames,
+    previousFpiMap
+  )
+
+]);
+
+// Si un FCS ya tiene Power de la temporada actual,
+// ese número manda.
+//
+// Si todavía no lo tiene, conserva el Power anterior.
+const fcsPowerMap = {
+  ...(previousFcsPowerMap || {}),
+  ...(currentFcsPowerMap || {})
+};
+
+
+// Mantiene por ahora el comportamiento normal
+// del modelo FBS existente.
+const fpiMap =
+  currentFpiMap ||
+  previousFpiMap;
 
   const idA = resolveTeamIdFromGames(allGames, teamARef);
   const idB = resolveTeamIdFromGames(allGames, teamBRef);
