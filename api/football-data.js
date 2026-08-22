@@ -10890,45 +10890,67 @@ let fpiAdj = { active: false, reason: "no aplica (solo ncaaf)" };
 let teamAProjection, teamBProjection, teamAAdj, teamBAdj;
 
 if (type === "ncaaf") {
+  const currentFpiMap =
+    await getFPIMap(selectedSeason);
 
-  // Cargamos ambos por separado porque el FCS derivado debe evaluar
-  // cada juego con el FPI correspondiente a ESA temporada.
-const currentFpiMap =
-  await getFPIMap(selectedSeason);
+  const previousFpiMap =
+    await getFPIMap(previousSeason);
 
-const previousFpiMap =
-  await getFPIMap(previousSeason);
+  const idA =
+    resolveTeamIdFromGames(
+      allGames,
+      teamARef
+    );
 
-// Temporada actual manda.
-// Año anterior solamente fallback.
-const fpiMap =
-  currentFpiMap ||
-  previousFpiMap;
+  const idB =
+    resolveTeamIdFromGames(
+      allGames,
+      teamBRef
+    );
 
-  const idA = resolveTeamIdFromGames(allGames, teamARef);
-  const idB = resolveTeamIdFromGames(allGames, teamBRef);
+  // Temporada actual manda.
+  // Año anterior es fallback por equipo.
+  let fA =
+    currentFpiMap?.[String(idA)] ||
+    previousFpiMap?.[String(idA)] ||
+    null;
 
-  let fA = fpiMap?.[String(idA)] || null;
-  let fB = fpiMap?.[String(idB)] || null;
+  let fB =
+    currentFpiMap?.[String(idB)] ||
+    previousFpiMap?.[String(idB)] ||
+    null;
 
   let derivedA = null;
   let derivedB = null;
 
   // ====================================================
-  // SOLO SI ESPN NO TIENE FPI:
-  // intentar construir un FPI equivalente con partidos
-  // históricos contra equipos FBS.
+  // FCS:
+  // si ESPN no tiene Power, derivarlo SOLO
+  // usando partidos anteriores contra FBS.
   // ====================================================
 
   if (!fA) {
-    derivedA = buildDerivedFCSRating({
-      currentGames: currentTeamAGames,
-      previousGames: previousTeamAGames,
-      currentFpiMap,
-      previousFpiMap,
-      currentLeagueAvg: computeLeagueBaseline(currentSeasonAllGames),
-      previousLeagueAvg: computeLeagueBaseline(previousSeasonAllGames)
-    });
+    derivedA =
+      buildDerivedFCSRating({
+        currentGames:
+          currentTeamAGames,
+
+        previousGames:
+          previousTeamAGames,
+
+        currentFpiMap,
+        previousFpiMap,
+
+        currentLeagueAvg:
+          computeLeagueBaseline(
+            currentSeasonAllGames
+          ),
+
+        previousLeagueAvg:
+          computeLeagueBaseline(
+            previousSeasonAllGames
+          )
+      });
 
     if (derivedA) {
       fA = {
@@ -10939,14 +10961,27 @@ const fpiMap =
   }
 
   if (!fB) {
-    derivedB = buildDerivedFCSRating({
-      currentGames: currentTeamBGames,
-      previousGames: previousTeamBGames,
-      currentFpiMap,
-      previousFpiMap,
-      currentLeagueAvg: computeLeagueBaseline(currentSeasonAllGames),
-      previousLeagueAvg: computeLeagueBaseline(previousSeasonAllGames)
-    });
+    derivedB =
+      buildDerivedFCSRating({
+        currentGames:
+          currentTeamBGames,
+
+        previousGames:
+          previousTeamBGames,
+
+        currentFpiMap,
+        previousFpiMap,
+
+        currentLeagueAvg:
+          computeLeagueBaseline(
+            currentSeasonAllGames
+          ),
+
+        previousLeagueAvg:
+          computeLeagueBaseline(
+            previousSeasonAllGames
+          )
+      });
 
     if (derivedB) {
       fB = {
@@ -10955,313 +10990,481 @@ const fpiMap =
       };
     }
   }
-// ======================================================
-// NCAAF NEW MATCHUP ENGINE - SHADOW TEST
-// NO MODIFICA PRODUCCION
-// ======================================================
 
-let ncaafMatchupShadow = null;
 
-if (fA && fB) {
-  // A = FCS derivado / B = FBS
-  if (derivedA && !derivedB) {
-    ncaafMatchupShadow = {
-      matchup: `${teamA} vs ${teamB}`,
-
-      fcsTeam: teamA,
-      fbsTeam: teamB,
-
-      fcsProjection: projectFCSAgainstFBS({
-        derivedRating: derivedA,
-        todayOpponentPower: fB
-      }),
-
-      fbsAdjustedEdges: calculateFBSMatchupAdjustedEdges({
-        currentGames: currentTeamBGames,
-        previousGames: previousTeamBGames,
-        currentPowerMap: currentFpiMap,
-        previousPowerMap: previousFpiMap,
-        todayOpponentPower: fA
-      })
-    };
-  }
-
-  // A = FBS / B = FCS derivado
-  else if (!derivedA && derivedB) {
-    ncaafMatchupShadow = {
-      matchup: `${teamA} vs ${teamB}`,
-
-      fcsTeam: teamB,
-      fbsTeam: teamA,
-
-      fcsProjection: projectFCSAgainstFBS({
-        derivedRating: derivedB,
-        todayOpponentPower: fA
-      }),
-
-      fbsAdjustedEdges: calculateFBSMatchupAdjustedEdges({
-        currentGames: currentTeamAGames,
-        previousGames: previousTeamAGames,
-        currentPowerMap: currentFpiMap,
-        previousPowerMap: previousFpiMap,
-        todayOpponentPower: fB
-      })
-    };
-  }
-}
-if (
-  ncaafMatchupShadow?.fcsProjection &&
-  ncaafMatchupShadow?.fbsAdjustedEdges
-) {
-  const fcs = ncaafMatchupShadow.fcsProjection;
-  const fbs = ncaafMatchupShadow.fbsAdjustedEdges;
-
-  const fbsVia1 =
-    Number(fcs.avgFBSPointsAllowed) +
-    Number(fbs.avgOffensiveEdge);
-
-  const fbsVia2 =
-    Number(fbs.avgPointsScored) +
-    Number(fcs.avgDefensiveEdge);
-
-  const fcsVia1 =
-    Number(fbs.avgPointsAllowed) +
-    Number(fcs.avgOffensiveEdge);
-
-  const fcsVia2 =
-    Number(fcs.avgFBSPointsScored) +
-    Number(fbs.avgDefensiveEdge);
-
-  ncaafMatchupShadow.finalProjection = {
-    fbsVia1: round(fbsVia1),
-    fbsVia2: round(fbsVia2),
-    fcsVia1: round(fcsVia1),
-    fcsVia2: round(fcsVia2),
-
-    fbsPoints: round(
-      Math.max(
-        MIN_PROJECTION,
-        (fbsVia1 + fbsVia2) / 2
-      )
-    ),
-
-    fcsPoints: round(
-      Math.max(
-        MIN_PROJECTION,
-        (fcsVia1 + fcsVia2) / 2
-      )
-    )
-  };
-}
-if (ncaafMatchupShadow) {
-  console.log(
-    "NCAAF_MATCHUP_SHADOW",
-    JSON.stringify(
-      ncaafMatchupShadow,
-      null,
-      2
-    )
-  );
-}
   // ====================================================
-  // BASELINE DEL CALENDARIO
-  //
-  // Si es FCS derivado, usamos exactamente los FPI de
-  // los rivales y temporadas que produjeron ese rating.
-  //
-  // Si es FBS normal, se mantiene getScheduleBaseline().
+  // CASO 1:
+  // FBS vs FBS
   // ====================================================
 
-  const baseA = derivedA
-    ? {
-        avgOppDef: average(
-          derivedA.games.map(g => Number(g.opponentFPI.def))
-        ),
-        avgOppOff: average(
-          derivedA.games.map(g => Number(g.opponentFPI.off))
-        ),
-        matched: derivedA.games.length
-      }
-    : fpiMap
-      ? getScheduleBaseline(teamAGames, fpiMap)
-      : null;
+  if (
+    fA &&
+    fB &&
+    !derivedA &&
+    !derivedB
+  ) {
+    const adjustedA =
+      calculateFBSMatchupAdjustedEdges({
+        currentGames:
+          currentTeamAGames,
 
-  const baseB = derivedB
-    ? {
-        avgOppDef: average(
-          derivedB.games.map(g => Number(g.opponentFPI.def))
-        ),
-        avgOppOff: average(
-          derivedB.games.map(g => Number(g.opponentFPI.off))
-        ),
-        matched: derivedB.games.length
-      }
-    : fpiMap
-      ? getScheduleBaseline(teamBGames, fpiMap)
-      : null;
+        previousGames:
+          previousTeamAGames,
 
-  if (!fpiMap && !derivedA && !derivedB) {
-    fpiAdj = {
-      active: false,
-      reason: "FPI no disponible"
-    };
+        currentPowerMap:
+          currentFpiMap,
 
-  } else if (!fA || !fB) {
-    fpiAdj = {
-      active: false,
-      reason: "equipo sin FPI ni rating derivado",
-      idA,
-      idB
-    };
+        previousPowerMap:
+          previousFpiMap,
 
-  } else if (!baseA || !baseB) {
-    fpiAdj = {
-      active: false,
-      reason: "sin rivales con FPI"
-    };
+        todayOpponentPower:
+          fB
+      });
 
-  } else {
+    const adjustedB =
+      calculateFBSMatchupAdjustedEdges({
+        currentGames:
+          currentTeamBGames,
 
-    // DESDE AQUÍ EL MODELO ES EXACTAMENTE EL MISMO DE SIEMPRE.
-   const teamAEdgesForFPI = derivedA
-  ? {
-      gamesUsed: derivedA.games.length,
+        previousGames:
+          previousTeamBGames,
 
-      avgPointsScored: round(
-        average(derivedA.games.map(g => Number(g.teamPoints)))
-      ),
+        currentPowerMap:
+          currentFpiMap,
 
-      avgPointsAllowed: round(
-        average(derivedA.games.map(g => Number(g.pointsAllowed)))
-      ),
+        previousPowerMap:
+          previousFpiMap,
 
-      sosDef: round(
-        average(derivedA.games.map(g => Number(g.expectedPF)))
-      ),
+        todayOpponentPower:
+          fA
+      });
 
-      sosOff: round(
-        average(derivedA.games.map(g => Number(g.expectedPA)))
-      ),
+    if (adjustedA && adjustedB) {
 
-      avgOffensiveEdge: round(
-        average(derivedA.games.map(g => Number(g.derivedOff)))
-      ),
+      // ================================================
+      // TEAM A
+      //
+      // VIA 1:
+      // lo que B permite
+      // + OFF Edge ajustado de A
+      // ================================================
 
-      avgDefensiveEdge: round(
-        average(derivedA.games.map(g => -Number(g.derivedDef)))
-      )
+      const aVia1 =
+        Number(
+          adjustedB.avgPointsAllowed
+        ) +
+        Number(
+          adjustedA.avgOffensiveEdge
+        );
+
+      // VIA 2:
+      // lo que A anota
+      // + DEF Edge ajustado de B
+
+      const aVia2 =
+        Number(
+          adjustedA.avgPointsScored
+        ) +
+        Number(
+          adjustedB.avgDefensiveEdge
+        );
+
+
+      // ================================================
+      // TEAM B
+      // ================================================
+
+      const bVia1 =
+        Number(
+          adjustedA.avgPointsAllowed
+        ) +
+        Number(
+          adjustedB.avgOffensiveEdge
+        );
+
+      const bVia2 =
+        Number(
+          adjustedB.avgPointsScored
+        ) +
+        Number(
+          adjustedA.avgDefensiveEdge
+        );
+
+
+      // ================================================
+      // PROMEDIO FINAL FIJO 50/50
+      // ================================================
+
+      teamAProjection = {
+        finalProjection:
+          round(
+            Math.max(
+              MIN_PROJECTION,
+              (aVia1 + aVia2) / 2
+            )
+          ),
+
+        via1: round(aVia1),
+        via2: round(aVia2)
+      };
+
+      teamBProjection = {
+        finalProjection:
+          round(
+            Math.max(
+              MIN_PROJECTION,
+              (bVia1 + bVia2) / 2
+            )
+          ),
+
+        via1: round(bVia1),
+        via2: round(bVia2)
+      };
+
+      teamAAdj = adjustedA;
+      teamBAdj = adjustedB;
+
+      fpiAdj = {
+        active: true,
+        model:
+          "NCAAF matchup power",
+
+        matchupType:
+          "FBS_vs_FBS",
+
+        [teamA]: {
+          power: fA,
+          adjusted:
+            adjustedA,
+          via1:
+            round(aVia1),
+          via2:
+            round(aVia2)
+        },
+
+        [teamB]: {
+          power: fB,
+          adjusted:
+            adjustedB,
+          via1:
+            round(bVia1),
+          via2:
+            round(bVia2)
+        }
+      };
     }
-  : teamAEdges;
+  }
 
 
-const teamBEdgesForFPI = derivedB
-  ? {
-      gamesUsed: derivedB.games.length,
+  // ====================================================
+  // CASO 2:
+  // A = FCS
+  // B = FBS
+  // ====================================================
 
-      avgPointsScored: round(
-        average(derivedB.games.map(g => Number(g.teamPoints)))
-      ),
+  else if (
+    derivedA &&
+    !derivedB &&
+    fA &&
+    fB
+  ) {
+    const fcs =
+      projectFCSAgainstFBS({
+        derivedRating:
+          derivedA,
 
-      avgPointsAllowed: round(
-        average(derivedB.games.map(g => Number(g.pointsAllowed)))
-      ),
+        todayOpponentPower:
+          fB
+      });
 
-      sosDef: round(
-        average(derivedB.games.map(g => Number(g.expectedPF)))
-      ),
+    const fbs =
+      calculateFBSMatchupAdjustedEdges({
+        currentGames:
+          currentTeamBGames,
 
-      sosOff: round(
-        average(derivedB.games.map(g => Number(g.expectedPA)))
-      ),
+        previousGames:
+          previousTeamBGames,
 
-      avgOffensiveEdge: round(
-        average(derivedB.games.map(g => Number(g.derivedOff)))
-      ),
+        currentPowerMap:
+          currentFpiMap,
 
-      avgDefensiveEdge: round(
-        average(derivedB.games.map(g => -Number(g.derivedDef)))
-      )
+        previousPowerMap:
+          previousFpiMap,
+
+        todayOpponentPower:
+          fA
+      });
+
+    if (fcs && fbs) {
+
+      // B = FBS
+      const fbsVia1 =
+        Number(
+          fcs.avgFBSPointsAllowed
+        ) +
+        Number(
+          fbs.avgOffensiveEdge
+        );
+
+      const fbsVia2 =
+        Number(
+          fbs.avgPointsScored
+        ) +
+        Number(
+          fcs.avgDefensiveEdge
+        );
+
+      // A = FCS
+      const fcsVia1 =
+        Number(
+          fbs.avgPointsAllowed
+        ) +
+        Number(
+          fcs.avgOffensiveEdge
+        );
+
+      const fcsVia2 =
+        Number(
+          fcs.avgFBSPointsScored
+        ) +
+        Number(
+          fbs.avgDefensiveEdge
+        );
+
+      teamAProjection = {
+        finalProjection:
+          round(
+            Math.max(
+              MIN_PROJECTION,
+              (fcsVia1 + fcsVia2) / 2
+            )
+          ),
+
+        via1:
+          round(fcsVia1),
+
+        via2:
+          round(fcsVia2)
+      };
+
+      teamBProjection = {
+        finalProjection:
+          round(
+            Math.max(
+              MIN_PROJECTION,
+              (fbsVia1 + fbsVia2) / 2
+            )
+          ),
+
+        via1:
+          round(fbsVia1),
+
+        via2:
+          round(fbsVia2)
+      };
+
+      fpiAdj = {
+        active: true,
+        model:
+          "NCAAF matchup power",
+
+        matchupType:
+          "FCS_vs_FBS",
+
+        fcsTeam: teamA,
+        fbsTeam: teamB,
+
+        fcs,
+        fbs
+      };
     }
-  : teamBEdges;
+  }
 
 
-teamAAdj = buildFPIProfile(
-  teamAEdgesForFPI,
-  fA,
-  baseA,
-  leagueAvg
-);
+  // ====================================================
+  // CASO 3:
+  // A = FBS
+  // B = FCS
+  // ====================================================
 
-teamBAdj = buildFPIProfile(
-  teamBEdgesForFPI,
-  fB,
-  baseB,
-  leagueAvg
-);
+  else if (
+    !derivedA &&
+    derivedB &&
+    fA &&
+    fB
+  ) {
+    const fcs =
+      projectFCSAgainstFBS({
+        derivedRating:
+          derivedB,
+
+        todayOpponentPower:
+          fA
+      });
+
+    const fbs =
+      calculateFBSMatchupAdjustedEdges({
+        currentGames:
+          currentTeamAGames,
+
+        previousGames:
+          previousTeamAGames,
+
+        currentPowerMap:
+          currentFpiMap,
+
+        previousPowerMap:
+          previousFpiMap,
+
+        todayOpponentPower:
+          fB
+      });
+
+    if (fcs && fbs) {
+
+      // A = FBS
+      const fbsVia1 =
+        Number(
+          fcs.avgFBSPointsAllowed
+        ) +
+        Number(
+          fbs.avgOffensiveEdge
+        );
+
+      const fbsVia2 =
+        Number(
+          fbs.avgPointsScored
+        ) +
+        Number(
+          fcs.avgDefensiveEdge
+        );
+
+      // B = FCS
+      const fcsVia1 =
+        Number(
+          fbs.avgPointsAllowed
+        ) +
+        Number(
+          fcs.avgOffensiveEdge
+        );
+
+      const fcsVia2 =
+        Number(
+          fcs.avgFBSPointsScored
+        ) +
+        Number(
+          fbs.avgDefensiveEdge
+        );
+
+      teamAProjection = {
+        finalProjection:
+          round(
+            Math.max(
+              MIN_PROJECTION,
+              (fbsVia1 + fbsVia2) / 2
+            )
+          ),
+
+        via1:
+          round(fbsVia1),
+
+        via2:
+          round(fbsVia2)
+      };
+
+      teamBProjection = {
+        finalProjection:
+          round(
+            Math.max(
+              MIN_PROJECTION,
+              (fcsVia1 + fcsVia2) / 2
+            )
+          ),
+
+        via1:
+          round(fcsVia1),
+
+        via2:
+          round(fcsVia2)
+      };
+
+      fpiAdj = {
+        active: true,
+        model:
+          "NCAAF matchup power",
+
+        matchupType:
+          "FBS_vs_FCS",
+
+        fbsTeam: teamA,
+        fcsTeam: teamB,
+
+        fbs,
+        fcs
+      };
+    }
+  }
+
+
+  // ====================================================
+  // SEGURIDAD TEMPORAL
+  //
+  // Luego eliminaremos FCS vs FCS desde la carga.
+  // Si por cualquier razón llega aquí un partido
+  // que no puede usar el motor nuevo, no rompemos API.
+  // ====================================================
+
+  if (
+    !teamAProjection ||
+    !teamBProjection
+  ) {
+    teamAAdj = teamAEdges;
+    teamBAdj = teamBEdges;
+
+    teamAProjection =
+      projectFootballTeam(
+        teamAEdges,
+        teamBEdges,
+        alpha,
+        beta
+      );
+
+    teamBProjection =
+      projectFootballTeam(
+        teamBEdges,
+        teamAEdges,
+        alpha,
+        beta
+      );
 
     fpiAdj = {
-      active: true,
-      leagueAvg,
-
-      [teamA]: {
-        fpi: fA,
-        fpiSource: derivedA
-          ? "CashEdge FCS derived"
-          : "ESPN FPI",
-        derivedRating: derivedA,
-        baseline: baseA,
-        perfil: teamAAdj
-      },
-
-      [teamB]: {
-        fpi: fB,
-        fpiSource: derivedB
-          ? "CashEdge FCS derived"
-          : "ESPN FPI",
-        derivedRating: derivedB,
-        baseline: baseB,
-        perfil: teamBAdj
-      }
+      active: false,
+      reason:
+        "NCAAF matchup sin Power suficiente"
     };
   }
 }
 
-if (fpiAdj.active) {
-  teamAProjection = projectFootballTeamFPI(
-    teamAAdj,
-    teamBAdj,
-    alpha,
-    beta
-  );
-
-  teamBProjection = projectFootballTeamFPI(
-    teamBAdj,
-    teamAAdj,
-    alpha,
-    beta
-  );
-
-} else {
-
-  // Fallback existente
+if (type !== "ncaaf") {
   teamAAdj = teamAEdges;
   teamBAdj = teamBEdges;
 
-  teamAProjection = projectFootballTeam(
-    teamAAdj,
-    teamBAdj,
-    alpha,
-    beta
-  );
+  teamAProjection =
+    projectFootballTeam(
+      teamAAdj,
+      teamBAdj,
+      alpha,
+      beta
+    );
 
-  teamBProjection = projectFootballTeam(
-    teamBAdj,
-    teamAAdj,
-    alpha,
-    beta
-  );
+  teamBProjection =
+    projectFootballTeam(
+      teamBAdj,
+      teamAAdj,
+      alpha,
+      beta
+    );
 }
-    
 const projectedTeamABase =
   teamAProjection.finalProjection;
 
