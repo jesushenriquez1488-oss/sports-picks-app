@@ -969,23 +969,46 @@ const fcsTeamIdCache =
 global.__NCAAF_FCS_TEAM_IDS_CACHE__ =
   fcsTeamIdCache;
 
-async function getFCSTeamIdSet(season) {
-  const seasonNumber = Number(season);
+async function getFCSTeamIdSet(
+  season,
+  fbsPowerMap = null
+) {
+  const seasonNumber =
+    Number(season);
 
   if (!Number.isFinite(seasonNumber)) {
     return new Set();
   }
 
   const cacheKey =
-    String(seasonNumber);
+    `fcs-site-81-${seasonNumber}`;
 
   if (fcsTeamIdCache[cacheKey]) {
-    return fcsTeamIdCache[cacheKey];
+    const cached =
+      new Set(
+        fcsTeamIdCache[cacheKey]
+      );
+
+    // Protección absoluta:
+    // ningún equipo que tenga ESPN FBS Power
+    // puede considerarse FCS.
+    if (fbsPowerMap) {
+      for (
+        const fbsId of
+        Object.keys(fbsPowerMap)
+      ) {
+        cached.delete(
+          String(fbsId)
+        );
+      }
+    }
+
+    return cached;
   }
 
   try {
     const url =
-      `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/teams` +
+      `https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams` +
       `?limit=500` +
       `&groups=81` +
       `&season=${seasonNumber}`;
@@ -1002,46 +1025,53 @@ async function getFCSTeamIdSet(season) {
     const data =
       await res.json();
 
+    const teams =
+      data?.sports?.[0]
+        ?.leagues?.[0]
+        ?.teams || [];
+
     const ids =
       new Set();
 
-    for (
-      const item of
-      data?.items || []
-    ) {
-      const ref =
-        item?.$ref ||
-        item?.team?.$ref ||
-        "";
+    for (const entry of teams) {
+      const id =
+        entry?.team?.id;
 
-      const match =
-        String(ref).match(
-          /teams\/(\d+)/
-        );
+      if (!id) continue;
 
-      if (match) {
-        ids.add(
-          String(match[1])
-        );
+      ids.add(
+        String(id)
+      );
+    }
 
-        continue;
-      }
+    // ==================================================
+    // SAFETY CHECK
+    // ==================================================
+    //
+    // Aunque ESPN devolviera por error algún FBS
+    // dentro de group 81, jamás permitimos que entre
+    // al universo FCS.
+    // ==================================================
 
-      if (item?.id) {
-        ids.add(
-          String(item.id)
+    if (fbsPowerMap) {
+      for (
+        const fbsId of
+        Object.keys(fbsPowerMap)
+      ) {
+        ids.delete(
+          String(fbsId)
         );
       }
     }
 
     if (!ids.size) {
       throw new Error(
-        "ESPN returned no FCS team IDs"
+        "ESPN returned no valid FCS team IDs"
       );
     }
 
     fcsTeamIdCache[cacheKey] =
-      ids;
+      new Set(ids);
 
     return ids;
 
@@ -1823,11 +1853,11 @@ async function getFCSPowerMap(
         "No FBS Power map available"
       );
     }
-
-    const fcsIds =
-      await getFCSTeamIdSet(
-        seasonNumber
-      );
+const fcsIds =
+  await getFCSTeamIdSet(
+    seasonNumber,
+    fbsPowerMap
+  );
 
     if (!fcsIds.size) {
       throw new Error(
