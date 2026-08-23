@@ -3225,24 +3225,35 @@ if (mlbPremiumFrozen) {
 
   // Ya existía análisis antes del cierre:
   // devolver exactamente esa versión.
-  if (frozenExisting?.analysis_json) {
-    const cachedAnalysis =
-      frozenExisting.analysis_json;
+ if (frozenExisting?.analysis_json) {
+  const cachedAnalysis =
+    frozenExisting.analysis_json;
 
-    const locked =
-      cachedAnalysis.isPremiumPick &&
-      !isPremiumUser;
+  const locked =
+    cachedAnalysis.isPremiumPick === true &&
+    !isPremiumUser;
 
-    return res.status(200).json({
-      ...cachedAnalysis,
-      locked,
-      premium:
-        locked
-          ? null
-          : cachedAnalysis.premium,
-      premiumFrozen: true
-    });
-  }
+  return res.status(200).json({
+    ...cachedAnalysis,
+
+    // EXISTE UN ANÁLISIS GUARDADO.
+    // Por definición NO es noPlay.
+    noPlay: false,
+
+    locked,
+
+    premium:
+      locked
+        ? null
+        : cachedAnalysis.premium,
+
+    public: {
+      ...(cachedAnalysis.public || {})
+    },
+
+    premiumFrozen: true
+  });
+}
 }
     const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -4900,9 +4911,13 @@ function getBullpenFatigueFactor(bullpen) {
   // pero no modifica la predicción.
   return 1;
 }
-   const fullMlbAnalysis = {
+  const fullMlbAnalysis = {
   locked: false,
-  isPremiumPick: recommendedCards.length > 0,
+
+  isPremiumPick:
+    recommendedCards.length > 0,
+
+  // Si llegamos hasta aquí, el juego FUE analizado.
   noPlay: false,
 
   public: {
@@ -4923,6 +4938,7 @@ function getBullpenFatigueFactor(bullpen) {
           }
         : null
   },
+
   premium: {
     recommendedCards,
 
