@@ -3806,10 +3806,68 @@ if (latestGameId) {
       const gamePackage =
         await gamePackageRes.json();
 
-      console.log(
-        "NCAAF GAME PACKAGE DEBUG:",
-        JSON.stringify(gamePackage).slice(0, 12000)
-      );
+    const starterPaths = [];
+
+function scanStarterFields(
+  value,
+  path = "root",
+  depth = 0
+) {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    depth > 15 ||
+    starterPaths.length >= 100
+  ) {
+    return;
+  }
+
+  for (
+    const [key, child] of
+    Object.entries(value)
+  ) {
+    const nextPath =
+      `${path}.${key}`;
+
+    const normalizedKey =
+      String(key).toLowerCase();
+
+    if (
+      normalizedKey === "starter" ||
+      normalizedKey === "didnotplay" ||
+      normalizedKey === "did_not_play" ||
+      normalizedKey === "roster" ||
+      normalizedKey === "rosters"
+    ) {
+      starterPaths.push({
+        path: nextPath,
+        value:
+          typeof child === "object"
+            ? Array.isArray(child)
+              ? `Array(${child.length})`
+              : Object.keys(child || {})
+                  .slice(0, 12)
+            : child
+      });
+    }
+
+    scanStarterFields(
+      child,
+      nextPath,
+      depth + 1
+    );
+  }
+}
+
+scanStarterFields(
+  gamePackage?.gamepackageJSON ||
+  gamePackage
+);
+
+console.log(
+  "NCAAF STARTER PATHS:",
+  JSON.stringify(starterPaths)
+);
     } else {
       console.log(
         "NCAAF GAME PACKAGE HTTP ERROR:",
