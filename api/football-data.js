@@ -3829,10 +3829,37 @@ if (latestGameId) {
         const competitorData =
           await competitorRes.json();
 
-        console.log(
-          "NCAAF COMPETITOR DEBUG:",
-          JSON.stringify(competitorData)
-        );
+       const rosterRef =
+  competitorData?.roster?.$ref;
+
+if (rosterRef) {
+  const rosterUrl =
+    rosterRef.replace(
+      /^http:/,
+      "https:"
+    );
+
+  const rosterRes =
+    await fetch(rosterUrl);
+
+  if (rosterRes.ok) {
+    const rosterData =
+      await rosterRes.json();
+
+    console.log(
+      "NCAAF GAME ROSTER DEBUG:",
+      JSON.stringify(rosterData)
+        .slice(0, 12000)
+    );
+  } else {
+    console.log(
+      "NCAAF GAME ROSTER HTTP ERROR:",
+      latestGameId,
+      resolvedTeamId,
+      rosterRes.status
+    );
+  }
+}
       } else {
         console.log(
           "NCAAF COMPETITOR HTTP ERROR:",
