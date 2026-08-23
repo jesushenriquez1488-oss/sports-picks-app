@@ -4134,14 +4134,15 @@ async function getFootballStarters(
   const cacheKey =
     `${type}-${season}-${teamRef.id}`;
 
-  if (
-    footballStartersCache[cacheKey] !==
-    undefined
-  ) {
-    return footballStartersCache[
-      cacheKey
-    ];
-  }
+ const cachedStarters =
+  footballStartersCache[cacheKey];
+
+if (
+  cachedStarters &&
+  typeof cachedStarters === "object"
+) {
+  return cachedStarters;
+}
 
   const leaguePath =
     type === "ncaaf"
