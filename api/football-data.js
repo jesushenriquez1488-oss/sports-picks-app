@@ -3796,88 +3796,55 @@ async function getInjuryAdjustmentNCAAF(
 
 if (latestGameId) {
   try {
-    const gamePackageUrl =
-      `https://cdn.espn.com/core/college-football/game?xhr=1&gameId=${latestGameId}`;
+    let resolvedTeamId =
+      /^\d+$/.test(
+        String(teamRef?.id || "")
+      )
+        ? String(teamRef.id)
+        : null;
 
-    const gamePackageRes =
-      await fetch(gamePackageUrl);
+    if (!resolvedTeamId) {
+      const resolved =
+        await findNCAAFTeamIdDynamic(
+          teamRef?.id
+        );
 
-    if (gamePackageRes.ok) {
-      const gamePackage =
-        await gamePackageRes.json();
-
-    const starterPaths = [];
-
-function scanStarterFields(
-  value,
-  path = "root",
-  depth = 0
-) {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    depth > 15 ||
-    starterPaths.length >= 100
-  ) {
-    return;
-  }
-
-  for (
-    const [key, child] of
-    Object.entries(value)
-  ) {
-    const nextPath =
-      `${path}.${key}`;
-
-    const normalizedKey =
-      String(key).toLowerCase();
-
-    if (
-      normalizedKey === "starter" ||
-      normalizedKey === "didnotplay" ||
-      normalizedKey === "did_not_play" ||
-      normalizedKey === "roster" ||
-      normalizedKey === "rosters"
-    ) {
-      starterPaths.push({
-        path: nextPath,
-        value:
-          typeof child === "object"
-            ? Array.isArray(child)
-              ? `Array(${child.length})`
-              : Object.keys(child || {})
-                  .slice(0, 12)
-            : child
-      });
+      resolvedTeamId =
+        resolved?.id
+          ? String(resolved.id)
+          : null;
     }
 
-    scanStarterFields(
-      child,
-      nextPath,
-      depth + 1
-    );
-  }
-}
+    if (resolvedTeamId) {
+      const competitorUrl =
+        `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football` +
+        `/events/${latestGameId}` +
+        `/competitions/${latestGameId}` +
+        `/competitors/${resolvedTeamId}`;
 
-scanStarterFields(
-  gamePackage?.gamepackageJSON ||
-  gamePackage
-);
+      const competitorRes =
+        await fetch(competitorUrl);
 
-console.log(
-  "NCAAF STARTER PATHS:",
-  JSON.stringify(starterPaths)
-);
-    } else {
-      console.log(
-        "NCAAF GAME PACKAGE HTTP ERROR:",
-        latestGameId,
-        gamePackageRes.status
-      );
+      if (competitorRes.ok) {
+        const competitorData =
+          await competitorRes.json();
+
+        console.log(
+          "NCAAF COMPETITOR DEBUG:",
+          JSON.stringify(competitorData)
+        );
+      } else {
+        console.log(
+          "NCAAF COMPETITOR HTTP ERROR:",
+          latestGameId,
+          resolvedTeamId,
+          competitorRes.status
+        );
+      }
     }
   } catch (error) {
     console.log(
-      "NCAAF GAME PACKAGE ERROR:",
+      "NCAAF COMPETITOR ERROR:",
       latestGameId,
       error?.message
     );
