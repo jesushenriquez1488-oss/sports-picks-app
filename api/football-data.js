@@ -3789,6 +3789,42 @@ async function getInjuryAdjustmentNCAAF(
   teamGames = []
 ) {
   try {
+    const latestGameId =
+  Array.isArray(teamGames)
+    ? teamGames.find(g => g?.id)?.id
+    : null;
+
+if (latestGameId) {
+  try {
+    const gamePackageUrl =
+      `https://cdn.espn.com/core/college-football/game?xhr=1&gameId=${latestGameId}`;
+
+    const gamePackageRes =
+      await fetch(gamePackageUrl);
+
+    if (gamePackageRes.ok) {
+      const gamePackage =
+        await gamePackageRes.json();
+
+      console.log(
+        "NCAAF GAME PACKAGE DEBUG:",
+        JSON.stringify(gamePackage).slice(0, 12000)
+      );
+    } else {
+      console.log(
+        "NCAAF GAME PACKAGE HTTP ERROR:",
+        latestGameId,
+        gamePackageRes.status
+      );
+    }
+  } catch (error) {
+    console.log(
+      "NCAAF GAME PACKAGE ERROR:",
+      latestGameId,
+      error?.message
+    );
+  }
+}
     const [injuries, starters] =
       await Promise.all([
         getNFLTeamInjuriesList(
