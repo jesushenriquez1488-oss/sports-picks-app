@@ -4130,7 +4130,32 @@ async function getFootballStarters(
   season
 ) {
   if (!teamRef?.id) return null;
+// NCAAF puede llegar con el nombre del equipo
+// en vez del ID numérico de ESPN.
+if (
+  type === "ncaaf" &&
+  !/^\d+$/.test(String(teamRef.id))
+) {
+  const resolved =
+    await findNCAAFTeamIdDynamic(
+      teamRef.id
+    );
 
+  if (!resolved?.id) {
+    console.log(
+      "NCAAF TEAM ID RESOLUTION FAILED:",
+      teamRef.id
+    );
+
+    return null;
+  }
+
+  teamRef = {
+    ...teamRef,
+    ...resolved,
+    needsDynamicResolution: false
+  };
+}
   const cacheKey =
     `${type}-${season}-${teamRef.id}`;
 
