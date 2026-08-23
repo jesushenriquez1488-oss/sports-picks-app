@@ -3243,25 +3243,6 @@ if (mlbPremiumFrozen) {
       premiumFrozen: true
     });
   }
-
-  // Si nunca existió antes de los 30 minutos,
-  // ya no puede aparecer un Premium nuevo.
-  return res.status(200).json({
-    locked: false,
-    isPremiumPick: false,
-    noPlay: true,
-    public: {
-      awayTeam,
-      homeTeam,
-      totalLine,
-      confidence: null,
-      freePick: null
-    },
-    premium: null,
-    premiumFrozen: true,
-    reason:
-      "Premium window locked 30 minutes before game time"
-  });
 }
     const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -4919,16 +4900,29 @@ function getBullpenFatigueFactor(bullpen) {
   // pero no modifica la predicción.
   return 1;
 }
-    const fullMlbAnalysis = {
+   const fullMlbAnalysis = {
   locked: false,
   isPremiumPick: recommendedCards.length > 0,
-  noPlay: recommendedCards.length === 0,
+  noPlay: false,
+
   public: {
-        awayTeam,
-        homeTeam,
-        totalLine,
-        confidence: recommendedCards[0]?.percentage || null
-      },
+    awayTeam,
+    homeTeam,
+    totalLine,
+
+    confidence:
+      recommendedCards[0]?.percentage ||
+      null,
+
+    freePick:
+      recommendedCards.length === 0 &&
+      bestFreeCandidate
+        ? {
+            title: "Model's lean",
+            play: bestFreeCandidate.play
+          }
+        : null
+  },
   premium: {
     recommendedCards,
 
