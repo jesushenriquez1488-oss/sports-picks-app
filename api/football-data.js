@@ -4224,7 +4224,7 @@ if (
   try {
     const url =
   type === "ncaaf"
-    ? `https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${teamRef.id}/depthcharts`
+   ? `https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${teamRef.id}/roster`
     : `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${season}/teams/${teamRef.id}/depthcharts`;
 
     const res =
