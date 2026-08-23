@@ -4268,17 +4268,14 @@ if (
       }
     }
 console.log(
-  "FOOTBALL STARTERS DEBUG:",
-  JSON.stringify(
-    {
-      type,
-      season,
-      teamId: teamRef.id,
-      starters
-    },
-    null,
-    2
-  )
+  `FOOTBALL STARTERS DEBUG | ` +
+  `type=${type} | ` +
+  `season=${season} | ` +
+  `teamId=${teamRef.id} | ` +
+  `QB=${(starters.QB || []).join(",")} | ` +
+  `RB=${(starters.RB || []).join(",")} | ` +
+  `WR=${(starters.WR || []).join(",")} | ` +
+  `TE=${(starters.TE || []).join(",")}`
 );
     footballStartersCache[
       cacheKey
