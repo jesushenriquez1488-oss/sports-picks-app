@@ -3846,11 +3846,36 @@ if (rosterRef) {
     const rosterData =
       await rosterRes.json();
 
-    console.log(
-      "NCAAF GAME ROSTER DEBUG:",
-      JSON.stringify(rosterData)
-        .slice(0, 12000)
-    );
+   const starterDebug =
+  (rosterData?.entries || [])
+    .filter(entry =>
+      entry?.starter === true &&
+      entry?.didNotPlay !== true
+    )
+    .map(entry => ({
+      id:
+        String(
+          entry?.playerId ||
+          entry?.athlete?.id ||
+          ""
+        ),
+
+      name:
+        entry?.displayName ||
+        entry?.athlete?.displayName ||
+        "",
+
+      position:
+        entry?.position?.abbreviation ||
+        entry?.position?.name ||
+        entry?.position?.displayName ||
+        entry?.position
+    }));
+
+console.log(
+  "NCAAF GAME STARTERS:",
+  JSON.stringify(starterDebug)
+);
   } else {
     console.log(
       "NCAAF GAME ROSTER HTTP ERROR:",
