@@ -597,9 +597,10 @@ function getTeamGamesFromSeason(allGames, teamRef) {
     .map((game) => {
       const isTeam1 = gameSideMatches(game, 1, teamRef);
 
-      return {
-        date: game.date,
-        week: game.week,
+     return {
+  id: game.id,
+  date: game.date,
+  week: game.week,
         teamPoints: isTeam1 ? game.team1Score : game.team2Score,
         pointsAllowed: isTeam1 ? game.team2Score : game.team1Score,
         opponentId: isTeam1 ? game.team2Id : game.team1Id,
