@@ -2380,7 +2380,13 @@ if (data.noPlay) {
   resultDiv.innerHTML = `
     <div class="prediction-card">
       <h2>⏳ MLB analysis not available</h2>
-      <p>${data.public?.message || data.public?.reason || data.error || "Waiting for confirmed pitchers and official lines."}</p>
+      <p>${
+  data.public?.message ||
+  data.public?.reason ||
+  data.reason ||
+  data.error ||
+  "MLB analysis is not available yet."
+}</p>
     </div>
   `;
   endAnalysisLock(index);
