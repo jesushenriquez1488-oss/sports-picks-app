@@ -4163,13 +4163,21 @@ async function getFootballStarters(
     const res =
       await fetch(url);
 
-    if (!res.ok) {
-      footballStartersCache[
-        cacheKey
-      ] = null;
+   if (!res.ok) {
+  console.log("FOOTBALL DEPTH CHART HTTP ERROR:", {
+    type,
+    season,
+    teamId: teamRef.id,
+    status: res.status,
+    url
+  });
 
-      return null;
-    }
+  footballStartersCache[
+    cacheKey
+  ] = null;
+
+  return null;
+}
 
     const data =
       await res.json();
@@ -4239,13 +4247,20 @@ async function getFootballStarters(
 
     return starters;
 
-  } catch {
-    footballStartersCache[
-      cacheKey
-    ] = null;
+  } catch (error) {
+  console.log("FOOTBALL DEPTH CHART ERROR:", {
+    type,
+    season,
+    teamId: teamRef?.id,
+    message: error?.message
+  });
 
-    return null;
-  }
+  footballStartersCache[
+    cacheKey
+  ] = null;
+
+  return null;
+}
 }
 
 
