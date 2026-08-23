@@ -3567,7 +3567,7 @@ const NFL_MAX_TEAM_INJURY_IMPACT = 10;
 // NCAAF INJURY MODEL — CONFIG
 // ============================================================
 
-const NCAAF_INJURY_ACTIVE = false;
+const NCAAF_INJURY_ACTIVE = true;
 
 // Probabilidad/peso real de que la lesión afecte el juego.
 function getNCAAFInjuryStatusWeight(status) {
@@ -3781,7 +3781,106 @@ function getNCAAFStarterBaseImpact(
 // NCAAF INJURY ADJUSTMENT
 // SOLO TITULARES QB / RB / WR / TE
 // ============================================================
+async function getNCAAFStarterIdsFromLastGame(
+  teamRef,
+  teamGames = []
+) {
+  try {
+    const latestGame =
+      Array.isArray(teamGames)
+        ? teamGames.find(game => game?.id)
+        : null;
 
+    if (!latestGame?.id) {
+      return null;
+    }
+
+    let teamId =
+      /^\d+$/.test(
+        String(teamRef?.id || "")
+      )
+        ? String(teamRef.id)
+        : null;
+
+    if (!teamId) {
+      const resolved =
+        await findNCAAFTeamIdDynamic(
+          teamRef?.id
+        );
+
+      teamId =
+        resolved?.id
+          ? String(resolved.id)
+          : null;
+    }
+
+    if (!teamId) {
+      return null;
+    }
+
+    const gameId =
+      String(latestGame.id);
+
+    const competitorUrl =
+      `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football` +
+      `/events/${gameId}` +
+      `/competitions/${gameId}` +
+      `/competitors/${teamId}`;
+
+    const competitorRes =
+      await fetch(competitorUrl);
+
+    if (!competitorRes.ok) {
+      return null;
+    }
+
+    const competitorData =
+      await competitorRes.json();
+
+    const rosterRef =
+      competitorData?.roster?.$ref;
+
+    if (!rosterRef) {
+      return null;
+    }
+
+    const rosterUrl =
+      rosterRef.replace(
+        /^http:/,
+        "https:"
+      );
+
+    const rosterRes =
+      await fetch(rosterUrl);
+
+    if (!rosterRes.ok) {
+      return null;
+    }
+
+    const rosterData =
+      await rosterRes.json();
+
+    const starterIds =
+      (rosterData?.entries || [])
+        .filter(entry =>
+          entry?.starter === true &&
+          entry?.didNotPlay !== true
+        )
+        .map(entry =>
+          String(
+            entry?.playerId ||
+            entry?.athlete?.id ||
+            ""
+          )
+        )
+        .filter(Boolean);
+
+    return starterIds;
+
+  } catch {
+    return null;
+  }
+}
 async function getInjuryAdjustmentNCAAF(
   teamName,
   teamRef,
@@ -3789,143 +3888,29 @@ async function getInjuryAdjustmentNCAAF(
   teamGames = []
 ) {
   try {
-    const latestGameId =
-  Array.isArray(teamGames)
-    ? teamGames.find(g => g?.id)?.id
-    : null;
+   const [injuries, starterIds] =
+  await Promise.all([
+    getNFLTeamInjuriesList(
+      teamName,
+      "ncaaf"
+    ),
 
-if (latestGameId) {
-  try {
-    let resolvedTeamId =
-      /^\d+$/.test(
-        String(teamRef?.id || "")
-      )
-        ? String(teamRef.id)
-        : null;
-
-    if (!resolvedTeamId) {
-      const resolved =
-        await findNCAAFTeamIdDynamic(
-          teamRef?.id
-        );
-
-      resolvedTeamId =
-        resolved?.id
-          ? String(resolved.id)
-          : null;
-    }
-
-    if (resolvedTeamId) {
-      const competitorUrl =
-        `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football` +
-        `/events/${latestGameId}` +
-        `/competitions/${latestGameId}` +
-        `/competitors/${resolvedTeamId}`;
-
-      const competitorRes =
-        await fetch(competitorUrl);
-
-      if (competitorRes.ok) {
-        const competitorData =
-          await competitorRes.json();
-
-       const rosterRef =
-  competitorData?.roster?.$ref;
-
-if (rosterRef) {
-  const rosterUrl =
-    rosterRef.replace(
-      /^http:/,
-      "https:"
-    );
-
-  const rosterRes =
-    await fetch(rosterUrl);
-
-  if (rosterRes.ok) {
-    const rosterData =
-      await rosterRes.json();
-
-   const starterDebug =
-  (rosterData?.entries || [])
-    .filter(entry =>
-      entry?.starter === true &&
-      entry?.didNotPlay !== true
+    getNCAAFStarterIdsFromLastGame(
+      teamRef,
+      teamGames
     )
-    .map(entry => ({
-      id:
-        String(
-          entry?.playerId ||
-          entry?.athlete?.id ||
-          ""
-        ),
-
-      name:
-        entry?.displayName ||
-        entry?.athlete?.displayName ||
-        "",
-
-      position:
-        entry?.position?.abbreviation ||
-        entry?.position?.name ||
-        entry?.position?.displayName ||
-        entry?.position
-    }));
-
-console.log(
-  "NCAAF GAME STARTERS:",
-  JSON.stringify(starterDebug)
-);
-  } else {
-    console.log(
-      "NCAAF GAME ROSTER HTTP ERROR:",
-      latestGameId,
-      resolvedTeamId,
-      rosterRes.status
-    );
-  }
-}
-      } else {
-        console.log(
-          "NCAAF COMPETITOR HTTP ERROR:",
-          latestGameId,
-          resolvedTeamId,
-          competitorRes.status
-        );
-      }
-    }
-  } catch (error) {
-    console.log(
-      "NCAAF COMPETITOR ERROR:",
-      latestGameId,
-      error?.message
-    );
-  }
-}
-    const [injuries, starters] =
-      await Promise.all([
-        getNFLTeamInjuriesList(
-          teamName,
-          "ncaaf"
-        ),
-
-        getFootballStarters(
-          teamRef,
-          "ncaaf",
-          season
-        )
-      ]);
+  ]);
 
 
     // Sin depth chart confiable no inventamos lesiones.
-    if (!starters) {
-      return {
-        pointsImpact: 0,
-        players: [],
-        note:
-          "NCAAF starters unavailable."
-      };
-    }
+   if (!Array.isArray(starterIds)) {
+  return {
+    pointsImpact: 0,
+    players: [],
+    note:
+      "NCAAF starters unavailable."
+  };
+}
 
 
     let totalImpact = 0;
@@ -3953,22 +3938,13 @@ console.log(
       // SOLO TITULARES CONFIRMADOS
       // ======================================================
 
-      const starterIds =
-        Array.isArray(
-          starters?.[pos]
-        )
-          ? starters[pos].map(String)
-          : [];
-
-
-      if (
-        !starterIds.includes(
-          String(player.athleteId)
-        )
-      ) {
-        continue;
-      }
-
+     if (
+  !starterIds.includes(
+    String(player.athleteId)
+  )
+) {
+  continue;
+}
 
       // Lesión ya resuelta.
       if (
@@ -12431,16 +12407,35 @@ if (type === "ncaaf") {
 }
 
 const injuryAdjA =
-  type === "nfl" &&
-  NFL_INJURY_ACTIVE
-    ? teamAInjuries.pointsImpact
-    : 0;
+  type === "nfl"
+    ? (
+        NFL_INJURY_ACTIVE
+          ? teamAInjuries.pointsImpact
+          : 0
+      )
+    : type === "ncaaf"
+      ? (
+          NCAAF_INJURY_ACTIVE
+            ? teamAInjuries.pointsImpact
+            : 0
+        )
+      : 0;
+
 
 const injuryAdjB =
-  type === "nfl" &&
-  NFL_INJURY_ACTIVE
-    ? teamBInjuries.pointsImpact
-    : 0;
+  type === "nfl"
+    ? (
+        NFL_INJURY_ACTIVE
+          ? teamBInjuries.pointsImpact
+          : 0
+      )
+    : type === "ncaaf"
+      ? (
+          NCAAF_INJURY_ACTIVE
+            ? teamBInjuries.pointsImpact
+            : 0
+        )
+      : 0;
 
 const projectedTeamAInj =
   round(projectedTeamA + injuryAdjA);
