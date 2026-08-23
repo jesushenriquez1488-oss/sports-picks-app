@@ -4208,7 +4208,12 @@ if (
 
     const data =
       await res.json();
-
+if (type === "ncaaf") {
+  console.log(
+    "NCAAF DEPTH RAW:",
+    JSON.stringify(data).slice(0, 6000)
+  );
+}
   const formations =
   data?.depthCharts ||
   data?.items ||
