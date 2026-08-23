@@ -4209,10 +4209,15 @@ if (
     const data =
       await res.json();
 
-    for (
-      const formation of
-      data?.items || []
-    ) {
+  const formations =
+  data?.depthCharts ||
+  data?.items ||
+  [];
+
+for (
+  const formation of
+  formations
+) {
       const positions =
         formation?.positions || {};
 
@@ -4242,18 +4247,25 @@ if (
             continue;
           }
 
-          const ref =
-            entry?.athlete?.$ref || "";
+          const directId =
+  entry?.athlete?.id;
 
-          const match =
-            ref.match(
-              /athletes\/(\d+)/
-            );
+const ref =
+  entry?.athlete?.$ref || "";
 
-          if (!match) continue;
+const match =
+  ref.match(
+    /athletes\/(\d+)/
+  );
 
-          const athleteId =
-            String(match[1]);
+const athleteId =
+  String(
+    directId ||
+    match?.[1] ||
+    ""
+  );
+
+if (!athleteId) continue;
 
           if (
             !starters[
