@@ -658,9 +658,10 @@ function buildTeamGamesFromSeason(allGames, teamRef) {
       game.date
     );
 
-    return {
-      date: game.date,
-      week: game.week,
+   return {
+  id: game.id,
+  date: game.date,
+  week: game.week,
       opponent: game.opponentName,
       opponentId: game.opponentId,
       teamPoints: game.teamPoints,
