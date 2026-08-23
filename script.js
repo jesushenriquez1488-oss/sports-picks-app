@@ -2376,7 +2376,10 @@ async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, out
     if (!response.ok) {
       throw new Error(data.error || "Error analyzing MLB");
     }
-if (data.noPlay) {
+if (
+  data.noPlay &&
+  data.premiumFrozen !== true
+) {
   resultDiv.innerHTML = `
     <div class="prediction-card">
       <h2>⏳ MLB analysis not available</h2>
