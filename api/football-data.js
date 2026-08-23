@@ -11099,9 +11099,9 @@ if (type === "ncaaf") {
         finalProjection:
           round(
             Math.max(
-              MIN_PROJECTION,
-              (aVia1 + aVia2) / 2
-            )
+  0,
+  (aVia1 + aVia2) / 2
+)
           ),
 
         via1: round(aVia1),
@@ -11111,10 +11111,10 @@ if (type === "ncaaf") {
       teamBProjection = {
         finalProjection:
           round(
-            Math.max(
-              MIN_PROJECTION,
-              (bVia1 + bVia2) / 2
-            )
+           Math.max(
+  0,
+  (bVia1 + bVia2) / 2
+)
           ),
 
         via1: round(bVia1),
