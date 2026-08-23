@@ -275,21 +275,61 @@ async function findNCAAFTeamIdDynamic(teamName) {
     const groups = data?.sports?.[0]?.leagues?.[0]?.teams || [];
     const clean = cleanText(teamName);
 
-    const match = groups.find(t => {
+  let match =
+  groups.find(t => {
+    const team = t.team || {};
+
+    const displayName =
+      cleanText(team.displayName || "");
+
+    const shortName =
+      cleanText(team.shortDisplayName || "");
+
+    const location =
+      cleanText(team.location || "");
+
+    const nickname =
+      cleanText(team.name || "");
+
+    const abbreviation =
+      cleanText(team.abbreviation || "");
+
+    return (
+      displayName === clean ||
+      shortName === clean ||
+      abbreviation === clean ||
+      `${location} ${nickname}` === clean
+    );
+  });
+
+
+// Fallback controlado:
+// permitimos coincidencia por ubicación,
+// pero NUNCA por nickname solo.
+if (!match) {
+  match =
+    groups.find(t => {
       const team = t.team || {};
-      const displayName = cleanText(team.displayName || "");
-      const shortName = cleanText(team.shortDisplayName || "");
-      const location = cleanText(team.location || "");
-      const nickname = cleanText(team.name || "");
+
+      const displayName =
+        cleanText(team.displayName || "");
+
+      const location =
+        cleanText(team.location || "");
 
       return (
-        displayName === clean || shortName === clean ||
-        clean === location ||
-        (clean.includes(location) && location.length > 2) ||
-        (clean.includes(nickname) && nickname.length > 2) ||
-        displayName.includes(clean) || clean.includes(displayName)
+        displayName &&
+        (
+          displayName.includes(clean) ||
+          clean.includes(displayName)
+        )
+      ) ||
+      (
+        location.length > 3 &&
+        clean.includes(location)
       );
     });
+}
 
     if (match?.team?.id) {
       const result = {
