@@ -4267,12 +4267,19 @@ if (
         }
       }
     }
-console.log("FOOTBALL STARTERS DEBUG:", {
-  type,
-  season,
-  teamId: teamRef.id,
-  starters
-});
+console.log(
+  "FOOTBALL STARTERS DEBUG:",
+  JSON.stringify(
+    {
+      type,
+      season,
+      teamId: teamRef.id,
+      starters
+    },
+    null,
+    2
+  )
+);
     footballStartersCache[
       cacheKey
     ] = starters;
