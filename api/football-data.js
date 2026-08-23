@@ -3521,6 +3521,473 @@ const NFL_POS_LEAGUE_AVG = {
 const NFL_POS_MULTIPLIER = { QB: 1.5, RB: 0.8, WR: 0.7, TE: 0.7, DEFAULT: 0.5 };
 const NFL_DEF_CROSSOVER  = { QB: 0.35, RB: 0.15, WR: 0.10, TE: 0.10, DEFAULT: 0.05 };
 const NFL_MAX_TEAM_INJURY_IMPACT = 10;
+// ============================================================
+// NCAAF INJURY MODEL — CONFIG
+// ============================================================
+
+const NCAAF_INJURY_ACTIVE = false;
+
+// Probabilidad/peso real de que la lesión afecte el juego.
+function getNCAAFInjuryStatusWeight(status) {
+  const s =
+    String(status || "")
+      .toLowerCase();
+
+  if (
+    s.includes("out") ||
+    s.includes("injured reserve")
+  ) {
+    return 1.00;
+  }
+
+  if (s.includes("doubtful")) {
+    return 0.75;
+  }
+
+  if (s.includes("questionable")) {
+    return 0.35;
+  }
+
+  if (
+    s.includes("day-to-day") ||
+    s.includes("day to day")
+  ) {
+    return 0.20;
+  }
+
+  // Probable, active, healthy, etc.
+  return 0;
+}
+function getNCAAFInjuryAbsenceWeight(
+  player,
+  teamGames = []
+) {
+  if (!player?.startDate) {
+    return 1;
+  }
+
+  const injuryStart =
+    new Date(player.startDate).getTime();
+
+  if (!Number.isFinite(injuryStart)) {
+    return 1;
+  }
+
+  const now = Date.now();
+
+  const gamesSinceInjury =
+    Array.isArray(teamGames)
+      ? teamGames.filter(game => {
+          const gameDate =
+            new Date(
+              game?.date || 0
+            ).getTime();
+
+          return (
+            Number.isFinite(gameDate) &&
+            gameDate >= injuryStart &&
+            gameDate <= now
+          );
+        }).length
+      : 0;
+
+  // Lesión nueva:
+  // el modelo todavía no la ha absorbido.
+  if (gamesSinceInjury === 0) {
+    return 1;
+  }
+
+  // Ya existe un partido reciente sin él:
+  // reducimos el ajuste a la mitad.
+  if (gamesSinceInjury === 1) {
+    return 0.5;
+  }
+
+  // Con 2+ juegos sin el jugador,
+  // los Edge recientes ya reflejan su ausencia.
+  return 0;
+}
+// ============================================================
+// NCAAF STARTER OFFENSIVE VALUE
+// ============================================================
+
+const NCAAF_POSITION_BASE_IMPACT = {
+ QB: 9.0,
+  RB: 2.2,
+  WR: 2.0,
+  TE: 1.4
+};
+// Protección contra acumulaciones absurdas de múltiples lesiones.
+// Permite que un QB élite pueda valer 12–14 puntos
+// y todavía coexistir con otra lesión importante.
+const NCAAF_MAX_TEAM_INJURY_IMPACT = 18;
+
+function calcNCAAFStarterProductionScore(
+  pos,
+  stats
+) {
+  if (!stats) {
+    return 0;
+  }
+
+  const passYds =
+    Number(stats.passYdsPG || 0);
+
+  const rushYds =
+    Number(stats.rushYdsPG || 0);
+
+  const recYds =
+    Number(stats.recYdsPG || 0);
+
+  const passTD =
+    Number(stats.passTDPG || 0);
+
+  const rushTD =
+    Number(stats.rushTDPG || 0);
+
+  const recTD =
+    Number(stats.recTDPG || 0);
+
+
+  let score = 0;
+
+
+  if (pos === "QB") {
+    const totalYds =
+      passYds + rushYds;
+
+    const totalTD =
+      passTD + rushTD;
+
+    score =
+      (totalYds / 275) * 0.60 +
+      (totalTD / 2.2) * 0.40;
+  }
+
+
+  else if (pos === "RB") {
+    const totalYds =
+      rushYds + recYds;
+
+    const totalTD =
+      rushTD + recTD;
+
+    score =
+      (totalYds / 100) * 0.65 +
+      (totalTD / 0.8) * 0.35;
+  }
+
+
+  else if (pos === "WR") {
+    score =
+      (recYds / 75) * 0.70 +
+      (recTD / 0.6) * 0.30;
+  }
+
+
+  else if (pos === "TE") {
+    score =
+      (recYds / 55) * 0.70 +
+      (recTD / 0.5) * 0.30;
+  }
+
+
+  if (!Number.isFinite(score)) {
+    return 0;
+  }
+
+  // Aunque sea titular, si prácticamente
+  // no produce ofensivamente, no inventamos impacto.
+  if (score < 0.25) {
+    return 0;
+  }
+
+  return Math.max(
+    0.35,
+    Math.min(1.6, score)
+  );
+}
+
+
+function getNCAAFStarterBaseImpact(
+  pos,
+  stats
+) {
+  const base =
+    NCAAF_POSITION_BASE_IMPACT[pos];
+
+  if (!base) {
+    return 0;
+  }
+
+  const productionScore =
+    calcNCAAFStarterProductionScore(
+      pos,
+      stats
+    );
+
+  if (productionScore <= 0) {
+    return 0;
+  }
+
+  return (
+    base *
+    productionScore
+  );
+}
+// ============================================================
+// NCAAF INJURY ADJUSTMENT
+// SOLO TITULARES QB / RB / WR / TE
+// ============================================================
+
+async function getInjuryAdjustmentNCAAF(
+  teamName,
+  teamRef,
+  season,
+  teamGames = []
+) {
+  try {
+    const [injuries, starters] =
+      await Promise.all([
+        getNFLTeamInjuriesList(
+          teamName,
+          "ncaaf"
+        ),
+
+        getFootballStarters(
+          teamRef,
+          "ncaaf",
+          season
+        )
+      ]);
+
+
+    // Sin depth chart confiable no inventamos lesiones.
+    if (!starters) {
+      return {
+        pointsImpact: 0,
+        players: [],
+        note:
+          "NCAAF starters unavailable."
+      };
+    }
+
+
+    let totalImpact = 0;
+    const counted = [];
+
+
+    for (const player of injuries) {
+
+      const pos =
+        normalizeNFLPosition(
+          player.position
+        );
+
+
+      // Solo QB / RB / WR / TE.
+      if (
+        !["QB", "RB", "WR", "TE"]
+          .includes(pos)
+      ) {
+        continue;
+      }
+
+
+      // ======================================================
+      // SOLO TITULARES CONFIRMADOS
+      // ======================================================
+
+      const starterIds =
+        Array.isArray(
+          starters?.[pos]
+        )
+          ? starters[pos].map(String)
+          : [];
+
+
+      if (
+        !starterIds.includes(
+          String(player.athleteId)
+        )
+      ) {
+        continue;
+      }
+
+
+      // Lesión ya resuelta.
+      if (
+        player.returnDate &&
+        new Date(
+          player.returnDate
+        ).getTime() < Date.now()
+      ) {
+        continue;
+      }
+
+
+      // ======================================================
+      // ESTADO DE LA LESIÓN
+      // ======================================================
+
+      const statusWeight =
+        getNCAAFInjuryStatusWeight(
+          player.status
+        );
+
+
+      if (statusWeight <= 0) {
+        continue;
+      }
+
+
+      // ======================================================
+      // CUÁNTO DE LA AUSENCIA YA ESTÁ EN LOS EDGES
+      // ======================================================
+
+      const absenceWeight =
+        getNCAAFInjuryAbsenceWeight(
+          player,
+          teamGames
+        );
+
+
+      if (absenceWeight <= 0) {
+        continue;
+      }
+
+
+      // ======================================================
+      // VALOR REAL DEL TITULAR SEGÚN SU PRODUCCIÓN
+      // ======================================================
+
+      const stats =
+        await getNFLPlayerSeasonStats(
+          player.athleteId,
+          "ncaaf",
+          season
+        );
+
+
+      const baseImpact =
+        getNCAAFStarterBaseImpact(
+          pos,
+          stats
+        );
+
+
+      if (baseImpact <= 0) {
+        continue;
+      }
+
+
+      // ======================================================
+      // IMPACTO FINAL
+      // ======================================================
+
+      const playerImpact =
+        baseImpact *
+        statusWeight *
+        absenceWeight;
+
+
+      if (
+        !Number.isFinite(playerImpact) ||
+        playerImpact <= 0
+      ) {
+        continue;
+      }
+
+
+      totalImpact +=
+        playerImpact;
+
+
+      counted.push({
+        name:
+          player.name ||
+          "Unknown",
+
+        position: pos,
+
+        status:
+          player.status ||
+          "Unknown",
+
+        baseImpact:
+          round(
+            baseImpact,
+            2
+          ),
+
+        statusWeight:
+          round(
+            statusWeight,
+            2
+          ),
+
+        absenceWeight:
+          round(
+            absenceWeight,
+            2
+          ),
+
+        finalImpact:
+          round(
+            playerImpact,
+            2
+          )
+      });
+    }
+
+
+    totalImpact =
+      Math.min(
+        totalImpact,
+        NCAAF_MAX_TEAM_INJURY_IMPACT
+      );
+
+
+    return {
+      pointsImpact:
+        round(
+          -totalImpact,
+          2
+        ),
+
+      players:
+        counted,
+
+      note:
+        counted.length
+          ? counted
+              .map(
+                p =>
+                  `${p.name} (${p.position}, ${p.status}, -${p.finalImpact})`
+              )
+              .join(", ")
+          : "No key NCAAF starter injuries reported."
+    };
+
+
+  } catch (error) {
+
+    console.log(
+      "NCAAF INJURY ERROR:",
+      teamName,
+      error?.message
+    );
+
+
+    return {
+      pointsImpact: 0,
+      players: [],
+      note:
+        "NCAAF injury data unavailable."
+    };
+  }
+}
+
 
 function getNFLPesoStatus(status) {
   const s = String(status || "").toLowerCase();
@@ -3608,43 +4075,198 @@ async function getNFLTeamInjuriesList(teamName, type) {
     return [];
   }
 }
-// Cache de QB1 por equipo
-const nflQB1Cache = global.__NFL_QB1_CACHE__ || {};
-global.__NFL_QB1_CACHE__ = nflQB1Cache;
+// ============================================================
+// FOOTBALL STARTERS — NFL + NCAAF
+// ============================================================
 
-// Devuelve el athleteId del QB titular según el depth chart de ESPN (null si no se pudo)
-async function getNFLStarterQBId(teamRef, type, season) {
+const footballStartersCache =
+  global.__FOOTBALL_STARTERS_CACHE__ || {};
+
+global.__FOOTBALL_STARTERS_CACHE__ =
+  footballStartersCache;
+
+
+function normalizeFootballDepthPosition(
+  key,
+  group
+) {
+  const raw = String(
+    group?.position?.abbreviation ||
+    group?.position?.name ||
+    group?.abbreviation ||
+    key ||
+    ""
+  )
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "");
+
+  if (raw.startsWith("QB")) {
+    return "QB";
+  }
+
+  if (
+    raw.startsWith("RB") ||
+    raw === "HB" ||
+    raw === "FB"
+  ) {
+    return "RB";
+  }
+
+  if (raw.startsWith("WR")) {
+    return "WR";
+  }
+
+  if (raw.startsWith("TE")) {
+    return "TE";
+  }
+
+  return null;
+}
+
+
+async function getFootballStarters(
+  teamRef,
+  type,
+  season
+) {
   if (!teamRef?.id) return null;
-  const cacheKey = `${type}-${season}-${teamRef.id}`;
-  if (nflQB1Cache[cacheKey] !== undefined) return nflQB1Cache[cacheKey];
 
-  const leaguePath = type === "ncaaf" ? "college-football" : "nfl";
+  const cacheKey =
+    `${type}-${season}-${teamRef.id}`;
+
+  if (
+    footballStartersCache[cacheKey] !==
+    undefined
+  ) {
+    return footballStartersCache[
+      cacheKey
+    ];
+  }
+
+  const leaguePath =
+    type === "ncaaf"
+      ? "college-football"
+      : "nfl";
+
+  const starters = {
+    QB: [],
+    RB: [],
+    WR: [],
+    TE: []
+  };
 
   try {
-    const url = `https://sports.core.api.espn.com/v2/sports/football/leagues/${leaguePath}/seasons/${season}/teams/${teamRef.id}/depthcharts`;
-    const res = await fetch(url);
-    if (!res.ok) { nflQB1Cache[cacheKey] = null; return null; }
-    const data = await res.json();
+    const url =
+      `https://sports.core.api.espn.com/v2/sports/football/leagues/${leaguePath}` +
+      `/seasons/${season}/teams/${teamRef.id}/depthcharts`;
 
-    for (const formation of data?.items || []) {
-      const qbGroup = formation?.positions?.qb;
-      if (!qbGroup?.athletes?.length) continue;
+    const res =
+      await fetch(url);
 
-      const starter = qbGroup.athletes.find(a => Number(a.rank) === 1);
-      const ref = starter?.athlete?.$ref || "";
-      const match = ref.match(/athletes\/(\d+)/);
-      if (match) {
-        nflQB1Cache[cacheKey] = match[1];
-        return match[1];
+    if (!res.ok) {
+      footballStartersCache[
+        cacheKey
+      ] = null;
+
+      return null;
+    }
+
+    const data =
+      await res.json();
+
+    for (
+      const formation of
+      data?.items || []
+    ) {
+      const positions =
+        formation?.positions || {};
+
+      for (
+        const [key, group] of
+        Object.entries(positions)
+      ) {
+        const position =
+          normalizeFootballDepthPosition(
+            key,
+            group
+          );
+
+        if (!position) continue;
+
+        const athletes =
+          Array.isArray(group?.athletes)
+            ? group.athletes
+            : [];
+
+        for (
+          const entry of athletes
+        ) {
+          if (
+            Number(entry?.rank) !== 1
+          ) {
+            continue;
+          }
+
+          const ref =
+            entry?.athlete?.$ref || "";
+
+          const match =
+            ref.match(
+              /athletes\/(\d+)/
+            );
+
+          if (!match) continue;
+
+          const athleteId =
+            String(match[1]);
+
+          if (
+            !starters[
+              position
+            ].includes(athleteId)
+          ) {
+            starters[
+              position
+            ].push(athleteId);
+          }
+        }
       }
     }
 
-    nflQB1Cache[cacheKey] = null;
-    return null;
+    footballStartersCache[
+      cacheKey
+    ] = starters;
+
+    return starters;
+
   } catch {
-    nflQB1Cache[cacheKey] = null;
+    footballStartersCache[
+      cacheKey
+    ] = null;
+
     return null;
   }
+}
+
+
+// Mantener compatibilidad con el código NFL actual.
+// Más adelante lo quitaremos cuando todo use getFootballStarters().
+async function getNFLStarterQBId(
+  teamRef,
+  type,
+  season
+) {
+  const starters =
+    await getFootballStarters(
+      teamRef,
+      type,
+      season
+    );
+
+  return (
+    starters?.QB?.[0] ||
+    null
+  );
 }
 async function getInjuryAdjustmentNFL(
   teamName,
@@ -3654,10 +4276,10 @@ async function getInjuryAdjustmentNFL(
   teamGames = []
 ) {
   try {
-    const [injuries, starterQBId] = await Promise.all([
-      getNFLTeamInjuriesList(teamName, type),
-      getNFLStarterQBId(teamRef, type, season)
-    ]);
+    const [injuries, starters] = await Promise.all([
+  getNFLTeamInjuriesList(teamName, type),
+  getFootballStarters(teamRef, type, season)
+]);
     let totalImpact = 0;
     const counted = [];
 
@@ -3711,8 +4333,21 @@ async function getInjuryAdjustmentNFL(
       const pos = normalizeNFLPosition(player.position);
        // Solo posiciones con impacto medible cuentan (QB/RB/WR/TE)
       if (!NFL_POS_LEAGUE_AVG[pos]) continue;
-      // QB: solo el titular del depth chart cuenta — el backup no juega
-      if (pos === "QB" && starterQBId && String(player.athleteId) !== String(starterQBId)) continue;
+      // Solo titulares confirmados pueden afectar la proyección.
+// Si ESPN no confirma al jugador como titular, impacto = 0.
+const starterIds =
+  Array.isArray(starters?.[pos])
+    ? starters[pos].map(String)
+    : [];
+
+if (
+  !starterIds.length ||
+  !starterIds.includes(
+    String(player.athleteId)
+  )
+) {
+  continue;
+}
       const mult = NFL_POS_MULTIPLIER[pos] ?? NFL_POS_MULTIPLIER.DEFAULT;
       const cross = NFL_DEF_CROSSOVER[pos] ?? NFL_DEF_CROSSOVER.DEFAULT;
 
@@ -11506,13 +12141,20 @@ const projectedTeamB =
 
 let teamAInjuries = {
   pointsImpact: 0,
-  note: "NCAAF injury model not applied."
+  players: [],
+  note: "No injury adjustment applied."
 };
 
 let teamBInjuries = {
   pointsImpact: 0,
-  note: "NCAAF injury model not applied."
+  players: [],
+  note: "No injury adjustment applied."
 };
+
+
+// ============================================================
+// NFL
+// ============================================================
 
 if (type === "nfl") {
   [teamAInjuries, teamBInjuries] =
@@ -11533,6 +12175,36 @@ if (type === "nfl") {
         teamBGames
       )
     ]);
+}
+
+
+// ============================================================
+// NCAAF
+// ============================================================
+
+if (type === "ncaaf") {
+  [teamAInjuries, teamBInjuries] =
+    await Promise.all([
+      getInjuryAdjustmentNCAAF(
+        teamA,
+        teamARef,
+        selectedSeason,
+        teamAGames
+      ),
+
+      getInjuryAdjustmentNCAAF(
+        teamB,
+        teamBRef,
+        selectedSeason,
+        teamBGames
+      )
+    ]);
+  console.log("NCAAF INJURY DEBUG:", {
+  teamA,
+  teamAInjuries,
+  teamB,
+  teamBInjuries
+});
 }
 
 const injuryAdjA =
