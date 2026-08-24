@@ -4276,27 +4276,30 @@ const homePitcherConfirmed =
   safeNumber(homePitcherStats.innings, 0) > 0;
 
 if (!awayPitcherConfirmed || !homePitcherConfirmed) {
+
+  console.log("MLB PITCHER DEBUG", {
+    gamePk: mlbData.gamePk,
+
+    away: {
+      pitcherId: mlbData.away?.pitcher?.id || null,
+      pitcherName: mlbData.away?.pitcher?.name || null,
+      stats: awayPitcherStats || null,
+      innings: awayPitcherStats?.innings || null
+    },
+
+    home: {
+      pitcherId: mlbData.home?.pitcher?.id || null,
+      pitcherName: mlbData.home?.pitcher?.name || null,
+      stats: homePitcherStats || null,
+      innings: homePitcherStats?.innings || null
+    }
+  });
+
   return res.status(200).json({
     locked: false,
     noPlay: true,
-    reason: "PITCHER DEBUG",
-    debug: {
-      gamePk: mlbData.gamePk,
-
-      away: {
-        pitcherId: mlbData.away?.pitcher?.id || null,
-        pitcherName: mlbData.away?.pitcher?.name || null,
-        stats: awayPitcherStats || null,
-        innings: awayPitcherStats?.innings || null
-      },
-
-      home: {
-        pitcherId: mlbData.home?.pitcher?.id || null,
-        pitcherName: mlbData.home?.pitcher?.name || null,
-        stats: homePitcherStats || null,
-        innings: homePitcherStats?.innings || null
-      }
-    }
+    reason:
+      "Waiting for confirmed starting pitchers and official lineups."
   });
 }
 
