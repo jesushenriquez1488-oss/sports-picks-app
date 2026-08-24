@@ -3191,13 +3191,12 @@ if (data.limitReached === true || data.upgradeRequired === true) {
 
   const cleanInjury = text => {
 
-    if (
+       if (
       !text ||
-      /no key injuries|injury data unavailable/i.test(text)
+      /^no key\b|injury data unavailable|starters unavailable/i.test(text)
     ) {
       return "No major impact";
     }
-
     return text;
   };
 
@@ -3633,19 +3632,18 @@ if (data.limitReached === true || data.upgradeRequired === true) {
 
   const cleanInjury = text => {
 
-    if (
+       if (
       !text ||
-      /injury data unavailable/i.test(text)
+      /injury data unavailable|starters unavailable/i.test(text)
     ) {
       return "No verified injury data";
     }
 
     if (
-      /no key injuries/i.test(text)
+      /^no key\b/i.test(text)
     ) {
       return "No major impact";
     }
-
     return text;
   };
 
