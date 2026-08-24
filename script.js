@@ -2809,7 +2809,8 @@ function generateNFLAnalysisText(data, awayTeam, homeTeam, bestPick) {
   const paceAdj = Number(pace.adjustment || 0);
   const hasPaceData = [aOff, bOff, aDef, bDef].some(v => v !== 1);
 
-  const edge = Number(bestPick?.edge || 0);
+    const edge = Number(bestPick?.edge || 0);
+  const isFlagged = bestPick?.isPremium === true;
   const isOver = bestPick?.isOver === true;
   const isUnder = bestPick?.isUnder === true;
   const isTotal = isOver || isUnder;
@@ -2982,19 +2983,35 @@ else if (isSpread && pickedInjNote) {
     risk = `Worth monitoring: the injury report lists ${[awayInjNote, homeInjNote].filter(Boolean).join(" and ")} — statuses can shift before kickoff.`;
   }
   // ---- Narrativa ----
-  const s = [];
-  s.push(v([
-    `The model flagged <strong>${pickStr}</strong> with a ${edge.toFixed(1)}-point edge over the market.`,
-    `<strong>${pickStr}</strong> cleared the model's threshold on a ${edge.toFixed(1)}-point edge vs the line.`,
-    `This game triggered the flag: <strong>${pickStr}</strong>, ${edge.toFixed(1)} points of separation from the market number.`
-  ]));
+    const s = [];
+  s.push(
+    isFlagged
+      ? v([
+          `The model flagged <strong>${pickStr}</strong> with a ${edge.toFixed(1)}-point edge over the market.`,
+          `<strong>${pickStr}</strong> cleared the model's threshold on a ${edge.toFixed(1)}-point edge vs the line.`,
+          `This game triggered the flag: <strong>${pickStr}</strong>, ${edge.toFixed(1)} points of separation from the market number.`
+        ])
+      : v([
+          `The model leans <strong>${pickStr}</strong> on a ${edge.toFixed(1)}-point edge — real separation, but short of the threshold required to flag a game.`,
+          `<strong>${pickStr}</strong> is where the numbers point, with ${edge.toFixed(1)} points of edge vs the line — below what the model demands to call it premium.`,
+          `The lean here is <strong>${pickStr}</strong>: ${edge.toFixed(1)} points of separation from the market, not enough to clear the premium bar.`
+        ])
+  );
   valid.forEach(a => s.push(a.text));
   if (risk) s.push(risk);
-  s.push(v([
-    `Stacked together, that's the read.`,
-    `That convergence is what put this play on the board.`,
-    `The model doesn't flag games without that alignment — this one had it.`
-  ]));
+  s.push(
+    isFlagged
+      ? v([
+          `Stacked together, that's the read.`,
+          `That convergence is what put this play on the board.`,
+          `The model doesn't flag games without that alignment — this one had it.`
+        ])
+      : v([
+          `Stacked together, that's the read — worth knowing, not worth flagging.`,
+          `The pieces lean the same way, just not far enough for the model to call it.`,
+          `The model needs more separation than this before it puts a game on the board.`
+        ])
+  );
 
   return s.join(" ");
 }
