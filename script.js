@@ -2838,10 +2838,13 @@ function generateNFLAnalysisText(data, awayTeam, homeTeam, bestPick) {
   const cushion = spreadLine !== null ? gap - Math.abs(spreadLine) : null;
 // Lesiones (informativas mientras el injury system esté en modo sombra)
   const injData = data.injuryImpact || {};
-  const injClean = n => {
-    const t = String(n || "").trim();
-    return /no key injuries|injury data unavailable/i.test(t) ? "" : t;
-  };
+ const injClean = n => {
+  const t = String(n || "").trim();
+  if (!t) return "";
+  return /^no key\b|no injuries reported|injury data unavailable|starters unavailable/i.test(t)
+    ? ""
+    : t;
+};
   const awayInjNote = injClean(injData[awayTeam]?.note);
   const homeInjNote = injClean(injData[homeTeam]?.note);
   const injActive = injData.active === true;
