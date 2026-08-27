@@ -4383,17 +4383,56 @@ function calculateExpectedRuns({
   opponentTeamAllowed,
   opponentStarterInnings
 }) {
-  const starterShare = getStarterShare(opponentStarterInnings, opponentPitcher);
+  const starterShare =
+    getStarterShare(
+      opponentStarterInnings,
+      opponentPitcher
+    );
+
   const bullpenShare = 1 - starterShare;
 
- const starterSegment =
-  offense * 0.60 +
-  opponentPitcher * 0.40;
+  // Fórmula original del abridor
+  const starterSegmentBase =
+    offense * 0.60 +
+    opponentPitcher * 0.40;
 
-const bullpenSegment =
-  offense * 0.75 +
-  opponentBullpen * 0.25;
- 
+  const starterInnings =
+    safeNumber(opponentStarterInnings, 0);
+
+  const pitcherScore =
+    safeNumber(opponentPitcher, 99);
+
+  /*
+   * SUPRESIÓN EXTRA DEL ABRIDOR
+   *
+   * Solo aplica si proyecta MÁS de 5 innings.
+   *
+   * >= 3.00       = normal
+   * 2.50 - 2.99   = -30%
+   * 2.00 - 2.49   = -50%
+   * < 2.00        = -70%
+   */
+  let starterSuppressionFactor = 1;
+
+  if (starterInnings > 5) {
+    if (pitcherScore < 2.00) {
+      starterSuppressionFactor = 0.30;
+    } else if (pitcherScore < 2.50) {
+      starterSuppressionFactor = 0.50;
+    } else if (pitcherScore < 3.00) {
+      starterSuppressionFactor = 0.70;
+    }
+  }
+
+  const starterSegment =
+    starterSegmentBase *
+    starterSuppressionFactor;
+
+  // Bullpen queda EXACTAMENTE igual
+  const bullpenSegment =
+    offense * 0.75 +
+    opponentBullpen * 0.25;
+
   const teamAllowedAdjustment =
     opponentTeamAllowed * 0.00001;
 
@@ -4406,12 +4445,23 @@ const bullpenSegment =
     expectedRuns,
     starterShare,
     bullpenShare,
+
+    starterSegmentBase,
     starterSegment,
+
+    starterSuppressionFactor,
+    starterSuppressionPercent:
+      Number(
+        (
+          (1 - starterSuppressionFactor) *
+          100
+        ).toFixed(1)
+      ),
+
     bullpenSegment,
     teamAllowedAdjustment
   };
 }
-
 const awayRunCalc = calculateExpectedRuns({
   offense: awayOffense,
   opponentPitcher: homePitcher,
