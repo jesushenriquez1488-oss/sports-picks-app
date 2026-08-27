@@ -4776,11 +4776,7 @@ confidence = clamp(confidence, 0, 99);
     isPremium:
   confidence >= 75 &&
   support >= 56 &&
-  (
-    direction === "OVER"
-  ? totalEdge >= 1.25
-  : totalEdge >= 1.75
-  )
+  totalEdge >= 1.40
       };
     }
 
