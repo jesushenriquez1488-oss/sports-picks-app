@@ -4924,12 +4924,12 @@ function edgeToPercent(edge, type = "ml") {
     break;
 
   case "over":
-  minEdge = 1.25;
+  minEdge = 1.40;
   maxEdge = 6.5;
   break;
 
 case "under":
-  minEdge = 1.75;
+  minEdge = 1.40;
   maxEdge = 6.5;
   break;
 
