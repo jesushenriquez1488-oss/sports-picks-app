@@ -1529,7 +1529,7 @@ const best = candidates
       .select("*")
       .eq("result", "pending")
       .eq("is_premium", true)
-      .in("sport", ["nba", "wnba", "ncaab"])
+     .in("sport", ["nba", "wnba", "ncaab", "nfl", "ncaaf"])
       .order("created_at", { ascending: false })
       .limit(100);
 
@@ -1541,7 +1541,12 @@ const best = candidates
 
     for (const pick of pendingPicks || []) {
       try {
-        const graded = await gradeBasketballPick(pick);
+        const pickSport = String(pick.sport || "").toLowerCase();
+
+const graded =
+  ["nfl", "ncaaf"].includes(pickSport)
+    ? await gradeFootballPick(pick)
+    : await gradeBasketballPick(pick);
 
         if (!graded || !graded.result) {
           results.push({
@@ -3089,6 +3094,203 @@ function isWnbaTeam(teamName) {
   ];
 
   return wnbaTeams.some(team => name.includes(team));
+}
+async function gradeFootballPick(pick) {
+  const sport = String(pick.sport || "").toLowerCase();
+
+  if (!["nfl", "ncaaf"].includes(sport)) {
+    return null;
+  }
+
+  const normalize = (value = "") =>
+    String(value)
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+
+  const baseDate = pick.game_date || pick.created_at;
+  const created = new Date(baseDate);
+
+  if (Number.isNaN(created.getTime())) {
+    return null;
+  }
+
+  const dates = [];
+
+  for (let i = 0; i <= 4; i++) {
+    const date = new Date(created);
+    date.setDate(date.getDate() + i);
+
+    dates.push(
+      date
+        .toISOString()
+        .split("T")[0]
+        .replaceAll("-", "")
+    );
+  }
+
+  const sportPath =
+    sport === "nfl"
+      ? "football/nfl"
+      : "football/college-football";
+
+  const groupQueries =
+    sport === "ncaaf"
+      ? [
+          "&groups=80&limit=500",
+          "&groups=81&limit=500"
+        ]
+      : ["&limit=100"];
+
+  for (const date of dates) {
+    for (const groupQuery of groupQueries) {
+      const url =
+        "https://site.api.espn.com/apis/site/v2/sports/" +
+        `${sportPath}/scoreboard?dates=${date}${groupQuery}`;
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        continue;
+      }
+
+      const data = await response.json();
+
+      const events = Array.isArray(data?.events)
+        ? data.events
+        : [];
+
+      for (const event of events) {
+        const competition =
+          event?.competitions?.[0];
+
+        const competitors =
+          competition?.competitors || [];
+
+        if (
+          !competition ||
+          competitors.length < 2
+        ) {
+          continue;
+        }
+
+        const status =
+          competition?.status?.type;
+
+        const completed =
+          status?.completed === true ||
+          status?.name === "STATUS_FINAL" ||
+          status?.state === "post";
+
+        if (!completed) {
+          continue;
+        }
+
+        const teams = competitors.map(
+          competitor => ({
+            name:
+              competitor?.team?.displayName ||
+              competitor?.team?.shortDisplayName ||
+              "",
+
+            shortName:
+              competitor?.team?.shortDisplayName ||
+              competitor?.team?.displayName ||
+              "",
+
+            location:
+              competitor?.team?.location || "",
+
+            score:
+              Number(competitor?.score),
+
+            homeAway:
+              competitor?.homeAway
+          })
+        );
+
+        if (
+          teams.some(
+            team =>
+              !Number.isFinite(team.score)
+          )
+        ) {
+          continue;
+        }
+
+        const matchesTeam = (
+          team,
+          expectedName
+        ) => {
+          const expected =
+            normalize(expectedName);
+
+          if (!expected) {
+            return false;
+          }
+
+          const aliases = [
+            team.name,
+            team.shortName,
+            team.location
+          ]
+            .map(normalize)
+            .filter(Boolean);
+
+          return aliases.some(
+            alias =>
+              alias === expected ||
+              alias.includes(expected) ||
+              expected.includes(alias)
+          );
+        };
+
+        const gameHasAway =
+          teams.some(team =>
+            matchesTeam(
+              team,
+              pick.away_team
+            )
+          );
+
+        const gameHasHome =
+          teams.some(team =>
+            matchesTeam(
+              team,
+              pick.home_team
+            )
+          );
+
+        if (
+          !gameHasAway ||
+          !gameHasHome
+        ) {
+          continue;
+        }
+
+        const home = teams.find(
+          team =>
+            team.homeAway === "home"
+        );
+
+        const away = teams.find(
+          team =>
+            team.homeAway === "away"
+        );
+
+        if (!home || !away) {
+          continue;
+        }
+
+        return calculateBasketballResult({
+          pick,
+          home,
+          away
+        });
+      }
+    }
+  }
+
+  return null;
 }
 async function gradeBasketballPick(pick) {
   const sport = String(pick.sport || "").toLowerCase();
