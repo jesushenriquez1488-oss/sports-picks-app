@@ -12549,6 +12549,18 @@ const fullResponse = {
     baseProjectedTotal,
   fpiAdjustment: fpiAdj,
     sinAjuste: { [teamA]: rawA, [teamB]: rawB },
+  modelAudit: type === "ncaaf"
+  ? {
+      [teamA]: {
+        edges: teamAEdges,
+        games: teamAGames
+      },
+      [teamB]: {
+        edges: teamBEdges,
+        games: teamBGames
+      }
+    }
+  : null,
     paceEfficiencyAdjustment: paceModule,
     injuryImpact: {
       active: NFL_INJURY_ACTIVE,
