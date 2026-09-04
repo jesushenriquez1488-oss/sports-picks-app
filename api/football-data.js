@@ -12628,10 +12628,10 @@ const gameNotStarted = !odds?.commenceTime || new Date(odds.commenceTime).getTim
 
     if (bestPick.pick.includes(teamA)) {
       pickTeam = teamA;
-      pickLine = Number(odds?.teamASpread || odds?.awaySpread || 0);
+     pickLine = Number(odds?.spreadLineA ?? 0);
     } else if (bestPick.pick.includes(teamB)) {
       pickTeam = teamB;
-      pickLine = Number(odds?.teamBSpread || odds?.homeSpread || 0);
+     pickLine = Number(odds?.spreadLineB ?? 0);
     }
   }
 
