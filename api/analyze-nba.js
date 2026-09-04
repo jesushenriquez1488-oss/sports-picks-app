@@ -3389,7 +3389,7 @@ function calculateBasketballResult({ pick, home, away }) {
   const pickType = String(pick.pick_type || "").toLowerCase();
   const line = Number(pick.line);
 
-const line = Number(pick.line);
+
 
 if (!Number.isFinite(line)) return null;
   const finalScore = `${away.name} ${away.score} - ${home.name} ${home.score}`;
