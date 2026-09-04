@@ -2275,15 +2275,14 @@ function calculateFootballEdges(games = []) {
   const gamesForCalc = usableGames.length ? usableGames : recentGames;
 
   // Edge ofensivo: anoté MÁS de lo que suelen permitir -> positivo = ofensiva buena
-  const offensiveEdges = gamesForCalc.map(
-    (g) => Number(g.teamPoints) - Number(g.opponentAvgPointsAllowed)
-  );
-
+const offensiveEdges = usableGames.map(
+  (g) => Number(g.teamPoints) - Number(g.opponentAvgPointsAllowed)
+);
   // Edge defensivo: permití MÁS de lo que suelen anotar -> positivo = defensa MALA
   // (INVERTIDO respecto a la versión anterior del archivo)
-  const defensiveEdges = gamesForCalc.map(
-    (g) => Number(g.pointsAllowed) - Number(g.opponentAvgPointsScored)
-  );
+ const defensiveEdges = usableGames.map(
+  (g) => Number(g.pointsAllowed) - Number(g.opponentAvgPointsScored)
+);
 
   return {
     gamesUsed: gamesForCalc.length,
@@ -12617,8 +12616,28 @@ await supabaseAdmin
     }
   );
 
-const gameNotStarted = !odds?.commenceTime || new Date(odds.commenceTime).getTime() > Date.now();
-  if (isPremiumPick && bestPick && gameNotStarted) {
+const gameNotStarted =
+  !odds?.commenceTime ||
+  new Date(odds.commenceTime).getTime() > Date.now();
+
+// Siempre eliminar la versión pendiente anterior antes de guardar
+// el resultado actual del análisis.
+if (gameNotStarted) {
+  const { error: deletePendingError } = await supabaseAdmin
+    .from("picks_history")
+    .delete()
+    .eq("sport", type)
+    .eq("game_id", gameId)
+    .eq("result", "pending");
+
+  if (deletePendingError) {
+    throw new Error(
+      `No se pudo limpiar el pick pendiente: ${deletePendingError.message}`
+    );
+  }
+}
+
+if (isPremiumPick && bestPick && gameNotStarted) {
   const normalizedPick = String(bestPick.pick || "").toLowerCase();
 
   let pickType = "spread";
@@ -12647,13 +12666,7 @@ const gameNotStarted = !odds?.commenceTime || new Date(odds.commenceTime).getTim
     }
   }
 
-  await supabaseAdmin
-    .from("picks_history")
-    .delete()
-    .eq("sport", type)
-    .eq("game_id", gameId)
-    .eq("result", "pending");
-
+ 
   await supabaseAdmin
     .from("picks_history")
     .insert({
