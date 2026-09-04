@@ -3389,7 +3389,20 @@ function calculateBasketballResult({ pick, home, away }) {
   const pickType = String(pick.pick_type || "").toLowerCase();
   const line = Number(pick.line);
 
-  if (!Number.isFinite(line)) return null;
+let line = Number(pick.line);
+
+// En spreads, la selección visible es la fuente definitiva de la línea.
+// Esto también corrige registros antiguos guardados incorrectamente con line = 0.
+if (pickType === "spread") {
+  const spreadMatch = String(pick.pick || "")
+    .match(/([+-]\d+(?:\.\d+)?)\s*$/);
+
+  if (spreadMatch) {
+    line = Number(spreadMatch[1]);
+  }
+}
+
+if (!Number.isFinite(line)) return null;
 
   const finalScore = `${away.name} ${away.score} - ${home.name} ${home.score}`;
 
