@@ -3008,14 +3008,13 @@ function projectFootballTeamFPI(team, opponent, alpha = SOS_ALPHA, beta = CONSEN
 function oddsTeamMatches(oddsName, teamRef) {
   const cleanOddsName = cleanText(oddsName);
 
-  return teamRef.keys.some((key) => {
-    const cleanKey = cleanText(key);
-    return (
-      cleanOddsName === cleanKey ||
-      cleanOddsName.includes(cleanKey) ||
-      cleanKey.includes(cleanOddsName)
-    );
-  });
+  if (!cleanOddsName || !Array.isArray(teamRef?.keys)) {
+    return false;
+  }
+
+  return teamRef.keys.some(
+    (key) => cleanText(key) === cleanOddsName
+  );
 }
 
 async function getFootballOdds(type, teamARef, teamBRef) {
