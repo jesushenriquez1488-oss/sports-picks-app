@@ -1,5 +1,5 @@
 const { createClient } = require("@supabase/supabase-js");
-
+const { randomUUID } = require("crypto");
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -668,7 +668,51 @@ module.exports = async function handler(req, res) {
     ];
 
     const results = [];
+let generationReport = null;
 
+const managedNcaaf =
+  req.query.managed === "true" &&
+  onlySport === "americanfootball_ncaaf";
+
+const rawRequestedLimit =
+  Number(req.query.limit || 4);
+
+const requestedLimit =
+  Number.isFinite(rawRequestedLimit)
+    ? Math.max(
+        1,
+        Math.floor(rawRequestedLimit)
+      )
+    : 4;
+
+// En modo administrado NCAAF nunca
+// dejamos que un batch pase de 4.
+const managedBatchSize =
+  Math.min(4, requestedLimit);
+
+
+function getGenerationGameId(game) {
+
+  if (game?.id) {
+    return String(game.id);
+  }
+
+  // Fallback estable por si alguna fuente
+  // llegara sin ID.
+  return [
+    game?.away_team ||
+      game?.awayTeam ||
+      "",
+
+    game?.home_team ||
+      game?.homeTeam ||
+      "",
+
+    game?.commence_time ||
+      game?.game_time ||
+      ""
+  ].join("|");
+}
     for (const job of jobs) {
       const url =
         `${origin}/api/analyze-nba?mode=generate-daily&${job}&force=true&secret=${validSecret}`;
@@ -786,8 +830,15 @@ const selectedSports = onlySport
       return market?.outcomes || [];
     }
 
-   for (const sport of selectedSports) {
-      try {
+  for (const sport of selectedSports) {
+
+  let generationRun = null;
+  let generationLockToken = null;
+
+  let generationProcessedIds = [];
+  let generationSuccessfulIds = [];
+
+  try {
         const oddsRes = await fetch(
           `${origin}/api/odds?sport=${encodeURIComponent(sport.key)}`
         );
@@ -838,10 +889,133 @@ const todayGames = games.filter(game => {
 }).format(new Date(gameTime)) === todayKansas;
 });
 
-const limit = Math.max(1, Number(req.query.limit || 4));
-const offset = Math.max(0, Number(req.query.offset || 0));
+let selectedGames = [];
 
-const selectedGames = todayGames.slice(offset, offset + limit);
+
+// ============================================================
+// NCAAF MANAGED GENERATION
+// ============================================================
+
+if (
+  managedNcaaf &&
+  sport.key ===
+    "americanfootball_ncaaf"
+) {
+
+  generationLockToken =
+    randomUUID();
+
+  const {
+    data: claimRows,
+    error: claimError
+  } =
+    await supabaseAdmin.rpc(
+      "claim_generation_run",
+      {
+        p_sport:
+          "americanfootball_ncaaf",
+
+        p_run_date:
+          todayKansas,
+
+        p_batch_size:
+          managedBatchSize,
+
+        p_lock_token:
+          generationLockToken
+      }
+    );
+
+
+  if (claimError) {
+    throw new Error(
+      `Generation lock error: ${claimError.message}`
+    );
+  }
+
+
+  generationRun =
+    Array.isArray(claimRows)
+      ? claimRows[0] || null
+      : null;
+
+
+  // Otra ejecución ya está trabajando.
+  if (!generationRun) {
+
+    return res
+      .status(200)
+      .json({
+        ok: true,
+        skipped: true,
+        reason:
+          "generation_locked",
+        sport:
+          "americanfootball_ncaaf",
+        runDate:
+          todayKansas
+      });
+  }
+
+
+  generationProcessedIds =
+    Array.isArray(
+      generationRun
+        .processed_game_ids
+    )
+      ? generationRun
+          .processed_game_ids
+          .map(String)
+      : [];
+
+
+  const alreadyProcessed =
+    new Set(
+      generationProcessedIds
+    );
+
+
+  const pendingGames =
+    todayGames.filter(
+      game =>
+        !alreadyProcessed.has(
+          getGenerationGameId(
+            game
+          )
+        )
+    );
+
+
+  selectedGames =
+    pendingGames.slice(
+      0,
+      managedBatchSize
+    );
+
+}
+
+
+// ============================================================
+// NORMAL GENERATION
+// ============================================================
+
+else {
+
+  const offset =
+    Math.max(
+      0,
+      Number(
+        req.query.offset || 0
+      )
+    );
+
+  selectedGames =
+    todayGames.slice(
+      offset,
+      offset +
+        requestedLimit
+    );
+}
         for (const game of selectedGames) {
           const awayTeam = game.away_team || game.awayTeam;
           const homeTeam = game.home_team || game.homeTeam;
@@ -968,6 +1142,17 @@ const generatedIsPremium =
       )
     : analyzeData
         ?.isPremiumPick === true;
+          if (
+  managedNcaaf &&
+  analyzeRes.ok
+) {
+
+  generationSuccessfulIds.push(
+    getGenerationGameId(
+      game
+    )
+  );
+}
           results.push({
             sport: sport.key,
             game: `${awayTeam} vs ${homeTeam}`,
@@ -977,22 +1162,213 @@ const generatedIsPremium =
             error: analyzeRes.ok ? null : analyzeData?.error || "Error analizando"
           });
         }
+    // ============================================================
+// FINALIZE MANAGED NCAAF BATCH
+// ============================================================
+
+if (
+  managedNcaaf &&
+  generationRun &&
+  generationLockToken
+) {
+
+  const mergedProcessed =
+    Array.from(
+      new Set([
+        ...generationProcessedIds,
+        ...generationSuccessfulIds
+      ])
+    );
+
+
+  const processedSet =
+    new Set(
+      mergedProcessed
+    );
+
+
+  const remaining =
+    todayGames.filter(
+      game =>
+        !processedSet.has(
+          getGenerationGameId(
+            game
+          )
+        )
+    ).length;
+
+
+  const batchErrors =
+    results
+      .filter(r => !r.ok)
+      .map(
+        r =>
+          `${r.game || r.sport}: ${r.error || "unknown error"}`
+      );
+
+
+  const finishedAt =
+    new Date()
+      .toISOString();
+
+
+  const completed =
+    remaining === 0;
+
+
+  const {
+    error: finishError
+  } =
+    await supabaseAdmin
+      .from("generation_runs")
+      .update({
+        processed_game_ids:
+          mergedProcessed,
+
+        status:
+          completed
+            ? "completed"
+            : "pending",
+
+        locked_at:
+          null,
+
+        lock_token:
+          null,
+
+        last_batch_finished_at:
+          finishedAt,
+
+        completed_at:
+          completed
+            ? finishedAt
+            : null,
+
+        last_error:
+          batchErrors.length
+            ? batchErrors
+                .join(" | ")
+                .slice(0, 2000)
+            : null,
+
+        updated_at:
+          finishedAt
+      })
+      .eq(
+        "id",
+        generationRun.id
+      )
+      .eq(
+        "lock_token",
+        generationLockToken
+      );
+
+
+  if (finishError) {
+    throw new Error(
+      `Generation progress error: ${finishError.message}`
+    );
+  }
+
+
+  generationReport = {
+    runId:
+      generationRun.id,
+
+    batchSize:
+      selectedGames.length,
+
+    processedThisBatch:
+      generationSuccessfulIds.length,
+
+    processedTotal:
+      mergedProcessed.length,
+
+    remaining,
+
+    completed
+  };
+}
 
       } catch (error) {
-        results.push({
-          sport: sport.key,
-          ok: false,
-          error: error.message
-        });
-      }
+
+  // Si el batch falló inesperadamente,
+  // liberamos el lock inmediatamente.
+  if (
+    managedNcaaf &&
+    generationRun &&
+    generationLockToken
+  ) {
+
+    await supabaseAdmin
+      .from("generation_runs")
+      .update({
+        status:
+          "pending",
+
+        locked_at:
+          null,
+
+        lock_token:
+          null,
+
+        last_batch_finished_at:
+          new Date()
+            .toISOString(),
+
+        last_error:
+          String(
+            error.message || error
+          ).slice(0, 2000),
+
+        updated_at:
+          new Date()
+            .toISOString()
+      })
+      .eq(
+        "id",
+        generationRun.id
+      )
+      .eq(
+        "lock_token",
+        generationLockToken
+      );
+  }
+
+
+  results.push({
+    sport: sport.key,
+    ok: false,
+    error: error.message
+  });
+}
     }
 
     const summary = {
   ok: true,
-  totalGames: results.length,
-  analyzed: results.filter(r => r.ok).length,
-  premium: results.filter(r => r.isPremiumPick).length,
-  errors: results.filter(r => !r.ok).length,
+
+  totalGames:
+    results.length,
+
+  analyzed:
+    results.filter(
+      r => r.ok
+    ).length,
+
+  premium:
+    results.filter(
+      r =>
+        r.isPremiumPick
+    ).length,
+
+  errors:
+    results.filter(
+      r => !r.ok
+    ).length,
+
+  generation:
+    generationReport,
+
   results
 };
 
