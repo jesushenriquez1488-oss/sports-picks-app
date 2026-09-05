@@ -159,7 +159,175 @@ function getBasketballProjection(analysis) {
     : null;
 }
 
+// ============================================================
+// MLB — CANONICAL VALUES
+//
+// Radar does NOT calculate a new MLB edge.
+// It uses the same edge concept already used by CashEdge
+// to rank MLB Premium candidates:
+// TOTAL   -> totalEdge
+// RUNLINE -> protectedEdge
+// ML      -> projectedMargin
+// ============================================================
 
+function getMLBCard(analysis) {
+  return (
+    analysis?.premium
+      ?.recommendedCards?.[0] ||
+    null
+  );
+}
+
+
+function getMLBCanonicalEdge(card) {
+
+  if (!card) {
+    return null;
+  }
+
+  if (
+    card.type === "OVER" ||
+    card.type === "UNDER"
+  ) {
+    return safeNum(
+      card.totalEdge
+    );
+  }
+
+  if (
+    card.type === "RUNLINE"
+  ) {
+    return safeNum(
+      card.protectedEdge
+    );
+  }
+
+  if (
+    card.type === "ML"
+  ) {
+    return safeNum(
+      card.projectedMargin
+    );
+  }
+
+  return null;
+}
+
+
+// ============================================================
+// MLB CURRENT MARKET LINE
+//
+// TOTAL:
+//   8.5 / 9 / etc.
+//
+// RUNLINE:
+//   -1.5 / +1.5
+//
+// ML:
+//   We intentionally return NULL.
+//
+// Moneyline price (-125, +140...) is not the same concept
+// as a spread/total line. We will handle market prices
+// separately later rather than mixing incompatible values.
+// ============================================================
+
+function getMLBCurrentLine(
+  analysis
+) {
+
+  const card =
+    getMLBCard(analysis);
+
+  if (!card) {
+    return null;
+  }
+
+  if (
+    card.type === "OVER" ||
+    card.type === "UNDER"
+  ) {
+    return safeNum(
+      analysis?.premium?.totalLine
+    );
+  }
+
+  if (
+    card.type === "RUNLINE"
+  ) {
+    return safeNum(
+      card.spread
+    );
+  }
+
+  return null;
+}
+
+
+// ============================================================
+// MLB PROJECTION SNAPSHOT
+//
+// All values come directly from the canonical MLB analysis.
+// ============================================================
+
+function getMLBProjection(
+  analysis
+) {
+
+  const premium =
+    analysis?.premium;
+
+  if (!premium) {
+    return null;
+  }
+
+
+  const away =
+    safeNum(
+      premium.expectedRunsA
+    );
+
+  const home =
+    safeNum(
+      premium.expectedRunsB
+    );
+
+  const total =
+    safeNum(
+      premium.projectedTotal
+    );
+
+
+  const projection = {
+
+    away,
+
+    home,
+
+    total,
+
+    margin:
+      away !== null &&
+      home !== null
+        ? Number(
+            (away - home)
+              .toFixed(3)
+          )
+        : null
+  };
+
+
+  const hasAny =
+    Object.values(projection)
+      .some(
+        value =>
+          value !== null
+      );
+
+
+  return hasAny
+    ? projection
+    : null;
+}
 // ============================================================
 // HANDLER
 // ============================================================
@@ -264,14 +432,15 @@ module.exports = async function handler(req, res) {
           analysis_json,
           updated_at
         `)
-        .in(
-          "sport",
-          [
-            "nba",
-            "wnba",
-            "ncaab"
-          ]
-        )
+       .in(
+  "sport",
+  [
+    "nba",
+    "wnba",
+    "ncaab",
+    "mlb"
+  ]
+)
         .eq(
           "game_date",
           gameDate
@@ -325,60 +494,104 @@ module.exports = async function handler(req, res) {
 
       try {
 
-        const analysis =
-          row.analysis_json || {};
+    const analysis =
+  row.analysis_json || {};
 
-        const premium =
-          analysis.premium || null;
+const premium =
+  analysis.premium || null;
 
-        const isPremium =
-          analysis.isPremiumPick === true;
-
-
-        if (isPremium) {
-          report.currentPremium += 1;
-        }
+const isPremium =
+  analysis.isPremiumPick === true;
 
 
-        const confidence =
-          safeNum(
-            premium?.confidence ??
-            analysis?.public?.confidence
-          );
+if (isPremium) {
+  report.currentPremium += 1;
+}
 
 
-        const edge =
-          safeNum(
-            premium?.mainEdge
-          );
+// ==========================================================
+// NORMALIZE CANONICAL VALUES BY SPORT
+// ==========================================================
+
+let pick = null;
+let confidence = null;
+let edge = null;
+let currentMarketLine = null;
+let projection = null;
 
 
-        const currentMarketLine =
-          getBasketballCurrentLine({
-            analysis,
-            awayTeam:
-              row.away_team,
-            homeTeam:
-              row.home_team
-          });
+// ==========================================================
+// MLB
+// ==========================================================
+
+if (row.sport === "mlb") {
+
+  const card =
+    getMLBCard(
+      analysis
+    );
+
+  pick =
+    card?.play ||
+    null;
+
+  confidence =
+    safeNum(
+      card?.percentage ??
+      analysis?.public?.confidence
+    );
+
+  edge =
+    getMLBCanonicalEdge(
+      card
+    );
+
+  currentMarketLine =
+    getMLBCurrentLine(
+      analysis
+    );
+
+  projection =
+    getMLBProjection(
+      analysis
+    );
 
 
-        const projection =
-          getBasketballProjection(
-            analysis
-          );
+// ==========================================================
+// NBA / WNBA / NCAAB
+// ==========================================================
 
+} else {
 
-        // ====================================================
-        // IMPORTANT:
-        //
-        // openingMarketLine stays NULL.
-        //
-        // daily_picks contains the CURRENT market snapshot,
-        // not necessarily the true opening line.
-        //
-        // We refuse to invent an opening line.
-        // ====================================================
+  pick =
+    premium?.pick ||
+    null;
+
+  confidence =
+    safeNum(
+      premium?.confidence ??
+      analysis?.public?.confidence
+    );
+
+  edge =
+    safeNum(
+      premium?.mainEdge
+    );
+
+  currentMarketLine =
+    getBasketballCurrentLine({
+      analysis,
+      awayTeam:
+        row.away_team,
+      homeTeam:
+        row.home_team
+    });
+
+  projection =
+    getBasketballProjection(
+      analysis
+    );
+}
 
         const result =
           await syncPremiumRadar({
@@ -405,9 +618,8 @@ module.exports = async function handler(req, res) {
 
             isPremium,
 
-            pick:
-              premium?.pick || null,
-
+           pick,
+            
             confidence,
 
             edge,
