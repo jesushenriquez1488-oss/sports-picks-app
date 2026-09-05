@@ -983,19 +983,88 @@ if (
   // Otra ejecución ya está trabajando.
   if (!generationRun) {
 
+  const {
+    data: existingRun,
+    error: existingRunError
+  } =
+    await supabaseAdmin
+      .from("generation_runs")
+      .select(
+        "status, processed_game_ids, completed_at"
+      )
+      .eq(
+        "sport",
+        "americanfootball_ncaaf"
+      )
+      .eq(
+        "run_date",
+        todayKansas
+      )
+      .maybeSingle();
+
+
+  if (existingRunError) {
+    throw new Error(
+      `Generation status error: ${existingRunError.message}`
+    );
+  }
+
+
+  // La cartelera de hoy ya fue procesada completa.
+  if (
+    existingRun?.status ===
+      "completed"
+  ) {
+
     return res
       .status(200)
       .json({
         ok: true,
         skipped: true,
         reason:
-          "generation_locked",
+          "generation_completed",
+
         sport:
           "americanfootball_ncaaf",
+
         runDate:
-          todayKansas
+          todayKansas,
+
+        processedTotal:
+          Array.isArray(
+            existingRun
+              .processed_game_ids
+          )
+            ? existingRun
+                .processed_game_ids
+                .length
+            : 0,
+
+        completedAt:
+          existingRun
+            .completed_at ||
+          null
       });
   }
+
+
+  // Hay otro batch activo o todavía
+  // estamos dentro del cooldown.
+  return res
+    .status(200)
+    .json({
+      ok: true,
+      skipped: true,
+      reason:
+        "generation_locked",
+
+      sport:
+        "americanfootball_ncaaf",
+
+      runDate:
+        todayKansas
+    });
+}
 
 
   generationProcessedIds =
