@@ -11523,59 +11523,173 @@ if (req.method === "OPTIONS") {
       });
     }
 
-    let isPremiumUser = false;
+   // ============================================================
+// AUTH — USER OR INTERNAL GENERATOR
+// ============================================================
+
+let isPremiumUser = false;
 let authUserId = null;
 
-try {
-  const authHeader = req.headers.authorization || "";
-  const token = authHeader.replace("Bearer ", "").trim();
+const internalSecret =
+  String(
+    req.headers["x-internal-secret"] ||
+    ""
+  );
 
-  if (!token) {
-    return res.status(401).json({
-      error: "Debes iniciar sesión para analizar."
-    });
-  }
+const validInternalSecret =
+  String(
+    process.env.CRON_SECRET ||
+    process.env.GENERATE_DAILY_SECRET ||
+    ""
+  );
 
-  const { data: authData, error: authError } =
-    await supabaseAdmin.auth.getUser(token);
+const isInternalRequest =
+  Boolean(
+    validInternalSecret &&
+    internalSecret === validInternalSecret
+  );
 
-  if (authError || !authData?.user) {
-    return res.status(401).json({
-      error: "Sesión inválida. Inicia sesión otra vez."
-    });
-  }
 
-  authUserId = authData.user.id;
+// ============================================================
+// INTERNAL CASHEDGE GENERATOR
+// ============================================================
 
-  const { data: profile } = await supabaseAdmin
-    .from("users")
-    .select("is_premium, subscription_status, email")
-    .or(`id.eq.${authData.user.id},email.eq.${authData.user.email}`)
-    .maybeSingle();
+if (isInternalRequest) {
+
+  /*
+   * This is an internal CashEdge analysis.
+   *
+   * It must:
+   * - NOT consume a user's free analyses
+   * - NOT require a Supabase user session
+   * - have access to the complete canonical analysis
+   */
+
+  authUserId =
+    "system-generate-daily";
 
   isPremiumUser =
-    profile?.is_premium === true ||
-    profile?.subscription_status === "active" ||
-    profile?.subscription_status === "trialing" ||
-    authData.user.email === ADMIN_EMAIL;
+    true;
 
-// SOLO FREE PASA POR EL LÍMITE
-  if (!isPremiumUser) {
-    const usageCheck = await checkFreeAnalysisLimit(authUserId, false);
 
-    if (!usageCheck.allowed) {
-      return res.status(429).json({
-        error: usageCheck.message,
-        limitReached: true,
-        upgradeRequired: true
+// ============================================================
+// NORMAL USER
+// ============================================================
+
+} else {
+
+  try {
+
+    const authHeader =
+      req.headers.authorization ||
+      "";
+
+    const token =
+      authHeader
+        .replace("Bearer ", "")
+        .trim();
+
+
+    if (!token) {
+
+      return res.status(401).json({
+        error:
+          "Debes iniciar sesión para analizar."
       });
+
     }
+
+
+    const {
+      data: authData,
+      error: authError
+    } =
+      await supabaseAdmin
+        .auth
+        .getUser(token);
+
+
+    if (
+      authError ||
+      !authData?.user
+    ) {
+
+      return res.status(401).json({
+        error:
+          "Sesión inválida. Inicia sesión otra vez."
+      });
+
+    }
+
+
+    authUserId =
+      authData.user.id;
+
+
+    const {
+      data: profile
+    } =
+      await supabaseAdmin
+        .from("users")
+        .select(
+          "is_premium, subscription_status, email"
+        )
+        .or(
+          `id.eq.${authData.user.id},email.eq.${authData.user.email}`
+        )
+        .maybeSingle();
+
+
+    isPremiumUser =
+      profile?.is_premium === true ||
+      profile?.subscription_status === "active" ||
+      profile?.subscription_status === "trialing" ||
+      authData.user.email === ADMIN_EMAIL;
+
+
+    // SOLO FREE PASA POR EL LÍMITE
+    if (!isPremiumUser) {
+
+      const usageCheck =
+        await checkFreeAnalysisLimit(
+          authUserId,
+          false
+        );
+
+
+      if (!usageCheck.allowed) {
+
+        return res.status(429).json({
+          error:
+            usageCheck.message,
+
+          limitReached:
+            true,
+
+          upgradeRequired:
+            true
+        });
+
+      }
+
+    }
+
+
+  } catch (error) {
+
+    console.log(
+      "No se pudo validar usuario football:",
+      error.message
+    );
+
+
+    return res.status(401).json({
+      error:
+        "No se pudo validar tu sesión."
+    });
+
   }
-} catch (error) {
-  console.log("No se pudo validar usuario football:", error.message);
-  return res.status(401).json({
-    error: "No se pudo validar tu sesión."
-  });
+
 }
 // ===== CACHE DE ANÁLISIS (TTL dinámico) =====
     try {
