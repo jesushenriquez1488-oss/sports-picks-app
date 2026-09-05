@@ -3047,14 +3047,7 @@ async function analyzeFootball(
     );
  
     const data = await res.json();
- console.log("FOOTBALL DEBUG:", {
-  type,
-  game: `${awayTeam} vs ${homeTeam}`,
-  odds: data.odds,
-  picks: data.picks,
-  projectedTotal: data.projectedTotal,
-  projectedSpread: data.projectedSpread
-});
+
     if (!res.ok) {
       throw new Error(data.error || "Error football");
     }
