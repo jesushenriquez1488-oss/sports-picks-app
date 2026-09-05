@@ -28,7 +28,7 @@ const NCAAF_TRANSITION_TEAM_IDS = new Set([
 // ===== AJUSTE POR CALIDAD DE RIVAL (FPI) — SOLO NCAAF =====
 const NCAAF_FPI_ACTIVE = false;   // false = vuelve al comportamiento de hoy
 const NCAAF_FPI_MULT   = 1.0;    // 1.0 = escala del FPI tal cual
-const PREMIUM_EDGE_MIN = { nfl: 10, ncaaf: 10 };
+const PREMIUM_EDGE_MIN = { nfl: 10, ncaaf: 20 };
 // ===== MODELO DE CONSENSO CASHEDGE =====
 const SOS_ALPHA       = 0.6;   // 0 = Edge sin tocar, 1 = regla de tres completa. CALIBRAR.
 const SOS_RATIO_MIN   = 0.55;
@@ -394,13 +394,16 @@ function getConfidenceFromEdge(edge, type = "nfl") {
   if (!Number.isFinite(e)) return 0;
 
   const minPremium = PREMIUM_EDGE_MIN[type] || 13;
-
+const maxConfidenceEdge = type === "ncaaf" ? 50 : 30;
   if (e < minPremium) {
     return round(Math.min(74, Math.max(50, 50 + e * 1.5)));
   }
-  if (e >= 30) return 99;
+  if (e >= maxConfidenceEdge) return 99;
 
-  return round(75 + ((e - minPremium) / (30 - minPremium)) * 24);
+  return round(
+  75 +
+  ((e - minPremium) / (maxConfidenceEdge - minPremium)) * 24
+);
 }
 
 async function fetchJson(url) {
