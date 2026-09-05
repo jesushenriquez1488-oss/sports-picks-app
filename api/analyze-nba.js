@@ -787,7 +787,47 @@ const selectedSports = onlySport
   ? sports.filter(s => s.key === onlySport)
   : sports;
     const results = [];
+let generationReport = null;
 
+const managedNcaaf =
+  req.query.managed === "true" &&
+  onlySport === "americanfootball_ncaaf";
+
+const rawRequestedLimit =
+  Number(req.query.limit || 4);
+
+const requestedLimit =
+  Number.isFinite(rawRequestedLimit)
+    ? Math.max(
+        1,
+        Math.floor(rawRequestedLimit)
+      )
+    : 4;
+
+const managedBatchSize =
+  Math.min(4, requestedLimit);
+
+
+function getGenerationGameId(game) {
+
+  if (game?.id) {
+    return String(game.id);
+  }
+
+  return [
+    game?.away_team ||
+      game?.awayTeam ||
+      "",
+
+    game?.home_team ||
+      game?.homeTeam ||
+      "",
+
+    game?.commence_time ||
+      game?.game_time ||
+      ""
+  ].join("|");
+}
     function getMarket(game, marketKey) {
       const bookmakers = game.bookmakers || [];
 
