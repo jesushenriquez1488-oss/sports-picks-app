@@ -22,7 +22,22 @@ module.exports = async function handler(req, res) {
       error: "Unauthorized"
     });
   }
+const centralHour = Number(
+  new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    hour: "2-digit",
+    hourCycle: "h23"
+  }).format(new Date())
+);
 
+if (centralHour !== 3) {
+  return res.status(200).json({
+    ok: true,
+    skipped: true,
+    reason: "outside_3am_central_window",
+    centralHour
+  });
+}
 
   try {
 
