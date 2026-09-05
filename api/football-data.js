@@ -395,9 +395,16 @@ function getConfidenceFromEdge(edge, type = "nfl") {
 
   const minPremium = PREMIUM_EDGE_MIN[type] || 13;
 const maxConfidenceEdge = type === "ncaaf" ? 50 : 30;
-  if (e < minPremium) {
-    return round(Math.min(74, Math.max(50, 50 + e * 1.5)));
-  }
+ if (e < minPremium) {
+  const nonPremiumConfidence =
+    type === "ncaaf"
+      ? 50 + (e / minPremium) * 24
+      : 50 + e * 1.5;
+
+  return round(
+    Math.min(74, Math.max(50, nonPremiumConfidence))
+  );
+}
   if (e >= maxConfidenceEdge) return 99;
 
   return round(
