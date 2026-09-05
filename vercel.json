@@ -51,7 +51,11 @@
 },
 {
   "path": "/api/ncaaf-cron",
-  "schedule": "0-30 11 * * *"
+  "schedule": "0-45 8 * * *"
+},
+{
+  "path": "/api/ncaaf-cron",
+  "schedule": "0-45 9 * * *"
 }
   ]
 }
