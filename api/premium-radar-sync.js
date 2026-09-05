@@ -329,6 +329,101 @@ function getMLBProjection(
     : null;
 }
 // ============================================================
+// FOOTBALL — NFL / NCAAF CANONICAL VALUES
+// ============================================================
+
+function getFootballCurrentLine({
+  analysis,
+  awayTeam,
+  homeTeam
+}) {
+  const premium =
+    analysis?.premium || {};
+
+  const odds =
+    premium?.odds || {};
+
+  const pick =
+    String(premium?.pick || "");
+
+  const normalized =
+    pick.toLowerCase();
+
+  // TOTAL
+  if (
+    normalized.includes("over") ||
+    normalized.includes("under")
+  ) {
+    return safeNum(
+      odds.totalLine
+    );
+  }
+
+  // SPREAD — team A / away
+  if (
+    awayTeam &&
+    pick.includes(awayTeam)
+  ) {
+    return safeNum(
+      odds.spreadLineA
+    );
+  }
+
+  // SPREAD — team B / home
+  if (
+    homeTeam &&
+    pick.includes(homeTeam)
+  ) {
+    return safeNum(
+      odds.spreadLineB
+    );
+  }
+
+  return null;
+}
+
+
+function getFootballProjection(
+  analysis
+) {
+  const premium =
+    analysis?.premium;
+
+  if (!premium) {
+    return null;
+  }
+
+  const projectedScore =
+    premium.projectedScore &&
+    typeof premium.projectedScore === "object"
+      ? premium.projectedScore
+      : null;
+
+  const projection = {
+    score:
+      projectedScore,
+
+    total:
+      safeNum(
+        premium.projectedTotal
+      ),
+
+    spread:
+      safeNum(
+        premium.projectedSpread
+      )
+  };
+
+  const hasAny =
+    projection.score !== null ||
+    projection.total !== null ||
+    projection.spread !== null;
+
+  return hasAny
+    ? projection
+    : null;
+}
+// ============================================================
 // HANDLER
 // ============================================================
 
@@ -412,8 +507,8 @@ module.exports = async function handler(req, res) {
     // ========================================================
     // READ CANONICAL DAILY PICKS
     //
-    // BASKETBALL ONLY FOR FIRST TEST:
-    // NBA / WNBA / NCAAB
+   // SPORTS SUPPORTED BY PREMIUM RADAR SYNC
+// NBA / WNBA / NCAAB / MLB / NCAAF / NFL
     // ========================================================
 
     const {
@@ -434,12 +529,14 @@ module.exports = async function handler(req, res) {
         `)
        .in(
   "sport",
-  [
-    "nba",
-    "wnba",
-    "ncaab",
-    "mlb"
-  ]
+[
+  "nba",
+  "wnba",
+  "ncaab",
+  "mlb",
+  "ncaaf",
+  "nfl"
+]
 )
         .eq(
           "game_date",
@@ -553,6 +650,45 @@ if (row.sport === "mlb") {
 
   projection =
     getMLBProjection(
+      analysis
+    );
+
+
+// ==========================================================
+// NBA / WNBA / NCAAB
+// ==========================================================
+
+} else if (
+  row.sport === "ncaaf" ||
+  row.sport === "nfl"
+) {
+
+  pick =
+    premium?.pick ||
+    null;
+
+  confidence =
+    safeNum(
+      premium?.confidence ??
+      analysis?.public?.confidence
+    );
+
+  edge =
+    safeNum(
+      premium?.mainEdge
+    );
+
+  currentMarketLine =
+    getFootballCurrentLine({
+      analysis,
+      awayTeam:
+        row.away_team,
+      homeTeam:
+        row.home_team
+    });
+
+  projection =
+    getFootballProjection(
       analysis
     );
 
@@ -693,10 +829,7 @@ if (row.sport === "mlb") {
             row.game_id,
 
           isPremium,
-
-          pick:
-            premium?.pick || null,
-
+          pick,
           confidence,
 
           edge,
@@ -728,8 +861,8 @@ if (row.sport === "mlb") {
          * One bad game must not stop
          * the rest of the Radar sync.
          */
-        console.error(
-          "Premium Radar basketball row error:",
+      console.error(
+  "Premium Radar row error:",
           row.game_id,
           rowError.message
         );
