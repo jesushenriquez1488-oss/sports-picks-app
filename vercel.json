@@ -56,6 +56,14 @@
 {
   "path": "/api/ncaaf-cron",
   "schedule": "0-45 9 * * *"
+},
+    {
+  "path": "/api/nfl-cron",
+  "schedule": "30-45 8 * * *"
+},
+{
+  "path": "/api/nfl-cron",
+  "schedule": "30-45 9 * * *"
 }
   ]
 }
