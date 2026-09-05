@@ -19,7 +19,28 @@ function getCentralDate() {
     day: "2-digit"
   }).format(new Date());
 }
+function addDaysToCentralDate(
+  dateString,
+  days
+) {
+  const [year, month, day] =
+    String(dateString)
+      .split("-")
+      .map(Number);
 
+  return new Date(
+    Date.UTC(
+      year,
+      month - 1,
+      day + days,
+      12,
+      0,
+      0
+    )
+  )
+    .toISOString()
+    .slice(0, 10);
+}
 
 // ============================================================
 // SAFE NUMBER
@@ -511,45 +532,123 @@ module.exports = async function handler(req, res) {
 // NBA / WNBA / NCAAB / MLB / NCAAF / NFL
     // ========================================================
 
-    const {
-      data: rows,
-      error: rowsError
-    } =
-      await supabaseAdmin
-        .from("daily_picks")
-        .select(`
-          id,
-          sport,
-          game_id,
-          game_date,
-          away_team,
-          home_team,
-          analysis_json,
-          updated_at
-        `)
-       .in(
-  "sport",
-[
-  "nba",
-  "wnba",
-  "ncaab",
-  "mlb",
-  "ncaaf",
-  "nfl"
-]
-)
-        .eq(
-          "game_date",
-          gameDate
-        );
+const footballEndDate = (() => {
+  const [year, month, day] =
+    String(gameDate)
+      .split("-")
+      .map(Number);
+
+  return new Date(
+    Date.UTC(
+      year,
+      month - 1,
+      day + 6,
+      12,
+      0,
+      0
+    )
+  )
+    .toISOString()
+    .slice(0, 10);
+})();
 
 
-    if (rowsError) {
-      return res.status(500).json({
-        error:
-          rowsError.message
-      });
-    }
+// ========================================================
+// DAILY SPORTS
+// MLB / NBA / WNBA / NCAAB
+// ONLY TODAY
+// ========================================================
+
+const {
+  data: dailyRows,
+  error: dailyRowsError
+} =
+  await supabaseAdmin
+    .from("daily_picks")
+    .select(`
+      id,
+      sport,
+      game_id,
+      game_date,
+      away_team,
+      home_team,
+      analysis_json,
+      updated_at
+    `)
+    .in(
+      "sport",
+      [
+        "nba",
+        "wnba",
+        "ncaab",
+        "mlb"
+      ]
+    )
+    .eq(
+      "game_date",
+      gameDate
+    );
+
+
+if (dailyRowsError) {
+  return res.status(500).json({
+    error:
+      dailyRowsError.message
+  });
+}
+
+
+// ========================================================
+// FOOTBALL
+// NFL / NCAAF
+// TODAY + NEXT 6 DAYS
+// ========================================================
+
+const {
+  data: footballRows,
+  error: footballRowsError
+} =
+  await supabaseAdmin
+    .from("daily_picks")
+    .select(`
+      id,
+      sport,
+      game_id,
+      game_date,
+      away_team,
+      home_team,
+      analysis_json,
+      updated_at
+    `)
+    .in(
+      "sport",
+      [
+        "ncaaf",
+        "nfl"
+      ]
+    )
+    .gte(
+      "game_date",
+      gameDate
+    )
+    .lte(
+      "game_date",
+      footballEndDate
+    );
+
+
+if (footballRowsError) {
+  return res.status(500).json({
+    error:
+      footballRowsError.message
+  });
+}
+
+
+const rows = [
+  ...(dailyRows || []),
+  ...(footballRows || [])
+];
 
 
     const report = {
