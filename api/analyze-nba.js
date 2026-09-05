@@ -668,51 +668,7 @@ module.exports = async function handler(req, res) {
     ];
 
     const results = [];
-let generationReport = null;
 
-const managedNcaaf =
-  req.query.managed === "true" &&
-  onlySport === "americanfootball_ncaaf";
-
-const rawRequestedLimit =
-  Number(req.query.limit || 4);
-
-const requestedLimit =
-  Number.isFinite(rawRequestedLimit)
-    ? Math.max(
-        1,
-        Math.floor(rawRequestedLimit)
-      )
-    : 4;
-
-// En modo administrado NCAAF nunca
-// dejamos que un batch pase de 4.
-const managedBatchSize =
-  Math.min(4, requestedLimit);
-
-
-function getGenerationGameId(game) {
-
-  if (game?.id) {
-    return String(game.id);
-  }
-
-  // Fallback estable por si alguna fuente
-  // llegara sin ID.
-  return [
-    game?.away_team ||
-      game?.awayTeam ||
-      "",
-
-    game?.home_team ||
-      game?.homeTeam ||
-      "",
-
-    game?.commence_time ||
-      game?.game_time ||
-      ""
-  ].join("|");
-}
     for (const job of jobs) {
       const url =
         `${origin}/api/analyze-nba?mode=generate-daily&${job}&force=true&secret=${validSecret}`;
@@ -775,11 +731,16 @@ if (
   { key: "basketball_ncaab", league: "ncaab", endpoint: "/api/analyze-nba" },
   { key: "baseball_mlb", league: "mlb", endpoint: "/api/analyze-mlb" },
 
-  {
-    key: "americanfootball_ncaaf",
-    league: "ncaaf",
-    endpoint: "/api/football-data"
-  }
+ {
+  key: "americanfootball_ncaaf",
+  league: "ncaaf",
+  endpoint: "/api/football-data"
+},
+{
+  key: "americanfootball_nfl",
+  league: "nfl",
+  endpoint: "/api/football-data"
+}
 ];
 const onlySport = req.query.sport;
 
@@ -789,10 +750,12 @@ const selectedSports = onlySport
     const results = [];
 let generationReport = null;
 
-const managedNcaaf =
+const managedFootball =
   req.query.managed === "true" &&
-  onlySport === "americanfootball_ncaaf";
-
+  (
+    onlySport === "americanfootball_ncaaf" ||
+    onlySport === "americanfootball_nfl"
+  );
 const rawRequestedLimit =
   Number(req.query.limit || 4);
 
@@ -1058,9 +1021,8 @@ let selectedGames = [];
 // ============================================================
 
 if (
-  managedNcaaf &&
-  sport.key ===
-    "americanfootball_ncaaf"
+  managedFootball &&
+  sport.key === onlySport
 ) {
 
   generationLockToken =
@@ -1074,7 +1036,7 @@ if (
       "claim_generation_run",
       {
         p_sport:
-          "americanfootball_ncaaf",
+  sport.key,
 
         p_run_date:
           todayKansas,
@@ -1114,9 +1076,9 @@ if (
         "status, processed_game_ids, completed_at"
       )
       .eq(
-        "sport",
-        "americanfootball_ncaaf"
-      )
+  "sport",
+  sport.key
+)
       .eq(
         "run_date",
         todayKansas
@@ -1142,11 +1104,11 @@ if (
       .json({
         ok: true,
         skipped: true,
-        reason:
-          "generation_completed",
+       reason:
+  "generation_completed",
 
-        sport:
-          "americanfootball_ncaaf",
+sport:
+  sport.key,
 
         runDate:
           todayKansas,
@@ -1177,10 +1139,10 @@ if (
       ok: true,
       skipped: true,
       reason:
-        "generation_locked",
+  "generation_locked",
 
-      sport:
-        "americanfootball_ncaaf",
+sport:
+  sport.key,
 
       runDate:
         todayKansas
@@ -1372,11 +1334,10 @@ const generatedIsPremium =
       )
     : analyzeData
         ?.isPremiumPick === true;
-          if (
-  managedNcaaf &&
+         if (
+  managedFootball &&
   analyzeRes.ok
 ) {
-
   generationSuccessfulIds.push(
     getGenerationGameId(
       game
@@ -1397,7 +1358,7 @@ const generatedIsPremium =
 // ============================================================
 
 if (
-  managedNcaaf &&
+  managedFootball &&
   generationRun &&
   generationLockToken
 ) {
@@ -1524,11 +1485,11 @@ if (
 
   // Si el batch falló inesperadamente,
   // liberamos el lock inmediatamente.
-  if (
-    managedNcaaf &&
-    generationRun &&
-    generationLockToken
-  ) {
+ if (
+  managedFootball &&
+  generationRun &&
+  generationLockToken
+) {
 
     await supabaseAdmin
       .from("generation_runs")
