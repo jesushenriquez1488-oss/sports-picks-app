@@ -729,7 +729,13 @@ if (
   { key: "basketball_nba", league: "nba", endpoint: "/api/analyze-nba" },
   { key: "basketball_wnba", league: "wnba", endpoint: "/api/analyze-nba" },
   { key: "basketball_ncaab", league: "ncaab", endpoint: "/api/analyze-nba" },
-  { key: "baseball_mlb", league: "mlb", endpoint: "/api/analyze-mlb" }
+  { key: "baseball_mlb", league: "mlb", endpoint: "/api/analyze-mlb" },
+
+  {
+    key: "americanfootball_ncaaf",
+    league: "ncaaf",
+    endpoint: "/api/football-data"
+  }
 ];
 const onlySport = req.query.sport;
 
@@ -857,53 +863,116 @@ const selectedGames = todayGames.slice(offset, offset + limit);
           const overPrice = getTotalPrice(game, "over");
           const underPrice = getTotalPrice(game, "under");
           const outcomes = getH2HOutcomes(game);
-const analyzeBody =
-  sport.league === "mlb"
-    ? {
-        userId: "system-generate-daily",
-        awayTeam,
-        homeTeam,
-        awaySpread,
-        homeSpread,
-        awaySpreadPrice,
-        homeSpreadPrice,
-        outcomes,
-      gameTime: game.commence_time,
-        totalLine: totalLine || 8,
-        overPrice,
-        underPrice,
-        forceRefresh: req.query.force === "true"
-      }
-    : {
-        awayTeam,
-        homeTeam,
-        awaySpread,
-        homeSpread,
-        awaySpreadPrice,
-        homeSpreadPrice,
-        total: totalLine,
-        overPrice,
-        underPrice,
-        league: sport.league,
-      gameTime: game.commence_time,
-        forceRefresh: req.query.force === "true"
-      };
-         const analyzeRes = await fetch(`${origin}${sport.endpoint}`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "X-Internal-Secret": validSecret
-  },
-  body: JSON.stringify(analyzeBody)
-});
+const isFootball =
+  sport.league === "ncaaf" ||
+  sport.league === "nfl";
+
+let analyzeBody;
+let analyzeUrl;
+
+
+// FOOTBALL
+if (isFootball) {
+
+  analyzeBody = {
+    oddsSnapshot: game
+  };
+
+  const footballParams =
+    new URLSearchParams({
+      type: sport.league,
+      teamA: awayTeam,
+      teamB: homeTeam
+    });
+
+  analyzeUrl =
+    `${origin}${sport.endpoint}?${footballParams.toString()}`;
+
+}
+
+
+// MLB
+else if (sport.league === "mlb") {
+
+  analyzeBody = {
+    userId: "system-generate-daily",
+    awayTeam,
+    homeTeam,
+    awaySpread,
+    homeSpread,
+    awaySpreadPrice,
+    homeSpreadPrice,
+    outcomes,
+    gameTime: game.commence_time,
+    totalLine: totalLine || 8,
+    overPrice,
+    underPrice,
+    forceRefresh:
+      req.query.force === "true"
+  };
+
+  analyzeUrl =
+    `${origin}${sport.endpoint}`;
+
+}
+
+
+// NBA / WNBA / NCAAB
+else {
+
+  analyzeBody = {
+    awayTeam,
+    homeTeam,
+    awaySpread,
+    homeSpread,
+    awaySpreadPrice,
+    homeSpreadPrice,
+    total: totalLine,
+    overPrice,
+    underPrice,
+    league: sport.league,
+    gameTime: game.commence_time,
+    forceRefresh:
+      req.query.force === "true"
+  };
+
+  analyzeUrl =
+    `${origin}${sport.endpoint}`;
+}
+
+
+const analyzeRes =
+  await fetch(analyzeUrl, {
+    method: "POST",
+
+    headers: {
+      "Content-Type": "application/json",
+      "X-Internal-Secret": validSecret
+    },
+
+    body:
+      JSON.stringify(analyzeBody)
+  });
 
           const analyzeData = await analyzeRes.json().catch(() => null);
+const generatedIsPremium =
+  isFootball
+    ? (
+        analyzeData?.picks
+          ?.spreadPick
+          ?.isPremium === true ||
 
+        analyzeData?.picks
+          ?.totalPick
+          ?.isPremium === true
+      )
+    : analyzeData
+        ?.isPremiumPick === true;
           results.push({
             sport: sport.key,
             game: `${awayTeam} vs ${homeTeam}`,
             ok: analyzeRes.ok,
-            isPremiumPick: analyzeData?.isPremiumPick || false,
+           isPremiumPick: generatedIsPremium,
             noPlay: analyzeData?.noPlay || false,
             error: analyzeRes.ok ? null : analyzeData?.error || "Error analizando"
           });
