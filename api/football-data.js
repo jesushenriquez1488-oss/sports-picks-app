@@ -3027,34 +3027,58 @@ function oddsTeamMatches(oddsName, teamRef) {
   );
 }
 
-async function getFootballOdds(type, teamARef, teamBRef) {
-  const apiKey = process.env.ODDS_API_KEY;
+async function getFootballOdds(
+  type,
+  teamARef,
+  teamBRef,
+  suppliedGame = null
+) {
+const sportKey = ODDS_SPORT_KEYS[type];
 
-  if (!apiKey) {
-    return {
-      available: false,
-      message: "Falta ODDS_API_KEY en Vercel"
-    };
+if (!sportKey) {
+  return {
+    available: false,
+    message: "Sport no soportado para odds"
+  };
+}
+
+try {
+  let data = null;
+
+  // ==========================================================
+  // INTERNAL GENERATOR:
+  // reutiliza el juego obtenido por /api/odds
+  // y evita descargar la cartelera completa otra vez.
+  // ==========================================================
+  if (
+    suppliedGame &&
+    typeof suppliedGame === "object"
+  ) {
+    data = [suppliedGame];
+  } else {
+
+    // ========================================================
+    // NORMAL USER / FALLBACK:
+    // comportamiento original sin ningún cambio.
+    // ========================================================
+    const apiKey = process.env.ODDS_API_KEY;
+
+    if (!apiKey) {
+      return {
+        available: false,
+        message: "Falta ODDS_API_KEY en Vercel"
+      };
+    }
+
+    const url =
+      `https://api.the-odds-api.com/v4/sports/${sportKey}/odds` +
+      `?apiKey=${apiKey}` +
+      `&regions=us` +
+      `&markets=spreads,totals` +
+      `&oddsFormat=american`;
+
+    data = await fetchJson(url);
   }
-
-  const sportKey = ODDS_SPORT_KEYS[type];
-
-  if (!sportKey) {
-    return {
-      available: false,
-      message: "Sport no soportado para odds"
-    };
-  }
-
-  const url =
-    `https://api.the-odds-api.com/v4/sports/${sportKey}/odds` +
-    `?apiKey=${apiKey}` +
-    `&regions=us` +
-    `&markets=spreads,totals` +
-    `&oddsFormat=american`;
-
-  try {
-    const data = await fetchJson(url);
 
     const game = data.find((g) => {
       const homeMatchesA = oddsTeamMatches(g.home_team, teamARef);
@@ -12627,7 +12651,19 @@ const baseProjectedTotal = round(projectedTeamA + projectedTeamB);
 const projectedTotal = round(projectedTeamAFinal + projectedTeamBFinal);
 const projectedSpread = round(projectedTeamAFinal - projectedTeamBFinal);
 
-const odds = await getFootballOdds(type, teamARef, teamBRef);
+const internalOddsSnapshot =
+  isInternalRequest &&
+  req.body?.oddsSnapshot &&
+  typeof req.body.oddsSnapshot === "object"
+    ? req.body.oddsSnapshot
+    : null;
+
+const odds = await getFootballOdds(
+  type,
+  teamARef,
+  teamBRef,
+  internalOddsSnapshot
+);
 
     const rawPicks = buildFootballPicks({
       teamA,
