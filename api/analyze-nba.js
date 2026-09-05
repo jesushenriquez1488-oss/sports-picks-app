@@ -905,32 +905,153 @@ function getKansasDate(dateValue) {
   }).format(new Date(dateValue));
 }
 
-const todayKansas = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "America/Chicago",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit"
-}).format(new Date());
+const centralDateFormatter =
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  });
 
-const todayGames = games.filter(game => {
+
+const todayKansas =
+  centralDateFormatter.format(
+    new Date()
+  );
+
+
+function addDaysToCentralDate(
+  dateString,
+  days
+) {
+
+  const [
+    year,
+    month,
+    day
+  ] =
+    String(dateString)
+      .split("-")
+      .map(Number);
+
+
+  const date =
+    new Date(
+      Date.UTC(
+        year,
+        month - 1,
+        day + days,
+        12,
+        0,
+        0
+      )
+    );
+
+
+  return date
+    .toISOString()
+    .slice(0, 10);
+}
+
+
+function getGameCentralDate(game) {
+
   const gameTime =
     game.commence_time ||
     game.game_time ||
     game.start_time ||
     game.date;
 
-  if (!gameTime) return true;
 
-  return new Intl.DateTimeFormat("en-CA", {
-  timeZone: "America/Chicago",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit"
-}).format(new Date(gameTime)) === todayKansas;
-});
+  if (!gameTime) {
+    return null;
+  }
+
+
+  const parsed =
+    new Date(gameTime);
+
+
+  if (
+    Number.isNaN(
+      parsed.getTime()
+    )
+  ) {
+    return null;
+  }
+
+
+  return centralDateFormatter
+    .format(parsed);
+}
+
+
+// ============================================================
+// DEPORTES DIARIOS
+// MLB / NBA / WNBA / NCAAB
+// Solo juegos de HOY
+// ============================================================
+
+const todayGames =
+  games.filter(game => {
+
+    const gameDate =
+      getGameCentralDate(game);
+
+
+    // Conservamos el comportamiento
+    // anterior para juegos sin fecha.
+    if (!gameDate) {
+      return true;
+    }
+
+
+    return (
+      gameDate ===
+      todayKansas
+    );
+  });
+
+
+// ============================================================
+// FOOTBALL WINDOW
+// HOY + PRÓXIMOS 6 DÍAS
+// 7 FECHAS EN TOTAL
+// ============================================================
+
+const footballDateWindow =
+  new Set(
+    Array.from(
+      { length: 7 },
+      (_, index) =>
+        addDaysToCentralDate(
+          todayKansas,
+          index
+        )
+    )
+  );
+
+
+const footballWindowGames =
+  games.filter(game => {
+
+    const gameDate =
+      getGameCentralDate(game);
+
+
+    // Para una ventana futura necesitamos
+    // conocer realmente la fecha del juego.
+    if (!gameDate) {
+      return false;
+    }
+
+
+    return footballDateWindow
+      .has(gameDate);
+  });
+
 
 let selectedGames = [];
-
 
 // ============================================================
 // NCAAF MANAGED GENERATION
@@ -1085,7 +1206,7 @@ if (
 
 
   const pendingGames =
-    todayGames.filter(
+  footballWindowGames.filter(
       game =>
         !alreadyProcessed.has(
           getGenerationGameId(
@@ -1297,7 +1418,7 @@ if (
 
 
   const remaining =
-    todayGames.filter(
+  footballWindowGames.filter(
       game =>
         !processedSet.has(
           getGenerationGameId(
