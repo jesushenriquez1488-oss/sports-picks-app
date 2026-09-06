@@ -7572,9 +7572,9 @@ function hidePremiumRadarReturnButton() {
 async function openPremiumRadarFullAnalysis(
   gameId,
   sport,
-  gameTime
+  gameTime,
+  sourceEventId = null
 ) {
-
 const kickoff =
   parsePremiumRadarGameTime(
     gameTime
@@ -7732,7 +7732,14 @@ document
 
 
   const targetGameId =
-    String(gameId);
+  String(
+    String(sport || "")
+      .toLowerCase()
+      .trim() === "mlb" &&
+    sourceEventId
+      ? sourceEventId
+      : gameId
+  );
 
 
   const cards =
@@ -8994,15 +9001,18 @@ ${gameStarted
     <button
       type="button"
       data-game-id="${radarEscape(row.game_id || "")}"
-      data-sport="${radarEscape(row.sport || "")}"
-      data-game-time="${radarEscape(row.game_time || "")}"
-      onclick="
-        openPremiumRadarFullAnalysis(
-          this.dataset.gameId,
-          this.dataset.sport,
-          this.dataset.gameTime
-        )
-      "
+data-sport="${radarEscape(row.sport || "")}"
+data-game-time="${radarEscape(row.game_time || "")}"
+data-source-event-id="${radarEscape(row.source_event_id || "")}"
+
+onclick="
+  openPremiumRadarFullAnalysis(
+    this.dataset.gameId,
+    this.dataset.sport,
+    this.dataset.gameTime,
+    this.dataset.sourceEventId
+  )
+"
       style="
         width:100%;
         margin-top:12px;
