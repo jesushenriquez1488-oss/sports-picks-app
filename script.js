@@ -1725,10 +1725,43 @@ else {
 allowedDates.push(targetDate);
 }
 if (!isFootballSport) {
+
+  const radarTargetGameId =
+    premiumRadarNavigationState.active
+      ? String(
+          premiumRadarNavigationState.gameId ||
+          ""
+        )
+      : "";
+
+
   upcomingGames = data.filter(game => {
-    const gameTime = new Date(game.commence_time);
-    const gameKansasDate = kansasDateString(gameTime);
-    return allowedDates.includes(gameKansasDate);
+
+    const gameTime =
+      new Date(
+        game.commence_time
+      );
+
+    const gameKansasDate =
+      kansasDateString(
+        gameTime
+      );
+
+
+    const isRadarTarget =
+      radarTargetGameId &&
+      String(
+        game.id || ""
+      ) === radarTargetGameId &&
+      gameTime > now;
+
+
+    return (
+      isRadarTarget ||
+      allowedDates.includes(
+        gameKansasDate
+      )
+    );
   });
 }
 const validWnbaTeams = [
@@ -1821,7 +1854,10 @@ if (window.currentSport === "wnba") {
   }
 
    gamesDiv.innerHTML += `
-        <div class="card">
+        <div
+  class="card"
+  data-game-id="${sanitize(game.id || "")}"
+>
           <h2>${sanitize(game.away_team)} vs ${sanitize(game.home_team)}</h2>
          <p><strong>Date:</strong> ${formattedDate}</p>
           <p><strong>Time:</strong> ${formattedTime}</p>
@@ -7104,6 +7140,606 @@ box.innerHTML = `
   }
 }
 // ============================================================
+// PREMIUM RADAR NAVIGATION STATE
+// ============================================================
+
+const premiumRadarNavigationState = {
+  active: false,
+
+  gameId: null,
+  sport: null,
+
+  radarScrollY: 0
+};
+function getPremiumRadarSportConfig(
+  sport
+) {
+
+  const key =
+    String(
+      sport || ""
+    )
+      .toLowerCase()
+      .trim();
+
+
+  const sports = {
+
+    nba: {
+      appSport:
+        "basketball_nba",
+      sportName:
+        "NBA"
+    },
+
+    wnba: {
+      appSport:
+        "basketball_wnba",
+      sportName:
+        "WNBA"
+    },
+
+    ncaab: {
+      appSport:
+        "basketball_ncaab",
+      sportName:
+        "NCAAB"
+    },
+
+    mlb: {
+      appSport:
+        "baseball_mlb",
+      sportName:
+        "MLB"
+    },
+
+    nfl: {
+      appSport:
+        "americanfootball_nfl",
+      sportName:
+        "NFL"
+    },
+
+    ncaaf: {
+      appSport:
+        "americanfootball_ncaaf",
+      sportName:
+        "NCAAF"
+    }
+
+  };
+
+
+  return (
+    sports[key] ||
+    null
+  );
+}
+function rememberPremiumRadarNavigation(
+  gameId,
+  sport
+) {
+
+  const config =
+    getPremiumRadarSportConfig(
+      sport
+    );
+
+
+  if (
+    !gameId ||
+    !config
+  ) {
+    return false;
+  }
+
+
+  premiumRadarNavigationState.active =
+    true;
+
+  premiumRadarNavigationState.gameId =
+    String(gameId);
+
+  premiumRadarNavigationState.sport =
+    String(sport || "")
+      .toLowerCase()
+      .trim();
+
+  premiumRadarNavigationState.radarScrollY =
+    window.scrollY;
+
+
+  return true;
+}
+function backToPremiumRadar() {
+
+  if (
+    premiumRadarNavigationState.active !==
+    true
+  ) {
+    return;
+  }
+
+
+  const savedScrollY =
+    Number(
+      premiumRadarNavigationState.radarScrollY
+    ) || 0;
+const sourceGameId =
+  String(
+    premiumRadarNavigationState.gameId ||
+    ""
+  );
+
+  const radarView =
+    document.getElementById(
+      "premiumRadarView"
+    );
+
+  const leagueTabs =
+    document.querySelector(
+      ".league-tabs"
+    );
+
+  const searchBtn =
+    document.getElementById(
+      "searchBtn"
+    );
+
+  const parlayBtn =
+    document.querySelector(
+      ".parlay-premium-btn"
+    );
+
+  const parlayBox =
+    document.getElementById(
+      "parlayTodayBox"
+    );
+
+  const status =
+    document.getElementById(
+      "status"
+    );
+
+  const games =
+    document.getElementById(
+      "games"
+    );
+
+  const performancePanel =
+    document.getElementById(
+      "performancePanel"
+    );
+
+
+  if (leagueTabs) {
+    leagueTabs.style.display =
+      "none";
+  }
+
+  if (searchBtn) {
+    searchBtn.style.display =
+      "none";
+  }
+
+  if (parlayBtn) {
+    parlayBtn.style.display =
+      "none";
+  }
+
+  if (parlayBox) {
+    parlayBox.style.display =
+      "none";
+  }
+
+  if (status) {
+    status.style.display =
+      "none";
+  }
+
+  if (games) {
+    games.style.display =
+      "none";
+  }
+
+  if (performancePanel) {
+    performancePanel.style.display =
+      "none";
+  }
+
+
+ if (radarView) {
+  radarView.style.display =
+    "block";
+}
+
+
+hidePremiumRadarReturnButton();
+
+
+premiumRadarNavigationState.active =
+  false;
+
+  premiumRadarNavigationState.gameId =
+    null;
+
+  premiumRadarNavigationState.sport =
+    null;
+
+requestAnimationFrame(
+  () => {
+
+    window.scrollTo({
+      top: savedScrollY,
+      behavior: "instant"
+    });
+
+
+    const radarCards =
+      Array.from(
+        document.querySelectorAll(
+          "[data-radar-game-id]"
+        )
+      );
+
+
+    const sourceCard =
+      radarCards.find(
+        card =>
+          String(
+            card.dataset.radarGameId ||
+            ""
+          ) === sourceGameId
+      );
+
+
+    if (sourceCard) {
+
+      sourceCard.style.transition =
+        "box-shadow .25s ease, border-color .25s ease";
+
+      sourceCard.style.borderColor =
+        "#00ffe7";
+
+      sourceCard.style.boxShadow =
+        "0 0 0 2px rgba(0,255,231,.18), 0 0 24px rgba(0,255,231,.16)";
+
+
+      setTimeout(
+        () => {
+
+          sourceCard.style.borderColor =
+            "#14243d";
+
+          sourceCard.style.boxShadow =
+            "none";
+
+        },
+        1800
+      );
+    }
+
+  }
+);
+}
+
+
+window.backToPremiumRadar =
+  backToPremiumRadar;
+function showPremiumRadarReturnButton() {
+
+  let button =
+    document.getElementById(
+      "premiumRadarReturnButton"
+    );
+
+
+  if (!button) {
+
+    button =
+      document.createElement(
+        "button"
+      );
+
+    button.id =
+      "premiumRadarReturnButton";
+
+    button.type =
+      "button";
+
+    button.onclick =
+      backToPremiumRadar;
+
+
+    button.innerHTML =
+      "← BACK TO PREMIUM RADAR";
+
+
+    button.style.cssText = `
+      position:fixed;
+      left:50%;
+      bottom:18px;
+      transform:translateX(-50%);
+      z-index:9999;
+
+      padding:12px 18px;
+
+      border:
+        1px solid
+        rgba(0,255,231,.45);
+
+      border-radius:999px;
+
+      background:
+        rgba(4,13,24,.96);
+
+      color:#00ffe7;
+
+      font-size:10px;
+      font-weight:900;
+      letter-spacing:.8px;
+
+      cursor:pointer;
+
+      box-shadow:
+        0 8px 30px
+        rgba(0,0,0,.45);
+
+      backdrop-filter:
+        blur(8px);
+    `;
+
+
+    document.body.appendChild(
+      button
+    );
+  }
+
+
+  button.style.display =
+    "block";
+}
+
+
+function hidePremiumRadarReturnButton() {
+
+  const button =
+    document.getElementById(
+      "premiumRadarReturnButton"
+    );
+
+
+  if (button) {
+    button.style.display =
+      "none";
+  }
+}
+async function openPremiumRadarFullAnalysis(
+  gameId,
+  sport,
+  gameTime
+) {
+
+  const kickoff =
+    new Date(
+      gameTime
+    ).getTime();
+
+
+  // El análisis solo puede abrirse
+  // mientras el juego NO haya comenzado.
+  if (
+    !Number.isFinite(kickoff) ||
+    Date.now() >= kickoff
+  ) {
+    return false;
+  }
+
+
+  const config =
+    getPremiumRadarSportConfig(
+      sport
+    );
+
+
+  if (!config) {
+    return false;
+  }
+
+
+  const remembered =
+    rememberPremiumRadarNavigation(
+      gameId,
+      sport
+    );
+
+
+  if (!remembered) {
+    return false;
+  }
+
+
+  // Cambiar al deporte correcto
+  selectedSport =
+    config.appSport;
+
+  selectedSportName =
+    config.sportName;
+
+  window.currentSport =
+    String(sport || "")
+      .toLowerCase()
+      .trim();
+
+
+  // Actualizar textos principales
+  const appTitle =
+    document.getElementById(
+      "appTitle"
+    );
+
+  if (appTitle) {
+    appTitle.innerText =
+      `${config.sportName} Picks App`;
+  }
+
+
+  const searchBtn =
+    document.getElementById(
+      "searchBtn"
+    );
+
+  if (searchBtn) {
+    searchBtn.innerText =
+      `Find ${config.sportName} games`;
+  }
+
+
+  const orbEl =
+    document.querySelector(
+      ".basketball-orb"
+    );
+
+  if (orbEl) {
+
+    const sportIcons = {
+      basketball_nba: "🏀",
+      basketball_wnba: "🏀",
+      basketball_ncaab: "🏀",
+      baseball_mlb: "⚾",
+      americanfootball_nfl: "🏈",
+      americanfootball_ncaaf: "🏈"
+    };
+
+    orbEl.innerText =
+      sportIcons[
+        config.appSport
+      ] || "📊";
+  }
+const heroLine1 =
+  document.getElementById(
+    "heroLine1"
+  );
+
+const heroLine2 =
+  document.getElementById(
+    "heroLine2"
+  );
+
+
+if (heroLine1) {
+  heroLine1.innerText =
+    config.sportName;
+}
+
+if (heroLine2) {
+  heroLine2.innerText =
+    "Picks App";
+}
+
+
+document
+  .querySelectorAll(
+    ".league-btn"
+  )
+  .forEach(
+    button => {
+
+      button.classList.remove(
+        "active"
+      );
+
+
+      const clickCode =
+        button.getAttribute(
+          "onclick"
+        ) || "";
+
+
+      if (
+        clickCode.includes(
+          `'${config.appSport}'`
+        )
+      ) {
+        button.classList.add(
+          "active"
+        );
+      }
+    }
+  );
+
+  // Ocultar Radar y mostrar
+  // temporalmente el deporte.
+  closePremiumRadar();
+
+
+  // Cargar el board del deporte.
+  await loadGames();
+
+
+  const targetGameId =
+    String(gameId);
+
+
+  const cards =
+    Array.from(
+      document.querySelectorAll(
+        "#games .card"
+      )
+    );
+
+
+  const targetCard =
+    cards.find(
+      card =>
+        String(
+          card.dataset.gameId ||
+          ""
+        ) === targetGameId
+    );
+
+
+  if (!targetCard) {
+
+    backToPremiumRadar();
+
+    return false;
+  }
+
+
+  targetCard.scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
+
+
+  const analysisButton =
+    targetCard.querySelector(
+      "button"
+    );
+
+
+  if (!analysisButton) {
+
+    backToPremiumRadar();
+
+    return false;
+  }
+
+
+ analysisButton.click();
+
+
+showPremiumRadarReturnButton();
+
+
+return true;
+}
+
+
+window.openPremiumRadarFullAnalysis =
+  openPremiumRadarFullAnalysis;
+// ============================================================
 // PREMIUM RADAR
 // ============================================================
 
@@ -7845,14 +8481,28 @@ if (
                             const openingLine =
                               row.opening_market_line ??
                               "—";
+                            const gameTimeMs =
+  row.game_time
+    ? new Date(
+        row.game_time
+      ).getTime()
+    : NaN;
 
 
-                            return `
-                              <div
-                                style="
-                                  background:
-                                    #070d17;
+const gameStarted =
+  !Number.isFinite(
+    gameTimeMs
+  ) ||
+  Date.now() >=
+    gameTimeMs;
 
+
+                        return `
+  <div
+    data-radar-game-id="${radarEscape(row.game_id || "")}"
+    style="
+      background:
+        #070d17;
                                   border:
                                     1px solid
                                     #14243d;
@@ -8265,6 +8915,60 @@ if (
     </div>
   `;
 })()}
+${gameStarted
+  ? `
+    <button
+      type="button"
+      disabled
+      style="
+        width:100%;
+        margin-top:12px;
+        padding:11px 14px;
+        border:1px solid #1a2638;
+        border-radius:9px;
+        background:#0a1019;
+        color:#526983;
+        font-size:10px;
+        font-weight:900;
+        letter-spacing:.8px;
+        cursor:not-allowed;
+        opacity:.75;
+      "
+    >
+      GAME STARTED
+    </button>
+  `
+  : `
+    <button
+      type="button"
+      data-game-id="${radarEscape(row.game_id || "")}"
+      data-sport="${radarEscape(row.sport || "")}"
+      data-game-time="${radarEscape(row.game_time || "")}"
+      onclick="
+        openPremiumRadarFullAnalysis(
+          this.dataset.gameId,
+          this.dataset.sport,
+          this.dataset.gameTime
+        )
+      "
+      style="
+        width:100%;
+        margin-top:12px;
+        padding:11px 14px;
+        border:1px solid rgba(0,255,231,.35);
+        border-radius:9px;
+        background:rgba(0,255,231,.07);
+        color:#00ffe7;
+        font-size:10px;
+        font-weight:900;
+        letter-spacing:.8px;
+        cursor:pointer;
+      "
+    >
+      VIEW FULL ANALYSIS →
+    </button>
+  `
+}
 
                                 </div>
 
