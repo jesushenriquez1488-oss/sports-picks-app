@@ -1,4 +1,7 @@
 const { createClient } = require("@supabase/supabase-js");
+const {
+  syncPremiumRadar
+} = require("../lib/premiumRadar");
 const { randomUUID } = require("crypto");
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
@@ -3199,15 +3202,150 @@ if (
         premium: null
       };
 
-      await supabaseAdmin.from("daily_picks").upsert({
-      sport: selectedLeague,
-        game_id: gameId,
-        away_team: awayTeam,
-        home_team: homeTeam,
-        analysis_json: noPlayData,
-updated_at: new Date().toISOString(),
-game_date: new Date().toISOString().split("T")[0]
-      });
+     const {
+  data: savedNoPlayDailyPick,
+  error: noPlayDailyPickError
+} =
+  await supabaseAdmin
+    .from("daily_picks")
+    .upsert(
+      {
+        sport:
+          selectedLeague,
+
+        game_id:
+          gameId,
+
+        away_team:
+          awayTeam,
+
+        home_team:
+          homeTeam,
+
+        analysis_json:
+          noPlayData,
+
+        updated_at:
+          new Date().toISOString(),
+
+        game_date:
+          gameDate,
+
+        game_time:
+          gameTime
+            ? new Date(
+                gameTime
+              ).toISOString()
+            : null
+      },
+      {
+        onConflict:
+          "sport,game_id"
+      }
+    )
+    .select(
+      "id, updated_at"
+    )
+    .single();
+
+
+if (noPlayDailyPickError) {
+  throw new Error(
+    "Basketball no-play daily_picks save error: " +
+    noPlayDailyPickError.message
+  );
+}
+
+
+// ============================================================
+// PREMIUM RADAR — NO PLAY / PREMIUM EXIT SYNC
+// ============================================================
+//
+// If this game was Premium before,
+// Radar must immediately mark it as no longer Premium.
+//
+// If it was never Premium,
+// syncPremiumRadar will simply skip it.
+//
+try {
+
+  await syncPremiumRadar({
+
+    supabaseAdmin,
+
+    sourceDailyPickId:
+      savedNoPlayDailyPick.id,
+
+    sport:
+      selectedLeague,
+
+    gameId:
+      gameId,
+
+    gameDate:
+      gameDate,
+
+    awayTeam:
+      awayTeam,
+
+    homeTeam:
+      homeTeam,
+
+    isPremium:
+      false,
+
+    pick:
+      null,
+
+    confidence:
+      null,
+
+    edge:
+      null,
+
+    projection:
+      null,
+
+    recommendation:
+      null,
+
+    openingMarketLine:
+      null,
+
+    currentMarketLine:
+      null,
+
+    injuryAdjustment:
+      null,
+
+    weatherAdjustment:
+      null,
+
+    starterState:
+      null,
+
+    pitcherId:
+      null,
+
+    sourceUpdatedAt:
+      savedNoPlayDailyPick.updated_at
+  });
+
+
+} catch (radarError) {
+
+  console.error(
+    "BASKETBALL PREMIUM RADAR NO-PLAY SYNC ERROR:",
+    selectedLeague,
+    gameId,
+    radarError.message
+  );
+}
+
+
+return res.status(200).json(
+  noPlayData
+);
 return res.status(200).json(noPlayData);
     }
 
@@ -3260,15 +3398,268 @@ const risk = isPremiumPick ? "Bajo" : "Medio";
       }
     };
 
-    await supabaseAdmin.from("daily_picks").upsert({
-      sport: selectedLeague,
-      game_id: gameId,
-      away_team: awayTeam,
-      home_team: homeTeam,
-      analysis_json: fullAnalysis,
-updated_at: new Date().toISOString(),
-game_date: new Date().toISOString().split("T")[0]
-    });
+ const {
+  data: savedDailyPick,
+  error: dailyPickError
+} =
+  await supabaseAdmin
+    .from("daily_picks")
+    .upsert(
+      {
+        sport:
+          selectedLeague,
+
+        game_id:
+          gameId,
+
+        away_team:
+          awayTeam,
+
+        home_team:
+          homeTeam,
+
+        analysis_json:
+          fullAnalysis,
+
+        updated_at:
+          new Date().toISOString(),
+
+        game_date:
+          gameDate,
+
+        game_time:
+          gameTime
+            ? new Date(
+                gameTime
+              ).toISOString()
+            : null
+      },
+      {
+        onConflict:
+          "sport,game_id"
+      }
+    )
+    .select(
+      "id, updated_at"
+    )
+    .single();
+
+
+if (dailyPickError) {
+  throw new Error(
+    "Basketball daily_picks save error: " +
+    dailyPickError.message
+  );
+}
+
+
+// ============================================================
+// PREMIUM RADAR — IMMEDIATE BEST-EFFORT SYNC
+// ============================================================
+//
+// Applies to:
+// NBA
+// WNBA
+// NCAAB
+//
+// daily_picks remains canonical.
+// Radar failure must NEVER break the sports analysis.
+//
+try {
+
+  const radarNum =
+    value => {
+
+      if (
+        value === null ||
+        value === undefined ||
+        value === ""
+      ) {
+        return null;
+      }
+
+      const n =
+        Number(value);
+
+      return Number.isFinite(n)
+        ? n
+        : null;
+    };
+
+
+  const radarPick =
+    fullAnalysis
+      ?.premium
+      ?.pick ||
+    null;
+
+
+  const normalizedPick =
+    String(
+      radarPick || ""
+    )
+      .toLowerCase()
+      .trim();
+
+
+  let currentMarketLine =
+    null;
+
+
+  if (
+    normalizedPick.includes("over") ||
+    normalizedPick.includes("under")
+  ) {
+
+    currentMarketLine =
+      radarNum(
+        fullAnalysis
+          ?.marketSnapshot
+          ?.total
+      );
+
+  } else if (
+    radarPick &&
+    radarPick.includes(
+      awayTeam
+    )
+  ) {
+
+    currentMarketLine =
+      radarNum(
+        fullAnalysis
+          ?.marketSnapshot
+          ?.awaySpread
+      );
+
+  } else if (
+    radarPick &&
+    radarPick.includes(
+      homeTeam
+    )
+  ) {
+
+    currentMarketLine =
+      radarNum(
+        fullAnalysis
+          ?.marketSnapshot
+          ?.homeSpread
+      );
+  }
+
+
+  const radarProjection = {
+
+    away:
+      radarNum(
+        fullAnalysis
+          ?.premium
+          ?.projA
+      ),
+
+    home:
+      radarNum(
+        fullAnalysis
+          ?.premium
+          ?.projB
+      ),
+
+    total:
+      radarNum(
+        fullAnalysis
+          ?.premium
+          ?.totalProj
+      ),
+
+    margin:
+      radarNum(
+        fullAnalysis
+          ?.premium
+          ?.spreadDiff
+      )
+  };
+
+
+  await syncPremiumRadar({
+
+    supabaseAdmin,
+
+    sourceDailyPickId:
+      savedDailyPick.id,
+
+    sport:
+      selectedLeague,
+
+    gameId:
+      gameId,
+
+    gameDate:
+      gameDate,
+
+    awayTeam:
+      awayTeam,
+
+    homeTeam:
+      homeTeam,
+
+    isPremium:
+      fullAnalysis
+        .isPremiumPick === true,
+
+    pick:
+      radarPick,
+
+    confidence:
+      radarNum(
+        fullAnalysis
+          ?.premium
+          ?.confidence
+      ),
+
+    edge:
+      radarNum(
+        fullAnalysis
+          ?.premium
+          ?.mainEdge
+      ),
+
+    projection:
+      radarProjection,
+
+    recommendation:
+      null,
+
+    openingMarketLine:
+      null,
+
+    currentMarketLine,
+
+    injuryAdjustment:
+      null,
+
+    weatherAdjustment:
+      null,
+
+    starterState:
+      null,
+
+    pitcherId:
+      null,
+
+    sourceUpdatedAt:
+      savedDailyPick.updated_at
+  });
+
+
+} catch (radarError) {
+
+  console.error(
+    "BASKETBALL PREMIUM RADAR SYNC ERROR:",
+    selectedLeague,
+    gameId,
+    radarError.message
+  );
+}
 let pickType = "spread";
 let pickTeam = null;
 let pickLine = null;
