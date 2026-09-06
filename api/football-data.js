@@ -12695,6 +12695,114 @@ const teamsSorted = [teamA, teamB]
   .sort();
 
 const gameId = `${type}-${gameDate}-${teamsSorted.join("-")}`;
+
+
+// ============================================================
+// FOOTBALL HARD FREEZE
+// 30 MINUTES BEFORE KICKOFF
+// NFL + NCAAF
+// ============================================================
+
+const footballKickoffMs =
+  odds?.commenceTime
+    ? new Date(
+        odds.commenceTime
+      ).getTime()
+    : NaN;
+
+
+const footballFrozen =
+  Number.isFinite(
+    footballKickoffMs
+  ) &&
+  Date.now() >=
+    footballKickoffMs -
+      30 * 60 * 1000;
+
+
+if (footballFrozen) {
+
+  const {
+    data: frozenRow,
+    error: frozenError
+  } =
+    await supabaseAdmin
+      .from("daily_picks")
+      .select(
+        "analysis_json, updated_at, game_time"
+      )
+      .eq(
+        "sport",
+        type
+      )
+      .eq(
+        "game_id",
+        gameId
+      )
+      .maybeSingle();
+
+
+  if (frozenError) {
+    throw new Error(
+      `Football freeze read error: ${frozenError.message}`
+    );
+  }
+
+
+  // Ya existía análisis antes del freeze:
+  // devolver exactamente ese análisis.
+  // NO recalcular.
+  // NO cambiar línea.
+  // NO hacer upsert.
+  if (
+    frozenRow?.analysis_json
+      ?.fullResponse
+  ) {
+
+    return res
+      .status(200)
+      .json({
+        ...buildFootballPublicResponse(
+          frozenRow
+            .analysis_json
+            .fullResponse,
+          isPremiumUser
+        ),
+
+        frozen: true,
+        freezeReason:
+          "30_minute_pregame_freeze"
+      });
+  }
+
+
+  // Si nadie lo había analizado antes
+  // del freeze, no creamos un análisis
+  // nuevo usando una línea tardía/live.
+  return res
+    .status(200)
+    .json({
+      sport: type,
+
+      frozen: true,
+
+      freezeReason:
+        "30_minute_pregame_freeze",
+
+      analysisAvailable:
+        false,
+
+      noPlay: true,
+
+      picks: {
+        available: false,
+        message:
+          "Analysis was not available before the 30-minute pregame freeze."
+      }
+    });
+}
+
+
 const fullResponse = {
     sport: type,
     odds,
