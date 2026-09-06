@@ -372,17 +372,42 @@ const radarViewMode =
 
 if (radarViewMode === "history") {
 
-  const historyStartDate =
-    addDays(
-      today,
-      -7
+  // ====================================================
+  // HISTORY — ONE DAY AT A TIME
+  //
+  // User can select any of the previous 7 calendar days.
+  // Only the selected day is queried and returned.
+  // ====================================================
+
+  const dates =
+    Array.from(
+      {
+        length: 7
+      },
+      (
+        _,
+        index
+      ) =>
+        addDays(
+          today,
+          -(index + 1)
+        )
     );
 
-  const historyEndDate =
-    addDays(
-      today,
-      -1
-    );
+
+  const requestedDate =
+    String(
+      req.query.date || ""
+    )
+      .trim();
+
+
+  const selectedDate =
+    dates.includes(
+      requestedDate
+    )
+      ? requestedDate
+      : dates[0];
 
 
   const {
@@ -394,13 +419,9 @@ if (radarViewMode === "history") {
       .select(
         RADAR_SELECT
       )
-      .gte(
+      .eq(
         "game_date",
-        historyStartDate
-      )
-      .lte(
-        "game_date",
-        historyEndDate
+        selectedDate
       );
 
 
@@ -410,197 +431,172 @@ if (radarViewMode === "history") {
 
 
   let rows =
-  historyRows || [];
+    historyRows || [];
 
-
-// ====================================================
-// HISTORY — CANONICAL RESULTS FROM picks_history
-//
-// premium_radar stores the Radar opportunity.
-// picks_history is the canonical grading source.
-//
-// Match by:
-// sport + game_id + pick
-//
-// This avoids assigning the result of another play
-// from the same game.
-// ====================================================
-
-const historyGameIds =
-  [
-    ...new Set(
-      rows
-        .map(
-          row =>
-            row.game_id
-        )
-        .filter(Boolean)
-    )
-  ];
-
-
-if (historyGameIds.length) {
-
-  const {
-    data: gradedRows,
-    error: gradedRowsError
-  } =
-    await supabaseAdmin
-      .from("picks_history")
-      .select(
-        `
-          sport,
-          game_id,
-          pick,
-          result,
-          final_score,
-          graded_at
-        `
-      )
-      .in(
-        "game_id",
-        historyGameIds
-      );
-
-
-  if (gradedRowsError) {
-    throw gradedRowsError;
-  }
-
-
-  const gradedMap =
-    new Map();
-
-
-  for (
-    const graded of
-      gradedRows || []
-  ) {
-
-    const key =
-      [
-        String(
-          graded.sport || ""
-        )
-          .toLowerCase()
-          .trim(),
-
-        String(
-          graded.game_id || ""
-        )
-          .trim(),
-
-        String(
-          graded.pick || ""
-        )
-          .trim()
-      ].join("|");
-
-
-    const existing =
-      gradedMap.get(key);
-
-
-    if (
-      !existing ||
-      (
-        graded.graded_at &&
-        (
-          !existing.graded_at ||
-          new Date(
-            graded.graded_at
-          ).getTime() >
-          new Date(
-            existing.graded_at
-          ).getTime()
-        )
-      )
-    ) {
-
-      gradedMap.set(
-        key,
-        graded
-      );
-    }
-  }
-
-
-  rows =
-    rows.map(
-      row => {
-
-        const key =
-          [
-            String(
-              row.sport || ""
-            )
-              .toLowerCase()
-              .trim(),
-
-            String(
-              row.game_id || ""
-            )
-              .trim(),
-
-            String(
-              row.current_pick || ""
-            )
-              .trim()
-          ].join("|");
-
-
-        const graded =
-          gradedMap.get(key);
-
-
-        if (!graded) {
-          return row;
-        }
-
-
-        return {
-          ...row,
-
-          result:
-            graded.result ||
-            row.result ||
-            "pending",
-
-          final_score:
-            graded.final_score ||
-            row.final_score ||
-            null
-        };
-      }
-    );
-}
 
   // ====================================================
-  // HISTORY ORDER
+  // CANONICAL RESULTS FROM picks_history
   //
-  // Newest day first.
-  // Then sport.
-  // Current Premium before former Premium.
-  // Confidence as final tie-breaker.
+  // Match:
+  // sport + game_id + pick
+  // ====================================================
+
+  const historyGameIds =
+    [
+      ...new Set(
+        rows
+          .map(
+            row =>
+              row.game_id
+          )
+          .filter(Boolean)
+      )
+    ];
+
+
+  if (historyGameIds.length) {
+
+    const {
+      data: gradedRows,
+      error: gradedRowsError
+    } =
+      await supabaseAdmin
+        .from("picks_history")
+        .select(
+          `
+            sport,
+            game_id,
+            pick,
+            result,
+            final_score,
+            graded_at
+          `
+        )
+        .in(
+          "game_id",
+          historyGameIds
+        );
+
+
+    if (gradedRowsError) {
+      throw gradedRowsError;
+    }
+
+
+    const gradedMap =
+      new Map();
+
+
+    for (
+      const graded of
+        gradedRows || []
+    ) {
+
+      const key =
+        [
+          String(
+            graded.sport || ""
+          )
+            .toLowerCase()
+            .trim(),
+
+          String(
+            graded.game_id || ""
+          )
+            .trim(),
+
+          String(
+            graded.pick || ""
+          )
+            .trim()
+        ].join("|");
+
+
+      const existing =
+        gradedMap.get(key);
+
+
+      if (
+        !existing ||
+        (
+          graded.graded_at &&
+          (
+            !existing.graded_at ||
+            new Date(
+              graded.graded_at
+            ).getTime() >
+            new Date(
+              existing.graded_at
+            ).getTime()
+          )
+        )
+      ) {
+
+        gradedMap.set(
+          key,
+          graded
+        );
+      }
+    }
+
+
+    rows =
+      rows.map(
+        row => {
+
+          const key =
+            [
+              String(
+                row.sport || ""
+              )
+                .toLowerCase()
+                .trim(),
+
+              String(
+                row.game_id || ""
+              )
+                .trim(),
+
+              String(
+                row.current_pick || ""
+              )
+                .trim()
+            ].join("|");
+
+
+          const graded =
+            gradedMap.get(key);
+
+
+          if (!graded) {
+            return row;
+          }
+
+
+          return {
+            ...row,
+
+            result:
+              graded.result ||
+              row.result ||
+              "pending",
+
+            final_score:
+              graded.final_score ||
+              row.final_score ||
+              null
+          };
+        }
+      );
+  }
+
+
+  // ====================================================
+  // SORT SELECTED DAY
   // ====================================================
 
   rows.sort(
     (a, b) => {
-
-      const dateCompare =
-        String(
-          b.game_date || ""
-        ).localeCompare(
-          String(
-            a.game_date || ""
-          )
-        );
-
-
-      if (dateCompare !== 0) {
-        return dateCompare;
-      }
-
 
       const sportCompare =
         String(
@@ -641,59 +637,37 @@ if (historyGameIds.length) {
 
 
   // ====================================================
-  // GROUP BY DATE → SPORT
+  // GROUP SELECTED DAY BY SPORT
+  //
+  // Keep same frontend shape:
+  // grouped[date][sport]
   // ====================================================
 
-  const grouped = {};
+  const grouped = {
+    [selectedDate]: {}
+  };
 
 
   for (const row of rows) {
 
-    const date =
-      row.game_date;
-
-
-    if (!grouped[date]) {
-      grouped[date] = {};
-    }
-
-
     if (
-      !grouped[date][row.sport]
+      !grouped[
+        selectedDate
+      ][row.sport]
     ) {
 
-      grouped[date][row.sport] =
+      grouped[
+        selectedDate
+      ][row.sport] =
         [];
     }
 
 
-    grouped[date][row.sport]
+    grouped[
+      selectedDate
+    ][row.sport]
       .push(row);
   }
-
-
-  // Always return the seven available dates,
-  // even when one of those days had zero Premiums.
-  //
-  // Example:
-  // Yesterday
-  // Sep 4
-  // Sep 3
-  // ...
-  const dates =
-    Array.from(
-      {
-        length: 7
-      },
-      (
-        _,
-        index
-      ) =>
-        addDays(
-          today,
-          -(index + 1)
-        )
-    );
 
 
   return res
@@ -708,14 +682,12 @@ if (historyGameIds.length) {
 
       today,
 
-      historyStartDate,
+      dates,
 
-      historyEndDate,
+      selectedDate,
 
       historyCount:
         rows.length,
-
-      dates,
 
       grouped
     });
