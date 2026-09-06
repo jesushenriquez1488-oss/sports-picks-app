@@ -5046,14 +5046,21 @@ const { error: dailyPickError } = await supabaseAdmin
   .from("daily_picks")
   .upsert(
     {
-      sport: "mlb",
-      game_id: gameId,
-      away_team: awayTeam,
-      home_team: homeTeam,
-      analysis_json: fullMlbAnalysis,
-      updated_at: new Date().toISOString(),
-      game_date: gameDate
-    },
+  sport: "mlb",
+  game_id: gameId,
+  away_team: awayTeam,
+  home_team: homeTeam,
+  analysis_json: fullMlbAnalysis,
+  updated_at: new Date().toISOString(),
+  game_date: gameDate,
+
+  game_time:
+    gameTime
+      ? new Date(
+          gameTime
+        ).toISOString()
+      : null
+},
     {
       onConflict: "sport,game_id"
     }
