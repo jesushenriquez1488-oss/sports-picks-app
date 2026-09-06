@@ -7804,7 +7804,9 @@ window.openPremiumRadarFullAnalysis =
 // PREMIUM RADAR
 // ============================================================
 
-async function openPremiumRadar() {
+async function openPremiumRadar(
+  viewMode = "today"
+) {
 
   const radarView =
     document.getElementById(
@@ -8000,16 +8002,24 @@ async function openPremiumRadar() {
     // FETCH RADAR
     // ========================================================
 
-    const response =
-      await fetch(
-        "/api/premium-radar",
-        {
-          headers: {
-            Authorization:
-              `Bearer ${session.access_token}`
-          }
-        }
-      );
+   const radarUrl =
+  String(viewMode)
+    .toLowerCase()
+    .trim() === "history"
+      ? "/api/premium-radar?view=history"
+      : "/api/premium-radar";
+
+
+const response =
+  await fetch(
+    radarUrl,
+    {
+      headers: {
+        Authorization:
+          `Bearer ${session.access_token}`
+      }
+    }
+  );
 
 
     const data =
@@ -8278,11 +8288,27 @@ async function openPremiumRadar() {
         : {};
 
 
-    const dates =
-      Object.keys(
+   const isHistoryView =
+  String(viewMode)
+    .toLowerCase()
+    .trim() === "history";
+
+
+const dates =
+  isHistoryView &&
+  Array.isArray(data.dates)
+    ? data.dates
+    : Object.keys(
         grouped
       ).sort();
-
+const radarDisplayCount =
+  isHistoryView
+    ? Number(
+        data.historyCount || 0
+      )
+    : Number(
+        data.premiumCount || 0
+      );
 
     // ========================================================
     // SAFE HTML
@@ -8522,16 +8548,73 @@ if (
                               true;
 
 
-                            const stateText =
-                              stillPremium
-                                ? "PREMIUM"
-                                : "NO LONGER PREMIUM";
+                            const normalizedResult =
+  String(
+    row.result || ""
+  )
+    .toLowerCase()
+    .trim();
 
 
-                            const stateColor =
-                              stillPremium
-                                ? "#00ffe7"
-                                : "#ffb347";
+let historyResultText =
+  "PENDING";
+
+let historyResultColor =
+  "#71839f";
+
+
+if (
+  normalizedResult === "win" ||
+  normalizedResult === "won"
+) {
+
+  historyResultText =
+    "WON";
+
+  historyResultColor =
+    "#00e676";
+
+} else if (
+  normalizedResult === "loss" ||
+  normalizedResult === "lost"
+) {
+
+  historyResultText =
+    "LOST";
+
+  historyResultColor =
+    "#ff5c5c";
+
+} else if (
+  normalizedResult === "push"
+) {
+
+  historyResultText =
+    "PUSH";
+
+  historyResultColor =
+    "#ffd000";
+}
+
+
+const stateText =
+  isHistoryView
+    ? historyResultText
+    : (
+        stillPremium
+          ? "PREMIUM"
+          : "NO LONGER PREMIUM"
+      );
+
+
+const stateColor =
+  isHistoryView
+    ? historyResultColor
+    : (
+        stillPremium
+          ? "#00ffe7"
+          : "#ffb347"
+      );
 
 
                             const marketLine =
@@ -8641,7 +8724,34 @@ const gameStarted =
                                     row.home_team
                                   )}
                                 </div>
-
+${
+  isHistoryView &&
+  row.final_score
+    ? `
+        <div
+          style="
+            margin-top:-7px;
+            margin-bottom:13px;
+            color:#8ca0b8;
+            font-size:10px;
+            font-weight:800;
+            letter-spacing:.4px;
+          "
+        >
+          FINAL&nbsp;
+          <span
+            style="
+              color:#d7e1ef;
+            "
+          >
+            ${radarEscape(
+              row.final_score
+            )}
+          </span>
+        </div>
+      `
+    : ""
+}
 
                                 <div
                                   style="
@@ -9109,14 +9219,20 @@ onclick="
       white-space:nowrap;
     "
   >
-    ${
-      rows.filter(
+  ${
+  isHistoryView
+    ? rows.length
+    : rows.filter(
         row =>
           row.current_is_premium ===
           true
       ).length
-    }
-    PREMIUM
+}
+${
+  isHistoryView
+    ? "PLAYS"
+    : "PREMIUM"
+}
   </div>
 
 </div>
@@ -9277,13 +9393,12 @@ onclick="
                   font-weight:900;
                 "
               >
-                ${
-                  Number(
-                    data.premiumCount ||
-                    0
-                  )
-                }
-                Premium Opportunities
+               ${radarDisplayCount}
+${
+  isHistoryView
+    ? "Historical Premium Opportunities"
+    : "Premium Opportunities"
+}
               </div>
 
               <div
@@ -9307,39 +9422,82 @@ onclick="
             >
 
               <button
-                style="
-                  border:
-                    1px solid
-                    rgba(0,255,231,.45);
-                  background:
-                    rgba(0,255,231,.08);
-                  color:#00ffe7;
-                  border-radius:9px;
-                  padding:9px 16px;
-                  font-size:10px;
-                  font-weight:900;
-                "
-              >
-                TODAY
-              </button>
+  type="button"
+  onclick="openPremiumRadar('today')"
+  style="
+    border:
+      1px solid
+      ${
+        !isHistoryView
+          ? "rgba(0,255,231,.45)"
+          : "#14243d"
+      };
+    background:
+      ${
+        !isHistoryView
+          ? "rgba(0,255,231,.08)"
+          : "#080e18"
+      };
+    color:
+      ${
+        !isHistoryView
+          ? "#00ffe7"
+          : "#526983"
+      };
+    border-radius:9px;
+    padding:9px 16px;
+    font-size:10px;
+    font-weight:900;
+    cursor:pointer;
+    opacity:
+      ${
+        !isHistoryView
+          ? "1"
+          : ".7"
+      };
+  "
+>
+  TODAY
+</button>
 
-              <button
-                disabled
-                style="
-                  border:
-                    1px solid
-                    #14243d;
-                  background:#080e18;
-                  color:#526983;
-                  border-radius:9px;
-                  padding:9px 16px;
-                  font-size:10px;
-                  font-weight:900;
-                  opacity:.7;
-                "
-              >
-                HISTORY
-              </button>
+<button
+  type="button"
+  onclick="openPremiumRadar('history')"
+  style="
+    border:
+      1px solid
+      ${
+        isHistoryView
+          ? "rgba(0,255,231,.45)"
+          : "#14243d"
+      };
+    background:
+      ${
+        isHistoryView
+          ? "rgba(0,255,231,.08)"
+          : "#080e18"
+      };
+    color:
+      ${
+        isHistoryView
+          ? "#00ffe7"
+          : "#526983"
+      };
+    border-radius:9px;
+    padding:9px 16px;
+    font-size:10px;
+    font-weight:900;
+    cursor:pointer;
+    opacity:
+      ${
+        isHistoryView
+          ? "1"
+          : ".7"
+      };
+  "
+>
+  HISTORY
+</button>
 
             </div>
 
