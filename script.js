@@ -7638,119 +7638,98 @@ async function openPremiumRadar() {
       };
 
 
-    const formatProjection =
-  value => {
+  const getProjectionData =
+  row => {
 
-    if (
-      value === null ||
-      value === undefined ||
-      value === ""
-    ) {
-      return "—";
-    }
+    const projection =
+      row?.current_projection;
 
+    const formatMetric =
+      value => {
 
-    const formatValue =
-      val => {
+        const num =
+          Number(value);
 
-        const numeric =
-          Number(val);
-
-        if (
-          val !== "" &&
-          Number.isFinite(numeric)
-        ) {
-          return numeric.toFixed(1);
-        }
-
-        return radarEscape(val);
+        return Number.isFinite(num)
+          ? num.toFixed(1)
+          : "—";
       };
 
+    const fallback = {
+      awayLabel: "AWAY",
+      awayValue: "—",
+      homeLabel: "HOME",
+      homeValue: "—",
+      bottomLeftLabel: "TOTAL",
+      bottomLeftValue: "—",
+      bottomRightLabel: "MARGIN",
+      bottomRightValue: "—"
+    };
 
     if (
-      typeof value ===
-      "number" ||
-      typeof value ===
-      "string"
+      !projection ||
+      typeof projection !== "object"
     ) {
-      return formatValue(value);
+      return fallback;
     }
 
-
+    // MLB / generic flat projection
     if (
-      typeof value ===
-      "object"
+      projection.away !== undefined ||
+      projection.home !== undefined ||
+      projection.total !== undefined ||
+      projection.margin !== undefined
     ) {
-
-      const parts = [];
-
-
-      for (
-        const [key, val]
-        of Object.entries(value)
-      ) {
-
-        if (
-          val === null ||
-          val === undefined
-        ) {
-          continue;
-        }
-
-
-        // Nested object:
-        // football score contains
-        // team -> projected points
-        if (
-          typeof val === "object" &&
-          !Array.isArray(val)
-        ) {
-
-          const inner =
-            Object.entries(val)
-              .filter(
-                ([, innerVal]) =>
-                  innerVal !== null &&
-                  innerVal !== undefined
-              )
-              .map(
-                ([innerKey, innerVal]) =>
-                  `${
-                    radarEscape(innerKey)
-                  }: ${
-                    formatValue(innerVal)
-                  }`
-              )
-              .join(" · ");
-
-
-          if (inner) {
-            parts.push(inner);
-          }
-
-          continue;
-        }
-
-
-        parts.push(
-          `${
-            radarEscape(key)
-          }: ${
-            formatValue(val)
-          }`
-        );
-      }
-
-
-      return parts.length
-        ? parts.join(" · ")
-        : "—";
+      return {
+        awayLabel: "AWAY",
+        awayValue: formatMetric(projection.away),
+        homeLabel: "HOME",
+        homeValue: formatMetric(projection.home),
+        bottomLeftLabel: "TOTAL",
+        bottomLeftValue: formatMetric(projection.total),
+        bottomRightLabel:
+          projection.spread !== undefined
+            ? "SPREAD"
+            : "MARGIN",
+        bottomRightValue: formatMetric(
+          projection.spread !== undefined
+            ? projection.spread
+            : projection.margin
+        )
+      };
     }
 
+    // Football nested score object
+    if (
+      projection.score &&
+      typeof projection.score === "object"
+    ) {
+      return {
+        awayLabel: "AWAY",
+        awayValue: formatMetric(
+          projection.score[
+            row.away_team
+          ]
+        ),
+        homeLabel: "HOME",
+        homeValue: formatMetric(
+          projection.score[
+            row.home_team
+          ]
+        ),
+        bottomLeftLabel: "TOTAL",
+        bottomLeftValue: formatMetric(
+          projection.total
+        ),
+        bottomRightLabel: "SPREAD",
+        bottomRightValue: formatMetric(
+          projection.spread
+        )
+      };
+    }
 
-    return "—";
+    return fallback;
   };
-
 
     // ========================================================
     // DATE SECTIONS
@@ -8078,39 +8057,169 @@ async function openPremiumRadar() {
                                   </div>
 
 
-                                  <div
-  style="
-    margin-top:12px;
-    background:#0a1322;
-    border-radius:10px;
-    padding:12px;
-  "
->
-  <div
-    style="
-      color:#ffd000;
-      font-size:9px;
-      font-weight:900;
-      letter-spacing:1px;
-      margin-bottom:7px;
-    "
-  >
-    PROJECTION
-  </div>
+                                 ${(() => {
+  const projection =
+    getProjectionData(row);
 
-  <div
-    style="
-      color:#dbe6f3;
-      font-size:12px;
-      line-height:1.75;
-      word-break:break-word;
-    "
-  >
-    ${formatProjection(
-      row.current_projection
-    ).split(" · ").join("<br>")}
-  </div>
-</div>
+  return `
+    <div
+      style="
+        margin-top:12px;
+        background:#0a1322;
+        border-radius:12px;
+        padding:12px;
+      "
+    >
+      <div
+        style="
+          color:#ffd000;
+          font-size:9px;
+          font-weight:900;
+          letter-spacing:1px;
+          margin-bottom:9px;
+        "
+      >
+        PROJECTION
+      </div>
+
+      <div
+        style="
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:8px;
+        "
+      >
+        <div
+          style="
+            background:#08101c;
+            border:1px solid #112034;
+            border-radius:10px;
+            padding:10px;
+          "
+        >
+          <div
+            style="
+              color:#5fb7ff;
+              font-size:8px;
+              font-weight:900;
+              letter-spacing:1px;
+              margin-bottom:5px;
+            "
+          >
+            ${projection.awayLabel}
+          </div>
+
+          <div
+            style="
+              color:#dff1ff;
+              font-size:17px;
+              font-weight:900;
+              line-height:1;
+            "
+          >
+            ${projection.awayValue}
+          </div>
+        </div>
+
+        <div
+          style="
+            background:#08101c;
+            border:1px solid #112034;
+            border-radius:10px;
+            padding:10px;
+          "
+        >
+          <div
+            style="
+              color:#5fb7ff;
+              font-size:8px;
+              font-weight:900;
+              letter-spacing:1px;
+              margin-bottom:5px;
+            "
+          >
+            ${projection.homeLabel}
+          </div>
+
+          <div
+            style="
+              color:#dff1ff;
+              font-size:17px;
+              font-weight:900;
+              line-height:1;
+            "
+          >
+            ${projection.homeValue}
+          </div>
+        </div>
+
+        <div
+          style="
+            background:#08101c;
+            border:1px solid #112034;
+            border-radius:10px;
+            padding:10px;
+          "
+        >
+          <div
+            style="
+              color:#7ce9ff;
+              font-size:8px;
+              font-weight:900;
+              letter-spacing:1px;
+              margin-bottom:5px;
+            "
+          >
+            ${projection.bottomLeftLabel}
+          </div>
+
+          <div
+            style="
+              color:#ffffff;
+              font-size:16px;
+              font-weight:900;
+              line-height:1;
+            "
+          >
+            ${projection.bottomLeftValue}
+          </div>
+        </div>
+
+        <div
+          style="
+            background:#08101c;
+            border:1px solid #112034;
+            border-radius:10px;
+            padding:10px;
+          "
+        >
+          <div
+            style="
+              color:#7ce9ff;
+              font-size:8px;
+              font-weight:900;
+              letter-spacing:1px;
+              margin-bottom:5px;
+            "
+          >
+            ${projection.bottomRightLabel}
+          </div>
+
+          <div
+            style="
+              color:#ffffff;
+              font-size:16px;
+              font-weight:900;
+              line-height:1;
+            "
+          >
+            ${projection.bottomRightValue}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+})()}
 
                                 </div>
 
