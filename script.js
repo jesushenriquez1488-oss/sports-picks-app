@@ -7237,6 +7237,37 @@ function getPremiumRadarSportConfig(
     null
   );
 }
+function parsePremiumRadarGameTime(
+  value
+) {
+
+  if (!value) {
+    return NaN;
+  }
+
+
+  const raw =
+    String(value)
+      .trim();
+
+
+  // Si ya trae Z u offset,
+  // respetamos el timezone original.
+  const hasTimezone =
+    /(?:Z|[+-]\d{2}:\d{2})$/i
+      .test(raw);
+
+
+  const normalized =
+    hasTimezone
+      ? raw
+      : `${raw}Z`;
+
+
+  return new Date(
+    normalized
+  ).getTime();
+}
 function rememberPremiumRadarNavigation(
   gameId,
   sport
@@ -7478,38 +7509,40 @@ function showPremiumRadarReturnButton() {
 
 
     button.style.cssText = `
-      position:fixed;
-      left:50%;
-      bottom:18px;
-      transform:translateX(-50%);
-      z-index:9999;
+  position:fixed;
+  left:50%;
+  bottom:18px;
+  transform:translateX(-50%);
+  z-index:9999;
 
-      padding:12px 18px;
+  padding:12px 18px;
 
-      border:
-        1px solid
-        rgba(0,255,231,.45);
+  border:
+    2px solid
+    #ffe600;
 
-      border-radius:999px;
+  border-radius:999px;
 
-      background:
-        rgba(4,13,24,.96);
+  background:
+    #ffe600;
 
-      color:#00ffe7;
+  color:#050505;
 
-      font-size:10px;
-      font-weight:900;
-      letter-spacing:.8px;
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:.8px;
 
-      cursor:pointer;
+  cursor:pointer;
 
-      box-shadow:
-        0 8px 30px
-        rgba(0,0,0,.45);
+  box-shadow:
+    0 8px 30px
+    rgba(0,0,0,.55),
+    0 0 18px
+    rgba(255,230,0,.28);
 
-      backdrop-filter:
-        blur(8px);
-    `;
+  backdrop-filter:
+    blur(8px);
+`;
 
 
     document.body.appendChild(
@@ -7542,11 +7575,10 @@ async function openPremiumRadarFullAnalysis(
   gameTime
 ) {
 
-  const kickoff =
-    new Date(
-      gameTime
-    ).getTime();
-
+const kickoff =
+  parsePremiumRadarGameTime(
+    gameTime
+  );
 
   // El análisis solo puede abrirse
   // mientras el juego NO haya comenzado.
@@ -8503,12 +8535,10 @@ if (
                             const openingLine =
                               row.opening_market_line ??
                               "—";
-                            const gameTimeMs =
-  row.game_time
-    ? new Date(
-        row.game_time
-      ).getTime()
-    : NaN;
+                           const gameTimeMs =
+  parsePremiumRadarGameTime(
+    row.game_time
+  );
 
 
 const gameStarted =
