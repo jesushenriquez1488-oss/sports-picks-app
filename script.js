@@ -8078,18 +8078,39 @@ async function openPremiumRadar() {
                                   </div>
 
 
-                                  <div>
-                                    PROJECTION:
-                                    <strong
-                                      style="
-                                        color:#cbd7e8;
-                                      "
-                                    >
-                                      ${formatProjection(
-                                        row.current_projection
-                                      )}
-                                    </strong>
-                                  </div>
+                                  <div
+  style="
+    margin-top:12px;
+    background:#0a1322;
+    border-radius:10px;
+    padding:12px;
+  "
+>
+  <div
+    style="
+      color:#ffd000;
+      font-size:9px;
+      font-weight:900;
+      letter-spacing:1px;
+      margin-bottom:7px;
+    "
+  >
+    PROJECTION
+  </div>
+
+  <div
+    style="
+      color:#dbe6f3;
+      font-size:12px;
+      line-height:1.75;
+      word-break:break-word;
+    "
+  >
+    ${formatProjection(
+      row.current_projection
+    ).split(" · ").join("<br>")}
+  </div>
+</div>
 
                                 </div>
 
@@ -8107,50 +8128,78 @@ async function openPremiumRadar() {
                         "
                       >
 
-                        <div
-                          style="
-                            display:flex;
-                            justify-content:
-                              space-between;
-                            align-items:center;
-                            margin-bottom:10px;
-                          "
-                        >
+                       <div
+  style="
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    margin:28px 0 14px;
+    padding:12px 14px;
 
-                          <div
-                            style="
-                              color:#fff;
-                              font-size:13px;
-                              font-weight:900;
-                            "
-                          >
-                            ${radarEscape(
-                              String(
-                                sport
-                              )
-                                .toUpperCase()
-                            )}
-                          </div>
+    background:
+      linear-gradient(
+        135deg,
+        rgba(255,208,0,.10),
+        rgba(255,208,0,.04)
+      );
 
-                          <div
-                            style="
-                              color:#00ffe7;
-                              font-size:10px;
-                              font-weight:800;
-                            "
-                          >
-                            ${
-                              rows.filter(
-                                row =>
-                                  row.current_is_premium ===
-                                  true
-                              ).length
-                            }
-                            PREMIUM
-                          </div>
+    border:
+      1px solid
+      rgba(255,208,0,.32);
 
-                        </div>
+    border-radius:14px;
+  "
+>
 
+  <div
+    style="
+      color:#ffd000;
+      font-size:18px;
+      font-weight:900;
+      letter-spacing:1px;
+      line-height:1;
+    "
+  >
+    ${radarEscape(
+      String(
+        sport
+      )
+        .toUpperCase()
+    )}
+  </div>
+
+  <div
+    style="
+      color:#ffd000;
+      font-size:11px;
+      font-weight:900;
+      letter-spacing:.7px;
+
+      padding:7px 12px;
+      border-radius:999px;
+
+      border:
+        1px solid
+        rgba(255,208,0,.30);
+
+      background:
+        rgba(255,208,0,.08);
+
+      white-space:nowrap;
+    "
+  >
+    ${
+      rows.filter(
+        row =>
+          row.current_is_premium ===
+          true
+      ).length
+    }
+    PREMIUM
+  </div>
+
+</div>
 
                         <div
                           style="
