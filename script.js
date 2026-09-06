@@ -7805,7 +7805,8 @@ window.openPremiumRadarFullAnalysis =
 // ============================================================
 
 async function openPremiumRadar(
-  viewMode = "today"
+  viewMode = "today",
+  historyDate = null
 ) {
 
   const radarView =
@@ -8002,12 +8003,25 @@ async function openPremiumRadar(
     // FETCH RADAR
     // ========================================================
 
-   const radarUrl =
+  const isHistoryRequest =
   String(viewMode)
     .toLowerCase()
-    .trim() === "history"
-      ? "/api/premium-radar?view=history"
-      : "/api/premium-radar";
+    .trim() === "history";
+
+
+const radarUrl =
+  isHistoryRequest
+    ? (
+        "/api/premium-radar?view=history" +
+        (
+          historyDate
+            ? `&date=${encodeURIComponent(
+                historyDate
+              )}`
+            : ""
+        )
+      )
+    : "/api/premium-radar";
 
 
 const response =
