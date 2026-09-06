@@ -1009,10 +1009,53 @@ const footballWindowGames =
     }
 
 
+    // ========================================================
+    // FOOTBALL FREEZE
+    // 30 MIN BEFORE KICKOFF
+    // ========================================================
+
+    const gameTime =
+      game.commence_time ||
+      game.game_time ||
+      game.start_time ||
+      game.date;
+
+
+    if (!gameTime) {
+      return false;
+    }
+
+
+    const kickoff =
+      new Date(gameTime)
+        .getTime();
+
+
+    if (
+      !Number.isFinite(kickoff)
+    ) {
+      return false;
+    }
+
+
+    const freezeAt =
+      kickoff -
+      30 * 60 * 1000;
+
+
+    // Si faltan 30 minutos o menos,
+    // o el juego ya comenzó,
+    // NO vuelve a entrar al analizador.
+    if (
+      Date.now() >= freezeAt
+    ) {
+      return false;
+    }
+
+
     return footballDateWindow
       .has(gameDate);
   });
-
 
 let selectedGames = [];
 
