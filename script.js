@@ -7673,61 +7673,74 @@ async function openPremiumRadar() {
       return fallback;
     }
 
-    // MLB / generic flat projection
-    if (
-      projection.away !== undefined ||
-      projection.home !== undefined ||
-      projection.total !== undefined ||
+// FOOTBALL — NFL / NCAAF
+// Tiene que comprobarse PRIMERO,
+// porque football también contiene "total".
+if (
+  projection.score &&
+  typeof projection.score === "object"
+) {
+  return {
+    awayLabel: "AWAY",
+    awayValue: formatMetric(
+      projection.score[
+        row.away_team
+      ]
+    ),
+
+    homeLabel: "HOME",
+    homeValue: formatMetric(
+      projection.score[
+        row.home_team
+      ]
+    ),
+
+    bottomLeftLabel: "TOTAL",
+    bottomLeftValue: formatMetric(
+      projection.total
+    ),
+
+    bottomRightLabel: "SPREAD",
+    bottomRightValue: formatMetric(
+      projection.spread
+    )
+  };
+}
+
+
+// MLB / BASKETBALL FLAT PROJECTION
+if (
+  projection.away !== undefined ||
+  projection.home !== undefined
+) {
+  return {
+    awayLabel: "AWAY",
+    awayValue: formatMetric(
+      projection.away
+    ),
+
+    homeLabel: "HOME",
+    homeValue: formatMetric(
+      projection.home
+    ),
+
+    bottomLeftLabel: "TOTAL",
+    bottomLeftValue: formatMetric(
+      projection.total
+    ),
+
+    bottomRightLabel:
       projection.margin !== undefined
-    ) {
-      return {
-        awayLabel: "AWAY",
-        awayValue: formatMetric(projection.away),
-        homeLabel: "HOME",
-        homeValue: formatMetric(projection.home),
-        bottomLeftLabel: "TOTAL",
-        bottomLeftValue: formatMetric(projection.total),
-        bottomRightLabel:
-          projection.spread !== undefined
-            ? "SPREAD"
-            : "MARGIN",
-        bottomRightValue: formatMetric(
-          projection.spread !== undefined
-            ? projection.spread
-            : projection.margin
-        )
-      };
-    }
+        ? "MARGIN"
+        : "SPREAD",
 
-    // Football nested score object
-    if (
-      projection.score &&
-      typeof projection.score === "object"
-    ) {
-      return {
-        awayLabel: "AWAY",
-        awayValue: formatMetric(
-          projection.score[
-            row.away_team
-          ]
-        ),
-        homeLabel: "HOME",
-        homeValue: formatMetric(
-          projection.score[
-            row.home_team
-          ]
-        ),
-        bottomLeftLabel: "TOTAL",
-        bottomLeftValue: formatMetric(
-          projection.total
-        ),
-        bottomRightLabel: "SPREAD",
-        bottomRightValue: formatMetric(
-          projection.spread
-        )
-      };
-    }
-
+    bottomRightValue: formatMetric(
+      projection.margin !== undefined
+        ? projection.margin
+        : projection.spread
+    )
+  };
+}
     return fallback;
   };
 
