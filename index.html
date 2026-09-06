@@ -1715,7 +1715,22 @@ problem-gambling resource in your jurisdiction.
 
     <span class="league-arrow">»</span>
   </button>
+<button
+  class="league-btn premium-radar-league-btn"
+  onclick="openPremiumRadar()"
+>
+  <div class="league-icon">📡</div>
 
+  <div class="league-info">
+    <strong>PREMIUM RADAR</strong>
+    <small>
+      <span id="premiumRadarCount">--</span>
+      Premium opportunities
+    </small>
+  </div>
+
+  <span class="league-arrow">»</span>
+</button>
 </div>
 
 <button id="searchBtn" onclick="loadGames()">
@@ -1726,6 +1741,12 @@ problem-gambling resource in your jurisdiction.
 </button>
 
 <div id="parlayTodayBox"></div>
+
+<div
+  id="premiumRadarView"
+  style="display:none;"
+></div>
+
 <div id="status"></div>
 <div id="games"></div>
 <div id="performancePanel"></div>
