@@ -4960,12 +4960,14 @@ function getBullpenFatigueFactor(bullpen) {
   // pero no modifica la predicción.
   return 1;
 }
-  const fullMlbAnalysis = {
+ const fullMlbAnalysis = {
   locked: false,
+
+  sourceEventId:
+    eventId || null,
 
   isPremiumPick:
     recommendedCards.length > 0,
-
   // Si llegamos hasta aquí, el juego FUE analizado.
   noPlay: false,
 
