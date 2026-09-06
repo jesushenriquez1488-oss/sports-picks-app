@@ -7103,7 +7103,1433 @@ box.innerHTML = `
     box.innerHTML = `<p>Error Parlay: ${error.message}</p>`;
   }
 }
+// ============================================================
+// PREMIUM RADAR
+// ============================================================
 
+async function openPremiumRadar() {
+
+  const radarView =
+    document.getElementById(
+      "premiumRadarView"
+    );
+
+  if (!radarView) {
+    return;
+  }
+
+
+  const leagueTabs =
+    document.querySelector(
+      ".league-tabs"
+    );
+
+  const searchBtn =
+    document.getElementById(
+      "searchBtn"
+    );
+
+  const parlayBtn =
+    document.querySelector(
+      ".parlay-premium-btn"
+    );
+
+  const parlayBox =
+    document.getElementById(
+      "parlayTodayBox"
+    );
+
+  const status =
+    document.getElementById(
+      "status"
+    );
+
+  const games =
+    document.getElementById(
+      "games"
+    );
+
+  const performancePanel =
+    document.getElementById(
+      "performancePanel"
+    );
+
+
+  // ==========================================================
+  // HIDE NORMAL SPORTS VIEW
+  // ==========================================================
+
+  if (leagueTabs) {
+    leagueTabs.style.display =
+      "none";
+  }
+
+  if (searchBtn) {
+    searchBtn.style.display =
+      "none";
+  }
+
+  if (parlayBtn) {
+    parlayBtn.style.display =
+      "none";
+  }
+
+  if (parlayBox) {
+    parlayBox.style.display =
+      "none";
+  }
+
+  if (status) {
+    status.style.display =
+      "none";
+  }
+
+  if (games) {
+    games.style.display =
+      "none";
+  }
+
+  if (performancePanel) {
+    performancePanel.style.display =
+      "none";
+  }
+
+
+  radarView.style.display =
+    "block";
+
+
+  radarView.innerHTML = `
+    <div
+      style="
+        max-width:1180px;
+        margin:20px auto;
+        padding:40px 20px;
+        text-align:center;
+        color:#fff;
+      "
+    >
+      <div
+        style="
+          font-size:28px;
+          margin-bottom:12px;
+        "
+      >
+        📡
+      </div>
+
+      <div
+        style="
+          font-size:13px;
+          color:#00ffe7;
+          letter-spacing:2px;
+          font-weight:800;
+        "
+      >
+        PREMIUM RADAR
+      </div>
+
+      <div
+        style="
+          margin-top:18px;
+          color:#71839f;
+          font-size:13px;
+        "
+      >
+        Loading Premium opportunities...
+      </div>
+    </div>
+  `;
+
+
+  try {
+
+    // ========================================================
+    // SESSION
+    // ========================================================
+
+    const {
+      data: sessionData
+    } =
+      await supabaseClient
+        .auth
+        .getSession();
+
+
+    const session =
+      sessionData?.session;
+
+
+    if (!session?.access_token) {
+
+      radarView.innerHTML = `
+        <div
+          style="
+            max-width:650px;
+            margin:30px auto;
+            padding:30px;
+            text-align:center;
+            color:#fff;
+          "
+        >
+          <h2>Premium Radar</h2>
+
+          <p
+            style="
+              color:#71839f;
+            "
+          >
+            Log in to access Premium Radar.
+          </p>
+
+          <button
+            onclick="closePremiumRadar()"
+            style="
+              margin-top:15px;
+              padding:12px 20px;
+              cursor:pointer;
+            "
+          >
+            BACK
+          </button>
+        </div>
+      `;
+
+      return;
+    }
+
+
+    // ========================================================
+    // FETCH RADAR
+    // ========================================================
+
+    const response =
+      await fetch(
+        "/api/premium-radar",
+        {
+          headers: {
+            Authorization:
+              `Bearer ${session.access_token}`
+          }
+        }
+      );
+
+
+    const data =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        data?.error ||
+        "Unable to load Premium Radar"
+      );
+    }
+
+
+    // ========================================================
+    // UPDATE RADAR COUNT ON MAIN CARD
+    // ========================================================
+
+    const countEl =
+      document.getElementById(
+        "premiumRadarCount"
+      );
+
+
+    if (
+      countEl &&
+      Number.isFinite(
+        Number(
+          data.premiumCount
+        )
+      )
+    ) {
+
+      countEl.textContent =
+        Number(
+          data.premiumCount
+        );
+    }
+
+
+    // ========================================================
+    // FREE USER
+    // ========================================================
+
+    if (data.locked === true) {
+
+      const premiumCount =
+        Number(
+          data.premiumCount ||
+          0
+        );
+
+
+      radarView.innerHTML = `
+        <div
+          style="
+            max-width:720px;
+            margin:30px auto 50px;
+            padding:0 16px;
+          "
+        >
+
+          <button
+            onclick="closePremiumRadar()"
+            style="
+              background:transparent;
+              border:0;
+              color:#71839f;
+              font-size:12px;
+              font-weight:700;
+              cursor:pointer;
+              padding:8px 0;
+              margin-bottom:22px;
+            "
+          >
+            ← BACK TO SPORTS
+          </button>
+
+
+          <div
+            style="
+              background:
+                linear-gradient(
+                  145deg,
+                  rgba(5,15,25,0.98),
+                  rgba(8,5,24,0.98)
+                );
+
+              border:
+                1px solid
+                rgba(0,255,231,0.30);
+
+              border-radius:22px;
+
+              padding:
+                42px 28px;
+
+              text-align:center;
+
+              box-shadow:
+                0 0 40px
+                rgba(0,255,231,0.08);
+            "
+          >
+
+            <div
+              style="
+                width:64px;
+                height:64px;
+                margin:0 auto 20px;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                border-radius:18px;
+                border:
+                  1px solid
+                  rgba(0,255,231,0.35);
+                background:
+                  rgba(0,255,231,0.06);
+                font-size:30px;
+              "
+            >
+              📡
+            </div>
+
+
+            <div
+              style="
+                font-size:11px;
+                font-weight:800;
+                letter-spacing:2px;
+                color:#00ffe7;
+                margin-bottom:10px;
+              "
+            >
+              PREMIUM RADAR
+            </div>
+
+
+            <div
+              style="
+                font-size:42px;
+                line-height:1;
+                font-weight:900;
+                color:#fff;
+                margin-bottom:7px;
+              "
+            >
+              ${premiumCount}
+            </div>
+
+
+            <div
+              style="
+                font-size:14px;
+                font-weight:800;
+                color:#cbd7e8;
+                letter-spacing:.5px;
+                margin-bottom:24px;
+              "
+            >
+              PREMIUM OPPORTUNITIES DETECTED
+            </div>
+
+
+            <div
+              style="
+                width:100%;
+                height:1px;
+                background:
+                  #14243d;
+                margin:
+                  0 0 24px;
+              "
+            ></div>
+
+
+            <div
+              style="
+                color:#8ca0b8;
+                font-size:13px;
+                line-height:1.8;
+                margin-bottom:25px;
+              "
+            >
+              CashEdge has already identified
+              ${premiumCount}
+              Premium opportunities.
+              Unlock Premium to see the complete Radar.
+            </div>
+
+
+            <div
+              style="
+                text-align:left;
+                max-width:360px;
+                margin:
+                  0 auto 28px;
+                color:#d7e1ef;
+                font-size:13px;
+                line-height:2.15;
+              "
+            >
+              ✓ Premium Picks<br>
+              ✓ Confidence<br>
+              ✓ Edge<br>
+              ✓ CashEdge Projections<br>
+              ✓ Market Movement<br>
+              ✓ Premium History
+            </div>
+
+
+            <button
+              onclick="openPromoModal()"
+              style="
+                width:100%;
+                max-width:420px;
+                padding:15px 20px;
+
+                border:0;
+                border-radius:12px;
+
+                background:
+                  linear-gradient(
+                    135deg,
+                    #00ffe7,
+                    #7c3cff
+                  );
+
+                color:#020814;
+
+                font-size:13px;
+                font-weight:900;
+                letter-spacing:.8px;
+
+                cursor:pointer;
+
+                box-shadow:
+                  0 0 28px
+                  rgba(0,255,231,.25);
+              "
+            >
+              🔓 UNLOCK PREMIUM
+            </button>
+
+          </div>
+
+        </div>
+      `;
+
+
+      return;
+    }
+
+
+    // ========================================================
+    // PREMIUM USER
+    // ========================================================
+
+    const grouped =
+      data.grouped &&
+      typeof data.grouped ===
+        "object"
+        ? data.grouped
+        : {};
+
+
+    const dates =
+      Object.keys(
+        grouped
+      ).sort();
+
+
+    // ========================================================
+    // SAFE HTML
+    // ========================================================
+
+    const radarEscape =
+      value =>
+        String(
+          value ?? ""
+        )
+          .replaceAll(
+            "&",
+            "&amp;"
+          )
+          .replaceAll(
+            "<",
+            "&lt;"
+          )
+          .replaceAll(
+            ">",
+            "&gt;"
+          )
+          .replaceAll(
+            '"',
+            "&quot;"
+          )
+          .replaceAll(
+            "'",
+            "&#039;"
+          );
+
+
+    const formatNumber =
+      value => {
+
+        const num =
+          Number(
+            value
+          );
+
+        if (
+          !Number.isFinite(
+            num
+          )
+        ) {
+          return "—";
+        }
+
+        return num.toFixed(1);
+      };
+
+
+    const formatProjection =
+      value => {
+
+        if (
+          value === null ||
+          value === undefined ||
+          value === ""
+        ) {
+          return "—";
+        }
+
+
+        if (
+          typeof value ===
+          "number"
+        ) {
+          return value.toFixed(1);
+        }
+
+
+        if (
+          typeof value ===
+          "string"
+        ) {
+          return radarEscape(
+            value
+          );
+        }
+
+
+        if (
+          typeof value ===
+          "object"
+        ) {
+
+          const parts =
+            Object.entries(
+              value
+            )
+              .filter(
+                ([, val]) =>
+                  val !== null &&
+                  val !== undefined
+              )
+              .slice(
+                0,
+                3
+              )
+              .map(
+                ([key, val]) => {
+
+                  const numeric =
+                    Number(
+                      val
+                    );
+
+                  const display =
+                    Number.isFinite(
+                      numeric
+                    )
+                      ? numeric.toFixed(
+                          1
+                        )
+                      : String(
+                          val
+                        );
+
+                  return `${
+                    radarEscape(
+                      key
+                    )
+                  }: ${
+                    radarEscape(
+                      display
+                    )
+                  }`;
+                }
+              );
+
+
+          return parts.length
+            ? parts.join(
+                " · "
+              )
+            : "—";
+        }
+
+
+        return radarEscape(
+          value
+        );
+      };
+
+
+    // ========================================================
+    // DATE SECTIONS
+    // ========================================================
+
+    const dateSections =
+      dates
+        .map(
+          date => {
+
+            const sports =
+              grouped[date] ||
+              {};
+
+
+            const isToday =
+              date ===
+              data.today;
+
+
+            let dateLabel =
+              "TODAY";
+
+
+            if (!isToday) {
+
+              const dateObject =
+                new Date(
+                  `${date}T12:00:00Z`
+                );
+
+
+              dateLabel =
+                new Intl.DateTimeFormat(
+                  "en-US",
+                  {
+                    timeZone:
+                      "America/Chicago",
+
+                    weekday:
+                      "long",
+
+                    month:
+                      "short",
+
+                    day:
+                      "numeric"
+                  }
+                )
+                  .format(
+                    dateObject
+                  )
+                  .toUpperCase();
+            }
+
+
+            const sportSections =
+              Object.keys(
+                sports
+              )
+                .sort()
+                .map(
+                  sport => {
+
+                    const rows =
+                      Array.isArray(
+                        sports[sport]
+                      )
+                        ? sports[sport]
+                        : [];
+
+
+                    const cards =
+                      rows
+                        .map(
+                          row => {
+
+                            const stillPremium =
+                              row.current_is_premium ===
+                              true;
+
+
+                            const stateText =
+                              stillPremium
+                                ? "PREMIUM"
+                                : "NO LONGER PREMIUM";
+
+
+                            const stateColor =
+                              stillPremium
+                                ? "#00ffe7"
+                                : "#ffb347";
+
+
+                            const marketLine =
+                              row.current_market_line ??
+                              "—";
+
+
+                            const openingLine =
+                              row.opening_market_line ??
+                              "—";
+
+
+                            return `
+                              <div
+                                style="
+                                  background:
+                                    #070d17;
+
+                                  border:
+                                    1px solid
+                                    #14243d;
+
+                                  border-radius:
+                                    16px;
+
+                                  padding:
+                                    18px;
+
+                                  min-width:
+                                    0;
+                                "
+                              >
+
+                                <div
+                                  style="
+                                    display:flex;
+                                    justify-content:
+                                      space-between;
+                                    gap:12px;
+                                    align-items:center;
+                                    margin-bottom:14px;
+                                  "
+                                >
+
+                                  <div
+                                    style="
+                                      font-size:9px;
+                                      font-weight:900;
+                                      letter-spacing:1.2px;
+                                      color:${stateColor};
+                                    "
+                                  >
+                                    ${stateText}
+                                  </div>
+
+                                  <div
+                                    style="
+                                      font-size:9px;
+                                      font-weight:700;
+                                      color:#526983;
+                                    "
+                                  >
+                                    ${radarEscape(
+                                      String(
+                                        sport
+                                      )
+                                        .toUpperCase()
+                                    )}
+                                  </div>
+
+                                </div>
+
+
+                                <div
+                                  style="
+                                    color:#fff;
+                                    font-size:15px;
+                                    font-weight:800;
+                                    line-height:1.35;
+                                    margin-bottom:14px;
+                                  "
+                                >
+                                  ${radarEscape(
+                                    row.away_team
+                                  )}
+                                  <span
+                                    style="
+                                      color:#526983;
+                                      font-weight:500;
+                                    "
+                                  >
+                                    @
+                                  </span>
+                                  ${radarEscape(
+                                    row.home_team
+                                  )}
+                                </div>
+
+
+                                <div
+                                  style="
+                                    color:#00ffe7;
+                                    font-size:17px;
+                                    font-weight:900;
+                                    margin-bottom:16px;
+                                  "
+                                >
+                                  ${radarEscape(
+                                    row.current_pick ||
+                                    "—"
+                                  )}
+                                </div>
+
+
+                                <div
+                                  style="
+                                    display:grid;
+                                    grid-template-columns:
+                                      1fr 1fr;
+                                    gap:8px;
+                                    margin-bottom:14px;
+                                  "
+                                >
+
+                                  <div
+                                    style="
+                                      background:#0a1322;
+                                      border-radius:10px;
+                                      padding:11px;
+                                    "
+                                  >
+                                    <div
+                                      style="
+                                        color:#526983;
+                                        font-size:8px;
+                                        font-weight:800;
+                                        letter-spacing:1px;
+                                        margin-bottom:5px;
+                                      "
+                                    >
+                                      CONFIDENCE
+                                    </div>
+
+                                    <div
+                                      style="
+                                        color:#fff;
+                                        font-size:18px;
+                                        font-weight:900;
+                                      "
+                                    >
+                                      ${
+                                        formatNumber(
+                                          row.current_confidence
+                                        )
+                                      }%
+                                    </div>
+                                  </div>
+
+
+                                  <div
+                                    style="
+                                      background:#0a1322;
+                                      border-radius:10px;
+                                      padding:11px;
+                                    "
+                                  >
+                                    <div
+                                      style="
+                                        color:#526983;
+                                        font-size:8px;
+                                        font-weight:800;
+                                        letter-spacing:1px;
+                                        margin-bottom:5px;
+                                      "
+                                    >
+                                      EDGE
+                                    </div>
+
+                                    <div
+                                      style="
+                                        color:#fff;
+                                        font-size:18px;
+                                        font-weight:900;
+                                      "
+                                    >
+                                      ${
+                                        formatNumber(
+                                          row.current_edge
+                                        )
+                                      }
+                                    </div>
+                                  </div>
+
+                                </div>
+
+
+                                <div
+                                  style="
+                                    border-top:
+                                      1px solid
+                                      #14243d;
+                                    padding-top:12px;
+                                    color:#71839f;
+                                    font-size:11px;
+                                    line-height:1.8;
+                                  "
+                                >
+
+                                  <div>
+                                    OPEN
+                                    <strong
+                                      style="
+                                        color:#cbd7e8;
+                                      "
+                                    >
+                                      ${radarEscape(
+                                        openingLine
+                                      )}
+                                    </strong>
+
+                                    &nbsp;→&nbsp;
+
+                                    NOW
+                                    <strong
+                                      style="
+                                        color:#cbd7e8;
+                                      "
+                                    >
+                                      ${radarEscape(
+                                        marketLine
+                                      )}
+                                    </strong>
+                                  </div>
+
+
+                                  <div>
+                                    PROJECTION:
+                                    <strong
+                                      style="
+                                        color:#cbd7e8;
+                                      "
+                                    >
+                                      ${formatProjection(
+                                        row.current_projection
+                                      )}
+                                    </strong>
+                                  </div>
+
+                                </div>
+
+                              </div>
+                            `;
+                          }
+                        )
+                        .join("");
+
+
+                    return `
+                      <div
+                        style="
+                          margin-top:22px;
+                        "
+                      >
+
+                        <div
+                          style="
+                            display:flex;
+                            justify-content:
+                              space-between;
+                            align-items:center;
+                            margin-bottom:10px;
+                          "
+                        >
+
+                          <div
+                            style="
+                              color:#fff;
+                              font-size:13px;
+                              font-weight:900;
+                            "
+                          >
+                            ${radarEscape(
+                              String(
+                                sport
+                              )
+                                .toUpperCase()
+                            )}
+                          </div>
+
+                          <div
+                            style="
+                              color:#00ffe7;
+                              font-size:10px;
+                              font-weight:800;
+                            "
+                          >
+                            ${
+                              rows.filter(
+                                row =>
+                                  row.current_is_premium ===
+                                  true
+                              ).length
+                            }
+                            PREMIUM
+                          </div>
+
+                        </div>
+
+
+                        <div
+                          style="
+                            display:grid;
+                            grid-template-columns:
+                              repeat(
+                                auto-fit,
+                                minmax(
+                                  280px,
+                                  1fr
+                                )
+                              );
+                            gap:12px;
+                          "
+                        >
+                          ${cards}
+                        </div>
+
+                      </div>
+                    `;
+                  }
+                )
+                .join("");
+
+
+            return `
+              <section
+                style="
+                  margin-top:30px;
+                "
+              >
+
+                <div
+                  style="
+                    display:flex;
+                    align-items:center;
+                    gap:12px;
+                  "
+                >
+
+                  <div
+                    style="
+                      color:${
+                        isToday
+                          ? "#00ffe7"
+                          : "#fff"
+                      };
+                      font-size:12px;
+                      font-weight:900;
+                      letter-spacing:1px;
+                      white-space:nowrap;
+                    "
+                  >
+                    ${dateLabel}
+                  </div>
+
+                  <div
+                    style="
+                      height:1px;
+                      background:#14243d;
+                      flex:1;
+                    "
+                  ></div>
+
+                </div>
+
+                ${sportSections}
+
+              </section>
+            `;
+          }
+        )
+        .join("");
+
+
+    // ========================================================
+    // PREMIUM RADAR SCREEN
+    // ========================================================
+
+    radarView.innerHTML = `
+      <div
+        style="
+          max-width:1180px;
+          margin:28px auto 60px;
+          padding:0 16px;
+        "
+      >
+
+        <button
+          onclick="closePremiumRadar()"
+          style="
+            background:transparent;
+            border:0;
+            color:#71839f;
+            font-size:12px;
+            font-weight:700;
+            cursor:pointer;
+            padding:8px 0;
+            margin-bottom:18px;
+          "
+        >
+          ← BACK TO SPORTS
+        </button>
+
+
+        <div
+          style="
+            background:
+              linear-gradient(
+                135deg,
+                rgba(0,255,231,.07),
+                rgba(124,60,255,.07)
+              );
+
+            border:
+              1px solid
+              rgba(0,255,231,.25);
+
+            border-radius:18px;
+
+            padding:
+              22px 20px;
+          "
+        >
+
+          <div
+            style="
+              display:flex;
+              justify-content:
+                space-between;
+              gap:16px;
+              align-items:center;
+              flex-wrap:wrap;
+            "
+          >
+
+            <div>
+
+              <div
+                style="
+                  color:#00ffe7;
+                  font-size:10px;
+                  font-weight:900;
+                  letter-spacing:2px;
+                  margin-bottom:6px;
+                "
+              >
+                📡 PREMIUM RADAR
+              </div>
+
+              <div
+                style="
+                  color:#fff;
+                  font-size:25px;
+                  font-weight:900;
+                "
+              >
+                ${
+                  Number(
+                    data.premiumCount ||
+                    0
+                  )
+                }
+                Premium Opportunities
+              </div>
+
+              <div
+                style="
+                  color:#71839f;
+                  font-size:11px;
+                  margin-top:5px;
+                "
+              >
+                All Premium opportunities detected by CashEdge in one place.
+              </div>
+
+            </div>
+
+
+            <div
+              style="
+                display:flex;
+                gap:7px;
+              "
+            >
+
+              <button
+                style="
+                  border:
+                    1px solid
+                    rgba(0,255,231,.45);
+                  background:
+                    rgba(0,255,231,.08);
+                  color:#00ffe7;
+                  border-radius:9px;
+                  padding:9px 16px;
+                  font-size:10px;
+                  font-weight:900;
+                "
+              >
+                TODAY
+              </button>
+
+              <button
+                disabled
+                style="
+                  border:
+                    1px solid
+                    #14243d;
+                  background:#080e18;
+                  color:#526983;
+                  border-radius:9px;
+                  padding:9px 16px;
+                  font-size:10px;
+                  font-weight:900;
+                  opacity:.7;
+                "
+              >
+                HISTORY
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        ${
+          dateSections ||
+          `
+            <div
+              style="
+                padding:50px 20px;
+                text-align:center;
+                color:#71839f;
+              "
+            >
+              No Premium opportunities are currently available.
+            </div>
+          `
+        }
+
+      </div>
+    `;
+
+
+  } catch (error) {
+
+    console.error(
+      "PREMIUM RADAR ERROR:",
+      error
+    );
+
+
+    radarView.innerHTML = `
+      <div
+        style="
+          max-width:650px;
+          margin:30px auto;
+          padding:30px;
+          text-align:center;
+          color:#fff;
+        "
+      >
+
+        <div
+          style="
+            color:#ff6b6b;
+            font-weight:800;
+            margin-bottom:12px;
+          "
+        >
+          Unable to load Premium Radar
+        </div>
+
+        <div
+          style="
+            color:#71839f;
+            font-size:12px;
+            margin-bottom:20px;
+          "
+        >
+          ${String(
+            error.message ||
+            "Unknown error"
+          )}
+        </div>
+
+        <button
+          onclick="closePremiumRadar()"
+          style="
+            padding:11px 18px;
+            cursor:pointer;
+          "
+        >
+          ← BACK TO SPORTS
+        </button>
+
+      </div>
+    `;
+  }
+}
+
+
+// ============================================================
+// CLOSE PREMIUM RADAR
+// ============================================================
+
+function closePremiumRadar() {
+
+  const radarView =
+    document.getElementById(
+      "premiumRadarView"
+    );
+
+  const leagueTabs =
+    document.querySelector(
+      ".league-tabs"
+    );
+
+  const searchBtn =
+    document.getElementById(
+      "searchBtn"
+    );
+
+  const parlayBtn =
+    document.querySelector(
+      ".parlay-premium-btn"
+    );
+
+  const parlayBox =
+    document.getElementById(
+      "parlayTodayBox"
+    );
+
+  const status =
+    document.getElementById(
+      "status"
+    );
+
+  const games =
+    document.getElementById(
+      "games"
+    );
+
+  const performancePanel =
+    document.getElementById(
+      "performancePanel"
+    );
+
+
+  if (radarView) {
+    radarView.style.display =
+      "none";
+  }
+
+  if (leagueTabs) {
+    leagueTabs.style.display =
+      "";
+  }
+
+  if (searchBtn) {
+    searchBtn.style.display =
+      "";
+  }
+
+  if (parlayBtn) {
+    parlayBtn.style.display =
+      "";
+  }
+
+  if (parlayBox) {
+    parlayBox.style.display =
+      "";
+  }
+
+  if (status) {
+    status.style.display =
+      "";
+  }
+
+  if (games) {
+    games.style.display =
+      "";
+  }
+
+  if (performancePanel) {
+    performancePanel.style.display =
+      "";
+  }
+}
+
+
+window.openPremiumRadar =
+  openPremiumRadar;
+
+window.closePremiumRadar =
+  closePremiumRadar;
 window.loadParlayToday = loadParlayToday;
 const enableBtn = document.getElementById("enableNotificationsBtn");
 
