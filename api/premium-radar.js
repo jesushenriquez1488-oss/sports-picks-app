@@ -430,11 +430,75 @@ module.exports =
       // COMBINE
       // ======================================================
 
-      const rows = [
-        ...(dailyRows || []),
-        ...(footballRows || [])
-      ];
+const radarRows = [
+  ...(dailyRows || []),
+  ...(footballRows || [])
+];
 
+
+const sourceDailyPickIds =
+  radarRows
+    .map(
+      row =>
+        row.source_daily_pick_id
+    )
+    .filter(Boolean);
+
+
+let gameTimeByDailyPickId =
+  new Map();
+
+
+if (sourceDailyPickIds.length) {
+
+  const {
+    data: sourceDailyPicks,
+    error: sourceDailyPicksError
+  } =
+    await supabaseAdmin
+      .from("daily_picks")
+      .select(
+        "id, game_time"
+      )
+      .in(
+        "id",
+        sourceDailyPickIds
+      );
+
+
+  if (sourceDailyPicksError) {
+    throw sourceDailyPicksError;
+  }
+
+
+  gameTimeByDailyPickId =
+    new Map(
+      (sourceDailyPicks || [])
+        .map(
+          row => [
+            String(row.id),
+            row.game_time || null
+          ]
+        )
+    );
+}
+
+
+const rows =
+  radarRows.map(
+    row => ({
+      ...row,
+
+      game_time:
+        row.source_daily_pick_id
+          ? gameTimeByDailyPickId.get(
+              String(
+                row.source_daily_pick_id
+              )
+            ) || null
+          : null
+    })
+  );
 
       // ======================================================
       // CURRENT PREMIUM COUNT
@@ -456,33 +520,120 @@ module.exports =
       // SORT BY REAL GAME DATE
       // ======================================================
 
-      rows.sort(
-        (a, b) => {
+     rows.sort(
+  (a, b) => {
 
-          const dateCompare =
-            String(
-              a.game_date
-            ).localeCompare(
-              String(
-                b.game_date
-              )
-            );
-
-
-          if (dateCompare !== 0) {
-            return dateCompare;
-          }
-
-
-          return String(
-            a.sport
-          ).localeCompare(
-            String(
-              b.sport
-            )
-          );
-        }
+    // 1. Fecha real del juego
+    const dateCompare =
+      String(
+        a.game_date
+      ).localeCompare(
+        String(
+          b.game_date
+        )
       );
+
+
+    if (dateCompare !== 0) {
+      return dateCompare;
+    }
+
+
+    // 2. Deporte
+    const sportCompare =
+      String(
+        a.sport
+      ).localeCompare(
+        String(
+          b.sport
+        )
+      );
+
+
+    if (sportCompare !== 0) {
+      return sportCompare;
+    }
+
+
+    // 3. Premium actuales primero
+    const aPremium =
+      a.current_is_premium === true
+        ? 1
+        : 0;
+
+    const bPremium =
+      b.current_is_premium === true
+        ? 1
+        : 0;
+
+
+    if (aPremium !== bPremium) {
+      return (
+        bPremium -
+        aPremium
+      );
+    }
+
+
+    // 4. Hora del juego:
+    // más temprano primero
+    const aTimeRaw =
+      a.game_time
+        ? new Date(
+            a.game_time
+          ).getTime()
+        : NaN;
+
+    const bTimeRaw =
+      b.game_time
+        ? new Date(
+            b.game_time
+          ).getTime()
+        : NaN;
+
+
+    const aTime =
+      Number.isFinite(
+        aTimeRaw
+      )
+        ? aTimeRaw
+        : Number.POSITIVE_INFINITY;
+
+    const bTime =
+      Number.isFinite(
+        bTimeRaw
+      )
+        ? bTimeRaw
+        : Number.POSITIVE_INFINITY;
+
+
+    if (aTime !== bTime) {
+      return (
+        aTime -
+        bTime
+      );
+    }
+
+
+    // 5. Si empiezan a la misma hora,
+    // Confidence más alta primero
+    const aConfidence =
+      Number(
+        a.current_confidence
+      ) || 0;
+
+    const bConfidence =
+      Number(
+        b.current_confidence
+      ) || 0;
+
+
+    return (
+      bConfidence -
+      aConfidence
+    );
+  }
+);
 
 
       // ======================================================
