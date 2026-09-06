@@ -7980,7 +7980,7 @@ if (
 
                                     <div
                                       style="
-                                        color:#fff;
+                                        color:#ff9f43;
                                         font-size:18px;
                                         font-weight:900;
                                       "
@@ -8202,38 +8202,43 @@ if (
         </div>
 
 
+       ${
+  String(row.sport || "").toLowerCase() === "mlb"
+    ? ""
+    : `
+      <div
+        style="
+          background:#08101c;
+          border:1px solid #112034;
+          border-radius:7px;
+          padding:6px 8px;
+        "
+      >
         <div
           style="
-            background:#08101c;
-            border:1px solid #112034;
-            border-radius:7px;
-            padding:6px 8px;
+            color:#7ce9ff;
+            font-size:7px;
+            font-weight:900;
+            letter-spacing:.8px;
+            margin-bottom:2px;
           "
         >
-          <div
-            style="
-              color:#7ce9ff;
-              font-size:7px;
-              font-weight:900;
-              letter-spacing:.8px;
-              margin-bottom:2px;
-            "
-          >
-            ${projection.bottomRightLabel}
-          </div>
-
-          <div
-            style="
-              color:#ffffff;
-              font-size:13px;
-              font-weight:900;
-              line-height:1.1;
-            "
-          >
-            ${projection.bottomRightValue}
-          </div>
+          ${projection.bottomRightLabel}
         </div>
 
+        <div
+          style="
+            color:#ffffff;
+            font-size:13px;
+            font-weight:900;
+            line-height:1.1;
+          "
+        >
+          ${projection.bottomRightValue}
+        </div>
+      </div>
+    `
+}
       </div>
     </div>
   `;
