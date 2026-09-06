@@ -448,6 +448,9 @@ const sourceDailyPickIds =
 let gameTimeByDailyPickId =
   new Map();
 
+let sourceEventIdByDailyPickId =
+  new Map();
+
 
 if (sourceDailyPickIds.length) {
 
@@ -458,7 +461,7 @@ if (sourceDailyPickIds.length) {
     await supabaseAdmin
       .from("daily_picks")
       .select(
-        "id, game_time"
+        "id, game_time, analysis_json"
       )
       .in(
         "id",
@@ -481,6 +484,21 @@ if (sourceDailyPickIds.length) {
           ]
         )
     );
+
+
+  sourceEventIdByDailyPickId =
+    new Map(
+      (sourceDailyPicks || [])
+        .map(
+          row => [
+            String(row.id),
+
+            row.analysis_json
+              ?.sourceEventId ||
+            null
+          ]
+        )
+    );
 }
 
 
@@ -492,6 +510,15 @@ const rows =
       game_time:
         row.source_daily_pick_id
           ? gameTimeByDailyPickId.get(
+              String(
+                row.source_daily_pick_id
+              )
+            ) || null
+          : null,
+
+      source_event_id:
+        row.source_daily_pick_id
+          ? sourceEventIdByDailyPickId.get(
               String(
                 row.source_daily_pick_id
               )
