@@ -8315,6 +8315,15 @@ const dates =
     : Object.keys(
         grouped
       ).sort();
+    const selectedHistoryDate =
+  isHistoryView
+    ? (
+        data.selectedDate ||
+        historyDate ||
+        dates[0] ||
+        null
+      )
+    : null;
 const radarDisplayCount =
   isHistoryView
     ? Number(
@@ -8485,9 +8494,14 @@ if (
     // DATE SECTIONS
     // ========================================================
 
-    const dateSections =
-      dates
-        .map(
+   const dateSections =
+  (
+    isHistoryView &&
+    selectedHistoryDate
+      ? [selectedHistoryDate]
+      : dates
+  )
+    .map(
           date => {
 
             const sports =
@@ -9518,7 +9532,128 @@ ${
           </div>
 
         </div>
+${
+  isHistoryView
+    ? `
+        <div
+          style="
+            margin:18px 0 8px;
+            display:flex;
+            gap:8px;
+            overflow-x:auto;
+            padding-bottom:6px;
+          "
+        >
+          ${
+            dates
+              .map(
+                date => {
 
+                  const isSelected =
+                    date ===
+                    selectedHistoryDate;
+
+
+                  const parsedDate =
+                    new Date(
+                      `${date}T12:00:00Z`
+                    );
+
+
+                  const dayLabel =
+                    parsedDate
+                      .toLocaleDateString(
+                        "en-US",
+                        {
+                          weekday:
+                            "short"
+                        }
+                      )
+                      .toUpperCase();
+
+
+                  const dateLabel =
+                    parsedDate
+                      .toLocaleDateString(
+                        "en-US",
+                        {
+                          month:
+                            "short",
+                          day:
+                            "numeric"
+                        }
+                      )
+                      .toUpperCase();
+
+
+                  return `
+                    <button
+                      type="button"
+                      onclick="openPremiumRadar(
+                        'history',
+                        '${date}'
+                      )"
+                      style="
+                        flex:0 0 auto;
+                        min-width:82px;
+
+                        border:
+                          1px solid
+                          ${
+                            isSelected
+                              ? "rgba(0,255,231,.55)"
+                              : "#14243d"
+                          };
+
+                        background:
+                          ${
+                            isSelected
+                              ? "rgba(0,255,231,.09)"
+                              : "#080e18"
+                          };
+
+                        color:
+                          ${
+                            isSelected
+                              ? "#00ffe7"
+                              : "#71839f"
+                          };
+
+                        border-radius:10px;
+                        padding:9px 12px;
+                        cursor:pointer;
+                        text-align:center;
+                      "
+                    >
+                      <div
+                        style="
+                          font-size:8px;
+                          font-weight:900;
+                          letter-spacing:.8px;
+                          margin-bottom:3px;
+                        "
+                      >
+                        ${dayLabel}
+                      </div>
+
+                      <div
+                        style="
+                          font-size:11px;
+                          font-weight:900;
+                        "
+                      >
+                        ${dateLabel}
+                      </div>
+                    </button>
+                  `;
+                }
+              )
+              .join("")
+          }
+        </div>
+      `
+    : ""
+}
 
         ${
           dateSections ||
