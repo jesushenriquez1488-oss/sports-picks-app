@@ -8031,43 +8031,65 @@ if (
                                 </div>
 
 
-                                <div
-                                  style="
-                                    border-top:
-                                      1px solid
-                                      #14243d;
-                                    padding-top:12px;
-                                    color:#71839f;
-                                    font-size:11px;
-                                    line-height:1.8;
-                                  "
-                                >
+                                <div 
+  style=" 
+    border-top: 
+      1px solid 
+      #14243d; 
+    padding-top:12px; 
+    color:#71839f; 
+    font-size:11px; 
+    line-height:1.8; 
+  " 
+> 
 
-                                  <div>
-                                    OPEN
-                                    <strong
-                                      style="
-                                        color:#cbd7e8;
-                                      "
-                                    >
-                                      ${radarEscape(
-                                        openingLine
-                                      )}
-                                    </strong>
+  ${
+    row.opening_market_line !== null &&
+    row.opening_market_line !== undefined
+      ? `
+        <div>
+          OPEN
+          <strong
+            style="
+              color:#cbd7e8;
+            "
+          >
+            ${radarEscape(
+              openingLine
+            )}
+          </strong>
 
-                                    &nbsp;→&nbsp;
+          &nbsp;→&nbsp;
 
-                                    NOW
-                                    <strong
-                                      style="
-                                        color:#cbd7e8;
-                                      "
-                                    >
-                                      ${radarEscape(
-                                        marketLine
-                                      )}
-                                    </strong>
-                                  </div>
+          NOW
+          <strong
+            style="
+              color:#00ffe7;
+            "
+          >
+            ${radarEscape(
+              marketLine
+            )}
+          </strong>
+        </div>
+      `
+      : `
+        <div>
+          CURRENT LINE
+          <strong
+            style="
+              color:#00ffe7;
+            "
+          >
+            ${radarEscape(
+              marketLine
+            )}
+          </strong>
+        </div>
+      `
+  }
+
+</div>
 
 
                                 ${(() => {
