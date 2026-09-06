@@ -1856,7 +1856,29 @@ if (window.currentSport === "wnba") {
    gamesDiv.innerHTML += `
         <div
   class="card"
-  data-game-id="${sanitize(game.id || "")}"
+ data-game-id="${sanitize(
+  useFootballFormula
+    ? (
+        (
+          sport === "americanfootball_nfl"
+            ? "nfl"
+            : "ncaaf"
+        ) +
+        "-" +
+        kansasDateString(gameDate) +
+        "-" +
+        [game.away_team, game.home_team]
+          .map(
+            team =>
+              String(team).trim()
+          )
+          .sort()
+          .join("-")
+      )
+    : (
+        game.id || ""
+      )
+)}"
 >
           <h2>${sanitize(game.away_team)} vs ${sanitize(game.home_team)}</h2>
          <p><strong>Date:</strong> ${formattedDate}</p>
