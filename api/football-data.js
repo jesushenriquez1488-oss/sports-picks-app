@@ -1,5 +1,9 @@
 const { createClient } = require("@supabase/supabase-js");
 
+const {
+  syncPremiumRadar
+} = require("../lib/premiumRadar");
+
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -12865,23 +12869,231 @@ const analysisJson = {
     : null
 };
 
-await supabaseAdmin
-  .from("daily_picks")
-  .upsert(
-    {
-      sport: type,
-      game_id: gameId,
-      away_team: teamA,
-      home_team: teamB,
-     analysis_json: { ...analysisJson, fullResponse },
-      updated_at: new Date().toISOString(),
-      game_date: gameDate,
-      game_time: odds?.commenceTime || null
-    },
-    {
-      onConflict: "sport,game_id"
-    }
+const {
+  data: savedDailyPick,
+  error: dailyPickError
+} =
+  await supabaseAdmin
+    .from("daily_picks")
+    .upsert(
+      {
+        sport: type,
+        game_id: gameId,
+        away_team: teamA,
+        home_team: teamB,
+        analysis_json: {
+          ...analysisJson,
+          fullResponse
+        },
+        updated_at:
+          new Date().toISOString(),
+        game_date:
+          gameDate,
+        game_time:
+          odds?.commenceTime || null
+      },
+      {
+        onConflict:
+          "sport,game_id"
+      }
+    )
+    .select(
+      "id, updated_at"
+    )
+    .single();
+
+
+if (dailyPickError) {
+  throw new Error(
+    `Football daily_picks save error: ${dailyPickError.message}`
   );
+}
+
+
+// ============================================================
+// PREMIUM RADAR — IMMEDIATE BEST-EFFORT SYNC
+// ============================================================
+//
+// daily_picks remains the canonical source.
+// Radar failure must NEVER break the sports analysis.
+//
+try {
+
+  const premium =
+    analysisJson?.premium || null;
+
+  const pick =
+    premium?.pick || null;
+
+  const normalizedPick =
+    String(pick || "")
+      .toLowerCase();
+
+
+  let currentMarketLine =
+    null;
+
+
+  if (
+    normalizedPick.includes("over") ||
+    normalizedPick.includes("under")
+  ) {
+
+    const line =
+      Number(
+        premium?.odds?.totalLine
+      );
+
+    currentMarketLine =
+      Number.isFinite(line)
+        ? line
+        : null;
+
+  } else if (
+    pick &&
+    pick.includes(teamA)
+  ) {
+
+    const line =
+      Number(
+        premium?.odds?.spreadLineA
+      );
+
+    currentMarketLine =
+      Number.isFinite(line)
+        ? line
+        : null;
+
+  } else if (
+    pick &&
+    pick.includes(teamB)
+  ) {
+
+    const line =
+      Number(
+        premium?.odds?.spreadLineB
+      );
+
+    currentMarketLine =
+      Number.isFinite(line)
+        ? line
+        : null;
+  }
+
+
+  const projection =
+    premium
+      ? {
+          score:
+            premium.projectedScore &&
+            typeof premium.projectedScore ===
+              "object"
+              ? premium.projectedScore
+              : null,
+
+          total:
+            Number.isFinite(
+              Number(
+                premium.projectedTotal
+              )
+            )
+              ? Number(
+                  premium.projectedTotal
+                )
+              : null,
+
+          spread:
+            Number.isFinite(
+              Number(
+                premium.projectedSpread
+              )
+            )
+              ? Number(
+                  premium.projectedSpread
+                )
+              : null
+        }
+      : null;
+
+
+  await syncPremiumRadar({
+
+    supabaseAdmin,
+
+    sourceDailyPickId:
+      savedDailyPick.id,
+
+    sport:
+      type,
+
+    gameId:
+      gameId,
+
+    gameDate:
+      gameDate,
+
+    awayTeam:
+      teamA,
+
+    homeTeam:
+      teamB,
+
+    isPremium:
+      analysisJson.isPremiumPick ===
+        true,
+
+    pick,
+
+    confidence:
+      premium
+        ? Number(
+            premium.confidence || 0
+          )
+        : null,
+
+    edge:
+      premium
+        ? Number(
+            premium.mainEdge || 0
+          )
+        : null,
+
+    projection,
+
+    recommendation:
+      null,
+
+    openingMarketLine:
+      null,
+
+    currentMarketLine,
+
+    injuryAdjustment:
+      null,
+
+    weatherAdjustment:
+      null,
+
+    starterState:
+      null,
+
+    pitcherId:
+      null,
+
+    sourceUpdatedAt:
+      savedDailyPick.updated_at
+  });
+
+
+} catch (radarError) {
+
+  console.error(
+    "FOOTBALL PREMIUM RADAR SYNC ERROR:",
+    type,
+    gameId,
+    radarError.message
+  );
+}
 
 const gameNotStarted =
   !odds?.commenceTime ||
