@@ -318,23 +318,11 @@ function getMLBProjection(
     );
 
 
-  const projection = {
-
-    away,
-
-    home,
-
-    total,
-
-    margin:
-      away !== null &&
-      home !== null
-        ? Number(
-            (away - home)
-              .toFixed(3)
-          )
-        : null
-  };
+ const projection = {
+  away,
+  home,
+  total
+};
 
 
   const hasAny =
