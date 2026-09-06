@@ -351,7 +351,213 @@ module.exports =
           });
       }
 
+// ======================================================
+// PREMIUM USER — HISTORY
+//
+// Visible history = previous 7 calendar days.
+// TODAY remains separate.
+//
+// premium_radar already contains only games that
+// entered Radar at some point, including games that
+// later stopped being Premium.
+// ======================================================
 
+const radarViewMode =
+  String(
+    req.query.view || "today"
+  )
+    .toLowerCase()
+    .trim();
+
+
+if (radarViewMode === "history") {
+
+  const historyStartDate =
+    addDays(
+      today,
+      -7
+    );
+
+  const historyEndDate =
+    addDays(
+      today,
+      -1
+    );
+
+
+  const {
+    data: historyRows,
+    error: historyError
+  } =
+    await supabaseAdmin
+      .from("premium_radar")
+      .select(
+        RADAR_SELECT
+      )
+      .gte(
+        "game_date",
+        historyStartDate
+      )
+      .lte(
+        "game_date",
+        historyEndDate
+      );
+
+
+  if (historyError) {
+    throw historyError;
+  }
+
+
+  const rows =
+    historyRows || [];
+
+
+  // ====================================================
+  // HISTORY ORDER
+  //
+  // Newest day first.
+  // Then sport.
+  // Current Premium before former Premium.
+  // Confidence as final tie-breaker.
+  // ====================================================
+
+  rows.sort(
+    (a, b) => {
+
+      const dateCompare =
+        String(
+          b.game_date || ""
+        ).localeCompare(
+          String(
+            a.game_date || ""
+          )
+        );
+
+
+      if (dateCompare !== 0) {
+        return dateCompare;
+      }
+
+
+      const sportCompare =
+        String(
+          a.sport || ""
+        ).localeCompare(
+          String(
+            b.sport || ""
+          )
+        );
+
+
+      if (sportCompare !== 0) {
+        return sportCompare;
+      }
+
+
+      if (
+        a.current_is_premium !==
+        b.current_is_premium
+      ) {
+
+        return a.current_is_premium
+          ? -1
+          : 1;
+      }
+
+
+      return (
+        Number(
+          b.current_confidence || 0
+        ) -
+        Number(
+          a.current_confidence || 0
+        )
+      );
+    }
+  );
+
+
+  // ====================================================
+  // GROUP BY DATE → SPORT
+  // ====================================================
+
+  const grouped = {};
+
+
+  for (const row of rows) {
+
+    const date =
+      row.game_date;
+
+
+    if (!grouped[date]) {
+      grouped[date] = {};
+    }
+
+
+    if (
+      !grouped[date][row.sport]
+    ) {
+
+      grouped[date][row.sport] =
+        [];
+    }
+
+
+    grouped[date][row.sport]
+      .push(row);
+  }
+
+
+  // Always return the seven available dates,
+  // even when one of those days had zero Premiums.
+  //
+  // Example:
+  // Yesterday
+  // Sep 4
+  // Sep 3
+  // ...
+  const dates =
+    Array.from(
+      {
+        length: 7
+      },
+      (
+        _,
+        index
+      ) =>
+        addDays(
+          today,
+          -(index + 1)
+        )
+    );
+
+
+  return res
+    .status(200)
+    .json({
+      ok: true,
+
+      locked: false,
+
+      view:
+        "history",
+
+      today,
+
+      historyStartDate,
+
+      historyEndDate,
+
+      historyCount:
+        rows.length,
+
+      dates,
+
+      grouped
+    });
+}
       // ======================================================
       // PREMIUM USER
       //
