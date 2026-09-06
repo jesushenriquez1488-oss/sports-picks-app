@@ -409,9 +409,171 @@ if (radarViewMode === "history") {
   }
 
 
-  const rows =
-    historyRows || [];
+  let rows =
+  historyRows || [];
 
+
+// ====================================================
+// HISTORY — CANONICAL RESULTS FROM picks_history
+//
+// premium_radar stores the Radar opportunity.
+// picks_history is the canonical grading source.
+//
+// Match by:
+// sport + game_id + pick
+//
+// This avoids assigning the result of another play
+// from the same game.
+// ====================================================
+
+const historyGameIds =
+  [
+    ...new Set(
+      rows
+        .map(
+          row =>
+            row.game_id
+        )
+        .filter(Boolean)
+    )
+  ];
+
+
+if (historyGameIds.length) {
+
+  const {
+    data: gradedRows,
+    error: gradedRowsError
+  } =
+    await supabaseAdmin
+      .from("picks_history")
+      .select(
+        `
+          sport,
+          game_id,
+          pick,
+          result,
+          final_score,
+          graded_at
+        `
+      )
+      .in(
+        "game_id",
+        historyGameIds
+      );
+
+
+  if (gradedRowsError) {
+    throw gradedRowsError;
+  }
+
+
+  const gradedMap =
+    new Map();
+
+
+  for (
+    const graded of
+      gradedRows || []
+  ) {
+
+    const key =
+      [
+        String(
+          graded.sport || ""
+        )
+          .toLowerCase()
+          .trim(),
+
+        String(
+          graded.game_id || ""
+        )
+          .trim(),
+
+        String(
+          graded.pick || ""
+        )
+          .trim()
+      ].join("|");
+
+
+    const existing =
+      gradedMap.get(key);
+
+
+    if (
+      !existing ||
+      (
+        graded.graded_at &&
+        (
+          !existing.graded_at ||
+          new Date(
+            graded.graded_at
+          ).getTime() >
+          new Date(
+            existing.graded_at
+          ).getTime()
+        )
+      )
+    ) {
+
+      gradedMap.set(
+        key,
+        graded
+      );
+    }
+  }
+
+
+  rows =
+    rows.map(
+      row => {
+
+        const key =
+          [
+            String(
+              row.sport || ""
+            )
+              .toLowerCase()
+              .trim(),
+
+            String(
+              row.game_id || ""
+            )
+              .trim(),
+
+            String(
+              row.current_pick || ""
+            )
+              .trim()
+          ].join("|");
+
+
+        const graded =
+          gradedMap.get(key);
+
+
+        if (!graded) {
+          return row;
+        }
+
+
+        return {
+          ...row,
+
+          result:
+            graded.result ||
+            row.result ||
+            "pending",
+
+          final_score:
+            graded.final_score ||
+            row.final_score ||
+            null
+        };
+      }
+    );
+}
 
   // ====================================================
   // HISTORY ORDER
