@@ -1,5 +1,7 @@
 const { createClient } = require("@supabase/supabase-js");
- 
+ const {
+  syncPremiumRadar
+} = require("../lib/premiumRadar");
 const supabaseAdmin = createClient(
 
   process.env.SUPABASE_URL,
@@ -5044,34 +5046,268 @@ const gameDate = new Intl.DateTimeFormat("en-CA", {
 const gameId = mlbData.gamePk
   ? `mlb-${gameDate}-${teamsSorted.join("-")}-${mlbData.gamePk}`
   : `mlb-${gameDate}-${teamsSorted.join("-")}`;
-const { error: dailyPickError } = await supabaseAdmin
-  .from("daily_picks")
-  .upsert(
-    {
-  sport: "mlb",
-  game_id: gameId,
-  away_team: awayTeam,
-  home_team: homeTeam,
-  analysis_json: fullMlbAnalysis,
-  updated_at: new Date().toISOString(),
-  game_date: gameDate,
+const {
+  data: savedDailyPick,
+  error: dailyPickError
+} =
+  await supabaseAdmin
+    .from("daily_picks")
+    .upsert(
+      {
+        sport: "mlb",
+        game_id: gameId,
+        away_team: awayTeam,
+        home_team: homeTeam,
 
-  game_time:
-    gameTime
-      ? new Date(
+        analysis_json:
+          fullMlbAnalysis,
+
+        updated_at:
+          new Date().toISOString(),
+
+        game_date:
+          gameDate,
+
+        game_time:
           gameTime
-        ).toISOString()
-      : null
-},
-    {
-      onConflict: "sport,game_id"
-    }
-  );
+            ? new Date(
+                gameTime
+              ).toISOString()
+            : null
+      },
+      {
+        onConflict:
+          "sport,game_id"
+      }
+    )
+    .select(
+      "id, updated_at"
+    )
+    .single();
+
 
 if (dailyPickError) {
   throw new Error(
     "Error guardando MLB daily_picks: " +
     dailyPickError.message
+  );
+}
+
+
+// ============================================================
+// PREMIUM RADAR — IMMEDIATE BEST-EFFORT SYNC
+// ============================================================
+//
+// daily_picks remains the canonical source.
+// Radar failure must NEVER break MLB analysis.
+//
+try {
+
+  const radarCard =
+    recommendedCards?.[0] ||
+    null;
+
+
+  let radarEdge =
+    null;
+
+  let currentMarketLine =
+    null;
+
+
+  if (radarCard) {
+
+    if (
+      radarCard.type === "OVER" ||
+      radarCard.type === "UNDER"
+    ) {
+
+      const edge =
+        Number(
+          radarCard.totalEdge
+        );
+
+      radarEdge =
+        Number.isFinite(edge)
+          ? edge
+          : null;
+
+
+      const line =
+        Number(
+          fullMlbAnalysis
+            ?.premium
+            ?.totalLine
+        );
+
+      currentMarketLine =
+        Number.isFinite(line)
+          ? line
+          : null;
+
+    } else if (
+      radarCard.type === "RUNLINE"
+    ) {
+
+      const edge =
+        Number(
+          radarCard.protectedEdge
+        );
+
+      radarEdge =
+        Number.isFinite(edge)
+          ? edge
+          : null;
+
+
+      const line =
+        Number(
+          radarCard.spread
+        );
+
+      currentMarketLine =
+        Number.isFinite(line)
+          ? line
+          : null;
+
+    } else if (
+      radarCard.type === "ML"
+    ) {
+
+      const edge =
+        Number(
+          radarCard.projectedMargin
+        );
+
+      radarEdge =
+        Number.isFinite(edge)
+          ? edge
+          : null;
+
+      /*
+       * Moneyline price is NOT stored
+       * as a market line in Radar.
+       */
+      currentMarketLine =
+        null;
+    }
+  }
+
+
+  const radarProjection = {
+
+    away:
+      Number.isFinite(
+        Number(expectedRunsA)
+      )
+        ? Number(expectedRunsA)
+        : null,
+
+    home:
+      Number.isFinite(
+        Number(expectedRunsB)
+      )
+        ? Number(expectedRunsB)
+        : null,
+
+    total:
+      Number.isFinite(
+        Number(projectedTotal)
+      )
+        ? Number(projectedTotal)
+        : null,
+
+    margin:
+      Number.isFinite(
+        Number(expectedRunsA)
+      ) &&
+      Number.isFinite(
+        Number(expectedRunsB)
+      )
+        ? Number(
+            (
+              Number(expectedRunsA) -
+              Number(expectedRunsB)
+            ).toFixed(3)
+          )
+        : null
+  };
+
+
+  await syncPremiumRadar({
+
+    supabaseAdmin,
+
+    sourceDailyPickId:
+      savedDailyPick.id,
+
+    sport:
+      "mlb",
+
+    gameId:
+      gameId,
+
+    gameDate:
+      gameDate,
+
+    awayTeam:
+      awayTeam,
+
+    homeTeam:
+      homeTeam,
+
+    isPremium:
+      fullMlbAnalysis
+        .isPremiumPick === true,
+
+    pick:
+      radarCard?.play ||
+      null,
+
+    confidence:
+      radarCard
+        ? Number(
+            radarCard.percentage
+          )
+        : null,
+
+    edge:
+      radarEdge,
+
+    projection:
+      radarProjection,
+
+    recommendation:
+      null,
+
+    openingMarketLine:
+      null,
+
+    currentMarketLine,
+
+    injuryAdjustment:
+      null,
+
+    weatherAdjustment:
+      null,
+
+    starterState:
+      null,
+
+    pitcherId:
+      null,
+
+    sourceUpdatedAt:
+      savedDailyPick.updated_at
+  });
+
+
+} catch (radarError) {
+
+  console.error(
+    "MLB PREMIUM RADAR SYNC ERROR:",
+    gameId,
+    radarError.message
   );
 }
 
