@@ -9537,11 +9537,12 @@ ${
     ? `
         <div
           style="
-            margin:18px 0 8px;
-            display:flex;
-            gap:8px;
-            overflow-x:auto;
-            padding-bottom:6px;
+            margin:12px 0 8px;
+            display:grid;
+            grid-template-columns:
+              repeat(7, minmax(0, 1fr));
+            gap:4px;
+            width:100%;
           "
         >
           ${
@@ -9594,8 +9595,8 @@ ${
                         '${date}'
                       )"
                       style="
-                        flex:0 0 auto;
-                        min-width:82px;
+                        width:100%;
+                        min-width:0;
 
                         border:
                           1px solid
@@ -9619,18 +9620,19 @@ ${
                               : "#71839f"
                           };
 
-                        border-radius:10px;
-                        padding:9px 12px;
+                        border-radius:6px;
+                        padding:5px 2px;
                         cursor:pointer;
                         text-align:center;
                       "
                     >
                       <div
                         style="
-                          font-size:8px;
+                          font-size:7px;
                           font-weight:900;
-                          letter-spacing:.8px;
-                          margin-bottom:3px;
+                          letter-spacing:.3px;
+                          margin-bottom:1px;
+                          white-space:nowrap;
                         "
                       >
                         ${dayLabel}
@@ -9638,8 +9640,9 @@ ${
 
                       <div
                         style="
-                          font-size:11px;
+                          font-size:9px;
                           font-weight:900;
+                          white-space:nowrap;
                         "
                       >
                         ${dateLabel}
