@@ -8070,26 +8070,26 @@ if (
                                   </div>
 
 
-                                 ${(() => {
+                                ${(() => {
   const projection =
     getProjectionData(row);
 
   return `
     <div
       style="
-        margin-top:12px;
+        margin-top:8px;
         background:#0a1322;
-        border-radius:12px;
-        padding:12px;
+        border-radius:9px;
+        padding:8px;
       "
     >
       <div
         style="
           color:#ffd000;
-          font-size:9px;
+          font-size:8px;
           font-weight:900;
-          letter-spacing:1px;
-          margin-bottom:9px;
+          letter-spacing:.8px;
+          margin-bottom:6px;
         "
       >
         PROJECTION
@@ -8099,24 +8099,25 @@ if (
         style="
           display:grid;
           grid-template-columns:1fr 1fr;
-          gap:8px;
+          gap:5px;
         "
       >
+
         <div
           style="
             background:#08101c;
             border:1px solid #112034;
-            border-radius:10px;
-            padding:10px;
+            border-radius:7px;
+            padding:6px 8px;
           "
         >
           <div
             style="
               color:#5fb7ff;
-              font-size:8px;
+              font-size:7px;
               font-weight:900;
-              letter-spacing:1px;
-              margin-bottom:5px;
+              letter-spacing:.8px;
+              margin-bottom:2px;
             "
           >
             ${projection.awayLabel}
@@ -8125,30 +8126,31 @@ if (
           <div
             style="
               color:#dff1ff;
-              font-size:17px;
+              font-size:14px;
               font-weight:900;
-              line-height:1;
+              line-height:1.1;
             "
           >
             ${projection.awayValue}
           </div>
         </div>
 
+
         <div
           style="
             background:#08101c;
             border:1px solid #112034;
-            border-radius:10px;
-            padding:10px;
+            border-radius:7px;
+            padding:6px 8px;
           "
         >
           <div
             style="
               color:#5fb7ff;
-              font-size:8px;
+              font-size:7px;
               font-weight:900;
-              letter-spacing:1px;
-              margin-bottom:5px;
+              letter-spacing:.8px;
+              margin-bottom:2px;
             "
           >
             ${projection.homeLabel}
@@ -8157,30 +8159,31 @@ if (
           <div
             style="
               color:#dff1ff;
-              font-size:17px;
+              font-size:14px;
               font-weight:900;
-              line-height:1;
+              line-height:1.1;
             "
           >
             ${projection.homeValue}
           </div>
         </div>
 
+
         <div
           style="
             background:#08101c;
             border:1px solid #112034;
-            border-radius:10px;
-            padding:10px;
+            border-radius:7px;
+            padding:6px 8px;
           "
         >
           <div
             style="
               color:#7ce9ff;
-              font-size:8px;
+              font-size:7px;
               font-weight:900;
-              letter-spacing:1px;
-              margin-bottom:5px;
+              letter-spacing:.8px;
+              margin-bottom:2px;
             "
           >
             ${projection.bottomLeftLabel}
@@ -8189,30 +8192,31 @@ if (
           <div
             style="
               color:#ffffff;
-              font-size:16px;
+              font-size:13px;
               font-weight:900;
-              line-height:1;
+              line-height:1.1;
             "
           >
             ${projection.bottomLeftValue}
           </div>
         </div>
 
+
         <div
           style="
             background:#08101c;
             border:1px solid #112034;
-            border-radius:10px;
-            padding:10px;
+            border-radius:7px;
+            padding:6px 8px;
           "
         >
           <div
             style="
               color:#7ce9ff;
-              font-size:8px;
+              font-size:7px;
               font-weight:900;
-              letter-spacing:1px;
-              margin-bottom:5px;
+              letter-spacing:.8px;
+              margin-bottom:2px;
             "
           >
             ${projection.bottomRightLabel}
@@ -8221,14 +8225,15 @@ if (
           <div
             style="
               color:#ffffff;
-              font-size:16px;
+              font-size:13px;
               font-weight:900;
-              line-height:1;
+              line-height:1.1;
             "
           >
             ${projection.bottomRightValue}
           </div>
         </div>
+
       </div>
     </div>
   `;
