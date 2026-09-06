@@ -7639,97 +7639,117 @@ async function openPremiumRadar() {
 
 
     const formatProjection =
-      value => {
+  value => {
+
+    if (
+      value === null ||
+      value === undefined ||
+      value === ""
+    ) {
+      return "—";
+    }
+
+
+    const formatValue =
+      val => {
+
+        const numeric =
+          Number(val);
 
         if (
-          value === null ||
-          value === undefined ||
-          value === ""
+          val !== "" &&
+          Number.isFinite(numeric)
         ) {
-          return "—";
+          return numeric.toFixed(1);
+        }
+
+        return radarEscape(val);
+      };
+
+
+    if (
+      typeof value ===
+      "number" ||
+      typeof value ===
+      "string"
+    ) {
+      return formatValue(value);
+    }
+
+
+    if (
+      typeof value ===
+      "object"
+    ) {
+
+      const parts = [];
+
+
+      for (
+        const [key, val]
+        of Object.entries(value)
+      ) {
+
+        if (
+          val === null ||
+          val === undefined
+        ) {
+          continue;
         }
 
 
+        // Nested object:
+        // football score contains
+        // team -> projected points
         if (
-          typeof value ===
-          "number"
-        ) {
-          return value.toFixed(1);
-        }
-
-
-        if (
-          typeof value ===
-          "string"
-        ) {
-          return radarEscape(
-            value
-          );
-        }
-
-
-        if (
-          typeof value ===
-          "object"
+          typeof val === "object" &&
+          !Array.isArray(val)
         ) {
 
-          const parts =
-            Object.entries(
-              value
-            )
+          const inner =
+            Object.entries(val)
               .filter(
-                ([, val]) =>
-                  val !== null &&
-                  val !== undefined
-              )
-              .slice(
-                0,
-                3
+                ([, innerVal]) =>
+                  innerVal !== null &&
+                  innerVal !== undefined
               )
               .map(
-                ([key, val]) => {
-
-                  const numeric =
-                    Number(
-                      val
-                    );
-
-                  const display =
-                    Number.isFinite(
-                      numeric
-                    )
-                      ? numeric.toFixed(
-                          1
-                        )
-                      : String(
-                          val
-                        );
-
-                  return `${
-                    radarEscape(
-                      key
-                    )
+                ([innerKey, innerVal]) =>
+                  `${
+                    radarEscape(innerKey)
                   }: ${
-                    radarEscape(
-                      display
-                    )
-                  }`;
-                }
-              );
-
-
-          return parts.length
-            ? parts.join(
-                " · "
+                    formatValue(innerVal)
+                  }`
               )
-            : "—";
+              .join(" · ");
+
+
+          if (inner) {
+            parts.push(inner);
+          }
+
+          continue;
         }
 
 
-        return radarEscape(
-          value
+        parts.push(
+          `${
+            radarEscape(key)
+          }: ${
+            formatValue(val)
+          }`
         );
-      };
+      }
+
+
+      return parts.length
+        ? parts.join(" · ")
+        : "—";
+    }
+
+
+    return "—";
+  };
 
 
     // ========================================================
