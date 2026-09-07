@@ -5603,6 +5603,7 @@ return Array
       a?.game_date || 0
     ).getTime()
   );
+ }
 function getBatterVsPitcherPropValue(
   row,
   market
