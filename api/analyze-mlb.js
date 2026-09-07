@@ -315,11 +315,7 @@ const PLAYER_PROP_EDGE_RULES = {
 };
 function calculatePlayerPropConfidence(market, edge) {
   const e = playerSafeNum(edge);
- const displayConfidence =
-  calculatePlayerPropDisplayConfidence(
-    market,
-    edge
-  );
+
 
   if (e <= 0) return 0;
 
@@ -1278,7 +1274,11 @@ if (
   }
 
   const confidence = calculatePlayerPropConfidence(market, edge);
-
+const displayConfidence =
+  calculatePlayerPropDisplayConfidence(
+    market,
+    edge
+  );
 
   return {
     player: prop.player,
