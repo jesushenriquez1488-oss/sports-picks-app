@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 );
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
 const MLB_SEASON = new Date().getFullYear();
-const PLAYER_PROPS_VERSION = 8;
+const PLAYER_PROPS_VERSION = 9;
 function getDayStart() {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
@@ -3246,12 +3246,204 @@ function buildPlayerPropParkCoverage({
         ? Number(
             (
               (wins / decisions) *
+              100async function getBatterVsPitcherStats(
+  batterId,
+  pitcherId
+) {
+  if (!batterId || !pitcherId) {
+    return null;
+  }
+
+  try {
+    const url =
+      `https://statsapi.mlb.com/api/v1/people/${batterId}/stats` +
+      `?stats=vsPlayer` +
+      `&group=hitting` +
+      `&opposingPlayerId=${pitcherId}` +
+      `&season=${MLB_SEASON}`;
+
+    const response =
+      await fetch(url);
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data =
+      await response.json();
+
+    const stat =
+      data?.stats?.[0]
+        ?.splits?.[0]
+        ?.stat;
+
+    if (!stat) {
+      return null;
+    }
+
+    return {
+      games:
+        Number(
+          stat.gamesPlayed || 0
+        ),
+
+      plateAppearances:
+        Number(
+          stat.plateAppearances || 0
+        ),
+
+      atBats:
+        Number(
+          stat.atBats || 0
+        ),
+
+      hits:
+        Number(
+          stat.hits || 0
+        ),
+
+      totalBases:
+        Number(
+          stat.totalBases || 0
+        ),
+
+      homeRuns:
+        Number(
+          stat.homeRuns || 0
+        ),
+
+      rbi:
+        Number(
+          stat.rbi || 0
+        ),
+
+      strikeOuts:
+        Number(
+          stat.strikeOuts || 0
+        ),
+
+      avg:
+        stat.avg || null,
+
+      ops:
+        stat.ops || null
+    };
+
+  } catch (error) {
+    console.log(
+      "BATTER VS PITCHER ERROR:",
+      error.message
+    );
+
+    return null;
+  }
+}
+
+
+function buildPitcherOpponentCoverage({
+  logs,
+  market,
+  line,
+  side,
+  opponentTeam
+}) {
+  if (!opponentTeam) {
+    return null;
+  }
+
+  const targetOpponent =
+    normalizeTeamName(
+      opponentTeam
+    );
+
+  let wins = 0;
+  let losses = 0;
+  let pushes = 0;
+
+  (logs || []).forEach(gameLog => {
+
+    const gamesStarted =
+      Number(
+        gameLog?.stat?.gamesStarted ||
+        0
+      );
+
+    if (gamesStarted <= 0) {
+      return;
+    }
+
+    const historicalOpponent =
+      normalizeTeamName(
+        gameLog?.opponent?.name ||
+        ""
+      );
+
+    if (
+      !historicalOpponent ||
+      historicalOpponent !==
+        targetOpponent
+    ) {
+      return;
+    }
+
+    const value =
+      getPlayerPropGameValue(
+        gameLog,
+        market
+      );
+
+    if (!Number.isFinite(value)) {
+      return;
+    }
+
+    if (value === Number(line)) {
+      pushes += 1;
+      return;
+    }
+
+    const covered =
+      String(side).toUpperCase() ===
+      "UNDER"
+        ? value < Number(line)
+        : value > Number(line);
+
+    if (covered) {
+      wins += 1;
+    } else {
+      losses += 1;
+    }
+  });
+
+  const decisions =
+    wins + losses;
+
+  return {
+    wins,
+    losses,
+    pushes,
+
+    games:
+      wins +
+      losses +
+      pushes,
+
+    percentage:
+      decisions > 0
+        ? Number(
+            (
+              (wins / decisions) *
               100
             ).toFixed(1)
           )
         : null
   };
 }
+            ).toFixed(1)
+          )
+        : null
+  };
+}
+
 async function handlePlayerProps(req, res) {
 
   // =========================
@@ -3510,6 +3702,8 @@ const analyzedProps = [];
 const analyzedPlayerLines = [];
 const playerCache = new Map();
  const historicalGameContextCache =
+  new Map();
+ const batterVsPitcherCache =
   new Map();
 const awayTeamHittingStats =
   gameContext?.awayTeamId
@@ -3802,7 +3996,73 @@ const parkCoverage =
           historicalGameContextCache
       })
     : null;
+const currentOpponentTeam =
+  playerIsHome === true
+    ? currentGameContext?.awayTeam
+    : playerIsHome === false
+      ? currentGameContext?.homeTeam
+      : null;
 
+
+let batterVsPitcher = null;
+let opponentCoverage = null;
+
+
+/*
+ * BATEADORES:
+ * matchup directo contra
+ * el pitcher de hoy.
+ */
+if (
+  playerInfo?.primaryPosition !== "P" &&
+  opponentPitcher?.info?.id
+) {
+  const matchupKey =
+    `${playerId}|${opponentPitcher.info.id}`;
+
+  if (
+    batterVsPitcherCache.has(
+      matchupKey
+    )
+  ) {
+    batterVsPitcher =
+      batterVsPitcherCache.get(
+        matchupKey
+      );
+
+  } else {
+    batterVsPitcher =
+      await getBatterVsPitcherStats(
+        playerId,
+        opponentPitcher.info.id
+      );
+
+    batterVsPitcherCache.set(
+      matchupKey,
+      batterVsPitcher
+    );
+  }
+}
+
+
+/*
+ * PITCHERS:
+ * cuánto ha cubierto esta
+ * línea exacta vs rival de hoy.
+ */
+if (
+  playerInfo?.primaryPosition === "P"
+) {
+  opponentCoverage =
+    buildPitcherOpponentCoverage({
+      logs,
+      market: result.market,
+      line: result.line,
+      side: result.side,
+      opponentTeam:
+        currentOpponentTeam
+    });
+}
 result.todayContext = {
 
   condition:
@@ -3819,7 +4079,8 @@ result.todayContext = {
       ?.venue?.name ||
     null,
  parkCoverage,
-
+batterVsPitcher,
+opponentCoverage,
   opponentTeam:
     playerIsHome === true
       ? currentGameContext?.awayTeam
