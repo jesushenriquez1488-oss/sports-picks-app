@@ -3443,11 +3443,7 @@ function buildPitcherOpponentCoverage({
         : null
   };
 }
-            ).toFixed(1)
-          )
-        : null
-  };
-}
+         
 
 async function handlePlayerProps(req, res) {
 
