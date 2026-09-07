@@ -10449,7 +10449,8 @@ async function loadMLBPlayerPropsRecommendations(index) {
   'best',
   '${prop.market}',
   'last5',
-  true
+   true
+   '${String(prop.side || "").toUpperCase()}'
 )"
   style="
                 width:100%;
@@ -11346,7 +11347,8 @@ async function showMLBPropPlayer(
   returnCategory = "batters",
   selectedMarket = "",
   windowKey = "last5",
-  scrollToProp = false
+  scrollToProp = false,
+  selectedSide = ""
 ) {
   const playerName =
     decodeURIComponent(encodedPlayer);
@@ -11402,37 +11404,80 @@ async function showMLBPropPlayer(
   }
 
 
+ /*
+ * Una sola opción por mercado.
+ *
+ * Si llegamos desde Recommended,
+ * respetamos EXACTAMENTE el SIDE
+ * recomendado: OVER o UNDER.
+ */
+const requestedSide =
+  String(selectedSide || "")
+    .toUpperCase();
+
+const propMap =
+  new Map();
+
+rawPlayerProps.forEach(prop => {
+
+  const propSide =
+    String(prop.side || "")
+      .toUpperCase();
+
+  const existing =
+    propMap.get(prop.market);
+
+
   /*
-   * Una sola opción por mercado.
-   * Preferimos OVER cuando existe.
+   * Si este es el mercado que
+   * nos enviaron y coincide con
+   * el side solicitado,
+   * ESTE tiene prioridad absoluta.
    */
-  const propMap = new Map();
+  if (
+    selectedMarket &&
+    prop.market === selectedMarket &&
+    requestedSide &&
+    propSide === requestedSide
+  ) {
+    propMap.set(
+      prop.market,
+      prop
+    );
 
-  rawPlayerProps.forEach(prop => {
-    const existing =
-      propMap.get(prop.market);
+    return;
+  }
 
-    if (!existing) {
-      propMap.set(prop.market, prop);
-      return;
-    }
 
-    const existingSide =
-      String(existing.side || "")
-        .toUpperCase();
+  if (!existing) {
+    propMap.set(
+      prop.market,
+      prop
+    );
 
-    const newSide =
-      String(prop.side || "")
-        .toUpperCase();
+    return;
+  }
 
-    if (
-      existingSide !== "OVER" &&
-      newSide === "OVER"
-    ) {
-      propMap.set(prop.market, prop);
-    }
-  });
 
+  /*
+   * Para mercados que NO fueron
+   * enviados desde una recomendación,
+   * seguimos usando OVER por defecto.
+   */
+  if (
+    prop.market !== selectedMarket &&
+    String(
+      existing.side || ""
+    ).toUpperCase() !== "OVER" &&
+    propSide === "OVER"
+  ) {
+    propMap.set(
+      prop.market,
+      prop
+    );
+  }
+
+});
 
   const marketOrder = [
     "batter_hits",
