@@ -11416,8 +11416,66 @@ const requestedSide =
   String(selectedSide || "")
     .toUpperCase();
 
+
+/*
+ * Qué lado favorece CashEdge.
+ *
+ * NO cambia la proyección.
+ * Solo decide cuál lado mostrar.
+ */
+const getPropSideScore = prop => {
+
+  /*
+   * HR conserva su lógica especial
+   * de ventaja contra el sportsbook.
+   */
+  if (
+    prop.market ===
+    "batter_home_runs"
+  ) {
+
+    const advantage =
+      Number(
+        prop.modelAdvantage
+      );
+
+    if (
+      Number.isFinite(
+        advantage
+      )
+    ) {
+      return advantage;
+    }
+  }
+
+
+  /*
+   * Todos los demás mercados
+   * ya traen edge calculado:
+   *
+   * OVER:
+   * projection - line
+   *
+   * UNDER:
+   * line - projection
+   */
+  const edge =
+    Number(prop.edge);
+
+  if (
+    Number.isFinite(edge)
+  ) {
+    return edge;
+  }
+
+
+  return -9999;
+};
+
+
 const propMap =
   new Map();
+
 
 rawPlayerProps.forEach(prop => {
 
@@ -11426,31 +11484,55 @@ rawPlayerProps.forEach(prop => {
       .toUpperCase();
 
   const existing =
-    propMap.get(prop.market);
+    propMap.get(
+      prop.market
+    );
 
 
   /*
-   * Si este es el mercado que
-   * nos enviaron y coincide con
-   * el side solicitado,
-   * ESTE tiene prioridad absoluta.
+   * Si venimos desde Recommended
+   * o Home Runs con un SIDE exacto,
+   * respetamos ese SIDE.
    */
   if (
     selectedMarket &&
     prop.market === selectedMarket &&
-    requestedSide &&
-    propSide === requestedSide
+    requestedSide
   ) {
-    propMap.set(
-      prop.market,
-      prop
-    );
 
-    return;
+    const existingSide =
+      String(
+        existing?.side || ""
+      ).toUpperCase();
+
+
+    if (
+      propSide === requestedSide
+    ) {
+
+      propMap.set(
+        prop.market,
+        prop
+      );
+
+      return;
+    }
+
+
+    if (
+      existingSide ===
+      requestedSide
+    ) {
+      return;
+    }
   }
 
 
+  /*
+   * Primera opción encontrada.
+   */
   if (!existing) {
+
     propMap.set(
       prop.market,
       prop
@@ -11461,17 +11543,15 @@ rawPlayerProps.forEach(prop => {
 
 
   /*
-   * Para mercados que NO fueron
-   * enviados desde una recomendación,
-   * seguimos usando OVER por defecto.
+   * Entre OVER y UNDER,
+   * dejamos el lado que realmente
+   * favorece la proyección CashEdge.
    */
   if (
-    prop.market !== selectedMarket &&
-    String(
-      existing.side || ""
-    ).toUpperCase() !== "OVER" &&
-    propSide === "OVER"
+    getPropSideScore(prop) >
+    getPropSideScore(existing)
   ) {
+
     propMap.set(
       prop.market,
       prop
@@ -11479,7 +11559,6 @@ rawPlayerProps.forEach(prop => {
   }
 
 });
-
   const marketOrder = [
     "batter_hits",
     "batter_total_bases",
