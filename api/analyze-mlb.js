@@ -9,6 +9,7 @@ const supabaseAdmin = createClient(
 );
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
 const MLB_SEASON = new Date().getFullYear();
+const PLAYER_PROPS_VERSION = 3;
 function getDayStart() {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
@@ -370,6 +371,126 @@ const percent =
   75 + ((e - rule.premiumEdge) / (rule.eliteEdge - rule.premiumEdge)) * 24;
 
 return Number(percent.toFixed(1));
+}
+function americanOddsToImpliedProbability(odds) {
+  const value = Number(odds);
+
+  if (!Number.isFinite(value) || value === 0) {
+    return null;
+  }
+
+  if (value > 0) {
+    return 100 / (value + 100);
+  }
+
+  return Math.abs(value) /
+    (Math.abs(value) + 100);
+}
+
+
+function homeRunAtLeastOneProbability(
+  expectedHomeRuns
+) {
+  const lambda = Math.max(
+    0,
+    Number(expectedHomeRuns || 0)
+  );
+
+  /*
+   * Poisson:
+   * P(1+ HR) = 1 - P(0 HR)
+   */
+  return 1 - Math.exp(-lambda);
+}
+
+
+function calculateHomeRunConfidence(
+  modelProbability,
+  sportsbookProbability
+) {
+  if (
+    !Number.isFinite(modelProbability) ||
+    !Number.isFinite(sportsbookProbability)
+  ) {
+    return 0;
+  }
+
+  const advantagePoints =
+    (
+      modelProbability -
+      sportsbookProbability
+    ) * 100;
+
+  if (advantagePoints <= 0) {
+    return 0;
+  }
+
+  /*
+   * 0–2 pts de ventaja:
+   * señal muy débil
+   */
+  if (advantagePoints < 2) {
+    return Number(
+      (
+        50 +
+        (advantagePoints / 2) * 5
+      ).toFixed(1)
+    );
+  }
+
+  /*
+   * 2–6 pts:
+   * 55% → 65%
+   *
+   * 65% será justamente nuestro
+   * mínimo para CASHEDGE RECOMMENDED.
+   */
+  if (advantagePoints < 6) {
+    return Number(
+      (
+        55 +
+        (
+          (advantagePoints - 2) / 4
+        ) * 10
+      ).toFixed(1)
+    );
+  }
+
+  /*
+   * 6–10 pts:
+   * 65% → 75%
+   */
+  if (advantagePoints < 10) {
+    return Number(
+      (
+        65 +
+        (
+          (advantagePoints - 6) / 4
+        ) * 10
+      ).toFixed(1)
+    );
+  }
+
+  /*
+   * 20+ puntos de ventaja:
+   * máximo 99%.
+   */
+  if (advantagePoints >= 20) {
+    return 99;
+  }
+
+  /*
+   * 10–20 pts:
+   * 75% → 99%
+   */
+  return Number(
+    (
+      75 +
+      (
+        (advantagePoints - 10) / 10
+      ) * 24
+    ).toFixed(1)
+  );
 }
 function seasonPerGame(stat, key) {
   const games = playerSafeNum(stat?.gamesPlayed, 0);
@@ -747,7 +868,116 @@ if (market === "pitcher_outs") {
   projection = Number(projection.toFixed(2));
 
   const listedSide = String(prop.side || "").toUpperCase();
+/*
+ * HOME RUNS usa probabilidad,
+ * no comparación directa contra 0.5.
+ */
+if (
+  market === "batter_home_runs" &&
+  line === 0.5
+) {
+  const homeRunProbability =
+    homeRunAtLeastOneProbability(
+      projection
+    );
 
+  const sportsbookProbability =
+    americanOddsToImpliedProbability(
+      prop.odds
+    );
+
+  /*
+   * OVER = probabilidad de 1+ HR
+   * UNDER = probabilidad de 0 HR
+   */
+  const modelSideProbability =
+    listedSide === "UNDER"
+      ? 1 - homeRunProbability
+      : homeRunProbability;
+
+  const modelAdvantage =
+    sportsbookProbability !== null
+      ? (
+          modelSideProbability -
+          sportsbookProbability
+        ) * 100
+      : null;
+
+  const confidence =
+    sportsbookProbability !== null
+      ? calculateHomeRunConfidence(
+          modelSideProbability,
+          sportsbookProbability
+        )
+      : 0;
+
+  const rawEdge =
+    listedSide === "UNDER"
+      ? line - projection
+      : projection - line;
+
+  return {
+    player: prop.player,
+    market,
+    side: listedSide,
+    line,
+    odds: prop.odds,
+    bookmaker: prop.bookmaker,
+
+    /*
+     * Expected HR.
+     * Ejemplo: 0.31 HR.
+     */
+    projection,
+
+    /*
+     * Lo conservamos para no romper
+     * otras partes antiguas del frontend.
+     */
+    edge: Number(
+      rawEdge.toFixed(2)
+    ),
+
+    confidence,
+
+    /*
+     * Nuevos datos específicos de HR.
+     * Ya vienen en porcentajes 0–100.
+     */
+    homeRunProbability:
+      Number(
+        (
+          homeRunProbability * 100
+        ).toFixed(1)
+      ),
+
+    modelProbability:
+      Number(
+        (
+          modelSideProbability * 100
+        ).toFixed(1)
+      ),
+
+    sportsbookProbability:
+      sportsbookProbability !== null
+        ? Number(
+            (
+              sportsbookProbability * 100
+            ).toFixed(1)
+          )
+        : null,
+
+    modelAdvantage:
+      modelAdvantage !== null
+        ? Number(
+            modelAdvantage.toFixed(1)
+          )
+        : null,
+
+    isPremium:
+      confidence >= 75
+  };
+}
   let edge = 0;
 
   if (listedSide === "OVER") {
@@ -2432,6 +2662,8 @@ if (!force) {
 
 if (
   cached?.analysis_json &&
+  cached.analysis_json.playerPropsVersion ===
+    PLAYER_PROPS_VERSION &&
   Array.isArray(
     cached.analysis_json.playerLines
   ) &&
@@ -2449,7 +2681,7 @@ if (
 const eventId = selectedEvent.id;
 
 const oddsResponse = await fetch(
-  `https://api.the-odds-api.com/v4/sports/baseball_mlb/events/${eventId}/odds?apiKey=${ODDS_API_KEY}&regions=us&markets=batter_hits,batter_total_bases,batter_rbis,batter_runs_scored,batter_home_runs,pitcher_strikeouts,pitcher_outs`
+ `https://api.the-odds-api.com/v4/sports/baseball_mlb/events/${eventId}/odds?apiKey=${ODDS_API_KEY}&regions=us&oddsFormat=american&markets=batter_hits,batter_total_bases,batter_rbis,batter_runs_scored,batter_home_runs,pitcher_strikeouts,pitcher_outs`
 );
 
 const oddsData = await oddsResponse.json();
@@ -2801,6 +3033,7 @@ const finalResponse = {
   ok: true,
   mode: "player-props",
   cached: false,
+ playerPropsVersion: PLAYER_PROPS_VERSION,
   eventId: selectedEvent.id,
   game: `${selectedEvent.away_team} @ ${selectedEvent.home_team}`,
   gameDate: today,
