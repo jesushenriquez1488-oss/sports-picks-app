@@ -10115,8 +10115,7 @@ function getMLBPlayerPropsViews(index) {
         `mlbPlayerStatsView${index}`
       )
   };
-}
-function renderMLBPlayerPropsShell(index) {
+}function renderMLBPlayerPropsShell(index) {
   const state =
     mlbPlayerPropsState[index] || {};
 
@@ -10152,102 +10151,80 @@ function renderMLBPlayerPropsShell(index) {
       </div>
 
 
-      <div style="
-        margin-top:18px;
-        margin-bottom:10px;
-      ">
-        <div style="
-          font-size:11px;
-          font-weight:900;
-          letter-spacing:.10em;
-          color:#00ffe7;
-        ">
-          🔥 CASHEDGE RECOMMENDED
-        </div>
-
-        <div style="
-          margin-top:4px;
-          font-size:11px;
-          color:#71839f;
-        ">
-          Best player props detected for today's matchup
-        </div>
-      </div>
-
-
-      <div id="mlbRecommendedProps${index}">
-        <div class="loading-analysis">
-          Loading CashEdge recommendations...
-        </div>
-      </div>
-
-
-      <div style="
-        height:1px;
-        background:#17243a;
-        margin:22px 0 14px;
-      "></div>
-
-
-      <div style="
-        font-size:9px;
-        color:#71839f;
-        font-weight:800;
-        letter-spacing:.10em;
-        margin-bottom:8px;
-      ">
-        EXPLORE PROPS
-      </div>
-
-
       <div
         class="ps-market-tabs"
         id="mlbPropsNavigation${index}"
+        style="
+          margin-top:14px;
+          margin-bottom:16px;
+          overflow-x:auto;
+        "
       >
 
         <button
           type="button"
           class="active"
+          data-prop-view="best"
+          onclick="showMLBPlayerPropsCategory(
+            ${index},
+            'best'
+          )"
         >
           🔥 BEST
         </button>
 
         <button
-  type="button"
-  data-prop-view="homeRuns"
-  onclick="showMLBPlayerPropsCategory(
-    ${index},
-    'homeRuns'
-  )"
->
-  💣 HOME RUNS
-</button>
+          type="button"
+          data-prop-view="homeRuns"
+          onclick="showMLBPlayerPropsCategory(
+            ${index},
+            'homeRuns'
+          )"
+        >
+          💣 HOME RUNS
+        </button>
 
         <button
           type="button"
+          data-prop-view="batters"
+          onclick="showMLBPlayerPropsCategory(
+            ${index},
+            'batters'
+          )"
         >
           ⚾ BATTERS
         </button>
 
         <button
           type="button"
+          data-prop-view="pitchers"
+          onclick="showMLBPlayerPropsCategory(
+            ${index},
+            'pitchers'
+          )"
         >
           🔥 PITCHERS
         </button>
 
         <button
           type="button"
+          data-prop-view="all"
+          onclick="showMLBPlayerPropsCategory(
+            ${index},
+            'all'
+          )"
         >
-          ALL
+          📋 ALL
         </button>
 
       </div>
 
 
-      <div
-        id="mlbPlayerPropsContent${index}"
-        style="margin-top:14px;"
-      ></div>
+      <div id="mlbPlayerPropsContent${index}">
+        <div class="loading-analysis">
+          Loading Player Props...
+        </div>
+      </div>
 
     </div>
   `;
@@ -10257,9 +10234,9 @@ async function loadMLBPlayerPropsRecommendations(index) {
     mlbPlayerPropsState[index] || {};
 
   const container =
-    document.getElementById(
-      `mlbRecommendedProps${index}`
-    );
+  document.getElementById(
+    `mlbPlayerPropsContent${index}`
+  );
 
   if (!container) return;
 
@@ -10512,8 +10489,32 @@ async function loadMLBPlayerPropsRecommendations(index) {
         })
         .join("");
 
-    container.innerHTML =
-      cards;
+   container.innerHTML = `
+  <div style="
+    margin-bottom:10px;
+  ">
+
+    <div style="
+      font-size:11px;
+      font-weight:900;
+      letter-spacing:.10em;
+      color:#00ffe7;
+    ">
+      🔥 CASHEDGE RECOMMENDED
+    </div>
+
+    <div style="
+      margin-top:3px;
+      font-size:10px;
+      color:#71839f;
+    ">
+      Best player props detected for today's matchup
+    </div>
+
+  </div>
+
+  ${cards}
+`;
 
   } catch (error) {
     container.innerHTML = `
@@ -10565,7 +10566,10 @@ function showMLBPlayerPropsCategory(
         );
       });
   }
-
+if (category === "best") {
+  loadMLBPlayerPropsRecommendations(index);
+  return;
+}
 
   if (category !== "homeRuns") {
     return;
