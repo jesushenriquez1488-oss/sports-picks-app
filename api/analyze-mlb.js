@@ -760,7 +760,6 @@ if (market === "pitcher_outs") {
 
   const confidence = calculatePlayerPropConfidence(market, edge);
 
-  if (confidence <= 0) return null;
 
   return {
     player: prop.player,
@@ -2431,12 +2430,20 @@ if (!force) {
     .eq("game_date", today)
     .maybeSingle();
 
-  if (cached?.analysis_json) {
-    return res.status(200).json({
-      ...cached.analysis_json,
-      cached: true
-    });
-  }
+if (
+  cached?.analysis_json &&
+  Array.isArray(
+    cached.analysis_json.playerLines
+  ) &&
+  Array.isArray(
+    cached.analysis_json.analyzedPlayerLines
+  )
+) {
+  return res.status(200).json({
+    ...cached.analysis_json,
+    cached: true
+  });
+}
 }
 
 const eventId = selectedEvent.id;
@@ -2490,7 +2497,57 @@ const bookPriority = [
   "Bovada",
   "BetRivers"
 ];
+/*
+ * Board completo de Player Props.
+ * Una línea real por jugador + mercado + lado,
+ * usando la casa de mayor prioridad disponible.
+ *
+ * Esto NO decide recomendaciones.
+ * Solo alimenta la navegación de Player Props.
+ */
+const playerLinesMap = new Map();
 
+rawProps.forEach(prop => {
+  const key =
+    `${prop.player}|${prop.market}|${prop.side}`;
+
+  const current =
+    playerLinesMap.get(key);
+
+  if (!current) {
+    playerLinesMap.set(key, prop);
+    return;
+  }
+
+  const currentRank =
+    bookPriority.indexOf(
+      current.bookmaker
+    );
+
+  const newRank =
+    bookPriority.indexOf(
+      prop.bookmaker
+    );
+
+  const safeCurrentRank =
+    currentRank === -1
+      ? 999
+      : currentRank;
+
+  const safeNewRank =
+    newRank === -1
+      ? 999
+      : newRank;
+
+  if (safeNewRank < safeCurrentRank) {
+    playerLinesMap.set(key, prop);
+  }
+});
+
+const playerLines =
+  Array.from(
+    playerLinesMap.values()
+  );
 const uniqueMap = new Map();
 
 rawProps.forEach(prop => {
@@ -2520,8 +2577,10 @@ rawProps.forEach(prop => {
   }
 });
 
-const uniqueProps = Array.from(uniqueMap.values()).slice(0, 60);
+const uniqueProps = Array.from(uniqueMap.values());
+
 const analyzedProps = [];
+const analyzedPlayerLines = [];
 const playerCache = new Map();
 const awayTeamHittingStats =
   gameContext?.awayTeamId
@@ -2715,13 +2774,29 @@ const result = calculatePlayerPropProjection({
   venueParkFactor
 });
 
-  if (!result) continue;
+if (!result) continue;
 
+/*
+ * Guarda el análisis de toda línea válida
+ * para la navegación profunda.
+ */
+analyzedPlayerLines.push(result);
+
+/*
+ * Mantiene intacta la colección
+ * tradicional de picks con edge.
+ */
+if (Number(result.confidence || 0) > 0) {
   analyzedProps.push(result);
+}
 }
 
 analyzedProps.sort((a, b) => b.confidence - a.confidence);
-
+analyzedPlayerLines.sort(
+  (a, b) =>
+    Number(b.confidence || 0) -
+    Number(a.confidence || 0)
+);
 const finalResponse = {
   ok: true,
   mode: "player-props",
@@ -2732,8 +2807,11 @@ const finalResponse = {
   generatedAt: new Date().toISOString(),
   totalRawProps: rawProps.length,
   totalUniqueProps: rawProps.length,
-  totalAnalyzedProps: analyzedProps.length,
-  props: analyzedProps.slice(0, 3),
+ totalAnalyzedProps: analyzedProps.length,
+
+playerLines,
+analyzedPlayerLines,
+props: analyzedProps.slice(0, 3),
 lockedProps: analyzedProps.slice(3, 40)
 };
 
