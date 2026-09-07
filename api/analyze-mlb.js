@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 );
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
 const MLB_SEASON = new Date().getFullYear();
-const PLAYER_PROPS_VERSION = 4;
+const PLAYER_PROPS_VERSION = 5;
 function getDayStart() {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
@@ -402,7 +402,6 @@ function homeRunAtLeastOneProbability(
    */
   return 1 - Math.exp(-lambda);
 }
-
 
 function calculateHomeRunConfidence(
   modelProbability,
@@ -3146,28 +3145,8 @@ if (
 ) {
   continue;
 }
-if (prop.market === "batter_runs_scored" && prop.side === "Under" && propLine <= 0.5) {
-  continue;
-}
 
-if (prop.market === "batter_rbis" && prop.side === "Under" && propLine <= 0.5) {
-  continue;
-}
-  if (
-  prop.market === "batter_runs_scored" &&
-  String(prop.side).toLowerCase() === "under" &&
-  propLine <= 0.5
-) {
-  continue;
-}
 
-if (
-  prop.market === "batter_rbis" &&
-  String(prop.side).toLowerCase() === "under" &&
-  propLine <= 0.5
-) {
-  continue;
-}
   let cachedPlayer = playerCache.get(prop.player);
 
 if (!cachedPlayer) {
