@@ -315,6 +315,11 @@ const PLAYER_PROP_EDGE_RULES = {
 };
 function calculatePlayerPropConfidence(market, edge) {
   const e = playerSafeNum(edge);
+ const displayConfidence =
+  calculatePlayerPropDisplayConfidence(
+    market,
+    edge
+  );
 
   if (e <= 0) return 0;
 
@@ -371,6 +376,55 @@ const percent =
   75 + ((e - rule.premiumEdge) / (rule.eliteEdge - rule.premiumEdge)) * 24;
 
 return Number(percent.toFixed(1));
+}
+function calculatePlayerPropDisplayConfidence(
+  market,
+  edge
+) {
+  const e =
+    playerSafeNum(edge);
+
+  if (e <= 0) {
+    return 0;
+  }
+
+  const showEdges = {
+    batter_hits: 0.30,
+    batter_total_bases: 0.50,
+    batter_rbis: 0.20,
+    batter_runs_scored: 0.20,
+    pitcher_strikeouts: 0.50,
+    pitcher_outs: 1.50
+  };
+
+  const showEdge =
+    showEdges[market];
+
+  if (!showEdge) {
+    return 0;
+  }
+
+  /*
+   * Si ya alcanzó el mínimo normal,
+   * usamos el confidence normal.
+   */
+  if (e >= showEdge) {
+    return calculatePlayerPropConfidence(
+      market,
+      e
+    );
+  }
+
+  /*
+   * Señal débil:
+   * 50% → 55%
+   */
+  return Number(
+    (
+      50 +
+      (e / showEdge) * 5
+    ).toFixed(1)
+  );
 }
 function americanOddsToImpliedProbability(odds) {
   const value = Number(odds);
@@ -1235,8 +1289,9 @@ if (
     bookmaker: prop.bookmaker,
     projection,
     edge: Number(edge.toFixed(2)),
-    confidence,
-    isPremium: confidence >= 75
+   confidence,
+displayConfidence,
+isPremium: confidence >= 75
   };
 }
 function aggregateTeamPitchingStat(splits, key) {
