@@ -2656,12 +2656,34 @@ ${premium.recommendedCards?.[1] ? `
 
               </div>
 
-              <div class="player-edge-section">
-                <button class="player-edge-toggle-btn" onclick='togglePlayerEdgeProps(${index}, "${eventId || ""}")'>
-                  🎯 View Player Props
-                </button>
-                <div id="playerEdge${index}" class="player-edge-box"></div>
-              </div>
+             <div class="player-edge-section">
+  <button
+    type="button"
+    class="player-stats-open-btn"
+    onclick="openMLBPlayerProps(
+      ${index},
+      '${escapeText(eventId || "")}',
+      '${escapeText(awayTeam)}',
+      '${escapeText(homeTeam)}'
+    )"
+  >
+    <span class="player-stats-icon">
+      ⚡
+    </span>
+
+    <span class="player-stats-copy">
+      <strong>PLAYER PROPS</strong>
+
+      <small>
+        Best Props · Home Runs · Batters · Pitchers
+      </small>
+    </span>
+
+    <span class="player-stats-arrow">
+      ›
+    </span>
+  </button>
+</div>
 
            <div class="mlb-info-grid">
 
@@ -2813,11 +2835,17 @@ ${
 
   </div>
 
-  <div
-    id="mlbPlayerStatsView${index}"
-    class="mlb-player-stats-view"
-    style="display:none;"
-  ></div>
+ <div
+  id="mlbPlayerPropsView${index}"
+  class="mlb-player-props-view"
+  style="display:none;"
+></div>
+
+<div
+  id="mlbPlayerStatsView${index}"
+  class="mlb-player-stats-view"
+  style="display:none;"
+></div>
 
 </div>
 `;
@@ -9975,7 +10003,7 @@ function toggleGameHighlight(index, premiumJson, awayTeam, homeTeam) {
 }
 window.toggleGameHighlight = toggleGameHighlight;
 const mlbPlayerStatsState = {};
-
+const mlbPlayerPropsState = {};
 const MLB_PLAYER_STATS_MARKETS = {
   hits: {
     label: "1+ Hit",
@@ -10070,7 +10098,198 @@ function getMLBPlayerStatsViews(index) {
       )
   };
 }
+function getMLBPlayerPropsViews(index) {
+  return {
+    analysisView:
+      document.getElementById(
+        `mlbAnalysisView${index}`
+      ),
 
+    propsView:
+      document.getElementById(
+        `mlbPlayerPropsView${index}`
+      ),
+
+    statsView:
+      document.getElementById(
+        `mlbPlayerStatsView${index}`
+      )
+  };
+}
+function renderMLBPlayerPropsShell(index) {
+  const state =
+    mlbPlayerPropsState[index] || {};
+
+  const {
+    propsView
+  } = getMLBPlayerPropsViews(index);
+
+  if (!propsView) return;
+
+  propsView.innerHTML = `
+    <div class="ps-card">
+
+      <div class="ps-sticky-bar">
+
+        <button
+          type="button"
+          class="ps-back-analysis-btn"
+          onclick="closeMLBPlayerProps(${index})"
+        >
+          ← BACK TO ANALYSIS
+        </button>
+
+        <div class="ps-sticky-game">
+          <small>MLB PLAYER PROPS</small>
+
+          <strong>
+            ${sanitize(state.awayTeam || "Away")}
+            vs
+            ${sanitize(state.homeTeam || "Home")}
+          </strong>
+        </div>
+
+      </div>
+
+      <div style="
+        display:grid;
+        grid-template-columns:repeat(2,1fr);
+        gap:10px;
+        margin-top:16px;
+      ">
+
+        <button
+          type="button"
+          class="player-stats-open-btn"
+        >
+          🔥 BEST PROPS
+        </button>
+
+        <button
+          type="button"
+          class="player-stats-open-btn"
+        >
+          💣 HOME RUNS
+        </button>
+
+        <button
+          type="button"
+          class="player-stats-open-btn"
+        >
+          ⚾ BATTERS
+        </button>
+
+        <button
+          type="button"
+          class="player-stats-open-btn"
+        >
+          🔥 PITCHERS
+        </button>
+
+      </div>
+
+      <button
+        type="button"
+        class="player-stats-open-btn"
+        style="margin-top:10px;"
+      >
+        📋 ALL PROPS
+      </button>
+
+      <div
+        id="mlbPlayerPropsContent${index}"
+        style="margin-top:16px;"
+      >
+        <div class="ps-empty">
+          Select a category to explore today's player props.
+        </div>
+      </div>
+
+    </div>
+  `;
+}
+
+
+function openMLBPlayerProps(
+  index,
+  eventId,
+  awayTeam,
+  homeTeam
+) {
+  const {
+    analysisView,
+    propsView,
+    statsView
+  } = getMLBPlayerPropsViews(index);
+
+  if (
+    !analysisView ||
+    !propsView
+  ) {
+    return;
+  }
+
+  mlbPlayerPropsState[index] = {
+    ...(
+      mlbPlayerPropsState[index] ||
+      {}
+    ),
+    eventId,
+    awayTeam,
+    homeTeam,
+    mainView: "best"
+  };
+
+  analysisView.style.display = "none";
+
+  if (statsView) {
+    statsView.style.display = "none";
+  }
+
+  propsView.style.display = "block";
+
+  renderMLBPlayerPropsShell(index);
+
+  const card =
+    propsView.closest(".card");
+
+  if (card) {
+    card.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+  }
+}
+
+
+function closeMLBPlayerProps(index) {
+  const {
+    analysisView,
+    propsView
+  } = getMLBPlayerPropsViews(index);
+
+  if (propsView) {
+    propsView.style.display = "none";
+  }
+
+  if (analysisView) {
+    analysisView.style.display = "block";
+
+    requestAnimationFrame(() => {
+      analysisView.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    });
+  }
+}
+
+
+window.openMLBPlayerProps =
+  openMLBPlayerProps;
+
+window.closeMLBPlayerProps =
+  closeMLBPlayerProps;
 function scrollToMLBGameCard(index) {
   const {
     analysisView,
