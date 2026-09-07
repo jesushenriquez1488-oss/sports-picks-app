@@ -10611,172 +10611,242 @@ function showMLBPlayerPropsCategory(
   }
 
 
-  const cards =
-    homeRunProps
-      .map(prop => {
+const cards =
+  homeRunProps
+    .map(prop => {
 
-        const confidence =
-          Number(prop.confidence || 0);
+      const confidence =
+        Number(prop.confidence || 0);
 
-        const projection =
-          Number(prop.projection);
+      const hrChance =
+        Number(prop.modelProbability);
 
-        const odds =
-          Number(prop.odds);
+      const sportsbookChance =
+        Number(prop.sportsbookProbability);
 
-        const oddsText =
-          Number.isFinite(odds)
-            ? `${odds > 0 ? "+" : ""}${odds}`
-            : "—";
+      const advantage =
+        Number(prop.modelAdvantage);
 
-        const confidenceHTML =
-          confidence > 0
-            ? `
-              <strong style="
-                font-size:15px;
-                color:${
-                  confidence >= 65
-                    ? "#00ffe7"
-                    : "#c9d6e8"
-                };
-              ">
-                ${confidence.toFixed(0)}%
-              </strong>
+      const odds =
+        Number(prop.odds);
 
-              <small style="
-                font-size:7px;
-                color:#71839f;
-              ">
-                CONF.
-              </small>
-            `
-            : `
-              <strong style="
-                font-size:10px;
-                color:#71839f;
-              ">
-                NO EDGE
-              </strong>
-            `;
+      const oddsText =
+        Number.isFinite(odds)
+          ? `${odds > 0 ? "+" : ""}${odds}`
+          : "—";
 
+      const advantageText =
+        Number.isFinite(advantage)
+          ? `${advantage > 0 ? "+" : ""}${advantage.toFixed(1)}%`
+          : "—";
 
-        return `
-          <button
-            type="button"
-            style="
-              width:100%;
-              background:#081321;
-              border:1px solid ${
+      const hasEdge =
+        Number.isFinite(advantage) &&
+        advantage > 0;
+
+      const confidenceHTML =
+        hasEdge
+          ? `
+            <strong style="
+              font-size:15px;
+              color:${
                 confidence >= 65
-                  ? "rgba(255,140,26,.40)"
-                  : "#17243a"
+                  ? "#ff9f43"
+                  : "#c9d6e8"
               };
-              border-radius:12px;
-              padding:14px;
-              margin-bottom:8px;
-              display:grid;
-              grid-template-columns:
-                minmax(0,1fr) auto;
-              gap:12px;
+            ">
+              ${confidence.toFixed(0)}%
+            </strong>
+
+            <small style="
+              font-size:7px;
+              color:#71839f;
+            ">
+              SCORE
+            </small>
+          `
+          : `
+            <strong style="
+              font-size:9px;
+              color:#71839f;
+            ">
+              NO EDGE
+            </strong>
+          `;
+
+
+      return `
+        <button
+          type="button"
+          style="
+            width:100%;
+            background:#081321;
+            border:1px solid ${
+              confidence >= 65
+                ? "rgba(255,159,67,.45)"
+                : "#17243a"
+            };
+            border-radius:12px;
+            padding:14px;
+            margin-bottom:8px;
+            display:grid;
+            grid-template-columns:minmax(0,1fr) auto;
+            gap:14px;
+            align-items:center;
+            text-align:left;
+            cursor:pointer;
+          "
+        >
+
+          <div style="min-width:0;">
+
+            <div style="
+              display:flex;
               align-items:center;
-              text-align:left;
-              cursor:pointer;
-            "
-          >
+              gap:6px;
+              margin-bottom:5px;
+            ">
 
-            <div style="min-width:0;">
+              <span>💣</span>
 
-              <div style="
-                display:flex;
-                align-items:center;
-                gap:6px;
-                margin-bottom:5px;
+              <strong style="
+                font-size:13px;
+                color:#fff;
               ">
-                <span>💣</span>
-
-                <strong style="
-                  font-size:13px;
-                  color:#fff;
-                ">
-                  ${sanitize(prop.player)}
-                </strong>
-              </div>
-
-
-              <div style="
-                font-size:12px;
-                font-weight:800;
-                color:#ff9f43;
-              ">
-                OVER 0.5 HOME RUN
-              </div>
-
-
-              <div style="
-                display:flex;
-                flex-wrap:wrap;
-                gap:12px;
-                margin-top:8px;
-                font-size:10px;
-                color:#71839f;
-              ">
-
-                <span>
-                  CASHEDGE
-                  <strong style="color:#c9d6e8;">
-                    ${
-                      Number.isFinite(projection)
-                        ? projection.toFixed(2)
-                        : "—"
-                    }
-                  </strong>
-                </span>
-
-                <span>
-                  ODDS
-                  <strong style="color:#c9d6e8;">
-                    ${oddsText}
-                  </strong>
-                </span>
-
-                ${
-                  prop.bookmaker
-                    ? `
-                      <span>
-                        ${sanitize(
-                          prop.bookmaker
-                        )}
-                      </span>
-                    `
-                    : ""
-                }
-
-              </div>
+                ${sanitize(prop.player)}
+              </strong>
 
             </div>
 
 
             <div style="
-              width:58px;
-              height:58px;
-              border-radius:50%;
-              border:2px solid ${
-                confidence >= 65
-                  ? "#ff8c1a"
-                  : "#344866"
-              };
-              display:flex;
-              flex-direction:column;
-              align-items:center;
-              justify-content:center;
+              font-size:12px;
+              font-weight:800;
+              color:#ff9f43;
             ">
-              ${confidenceHTML}
+              OVER 0.5 HOME RUN
+              · ${oddsText}
             </div>
 
-          </button>
-        `;
-      })
-      .join("");
+
+            <div style="
+              display:grid;
+              grid-template-columns:
+                repeat(3,minmax(0,1fr));
+              gap:8px;
+              margin-top:11px;
+            ">
+
+              <div>
+                <div style="
+                  font-size:8px;
+                  color:#71839f;
+                  font-weight:800;
+                  letter-spacing:.05em;
+                ">
+                  HR CHANCE
+                </div>
+
+                <strong style="
+                  font-size:12px;
+                  color:#fff;
+                ">
+                  ${
+                    Number.isFinite(hrChance)
+                      ? hrChance.toFixed(1) + "%"
+                      : "—"
+                  }
+                </strong>
+              </div>
+
+
+              <div>
+                <div style="
+                  font-size:8px;
+                  color:#71839f;
+                  font-weight:800;
+                  letter-spacing:.05em;
+                ">
+                  SPORTSBOOK
+                </div>
+
+                <strong style="
+                  font-size:12px;
+                  color:#fff;
+                ">
+                  ${
+                    Number.isFinite(sportsbookChance)
+                      ? sportsbookChance.toFixed(1) + "%"
+                      : "—"
+                  }
+                </strong>
+              </div>
+
+
+              <div>
+                <div style="
+                  font-size:8px;
+                  color:#71839f;
+                  font-weight:800;
+                  letter-spacing:.05em;
+                ">
+                  ADVANTAGE
+                </div>
+
+                <strong style="
+                  font-size:12px;
+                  color:${
+                    advantage > 0
+                      ? "#00ffe7"
+                      : "#71839f"
+                  };
+                ">
+                  ${advantageText}
+                </strong>
+              </div>
+
+            </div>
+
+
+            ${
+              prop.bookmaker
+                ? `
+                  <div style="
+                    margin-top:8px;
+                    font-size:9px;
+                    color:#52647d;
+                  ">
+                    ${sanitize(prop.bookmaker)}
+                  </div>
+                `
+                : ""
+            }
+
+          </div>
+
+
+          <div style="
+            width:58px;
+            height:58px;
+            border-radius:50%;
+            border:2px solid ${
+              confidence >= 65
+                ? "#ff9f43"
+                : "#344866"
+            };
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            justify-content:center;
+            flex-shrink:0;
+          ">
+            ${confidenceHTML}
+          </div>
+
+        </button>
+      `;
+    })
+    .join("");
 
 
   container.innerHTML = `
