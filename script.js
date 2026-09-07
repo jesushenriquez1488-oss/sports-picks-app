@@ -10247,7 +10247,274 @@ function renderMLBPlayerPropsShell(index) {
     </div>
   `;
 }
+async function loadMLBPlayerPropsRecommendations(index) {
+  const state =
+    mlbPlayerPropsState[index] || {};
 
+  const container =
+    document.getElementById(
+      `mlbRecommendedProps${index}`
+    );
+
+  if (!container) return;
+
+  const {
+    data: sessionData
+  } = await supabaseClient.auth.getSession();
+
+  if (!sessionData.session) {
+    container.innerHTML = `
+      <div class="ps-empty">
+        You must sign in.
+      </div>
+    `;
+    return;
+  }
+
+  if (!IS_ADMIN && !isPremiumUser) {
+    container.innerHTML = `
+      <div class="player-edge-locked">
+        <p>🔒 Player Props are available with Premium.</p>
+
+        <button
+          class="unlock-btn"
+          onclick="openPromoModal()"
+        >
+          🔓 UNLOCK PREMIUM
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      "/api/analyze-mlb?mode=player-props",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization":
+            `Bearer ${sessionData.session.access_token}`
+        },
+
+        body: JSON.stringify({
+          userId:
+            sessionData.session.user.id,
+
+          eventId:
+            state.eventId
+        })
+      }
+    );
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.error ||
+        "Error loading player props"
+      );
+    }
+
+    /*
+     * Guardamos todo el payload.
+     * Lo vamos a reutilizar después
+     * para HR, Batters, Pitchers y All.
+     */
+    mlbPlayerPropsState[index] = {
+      ...state,
+      data
+    };
+
+    const allRecommended = [
+      ...(Array.isArray(data.props)
+        ? data.props
+        : []),
+
+      ...(Array.isArray(data.lockedProps)
+        ? data.lockedProps
+        : [])
+    ]
+      .sort(
+        (a, b) =>
+          Number(b.confidence || 0) -
+          Number(a.confidence || 0)
+      );
+
+    if (!allRecommended.length) {
+      container.innerHTML = `
+        <div class="ps-empty">
+          CashEdge does not currently detect
+          a strong player prop for this game.
+        </div>
+      `;
+      return;
+    }
+
+    const cards =
+      allRecommended
+        .map(prop => {
+
+          const marketLabel =
+            PLAYER_EDGE_MARKETS[
+              prop.market
+            ] ||
+            prop.market;
+
+          const confidence =
+            Number(
+              prop.confidence || 0
+            );
+
+          const projection =
+            Number(
+              prop.projection
+            );
+
+          const side =
+            String(
+              prop.side || ""
+            ).toUpperCase();
+
+          const isPremium =
+            confidence >= 75;
+
+          return `
+            <button
+              type="button"
+              style="
+                width:100%;
+                border:1px solid ${
+                  isPremium
+                    ? "rgba(0,255,231,.30)"
+                    : "#17243a"
+                };
+                background:#081321;
+                border-radius:12px;
+                padding:13px 14px;
+                margin-bottom:8px;
+                display:grid;
+                grid-template-columns:minmax(0,1fr) auto;
+                gap:12px;
+                align-items:center;
+                text-align:left;
+                cursor:pointer;
+              "
+            >
+
+              <div style="min-width:0;">
+
+                <div style="
+                  font-size:13px;
+                  font-weight:800;
+                  color:#fff;
+                  margin-bottom:4px;
+                ">
+                  ${sanitize(prop.player)}
+                </div>
+
+                <div style="
+                  font-size:12px;
+                  font-weight:800;
+                  color:#00ffe7;
+                ">
+                  ${sanitize(side)}
+                  ${Number(prop.line)}
+                  ${sanitize(marketLabel)}
+                </div>
+
+                <div style="
+                  display:flex;
+                  gap:14px;
+                  margin-top:7px;
+                  font-size:10px;
+                  color:#71839f;
+                ">
+
+                  <span>
+                    CASHEDGE
+                    <strong style="color:#c9d6e8;">
+                      ${
+                        Number.isFinite(projection)
+                          ? projection.toFixed(2)
+                          : "—"
+                      }
+                    </strong>
+                  </span>
+
+                  ${
+                    prop.bookmaker
+                      ? `
+                        <span>
+                          ${sanitize(
+                            prop.bookmaker
+                          )}
+                        </span>
+                      `
+                      : ""
+                  }
+
+                </div>
+
+              </div>
+
+
+              <div style="
+                width:58px;
+                height:58px;
+                border-radius:50%;
+                border:2px solid ${
+                  confidence >= 75
+                    ? "#00ffe7"
+                    : "#344866"
+                };
+                display:flex;
+                flex-direction:column;
+                align-items:center;
+                justify-content:center;
+                flex-shrink:0;
+              ">
+
+                <strong style="
+                  color:${
+                    confidence >= 75
+                      ? "#00ffe7"
+                      : "#c9d6e8"
+                  };
+                  font-size:14px;
+                ">
+                  ${confidence.toFixed(0)}%
+                </strong>
+
+                <small style="
+                  font-size:7px;
+                  color:#71839f;
+                ">
+                  CONF.
+                </small>
+
+              </div>
+
+            </button>
+          `;
+        })
+        .join("");
+
+    container.innerHTML =
+      cards;
+
+  } catch (error) {
+    container.innerHTML = `
+      <div class="ps-empty">
+        Error loading Player Props:
+        ${sanitize(error.message)}
+      </div>
+    `;
+  }
+}
 
 function openMLBPlayerProps(
   index,
@@ -10287,7 +10554,9 @@ function openMLBPlayerProps(
 
   propsView.style.display = "block";
 
-  renderMLBPlayerPropsShell(index);
+ renderMLBPlayerPropsShell(index);
+
+loadMLBPlayerPropsRecommendations(index);
 
   const card =
     propsView.closest(".card");
