@@ -10213,10 +10213,15 @@ function renderMLBPlayerPropsShell(index) {
         </button>
 
         <button
-          type="button"
-        >
-          💣 HOME RUNS
-        </button>
+  type="button"
+  data-prop-view="homeRuns"
+  onclick="showMLBPlayerPropsCategory(
+    ${index},
+    'homeRuns'
+  )"
+>
+  💣 HOME RUNS
+</button>
 
         <button
           type="button"
@@ -10519,7 +10524,293 @@ async function loadMLBPlayerPropsRecommendations(index) {
     `;
   }
 }
+function showMLBPlayerPropsCategory(
+  index,
+  category
+) {
+  const state =
+    mlbPlayerPropsState[index] || {};
 
+  const data =
+    state.data || {};
+
+  const container =
+    document.getElementById(
+      `mlbPlayerPropsContent${index}`
+    );
+
+  if (!container) return;
+
+  mlbPlayerPropsState[index] = {
+    ...state,
+    mainView: category
+  };
+
+
+  /*
+   * Marcamos el botón activo.
+   */
+  const nav =
+    document.getElementById(
+      `mlbPropsNavigation${index}`
+    );
+
+  if (nav) {
+    nav
+      .querySelectorAll("button")
+      .forEach(button => {
+        button.classList.toggle(
+          "active",
+          button.dataset.propView === category
+        );
+      });
+  }
+
+
+  if (category !== "homeRuns") {
+    return;
+  }
+
+
+  /*
+   * HOME RUN BOARD
+   *
+   * Mostramos únicamente OVER 0.5 HR.
+   * El usuario está buscando candidatos
+   * a conectar un Home Run.
+   */
+  const homeRunProps =
+    (
+      Array.isArray(
+        data.analyzedPlayerLines
+      )
+        ? data.analyzedPlayerLines
+        : []
+    )
+      .filter(prop =>
+        prop.market ===
+          "batter_home_runs" &&
+        String(prop.side || "")
+          .toUpperCase() === "OVER"
+      )
+      .sort((a, b) =>
+        Number(b.confidence || 0) -
+        Number(a.confidence || 0)
+      );
+
+
+  if (!homeRunProps.length) {
+    container.innerHTML = `
+      <div class="ps-empty">
+        Home Run lines are not available
+        for this game yet.
+      </div>
+    `;
+
+    return;
+  }
+
+
+  const cards =
+    homeRunProps
+      .map(prop => {
+
+        const confidence =
+          Number(prop.confidence || 0);
+
+        const projection =
+          Number(prop.projection);
+
+        const odds =
+          Number(prop.odds);
+
+        const oddsText =
+          Number.isFinite(odds)
+            ? `${odds > 0 ? "+" : ""}${odds}`
+            : "—";
+
+        const confidenceHTML =
+          confidence > 0
+            ? `
+              <strong style="
+                font-size:15px;
+                color:${
+                  confidence >= 65
+                    ? "#00ffe7"
+                    : "#c9d6e8"
+                };
+              ">
+                ${confidence.toFixed(0)}%
+              </strong>
+
+              <small style="
+                font-size:7px;
+                color:#71839f;
+              ">
+                CONF.
+              </small>
+            `
+            : `
+              <strong style="
+                font-size:10px;
+                color:#71839f;
+              ">
+                NO EDGE
+              </strong>
+            `;
+
+
+        return `
+          <button
+            type="button"
+            style="
+              width:100%;
+              background:#081321;
+              border:1px solid ${
+                confidence >= 65
+                  ? "rgba(255,140,26,.40)"
+                  : "#17243a"
+              };
+              border-radius:12px;
+              padding:14px;
+              margin-bottom:8px;
+              display:grid;
+              grid-template-columns:
+                minmax(0,1fr) auto;
+              gap:12px;
+              align-items:center;
+              text-align:left;
+              cursor:pointer;
+            "
+          >
+
+            <div style="min-width:0;">
+
+              <div style="
+                display:flex;
+                align-items:center;
+                gap:6px;
+                margin-bottom:5px;
+              ">
+                <span>💣</span>
+
+                <strong style="
+                  font-size:13px;
+                  color:#fff;
+                ">
+                  ${sanitize(prop.player)}
+                </strong>
+              </div>
+
+
+              <div style="
+                font-size:12px;
+                font-weight:800;
+                color:#ff9f43;
+              ">
+                OVER 0.5 HOME RUN
+              </div>
+
+
+              <div style="
+                display:flex;
+                flex-wrap:wrap;
+                gap:12px;
+                margin-top:8px;
+                font-size:10px;
+                color:#71839f;
+              ">
+
+                <span>
+                  CASHEDGE
+                  <strong style="color:#c9d6e8;">
+                    ${
+                      Number.isFinite(projection)
+                        ? projection.toFixed(2)
+                        : "—"
+                    }
+                  </strong>
+                </span>
+
+                <span>
+                  ODDS
+                  <strong style="color:#c9d6e8;">
+                    ${oddsText}
+                  </strong>
+                </span>
+
+                ${
+                  prop.bookmaker
+                    ? `
+                      <span>
+                        ${sanitize(
+                          prop.bookmaker
+                        )}
+                      </span>
+                    `
+                    : ""
+                }
+
+              </div>
+
+            </div>
+
+
+            <div style="
+              width:58px;
+              height:58px;
+              border-radius:50%;
+              border:2px solid ${
+                confidence >= 65
+                  ? "#ff8c1a"
+                  : "#344866"
+              };
+              display:flex;
+              flex-direction:column;
+              align-items:center;
+              justify-content:center;
+            ">
+              ${confidenceHTML}
+            </div>
+
+          </button>
+        `;
+      })
+      .join("");
+
+
+  container.innerHTML = `
+    <div style="
+      margin-bottom:10px;
+    ">
+
+      <div style="
+        font-size:12px;
+        color:#ff9f43;
+        font-weight:900;
+        letter-spacing:.08em;
+      ">
+        💣 HOME RUN BOARD
+      </div>
+
+      <div style="
+        font-size:10px;
+        color:#71839f;
+        margin-top:3px;
+      ">
+        Players with an available
+        Home Run line today
+      </div>
+
+    </div>
+
+    ${cards}
+  `;
+}
+
+
+window.showMLBPlayerPropsCategory =
+  showMLBPlayerPropsCategory;
 function openMLBPlayerProps(
   index,
   eventId,
