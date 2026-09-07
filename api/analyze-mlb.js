@@ -5079,8 +5079,777 @@ function mapPlayerPropCareerGame(
       )
   };
 }
+function extractBatterVsPitcherFromPlayByPlay(
+  data,
+  batterId,
+  pitcherId
+) {
+  const plays =
+    data?.allPlays || [];
+
+  const matchupPlays =
+    plays.filter(play =>
+      Number(
+        play?.matchup?.batter?.id || 0
+      ) === Number(batterId) &&
+      Number(
+        play?.matchup?.pitcher?.id || 0
+      ) === Number(pitcherId)
+    );
 
 
+  let plateAppearances = 0;
+  let atBats = 0;
+  let hits = 0;
+  let totalBases = 0;
+  let homeRuns = 0;
+  let rbi = 0;
+  let strikeOuts = 0;
+  let walks = 0;
+  let hitByPitch = 0;
+
+
+  matchupPlays.forEach(play => {
+
+    const result =
+      play?.result || {};
+
+    const eventType =
+      String(
+        result?.eventType || ""
+      ).toLowerCase();
+
+
+    plateAppearances += 1;
+
+    rbi +=
+      Number(
+        result?.rbi || 0
+      );
+
+
+    if (eventType === "single") {
+      hits += 1;
+      totalBases += 1;
+    }
+
+    if (eventType === "double") {
+      hits += 1;
+      totalBases += 2;
+    }
+
+    if (eventType === "triple") {
+      hits += 1;
+      totalBases += 3;
+    }
+
+    if (eventType === "home_run") {
+      hits += 1;
+      totalBases += 4;
+      homeRuns += 1;
+    }
+
+
+    if (
+      eventType === "strikeout" ||
+      eventType ===
+        "strikeout_double_play"
+    ) {
+      strikeOuts += 1;
+    }
+
+
+    if (
+      eventType === "walk" ||
+      eventType === "intent_walk"
+    ) {
+      walks += 1;
+    }
+
+
+    if (
+      eventType === "hit_by_pitch"
+    ) {
+      hitByPitch += 1;
+    }
+
+
+    /*
+     * Estos resultados NO cuentan
+     * como At Bat oficial.
+     */
+    const noAtBat =
+      eventType === "walk" ||
+      eventType === "intent_walk" ||
+      eventType === "hit_by_pitch" ||
+      eventType === "sac_fly" ||
+      eventType === "sac_bunt" ||
+      eventType ===
+        "catcher_interf";
+
+
+    if (!noAtBat) {
+      atBats += 1;
+    }
+  });
+
+
+  return {
+    faced:
+      plateAppearances > 0,
+
+    plateAppearances,
+    atBats,
+    hits,
+    totalBases,
+    homeRuns,
+    rbi,
+    strikeOuts,
+    walks,
+    hitByPitch
+  };
+}
+
+
+
+async function getBatterVsPitcherCareerGames(
+  batterId,
+  pitcherId,
+  batterName = null,
+  pitcherName = null
+) {
+  if (
+    !batterId ||
+    !pitcherId
+  ) {
+    return [];
+  }
+
+
+  /*
+   * Las carreras completas ya pasan
+   * por nuestro caché por temporada.
+   */
+  const [
+    batterLogs,
+    pitcherLogs
+  ] =
+    await Promise.all([
+      getPlayerCareerGameLogs(
+        batterId,
+        "hitting",
+        batterName
+      ),
+
+      getPlayerCareerGameLogs(
+        pitcherId,
+        "pitching",
+        pitcherName
+      )
+    ]);
+
+
+  /*
+   * gamePk del pitcher.
+   * No exigimos que haya sido abridor:
+   * puede haberse enfrentado al bateador
+   * como relevista.
+   */
+  const pitcherGamePks =
+    new Set(
+      pitcherLogs
+        .map(gameLog =>
+          Number(
+            gameLog?.game?.gamePk ||
+            gameLog?.gamePk ||
+            0
+          )
+        )
+        .filter(Boolean)
+    );
+
+
+  /*
+   * Juegos donde AMBOS participaron.
+   */
+  const candidateGames =
+    batterLogs.filter(gameLog => {
+
+      const gamePk =
+        Number(
+          gameLog?.game?.gamePk ||
+          gameLog?.gamePk ||
+          0
+        );
+
+      return (
+        gamePk &&
+        pitcherGamePks.has(gamePk)
+      );
+    });
+
+
+  if (!candidateGames.length) {
+    return [];
+  }
+
+
+  /*
+   * Leemos todos los juegos ya
+   * procesados para este matchup.
+   */
+  const {
+    data: cachedRows,
+    error: cacheError
+  } =
+    await supabaseAdmin
+      .from(
+        "mlb_batter_pitcher_game_cache"
+      )
+      .select(
+        "game_pk, game_date, season, faced, plate_appearances, matchup_json"
+      )
+      .eq(
+        "batter_id",
+        Number(batterId)
+      )
+      .eq(
+        "pitcher_id",
+        Number(pitcherId)
+      );
+
+
+  if (cacheError) {
+    console.log(
+      "BVP CACHE READ ERROR:",
+      cacheError.message
+    );
+  }
+
+
+  const cacheByGame =
+    new Map(
+      (cachedRows || []).map(row => [
+        Number(row.game_pk),
+        row
+      ])
+    );
+
+
+  /*
+   * Solo partidos que todavía
+   * NO existen en Supabase.
+   */
+  const missingGames =
+    candidateGames.filter(gameLog => {
+
+      const gamePk =
+        Number(
+          gameLog?.game?.gamePk ||
+          gameLog?.gamePk ||
+          0
+        );
+
+      return (
+        gamePk &&
+        !cacheByGame.has(gamePk)
+      );
+    });
+
+
+  /*
+   * Concurrencia limitada.
+   * Evita disparar 20-30 requests
+   * simultáneos en Vercel.
+   */
+  for (
+    let i = 0;
+    i < missingGames.length;
+    i += 5
+  ) {
+
+    const batch =
+      missingGames.slice(
+        i,
+        i + 5
+      );
+
+
+    await Promise.all(
+      batch.map(async gameLog => {
+
+        const gamePk =
+          Number(
+            gameLog?.game?.gamePk ||
+            gameLog?.gamePk ||
+            0
+          );
+
+
+        if (!gamePk) {
+          return;
+        }
+
+
+        try {
+
+          const response =
+            await fetch(
+              `https://statsapi.mlb.com/api/v1/game/${gamePk}/playByPlay`
+            );
+
+
+          /*
+           * Si MLB falla NO guardamos
+           * faced=false porque podría
+           * ser solamente un error temporal.
+           */
+          if (!response.ok) {
+            return;
+          }
+
+
+          const data =
+            await response.json();
+
+
+          const matchup =
+            extractBatterVsPitcherFromPlayByPlay(
+              data,
+              batterId,
+              pitcherId
+            );
+
+
+          const gameDate =
+            gameLog?.date ||
+            gameLog?.gameDate ||
+            null;
+
+
+          const season =
+            Number(
+              gameLog?.careerSeason ||
+              (
+                gameDate
+                  ? new Date(
+                      gameDate
+                    ).getFullYear()
+                  : 0
+              )
+            ) || null;
+
+
+          const row = {
+            batter_id:
+              Number(batterId),
+
+            pitcher_id:
+              Number(pitcherId),
+
+            game_pk:
+              gamePk,
+
+            game_date:
+              gameDate,
+
+            season,
+
+            /*
+             * Guardamos también FALSE.
+             * Así sabemos que ya revisamos
+             * ese partido y nunca tenemos
+             * que descargarlo otra vez.
+             */
+            faced:
+              matchup.faced,
+
+            plate_appearances:
+              matchup.plateAppearances,
+
+            matchup_json:
+              matchup,
+
+            updated_at:
+              new Date().toISOString()
+          };
+
+
+          const {
+            error: saveError
+          } =
+            await supabaseAdmin
+              .from(
+                "mlb_batter_pitcher_game_cache"
+              )
+              .upsert(
+                row,
+                {
+                  onConflict:
+                    "batter_id,pitcher_id,game_pk"
+                }
+              );
+
+
+          if (saveError) {
+            console.log(
+              "BVP CACHE SAVE ERROR:",
+              saveError.message
+            );
+          }
+
+
+          /*
+           * Actualizamos el mapa en memoria
+           * para devolverlo inmediatamente.
+           */
+          cacheByGame.set(
+            gamePk,
+            {
+              game_pk:
+                gamePk,
+
+              game_date:
+                gameDate,
+
+              season,
+
+              faced:
+                matchup.faced,
+
+              plate_appearances:
+                matchup.plateAppearances,
+
+              matchup_json:
+                matchup
+            }
+          );
+
+
+        } catch (error) {
+
+          console.log(
+            `BVP PLAY BY PLAY ERROR ${gamePk}:`,
+            error.message
+          );
+        }
+      })
+    );
+  }
+
+
+  /*
+   * Devolvemos únicamente partidos
+   * donde realmente se enfrentaron.
+   */
+const batterLogByGame =
+  new Map(
+    batterLogs.map(gameLog => [
+      Number(
+        gameLog?.game?.gamePk ||
+        gameLog?.gamePk ||
+        0
+      ),
+      gameLog
+    ])
+  );
+
+
+return Array
+  .from(
+    cacheByGame.values()
+  )
+  .filter(row =>
+    row?.faced === true
+  )
+  .map(row => {
+
+    const batterLog =
+      batterLogByGame.get(
+        Number(row.game_pk)
+      );
+
+    return {
+      ...row,
+
+      batterGameStat:
+        batterLog?.stat ||
+        null,
+
+      opponent:
+        batterLog?.opponent?.name ||
+        null,
+
+      homeAway:
+        typeof batterLog?.isHome ===
+          "boolean"
+          ? (
+              batterLog.isHome
+                ? "HOME"
+                : "AWAY"
+            )
+          : null,
+
+      venue:
+        batterLog?.careerVenueName ||
+        null
+    };
+  })
+  .sort((a, b) =>
+    new Date(
+      b?.game_date || 0
+    ).getTime() -
+    new Date(
+      a?.game_date || 0
+    ).getTime()
+  );
+function getBatterVsPitcherPropValue(
+  row,
+  market
+) {
+  const matchup =
+    row?.matchup_json || {};
+
+  if (
+    market === "batter_hits"
+  ) {
+    return Number(
+      matchup.hits || 0
+    );
+  }
+
+  if (
+    market ===
+    "batter_total_bases"
+  ) {
+    return Number(
+      matchup.totalBases || 0
+    );
+  }
+
+  if (
+    market ===
+    "batter_home_runs"
+  ) {
+    return Number(
+      matchup.homeRuns || 0
+    );
+  }
+
+  if (
+    market === "batter_rbis"
+  ) {
+    return Number(
+      matchup.rbi || 0
+    );
+  }
+
+  if (
+    market ===
+    "batter_runs_scored"
+  ) {
+    return Number(
+      row?.batterGameStat
+        ?.runs || 0
+    );
+  }
+
+  return null;
+}
+
+
+function buildBatterVsPitcherCareerData({
+  rows = [],
+  market,
+  line,
+  side
+}) {
+  let wins = 0;
+  let losses = 0;
+  let pushes = 0;
+
+  const totals = {
+    plateAppearances: 0,
+    atBats: 0,
+    hits: 0,
+    totalBases: 0,
+    homeRuns: 0,
+    rbi: 0,
+    strikeOuts: 0,
+    walks: 0,
+    hitByPitch: 0
+  };
+
+
+  const results =
+    rows.map(row => {
+
+      const matchup =
+        row?.matchup_json || {};
+
+      Object.keys(
+        totals
+      ).forEach(key => {
+        totals[key] +=
+          Number(
+            matchup?.[key] || 0
+          );
+      });
+
+
+      const value =
+        getBatterVsPitcherPropValue(
+          row,
+          market
+        );
+
+
+      let result = null;
+
+      if (
+        Number.isFinite(value)
+      ) {
+        if (
+          value === Number(line)
+        ) {
+          result = "PUSH";
+          pushes++;
+
+        } else {
+
+          const covered =
+            String(side)
+              .toUpperCase() ===
+            "UNDER"
+              ? value < Number(line)
+              : value > Number(line);
+
+          if (covered) {
+            result = "HIT";
+            wins++;
+          } else {
+            result = "MISS";
+            losses++;
+          }
+        }
+      }
+
+
+      return {
+        gamePk:
+          Number(
+            row?.game_pk || 0
+          ) || null,
+
+        date:
+          row?.game_date ||
+          null,
+
+        season:
+          Number(
+            row?.season || 0
+          ) || null,
+
+        opponent:
+          row?.opponent ||
+          null,
+
+        homeAway:
+          row?.homeAway ||
+          null,
+
+        venue:
+          row?.venue ||
+          null,
+
+        plateAppearances:
+          Number(
+            matchup
+              .plateAppearances || 0
+          ),
+
+        atBats:
+          Number(
+            matchup.atBats || 0
+          ),
+
+        hits:
+          Number(
+            matchup.hits || 0
+          ),
+
+        totalBases:
+          Number(
+            matchup.totalBases || 0
+          ),
+
+        homeRuns:
+          Number(
+            matchup.homeRuns || 0
+          ),
+
+        rbi:
+          Number(
+            matchup.rbi || 0
+          ),
+
+        strikeOuts:
+          Number(
+            matchup.strikeOuts || 0
+          ),
+
+        walks:
+          Number(
+            matchup.walks || 0
+          ),
+
+        runs:
+          Number(
+            row?.batterGameStat
+              ?.runs || 0
+          ),
+
+        value,
+        result
+      };
+    });
+
+
+  const decisions =
+    wins + losses;
+
+
+  return {
+    games:
+      rows.length,
+
+    totals,
+
+    coverage: {
+      wins,
+      losses,
+      pushes,
+
+      games:
+        wins +
+        losses +
+        pushes,
+
+      percentage:
+        decisions > 0
+          ? Number(
+              (
+                wins /
+                decisions *
+                100
+              ).toFixed(1)
+            )
+          : null
+    },
+
+    results
+  };
+}
 async function handlePlayerPropsContext(
   req,
   res
@@ -5206,7 +5975,20 @@ async function handlePlayerPropsContext(
       req.query.contextValue ||
       ""
     );
+const pitcherId =
+  Number(
+    req.query.pitcherId ||
+    req.query.opponentPitcherId ||
+    0
+  );
 
+const pitcherName =
+  String(
+    req.query.pitcherName ||
+    req.query.opponentPitcher ||
+    contextValue ||
+    ""
+  );
 
   if (
     !playerId ||
@@ -5233,7 +6015,108 @@ async function handlePlayerPropsContext(
       ? "pitching"
       : "hitting";
 
+if (
+  contextType === "vs_pitcher"
+) {
 
+  if (
+    isPitcher ||
+    !pitcherId
+  ) {
+    return res
+      .status(400)
+      .json({
+        error:
+          "Valid pitcher required"
+      });
+  }
+
+
+  const matchupRows =
+    await getBatterVsPitcherCareerGames(
+      playerId,
+      pitcherId,
+      playerName,
+      pitcherName
+    );
+
+
+  const career =
+    buildBatterVsPitcherCareerData({
+      rows:
+        matchupRows,
+
+      market,
+      line,
+      side
+    });
+
+
+  const last10Rows =
+    matchupRows.slice(
+      0,
+      10
+    );
+
+
+  const last10 =
+    buildBatterVsPitcherCareerData({
+      rows:
+        last10Rows,
+
+      market,
+      line,
+      side
+    });
+
+
+  return res
+    .status(200)
+    .json({
+      ok: true,
+
+      mode:
+        "player-props-context",
+
+      contextType:
+        "vs_pitcher",
+
+      playerId,
+      playerName,
+
+      pitcherId,
+      pitcherName,
+
+      market,
+      side,
+      line,
+
+      career: {
+        games:
+          career.games,
+
+        totals:
+          career.totals,
+
+        coverage:
+          career.coverage
+      },
+
+      last10: {
+        games:
+          last10.games,
+
+        totals:
+          last10.totals,
+
+        coverage:
+          last10.coverage
+      },
+
+      results:
+        career.results
+    });
+}
   /*
    * Aquí entra nuestro caché CAREER.
    */
