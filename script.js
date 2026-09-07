@@ -10856,83 +10856,173 @@ const cards =
 
 
             <div style="
-              display:grid;
-              grid-template-columns:
-                repeat(3,minmax(0,1fr));
-              gap:8px;
-              margin-top:11px;
-            ">
+  display:grid;
+  grid-template-columns:
+    repeat(3,minmax(0,1fr));
+  margin-top:10px;
+  background:#0f1628;
+  border-radius:9px;
+  overflow:hidden;
+">
 
-              <div>
-                <div style="
-                  font-size:8px;
-                  color:#71839f;
-                  font-weight:800;
-                  letter-spacing:.05em;
-                ">
-                  HR CHANCE
-                </div>
+  <div style="
+    text-align:center;
+    padding:8px 3px;
+    border-right:1px solid #1a2740;
+  ">
 
-                <strong style="
-                  font-size:12px;
-                  color:#fff;
-                ">
-                  ${
-                    Number.isFinite(hrChance)
-                      ? hrChance.toFixed(1) + "%"
-                      : "—"
-                  }
-                </strong>
-              </div>
+    <small style="
+      display:block;
+      color:#60708d;
+      font-size:6.5px;
+      font-weight:800;
+      letter-spacing:.04em;
+      white-space:nowrap;
+    ">
+      HR CHANCE
+    </small>
+
+    <strong style="
+      display:block;
+      margin-top:4px;
+      color:#fff;
+      font-size:14px;
+      line-height:1;
+    ">
+      ${
+        Number.isFinite(
+          Number(
+            selectedProp.modelProbability
+          )
+        )
+          ? Number(
+              selectedProp.modelProbability
+            ).toFixed(1) + "%"
+          : "—"
+      }
+    </strong>
+
+    <small style="
+      display:block;
+      margin-top:3px;
+      color:#4f6078;
+      font-size:6px;
+    ">
+      CASHEDGE
+    </small>
+
+  </div>
 
 
-              <div>
-                <div style="
-                  font-size:8px;
-                  color:#71839f;
-                  font-weight:800;
-                  letter-spacing:.05em;
-                ">
-                  SPORTSBOOK
-                </div>
+  <div style="
+    text-align:center;
+    padding:8px 3px;
+    border-right:1px solid #1a2740;
+  ">
 
-                <strong style="
-                  font-size:12px;
-                  color:#fff;
-                ">
-                  ${
-                    Number.isFinite(sportsbookChance)
-                      ? sportsbookChance.toFixed(1) + "%"
-                      : "—"
-                  }
-                </strong>
-              </div>
+    <small style="
+      display:block;
+      color:#60708d;
+      font-size:6.5px;
+      font-weight:800;
+      letter-spacing:.04em;
+      white-space:nowrap;
+    ">
+      SPORTSBOOK
+    </small>
+
+    <strong style="
+      display:block;
+      margin-top:4px;
+      color:#fff;
+      font-size:14px;
+      line-height:1;
+    ">
+      ${
+        Number.isFinite(
+          Number(
+            selectedProp.sportsbookProbability
+          )
+        )
+          ? Number(
+              selectedProp.sportsbookProbability
+            ).toFixed(1) + "%"
+          : "—"
+      }
+    </strong>
+
+    <small style="
+      display:block;
+      margin-top:3px;
+      color:#4f6078;
+      font-size:6px;
+    ">
+      IMPLIED
+    </small>
+
+  </div>
 
 
-              <div>
-                <div style="
-                  font-size:8px;
-                  color:#71839f;
-                  font-weight:800;
-                  letter-spacing:.05em;
-                ">
-                  ADVANTAGE
-                </div>
+  <div style="
+    text-align:center;
+    padding:8px 3px;
+  ">
 
-                <strong style="
-                  font-size:12px;
-                  color:${
-                    advantage > 0
-                      ? "#00ffe7"
-                      : "#71839f"
-                  };
-                ">
-                  ${advantageText}
-                </strong>
-              </div>
+    <small style="
+      display:block;
+      color:#60708d;
+      font-size:6.5px;
+      font-weight:800;
+      letter-spacing:.04em;
+      white-space:nowrap;
+    ">
+      ADVANTAGE
+    </small>
 
-            </div>
+    <strong style="
+      display:block;
+      margin-top:4px;
+      color:${
+        Number(
+          selectedProp.modelAdvantage
+        ) > 0
+          ? "#00ffe7"
+          : "#ff6b6b"
+      };
+      font-size:14px;
+      line-height:1;
+    ">
+      ${
+        Number(
+          selectedProp.modelAdvantage
+        ) > 0
+          ? "+"
+          : ""
+      }${
+        Number.isFinite(
+          Number(
+            selectedProp.modelAdvantage
+          )
+        )
+          ? Number(
+              selectedProp.modelAdvantage
+            ).toFixed(1) + "%"
+          : "—"
+      }
+    </strong>
 
+    <small style="
+      display:block;
+      margin-top:3px;
+      color:#4f6078;
+      font-size:6px;
+    ">
+      VS BOOK
+    </small>
+
+  </div>
+
+</div>
 
             ${
               prop.bookmaker
