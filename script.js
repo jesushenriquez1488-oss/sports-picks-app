@@ -10571,10 +10571,33 @@ if (category === "best") {
   return;
 }
 
-  if (category !== "homeRuns") {
-    return;
-  }
+ if (category === "batters") {
+  renderMLBPropsPlayerList(
+    index,
+    "batters"
+  );
+  return;
+}
 
+if (category === "pitchers") {
+  renderMLBPropsPlayerList(
+    index,
+    "pitchers"
+  );
+  return;
+}
+
+if (category === "all") {
+  renderMLBPropsPlayerList(
+    index,
+    "all"
+  );
+  return;
+}
+
+if (category !== "homeRuns") {
+  return;
+}
 
   /*
    * HOME RUN BOARD
@@ -10912,6 +10935,808 @@ const cards =
 
 window.showMLBPlayerPropsCategory =
   showMLBPlayerPropsCategory;
+const MLB_BATTER_PROP_MARKETS = [
+  "batter_hits",
+  "batter_total_bases",
+  "batter_home_runs",
+  "batter_rbis",
+  "batter_runs_scored"
+];
+
+const MLB_PITCHER_PROP_MARKETS = [
+  "pitcher_strikeouts",
+  "pitcher_outs"
+];
+
+const MLB_PROP_MARKET_LABELS = {
+  batter_hits: "HITS",
+  batter_total_bases: "TOTAL BASES",
+  batter_home_runs: "HOME RUN",
+  batter_rbis: "RBI",
+  batter_runs_scored: "RUNS",
+  pitcher_strikeouts: "STRIKEOUTS",
+  pitcher_outs: "OUTS"
+};
+
+
+function renderMLBPropsPlayerList(
+  index,
+  type
+) {
+  const state =
+    mlbPlayerPropsState[index] || {};
+
+  const data =
+    state.data || {};
+
+  const container =
+    document.getElementById(
+      `mlbPlayerPropsContent${index}`
+    );
+
+  if (!container) return;
+
+  const analyzed =
+    Array.isArray(
+      data.analyzedPlayerLines
+    )
+      ? data.analyzedPlayerLines
+      : [];
+
+
+  const batterProps =
+    analyzed.filter(prop =>
+      MLB_BATTER_PROP_MARKETS.includes(
+        prop.market
+      )
+    );
+
+  const pitcherProps =
+    analyzed.filter(prop =>
+      MLB_PITCHER_PROP_MARKETS.includes(
+        prop.market
+      )
+    );
+
+
+  function groupPlayers(props) {
+    const map = new Map();
+
+    props.forEach(prop => {
+      const name =
+        String(prop.player || "").trim();
+
+      if (!name) return;
+
+      if (!map.has(name)) {
+        map.set(name, []);
+      }
+
+      map.get(name).push(prop);
+    });
+
+    return Array
+      .from(map.entries())
+      .map(([player, props]) => ({
+        player,
+        props
+      }))
+      .sort((a, b) =>
+        a.player.localeCompare(b.player)
+      );
+  }
+
+
+  const batters =
+    groupPlayers(batterProps);
+
+  const pitchers =
+    groupPlayers(pitcherProps);
+
+
+  function buildPlayerRows(
+    players,
+    returnCategory
+  ) {
+    if (!players.length) {
+      return `
+        <div class="ps-empty">
+          No player prop lines available.
+        </div>
+      `;
+    }
+
+    return players
+      .map(item => {
+
+        const uniqueMarkets =
+          [
+            ...new Set(
+              item.props.map(
+                prop => prop.market
+              )
+            )
+          ];
+
+        const marketNames =
+          uniqueMarkets
+            .map(market =>
+              MLB_PROP_MARKET_LABELS[
+                market
+              ] || market
+            )
+            .join(" · ");
+
+        return `
+          <button
+            type="button"
+            onclick="showMLBPropPlayer(
+              ${index},
+              '${encodeURIComponent(
+                item.player
+              )}',
+              '${returnCategory}'
+            )"
+            style="
+              width:100%;
+              background:#081321;
+              border:1px solid #17243a;
+              border-radius:12px;
+              padding:13px 14px;
+              margin-bottom:7px;
+              display:grid;
+              grid-template-columns:
+                minmax(0,1fr) auto;
+              align-items:center;
+              gap:12px;
+              text-align:left;
+              cursor:pointer;
+            "
+          >
+
+            <div style="min-width:0;">
+
+              <div style="
+                font-size:13px;
+                font-weight:800;
+                color:#fff;
+              ">
+                ${sanitize(item.player)}
+              </div>
+
+              <div style="
+                margin-top:4px;
+                font-size:9px;
+                color:#71839f;
+              ">
+                ${sanitize(marketNames)}
+              </div>
+
+            </div>
+
+            <div style="
+              font-size:22px;
+              color:#52647d;
+            ">
+              ›
+            </div>
+
+          </button>
+        `;
+      })
+      .join("");
+  }
+
+
+  if (type === "batters") {
+
+    container.innerHTML = `
+      <div style="margin-bottom:12px;">
+
+        <div style="
+          font-size:12px;
+          font-weight:900;
+          color:#00ffe7;
+          letter-spacing:.08em;
+        ">
+          ⚾ BATTERS
+        </div>
+
+        <div style="
+          margin-top:3px;
+          font-size:10px;
+          color:#71839f;
+        ">
+          Select a player to view today's props
+        </div>
+
+      </div>
+
+      ${buildPlayerRows(
+        batters,
+        "batters"
+      )}
+    `;
+
+    return;
+  }
+
+
+  if (type === "pitchers") {
+
+    container.innerHTML = `
+      <div style="margin-bottom:12px;">
+
+        <div style="
+          font-size:12px;
+          font-weight:900;
+          color:#00ffe7;
+          letter-spacing:.08em;
+        ">
+          🔥 PITCHERS
+        </div>
+
+        <div style="
+          margin-top:3px;
+          font-size:10px;
+          color:#71839f;
+        ">
+          Select a pitcher to view today's props
+        </div>
+
+      </div>
+
+      ${buildPlayerRows(
+        pitchers,
+        "pitchers"
+      )}
+    `;
+
+    return;
+  }
+
+
+  /*
+   * ALL:
+   * mostramos jugadores agrupados,
+   * NO todas las apuestas mezcladas.
+   */
+  container.innerHTML = `
+
+    <div style="
+      font-size:12px;
+      font-weight:900;
+      color:#00ffe7;
+      letter-spacing:.08em;
+      margin-bottom:10px;
+    ">
+      📋 ALL PROPS
+    </div>
+
+
+    <div style="
+      font-size:9px;
+      font-weight:900;
+      color:#71839f;
+      letter-spacing:.08em;
+      margin-bottom:8px;
+    ">
+      ⚾ BATTERS
+    </div>
+
+    ${buildPlayerRows(
+      batters,
+      "all"
+    )}
+
+
+    <div style="
+      height:1px;
+      background:#17243a;
+      margin:18px 0;
+    "></div>
+
+
+    <div style="
+      font-size:9px;
+      font-weight:900;
+      color:#71839f;
+      letter-spacing:.08em;
+      margin-bottom:8px;
+    ">
+      🔥 PITCHERS
+    </div>
+
+    ${buildPlayerRows(
+      pitchers,
+      "all"
+    )}
+  `;
+}
+function showMLBPropPlayer(
+  index,
+  encodedPlayer,
+  returnCategory = "batters"
+) {
+  const playerName =
+    decodeURIComponent(
+      encodedPlayer
+    );
+
+  const state =
+    mlbPlayerPropsState[index] || {};
+
+  const data =
+    state.data || {};
+
+  const container =
+    document.getElementById(
+      `mlbPlayerPropsContent${index}`
+    );
+
+  if (!container) return;
+
+  const allProps =
+    Array.isArray(
+      data.analyzedPlayerLines
+    )
+      ? data.analyzedPlayerLines
+      : [];
+
+  const playerProps =
+    allProps.filter(prop =>
+      String(prop.player || "") ===
+        playerName
+    );
+
+
+  if (!playerProps.length) {
+    container.innerHTML = `
+      <div class="ps-empty">
+        No props available for this player.
+      </div>
+    `;
+    return;
+  }
+
+
+  const markets =
+    [
+      ...new Set(
+        playerProps.map(
+          prop => prop.market
+        )
+      )
+    ];
+
+
+  const marketOrder = [
+    "batter_hits",
+    "batter_total_bases",
+    "batter_home_runs",
+    "batter_rbis",
+    "batter_runs_scored",
+    "pitcher_strikeouts",
+    "pitcher_outs"
+  ];
+
+
+  markets.sort(
+    (a, b) =>
+      marketOrder.indexOf(a) -
+      marketOrder.indexOf(b)
+  );
+
+
+  const marketButtons =
+    markets.map(market => {
+
+      const label =
+        MLB_PROP_MARKET_LABELS[
+          market
+        ] || market;
+
+      return `
+        <button
+          type="button"
+          onclick="showMLBPropMarket(
+            ${index},
+            '${encodeURIComponent(
+              playerName
+            )}',
+            '${market}',
+            '${returnCategory}'
+          )"
+          style="
+            width:100%;
+            padding:12px;
+            border-radius:10px;
+            border:1px solid #17243a;
+            background:#081321;
+            color:#fff;
+            font-size:11px;
+            font-weight:800;
+            cursor:pointer;
+          "
+        >
+          ${sanitize(label)}
+        </button>
+      `;
+    }).join("");
+
+
+  container.innerHTML = `
+
+    <button
+      type="button"
+      onclick="showMLBPlayerPropsCategory(
+        ${index},
+        '${returnCategory}'
+      )"
+      style="
+        border:none;
+        background:transparent;
+        color:#00ffe7;
+        font-size:10px;
+        font-weight:800;
+        cursor:pointer;
+        padding:0;
+        margin-bottom:14px;
+      "
+    >
+      ← BACK
+    </button>
+
+
+    <div style="
+      margin-bottom:14px;
+    ">
+
+      <div style="
+        font-size:16px;
+        font-weight:900;
+        color:#fff;
+      ">
+        ${sanitize(playerName)}
+      </div>
+
+      <div style="
+        margin-top:4px;
+        font-size:9px;
+        color:#71839f;
+      ">
+        SELECT A PROP
+      </div>
+
+    </div>
+
+
+    <div style="
+      display:grid;
+      grid-template-columns:
+        repeat(2,minmax(0,1fr));
+      gap:8px;
+    ">
+      ${marketButtons}
+    </div>
+  `;
+}
+function showMLBPropMarket(
+  index,
+  encodedPlayer,
+  market,
+  returnCategory
+) {
+  const playerName =
+    decodeURIComponent(
+      encodedPlayer
+    );
+
+  const state =
+    mlbPlayerPropsState[index] || {};
+
+  const data =
+    state.data || {};
+
+  const container =
+    document.getElementById(
+      `mlbPlayerPropsContent${index}`
+    );
+
+  if (!container) return;
+
+
+  const props =
+    (
+      Array.isArray(
+        data.analyzedPlayerLines
+      )
+        ? data.analyzedPlayerLines
+        : []
+    )
+      .filter(prop =>
+        String(prop.player || "") ===
+          playerName &&
+        prop.market === market
+      );
+
+
+  /*
+   * Preferimos OVER si existe.
+   */
+  const prop =
+    props.find(
+      item =>
+        String(item.side || "")
+          .toUpperCase() === "OVER"
+    ) ||
+    props[0];
+
+
+  if (!prop) {
+    container.innerHTML = `
+      <div class="ps-empty">
+        This prop is not available.
+      </div>
+    `;
+    return;
+  }
+
+
+  const label =
+    MLB_PROP_MARKET_LABELS[
+      market
+    ] || market;
+
+  const odds =
+    Number(prop.odds);
+
+  const oddsText =
+    Number.isFinite(odds)
+      ? `${odds > 0 ? "+" : ""}${odds}`
+      : "—";
+
+
+  /*
+   * HOME RUN tiene su lectura especial.
+   */
+  if (
+    market === "batter_home_runs"
+  ) {
+
+    container.innerHTML = `
+
+      <button
+        type="button"
+        onclick="showMLBPropPlayer(
+          ${index},
+          '${encodeURIComponent(
+            playerName
+          )}',
+          '${returnCategory}'
+        )"
+        class="ps-back-analysis-btn"
+        style="margin-bottom:14px;"
+      >
+        ← BACK TO ${sanitize(
+          playerName
+        )}
+      </button>
+
+
+      <div style="
+        font-size:16px;
+        font-weight:900;
+        color:#fff;
+      ">
+        ${sanitize(playerName)}
+      </div>
+
+      <div style="
+        margin-top:5px;
+        font-size:12px;
+        font-weight:900;
+        color:#ff9f43;
+      ">
+        💣 HOME RUN · ${oddsText}
+      </div>
+
+
+      <div style="
+        display:grid;
+        grid-template-columns:
+          repeat(3,minmax(0,1fr));
+        gap:8px;
+        margin-top:16px;
+      ">
+
+        <div class="ps-stat-box">
+          <small>HR CHANCE</small>
+          <strong>
+            ${
+              Number.isFinite(
+                Number(
+                  prop.modelProbability
+                )
+              )
+                ? Number(
+                    prop.modelProbability
+                  ).toFixed(1) + "%"
+                : "—"
+            }
+          </strong>
+        </div>
+
+        <div class="ps-stat-box">
+          <small>SPORTSBOOK</small>
+          <strong>
+            ${
+              Number.isFinite(
+                Number(
+                  prop.sportsbookProbability
+                )
+              )
+                ? Number(
+                    prop.sportsbookProbability
+                  ).toFixed(1) + "%"
+                : "—"
+            }
+          </strong>
+        </div>
+
+        <div class="ps-stat-box">
+          <small>ADVANTAGE</small>
+          <strong>
+            ${
+              Number(
+                prop.modelAdvantage
+              ) > 0
+                ? "+"
+                : ""
+            }${
+              Number.isFinite(
+                Number(
+                  prop.modelAdvantage
+                )
+              )
+                ? Number(
+                    prop.modelAdvantage
+                  ).toFixed(1) + "%"
+                : "—"
+            }
+          </strong>
+        </div>
+
+      </div>
+    `;
+
+    return;
+  }
+
+
+  const confidence =
+    Number(prop.confidence || 0);
+
+  const showConfidence =
+    confidence > 0;
+
+
+  container.innerHTML = `
+
+    <button
+      type="button"
+      onclick="showMLBPropPlayer(
+        ${index},
+        '${encodeURIComponent(
+          playerName
+        )}',
+        '${returnCategory}'
+      )"
+      class="ps-back-analysis-btn"
+      style="margin-bottom:14px;"
+    >
+      ← BACK TO ${sanitize(
+        playerName
+      )}
+    </button>
+
+
+    <div style="
+      font-size:16px;
+      font-weight:900;
+      color:#fff;
+    ">
+      ${sanitize(playerName)}
+    </div>
+
+    <div style="
+      margin-top:5px;
+      font-size:12px;
+      font-weight:900;
+      color:#00ffe7;
+    ">
+      ${sanitize(
+        String(prop.side || "")
+          .toUpperCase()
+      )}
+      ${Number(prop.line)}
+      ${sanitize(label)}
+      · ${oddsText}
+    </div>
+
+
+    <div style="
+      display:grid;
+      grid-template-columns:${
+        showConfidence
+          ? "repeat(3,minmax(0,1fr))"
+          : "repeat(2,minmax(0,1fr))"
+      };
+      gap:8px;
+      margin-top:16px;
+    ">
+
+      <div class="ps-stat-box">
+        <small>SPORTSBOOK LINE</small>
+        <strong>
+          ${Number(prop.line)}
+        </strong>
+      </div>
+
+      <div class="ps-stat-box">
+        <small>CASHEDGE</small>
+        <strong>
+          ${
+            Number.isFinite(
+              Number(prop.projection)
+            )
+              ? Number(
+                  prop.projection
+                ).toFixed(2)
+              : "—"
+          }
+        </strong>
+      </div>
+
+      ${
+        showConfidence
+          ? `
+            <div class="ps-stat-box">
+              <small>CONFIDENCE</small>
+              <strong>
+                ${confidence.toFixed(0)}%
+              </strong>
+            </div>
+          `
+          : ""
+      }
+
+    </div>
+
+
+    ${
+      prop.bookmaker
+        ? `
+          <div style="
+            margin-top:10px;
+            font-size:9px;
+            color:#71839f;
+          ">
+            ${sanitize(prop.bookmaker)}
+          </div>
+        `
+        : ""
+    }
+  `;
+}
+window.renderMLBPropsPlayerList =
+  renderMLBPropsPlayerList;
+
+window.showMLBPropPlayer =
+  showMLBPropPlayer;
+
+window.showMLBPropMarket =
+  showMLBPropMarket;
 function openMLBPlayerProps(
   index,
   eventId,
