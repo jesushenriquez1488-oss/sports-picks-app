@@ -10579,20 +10579,21 @@ function showMLBPlayerPropsCategory(
    * El usuario está buscando candidatos
    * a conectar un Home Run.
    */
-  const homeRunProps =
-    (
-      Array.isArray(
-        data.analyzedPlayerLines
-      )
-        ? data.analyzedPlayerLines
-        : []
+ const homeRunProps =
+  (
+    Array.isArray(
+      data.analyzedPlayerLines
     )
-      .filter(prop =>
-        prop.market ===
-          "batter_home_runs" &&
-        String(prop.side || "")
-          .toUpperCase() === "OVER"
-      )
+      ? data.analyzedPlayerLines
+      : []
+  )
+    .filter(prop =>
+      prop.market ===
+        "batter_home_runs" &&
+      String(prop.side || "")
+        .toUpperCase() === "OVER" &&
+      Number(prop.modelAdvantage || 0) > 0
+    )
       .sort((a, b) =>
         Number(b.confidence || 0) -
         Number(a.confidence || 0)
