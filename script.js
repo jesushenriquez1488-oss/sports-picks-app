@@ -10151,59 +10151,98 @@ function renderMLBPlayerPropsShell(index) {
 
       </div>
 
+
       <div style="
-        display:grid;
-        grid-template-columns:repeat(2,1fr);
-        gap:10px;
-        margin-top:16px;
+        margin-top:18px;
+        margin-bottom:10px;
       ">
+        <div style="
+          font-size:11px;
+          font-weight:900;
+          letter-spacing:.10em;
+          color:#00ffe7;
+        ">
+          🔥 CASHEDGE RECOMMENDED
+        </div>
+
+        <div style="
+          margin-top:4px;
+          font-size:11px;
+          color:#71839f;
+        ">
+          Best player props detected for today's matchup
+        </div>
+      </div>
+
+
+      <div id="mlbRecommendedProps${index}">
+        <div class="loading-analysis">
+          Loading CashEdge recommendations...
+        </div>
+      </div>
+
+
+      <div style="
+        height:1px;
+        background:#17243a;
+        margin:22px 0 14px;
+      "></div>
+
+
+      <div style="
+        font-size:9px;
+        color:#71839f;
+        font-weight:800;
+        letter-spacing:.10em;
+        margin-bottom:8px;
+      ">
+        EXPLORE PROPS
+      </div>
+
+
+      <div
+        class="ps-market-tabs"
+        id="mlbPropsNavigation${index}"
+      >
 
         <button
           type="button"
-          class="player-stats-open-btn"
+          class="active"
         >
-          🔥 BEST PROPS
+          🔥 BEST
         </button>
 
         <button
           type="button"
-          class="player-stats-open-btn"
         >
           💣 HOME RUNS
         </button>
 
         <button
           type="button"
-          class="player-stats-open-btn"
         >
           ⚾ BATTERS
         </button>
 
         <button
           type="button"
-          class="player-stats-open-btn"
         >
           🔥 PITCHERS
         </button>
 
+        <button
+          type="button"
+        >
+          ALL
+        </button>
+
       </div>
 
-      <button
-        type="button"
-        class="player-stats-open-btn"
-        style="margin-top:10px;"
-      >
-        📋 ALL PROPS
-      </button>
 
       <div
         id="mlbPlayerPropsContent${index}"
-        style="margin-top:16px;"
-      >
-        <div class="ps-empty">
-          Select a category to explore today's player props.
-        </div>
-      </div>
+        style="margin-top:14px;"
+      ></div>
 
     </div>
   `;
