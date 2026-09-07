@@ -10442,8 +10442,16 @@ async function loadMLBPlayerPropsRecommendations(index) {
 
           return `
             <button
-              type="button"
-              style="
+  type="button"
+ onclick="showMLBPropPlayer(
+  ${index},
+  '${encodeURIComponent(prop.player)}',
+  'best',
+  '${prop.market}',
+  'last5',
+  true
+)"
+  style="
                 width:100%;
                 border:1px solid ${
                   isPremium
@@ -10801,10 +10809,18 @@ const cards =
           `;
 
 
-      return `
-        <button
-          type="button"
-          style="
+return `
+  <button
+    type="button"
+    onclick="showMLBPropPlayer(
+      ${index},
+      '${encodeURIComponent(prop.player)}',
+      'homeRuns',
+      'batter_home_runs',
+      'last5',
+      true
+    )"
+    style="
             width:100%;
             background:#081321;
             border:1px solid ${
@@ -11329,7 +11345,8 @@ async function showMLBPropPlayer(
   encodedPlayer,
   returnCategory = "batters",
   selectedMarket = "",
-  windowKey = "last5"
+  windowKey = "last5",
+  scrollToProp = false
 ) {
   const playerName =
     decodeURIComponent(encodedPlayer);
@@ -12544,10 +12561,14 @@ async function showMLBPropPlayer(
       "
     >
       ← BACK TO ${
-        returnCategory === "pitchers"
-          ? "PITCHERS"
-          : "BATTERS"
-      }
+  returnCategory === "pitchers"
+    ? "PITCHERS"
+    : returnCategory === "best"
+      ? "RECOMMENDED"
+      : returnCategory === "homeRuns"
+        ? "HOME RUNS"
+        : "BATTERS"
+}
     </button>
 
 
@@ -12603,14 +12624,16 @@ async function showMLBPropPlayer(
     </div>
 
 
-    <div style="
-      background:#0b1323;
-      border:1px solid
-        rgba(0,255,231,.24);
-      border-radius:12px;
-      padding:12px;
-      margin-bottom:9px;
-    ">
+   <div
+  id="mlbSelectedPropCard${index}"
+  style="
+    background:#0b1323;
+    border:1px solid
+      rgba(0,255,231,.24);
+    border-radius:12px;
+    padding:12px;
+    margin-bottom:9px;
+">
 
       <div style="
         display:flex;
@@ -12765,6 +12788,21 @@ async function showMLBPropPlayer(
         `
     }
   `;
+  if (scrollToProp) {
+  requestAnimationFrame(() => {
+    const propCard =
+      document.getElementById(
+        `mlbSelectedPropCard${index}`
+      );
+
+    if (propCard) {
+      propCard.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    }
+  });
+}
 }
 function showMLBPropMarket(
   index,
