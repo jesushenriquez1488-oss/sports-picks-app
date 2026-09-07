@@ -11704,8 +11704,12 @@ rawPlayerProps.forEach(prop => {
   const projection =
     Number(selectedProp.projection);
 
-  const confidence =
-    Number(selectedProp.confidence || 0);
+ const confidence =
+  Number(
+    selectedProp.displayConfidence ??
+    selectedProp.confidence ??
+    0
+  );
 
   const odds =
     Number(selectedProp.odds);
