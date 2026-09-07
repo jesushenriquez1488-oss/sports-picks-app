@@ -3245,8 +3245,13 @@ function buildPlayerPropParkCoverage({
       decisions > 0
         ? Number(
             (
-              (wins / decisions) *
-              100async function getBatterVsPitcherStats(
+              (wins / decisions) * 100
+               ).toFixed(1)
+      )
+    : null
+  };
+}
+             async function getBatterVsPitcherStats(
   batterId,
   pitcherId
 ) {
