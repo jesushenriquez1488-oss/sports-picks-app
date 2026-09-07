@@ -10229,6 +10229,78 @@ function getMLBPlayerPropsViews(index) {
     </div>
   `;
 }
+async function loadMLBPlayerPropsStats(index) {
+  const state =
+    mlbPlayerPropsState[index] || {};
+
+  /*
+   * Si ya cargamos las estadísticas,
+   * no hacemos nada otra vez.
+   */
+  if (state.statsData) {
+    return state.statsData;
+  }
+
+  const {
+    data: sessionData
+  } = await supabaseClient.auth.getSession();
+
+  if (
+    !sessionData.session ||
+    !state.eventId
+  ) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(
+      "/api/analyze-mlb?mode=player-stats",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+
+          "Authorization":
+            `Bearer ${sessionData.session.access_token}`
+        },
+
+        body: JSON.stringify({
+          eventId: state.eventId,
+
+          userId:
+            sessionData.session.user.id
+        })
+      }
+    );
+
+    const data =
+      await response.json();
+
+    if (
+      !response.ok ||
+      data.noPlay
+    ) {
+      return null;
+    }
+
+    mlbPlayerPropsState[index] = {
+      ...mlbPlayerPropsState[index],
+      statsData: data
+    };
+
+    return data;
+
+  } catch (error) {
+    console.error(
+      "MLB Player Props stats error:",
+      error
+    );
+
+    return null;
+  }
+}
 async function loadMLBPlayerPropsRecommendations(index) {
   const state =
     mlbPlayerPropsState[index] || {};
@@ -11775,10 +11847,10 @@ function openMLBPlayerProps(
 
   propsView.style.display = "block";
 
- renderMLBPlayerPropsShell(index);
+renderMLBPlayerPropsShell(index);
 
 loadMLBPlayerPropsRecommendations(index);
-
+loadMLBPlayerPropsStats(index);
   const card =
     propsView.closest(".card");
 
