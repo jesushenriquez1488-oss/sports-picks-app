@@ -11667,22 +11667,29 @@ rawPlayerProps.forEach(prop => {
     );
 
 
-  const statsPlayers =
-    isPitcher
-      ? (
-          Array.isArray(
-           data.pitcherStats
-          )
-            ? statsData.startingPitchers
-            : []
+ const statsPlayers =
+  isPitcher
+    ? (
+        Array.isArray(
+          propsData?.pitcherStats
+        ) &&
+        propsData.pitcherStats.length
+          ? propsData.pitcherStats
+          : (
+              Array.isArray(
+                statsData?.startingPitchers
+              )
+                ? statsData.startingPitchers
+                : []
+            )
+      )
+    : (
+        Array.isArray(
+          statsData?.batters
         )
-      : (
-          Array.isArray(
-            statsData?.batters
-          )
-            ? statsData.batters
-            : []
-        );
+          ? statsData.batters
+          : []
+      );
 
 
   const statsPlayer =
@@ -11852,7 +11859,19 @@ rawPlayerProps.forEach(prop => {
         )
     };
   }
+if (isPitcher) {
 
+  const seasonResults =
+    statsPlayer?.windows
+      ?.season
+      ?.results ||
+    [];
+
+  seasonHit =
+    calculateHitRate(
+      seasonResults
+    );
+}
 
   const hitWindows = {
     last3,
