@@ -2205,15 +2205,38 @@ const best = candidates
       });
     }
 
-    const { data: pendingPicks, error } = await supabaseAdmin
-      .from("picks_history")
-      .select("*")
-      .eq("result", "pending")
-      .eq("is_premium", true)
-     .in("sport", ["nba", "wnba", "ncaab", "nfl", "ncaaf"])
-      .order("created_at", { ascending: false })
-      .limit(100);
+   const todayCentral =
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date());
 
+const { data: pendingPicks, error } =
+  await supabaseAdmin
+    .from("picks_history")
+    .select("*")
+    .eq("result", "pending")
+    .eq("is_premium", true)
+    .in(
+      "sport",
+      ["nba", "wnba", "ncaab", "nfl", "ncaaf"]
+    )
+
+    // No desperdiciar el grader con partidos futuros.
+    .lte("game_date", todayCentral)
+
+    // Primero los pendientes más viejos.
+    .order("game_date", {
+      ascending: true
+    })
+    .order("created_at", {
+      ascending: true
+    })
+
+    // Dejamos margen suficiente para una cartelera grande.
+    .limit(300);
     if (error) {
       return res.status(500).json({ error: error.message });
     }
@@ -2229,16 +2252,36 @@ const graded =
     ? await gradeFootballPick(pick)
     : await gradeBasketballPick(pick);
 
-        if (!graded || !graded.result) {
-          results.push({
-            id: pick.id,
-            game_id: pick.game_id,
-            graded: false,
-            reason: "Resultado final no encontrado todavía"
-          });
-          continue;
-        }
+       if (!graded || !graded.result) {
+  results.push({
+    id:
+      pick.id,
 
+    game_id:
+      pick.game_id,
+
+    sport:
+      pick.sport,
+
+    game:
+      `${pick.away_team} @ ${pick.home_team}`,
+
+    pick:
+      pick.pick,
+
+    graded:
+      false,
+
+    reason:
+      graded?.gradingReason ||
+      "UNKNOWN_GRADING_FAILURE",
+
+    debug:
+      graded?.debug || null
+  });
+
+  continue;
+}
         await supabaseAdmin
           .from("picks_history")
           .update({
@@ -4185,18 +4228,28 @@ async function gradeFootballPick(pick) {
 
   const dates = [];
 
-  for (let i = 0; i <= 4; i++) {
-    const date = new Date(created);
-    date.setDate(date.getDate() + i);
+// También revisamos el día anterior.
+// Esto protege contra diferencias de fecha/timezone
+// entre CashEdge y ESPN.
+for (let i = -1; i <= 4; i++) {
+  const date = new Date(created);
 
-    dates.push(
-      date
-        .toISOString()
-        .split("T")[0]
-        .replaceAll("-", "")
-    );
-  }
+  date.setUTCDate(
+    date.getUTCDate() + i
+  );
 
+  dates.push(
+    date
+      .toISOString()
+      .split("T")[0]
+      .replaceAll("-", "")
+  );
+}
+let foundCompletedGame = false;
+let foundAwayTeam = false;
+let foundHomeTeam = false;
+let foundMatchingGame = false;
+let gradingFailure = null;
   const sportPath =
     sport === "nfl"
       ? "football/nfl"
@@ -4250,9 +4303,11 @@ async function gradeFootballPick(pick) {
           status?.name === "STATUS_FINAL" ||
           status?.state === "post";
 
-        if (!completed) {
-          continue;
-        }
+  if (!completed) {
+  continue;
+}
+
+foundCompletedGame = true;
 
         const teams = competitors.map(
           competitor => ({
@@ -4313,28 +4368,38 @@ async function gradeFootballPick(pick) {
           );
         };
 
-        const gameHasAway =
-          teams.some(team =>
-            matchesTeam(
-              team,
-              pick.away_team
-            )
-          );
+       const gameHasAway =
+  teams.some(team =>
+    matchesTeam(
+      team,
+      pick.away_team
+    )
+  );
 
-        const gameHasHome =
-          teams.some(team =>
-            matchesTeam(
-              team,
-              pick.home_team
-            )
-          );
+const gameHasHome =
+  teams.some(team =>
+    matchesTeam(
+      team,
+      pick.home_team
+    )
+  );
 
-        if (
-          !gameHasAway ||
-          !gameHasHome
-        ) {
-          continue;
-        }
+if (gameHasAway) {
+  foundAwayTeam = true;
+}
+
+if (gameHasHome) {
+  foundHomeTeam = true;
+}
+
+if (
+  !gameHasAway ||
+  !gameHasHome
+) {
+  continue;
+}
+
+foundMatchingGame = true;
 
         const home = teams.find(
           team =>
@@ -4350,16 +4415,108 @@ async function gradeFootballPick(pick) {
           continue;
         }
 
-        return calculateBasketballResult({
-          pick,
-          home,
-          away
-        });
+        const calculated =
+  calculateBasketballResult({
+    pick,
+    home,
+    away
+  });
+
+if (calculated?.result) {
+  return calculated;
+}
+
+gradingFailure = {
+  result: null,
+
+  gradingReason:
+    "GAME_FOUND_BUT_PICK_INVALID",
+
+  debug: {
+    gameId:
+      pick.game_id || null,
+
+    sport,
+
+    awayTeam:
+      pick.away_team,
+
+    homeTeam:
+      pick.home_team,
+
+    pick:
+      pick.pick,
+
+    pickType:
+      pick.pick_type,
+
+    pickTeam:
+      pick.pick_team,
+
+    pickDirection:
+      pick.pick_direction,
+
+    line:
+      pick.line,
+
+    finalScore:
+      `${away.name} ${away.score} - ${home.name} ${home.score}`
+  }
+};
       }
     }
   }
 
-  return null;
+ if (gradingFailure) {
+  return gradingFailure;
+}
+
+if (foundMatchingGame) {
+  return {
+    result: null,
+    gradingReason:
+      "MATCH_FOUND_BUT_NOT_GRADED"
+  };
+}
+
+if (
+  foundAwayTeam ||
+  foundHomeTeam
+) {
+  return {
+    result: null,
+    gradingReason:
+      "TEAM_NAME_MISMATCH",
+
+    debug: {
+      awayMatched:
+        foundAwayTeam,
+
+      homeMatched:
+        foundHomeTeam,
+
+      expectedAway:
+        pick.away_team,
+
+      expectedHome:
+        pick.home_team
+    }
+  };
+}
+
+if (foundCompletedGame) {
+  return {
+    result: null,
+    gradingReason:
+      "COMPLETED_GAMES_FOUND_BUT_GAME_NOT_MATCHED"
+  };
+}
+
+return {
+  result: null,
+  gradingReason:
+    "NO_FINAL_GAME_FOUND"
+};
 }
 async function gradeBasketballPick(pick) {
   const sport = String(pick.sport || "").toLowerCase();
