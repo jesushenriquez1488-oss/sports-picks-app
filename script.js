@@ -10603,17 +10603,43 @@ if (category === "best") {
         Number(a.confidence || 0)
       );
 
+if (!homeRunProps.length) {
 
-  if (!homeRunProps.length) {
-    container.innerHTML = `
-      <div class="ps-empty">
-        Home Run lines are not available
-        for this game yet.
-      </div>
-    `;
+  const hasHomeRunLines =
+    (
+      Array.isArray(data.playerLines)
+        ? data.playerLines
+        : []
+    ).some(prop =>
+      prop.market === "batter_home_runs" &&
+      String(prop.side || "")
+        .toUpperCase() === "OVER"
+    );
 
-    return;
-  }
+  container.innerHTML = `
+    <div class="ps-empty">
+      ${
+        hasHomeRunLines
+          ? `
+            <strong>
+              No Home Run value detected.
+            </strong>
+
+            <div style="margin-top:5px;">
+              CashEdge does not currently find
+              a positive advantage in this matchup.
+            </div>
+          `
+          : `
+            Home Run lines are not available
+            for this game yet.
+          `
+      }
+    </div>
+  `;
+
+  return;
+}
 
 
 const cards =
