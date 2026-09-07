@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 );
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
 const MLB_SEASON = new Date().getFullYear();
-const PLAYER_PROPS_VERSION = 6;
+const PLAYER_PROPS_VERSION = 8;
 function getDayStart() {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
@@ -2847,6 +2847,411 @@ async function handlePlayerStats(req, res) {
     .status(200)
     .json(finalResponse);
 }
+function getPlayerPropGameValue(
+  gameLog,
+  market
+) {
+  const stat =
+    gameLog?.stat || {};
+
+  if (market === "batter_hits") {
+    return Number(stat.hits);
+  }
+
+  if (market === "batter_total_bases") {
+    return Number(stat.totalBases);
+  }
+
+  if (market === "batter_home_runs") {
+    return Number(stat.homeRuns);
+  }
+
+  if (market === "batter_rbis") {
+    return Number(stat.rbi);
+  }
+
+  if (market === "batter_runs_scored") {
+    return Number(stat.runs);
+  }
+
+  if (market === "pitcher_strikeouts") {
+    return Number(stat.strikeOuts);
+  }
+
+  if (market === "pitcher_outs") {
+
+    if (
+      stat.outs !== null &&
+      stat.outs !== undefined
+    ) {
+      return Number(stat.outs);
+    }
+
+    return parseMLBInningsToOuts(
+      stat.inningsPitched
+    );
+  }
+
+  return null;
+}
+
+
+function buildPlayerPropConditionCoverage({
+  logs,
+  market,
+  line,
+  side,
+  isHome
+}) {
+
+  let wins = 0;
+  let losses = 0;
+  let pushes = 0;
+
+  const pitcherMarket =
+    market === "pitcher_strikeouts" ||
+    market === "pitcher_outs";
+
+
+  (logs || []).forEach(gameLog => {
+
+    /*
+     * Solo partidos con condición
+     * HOME/AWAY conocida.
+     */
+    if (
+      typeof gameLog?.isHome !==
+        "boolean" ||
+      gameLog.isHome !== isHome
+    ) {
+      return;
+    }
+
+
+    /*
+     * Para pitchers contamos solamente
+     * juegos donde fue abridor.
+     */
+    if (pitcherMarket) {
+
+      const gamesStarted =
+        Number(
+          gameLog?.stat?.gamesStarted ||
+          0
+        );
+
+      if (gamesStarted <= 0) {
+        return;
+      }
+    }
+
+
+    const value =
+      getPlayerPropGameValue(
+        gameLog,
+        market
+      );
+
+    if (!Number.isFinite(value)) {
+      return;
+    }
+
+
+    if (value === Number(line)) {
+      pushes += 1;
+      return;
+    }
+
+
+    const covered =
+      String(side).toUpperCase() ===
+      "UNDER"
+        ? value < Number(line)
+        : value > Number(line);
+
+
+    if (covered) {
+      wins += 1;
+    } else {
+      losses += 1;
+    }
+
+  });
+
+
+  const decisions =
+    wins + losses;
+
+  return {
+    wins,
+    losses,
+    pushes,
+
+    games:
+      wins +
+      losses +
+      pushes,
+
+    percentage:
+      decisions > 0
+        ? Number(
+            (
+              (wins / decisions) *
+              100
+            ).toFixed(1)
+          )
+        : null
+  };
+}
+async function loadPlayerPropHistoricalGameContexts(
+  logs = [],
+  contextCache
+) {
+  const gamePks =
+    [
+      ...new Set(
+        logs
+          .map(gameLog =>
+            Number(
+              gameLog?.game?.gamePk ||
+              gameLog?.gamePk ||
+              0
+            )
+          )
+          .filter(Boolean)
+      )
+    ];
+
+
+  const missingGamePks =
+    gamePks.filter(
+      gamePk =>
+        !contextCache.has(gamePk)
+    );
+
+
+  /*
+   * Consultamos en grupos para no
+   * hacer una llamada por juego.
+   */
+  for (
+    let i = 0;
+    i < missingGamePks.length;
+    i += 50
+  ) {
+
+    const batch =
+      missingGamePks.slice(
+        i,
+        i + 50
+      );
+
+    if (!batch.length) {
+      continue;
+    }
+
+
+    try {
+
+      const url =
+        `https://statsapi.mlb.com/api/v1/schedule` +
+        `?sportId=1` +
+        `&gamePks=${batch.join(",")}` +
+        `&hydrate=venue`;
+
+
+      const response =
+        await fetch(url);
+
+
+      if (!response.ok) {
+        continue;
+      }
+
+
+      const data =
+        await response.json();
+
+
+      const games =
+        (data?.dates || [])
+          .flatMap(
+            date =>
+              date?.games || []
+          );
+
+
+      games.forEach(game => {
+
+        const gamePk =
+          Number(
+            game?.gamePk || 0
+          );
+
+        if (!gamePk) {
+          return;
+        }
+
+
+        contextCache.set(
+          gamePk,
+          {
+            gamePk,
+
+            venueName:
+              game?.venue?.name ||
+              null,
+
+            venueId:
+              Number(
+                game?.venue?.id || 0
+              ) || null
+          }
+        );
+
+      });
+
+    } catch (error) {
+
+      console.log(
+        "PLAYER PROP HISTORICAL VENUE ERROR:",
+        error.message
+      );
+    }
+
+  }
+}
+
+
+function buildPlayerPropParkCoverage({
+  logs,
+  market,
+  line,
+  side,
+  venueName,
+  contextCache
+}) {
+
+  if (!venueName) {
+    return null;
+  }
+
+
+  let wins = 0;
+  let losses = 0;
+  let pushes = 0;
+
+
+  const pitcherMarket =
+    market === "pitcher_strikeouts" ||
+    market === "pitcher_outs";
+
+
+  (logs || []).forEach(gameLog => {
+
+    const gamePk =
+      Number(
+        gameLog?.game?.gamePk ||
+        gameLog?.gamePk ||
+        0
+      );
+
+
+    if (!gamePk) {
+      return;
+    }
+
+
+    const historicalGame =
+      contextCache.get(gamePk);
+
+
+    if (
+      !historicalGame ||
+      historicalGame.venueName !==
+        venueName
+    ) {
+      return;
+    }
+
+
+    /*
+     * Pitchers:
+     * solo aperturas reales.
+     */
+    if (pitcherMarket) {
+
+      const gamesStarted =
+        Number(
+          gameLog?.stat?.gamesStarted ||
+          0
+        );
+
+      if (gamesStarted <= 0) {
+        return;
+      }
+    }
+
+
+    const value =
+      getPlayerPropGameValue(
+        gameLog,
+        market
+      );
+
+
+    if (!Number.isFinite(value)) {
+      return;
+    }
+
+
+    if (value === Number(line)) {
+      pushes += 1;
+      return;
+    }
+
+
+    const covered =
+      String(side).toUpperCase() ===
+      "UNDER"
+        ? value < Number(line)
+        : value > Number(line);
+
+
+    if (covered) {
+      wins += 1;
+    } else {
+      losses += 1;
+    }
+
+  });
+
+
+  const decisions =
+    wins + losses;
+
+
+  return {
+    wins,
+    losses,
+    pushes,
+
+    games:
+      wins +
+      losses +
+      pushes,
+
+    percentage:
+      decisions > 0
+        ? Number(
+            (
+              (wins / decisions) *
+              100
+            ).toFixed(1)
+          )
+        : null
+  };
+}
 async function handlePlayerProps(req, res) {
 
   // =========================
@@ -3104,6 +3509,8 @@ const uniqueProps = Array.from(uniqueMap.values());
 const analyzedProps = [];
 const analyzedPlayerLines = [];
 const playerCache = new Map();
+ const historicalGameContextCache =
+  new Map();
 const awayTeamHittingStats =
   gameContext?.awayTeamId
     ? await getTeamSeasonHittingStats(gameContext.awayTeamId)
@@ -3211,6 +3618,10 @@ if (!playerInfo?.currentTeamId) {
   
 }
   const logs = await getPlayerGameLog(playerInfo.id);
+ await loadPlayerPropHistoricalGameContexts(
+  logs,
+  historicalGameContextCache
+);
 
   const recentAverages =
     playerInfo.primaryPosition === "P"
@@ -3221,11 +3632,12 @@ if (!playerInfo?.currentTeamId) {
   const handSplits = await getPlayerHandSplits(playerInfo.id);
 
   cachedPlayer = {
-    playerInfo,
-    recentAverages,
-    seasonStats,
-    handSplits
-  };
+  playerInfo,
+  recentAverages,
+  seasonStats,
+  handSplits,
+  logs
+};
 
   playerCache.set(prop.player, cachedPlayer);
 }
@@ -3234,7 +3646,8 @@ const {
   playerInfo,
   recentAverages,
   seasonStats,
-  handSplits
+  handSplits,
+  logs
 } = cachedPlayer;
 
 if (!recentAverages || !seasonStats) continue;
@@ -3321,7 +3734,108 @@ isConfirmedStarter,
 });
 
 if (!result) continue;
+const currentTeamId =
+  Number(
+    playerInfo?.currentTeamId || 0
+  );
 
+
+let playerIsHome = null;
+
+
+if (
+  currentGameContext?.homePlayerIds
+    ?.has(playerId) ||
+  (
+    currentTeamId &&
+    currentTeamId ===
+      Number(
+        currentGameContext?.homeTeamId
+      )
+  )
+) {
+
+  playerIsHome = true;
+
+} else if (
+  currentGameContext?.awayPlayerIds
+    ?.has(playerId) ||
+  (
+    currentTeamId &&
+    currentTeamId ===
+      Number(
+        currentGameContext?.awayTeamId
+      )
+  )
+) {
+
+  playerIsHome = false;
+}
+
+
+const conditionCoverage =
+  playerIsHome === null
+    ? null
+    : buildPlayerPropConditionCoverage({
+        logs,
+        market: result.market,
+        line: result.line,
+        side: result.side,
+        isHome: playerIsHome
+      });
+const currentVenueName =
+  currentGameContext
+    ?.venue?.name ||
+  null;
+
+
+const parkCoverage =
+  currentVenueName
+    ? buildPlayerPropParkCoverage({
+        logs,
+        market: result.market,
+        line: result.line,
+        side: result.side,
+        venueName:
+          currentVenueName,
+        contextCache:
+          historicalGameContextCache
+      })
+    : null;
+
+result.todayContext = {
+
+  condition:
+    playerIsHome === true
+      ? "HOME"
+      : playerIsHome === false
+        ? "AWAY"
+        : null,
+
+  conditionCoverage,
+
+  venue:
+    currentGameContext
+      ?.venue?.name ||
+    null,
+ parkCoverage,
+
+  opponentTeam:
+    playerIsHome === true
+      ? currentGameContext?.awayTeam
+      : playerIsHome === false
+        ? currentGameContext?.homeTeam
+        : null,
+
+  opponentPitcher:
+    playerInfo?.primaryPosition !== "P"
+      ? (
+          opponentPitcher
+            ?.info?.fullName ||
+          null
+        )
+      : null
+};
 /*
  * Guarda el análisis de toda línea válida
  * para la navegación profunda.
