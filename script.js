@@ -11671,7 +11671,7 @@ rawPlayerProps.forEach(prop => {
     isPitcher
       ? (
           Array.isArray(
-            statsData?.startingPitchers
+           data.pitcherStats
           )
             ? statsData.startingPitchers
             : []
