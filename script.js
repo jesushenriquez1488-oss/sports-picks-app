@@ -10855,171 +10855,80 @@ const cards =
             </div>
 
 
-            <div style="
+           <div style="
   display:grid;
   grid-template-columns:
     repeat(3,minmax(0,1fr));
-  margin-top:10px;
-  background:#0f1628;
-  border-radius:9px;
-  overflow:hidden;
+  gap:8px;
+  margin-top:11px;
 ">
 
-  <div style="
-    text-align:center;
-    padding:8px 3px;
-    border-right:1px solid #1a2740;
-  ">
-
-    <small style="
-      display:block;
-      color:#60708d;
-      font-size:6.5px;
+  <div>
+    <div style="
+      font-size:8px;
+      color:#71839f;
       font-weight:800;
-      letter-spacing:.04em;
-      white-space:nowrap;
+      letter-spacing:.05em;
     ">
       HR CHANCE
-    </small>
+    </div>
 
     <strong style="
-      display:block;
-      margin-top:4px;
+      font-size:12px;
       color:#fff;
-      font-size:14px;
-      line-height:1;
     ">
       ${
-        Number.isFinite(
-          Number(
-            selectedProp.modelProbability
-          )
-        )
-          ? Number(
-              selectedProp.modelProbability
-            ).toFixed(1) + "%"
+        Number.isFinite(hrChance)
+          ? hrChance.toFixed(1) + "%"
           : "—"
       }
     </strong>
-
-    <small style="
-      display:block;
-      margin-top:3px;
-      color:#4f6078;
-      font-size:6px;
-    ">
-      CASHEDGE
-    </small>
-
   </div>
 
 
-  <div style="
-    text-align:center;
-    padding:8px 3px;
-    border-right:1px solid #1a2740;
-  ">
-
-    <small style="
-      display:block;
-      color:#60708d;
-      font-size:6.5px;
+  <div>
+    <div style="
+      font-size:8px;
+      color:#71839f;
       font-weight:800;
-      letter-spacing:.04em;
-      white-space:nowrap;
+      letter-spacing:.05em;
     ">
       SPORTSBOOK
-    </small>
+    </div>
 
     <strong style="
-      display:block;
-      margin-top:4px;
+      font-size:12px;
       color:#fff;
-      font-size:14px;
-      line-height:1;
     ">
       ${
-        Number.isFinite(
-          Number(
-            selectedProp.sportsbookProbability
-          )
-        )
-          ? Number(
-              selectedProp.sportsbookProbability
-            ).toFixed(1) + "%"
+        Number.isFinite(sportsbookChance)
+          ? sportsbookChance.toFixed(1) + "%"
           : "—"
       }
     </strong>
-
-    <small style="
-      display:block;
-      margin-top:3px;
-      color:#4f6078;
-      font-size:6px;
-    ">
-      IMPLIED
-    </small>
-
   </div>
 
 
-  <div style="
-    text-align:center;
-    padding:8px 3px;
-  ">
-
-    <small style="
-      display:block;
-      color:#60708d;
-      font-size:6.5px;
+  <div>
+    <div style="
+      font-size:8px;
+      color:#71839f;
       font-weight:800;
-      letter-spacing:.04em;
-      white-space:nowrap;
+      letter-spacing:.05em;
     ">
       ADVANTAGE
-    </small>
+    </div>
 
     <strong style="
-      display:block;
-      margin-top:4px;
+      font-size:12px;
       color:${
-        Number(
-          selectedProp.modelAdvantage
-        ) > 0
+        advantage > 0
           ? "#00ffe7"
-          : "#ff6b6b"
+          : "#71839f"
       };
-      font-size:14px;
-      line-height:1;
     ">
-      ${
-        Number(
-          selectedProp.modelAdvantage
-        ) > 0
-          ? "+"
-          : ""
-      }${
-        Number.isFinite(
-          Number(
-            selectedProp.modelAdvantage
-          )
-        )
-          ? Number(
-              selectedProp.modelAdvantage
-            ).toFixed(1) + "%"
-          : "—"
-      }
+      ${advantageText}
     </strong>
-
-    <small style="
-      display:block;
-      margin-top:3px;
-      color:#4f6078;
-      font-size:6px;
-    ">
-      VS BOOK
-    </small>
-
   </div>
 
 </div>
@@ -12302,79 +12211,174 @@ async function showMLBPropPlayer(
     selectedProp.market ===
       "batter_home_runs"
       ? `
-        <div style="
-          display:grid;
-          grid-template-columns:
-            repeat(3,minmax(0,1fr));
-          gap:6px;
-          margin-top:10px;
-        ">
+       <div style="
+  display:grid;
+  grid-template-columns:
+    repeat(3,minmax(0,1fr));
+  margin-top:10px;
+  background:#0f1628;
+  border-radius:9px;
+  overflow:hidden;
+">
 
-          <div class="ps-stat-box">
-            <small>HR CHANCE</small>
-            <strong>
-              ${
-                Number.isFinite(
-                  Number(
-                    selectedProp
-                      .modelProbability
-                  )
-                )
-                  ? Number(
-                      selectedProp
-                        .modelProbability
-                    ).toFixed(1) + "%"
-                  : "—"
-              }
-            </strong>
-          </div>
+  <div style="
+    text-align:center;
+    padding:8px 3px;
+    border-right:1px solid #1a2740;
+  ">
 
-          <div class="ps-stat-box">
-            <small>SPORTSBOOK</small>
-            <strong>
-              ${
-                Number.isFinite(
-                  Number(
-                    selectedProp
-                      .sportsbookProbability
-                  )
-                )
-                  ? Number(
-                      selectedProp
-                        .sportsbookProbability
-                    ).toFixed(1) + "%"
-                  : "—"
-              }
-            </strong>
-          </div>
+    <small style="
+      display:block;
+      color:#60708d;
+      font-size:6.5px;
+      font-weight:800;
+      letter-spacing:.04em;
+      white-space:nowrap;
+    ">
+      HR CHANCE
+    </small>
 
-          <div class="ps-stat-box">
-            <small>ADVANTAGE</small>
-            <strong>
-              ${
-                Number(
-                  selectedProp
-                    .modelAdvantage
-                ) > 0
-                  ? "+"
-                  : ""
-              }${
-                Number.isFinite(
-                  Number(
-                    selectedProp
-                      .modelAdvantage
-                  )
-                )
-                  ? Number(
-                      selectedProp
-                        .modelAdvantage
-                    ).toFixed(1) + "%"
-                  : "—"
-              }
-            </strong>
-          </div>
+    <strong style="
+      display:block;
+      margin-top:4px;
+      color:#00ffe7;
+      font-size:14px;
+      line-height:1;
+    ">
+      ${
+        Number.isFinite(
+          Number(
+            selectedProp.modelProbability
+          )
+        )
+          ? Number(
+              selectedProp.modelProbability
+            ).toFixed(1) + "%"
+          : "—"
+      }
+    </strong>
 
-        </div>
+    <small style="
+      display:block;
+      margin-top:3px;
+      color:#4f6078;
+      font-size:6px;
+    ">
+      CASHEDGE
+    </small>
+
+  </div>
+
+
+  <div style="
+    text-align:center;
+    padding:8px 3px;
+    border-right:1px solid #1a2740;
+  ">
+
+    <small style="
+      display:block;
+      color:#60708d;
+      font-size:6.5px;
+      font-weight:800;
+      letter-spacing:.04em;
+      white-space:nowrap;
+    ">
+      SPORTSBOOK
+    </small>
+
+    <strong style="
+      display:block;
+      margin-top:4px;
+      color:#fff;
+      font-size:14px;
+      line-height:1;
+    ">
+      ${
+        Number.isFinite(
+          Number(
+            selectedProp.sportsbookProbability
+          )
+        )
+          ? Number(
+              selectedProp.sportsbookProbability
+            ).toFixed(1) + "%"
+          : "—"
+      }
+    </strong>
+
+    <small style="
+      display:block;
+      margin-top:3px;
+      color:#4f6078;
+      font-size:6px;
+    ">
+      IMPLIED
+    </small>
+
+  </div>
+
+
+  <div style="
+    text-align:center;
+    padding:8px 3px;
+  ">
+
+    <small style="
+      display:block;
+      color:#60708d;
+      font-size:6.5px;
+      font-weight:800;
+      letter-spacing:.04em;
+      white-space:nowrap;
+    ">
+      ADVANTAGE
+    </small>
+
+    <strong style="
+      display:block;
+      margin-top:4px;
+      color:${
+        Number(
+          selectedProp.modelAdvantage
+        ) > 0
+          ? "#00ffe7"
+          : "#ff6b6b"
+      };
+      font-size:14px;
+      line-height:1;
+    ">
+      ${
+        Number(
+          selectedProp.modelAdvantage
+        ) > 0
+          ? "+"
+          : ""
+      }${
+        Number.isFinite(
+          Number(
+            selectedProp.modelAdvantage
+          )
+        )
+          ? Number(
+              selectedProp.modelAdvantage
+            ).toFixed(1) + "%"
+          : "—"
+      }
+    </strong>
+
+    <small style="
+      display:block;
+      margin-top:3px;
+      color:#4f6078;
+      font-size:6px;
+    ">
+      VS BOOK
+    </small>
+
+  </div>
+
+</div>
       `
       : `
        <div style="
