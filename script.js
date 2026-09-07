@@ -12672,7 +12672,327 @@ rawPlayerProps.forEach(prop => {
 
 </div>
       `;
+const todayContext =
+  selectedProp?.todayContext || null;
 
+
+function coverageCard(
+  icon,
+  title,
+  coverage,
+  subtitle = ""
+) {
+
+  const games =
+    Number(
+      coverage?.games || 0
+    );
+
+  const wins =
+    Number(
+      coverage?.wins || 0
+    );
+
+  const pct =
+    Number(
+      coverage?.percentage
+    );
+
+
+  return `
+    <div style="
+      background:#0f1628;
+      border:1px solid #1a2740;
+      border-radius:9px;
+      padding:9px 6px;
+      text-align:center;
+      min-width:0;
+    ">
+
+      <small style="
+        display:block;
+        color:#71839f;
+        font-size:7px;
+        font-weight:800;
+        margin-bottom:4px;
+      ">
+        ${icon} ${sanitize(title)}
+      </small>
+
+      ${
+        games > 0
+          ? `
+            <strong style="
+              display:block;
+              color:#fff;
+              font-size:14px;
+              line-height:1.1;
+            ">
+              ${wins}/${games}
+            </strong>
+
+            <small style="
+              display:block;
+              color:#00ffe7;
+              font-size:7px;
+              margin-top:3px;
+            ">
+              ${
+                Number.isFinite(pct)
+                  ? pct.toFixed(0) + "% COVERED"
+                  : "NO DATA"
+              }
+            </small>
+
+            ${
+              games < 5
+                ? `
+                  <small style="
+                    display:block;
+                    margin-top:3px;
+                    color:#f6b73c;
+                    font-size:6px;
+                  ">
+                    LIMITED HISTORY
+                  </small>
+                `
+                : ""
+            }
+          `
+          : `
+            <strong style="
+              display:block;
+              color:#71839f;
+              font-size:12px;
+            ">
+              NO HISTORY
+            </strong>
+          `
+      }
+
+      ${
+        subtitle
+          ? `
+            <small style="
+              display:block;
+              color:#60708d;
+              font-size:6px;
+              margin-top:3px;
+            ">
+              ${sanitize(subtitle)}
+            </small>
+          `
+          : ""
+      }
+
+    </div>
+  `;
+}
+
+
+let matchupCardHTML = "";
+
+
+/*
+ * BATEADOR VS PITCHER
+ */
+if (
+  selectedProp.market?.startsWith(
+    "batter_"
+  )
+) {
+
+  const vsPitcher =
+    todayContext?.batterVsPitcher;
+
+  const pitcherName =
+    todayContext?.opponentPitcher ||
+    "TODAY'S PITCHER";
+
+
+  if (
+    vsPitcher &&
+    Number(vsPitcher.atBats || 0) > 0
+  ) {
+
+    matchupCardHTML = `
+      <div style="
+        background:#0f1628;
+        border:1px solid #1a2740;
+        border-radius:9px;
+        padding:9px 6px;
+        text-align:center;
+      ">
+
+        <small style="
+          display:block;
+          color:#71839f;
+          font-size:7px;
+          font-weight:800;
+          margin-bottom:4px;
+        ">
+          ⚾ VS ${sanitize(
+            pitcherName
+          )}
+        </small>
+
+        <strong style="
+          display:block;
+          color:#fff;
+          font-size:14px;
+        ">
+          ${Number(
+            vsPitcher.hits || 0
+          )}/${Number(
+            vsPitcher.atBats || 0
+          )}
+        </strong>
+
+        <small style="
+          display:block;
+          color:#00ffe7;
+          font-size:7px;
+          margin-top:3px;
+        ">
+          HITS / AB
+        </small>
+
+        <small style="
+          display:block;
+          color:#60708d;
+          font-size:6px;
+          margin-top:4px;
+        ">
+          ${Number(
+            vsPitcher.totalBases || 0
+          )} TB ·
+          ${Number(
+            vsPitcher.homeRuns || 0
+          )} HR ·
+          ${Number(
+            vsPitcher.rbi || 0
+          )} RBI
+        </small>
+
+        ${
+          Number(
+            vsPitcher.atBats || 0
+          ) < 10
+            ? `
+              <small style="
+                display:block;
+                margin-top:3px;
+                color:#f6b73c;
+                font-size:6px;
+              ">
+                LIMITED HISTORY
+              </small>
+            `
+            : ""
+        }
+
+      </div>
+    `;
+
+  } else {
+
+    matchupCardHTML = `
+      <div style="
+        background:#0f1628;
+        border:1px solid #1a2740;
+        border-radius:9px;
+        padding:9px 6px;
+        text-align:center;
+      ">
+
+        <small style="
+          display:block;
+          color:#71839f;
+          font-size:7px;
+          font-weight:800;
+        ">
+          ⚾ VS TODAY'S PITCHER
+        </small>
+
+        <strong style="
+          display:block;
+          color:#71839f;
+          font-size:12px;
+          margin-top:5px;
+        ">
+          NO HISTORY
+        </strong>
+
+      </div>
+    `;
+  }
+
+}
+
+
+/*
+ * PITCHER VS OPPONENT
+ */
+if (
+  selectedProp.market ===
+    "pitcher_strikeouts" ||
+  selectedProp.market ===
+    "pitcher_outs"
+) {
+
+  matchupCardHTML =
+    coverageCard(
+      "🆚",
+      `VS ${
+        todayContext?.opponentTeam ||
+        "OPPONENT"
+      }`,
+      todayContext?.opponentCoverage
+    );
+}
+
+
+const todayConditionsHTML =
+  todayContext
+    ? `
+      <div style="
+        color:#71839f;
+        font-size:8px;
+        font-weight:800;
+        letter-spacing:.08em;
+        margin:13px 0 8px;
+      ">
+        TODAY'S CONDITIONS
+      </div>
+
+      <div style="
+        display:grid;
+        grid-template-columns:
+          repeat(3,minmax(0,1fr));
+        gap:5px;
+      ">
+
+        ${coverageCard(
+          todayContext.condition === "HOME"
+            ? "🏠"
+            : "✈️",
+          todayContext.condition ||
+            "LOCATION",
+          todayContext.conditionCoverage
+        )}
+
+        ${coverageCard(
+          "🏟️",
+          "AT THIS PARK",
+          todayContext.parkCoverage,
+          todayContext.venue || ""
+        )}
+
+        ${matchupCardHTML}
+
+      </div>
+    `
+    : "";
 
   container.innerHTML = `
 
@@ -12846,7 +13166,7 @@ rawPlayerProps.forEach(prop => {
       ">
         ${hitRateHTML}
       </div>
-
+${todayConditionsHTML}
     </div>
 
 
