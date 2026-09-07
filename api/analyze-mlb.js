@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 );
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
 const MLB_SEASON = new Date().getFullYear();
-const PLAYER_PROPS_VERSION = 3;
+const PLAYER_PROPS_VERSION = 4;
 function getDayStart() {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
@@ -689,6 +689,9 @@ function calculatePlayerPropProjection({
   opponentPitcher,
   opponentTeamStats,
   opponentStaffRates,
+ ownTeamStats,
+lineupKnown,
+isConfirmedStarter,
   leagueAverages,
   venueParkFactor
 }) {
@@ -788,16 +791,249 @@ function ratesFromSeasonStats(stat) {
 
    projection = projection * combinedPitcherFactor;
   }
-   if (market === "batter_home_runs") {
-    projection = weightedPlayerProjection(
-      playerSafeNum(recentAverages.homeRuns),
-      seasonPerGame(seasonStats, "homeRuns"),
-      splitPerGame(handSplits, pitcherHand, "homeRuns")
+ if (market === "batter_home_runs") {
+
+  const seasonPA =
+    playerSafeNum(
+      seasonStats?.plateAppearances,
+      0
     );
 
-    projection = projection * combinedPitcherFactor;
-    projection = projection * playerSafeNum(venueParkFactor, 1);
+  const seasonHR =
+    playerSafeNum(
+      seasonStats?.homeRuns,
+      0
+    );
+
+  const seasonGames =
+    playerSafeNum(
+      seasonStats?.gamesPlayed,
+      0
+    );
+
+  const teamGames =
+    playerSafeNum(
+      ownTeamStats?.gamesPlayed,
+      0
+    );
+
+
+  /*
+   * HR rate REAL por aparición al plato.
+   */
+  const rawSeasonHRRate =
+    seasonPA > 0
+      ? seasonHR / seasonPA
+      : 0;
+
+
+  /*
+   * Estabilizamos muestras pequeñas.
+   * Aproximadamente 3% HR/PA como
+   * punto neutral.
+   */
+  const leagueHRRate = 0.03;
+  const priorPA = 100;
+
+  const seasonHRRate =
+    (
+      seasonHR +
+      leagueHRRate * priorPA
+    ) /
+    Math.max(
+      seasonPA + priorPA,
+      1
+    );
+
+
+  /*
+   * Últimos juegos, también por PA.
+   */
+  const recentPAperGame =
+    playerSafeNum(
+      recentAverages?.plateAppearances,
+      0
+    );
+
+  const recentHRperGame =
+    playerSafeNum(
+      recentAverages?.homeRuns,
+      0
+    );
+
+  const recentGames =
+    playerSafeNum(
+      recentAverages?.games,
+      0
+    );
+
+  const recentTotalPA =
+    recentPAperGame * recentGames;
+
+  const recentTotalHR =
+    recentHRperGame * recentGames;
+
+  const recentHRRate =
+    recentTotalPA > 0
+      ? (
+          recentTotalHR +
+          seasonHRRate * 40
+        ) /
+        (
+          recentTotalPA + 40
+        )
+      : seasonHRRate;
+
+
+  /*
+   * Split vs mano del pitcher.
+   */
+  const targetSplit =
+    pitcherHand === "R"
+      ? "vs Right"
+      : pitcherHand === "L"
+        ? "vs Left"
+        : null;
+
+  const split =
+    targetSplit
+      ? handSplits?.find(s =>
+          String(
+            s.split?.description ||
+            s.split ||
+            ""
+          )
+            .toLowerCase()
+            .includes(
+              targetSplit.toLowerCase()
+            )
+        )
+      : null;
+
+  const splitPA =
+    playerSafeNum(
+      split?.stat?.plateAppearances,
+      0
+    );
+
+  const splitHR =
+    playerSafeNum(
+      split?.stat?.homeRuns,
+      0
+    );
+
+  const splitHRRate =
+    splitPA > 0
+      ? (
+          splitHR +
+          seasonHRRate * 80
+        ) /
+        (
+          splitPA + 80
+        )
+      : seasonHRRate;
+
+
+  /*
+   * Mezcla final del poder real.
+   */
+  const finalHRRate =
+    seasonHRRate * 0.55 +
+    recentHRRate * 0.25 +
+    splitHRRate * 0.20;
+
+
+  /*
+   * ¿Con qué frecuencia juega?
+   *
+   * Ej:
+   * 52 juegos del jugador /
+   * 140 juegos del equipo = 37%.
+   */
+  const participationRate =
+    teamGames > 0
+      ? playerClamp(
+          seasonGames / teamGames,
+          0,
+          1
+        )
+      : 1;
+
+
+  /*
+   * PA esperadas si juega.
+   */
+  let expectedPA =
+    recentPAperGame > 0
+      ? recentPAperGame
+      : (
+          seasonGames > 0
+            ? seasonPA / seasonGames
+            : 4
+        );
+
+
+  /*
+   * Si el lineup está confirmado:
+   *
+   * titular → usamos sus PA normales.
+   * no titular → no debe convertirse
+   * en recomendación de HR.
+   *
+   * Si todavía NO conocemos el lineup,
+   * penalizamos según su participación
+   * real durante la temporada.
+   */
+  if (lineupKnown) {
+    if (!isConfirmedStarter) {
+      expectedPA = 0.75;
+    }
+  } else {
+    expectedPA *= participationRate;
   }
+
+
+  expectedPA =
+    playerClamp(
+      expectedPA,
+      0.5,
+      5.0
+    );
+
+
+  /*
+   * Matchup.
+   * Lo limitamos porque estos factores
+   * no pueden convertir mágicamente
+   * un bateador de poco poder en slugger.
+   */
+  const pitcherHRFactor =
+    playerClamp(
+      combinedPitcherFactor,
+      0.85,
+      1.18
+    );
+
+  const parkHRFactor =
+    playerClamp(
+      playerSafeNum(
+        venueParkFactor,
+        1
+      ),
+      0.90,
+      1.10
+    );
+
+
+  /*
+   * Expected HR del juego.
+   */
+  projection =
+    finalHRRate *
+    expectedPA *
+    pitcherHRFactor *
+    parkHRFactor;
+}
   
 
 if (market === "pitcher_strikeouts") {
@@ -2990,6 +3226,47 @@ if (currentGameContext?.homePlayerIds?.has(playerInfo?.id)) {
 } else if (currentGameContext?.awayPlayerIds?.has(playerInfo?.id)) {
   opponentTeamStats = homeTeamHittingStats;
 }
+ const allGamePlayers = [
+  ...(currentGameContext?.awayPlayers || []),
+  ...(currentGameContext?.homePlayers || [])
+];
+
+const lineupKnown =
+  allGamePlayers.some(
+    player =>
+      player.battingOrder !== null &&
+      player.battingOrder !== undefined
+  );
+
+const currentPlayerEntry =
+  allGamePlayers.find(
+    player =>
+      Number(player.id) ===
+      Number(playerInfo?.id)
+  );
+
+const isConfirmedStarter =
+  Boolean(
+    currentPlayerEntry?.battingOrder
+  );
+
+
+let ownTeamStats = null;
+
+if (
+  currentGameContext?.homePlayerIds
+    ?.has(playerInfo?.id)
+) {
+  ownTeamStats =
+    homeTeamHittingStats;
+
+} else if (
+  currentGameContext?.awayPlayerIds
+    ?.has(playerInfo?.id)
+) {
+  ownTeamStats =
+    awayTeamHittingStats;
+}
 const result = calculatePlayerPropProjection({
   prop,
   playerInfo,
@@ -2997,6 +3274,9 @@ const result = calculatePlayerPropProjection({
   seasonStats,
   handSplits,
   opponentPitcher,
+ ownTeamStats,
+lineupKnown,
+isConfirmedStarter,
   opponentTeamStats:
     playerInfo?.primaryPosition === "P"
       ? opponentTeamStats
