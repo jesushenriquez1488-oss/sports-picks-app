@@ -10330,15 +10330,19 @@ async function loadMLBPlayerPropsRecommendations(index) {
     };
 
     const allRecommended = [
-      ...(Array.isArray(data.props)
-        ? data.props
-        : []),
+  ...(Array.isArray(data.props)
+    ? data.props
+    : []),
 
-      ...(Array.isArray(data.lockedProps)
-        ? data.lockedProps
-        : [])
-    ]
-      .sort(
+  ...(Array.isArray(data.lockedProps)
+    ? data.lockedProps
+    : [])
+]
+  .filter(
+    prop =>
+      Number(prop.confidence || 0) >= 65
+  )
+  .sort(
         (a, b) =>
           Number(b.confidence || 0) -
           Number(a.confidence || 0)
