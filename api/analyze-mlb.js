@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 );
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
 const MLB_SEASON = new Date().getFullYear();
-const PLAYER_PROPS_VERSION = 9;
+const PLAYER_PROPS_VERSION = 10;
 function getDayStart() {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
@@ -3443,7 +3443,186 @@ function buildPitcherOpponentCoverage({
         : null
   };
 }
-         
+      function buildPlayerPropsPitcherStats(
+  playerInfo,
+  logs = []
+) {
+
+  const sortedLogs =
+    [...logs]
+      .filter(gameLog =>
+        Number(
+          gameLog?.stat?.gamesStarted ||
+          0
+        ) > 0
+      )
+      .sort((a, b) => {
+
+        const dateA =
+          new Date(
+            a?.date ||
+            a?.gameDate ||
+            0
+          ).getTime();
+
+        const dateB =
+          new Date(
+            b?.date ||
+            b?.gameDate ||
+            0
+          ).getTime();
+
+        return dateB - dateA;
+      });
+
+
+  function buildWindow(limit = null) {
+
+    const sample =
+      limit
+        ? sortedLogs.slice(0, limit)
+        : sortedLogs;
+
+
+    const results =
+      sample.map(gameLog => {
+
+        const stat =
+          gameLog?.stat || {};
+
+        const outs =
+          stat.outs !== undefined &&
+          stat.outs !== null
+            ? Number(stat.outs)
+            : parseMLBInningsToOuts(
+                stat.inningsPitched
+              );
+
+        return {
+          date:
+            gameLog?.date ||
+            gameLog?.gameDate ||
+            null,
+
+          opponent:
+            gameLog?.opponent?.name ||
+            null,
+
+          strikeOuts:
+            Number(
+              stat.strikeOuts || 0
+            ),
+
+          outs,
+
+          innings:
+            Number(
+              (outs / 3).toFixed(2)
+            ),
+
+          hitsAllowed:
+            Number(
+              stat.hits || 0
+            ),
+
+          walks:
+            Number(
+              stat.baseOnBalls || 0
+            ),
+
+          earnedRuns:
+            Number(
+              stat.earnedRuns || 0
+            ),
+
+          homeRunsAllowed:
+            Number(
+              stat.homeRuns || 0
+            ),
+
+          pitches:
+            Number(
+              stat.numberOfPitches || 0
+            )
+        };
+      });
+
+
+    const games =
+      results.length;
+
+
+    const average =
+      key =>
+        games > 0
+          ? results.reduce(
+              (sum, game) =>
+                sum +
+                Number(
+                  game?.[key] || 0
+                ),
+              0
+            ) / games
+          : 0;
+
+
+    return {
+      games,
+
+      averages: {
+        strikeOuts:
+          average("strikeOuts"),
+
+        outs:
+          average("outs"),
+
+        innings:
+          average("innings"),
+
+        hitsAllowed:
+          average("hitsAllowed"),
+
+        walks:
+          average("walks"),
+
+        earnedRuns:
+          average("earnedRuns"),
+
+        homeRunsAllowed:
+          average(
+            "homeRunsAllowed"
+          ),
+
+        pitches:
+          average("pitches")
+      },
+
+      results
+    };
+  }
+
+
+  return {
+    id:
+      Number(playerInfo?.id || 0),
+
+    name:
+      playerInfo?.fullName || "",
+
+    position: "P",
+
+    windows: {
+      last5:
+        buildWindow(5),
+
+      last10:
+        buildWindow(10),
+
+      season:
+        buildWindow(null)
+    }
+  };
+}   
 
 async function handlePlayerProps(req, res) {
 
@@ -3706,6 +3885,8 @@ const playerCache = new Map();
   new Map();
  const batterVsPitcherCache =
   new Map();
+ const pitcherStatsMap =
+  new Map();
 const awayTeamHittingStats =
   gameContext?.awayTeamId
     ? await getTeamSeasonHittingStats(gameContext.awayTeamId)
@@ -3844,6 +4025,21 @@ const {
   handSplits,
   logs
 } = cachedPlayer;
+ if (
+  playerInfo?.primaryPosition === "P" &&
+  !pitcherStatsMap.has(
+    Number(playerInfo.id)
+  )
+) {
+
+  pitcherStatsMap.set(
+    Number(playerInfo.id),
+    buildPlayerPropsPitcherStats(
+      playerInfo,
+      logs
+    )
+  );
+}
 
 if (!recentAverages || !seasonStats) continue;
 const currentGameContext = gameContext;
@@ -4134,8 +4330,17 @@ const finalResponse = {
 
 playerLines,
 analyzedPlayerLines,
-props: analyzedProps.slice(0, 3),
-lockedProps: analyzedProps.slice(3, 40)
+
+pitcherStats:
+  Array.from(
+    pitcherStatsMap.values()
+  ),
+
+props:
+  analyzedProps.slice(0, 3),
+
+lockedProps:
+  analyzedProps.slice(3, 40)
 };
 
 await supabaseAdmin
