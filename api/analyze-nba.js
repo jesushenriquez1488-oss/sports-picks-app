@@ -4214,10 +4214,12 @@ async function gradeFootballPick(pick) {
     return null;
   }
 
-  const normalize = (value = "") =>
-    String(value)
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "");
+const normalize = (value = "") =>
+  String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
 
   const baseDate = pick.game_date || pick.created_at;
   const created = new Date(baseDate);
@@ -4245,7 +4247,7 @@ for (let i = -1; i <= 4; i++) {
       .replaceAll("-", "")
   );
 }
-let foundCompletedGame = false;
+
 let foundAwayTeam = false;
 let foundHomeTeam = false;
 let foundMatchingGame = false;
@@ -4303,43 +4305,36 @@ let gradingFailure = null;
           status?.name === "STATUS_FINAL" ||
           status?.state === "post";
 
-  if (!completed) {
-  continue;
-}
 
-foundCompletedGame = true;
+
+
 
         const teams = competitors.map(
-          competitor => ({
-            name:
-              competitor?.team?.displayName ||
-              competitor?.team?.shortDisplayName ||
-              "",
+  competitor => ({
+    name:
+      competitor?.team?.displayName ||
+      competitor?.team?.shortDisplayName ||
+      "",
 
-            shortName:
-              competitor?.team?.shortDisplayName ||
-              competitor?.team?.displayName ||
-              "",
+    shortName:
+      competitor?.team?.shortDisplayName ||
+      competitor?.team?.displayName ||
+      "",
 
-            location:
-              competitor?.team?.location || "",
+    location:
+      competitor?.team?.location || "",
 
-            score:
-              Number(competitor?.score),
+    abbreviation:
+      competitor?.team?.abbreviation || "",
 
-            homeAway:
-              competitor?.homeAway
-          })
-        );
+    score:
+      Number(competitor?.score),
 
-        if (
-          teams.some(
-            team =>
-              !Number.isFinite(team.score)
-          )
-        ) {
-          continue;
-        }
+    homeAway:
+      competitor?.homeAway
+  })
+);
+       
 
         const matchesTeam = (
           team,
@@ -4353,10 +4348,11 @@ foundCompletedGame = true;
           }
 
           const aliases = [
-            team.name,
-            team.shortName,
-            team.location
-          ]
+  team.name,
+  team.shortName,
+  team.location,
+  team.abbreviation
+]
             .map(normalize)
             .filter(Boolean);
 
@@ -4400,7 +4396,40 @@ if (
 }
 
 foundMatchingGame = true;
+        if (!completed) {
+  return {
+    result: null,
 
+    gradingReason:
+      "GAME_FOUND_NOT_FINAL",
+
+    debug: {
+      gameId:
+        pick.game_id || null,
+
+      sport,
+
+      awayTeam:
+        pick.away_team,
+
+      homeTeam:
+        pick.home_team,
+
+      espnStatus:
+        status?.name ||
+        status?.state ||
+        null
+    }
+  };
+}
+if (
+  teams.some(
+    team =>
+      !Number.isFinite(team.score)
+  )
+) {
+  continue;
+}
         const home = teams.find(
           team =>
             team.homeAway === "home"
@@ -4504,13 +4533,7 @@ if (
   };
 }
 
-if (foundCompletedGame) {
-  return {
-    result: null,
-    gradingReason:
-      "COMPLETED_GAMES_FOUND_BUT_GAME_NOT_MATCHED"
-  };
-}
+
 
 return {
   result: null,
