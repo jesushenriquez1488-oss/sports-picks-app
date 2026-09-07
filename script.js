@@ -12287,45 +12287,146 @@ async function showMLBPropPlayer(
         </div>
       `
       : `
-        <div style="
-          display:grid;
-          grid-template-columns:
-            repeat(3,minmax(0,1fr));
-          gap:6px;
-          margin-top:10px;
-        ">
+       <div style="
+  display:grid;
+  grid-template-columns:
+    repeat(3,minmax(0,1fr));
+  margin-top:10px;
+  background:#0f1628;
+  border-radius:9px;
+  overflow:hidden;
+">
 
-          <div class="ps-stat-box">
-            <small>SPORTSBOOK LINE</small>
-            <strong>${line}</strong>
-          </div>
+  <div style="
+    text-align:center;
+    padding:8px 3px;
+    border-right:1px solid #1a2740;
+  ">
 
-          <div class="ps-stat-box">
-            <small>CASHEDGE</small>
-            <strong>
-              ${
-                Number.isFinite(
-                  projection
-                )
-                  ? projection.toFixed(2)
-                  : "—"
-              }
-            </strong>
-          </div>
+    <small style="
+      display:block;
+      color:#60708d;
+      font-size:6.5px;
+      font-weight:800;
+      letter-spacing:.04em;
+      white-space:nowrap;
+    ">
+      SPORTSBOOK
+    </small>
 
-          <div class="ps-stat-box">
-            <small>CONFIDENCE</small>
-            <strong>
-              ${
-                confidence > 0
-                  ? confidence.toFixed(0) +
-                    "%"
-                  : "—"
-              }
-            </strong>
-          </div>
+    <strong style="
+      display:block;
+      margin-top:4px;
+      color:#fff;
+      font-size:14px;
+      line-height:1;
+    ">
+      ${line}
+    </strong>
 
-        </div>
+    <small style="
+      display:block;
+      margin-top:3px;
+      color:#4f6078;
+      font-size:6px;
+    ">
+      LINE
+    </small>
+
+  </div>
+
+
+  <div style="
+    text-align:center;
+    padding:8px 3px;
+    border-right:1px solid #1a2740;
+  ">
+
+    <small style="
+      display:block;
+      color:#60708d;
+      font-size:6.5px;
+      font-weight:800;
+      letter-spacing:.04em;
+      white-space:nowrap;
+    ">
+      CASHEDGE
+    </small>
+
+    <strong style="
+      display:block;
+      margin-top:4px;
+      color:#00ffe7;
+      font-size:14px;
+      line-height:1;
+    ">
+      ${
+        Number.isFinite(
+          projection
+        )
+          ? projection.toFixed(2)
+          : "—"
+      }
+    </strong>
+
+    <small style="
+      display:block;
+      margin-top:3px;
+      color:#4f6078;
+      font-size:6px;
+    ">
+      PROJECTION
+    </small>
+
+  </div>
+
+
+  <div style="
+    text-align:center;
+    padding:8px 3px;
+  ">
+
+    <small style="
+      display:block;
+      color:#60708d;
+      font-size:6.5px;
+      font-weight:800;
+      letter-spacing:.04em;
+      white-space:nowrap;
+    ">
+      CONFIDENCE
+    </small>
+
+    <strong style="
+      display:block;
+      margin-top:4px;
+      color:${
+        confidence >= 65
+          ? "#00ffe7"
+          : "#fff"
+      };
+      font-size:14px;
+      line-height:1;
+    ">
+      ${
+        confidence > 0
+          ? confidence.toFixed(0) + "%"
+          : "—"
+      }
+    </strong>
+
+    <small style="
+      display:block;
+      margin-top:3px;
+      color:#4f6078;
+      font-size:6px;
+    ">
+      MODEL
+    </small>
+
+  </div>
+
+</div>
       `;
 
 
