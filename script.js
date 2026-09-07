@@ -11325,21 +11325,18 @@ function renderMLBPropsPlayerList(
     )}
   `;
 }
-function showMLBPropPlayer(
+async function showMLBPropPlayer(
   index,
   encodedPlayer,
-  returnCategory = "batters"
+  returnCategory = "batters",
+  selectedMarket = "",
+  windowKey = "last5"
 ) {
   const playerName =
-    decodeURIComponent(
-      encodedPlayer
-    );
+    decodeURIComponent(encodedPlayer);
 
   const state =
     mlbPlayerPropsState[index] || {};
-
-  const data =
-    state.data || {};
 
   const container =
     document.getElementById(
@@ -11348,21 +11345,38 @@ function showMLBPropPlayer(
 
   if (!container) return;
 
+
+  /*
+   * Asegura que tengamos las estadísticas.
+   */
+  const statsData =
+    state.statsData ||
+    await loadMLBPlayerPropsStats(index);
+
+
+  const propsData =
+    mlbPlayerPropsState[index]?.data || {};
+
+
   const allProps =
     Array.isArray(
-      data.analyzedPlayerLines
+      propsData.analyzedPlayerLines
     )
-      ? data.analyzedPlayerLines
+      ? propsData.analyzedPlayerLines
       : [];
 
-  const playerProps =
+
+  /*
+   * Props disponibles para ESTE jugador.
+   */
+  const rawPlayerProps =
     allProps.filter(prop =>
       String(prop.player || "") ===
-        playerName
+      playerName
     );
 
 
-  if (!playerProps.length) {
+  if (!rawPlayerProps.length) {
     container.innerHTML = `
       <div class="ps-empty">
         No props available for this player.
@@ -11372,14 +11386,36 @@ function showMLBPropPlayer(
   }
 
 
-  const markets =
-    [
-      ...new Set(
-        playerProps.map(
-          prop => prop.market
-        )
-      )
-    ];
+  /*
+   * Una sola opción por mercado.
+   * Preferimos OVER cuando existe.
+   */
+  const propMap = new Map();
+
+  rawPlayerProps.forEach(prop => {
+    const existing =
+      propMap.get(prop.market);
+
+    if (!existing) {
+      propMap.set(prop.market, prop);
+      return;
+    }
+
+    const existingSide =
+      String(existing.side || "")
+        .toUpperCase();
+
+    const newSide =
+      String(prop.side || "")
+        .toUpperCase();
+
+    if (
+      existingSide !== "OVER" &&
+      newSide === "OVER"
+    ) {
+      propMap.set(prop.market, prop);
+    }
+  });
 
 
   const marketOrder = [
@@ -11393,48 +11429,904 @@ function showMLBPropPlayer(
   ];
 
 
-  markets.sort(
-    (a, b) =>
-      marketOrder.indexOf(a) -
-      marketOrder.indexOf(b)
-  );
+  const playerProps =
+    Array.from(propMap.values())
+      .sort(
+        (a, b) =>
+          marketOrder.indexOf(a.market) -
+          marketOrder.indexOf(b.market)
+      );
 
 
-  const marketButtons =
-    markets.map(market => {
+  let selectedProp =
+    selectedMarket
+      ? playerProps.find(
+          prop =>
+            prop.market ===
+            selectedMarket
+        )
+      : null;
 
-      const label =
-        MLB_PROP_MARKET_LABELS[
-          market
-        ] || market;
 
-      return `
+  if (!selectedProp) {
+    selectedProp =
+      playerProps[0];
+  }
+
+
+  const MARKET_META = {
+    batter_hits: {
+      short: "HITS",
+      resultKey: "hits",
+      avgKey: "hits",
+      seasonRateKey: "hits",
+      standardLine: 0.5
+    },
+
+    batter_total_bases: {
+      short: "TOTAL BASES",
+      resultKey: "totalBases",
+      avgKey: "totalBases",
+      seasonRateKey: "totalBases",
+      standardLine: 1.5
+    },
+
+    batter_home_runs: {
+      short: "HOME RUN",
+      resultKey: "homeRuns",
+      avgKey: "homeRuns",
+      seasonRateKey: "homeRuns",
+      standardLine: 0.5
+    },
+
+    batter_rbis: {
+      short: "RBI",
+      resultKey: "rbi",
+      avgKey: "rbi",
+      seasonRateKey: "rbi",
+      standardLine: 0.5
+    },
+
+    batter_runs_scored: {
+      short: "RUNS",
+      resultKey: "runs",
+      avgKey: "runs",
+      seasonRateKey: "runs",
+      standardLine: 0.5
+    },
+
+    pitcher_strikeouts: {
+      short: "STRIKEOUTS",
+      resultKey: "strikeOuts",
+      avgKey: "strikeOuts"
+    },
+
+    pitcher_outs: {
+      short: "OUTS",
+      resultKey: "outs",
+      avgKey: "outs"
+    }
+  };
+
+
+  const selectedMeta =
+    MARKET_META[selectedProp.market];
+
+
+  const normalizeName =
+    value =>
+      String(value || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+
+
+  const isPitcher =
+    selectedProp.market.startsWith(
+      "pitcher_"
+    );
+
+
+  const statsPlayers =
+    isPitcher
+      ? (
+          Array.isArray(
+            statsData?.startingPitchers
+          )
+            ? statsData.startingPitchers
+            : []
+        )
+      : (
+          Array.isArray(
+            statsData?.batters
+          )
+            ? statsData.batters
+            : []
+        );
+
+
+  const statsPlayer =
+    statsPlayers.find(player =>
+      normalizeName(player.name) ===
+      normalizeName(playerName)
+    );
+
+
+  const line =
+    Number(selectedProp.line);
+
+  const side =
+    String(
+      selectedProp.side || "OVER"
+    ).toUpperCase();
+
+
+  const projection =
+    Number(selectedProp.projection);
+
+  const confidence =
+    Number(selectedProp.confidence || 0);
+
+  const odds =
+    Number(selectedProp.odds);
+
+  const oddsText =
+    Number.isFinite(odds)
+      ? `${odds > 0 ? "+" : ""}${odds}`
+      : "—";
+
+
+  /*
+   * Resultados recientes.
+   */
+  const recentResults =
+    statsPlayer?.windows
+      ?.last10
+      ?.results ||
+    [];
+
+
+  function gradeValue(value) {
+    const number =
+      Number(value);
+
+    if (
+      !Number.isFinite(number) ||
+      !Number.isFinite(line)
+    ) {
+      return null;
+    }
+
+    if (number === line) {
+      return "push";
+    }
+
+    if (side === "UNDER") {
+      return number < line
+        ? "hit"
+        : "miss";
+    }
+
+    return number > line
+      ? "hit"
+      : "miss";
+  }
+
+
+  function calculateHitRate(results) {
+    const graded =
+      results
+        .map(game => {
+          const value =
+            Number(
+              game?.[
+                selectedMeta?.resultKey
+              ]
+            );
+
+          return {
+            value,
+            grade:
+              gradeValue(value)
+          };
+        })
+        .filter(item =>
+          Number.isFinite(item.value)
+        );
+
+    const hits =
+      graded.filter(
+        item =>
+          item.grade === "hit"
+      ).length;
+
+    return {
+      hits,
+      total: graded.length,
+      pct:
+        graded.length
+          ? (
+              hits /
+              graded.length
+            ) * 100
+          : null
+    };
+  }
+
+
+  const last3 =
+    calculateHitRate(
+      recentResults.slice(0, 3)
+    );
+
+  const last5 =
+    calculateHitRate(
+      recentResults.slice(0, 5)
+    );
+
+  const last10 =
+    calculateHitRate(
+      recentResults.slice(0, 10)
+    );
+
+
+  /*
+   * Season completo para los mercados
+   * de bateadores que usan la línea
+   * estándar que ya calcula Player Stats.
+   */
+  let seasonHit = null;
+
+  const seasonRate =
+    statsPlayer?.windows
+      ?.season
+      ?.hitRates
+      ?.[
+        selectedMeta?.seasonRateKey
+      ];
+
+  if (
+    seasonRate &&
+    side === "OVER" &&
+    Number(selectedMeta?.standardLine) ===
+      line
+  ) {
+    seasonHit = {
+      hits:
+        Number(
+          seasonRate.hits || 0
+        ),
+
+      total:
+        Number(
+          seasonRate.games || 0
+        ),
+
+      pct:
+        Number(
+          seasonRate.percentage || 0
+        )
+    };
+  }
+
+
+  const hitWindows = {
+    last3,
+    last5,
+    last10,
+    season: seasonHit
+  };
+
+
+  /*
+   * Window estadística seleccionada.
+   */
+  let selectedWindow =
+    statsPlayer?.windows
+      ?.[windowKey];
+
+
+  /*
+   * Player Stats no tiene Last 3
+   * guardado como ventana propia,
+   * así que lo construimos con
+   * los primeros tres juegos.
+   */
+  if (
+    windowKey === "last3" &&
+    statsPlayer
+  ) {
+    const sample =
+      recentResults.slice(0, 3);
+
+    const avg =
+      key =>
+        sample.length
+          ? (
+              sample.reduce(
+                (sum, game) =>
+                  sum +
+                  Number(
+                    game?.[key] || 0
+                  ),
+                0
+              ) /
+              sample.length
+            )
+          : 0;
+
+    selectedWindow = {
+      games: sample.length,
+
+      averages: isPitcher
+        ? {
+            strikeOuts:
+              avg("strikeOuts"),
+
+            outs:
+              avg("outs"),
+
+            innings:
+              avg("outs") / 3,
+
+            hitsAllowed:
+              avg("hitsAllowed"),
+
+            walks:
+              avg("walks"),
+
+            earnedRuns:
+              avg("earnedRuns")
+          }
+        : {
+            hits:
+              avg("hits"),
+
+            totalBases:
+              avg("totalBases"),
+
+            homeRuns:
+              avg("homeRuns"),
+
+            rbi:
+              avg("rbi"),
+
+            runs:
+              avg("runs"),
+
+            plateAppearances:
+              avg("plateAppearances")
+          }
+    };
+  }
+
+
+  const averages =
+    selectedWindow?.averages || {};
+
+
+  /*
+   * Selector pequeño de props,
+   * como NFL.
+   */
+  const propSelector =
+    playerProps
+      .map(prop => {
+
+        const meta =
+          MARKET_META[prop.market];
+
+        const active =
+          prop.market ===
+          selectedProp.market;
+
+        return `
+          <button
+            type="button"
+            onclick="showMLBPropPlayer(
+              ${index},
+              '${encodeURIComponent(
+                playerName
+              )}',
+              '${returnCategory}',
+              '${prop.market}',
+              '${windowKey}'
+            )"
+            style="
+              flex:0 0 auto;
+              border:1px solid ${
+                active
+                  ? "#00ffe7"
+                  : "#1a2740"
+              };
+              background:${
+                active
+                  ? "rgba(0,255,231,.08)"
+                  : "#0f1628"
+              };
+              color:${
+                active
+                  ? "#00ffe7"
+                  : "#71839f"
+              };
+              border-radius:14px;
+              padding:5px 9px;
+              font-size:8px;
+              font-weight:800;
+              cursor:pointer;
+            "
+          >
+            ${sanitize(
+              meta?.short ||
+              prop.market
+            )}
+          </button>
+        `;
+      })
+      .join("");
+
+
+  const windowLabels = {
+    last3: "LAST 3",
+    last5: "LAST 5",
+    last10: "LAST 10",
+    season: "SEASON"
+  };
+
+
+  const windowSelector =
+    Object.entries(
+      windowLabels
+    )
+      .map(([key, label]) => `
         <button
           type="button"
-          onclick="showMLBPropMarket(
+          onclick="showMLBPropPlayer(
             ${index},
             '${encodeURIComponent(
               playerName
             )}',
-            '${market}',
-            '${returnCategory}'
+            '${returnCategory}',
+            '${selectedProp.market}',
+            '${key}'
           )"
           style="
-            width:100%;
-            padding:12px;
-            border-radius:10px;
-            border:1px solid #17243a;
-            background:#081321;
-            color:#fff;
-            font-size:11px;
+            flex:1;
+            border:1px solid ${
+              key === windowKey
+                ? "#00ffe7"
+                : "#1a2740"
+            };
+            background:${
+              key === windowKey
+                ? "rgba(0,255,231,.06)"
+                : "#0b1323"
+            };
+            color:${
+              key === windowKey
+                ? "#00ffe7"
+                : "#71839f"
+            };
+            border-radius:8px;
+            padding:8px 4px;
+            font-size:8px;
             font-weight:800;
             cursor:pointer;
           "
         >
-          ${sanitize(label)}
+          ${label}
         </button>
+      `)
+      .join("");
+
+
+  const hitRateHTML =
+    Object.entries({
+      last3: "LAST 3",
+      last5: "LAST 5",
+      last10: "LAST 10",
+      season: "SEASON"
+    })
+      .map(([key, label]) => {
+
+        const result =
+          hitWindows[key];
+
+        return `
+          <div style="
+            background:#0f1628;
+            border-radius:8px;
+            padding:8px 3px;
+            text-align:center;
+          ">
+
+            <small style="
+              display:block;
+              color:#60708d;
+              font-size:7px;
+            ">
+              ${label}
+            </small>
+
+            <strong style="
+              display:block;
+              margin-top:5px;
+              color:#fff;
+              font-size:15px;
+            ">
+              ${
+                result?.total
+                  ? `${result.hits}/${result.total}`
+                  : "—"
+              }
+            </strong>
+
+            <small style="
+              display:block;
+              margin-top:3px;
+              color:${
+                result?.pct >= 70
+                  ? "#00ffe7"
+                  : "#71839f"
+              };
+              font-size:7px;
+            ">
+              ${
+                result?.pct !== null &&
+                result?.pct !== undefined
+                  ? `${result.pct.toFixed(0)}%`
+                  : "NO DATA"
+              }
+            </small>
+
+          </div>
+        `;
+      })
+      .join("");
+
+
+  /*
+   * Current Performance,
+   * estilo NFL.
+   */
+  const metric =
+    (value, label, accent = false) => `
+      <div style="
+        text-align:center;
+        padding:8px 4px;
+      ">
+        <strong style="
+          display:block;
+          color:${
+            accent
+              ? "#00ffe7"
+              : "#fff"
+          };
+          font-size:16px;
+        ">
+          ${
+            Number.isFinite(
+              Number(value)
+            )
+              ? Number(value)
+                  .toFixed(1)
+              : "—"
+          }
+        </strong>
+
+        <small style="
+          display:block;
+          margin-top:4px;
+          color:#71839f;
+          font-size:7px;
+        ">
+          ${label}
+        </small>
+      </div>
+    `;
+
+
+  const performanceHTML =
+    isPitcher
+      ? `
+        ${metric(
+          averages.strikeOuts,
+          "STRIKEOUTS",
+          selectedProp.market ===
+            "pitcher_strikeouts"
+        )}
+
+        ${metric(
+          averages.outs,
+          "OUTS",
+          selectedProp.market ===
+            "pitcher_outs"
+        )}
+
+        ${metric(
+          averages.innings,
+          "INNINGS"
+        )}
+
+        ${metric(
+          averages.hitsAllowed,
+          "HITS ALLOWED"
+        )}
+
+        ${metric(
+          averages.walks,
+          "WALKS"
+        )}
+
+        ${metric(
+          averages.earnedRuns,
+          "EARNED RUNS"
+        )}
+      `
+      : `
+        ${metric(
+          averages.hits,
+          "HITS",
+          selectedProp.market ===
+            "batter_hits"
+        )}
+
+        ${metric(
+          averages.totalBases,
+          "TOTAL BASES",
+          selectedProp.market ===
+            "batter_total_bases"
+        )}
+
+        ${metric(
+          averages.homeRuns,
+          "HOME RUNS",
+          selectedProp.market ===
+            "batter_home_runs"
+        )}
+
+        ${metric(
+          averages.rbi,
+          "RBI",
+          selectedProp.market ===
+            "batter_rbis"
+        )}
+
+        ${metric(
+          averages.runs,
+          "RUNS",
+          selectedProp.market ===
+            "batter_runs_scored"
+        )}
+
+        ${metric(
+          averages.plateAppearances,
+          "PA / GAME"
+        )}
       `;
-    }).join("");
+
+
+  const recentGamesHTML =
+    recentResults
+      .slice(0, 10)
+      .map(game => {
+
+        const value =
+          Number(
+            game?.[
+              selectedMeta?.resultKey
+            ]
+          );
+
+        const grade =
+          gradeValue(value);
+
+        const symbol =
+          grade === "hit"
+            ? "✓"
+            : grade === "miss"
+              ? "✕"
+              : "—";
+
+        const gradeColor =
+          grade === "hit"
+            ? "#00ffe7"
+            : grade === "miss"
+              ? "#ff6b6b"
+              : "#71839f";
+
+        const date =
+          game.date
+            ? new Date(
+                game.date
+              ).toLocaleDateString(
+                "en-US",
+                {
+                  month: "short",
+                  day: "numeric"
+                }
+              )
+            : "—";
+
+        return `
+          <div style="
+            display:grid;
+            grid-template-columns:
+              minmax(0,1fr) auto auto;
+            gap:10px;
+            padding:9px 0;
+            border-bottom:
+              1px solid #18243a;
+            align-items:center;
+          ">
+
+            <div>
+              <strong style="
+                color:#fff;
+                font-size:10px;
+              ">
+                ${sanitize(
+                  game.opponent ||
+                  "Opponent"
+                )}
+              </strong>
+
+              <small style="
+                display:block;
+                margin-top:3px;
+                color:#60708d;
+                font-size:7px;
+              ">
+                ${date}
+              </small>
+            </div>
+
+            <strong style="
+              color:#fff;
+              font-size:11px;
+            ">
+              ${
+                Number.isFinite(value)
+                  ? value
+                  : "—"
+              }
+            </strong>
+
+            <strong style="
+              color:${gradeColor};
+              font-size:13px;
+            ">
+              ${symbol}
+            </strong>
+
+          </div>
+        `;
+      })
+      .join("");
+
+
+  /*
+   * Card superior.
+   * HR conserva su lectura especial.
+   */
+  const todayPropHTML =
+    selectedProp.market ===
+      "batter_home_runs"
+      ? `
+        <div style="
+          display:grid;
+          grid-template-columns:
+            repeat(3,minmax(0,1fr));
+          gap:6px;
+          margin-top:10px;
+        ">
+
+          <div class="ps-stat-box">
+            <small>HR CHANCE</small>
+            <strong>
+              ${
+                Number.isFinite(
+                  Number(
+                    selectedProp
+                      .modelProbability
+                  )
+                )
+                  ? Number(
+                      selectedProp
+                        .modelProbability
+                    ).toFixed(1) + "%"
+                  : "—"
+              }
+            </strong>
+          </div>
+
+          <div class="ps-stat-box">
+            <small>SPORTSBOOK</small>
+            <strong>
+              ${
+                Number.isFinite(
+                  Number(
+                    selectedProp
+                      .sportsbookProbability
+                  )
+                )
+                  ? Number(
+                      selectedProp
+                        .sportsbookProbability
+                    ).toFixed(1) + "%"
+                  : "—"
+              }
+            </strong>
+          </div>
+
+          <div class="ps-stat-box">
+            <small>ADVANTAGE</small>
+            <strong>
+              ${
+                Number(
+                  selectedProp
+                    .modelAdvantage
+                ) > 0
+                  ? "+"
+                  : ""
+              }${
+                Number.isFinite(
+                  Number(
+                    selectedProp
+                      .modelAdvantage
+                  )
+                )
+                  ? Number(
+                      selectedProp
+                        .modelAdvantage
+                    ).toFixed(1) + "%"
+                  : "—"
+              }
+            </strong>
+          </div>
+
+        </div>
+      `
+      : `
+        <div style="
+          display:grid;
+          grid-template-columns:
+            repeat(3,minmax(0,1fr));
+          gap:6px;
+          margin-top:10px;
+        ">
+
+          <div class="ps-stat-box">
+            <small>SPORTSBOOK LINE</small>
+            <strong>${line}</strong>
+          </div>
+
+          <div class="ps-stat-box">
+            <small>CASHEDGE</small>
+            <strong>
+              ${
+                Number.isFinite(
+                  projection
+                )
+                  ? projection.toFixed(2)
+                  : "—"
+              }
+            </strong>
+          </div>
+
+          <div class="ps-stat-box">
+            <small>CONFIDENCE</small>
+            <strong>
+              ${
+                confidence > 0
+                  ? confidence.toFixed(0) +
+                    "%"
+                  : "—"
+              }
+            </strong>
+          </div>
+
+        </div>
+      `;
 
 
   container.innerHTML = `
@@ -11449,48 +12341,234 @@ function showMLBPropPlayer(
         border:none;
         background:transparent;
         color:#00ffe7;
-        font-size:10px;
+        font-size:9px;
         font-weight:800;
-        cursor:pointer;
         padding:0;
-        margin-bottom:14px;
+        cursor:pointer;
+        margin-bottom:12px;
       "
     >
-      ← BACK
+      ← BACK TO ${
+        returnCategory === "pitchers"
+          ? "PITCHERS"
+          : "BATTERS"
+      }
     </button>
 
 
     <div style="
-      margin-bottom:14px;
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:10px;
+      margin-bottom:12px;
     ">
 
-      <div style="
-        font-size:16px;
-        font-weight:900;
-        color:#fff;
-      ">
-        ${sanitize(playerName)}
+      <div>
+        <small style="
+          color:#60708d;
+          font-size:8px;
+        ">
+          ${sanitize(
+            statsPlayer?.team || ""
+          )}
+        </small>
+
+        <div style="
+          margin-top:3px;
+          color:#fff;
+          font-size:18px;
+          font-weight:900;
+        ">
+          ${sanitize(playerName)}
+        </div>
       </div>
 
-      <div style="
-        margin-top:4px;
-        font-size:9px;
-        color:#71839f;
-      ">
-        SELECT A PROP
-      </div>
+      ${
+        statsPlayer?.position
+          ? `
+            <div class="ps-position-badge">
+              ${sanitize(
+                statsPlayer.position
+              )}
+            </div>
+          `
+          : ""
+      }
 
     </div>
 
 
     <div style="
-      display:grid;
-      grid-template-columns:
-        repeat(2,minmax(0,1fr));
-      gap:8px;
+      display:flex;
+      gap:5px;
+      margin-bottom:10px;
     ">
-      ${marketButtons}
+      ${windowSelector}
     </div>
+
+
+    <div style="
+      background:#0b1323;
+      border:1px solid
+        rgba(0,255,231,.24);
+      border-radius:12px;
+      padding:12px;
+      margin-bottom:9px;
+    ">
+
+      <div style="
+        display:flex;
+        justify-content:space-between;
+        align-items:flex-start;
+        gap:10px;
+      ">
+
+        <div>
+          <small style="
+            color:#71839f;
+            font-size:8px;
+            font-weight:800;
+          ">
+            TODAY'S PROP
+          </small>
+
+          <div style="
+            margin-top:5px;
+            color:#fff;
+            font-size:14px;
+            font-weight:900;
+          ">
+            ${side}
+            ${line}
+            ${sanitize(
+              selectedMeta?.short ||
+              selectedProp.market
+            )}
+            · ${oddsText}
+          </div>
+
+          <small style="
+            display:block;
+            margin-top:4px;
+            color:#60708d;
+            font-size:8px;
+          ">
+            ${sanitize(
+              selectedProp.bookmaker ||
+              ""
+            )}
+          </small>
+        </div>
+
+      </div>
+
+
+      <div style="
+        display:flex;
+        gap:6px;
+        overflow-x:auto;
+        padding:10px 0 4px;
+      ">
+        ${propSelector}
+      </div>
+
+
+      ${todayPropHTML}
+
+
+      <div style="
+        color:#71839f;
+        font-size:8px;
+        font-weight:800;
+        letter-spacing:.08em;
+        margin:13px 0 8px;
+      ">
+        RECENT HIT RATE
+      </div>
+
+      <div style="
+        display:grid;
+        grid-template-columns:
+          repeat(4,minmax(0,1fr));
+        gap:5px;
+      ">
+        ${hitRateHTML}
+      </div>
+
+    </div>
+
+
+    ${
+      statsPlayer
+        ? `
+          <div style="
+            background:#0b1323;
+            border:1px solid #1a2740;
+            border-radius:11px;
+            padding:11px;
+            margin-bottom:9px;
+          ">
+
+            <div style="
+              color:#71839f;
+              font-size:8px;
+              font-weight:800;
+              margin-bottom:5px;
+            ">
+              CURRENT PERFORMANCE ·
+              ${
+                windowLabels[
+                  windowKey
+                ]
+              }
+            </div>
+
+            <div style="
+              display:grid;
+              grid-template-columns:
+                repeat(3,minmax(0,1fr));
+            ">
+              ${performanceHTML}
+            </div>
+
+          </div>
+
+
+          <div style="
+            background:#0b1323;
+            border:1px solid #1a2740;
+            border-radius:11px;
+            padding:11px;
+          ">
+
+            <div style="
+              color:#71839f;
+              font-size:8px;
+              font-weight:800;
+              margin-bottom:5px;
+            ">
+              RECENT GAMES
+            </div>
+
+            ${
+              recentGamesHTML ||
+              `
+                <div class="ps-empty">
+                  No recent games.
+                </div>
+              `
+            }
+
+          </div>
+        `
+        : `
+          <div class="ps-empty">
+            Player statistics are loading
+            or unavailable.
+          </div>
+        `
+    }
   `;
 }
 function showMLBPropMarket(
