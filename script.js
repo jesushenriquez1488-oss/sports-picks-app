@@ -10449,7 +10449,7 @@ async function loadMLBPlayerPropsRecommendations(index) {
   'best',
   '${prop.market}',
   'last5',
-   true
+   true,
    '${String(prop.side || "").toUpperCase()}'
 )"
   style="
@@ -10819,7 +10819,8 @@ return `
       'homeRuns',
       'batter_home_runs',
       'last5',
-      true
+      true,
+    
     )"
     style="
             width:100%;
@@ -11883,15 +11884,17 @@ rawPlayerProps.forEach(prop => {
         return `
           <button
             type="button"
-            onclick="showMLBPropPlayer(
-              ${index},
-              '${encodeURIComponent(
-                playerName
-              )}',
-              '${returnCategory}',
-              '${prop.market}',
-              '${windowKey}'
-            )"
+           onclick="showMLBPropPlayer(
+  ${index},
+  '${encodeURIComponent(
+    playerName
+  )}',
+  '${returnCategory}',
+  '${prop.market}',
+  '${windowKey}',
+  false,
+  '${String(prop.side || "").toUpperCase()}'
+)"
             style="
               flex:0 0 auto;
               border:1px solid ${
@@ -11942,14 +11945,16 @@ rawPlayerProps.forEach(prop => {
         <button
           type="button"
           onclick="showMLBPropPlayer(
-            ${index},
-            '${encodeURIComponent(
-              playerName
-            )}',
-            '${returnCategory}',
-            '${selectedProp.market}',
-            '${key}'
-          )"
+  ${index},
+  '${encodeURIComponent(
+    playerName
+  )}',
+  '${returnCategory}',
+  '${selectedProp.market}',
+  '${key}',
+  false,
+  '${String(selectedProp.side || "").toUpperCase()}'
+)"
           style="
             flex:1;
             border:1px solid ${
