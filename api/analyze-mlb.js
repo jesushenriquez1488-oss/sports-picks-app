@@ -5070,7 +5070,7 @@ if (
       matchupKey,
       batterVsPitcher
     );
-   
+   }
    const careerMatchupKey =
   `${playerId}|${opponentPitcher.info.id}`;
 
@@ -5127,7 +5127,7 @@ if (
       careerMatchupData.coverage;
   }
 }
-}
+
   
 }
 
