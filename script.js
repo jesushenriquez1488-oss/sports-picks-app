@@ -12919,28 +12919,7 @@ const getPropSideScore = prop => {
 };
 
 
-  /*
-   * Todos los demás mercados
-   * ya traen edge calculado:
-   *
-   * OVER:
-   * projection - line
-   *
-   * UNDER:
-   * line - projection
-   */
-  const edge =
-    Number(prop.edge);
-
-  if (
-    Number.isFinite(edge)
-  ) {
-    return edge;
-  }
-
-
-  return -9999;
-};
+ 
 
 
 const propMap =
