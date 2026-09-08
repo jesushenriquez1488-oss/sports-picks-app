@@ -4114,6 +4114,15 @@ if (!selectedEvent?.id) {
   });
 }
 const gameContext = await getMLBGameContextFromStatsAPI(selectedEvent);
+ const currentAwayPitcherId =
+  Number(
+    gameContext?.awayPitcher?.id || 0
+  ) || null;
+
+const currentHomePitcherId =
+  Number(
+    gameContext?.homePitcher?.id || 0
+  ) || null;
 const today = new Date().toISOString().split("T")[0];
 
 if (!force) {
