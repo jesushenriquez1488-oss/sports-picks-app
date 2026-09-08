@@ -10418,7 +10418,7 @@ async function loadMLBPlayerPropsRecommendations(index) {
       !Number.isFinite(
         modelAdvantage
       ) ||
-      modelAdvantage < 3
+      modelAdvantage < 10
     ) {
       return false;
     }
