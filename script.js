@@ -10482,6 +10482,23 @@ async function loadMLBPlayerPropsRecommendations(index) {
                   margin-bottom:4px;
                 ">
                   ${sanitize(prop.player)}
+${
+  prop.teamCode || prop.team
+    ? `
+      <span style="
+        margin-left:6px;
+        color:#71839f;
+        font-size:9px;
+        font-weight:800;
+      ">
+        · ${sanitize(
+          prop.teamCode ||
+          prop.team
+        )}
+      </span>
+    `
+    : ""
+}
                 </div>
 
                 <div style="
