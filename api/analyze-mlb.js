@@ -5034,6 +5034,7 @@ if (
       careerMatchupData.coverage;
   }
 }
+}
   
 }
 
