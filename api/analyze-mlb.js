@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 );
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
 const MLB_SEASON = new Date().getFullYear();
-const PLAYER_PROPS_VERSION = 17;
+const PLAYER_PROPS_VERSION = 18;
 function getDayStart() {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
@@ -5013,7 +5013,7 @@ const parkCoverage =
         logs: careerLogs,
         market: result.market,
         line: result.line,
-        side: result.side,
+        side: modelSide,
 
         venueId:
           currentGameContext
@@ -5116,7 +5116,7 @@ if (
       rows: careerMatchupRows,
       market: result.market,
       line: result.line,
-      side: result.side
+      side: modelSide
     });
 
   if (
@@ -5156,7 +5156,7 @@ if (
         logs: careerLogs,
         market: result.market,
         line: result.line,
-        side: result.side,
+      side: modelSide,
         opponentTeam:
           currentOpponentTeam
       })
@@ -6084,11 +6084,7 @@ async function getCachedBatterVsPitcherCareerGamesOnly({
           batterLog?.careerVenueName ||
           null
       };
-    })
-    .filter(row =>
-      market !== "batter_runs_scored" ||
-      row.batterGameStat
-    );
+  });
 }
 
 async function getBatterVsPitcherCareerGames(
@@ -6524,15 +6520,18 @@ function getBatterVsPitcherPropValue(
     );
   }
 
-  if (
-    market ===
-    "batter_runs_scored"
-  ) {
-    return Number(
-      row?.batterGameStat
-        ?.runs || 0
-    );
+ if (
+  market ===
+  "batter_runs_scored"
+) {
+  if (!row?.batterGameStat) {
+    return null;
   }
+
+  return Number(
+    row.batterGameStat.runs || 0
+  );
+}
 
   return null;
 }
