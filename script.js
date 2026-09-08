@@ -11559,10 +11559,19 @@ function renderMLBPropCareer(
   }
 
 
-  const results =
-    Array.isArray(data.results)
-      ? data.results
-      : [];
+ const allResults =
+  Array.isArray(data?.results)
+    ? data.results
+    : [];
+
+const results =
+  info?.contextType === "location"
+    ? allResults.filter(
+        game =>
+          Number(game?.season) ===
+          new Date().getFullYear()
+      )
+    : allResults;
 
 
   const gamesHTML =
@@ -14241,11 +14250,11 @@ const todayConditionsHTML =
             contextValue:
               todayContext.condition,
 
-            title:
-              `${
-                todayContext.condition ||
-                "LOCATION"
-              } · CAREER`
+           title:
+  `${
+    todayContext.condition ||
+    "LOCATION"
+  } · SEASON`
           }
         )}
 
