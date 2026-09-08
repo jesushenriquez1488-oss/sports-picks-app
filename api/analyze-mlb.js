@@ -5086,7 +5086,13 @@ if (
     );
 
 } else {
- careerMatchupRows = [];
+ careerMatchupRows =
+  await getCachedBatterVsPitcherCareerGamesOnly({
+    batterId: playerId,
+    pitcherId: opponentPitcher.info.id,
+    batterLogs: careerLogs,
+    market: result.market
+  });
   batterVsPitcherCareerCache.set(
     careerMatchupKey,
     careerMatchupRows
@@ -5984,7 +5990,98 @@ function extractBatterVsPitcherFromPlayByPlay(
   };
 }
 
+async function getCachedBatterVsPitcherCareerGamesOnly({
+  batterId,
+  pitcherId,
+  batterLogs = [],
+  market
+}) {
+  if (!batterId || !pitcherId) {
+    return [];
+  }
 
+  const {
+    data,
+    error
+  } =
+    await supabaseAdmin
+      .from(
+        "mlb_batter_pitcher_game_cache"
+      )
+      .select(
+        "game_pk, game_date, season, faced, plate_appearances, matchup_json"
+      )
+      .eq(
+        "batter_id",
+        Number(batterId)
+      )
+      .eq(
+        "pitcher_id",
+        Number(pitcherId)
+      );
+
+  if (error) {
+    console.log(
+      "BVP CACHE ONLY ERROR:",
+      error.message
+    );
+
+    return [];
+  }
+
+  const batterLogByGame =
+    new Map(
+      (batterLogs || []).map(gameLog => [
+        Number(
+          gameLog?.game?.gamePk ||
+          gameLog?.gamePk ||
+          0
+        ),
+        gameLog
+      ])
+    );
+
+  return (data || [])
+    .filter(row =>
+      row?.faced === true
+    )
+    .map(row => {
+      const batterLog =
+        batterLogByGame.get(
+          Number(row.game_pk)
+        );
+
+      return {
+        ...row,
+
+        batterGameStat:
+          batterLog?.stat ||
+          null,
+
+        opponent:
+          batterLog?.opponent?.name ||
+          null,
+
+        homeAway:
+          typeof batterLog?.isHome ===
+          "boolean"
+            ? (
+                batterLog.isHome
+                  ? "HOME"
+                  : "AWAY"
+              )
+            : null,
+
+        venue:
+          batterLog?.careerVenueName ||
+          null
+      };
+    })
+    .filter(row =>
+      market !== "batter_runs_scored" ||
+      row.batterGameStat
+    );
+}
 
 async function getBatterVsPitcherCareerGames(
   batterId,
