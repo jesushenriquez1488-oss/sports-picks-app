@@ -12283,8 +12283,8 @@ async function openMLBPropCareer(
  */
 if (
   button &&
-  data.contextType !==
-    "vs_pitcher"
+  info?.contextType ===
+    "park"
 ) {
   const careerCoverage =
     data?.career?.coverage || {};
