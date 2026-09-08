@@ -10510,10 +10510,10 @@ const isPremium =
                 border-radius:12px;
                 padding:13px 14px;
                 margin-bottom:8px;
-                display:grid;
-                grid-template-columns:minmax(0,1fr) auto;
-                gap:12px;
-                align-items:center;
+               display:flex;
+justify-content:space-between;
+gap:12px;
+align-items:center;
                 text-align:left;
                 cursor:pointer;
               "
