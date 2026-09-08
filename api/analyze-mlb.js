@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 );
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
 const MLB_SEASON = new Date().getFullYear();
-const PLAYER_PROPS_VERSION = 15;
+const PLAYER_PROPS_VERSION = 16;
 function getDayStart() {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
@@ -2987,8 +2987,227 @@ function getPlayerPropGameValue(
 
   return null;
 }
+function buildPlayerPropSeasonCoverage({
+  logs = [],
+  market,
+  line,
+  side
+}) {
+  const pitcherMarket =
+    market === "pitcher_strikeouts" ||
+    market === "pitcher_outs";
 
+  const eligibleLogs =
+    (logs || []).filter(gameLog => {
+      if (!pitcherMarket) {
+        return true;
+      }
 
+      return (
+        Number(
+          gameLog?.stat?.gamesStarted ||
+          0
+        ) > 0
+      );
+    });
+
+  if (!eligibleLogs.length) {
+    return null;
+  }
+
+  let wins = 0;
+  let losses = 0;
+  let pushes = 0;
+
+  eligibleLogs.forEach(gameLog => {
+    const value =
+      getPlayerPropGameValue(
+        gameLog,
+        market
+      );
+
+    if (!Number.isFinite(value)) {
+      return;
+    }
+
+    if (value === Number(line)) {
+      pushes += 1;
+      return;
+    }
+
+    const covered =
+      String(side).toUpperCase() ===
+      "UNDER"
+        ? value < Number(line)
+        : value > Number(line);
+
+    if (covered) {
+      wins += 1;
+    } else {
+      losses += 1;
+    }
+  });
+
+  const decisions =
+    wins + losses;
+
+  if (decisions <= 0) {
+    return null;
+  }
+
+  return {
+    wins,
+    losses,
+    pushes,
+
+    games:
+      wins +
+      losses +
+      pushes,
+
+    percentage:
+      Number(
+        (
+          (wins / decisions) *
+          100
+        ).toFixed(1)
+      )
+  };
+}
+function calculateFinalPlayerPropSignal({
+  side,
+  modelConfidence,
+  historicalCoverages = []
+}) {
+  const model =
+    Number(modelConfidence);
+
+  if (!Number.isFinite(model)) {
+    return null;
+  }
+
+  /*
+   * Solo usamos condiciones que
+   * realmente tengan porcentaje.
+   *
+   * IMPORTANTE:
+   * 0% SÍ es información válida.
+   * null / undefined NO.
+   */
+  const availableHistorical =
+    historicalCoverages
+      .map(coverage =>
+        coverage?.percentage
+      )
+      .filter(
+        value =>
+          value !== null &&
+          value !== undefined &&
+          value !== ""
+      )
+      .map(Number)
+      .filter(Number.isFinite);
+
+  /*
+   * SIN FALLBACK.
+   *
+   * Si no existe ninguna condición
+   * histórica real, no fabricamos
+   * confidence final.
+   */
+  if (!availableHistorical.length) {
+    return null;
+  }
+
+  const historicalAverage =
+    availableHistorical.reduce(
+      (sum, value) =>
+        sum + value,
+      0
+    ) /
+    availableHistorical.length;
+
+  /*
+   * 50% modelo CashEdge
+   * 50% contexto histórico real.
+   */
+  const originalSideConfidence =
+    (
+      model * 0.50
+    ) +
+    (
+      historicalAverage * 0.50
+    );
+
+  const normalizedOriginal =
+    Math.max(
+      0,
+      Math.min(
+        100,
+        originalSideConfidence
+      )
+    );
+
+  const originalSide =
+    String(side || "")
+      .toUpperCase();
+
+  if (
+    originalSide !== "OVER" &&
+    originalSide !== "UNDER"
+  ) {
+    return null;
+  }
+
+  /*
+   * La sumatoria completa decide
+   * la dirección final.
+   */
+  if (normalizedOriginal >= 50) {
+    return {
+      side: originalSide,
+
+      confidence:
+        Number(
+          normalizedOriginal
+            .toFixed(1)
+        ),
+
+      historicalAverage:
+        Number(
+          historicalAverage
+            .toFixed(1)
+        ),
+
+      historicalConditions:
+        availableHistorical.length
+    };
+  }
+
+  return {
+    side:
+      originalSide === "OVER"
+        ? "UNDER"
+        : "OVER",
+
+    confidence:
+      Number(
+        (
+          100 -
+          normalizedOriginal
+        ).toFixed(1)
+      ),
+
+    historicalAverage:
+      Number(
+        historicalAverage
+          .toFixed(1)
+      ),
+
+    historicalConditions:
+      availableHistorical.length
+  };
+}
 function buildPlayerPropConditionCoverage({
   logs,
   market,
@@ -4356,6 +4575,8 @@ const playerCache = new Map();
   new Map();
  const batterVsPitcherCache =
   new Map();
+ const batterVsPitcherCareerCache =
+  new Map();
  const pitcherStatsMap =
   new Map();
 const awayTeamHittingStats =
@@ -4470,6 +4691,14 @@ if (!playerInfo?.currentTeamId) {
   
 }
   const logs = await getPlayerGameLog(playerInfo.id);
+ const careerLogs =
+  await getPlayerCareerGameLogs(
+    playerInfo.id,
+    playerInfo.primaryPosition === "P"
+      ? "pitching"
+      : "hitting",
+    prop.player
+  );
  await loadPlayerPropHistoricalGameContexts(
   logs,
   historicalGameContextCache
@@ -4482,13 +4711,13 @@ if (!playerInfo?.currentTeamId) {
 
   const seasonStats = await getPlayerSeasonStats(playerInfo.id);
   const handSplits = await getPlayerHandSplits(playerInfo.id);
-
-  cachedPlayer = {
+cachedPlayer = {
   playerInfo,
   recentAverages,
   seasonStats,
   handSplits,
-  logs
+  logs,
+  careerLogs
 };
 
   playerCache.set(prop.player, cachedPlayer);
@@ -4499,7 +4728,8 @@ const {
   recentAverages,
   seasonStats,
   handSplits,
-  logs
+  logs,
+  careerLogs
 } = cachedPlayer;
  if (
   playerInfo?.primaryPosition === "P" &&
@@ -4655,7 +4885,13 @@ result.teamCode =
     : playerIsHome === false
       ? currentGameContext?.awayTeamCode
       : null;
-
+const seasonCoverage =
+  buildPlayerPropSeasonCoverage({
+    logs,
+    market: result.market,
+    line: result.line,
+    side: result.side
+  });
 const conditionCoverage =
   playerIsHome === null
     ? null
@@ -4685,6 +4921,23 @@ const parkCoverage =
           historicalGameContextCache
       })
     : null;
+ const careerParkCoverage =
+  currentVenueName
+    ? buildPlayerPropCareerParkCoverage({
+        logs: careerLogs,
+        market: result.market,
+        line: result.line,
+        side: result.side,
+
+        venueId:
+          currentGameContext
+            ?.venue?.id ||
+          null,
+
+        venueName:
+          currentVenueName
+      })
+    : null;
 const currentOpponentTeam =
   playerIsHome === true
     ? currentGameContext?.awayTeam
@@ -4694,6 +4947,7 @@ const currentOpponentTeam =
 
 
 let batterVsPitcher = null;
+let batterVsPitcherCareerCoverage = null;
 let opponentCoverage = null;
 
 
@@ -4730,7 +4984,57 @@ if (
       matchupKey,
       batterVsPitcher
     );
+   const careerMatchupKey =
+  `${playerId}|${opponentPitcher.info.id}`;
+
+let careerMatchupRows = [];
+
+if (
+  batterVsPitcherCareerCache.has(
+    careerMatchupKey
+  )
+) {
+  careerMatchupRows =
+    batterVsPitcherCareerCache.get(
+      careerMatchupKey
+    );
+
+} else {
+  careerMatchupRows =
+    await getBatterVsPitcherCareerGames(
+      playerId,
+      opponentPitcher.info.id,
+      playerInfo?.fullName || prop.player,
+      opponentPitcher?.info?.fullName || null
+    );
+
+  batterVsPitcherCareerCache.set(
+    careerMatchupKey,
+    careerMatchupRows
+  );
+}
+
+if (
+  Array.isArray(careerMatchupRows) &&
+  careerMatchupRows.length
+) {
+  const careerMatchupData =
+    buildBatterVsPitcherCareerData({
+      rows: careerMatchupRows,
+      market: result.market,
+      line: result.line,
+      side: result.side
+    });
+
+  if (
+    careerMatchupData?.coverage?.percentage !== null &&
+    careerMatchupData?.coverage?.percentage !== undefined
+  ) {
+    batterVsPitcherCareerCoverage =
+      careerMatchupData.coverage;
   }
+}
+  
 }
 
 
@@ -4752,8 +5056,39 @@ if (
         currentOpponentTeam
     });
 }
-result.todayContext = {
+ const careerOpponentCoverage =
+  playerInfo?.primaryPosition === "P"
+    ? buildPlayerPropCareerOpponentCoverage({
+        logs: careerLogs,
+        market: result.market,
+        line: result.line,
+        side: result.side,
+        opponentTeam:
+          currentOpponentTeam
+      })
+    : null;
+ const finalSignal =
+  calculateFinalPlayerPropSignal({
+    side: result.side,
+    modelConfidence: result.confidence,
 
+    historicalCoverages: [
+      seasonCoverage,
+      conditionCoverage,
+      careerParkCoverage,
+
+      playerInfo?.primaryPosition === "P"
+        ? careerOpponentCoverage
+        : batterVsPitcherCareerCoverage
+    ]
+  });
+
+result.finalSignal =
+  finalSignal;
+result.todayContext = {
+parkCoverage,
+ careerOpponentCoverage,
+careerParkCoverage,
   condition:
     playerIsHome === true
       ? "HOME"
@@ -4775,6 +5110,7 @@ result.todayContext = {
   ) || null,
  parkCoverage,
 batterVsPitcher,
+ batterVsPitcherCareerCoverage,
 opponentCoverage,
   opponentTeam:
     playerIsHome === true
@@ -4947,8 +5283,177 @@ function buildPlayerPropCareerCoverage({
         : null
   };
 }
+function buildPlayerPropCareerParkCoverage({
+  logs = [],
+  market,
+  line,
+  side,
+  venueId,
+  venueName
+}) {
+  const currentVenueId =
+    Number(venueId || 0);
 
+  const currentVenueName =
+    normalizeTeamName(
+      venueName || ""
+    );
 
+  /*
+   * Si no sabemos cuál es el parque
+   * actual, no fabricamos información.
+   */
+  if (
+    !currentVenueId &&
+    !currentVenueName
+  ) {
+    return null;
+  }
+
+  const pitcherMarket =
+    market === "pitcher_strikeouts" ||
+    market === "pitcher_outs";
+
+  const eligibleLogs =
+    (logs || []).filter(gameLog => {
+
+      /*
+       * Pitchers:
+       * solamente aperturas reales.
+       */
+      if (
+        pitcherMarket &&
+        Number(
+          gameLog?.stat?.gamesStarted ||
+          0
+        ) <= 0
+      ) {
+        return false;
+      }
+
+      /*
+       * Preferimos el venueId exacto.
+       */
+      if (currentVenueId) {
+        return (
+          Number(
+            gameLog?.careerVenueId ||
+            0
+          ) === currentVenueId
+        );
+      }
+
+      return (
+        normalizeTeamName(
+          gameLog?.careerVenueName ||
+          ""
+        ) === currentVenueName
+      );
+    });
+
+  /*
+   * SIN HISTORIAL:
+   * no ponemos 0,
+   * no usamos otro estadio,
+   * no hay fallback.
+   */
+  if (!eligibleLogs.length) {
+    return null;
+  }
+
+  const coverage =
+    buildPlayerPropCareerCoverage({
+      logs: eligibleLogs,
+      market,
+      line,
+      side
+    });
+
+  if (
+    coverage?.percentage === null ||
+    coverage?.percentage === undefined
+  ) {
+    return null;
+  }
+
+  return coverage;
+}
+function buildPlayerPropCareerOpponentCoverage({
+  logs = [],
+  market,
+  line,
+  side,
+  opponentTeam
+}) {
+  if (!opponentTeam) {
+    return null;
+  }
+
+  const targetOpponent =
+    normalizeTeamName(
+      opponentTeam
+    );
+
+  if (!targetOpponent) {
+    return null;
+  }
+
+  const eligibleLogs =
+    (logs || []).filter(gameLog => {
+
+      /*
+       * Pitcher props:
+       * solamente aperturas reales.
+       */
+      const gamesStarted =
+        Number(
+          gameLog?.stat?.gamesStarted ||
+          0
+        );
+
+      if (gamesStarted <= 0) {
+        return false;
+      }
+
+      const historicalOpponent =
+        normalizeTeamName(
+          gameLog?.opponent?.name ||
+          ""
+        );
+
+      return (
+        historicalOpponent &&
+        historicalOpponent ===
+          targetOpponent
+      );
+    });
+
+  /*
+   * SIN HISTORIAL.
+   * No usamos temporada actual,
+   * otro rival ni ningún fallback.
+   */
+  if (!eligibleLogs.length) {
+    return null;
+  }
+
+  const coverage =
+    buildPlayerPropCareerCoverage({
+      logs: eligibleLogs,
+      market,
+      line,
+      side
+    });
+
+  if (
+    coverage?.percentage === null ||
+    coverage?.percentage === undefined
+  ) {
+    return null;
+  }
+
+  return coverage;
+}
 function buildPlayerPropCareerAverages(
   logs = [],
   isPitcher = false
@@ -6026,6 +6531,7 @@ function buildBatterVsPitcherCareerData({
     results
   };
 }
+
 async function handlePlayerPropsContext(
   req,
   res
