@@ -4640,7 +4640,19 @@ if (
 
   playerIsHome = false;
 }
+result.team =
+  playerIsHome === true
+    ? currentGameContext?.homeTeam
+    : playerIsHome === false
+      ? currentGameContext?.awayTeam
+      : playerInfo?.currentTeamName || null;
 
+result.teamCode =
+  playerIsHome === true
+    ? currentGameContext?.homeTeamCode
+    : playerIsHome === false
+      ? currentGameContext?.awayTeamCode
+      : null;
 
 const conditionCoverage =
   playerIsHome === null
