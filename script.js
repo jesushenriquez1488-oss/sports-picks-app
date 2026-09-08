@@ -10393,10 +10393,39 @@ async function loadMLBPlayerPropsRecommendations(index) {
     ? data.lockedProps
     : [])
 ]
-  .filter(
-    prop =>
-    Number(prop.confidence || 0) >= 59
-  )
+  .filter(prop => {
+  const confidence =
+    Number(
+      prop.confidence || 0
+    );
+
+  if (confidence < 59) {
+    return false;
+  }
+
+  /*
+   * Para mercados 0.5 que usan
+   * probabilityMode exigimos también
+   * valor real contra el sportsbook.
+   */
+  if (prop.probabilityMode === true) {
+    const modelAdvantage =
+      Number(
+        prop.modelAdvantage
+      );
+
+    if (
+      !Number.isFinite(
+        modelAdvantage
+      ) ||
+      modelAdvantage < 3
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+})
   .sort(
         (a, b) =>
           Number(b.confidence || 0) -
