@@ -10384,7 +10384,7 @@ async function loadMLBPlayerPropsRecommendations(index) {
   dataLoadedAt: Date.now()
 };
 
-    const allRecommended = [
+   const recommendedCandidates = [
   ...(Array.isArray(data.props)
     ? data.props
     : []),
@@ -10393,45 +10393,52 @@ async function loadMLBPlayerPropsRecommendations(index) {
     ? data.lockedProps
     : [])
 ]
-  .filter(prop => {
-  const confidence =
-    Number(
-      prop.confidence || 0
-    );
-
-  if (confidence < 59) {
-    return false;
-  }
-
-  /*
-   * Para mercados 0.5 que usan
-   * probabilityMode exigimos también
-   * valor real contra el sportsbook.
-   */
-  if (prop.probabilityMode === true) {
-    const modelAdvantage =
+  .filter(
+    prop =>
       Number(
-        prop.modelAdvantage
-      );
-
-    if (
-      !Number.isFinite(
-        modelAdvantage
-      ) ||
-      modelAdvantage < 10
-    ) {
-      return false;
-    }
-  }
-
-  return true;
-})
+        prop.confidence || 0
+      ) >= 59
+  )
   .sort(
-        (a, b) =>
-          Number(b.confidence || 0) -
-          Number(a.confidence || 0)
+    (a, b) =>
+      Number(
+        b.confidence || 0
+      ) -
+      Number(
+        a.confidence || 0
+      )
+  );
+
+
+const seenPlayers =
+  new Set();
+
+const allRecommended =
+  recommendedCandidates
+    .filter(prop => {
+      const playerKey =
+        String(
+          prop.player || ""
+        )
+          .trim()
+          .toLowerCase();
+
+      if (
+        !playerKey ||
+        seenPlayers.has(
+          playerKey
+        )
+      ) {
+        return false;
+      }
+
+      seenPlayers.add(
+        playerKey
       );
 
+      return true;
+    })
+    .slice(0, 7);
     if (!allRecommended.length) {
       container.innerHTML = `
         <div class="ps-empty">
