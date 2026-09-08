@@ -10395,7 +10395,7 @@ async function loadMLBPlayerPropsRecommendations(index) {
 ]
   .filter(
     prop =>
-      Number(prop.confidence || 0) >= 65
+    Number(prop.confidence || 0) >= 59
   )
   .sort(
         (a, b) =>
