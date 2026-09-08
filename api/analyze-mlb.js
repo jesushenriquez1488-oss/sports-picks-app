@@ -5383,12 +5383,20 @@ analyzedPlayerLines.push(result);
  * Mantiene intacta la colección
  * tradicional de picks con edge.
  */
-if (Number(result.confidence || 0) > 0) {
+if (
+  result.finalSignal &&
+  Number.isFinite(Number(result.finalValue)) &&
+  Number(result.finalValue) >= 10
+) {
   analyzedProps.push(result);
 }
 }
 
-analyzedProps.sort((a, b) => b.confidence - a.confidence);
+analyzedProps.sort(
+  (a, b) =>
+    Number(b.finalValue || 0) -
+    Number(a.finalValue || 0)
+);
 analyzedPlayerLines.sort(
   (a, b) =>
     Number(b.confidence || 0) -
