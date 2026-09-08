@@ -1389,13 +1389,13 @@ if (
    * Usamos la misma escala de
    * confidence que ya utiliza HR.
    */
-  const confidence =
-    sportsbookProbability !== null
-      ? calculateHomeRunConfidence(
-          modelSideProbability,
-          sportsbookProbability
-        )
-      : 0;
+ const confidence =
+  Number(
+    (
+      modelSideProbability *
+      100
+    ).toFixed(1)
+  );
 
   /*
    * Conservamos el edge viejo
