@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 );
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
 const MLB_SEASON = new Date().getFullYear();
-const PLAYER_PROPS_VERSION = 21;
+const PLAYER_PROPS_VERSION = 22;
 function getDayStart() {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
@@ -3077,7 +3077,8 @@ function buildPlayerPropSeasonCoverage({
 function calculateFinalPlayerPropSignal({
   side,
   modelConfidence,
-  historicalCoverages = []
+  historicalCoverages = [],
+  allowFlip = true
 }) {
   const model =
     Number(modelConfidence);
@@ -3183,7 +3184,21 @@ function calculateFinalPlayerPropSignal({
         availableHistorical.length
     };
   }
-
+if (!allowFlip) {
+  return {
+    side: originalSide,
+    confidence:
+      Number(
+        normalizedOriginal.toFixed(1)
+      ),
+    historicalAverage:
+      Number(
+        historicalAverage.toFixed(1)
+      ),
+    historicalConditions:
+      availableHistorical.length
+  };
+}
   return {
     side:
       originalSide === "OVER"
@@ -4998,11 +5013,7 @@ const hrProbability =
 const modelSide =
   isHomeRunMarket &&
   Number.isFinite(hrProbability)
-    ? (
-        hrProbability >= 50
-          ? "OVER"
-          : "UNDER"
-      )
+    ? "OVER"
     : (
         Number(result.projection) >
         Number(result.line)
@@ -5018,14 +5029,10 @@ const modelEdge =
     Number(result.projection) -
     Number(result.line)
   );
-
 const modelConfidence =
   isHomeRunMarket &&
   Number.isFinite(hrProbability)
-    ? Math.max(
-        hrProbability,
-        100 - hrProbability
-      )
+    ? hrProbability
     : modelSide
       ? calculatePlayerPropDisplayConfidence(
           result.market,
@@ -5226,6 +5233,7 @@ const finalSignal =
   calculateFinalPlayerPropSignal({
     side: modelSide,
     modelConfidence: modelConfidence,
+   allowFlip: !isHomeRunMarket,
 
     historicalCoverages: [
       seasonCoverage,
