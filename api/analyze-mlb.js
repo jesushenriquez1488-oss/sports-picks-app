@@ -1546,7 +1546,38 @@ function normalizeTeamName(name = "") {
 async function getMLBGameContextFromStatsAPI(event) {
   if (!event?.commence_time) return null;
 
-  const gameDate = new Date(event.commence_time).toISOString().split("T")[0];
+ const eventDate =
+  new Date(event.commence_time);
+
+const dateParts =
+  new Intl.DateTimeFormat(
+    "en-US",
+    {
+      timeZone:
+        "America/New_York",
+
+      year:
+        "numeric",
+
+      month:
+        "2-digit",
+
+      day:
+        "2-digit"
+    }
+  ).formatToParts(
+    eventDate
+  );
+
+const getDatePart =
+  type =>
+    dateParts.find(
+      part =>
+        part.type === type
+    )?.value;
+
+const gameDate =
+  `${getDatePart("year")}-${getDatePart("month")}-${getDatePart("day")}`;
 
   const url =
     `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${gameDate}&hydrate=probablePitcher,venue`;
