@@ -10565,74 +10565,101 @@ ${
                   color:#71839f;
                 ">
 
-            <div style="
+     <div style="
   display:flex;
-  gap:16px;
-  margin-top:7px;
-  font-size:10px;
-  color:#71839f;
-  align-items:center;
+  align-items:flex-end;
+  gap:14px;
+  margin-top:9px;
+  flex-wrap:wrap;
 ">
 
-  <span>
-    VALUE
-    <strong style="color:#c9d6e8;">
+  <div>
+    <div style="
+      font-size:7px;
+      font-weight:800;
+      color:#5f748f;
+      letter-spacing:.04em;
+      margin-bottom:2px;
+    ">
+      VALUE
+    </div>
+
+    <strong style="
+      font-size:11px;
+      color:#00ffe7;
+    ">
       ${
         Number.isFinite(value)
           ? `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`
           : "—"
       }
     </strong>
-  </span>
+  </div>
 
-  <span>
-    ODDS
-    <strong style="color:#c9d6e8;">
+  <div>
+    <div style="
+      font-size:7px;
+      font-weight:800;
+      color:#8a6b49;
+      letter-spacing:.04em;
+      margin-bottom:2px;
+    ">
+      ODDS
+    </div>
+
+    <strong style="
+      font-size:11px;
+      color:#ffad5c;
+    ">
       ${
         Number.isFinite(finalOdds)
           ? `${finalOdds > 0 ? "+" : ""}${finalOdds}`
           : "—"
       }
     </strong>
-  </span>
+  </div>
 
-  <span>
-    BOOK PROB.
-    <strong style="color:#c9d6e8;">
+  <div>
+    <div style="
+      font-size:7px;
+      font-weight:800;
+      color:#597aa8;
+      letter-spacing:.04em;
+      margin-bottom:2px;
+    ">
+      BOOK PROB.
+    </div>
+
+    <strong style="
+      font-size:11px;
+      color:#78aaff;
+    ">
       ${
         Number.isFinite(implied)
           ? `${implied.toFixed(1)}%`
           : "—"
       }
     </strong>
-  </span>
+  </div>
 
   ${
     bookmaker
       ? `
-        <span>
+        <div style="
+          font-size:8px;
+          color:#8393aa;
+          padding-bottom:1px;
+          white-space:nowrap;
+        ">
           ${sanitize(bookmaker)}
-        </span>
+        </div>
       `
       : ""
   }
 
 </div>
-                  ${
-                    prop.bookmaker
-                      ? `
-                        <span>
-                          ${sanitize(
-                            prop.bookmaker
-                          )}
-                        </span>
-                      `
-                      : ""
-                  }
 
-                </div>
-
-              </div>
+</div>
 
 
               <div style="
@@ -11103,19 +11130,6 @@ ${
 
 </div>
 
-            ${
-              prop.bookmaker
-                ? `
-                  <div style="
-                    margin-top:8px;
-                    font-size:9px;
-                    color:#52647d;
-                  ">
-                    ${sanitize(prop.bookmaker)}
-                  </div>
-                `
-                : ""
-            }
 
           </div>
 
