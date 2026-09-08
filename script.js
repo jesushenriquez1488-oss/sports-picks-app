@@ -14470,131 +14470,15 @@ if (
       : null;
 
 
-  matchupCardHTML = `
-    <button
-      type="button"
-      class="mlb-career-btn"
-      ${
-        careerInfo
-          ? `
-            onclick="
-              openMLBPropCareer(
-                ${index},
-                '${mlbCareerPayload(
-                  careerInfo
-                )}',
-                this
-              )
-            "
-          `
-          : ""
-      }
-      style="
-        display:block;
-        width:100%;
-        background:#0f1628;
-        border:1px solid #1a2740;
-        border-radius:9px;
-        padding:8px 5px;
-        text-align:center;
-        color:inherit;
-        font-family:inherit;
-        ${
-          careerInfo
-            ? "cursor:pointer;"
-            : "cursor:default;"
-        }
-      "
-    >
-
-      <small style="
-        display:block;
-        color:#71839f;
-        font-size:7px;
-        font-weight:800;
-        margin-bottom:4px;
-        white-space:nowrap;
-        overflow:hidden;
-        text-overflow:ellipsis;
-      ">
-        ⚾ VS ${sanitize(
-          pitcherName
-        )}
-      </small>
-
-      ${
-        vsPitcher &&
-        Number(
-          vsPitcher.atBats || 0
-        ) > 0
-          ? `
-            <strong style="
-              display:block;
-              color:#fff;
-              font-size:14px;
-            ">
-              ${Number(
-                vsPitcher.hits || 0
-              )}/${Number(
-                vsPitcher.atBats || 0
-              )}
-            </strong>
-
-            <small style="
-              display:block;
-              color:#00ffe7;
-              font-size:7px;
-              margin-top:3px;
-            ">
-              HITS / AB
-            </small>
-
-            <small style="
-              display:block;
-              color:#60708d;
-              font-size:5.7px;
-              margin-top:3px;
-            ">
-              ${Number(
-                vsPitcher.totalBases || 0
-              )} TB ·
-              ${Number(
-                vsPitcher.homeRuns || 0
-              )} HR ·
-              ${Number(
-                vsPitcher.rbi || 0
-              )} RBI
-            </small>
-          `
-          : `
-            <strong style="
-              display:block;
-              color:#71839f;
-              font-size:11px;
-            ">
-              NO HISTORY
-            </strong>
-          `
-      }
-
-      ${
-        careerInfo
-          ? `
-            <small style="
-              display:block;
-              color:#00ffe7;
-              font-size:5.5px;
-              font-weight:800;
-              margin-top:5px;
-            ">
-              VIEW CAREER ›
-            </small>
-          `
-          : ""
-      }
-
-    </button>
-  `;
+ matchupCardHTML =
+  coverageCard(
+    "⚾",
+    `VS ${pitcherName}`,
+    todayContext
+      ?.batterVsPitcherCareerCoverage,
+    "",
+    careerInfo
+  );
 }
 
 
