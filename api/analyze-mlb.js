@@ -2605,15 +2605,7 @@ async function handlePlayerStats(req, res) {
     await getMLBGameContextFromStatsAPI(
       selectedEvent
     );
-const currentAwayPitcherId =
-  Number(
-    gameContext?.awayPitcher?.id || 0
-  ) || null;
 
-const currentHomePitcherId =
-  Number(
-    gameContext?.homePitcher?.id || 0
-  ) || null;
   if (!gameContext) {
     return res.status(200).json({
       ok: true,
