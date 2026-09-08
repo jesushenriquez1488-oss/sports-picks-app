@@ -10395,20 +10395,16 @@ async function loadMLBPlayerPropsRecommendations(index) {
 ]
   .filter(
     prop =>
-      Number(
-        prop.confidence || 0
-      ) >= 59
+      Number.isFinite(
+        Number(prop.finalValue)
+      ) &&
+      Number(prop.finalValue) >= 10
   )
   .sort(
     (a, b) =>
-      Number(
-        b.confidence || 0
-      ) -
-      Number(
-        a.confidence || 0
-      )
+      Number(b.finalValue || 0) -
+      Number(a.finalValue || 0)
   );
-
 
 const seenPlayers =
   new Set();
@@ -10460,23 +10456,37 @@ const allRecommended =
             prop.market;
 
           const confidence =
-            Number(
-              prop.confidence || 0
-            );
+  Number(
+    prop.finalSignal?.confidence || 0
+  );
 
-          const projection =
-            Number(
-              prop.projection
-            );
+const side =
+  String(
+    prop.finalSignal?.side || ""
+  ).toUpperCase();
 
-          const side =
-            String(
-              prop.side || ""
-            ).toUpperCase();
+const finalOdds =
+  Number(
+    prop.finalSportsbookPrice?.odds
+  );
 
-          const isPremium =
-            confidence >= 75;
+const bookmaker =
+  prop.finalSportsbookPrice
+    ?.bookmaker ||
+  null;
 
+const value =
+  Number(
+    prop.finalValue
+  );
+
+const implied =
+  Number(
+    prop.finalSportsbookImpliedPct
+  );
+
+const isPremium =
+  confidence >= 75;
           return `
             <button
   type="button"
@@ -10487,7 +10497,7 @@ const allRecommended =
   '${prop.market}',
   'last5',
    true,
-   '${String(prop.side || "").toUpperCase()}'
+  '${side}'
 )"
   style="
                 width:100%;
@@ -10555,16 +10565,51 @@ ${
                   color:#71839f;
                 ">
 
-                  <span>
-                    CASHEDGE
-                    <strong style="color:#c9d6e8;">
-                      ${
-                        Number.isFinite(projection)
-                          ? projection.toFixed(2)
-                          : "—"
-                      }
-                    </strong>
-                  </span>
+                  <div style="
+  display:flex;
+  gap:14px;
+  margin-top:7px;
+  font-size:10px;
+  color:#71839f;
+">
+
+  <span>
+    VALUE
+    <strong style="color:#00ffe7;">
+      ${
+        Number.isFinite(value)
+          ? `${value >= 0 ? "+" : ""}${value.toFixed(1)}`
+          : "—"
+      }
+    </strong>
+  </span>
+
+  ${
+    bookmaker &&
+    Number.isFinite(finalOdds)
+      ? `
+        <span>
+          ${sanitize(bookmaker)}
+          <strong style="color:#c9d6e8;">
+            ${finalOdds > 0 ? "+" : ""}${finalOdds}
+          </strong>
+        </span>
+      `
+      : ""
+  }
+
+  <span>
+    IMPLIED
+    <strong style="color:#c9d6e8;">
+      ${
+        Number.isFinite(implied)
+          ? `${implied.toFixed(1)}%`
+          : "—"
+      }
+    </strong>
+  </span>
+
+</div>
 
                   ${
                     prop.bookmaker
