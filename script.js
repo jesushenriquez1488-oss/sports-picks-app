@@ -12264,7 +12264,126 @@ async function openMLBPropCareer(
     ) {
       return;
     }
+/*
+ * Actualiza la tarjeta pequeña
+ * con el resultado CAREER real.
+ *
+ * HOME / AWAY
+ * PARK
+ * PITCHER VS OPPONENT
+ */
+if (
+  button &&
+  data.contextType !==
+    "vs_pitcher"
+) {
+  const careerCoverage =
+    data?.career?.coverage || {};
 
+  const careerGames =
+    Number(
+      data?.career?.games ||
+      careerCoverage.games ||
+      0
+    );
+
+  const careerWins =
+    Number(
+      careerCoverage.wins || 0
+    );
+
+  const careerPct =
+    Number(
+      careerCoverage.percentage
+    );
+
+
+  const record =
+    button.querySelector(
+      "strong"
+    );
+
+
+  if (record) {
+    record.textContent =
+      careerGames > 0
+        ? `${careerWins}/${careerGames}`
+        : "NO HISTORY";
+
+    record.style.color =
+      careerGames > 0
+        ? "#fff"
+        : "#71839f";
+  }
+
+
+  const smalls =
+    Array.from(
+      button.querySelectorAll(
+        "small"
+      )
+    );
+
+
+  let coverageText =
+    smalls.find(el =>
+      String(
+        el.textContent || ""
+      ).includes("COVERED")
+    );
+
+
+  if (
+    careerGames > 0 &&
+    !coverageText
+  ) {
+    coverageText =
+      document.createElement(
+        "small"
+      );
+
+    coverageText.style.display =
+      "block";
+
+    coverageText.style.color =
+      "#00ffe7";
+
+    coverageText.style.fontSize =
+      "7px";
+
+    coverageText.style.marginTop =
+      "3px";
+
+    coverageText.style.fontWeight =
+      "800";
+
+
+    if (
+      record?.nextSibling
+    ) {
+      record.parentNode.insertBefore(
+        coverageText,
+        record.nextSibling
+      );
+    } else {
+      button.appendChild(
+        coverageText
+      );
+    }
+  }
+
+
+  if (coverageText) {
+    coverageText.textContent =
+      Number.isFinite(
+        careerPct
+      )
+        ? `${careerPct.toFixed(
+            0
+          )}% COVERED`
+        : "";
+  }
+}
 
     box.innerHTML =
       renderMLBPropCareer(
