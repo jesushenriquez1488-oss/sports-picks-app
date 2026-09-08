@@ -10378,10 +10378,11 @@ async function loadMLBPlayerPropsRecommendations(index) {
      * Lo vamos a reutilizar después
      * para HR, Batters, Pitchers y All.
      */
-    mlbPlayerPropsState[index] = {
-      ...state,
-      data
-    };
+   mlbPlayerPropsState[index] = {
+  ...state,
+  data,
+  dataLoadedAt: Date.now()
+};
 
     const allRecommended = [
   ...(Array.isArray(data.props)
@@ -10606,7 +10607,7 @@ async function loadMLBPlayerPropsRecommendations(index) {
     `;
   }
 }
-function showMLBPlayerPropsCategory(
+async function showMLBPlayerPropsCategory(
   index,
   category
 ) {
@@ -10627,7 +10628,36 @@ function showMLBPlayerPropsCategory(
     ...state,
     mainView: category
   };
+/*
+ * Refresca Player Props si
+ * el frontend lleva 15 minutos
+ * usando el mismo payload.
+ */
+if (
+  category !== "best"
+) {
+  const latestState =
+    mlbPlayerPropsState[index] || {};
 
+  const dataAge =
+    latestState.dataLoadedAt
+      ? Date.now() -
+        latestState.dataLoadedAt
+      : Infinity;
+
+  const dataIsFresh =
+    dataAge <
+      15 * 60 * 1000;
+
+  if (
+    !latestState.data ||
+    !dataIsFresh
+  ) {
+    await loadMLBPlayerPropsRecommendations(
+      index
+    );
+  }
+}
 
   /*
    * Marcamos el botón activo.
