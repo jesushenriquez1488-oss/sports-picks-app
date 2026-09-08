@@ -13658,15 +13658,19 @@ if (isPitcher) {
       `;
 const todayContext =
   selectedProp?.todayContext || null;
-
+function mlbCareerPayload(info) {
+  return encodeURIComponent(
+    JSON.stringify(info)
+  ).replace(/'/g, "%27");
+}
 
 function coverageCard(
   icon,
   title,
   coverage,
-  subtitle = ""
+  subtitle = "",
+  careerInfo = null
 ) {
-
   const games =
     Number(
       coverage?.games || 0
@@ -13682,16 +13686,54 @@ function coverageCard(
       coverage?.percentage
     );
 
+  const canOpen =
+    careerInfo &&
+    careerInfo.playerId;
+
+  const tag =
+    canOpen
+      ? "button"
+      : "div";
+
+  const click =
+    canOpen
+      ? `
+        type="button"
+        class="mlb-career-btn"
+        onclick="
+          openMLBPropCareer(
+            ${index},
+            '${mlbCareerPayload(
+              careerInfo
+            )}',
+            this
+          )
+        "
+      `
+      : "";
+
 
   return `
-    <div style="
-      background:#0f1628;
-      border:1px solid #1a2740;
-      border-radius:9px;
-      padding:9px 6px;
-      text-align:center;
-      min-width:0;
-    ">
+    <${tag}
+      ${click}
+      style="
+        display:block;
+        width:100%;
+        background:#0f1628;
+        border:1px solid #1a2740;
+        border-radius:9px;
+        padding:8px 5px;
+        text-align:center;
+        min-width:0;
+        color:inherit;
+        font-family:inherit;
+        ${
+          canOpen
+            ? "cursor:pointer;"
+            : ""
+        }
+      "
+    >
 
       <small style="
         display:block;
@@ -13699,6 +13741,9 @@ function coverageCard(
         font-size:7px;
         font-weight:800;
         margin-bottom:4px;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
       ">
         ${icon} ${sanitize(title)}
       </small>
@@ -13720,10 +13765,11 @@ function coverageCard(
               color:#00ffe7;
               font-size:7px;
               margin-top:3px;
+              font-weight:800;
             ">
               ${
                 Number.isFinite(pct)
-                  ? pct.toFixed(0) + "% COVERED"
+                  ? `${pct.toFixed(0)}% COVERED`
                   : "NO DATA"
               }
             </small>
@@ -13735,7 +13781,7 @@ function coverageCard(
                     display:block;
                     margin-top:3px;
                     color:#f6b73c;
-                    font-size:6px;
+                    font-size:5.7px;
                   ">
                     LIMITED HISTORY
                   </small>
@@ -13747,7 +13793,7 @@ function coverageCard(
             <strong style="
               display:block;
               color:#71839f;
-              font-size:12px;
+              font-size:11px;
             ">
               NO HISTORY
             </strong>
@@ -13760,8 +13806,11 @@ function coverageCard(
             <small style="
               display:block;
               color:#60708d;
-              font-size:6px;
+              font-size:5.7px;
               margin-top:3px;
+              white-space:nowrap;
+              overflow:hidden;
+              text-overflow:ellipsis;
             ">
               ${sanitize(subtitle)}
             </small>
@@ -13769,12 +13818,50 @@ function coverageCard(
           : ""
       }
 
-    </div>
+      ${
+        canOpen
+          ? `
+            <small style="
+              display:block;
+              color:#00ffe7;
+              font-size:5.5px;
+              font-weight:800;
+              margin-top:5px;
+              letter-spacing:.03em;
+            ">
+              VIEW CAREER ›
+            </small>
+          `
+          : ""
+      }
+
+    </${tag}>
   `;
 }
 
 
 let matchupCardHTML = "";
+
+
+/*
+ * INFORMACIÓN BASE
+ * PARA CAREER
+ */
+const careerBaseInfo = {
+  playerId:
+    Number(
+      selectedProp.playerId || 0
+    ),
+
+  playerName,
+
+  market:
+    selectedProp.market,
+
+  side,
+
+  line
+};
 
 
 /*
@@ -13785,7 +13872,6 @@ if (
     "batter_"
   )
 ) {
-
   const vsPitcher =
     todayContext?.batterVsPitcher;
 
@@ -13793,124 +13879,159 @@ if (
     todayContext?.opponentPitcher ||
     "TODAY'S PITCHER";
 
+  const pitcherId =
+    Number(
+      todayContext
+        ?.opponentPitcherId || 0
+    );
 
-  if (
-    vsPitcher &&
-    Number(vsPitcher.atBats || 0) > 0
-  ) {
 
-    matchupCardHTML = `
-      <div style="
-        background:#0f1628;
-        border:1px solid #1a2740;
-        border-radius:9px;
-        padding:9px 6px;
-        text-align:center;
-      ">
+  const careerInfo =
+    pitcherId
+      ? {
+          ...careerBaseInfo,
 
-        <small style="
-          display:block;
-          color:#71839f;
-          font-size:7px;
-          font-weight:800;
-          margin-bottom:4px;
-        ">
-          ⚾ VS ${sanitize(
-            pitcherName
-          )}
-        </small>
+          contextType:
+            "vs_pitcher",
 
-        <strong style="
-          display:block;
-          color:#fff;
-          font-size:14px;
-        ">
-          ${Number(
-            vsPitcher.hits || 0
-          )}/${Number(
-            vsPitcher.atBats || 0
-          )}
-        </strong>
+          contextValue:
+            pitcherName,
 
-        <small style="
-          display:block;
-          color:#00ffe7;
-          font-size:7px;
-          margin-top:3px;
-        ">
-          HITS / AB
-        </small>
+          pitcherId,
 
-        <small style="
-          display:block;
-          color:#60708d;
-          font-size:6px;
-          margin-top:4px;
-        ">
-          ${Number(
-            vsPitcher.totalBases || 0
-          )} TB ·
-          ${Number(
-            vsPitcher.homeRuns || 0
-          )} HR ·
-          ${Number(
-            vsPitcher.rbi || 0
-          )} RBI
-        </small>
+          pitcherName,
 
-        ${
-          Number(
-            vsPitcher.atBats || 0
-          ) < 10
-            ? `
-              <small style="
-                display:block;
-                margin-top:3px;
-                color:#f6b73c;
-                font-size:6px;
-              ">
-                LIMITED HISTORY
-              </small>
-            `
-            : ""
+          title:
+            `VS ${pitcherName} · CAREER`
         }
+      : null;
 
-      </div>
-    `;
 
-  } else {
-
-    matchupCardHTML = `
-      <div style="
+  matchupCardHTML = `
+    <button
+      type="button"
+      class="mlb-career-btn"
+      ${
+        careerInfo
+          ? `
+            onclick="
+              openMLBPropCareer(
+                ${index},
+                '${mlbCareerPayload(
+                  careerInfo
+                )}',
+                this
+              )
+            "
+          `
+          : ""
+      }
+      style="
+        display:block;
+        width:100%;
         background:#0f1628;
         border:1px solid #1a2740;
         border-radius:9px;
-        padding:9px 6px;
+        padding:8px 5px;
         text-align:center;
+        color:inherit;
+        font-family:inherit;
+        ${
+          careerInfo
+            ? "cursor:pointer;"
+            : "cursor:default;"
+        }
+      "
+    >
+
+      <small style="
+        display:block;
+        color:#71839f;
+        font-size:7px;
+        font-weight:800;
+        margin-bottom:4px;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
       ">
+        ⚾ VS ${sanitize(
+          pitcherName
+        )}
+      </small>
 
-        <small style="
-          display:block;
-          color:#71839f;
-          font-size:7px;
-          font-weight:800;
-        ">
-          ⚾ VS TODAY'S PITCHER
-        </small>
+      ${
+        vsPitcher &&
+        Number(
+          vsPitcher.atBats || 0
+        ) > 0
+          ? `
+            <strong style="
+              display:block;
+              color:#fff;
+              font-size:14px;
+            ">
+              ${Number(
+                vsPitcher.hits || 0
+              )}/${Number(
+                vsPitcher.atBats || 0
+              )}
+            </strong>
 
-        <strong style="
-          display:block;
-          color:#71839f;
-          font-size:12px;
-          margin-top:5px;
-        ">
-          NO HISTORY
-        </strong>
+            <small style="
+              display:block;
+              color:#00ffe7;
+              font-size:7px;
+              margin-top:3px;
+            ">
+              HITS / AB
+            </small>
 
-      </div>
-    `;
-  }
+            <small style="
+              display:block;
+              color:#60708d;
+              font-size:5.7px;
+              margin-top:3px;
+            ">
+              ${Number(
+                vsPitcher.totalBases || 0
+              )} TB ·
+              ${Number(
+                vsPitcher.homeRuns || 0
+              )} HR ·
+              ${Number(
+                vsPitcher.rbi || 0
+              )} RBI
+            </small>
+          `
+          : `
+            <strong style="
+              display:block;
+              color:#71839f;
+              font-size:11px;
+            ">
+              NO HISTORY
+            </strong>
+          `
+      }
 
+      ${
+        careerInfo
+          ? `
+            <small style="
+              display:block;
+              color:#00ffe7;
+              font-size:5.5px;
+              font-weight:800;
+              margin-top:5px;
+            ">
+              VIEW CAREER ›
+            </small>
+          `
+          : ""
+      }
+
+    </button>
+  `;
 }
 
 
@@ -13923,19 +14044,40 @@ if (
   selectedProp.market ===
     "pitcher_outs"
 ) {
+  const opponentTeam =
+    todayContext?.opponentTeam ||
+    "OPPONENT";
 
   matchupCardHTML =
     coverageCard(
       "🆚",
-      `VS ${
-        todayContext?.opponentTeam ||
-        "OPPONENT"
-      }`,
-      todayContext?.opponentCoverage
+
+      `VS ${opponentTeam}`,
+
+      todayContext
+        ?.opponentCoverage,
+
+      "",
+
+      {
+        ...careerBaseInfo,
+
+        contextType:
+          "opponent",
+
+        contextValue:
+          opponentTeam,
+
+        title:
+          `VS ${opponentTeam} · CAREER`
+      }
     );
 }
 
 
+/*
+ * TODAY'S CONDITIONS
+ */
 const todayConditionsHTML =
   todayContext
     ? `
@@ -13949,6 +14091,7 @@ const todayConditionsHTML =
         TODAY'S CONDITIONS
       </div>
 
+
       <div style="
         display:grid;
         grid-template-columns:
@@ -13957,24 +14100,84 @@ const todayConditionsHTML =
       ">
 
         ${coverageCard(
-          todayContext.condition === "HOME"
+          todayContext.condition ===
+            "HOME"
             ? "🏠"
             : "✈️",
+
           todayContext.condition ||
             "LOCATION",
-          todayContext.conditionCoverage
+
+          todayContext
+            .conditionCoverage,
+
+          "",
+
+          {
+            ...careerBaseInfo,
+
+            contextType:
+              "location",
+
+            contextValue:
+              todayContext.condition,
+
+            title:
+              `${
+                todayContext.condition ||
+                "LOCATION"
+              } · CAREER`
+          }
         )}
+
 
         ${coverageCard(
           "🏟️",
+
           "AT THIS PARK",
-          todayContext.parkCoverage,
-          todayContext.venue || ""
+
+          todayContext
+            .parkCoverage,
+
+          todayContext.venue || "",
+
+          {
+            ...careerBaseInfo,
+
+            contextType:
+              "park",
+
+            contextValue:
+              todayContext.venue || "",
+
+            venueId:
+              todayContext.venueId,
+
+            venueName:
+              todayContext.venue,
+
+            title:
+              `${
+                todayContext.venue ||
+                "THIS PARK"
+              } · CAREER`
+          }
         )}
+
 
         ${matchupCardHTML}
 
       </div>
+
+
+      <div
+        id="mlbPropCareerDetail${index}"
+        data-key=""
+        style="
+          display:none;
+          margin-top:6px;
+        "
+      ></div>
     `
     : "";
 
