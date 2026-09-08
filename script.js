@@ -10565,41 +10565,39 @@ ${
                   color:#71839f;
                 ">
 
-                  <div style="
+            <div style="
   display:flex;
-  gap:14px;
+  gap:16px;
   margin-top:7px;
   font-size:10px;
   color:#71839f;
+  align-items:center;
 ">
 
   <span>
     VALUE
-    <strong style="color:#00ffe7;">
+    <strong style="color:#c9d6e8;">
       ${
         Number.isFinite(value)
-          ? `${value >= 0 ? "+" : ""}${value.toFixed(1)}`
+          ? `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`
           : "—"
       }
     </strong>
   </span>
 
-  ${
-    bookmaker &&
-    Number.isFinite(finalOdds)
-      ? `
-        <span>
-          ${sanitize(bookmaker)}
-          <strong style="color:#c9d6e8;">
-            ${finalOdds > 0 ? "+" : ""}${finalOdds}
-          </strong>
-        </span>
-      `
-      : ""
-  }
+  <span>
+    ODDS
+    <strong style="color:#c9d6e8;">
+      ${
+        Number.isFinite(finalOdds)
+          ? `${finalOdds > 0 ? "+" : ""}${finalOdds}`
+          : "—"
+      }
+    </strong>
+  </span>
 
   <span>
-    IMPLIED
+    BOOK PROB.
     <strong style="color:#c9d6e8;">
       ${
         Number.isFinite(implied)
@@ -10609,8 +10607,17 @@ ${
     </strong>
   </span>
 
-</div>
+  ${
+    bookmaker
+      ? `
+        <span>
+          ${sanitize(bookmaker)}
+        </span>
+      `
+      : ""
+  }
 
+</div>
                   ${
                     prop.bookmaker
                       ? `
