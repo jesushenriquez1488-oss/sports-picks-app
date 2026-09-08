@@ -12370,8 +12370,10 @@ async function openMLBPropCareer(
  */
 if (
   button &&
-  info?.contextType ===
-    "park"
+  (
+    info?.contextType === "park" ||
+    info?.contextType === "opponent"
+  )
 ) {
   const careerCoverage =
     data?.career?.coverage || {};
@@ -12480,7 +12482,191 @@ if (
         : "";
   }
 }
+/*
+ * VS PITCHER
+ * Sincroniza la tarjeta pequeña
+ * con el CAREER real del mercado.
+ */
+if (
+  button &&
+  info?.contextType ===
+    "vs_pitcher"
+) {
+  const careerCoverage =
+    data?.career?.coverage || {};
 
+  const careerTotals =
+    data?.career?.totals || {};
+
+  const careerGames =
+    Number(
+      data?.career?.games ||
+      careerCoverage.games ||
+      0
+    );
+
+  const careerWins =
+    Number(
+      careerCoverage.wins || 0
+    );
+
+  const rawPct =
+    careerCoverage.percentage;
+
+  const careerPct =
+    rawPct === null ||
+    rawPct === undefined
+      ? null
+      : Number(rawPct);
+
+  const meta =
+    mlbCareerMeta(
+      info.market
+    );
+
+  const pitcherName =
+    info.pitcherName ||
+    info.contextValue ||
+    "TODAY'S PITCHER";
+
+
+  let matchupDetail =
+    `${Number(
+      careerTotals.plateAppearances ||
+      0
+    )} PA`;
+
+
+  if (
+    info.market ===
+      "batter_hits"
+  ) {
+    matchupDetail +=
+      ` · ${Number(
+        careerTotals.hits || 0
+      )} H`;
+  }
+
+
+  if (
+    info.market ===
+      "batter_total_bases"
+  ) {
+    matchupDetail +=
+      ` · ${Number(
+        careerTotals.totalBases || 0
+      )} TB`;
+  }
+
+
+  if (
+    info.market ===
+      "batter_home_runs"
+  ) {
+    matchupDetail +=
+      ` · ${Number(
+        careerTotals.homeRuns || 0
+      )} HR`;
+  }
+
+
+  if (
+    info.market ===
+      "batter_rbis"
+  ) {
+    matchupDetail +=
+      ` · ${Number(
+        careerTotals.rbi || 0
+      )} RBI`;
+  }
+
+
+  button.innerHTML = `
+    <small style="
+      display:block;
+      color:#71839f;
+      font-size:7px;
+      font-weight:800;
+      margin-bottom:4px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    ">
+      ⚾ VS ${sanitize(
+        pitcherName
+      )}
+    </small>
+
+
+    ${
+      careerGames > 0
+        ? `
+          <strong style="
+            display:block;
+            color:#fff;
+            font-size:14px;
+            line-height:1.1;
+          ">
+            ${careerWins}/${careerGames}
+          </strong>
+
+          <small style="
+            display:block;
+            color:#00ffe7;
+            font-size:7px;
+            margin-top:3px;
+            font-weight:800;
+          ">
+            ${
+              Number.isFinite(
+                careerPct
+              )
+                ? `${careerPct.toFixed(
+                    0
+                  )}% COVERED`
+                : "CAREER"
+            }
+          </small>
+
+          <small style="
+            display:block;
+            color:#60708d;
+            font-size:5.8px;
+            margin-top:3px;
+          ">
+            ${sanitize(
+              meta?.label ||
+              "MATCHUP"
+            )}
+            ·
+            ${sanitize(
+              matchupDetail
+            )}
+          </small>
+        `
+        : `
+          <strong style="
+            display:block;
+            color:#71839f;
+            font-size:11px;
+          ">
+            NO HISTORY
+          </strong>
+        `
+    }
+
+
+    <small style="
+      display:block;
+      color:#00ffe7;
+      font-size:5.5px;
+      font-weight:800;
+      margin-top:5px;
+    ">
+      VIEW CAREER ›
+    </small>
+  `;
+}
     box.innerHTML =
       renderMLBPropCareer(
         index,
