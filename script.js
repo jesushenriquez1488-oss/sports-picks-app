@@ -10508,7 +10508,8 @@ const isPremium =
                 };
                 background:#081321;
                 border-radius:12px;
-                padding:13px 14px;
+                padding:13px 86px 13px 14px;
+position:relative;
                 margin-bottom:8px;
                display:flex;
 justify-content:space-between;
@@ -10666,6 +10667,10 @@ ${
                 width:58px;
                 height:58px;
                 border-radius:50%;
+                position:absolute;
+right:14px;
+top:50%;
+transform:translateY(-50%);
                 border:2px solid ${
                   confidence >= 75
                     ? "#00ffe7"
