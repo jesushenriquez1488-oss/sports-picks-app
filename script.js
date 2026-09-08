@@ -14114,7 +14114,6 @@ return `
 </div>
       `
       : `
-   : `
 <div style="
   display:grid;
   grid-template-columns:
