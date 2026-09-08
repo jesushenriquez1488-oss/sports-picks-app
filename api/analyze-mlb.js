@@ -4993,14 +4993,7 @@ if (
     );
 
 } else {
-  careerMatchupRows =
-    await getBatterVsPitcherCareerGames(
-      playerId,
-      opponentPitcher.info.id,
-      playerInfo?.fullName || prop.player,
-      opponentPitcher?.info?.fullName || null
-    );
-
+ careerMatchupRows = [];
   batterVsPitcherCareerCache.set(
     careerMatchupKey,
     careerMatchupRows
