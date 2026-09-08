@@ -5247,6 +5247,82 @@ const finalSignal =
   });
 result.finalSignal =
   finalSignal;
+ const displayConditionCoverage =
+  playerIsHome === null
+    ? null
+    : buildPlayerPropConditionCoverage({
+        logs,
+        market: result.market,
+        line: result.line,
+        side:
+          finalSignal?.side ||
+          modelSide,
+        isHome: playerIsHome
+      });
+ const displayCareerParkCoverage =
+  currentVenueName
+    ? buildPlayerPropCareerParkCoverage({
+        logs: careerLogs,
+        market: result.market,
+        line: result.line,
+        side:
+          finalSignal?.side ||
+          modelSide,
+
+        venueId:
+          currentGameContext
+            ?.venue?.id ||
+          null,
+
+        venueName:
+          currentVenueName
+      })
+    : null;
+ const displayCareerOpponentCoverage =
+  playerInfo?.primaryPosition === "P"
+    ? buildPlayerPropCareerOpponentCoverage({
+        logs: careerLogs,
+        market: result.market,
+        line: result.line,
+        side:
+          finalSignal?.side ||
+          modelSide,
+        opponentTeam:
+          currentOpponentTeam
+      })
+    : null;
+ const displayBatterVsPitcherCareerCoverage =
+  batterVsPitcherCareerCoverage
+    ? (
+        finalSignal?.side &&
+        modelSide &&
+        finalSignal.side !== modelSide
+          ? {
+              ...batterVsPitcherCareerCoverage,
+
+              wins:
+                Number(
+                  batterVsPitcherCareerCoverage.losses || 0
+                ),
+
+              losses:
+                Number(
+                  batterVsPitcherCareerCoverage.wins || 0
+                ),
+
+              percentage:
+                Number(
+                  (
+                    100 -
+                    Number(
+                      batterVsPitcherCareerCoverage.percentage
+                    )
+                  ).toFixed(1)
+                )
+            }
+          : batterVsPitcherCareerCoverage
+      )
+    : null;
  const finalSportsbookPrice =
   finalSignal
     ? findFinalPlayerPropSportsbookPrice({
@@ -5328,7 +5404,9 @@ finalValue:
   result.finalValue
 });
 result.todayContext = {
-parkCoverage,
+
+ parkCoverage:
+  displayCareerParkCoverage,
  careerOpponentCoverage,
 careerParkCoverage,
   condition:
@@ -5338,7 +5416,8 @@ careerParkCoverage,
         ? "AWAY"
         : null,
 
-  conditionCoverage,
+ conditionCoverage:
+  displayConditionCoverage,
 
   venue:
     currentGameContext
@@ -5350,10 +5429,12 @@ careerParkCoverage,
       ?.venue?.id ||
     0
   ) || null,
- parkCoverage,
+ 
 batterVsPitcher,
- batterVsPitcherCareerCoverage,
-opponentCoverage,
+batterVsPitcherCareerCoverage:
+  displayBatterVsPitcherCareerCoverage,
+opponentCoverage:
+  displayCareerOpponentCoverage,
   opponentTeam:
     playerIsHome === true
       ? currentGameContext?.awayTeam
