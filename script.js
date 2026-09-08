@@ -10905,6 +10905,23 @@ return `
                 color:#fff;
               ">
                 ${sanitize(prop.player)}
+${
+  prop.teamCode || prop.team
+    ? `
+      <span style="
+        margin-left:6px;
+        color:#71839f;
+        font-size:9px;
+        font-weight:800;
+      ">
+        · ${sanitize(
+          prop.teamCode ||
+          prop.team
+        )}
+      </span>
+    `
+    : ""
+}
               </strong>
 
             </div>
@@ -11153,10 +11170,16 @@ function renderMLBPropsPlayerList(
 
     return Array
       .from(map.entries())
-      .map(([player, props]) => ({
-        player,
-        props
-      }))
+     .map(([player, props]) => ({
+  player,
+  props,
+
+  team:
+    props?.[0]?.team || "",
+
+  teamCode:
+    props?.[0]?.teamCode || ""
+}))
       .sort((a, b) =>
         a.player.localeCompare(b.player)
       );
@@ -11237,7 +11260,24 @@ function renderMLBPropsPlayerList(
                 font-weight:800;
                 color:#fff;
               ">
-                ${sanitize(item.player)}
+             ${sanitize(item.player)}
+${
+  item.teamCode || item.team
+    ? `
+      <span style="
+        margin-left:6px;
+        color:#71839f;
+        font-size:9px;
+        font-weight:800;
+      ">
+        · ${sanitize(
+          item.teamCode ||
+          item.team
+        )}
+      </span>
+    `
+    : ""
+}
               </div>
 
               <div style="
