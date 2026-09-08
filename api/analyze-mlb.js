@@ -4691,14 +4691,7 @@ if (!playerInfo?.currentTeamId) {
   
 }
   const logs = await getPlayerGameLog(playerInfo.id);
- const careerLogs =
-  await getPlayerCareerGameLogs(
-    playerInfo.id,
-    playerInfo.primaryPosition === "P"
-      ? "pitching"
-      : "hitting",
-    prop.player
-  );
+const careerLogs = [];
  await loadPlayerPropHistoricalGameContexts(
   logs,
   historicalGameContextCache
