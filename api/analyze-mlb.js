@@ -4150,8 +4150,8 @@ const today = new Date().toISOString().split("T")[0];
 
 if (!force) {
   const { data: cached } = await supabaseAdmin
-    .from("player_props_cache")
-    .select("analysis_json")
+  .from("player_props_cache")
+  .select("analysis_json, updated_at")
     .eq("sport", "mlb")
     .eq("event_id", selectedEvent.id)
     .eq("game_date", today)
@@ -4181,7 +4181,17 @@ const homePitcherStillValid =
   !currentHomePitcherId ||
   cachedHomePitcherId ===
     currentHomePitcherId;
+const cacheAgeMs =
+  cached?.updated_at
+    ? Date.now() -
+      new Date(
+        cached.updated_at
+      ).getTime()
+    : Infinity;
 
+const cacheIsFresh =
+  cacheAgeMs <
+    15 * 60 * 1000;
 
 if (
   cached?.analysis_json &&
@@ -4194,7 +4204,8 @@ if (
     cached.analysis_json.analyzedPlayerLines
   ) &&
   awayPitcherStillValid &&
-  homePitcherStillValid
+  homePitcherStillValid&&
+cacheIsFresh
 ) {
   return res.status(200).json({
     ...cached.analysis_json,
