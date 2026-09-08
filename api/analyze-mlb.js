@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 );
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
 const MLB_SEASON = new Date().getFullYear();
-const PLAYER_PROPS_VERSION = 18;
+const PLAYER_PROPS_VERSION = 19;
 function getDayStart() {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
@@ -3208,6 +3208,67 @@ function calculateFinalPlayerPropSignal({
       availableHistorical.length
   };
 }
+function findFinalPlayerPropSportsbookPrice({
+  rawProps = [],
+  player,
+  market,
+  line,
+  side,
+  preferredBookmaker = null,
+  bookPriority = []
+}) {
+  const targetSide =
+    String(side || "").toUpperCase();
+
+  const candidates =
+    rawProps.filter(item =>
+      String(item.player || "") ===
+        String(player || "") &&
+      item.market === market &&
+      Number(item.line) === Number(line) &&
+      String(item.side || "").toUpperCase() ===
+        targetSide &&
+      Number.isFinite(Number(item.odds))
+    );
+
+  if (!candidates.length) {
+    return null;
+  }
+
+  if (preferredBookmaker) {
+    const sameBook =
+      candidates.find(item =>
+        item.bookmaker ===
+        preferredBookmaker
+      );
+
+    if (sameBook) {
+      return sameBook;
+    }
+  }
+
+  return [...candidates].sort(
+    (a, b) => {
+      const rankA =
+        bookPriority.indexOf(
+          a.bookmaker
+        );
+
+      const rankB =
+        bookPriority.indexOf(
+          b.bookmaker
+        );
+
+      const safeA =
+        rankA === -1 ? 999 : rankA;
+
+      const safeB =
+        rankB === -1 ? 999 : rankB;
+
+      return safeA - safeB;
+    }
+  )[0];
+}
 function buildPlayerPropConditionCoverage({
   logs,
   market,
@@ -5178,6 +5239,33 @@ const finalSignal =
   });
 result.finalSignal =
   finalSignal;
+ const finalSportsbookPrice =
+  finalSignal
+    ? findFinalPlayerPropSportsbookPrice({
+        rawProps,
+        player: result.player,
+        market: result.market,
+        line: result.line,
+        side: finalSignal.side,
+        preferredBookmaker:
+          result.bookmaker,
+        bookPriority
+      })
+    : null;
+
+result.finalSportsbookPrice =
+  finalSportsbookPrice
+    ? {
+        side:
+          finalSportsbookPrice.side,
+        line:
+          finalSportsbookPrice.line,
+        odds:
+          finalSportsbookPrice.odds,
+        bookmaker:
+          finalSportsbookPrice.bookmaker
+      }
+    : null;
  console.log("FINAL PROP SIGNAL", {
   player: result.player,
   market: result.market,
@@ -5188,10 +5276,12 @@ modelConfidence,
   location: conditionCoverage?.percentage ?? null,
   parkCareer: careerParkCoverage?.percentage ?? null,
   matchupCareer:
-    playerInfo?.primaryPosition === "P"
-      ? careerOpponentCoverage?.percentage ?? null
-      : batterVsPitcherCareerCoverage?.percentage ?? null,
-  finalSignal
+  playerInfo?.primaryPosition === "P"
+    ? careerOpponentCoverage?.percentage ?? null
+    : batterVsPitcherCareerCoverage?.percentage ?? null,
+finalSignal,
+finalSportsbookPrice:
+  result.finalSportsbookPrice
 });
 result.todayContext = {
 parkCoverage,
