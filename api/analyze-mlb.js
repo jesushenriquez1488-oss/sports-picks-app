@@ -5097,6 +5097,13 @@ if (
     careerMatchupKey,
     careerMatchupRows
   );
+ console.log("BVP CACHE RESULT", {
+  batter: result.player,
+  pitcher:
+    opponentPitcher?.info?.fullName ||
+    opponentPitcher?.info?.id,
+  rows: careerMatchupRows.length
+});
 }
 
 if (
