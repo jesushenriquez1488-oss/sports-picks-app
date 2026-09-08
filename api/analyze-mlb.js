@@ -5085,6 +5085,21 @@ if (
 
 result.finalSignal =
   finalSignal;
+ console.log("FINAL PROP SIGNAL", {
+  player: result.player,
+  market: result.market,
+  line: result.line,
+  originalSide: result.side,
+  originalConfidence: result.confidence,
+  season: seasonCoverage?.percentage ?? null,
+  location: conditionCoverage?.percentage ?? null,
+  parkCareer: careerParkCoverage?.percentage ?? null,
+  matchupCareer:
+    playerInfo?.primaryPosition === "P"
+      ? careerOpponentCoverage?.percentage ?? null
+      : batterVsPitcherCareerCoverage?.percentage ?? null,
+  finalSignal
+});
 result.todayContext = {
 parkCoverage,
  careerOpponentCoverage,
