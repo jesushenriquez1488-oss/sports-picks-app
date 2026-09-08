@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 );
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
 const MLB_SEASON = new Date().getFullYear();
-const PLAYER_PROPS_VERSION = 14;
+const PLAYER_PROPS_VERSION = 15;
 function getDayStart() {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
@@ -512,28 +512,7 @@ function homeRunAtLeastOneProbability(
    */
   return 1 - Math.exp(-lambda);
 }
-function countAtLeastOneProbability(
-  expectedCount
-) {
-  const lambda =
-    Math.max(
-      0,
-      Number(
-        expectedCount || 0
-      )
-    );
 
-  /*
-   * Para mercados 0.5:
-   *
-   * OVER 0.5 = ocurre 1+
-   * UNDER 0.5 = ocurre 0
-   *
-   * Poisson:
-   * P(1+) = 1 - e^-lambda
-   */
-  return 1 - Math.exp(-lambda);
-}
 function calculateHomeRunConfidence(
   modelProbability,
   sportsbookProbability
@@ -1344,123 +1323,8 @@ if (
       confidence >= 75
   };
 }
- /*
- * HITS / RBI / RUNS con línea 0.5
- *
- * Para estos mercados usamos probabilidad
- * en vez de edge bruto contra la línea.
- */
-if (
-  line === 0.5 &&
-  [
-    "batter_hits",
-    "batter_rbis",
-    "batter_runs_scored"
-  ].includes(market)
-) {
-  const atLeastOneProbability =
-    countAtLeastOneProbability(
-      projection
-    );
+ 
 
-  const sportsbookProbability =
-    americanOddsToImpliedProbability(
-      prop.odds
-    );
-
-  /*
-   * OVER 0.5 = ocurre 1+
-   * UNDER 0.5 = ocurre 0
-   */
-  const modelSideProbability =
-    listedSide === "UNDER"
-      ? 1 - atLeastOneProbability
-      : atLeastOneProbability;
-
-  const modelAdvantage =
-    sportsbookProbability !== null
-      ? (
-          modelSideProbability -
-          sportsbookProbability
-        ) * 100
-      : null;
-
-  /*
-   * Usamos la misma escala de
-   * confidence que ya utiliza HR.
-   */
- const confidence =
-  Number(
-    (
-      modelSideProbability *
-      100
-    ).toFixed(1)
-  );
-
-  /*
-   * Conservamos el edge viejo
-   * solamente por compatibilidad.
-   */
-  const rawEdge =
-    listedSide === "UNDER"
-      ? line - projection
-      : projection - line;
-
-  return {
-    player: prop.player,
-    market,
-    side: listedSide,
-    line,
-    odds: prop.odds,
-    bookmaker: prop.bookmaker,
-
-    /*
-     * La proyección original
-     * NO cambia.
-     */
-    projection,
-
-    edge:
-      Number(
-        rawEdge.toFixed(2)
-      ),
-
-    confidence,
-    displayConfidence:
-      confidence,
-
-    modelProbability:
-      Number(
-        (
-          modelSideProbability *
-          100
-        ).toFixed(1)
-      ),
-
-    sportsbookProbability:
-      sportsbookProbability !== null
-        ? Number(
-            (
-              sportsbookProbability *
-              100
-            ).toFixed(1)
-          )
-        : null,
-
-    modelAdvantage:
-      modelAdvantage !== null
-        ? Number(
-            modelAdvantage.toFixed(1)
-          )
-        : null,
-
-    probabilityMode:
-      true,
-
-    isPremium:
-      confidence >= 75
-  };
-}
   let edge = 0;
 
   if (listedSide === "OVER") {
