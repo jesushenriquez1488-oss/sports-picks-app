@@ -97,6 +97,66 @@ async function searchMLBPlayerByName(playerName) {
   currentTeamName: people[0].currentTeam?.name || null
 };
 }
+async function getMLBPlayerById(playerId) {
+  if (!playerId) return null;
+
+  try {
+    const response =
+      await fetch(
+        `https://statsapi.mlb.com/api/v1/people/${playerId}`
+      );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data =
+      await response.json();
+
+    const person =
+      data?.people?.[0];
+
+    if (!person?.id) {
+      return null;
+    }
+
+    return {
+      id:
+        Number(person.id),
+
+      fullName:
+        person.fullName || null,
+
+      primaryPosition:
+        person.primaryPosition
+          ?.abbreviation || null,
+
+      batSide:
+        person.batSide
+          ?.code || null,
+
+      pitchHand:
+        person.pitchHand
+          ?.code || null,
+
+      currentTeamId:
+        person.currentTeam
+          ?.id || null,
+
+      currentTeamName:
+        person.currentTeam
+          ?.name || null
+    };
+
+  } catch (error) {
+    console.log(
+      "MLB PLAYER BY ID ERROR:",
+      error.message
+    );
+
+    return null;
+  }
+}
 async function getPlayerGameLog(playerId) {
   if (!playerId) return [];
 
@@ -2545,7 +2605,15 @@ async function handlePlayerStats(req, res) {
     await getMLBGameContextFromStatsAPI(
       selectedEvent
     );
+const currentAwayPitcherId =
+  Number(
+    gameContext?.awayPitcher?.id || 0
+  ) || null;
 
+const currentHomePitcherId =
+  Number(
+    gameContext?.homePitcher?.id || 0
+  ) || null;
   if (!gameContext) {
     return res.status(200).json({
       ok: true,
@@ -4045,7 +4113,7 @@ if (!selectedEvent?.id) {
     reason: "No MLB event found"
   });
 }
-
+const gameContext = await getMLBGameContextFromStatsAPI(selectedEvent);
 const today = new Date().toISOString().split("T")[0];
 
 if (!force) {
@@ -4057,6 +4125,32 @@ if (!force) {
     .eq("game_date", today)
     .maybeSingle();
 
+const cachedAwayPitcherId =
+  Number(
+    cached?.analysis_json
+      ?.probablePitchers
+      ?.awayId || 0
+  ) || null;
+
+const cachedHomePitcherId =
+  Number(
+    cached?.analysis_json
+      ?.probablePitchers
+      ?.homeId || 0
+  ) || null;
+
+
+const awayPitcherStillValid =
+  !currentAwayPitcherId ||
+  cachedAwayPitcherId ===
+    currentAwayPitcherId;
+
+const homePitcherStillValid =
+  !currentHomePitcherId ||
+  cachedHomePitcherId ===
+    currentHomePitcherId;
+
+
 if (
   cached?.analysis_json &&
   cached.analysis_json.playerPropsVersion ===
@@ -4066,7 +4160,9 @@ if (
   ) &&
   Array.isArray(
     cached.analysis_json.analyzedPlayerLines
-  )
+  ) &&
+  awayPitcherStillValid &&
+  homePitcherStillValid
 ) {
   return res.status(200).json({
     ...cached.analysis_json,
@@ -4083,7 +4179,7 @@ const oddsResponse = await fetch(
 
 const oddsData = await oddsResponse.json();
 
-const gameContext = await getMLBGameContextFromStatsAPI(selectedEvent);
+
 const leagueAverages = await getLeagueAverages();
 const allowedMarkets = [
   "batter_hits",
@@ -4242,14 +4338,19 @@ const venueParkFactor =
 let homePitcherFullStats = null;
 
 if (gameContext) {
-  const awayPitcherInfo = gameContext?.awayPitcher?.id
-    ? await searchMLBPlayerByName(gameContext.awayPitcher.fullName)
-    : null;
+  const awayPitcherInfo =
+    gameContext?.awayPitcher?.id
+      ? await getMLBPlayerById(
+          gameContext.awayPitcher.id
+        )
+      : null;
 
-  const homePitcherInfo = gameContext?.homePitcher?.id
-    ? await searchMLBPlayerByName(gameContext.homePitcher.fullName)
-    : null;
-
+  const homePitcherInfo =
+    gameContext?.homePitcher?.id
+      ? await getMLBPlayerById(
+          gameContext.homePitcher.id
+        )
+      : null;
   const awayPitcherLogs = awayPitcherInfo?.id
     ? await getPlayerGameLog(awayPitcherInfo.id)
     : [];
@@ -4672,6 +4773,23 @@ const finalResponse = {
   cached: false,
  playerPropsVersion: PLAYER_PROPS_VERSION,
   eventId: selectedEvent.id,
+ probablePitchers: {
+  awayId:
+    currentAwayPitcherId,
+
+  awayName:
+    gameContext
+      ?.awayPitcher
+      ?.fullName || null,
+
+  homeId:
+    currentHomePitcherId,
+
+  homeName:
+    gameContext
+      ?.homePitcher
+      ?.fullName || null
+},
   game: `${selectedEvent.away_team} @ ${selectedEvent.home_team}`,
   gameDate: today,
   generatedAt: new Date().toISOString(),
