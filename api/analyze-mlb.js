@@ -3987,6 +3987,50 @@ async function getPlayerCareerSeasons(
     return [];
   }
 }
+async function getCachedPlayerCareerLogsOnly(
+  playerId,
+  group
+) {
+  if (!playerId || !group) {
+    return [];
+  }
+
+  const {
+    data,
+    error
+  } =
+    await supabaseAdmin
+      .from(
+        "mlb_player_career_logs_cache"
+      )
+      .select(
+        "season, logs_json"
+      )
+      .eq(
+        "player_id",
+        Number(playerId)
+      )
+      .eq(
+        "stat_group",
+        group
+      );
+
+  if (error) {
+    console.log(
+      "CAREER CACHE ONLY ERROR:",
+      error.message
+    );
+
+    return [];
+  }
+
+  return (data || [])
+    .flatMap(row =>
+      Array.isArray(row?.logs_json)
+        ? row.logs_json
+        : []
+    );
+}
 async function getPlayerCareerGameLogs(
   playerId,
   group,
@@ -4878,12 +4922,55 @@ result.teamCode =
     : playerIsHome === false
       ? currentGameContext?.awayTeamCode
       : null;
+const isHomeRunMarket =
+  result.market === "batter_home_runs";
+
+const hrProbability =
+  Number(result.homeRunProbability);
+
+const modelSide =
+  isHomeRunMarket &&
+  Number.isFinite(hrProbability)
+    ? (
+        hrProbability >= 50
+          ? "OVER"
+          : "UNDER"
+      )
+    : (
+        Number(result.projection) >
+        Number(result.line)
+          ? "OVER"
+          : Number(result.projection) <
+            Number(result.line)
+            ? "UNDER"
+            : null
+      );
+
+const modelEdge =
+  Math.abs(
+    Number(result.projection) -
+    Number(result.line)
+  );
+
+const modelConfidence =
+  isHomeRunMarket &&
+  Number.isFinite(hrProbability)
+    ? Math.max(
+        hrProbability,
+        100 - hrProbability
+      )
+    : modelSide
+      ? calculatePlayerPropDisplayConfidence(
+          result.market,
+          modelEdge
+        )
+      : null;
 const seasonCoverage =
   buildPlayerPropSeasonCoverage({
     logs,
     market: result.market,
     line: result.line,
-    side: result.side
+   side: modelSide
   });
 const conditionCoverage =
   playerIsHome === null
@@ -4892,7 +4979,7 @@ const conditionCoverage =
         logs,
         market: result.market,
         line: result.line,
-        side: result.side,
+        side: modelSide,
         isHome: playerIsHome
       });
 const currentVenueName =
@@ -5054,10 +5141,10 @@ if (
           currentOpponentTeam
       })
     : null;
- const finalSignal =
+const finalSignal =
   calculateFinalPlayerPropSignal({
-    side: result.side,
-    modelConfidence: result.confidence,
+    side: modelSide,
+    modelConfidence: modelConfidence,
 
     historicalCoverages: [
       seasonCoverage,
@@ -5069,15 +5156,14 @@ if (
         : batterVsPitcherCareerCoverage
     ]
   });
-
 result.finalSignal =
   finalSignal;
  console.log("FINAL PROP SIGNAL", {
   player: result.player,
   market: result.market,
   line: result.line,
-  originalSide: result.side,
-  originalConfidence: result.confidence,
+ modelSide,
+modelConfidence,
   season: seasonCoverage?.percentage ?? null,
   location: conditionCoverage?.percentage ?? null,
   parkCareer: careerParkCoverage?.percentage ?? null,
