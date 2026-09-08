@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 );
 const ADMIN_EMAIL = "jesushenriquez1488@gmail.com";
 const MLB_SEASON = new Date().getFullYear();
-const PLAYER_PROPS_VERSION = 19;
+const PLAYER_PROPS_VERSION = 20;
 function getDayStart() {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
@@ -5266,6 +5266,38 @@ result.finalSportsbookPrice =
           finalSportsbookPrice.bookmaker
       }
     : null;
+ const finalSportsbookImplied =
+  finalSportsbookPrice
+    ? americanOddsToImpliedProbability(
+        finalSportsbookPrice.odds
+      )
+    : null;
+
+const finalSportsbookImpliedPct =
+  finalSportsbookImplied !== null
+    ? Number(
+        (
+          finalSportsbookImplied * 100
+        ).toFixed(1)
+      )
+    : null;
+
+const finalValue =
+  finalSignal &&
+  finalSportsbookImpliedPct !== null
+    ? Number(
+        (
+          Number(finalSignal.confidence) -
+          finalSportsbookImpliedPct
+        ).toFixed(1)
+      )
+    : null;
+
+result.finalSportsbookImpliedPct =
+  finalSportsbookImpliedPct;
+
+result.finalValue =
+  finalValue;
  console.log("FINAL PROP SIGNAL", {
   player: result.player,
   market: result.market,
@@ -5281,7 +5313,11 @@ modelConfidence,
     : batterVsPitcherCareerCoverage?.percentage ?? null,
 finalSignal,
 finalSportsbookPrice:
-  result.finalSportsbookPrice
+  result.finalSportsbookPrice,
+finalSportsbookImpliedPct:
+  result.finalSportsbookImpliedPct,
+finalValue:
+  result.finalValue
 });
 result.todayContext = {
 parkCoverage,
