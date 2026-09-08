@@ -11342,6 +11342,971 @@ function renderMLBPropsPlayerList(
     )}
   `;
 }
+/* ================================
+   MLB PLAYER PROPS · CAREER DETAIL
+================================ */
+
+const mlbPropCareerCache =
+  new Map();
+
+
+function mlbCareerMeta(market) {
+  const map = {
+    batter_hits: {
+      label: "HITS",
+      unit: "H"
+    },
+
+    batter_total_bases: {
+      label: "TOTAL BASES",
+      unit: "TB"
+    },
+
+    batter_home_runs: {
+      label: "HOME RUNS",
+      unit: "HR"
+    },
+
+    batter_rbis: {
+      label: "RBI",
+      unit: "RBI"
+    },
+
+    batter_runs_scored: {
+      label: "RUNS",
+      unit: "R"
+    },
+
+    pitcher_strikeouts: {
+      label: "STRIKEOUTS",
+      unit: "K"
+    },
+
+    pitcher_outs: {
+      label: "OUTS",
+      unit: "OUTS"
+    }
+  };
+
+  return (
+    map[market] || {
+      label: "PROP",
+      unit: ""
+    }
+  );
+}
+
+
+function closeMLBPropCareer(index) {
+  const box =
+    document.getElementById(
+      `mlbPropCareerDetail${index}`
+    );
+
+  if (!box) return;
+
+  box.innerHTML = "";
+  box.style.display = "none";
+  box.dataset.key = "";
+
+  document
+    .querySelectorAll(
+      `#mlbSelectedPropCard${index} .mlb-career-btn`
+    )
+    .forEach(btn => {
+      btn.style.borderColor =
+        "#1a2740";
+
+      btn.style.background =
+        "#0f1628";
+    });
+}
+
+
+function toggleMLBPropCareerGames(
+  index,
+  button
+) {
+  const expanded =
+    button.dataset.expanded ===
+    "true";
+
+  document
+    .querySelectorAll(
+      `.mlb-career-extra-${index}`
+    )
+    .forEach(row => {
+      row.style.display =
+        expanded
+          ? "none"
+          : "grid";
+    });
+
+  button.dataset.expanded =
+    expanded
+      ? "false"
+      : "true";
+
+  button.innerText =
+    expanded
+      ? "VIEW ALL GAMES ↓"
+      : "SHOW LESS ↑";
+}
+
+
+function renderMLBPropCareer(
+  index,
+  data,
+  info
+) {
+  const meta =
+    mlbCareerMeta(
+      data.market
+    );
+
+  const career =
+    data?.career || {};
+
+  const last10 =
+    data?.last10 || {};
+
+  const careerCoverage =
+    career?.coverage || {};
+
+  const last10Coverage =
+    last10?.coverage || {};
+
+  const careerGames =
+    Number(
+      career.games ||
+      careerCoverage.games ||
+      0
+    );
+
+  const last10Games =
+    Number(
+      last10.games ||
+      last10Coverage.games ||
+      0
+    );
+
+  const careerWins =
+    Number(
+      careerCoverage.wins || 0
+    );
+
+  const last10Wins =
+    Number(
+      last10Coverage.wins || 0
+    );
+
+  const careerPct =
+    Number(
+      careerCoverage.percentage
+    );
+
+  const last10Pct =
+    Number(
+      last10Coverage.percentage
+    );
+
+
+  /*
+   * MÉTRICAS
+   */
+  let metrics = [];
+
+  if (
+    data.contextType ===
+    "vs_pitcher"
+  ) {
+    const t =
+      career.totals || {};
+
+    metrics = [
+      ["PA", t.plateAppearances],
+      ["H", t.hits],
+      ["TB", t.totalBases],
+      ["HR", t.homeRuns],
+      ["RBI", t.rbi],
+      ["K", t.strikeOuts]
+    ];
+
+  } else if (
+    String(data.market)
+      .startsWith("pitcher_")
+  ) {
+    const a =
+      career.averages || {};
+
+    metrics = [
+      ["K", a.strikeOuts],
+      ["OUTS", a.outs],
+      ["IP", a.innings],
+      ["H", a.hitsAllowed]
+    ];
+
+  } else {
+    const a =
+      career.averages || {};
+
+    metrics = [
+      ["H", a.hits],
+      ["TB", a.totalBases],
+      ["HR", a.homeRuns],
+      ["RBI", a.rbi]
+    ];
+  }
+
+
+  const results =
+    Array.isArray(data.results)
+      ? data.results
+      : [];
+
+
+  const gamesHTML =
+    results
+      .map(
+        (game, i) => {
+
+          const date =
+            game.date
+              ? new Date(
+                  `${String(
+                    game.date
+                  ).split("T")[0]}T12:00:00`
+                )
+                  .toLocaleDateString(
+                    "en-US",
+                    {
+                      month: "short",
+                      day: "numeric",
+                      year: "2-digit"
+                    }
+                  )
+              : "—";
+
+          const result =
+            String(
+              game.result || ""
+            );
+
+          const symbol =
+            result === "HIT"
+              ? "✓"
+              : result === "MISS"
+                ? "✕"
+                : "—";
+
+          const color =
+            result === "HIT"
+              ? "#00ffe7"
+              : result === "MISS"
+                ? "#ff6b6b"
+                : "#71839f";
+
+          const hidden =
+            i >= 5;
+
+          const prefix =
+            String(
+              game.homeAway || ""
+            ) === "AWAY"
+              ? "@"
+              : "vs";
+
+
+          return `
+            <div
+              class="${
+                hidden
+                  ? `mlb-career-extra-${index}`
+                  : ""
+              }"
+              style="
+                ${
+                  hidden
+                    ? "display:none;"
+                    : "display:grid;"
+                }
+
+                grid-template-columns:
+                  62px
+                  minmax(0,1fr)
+                  auto
+                  12px;
+
+                align-items:center;
+                gap:5px;
+
+                padding:6px 0;
+                border-top:
+                  1px solid #18243a;
+              "
+            >
+
+              <span style="
+                color:#60708d;
+                font-size:7px;
+              ">
+                ${date}
+              </span>
+
+              <span style="
+                color:#8b9bb5;
+                font-size:7px;
+                overflow:hidden;
+                text-overflow:ellipsis;
+                white-space:nowrap;
+              ">
+                ${prefix}
+                ${sanitize(
+                  game.opponent ||
+                  "OPP"
+                )}
+              </span>
+
+              <strong style="
+                color:#fff;
+                font-size:8px;
+                white-space:nowrap;
+              ">
+                ${
+                  Number.isFinite(
+                    Number(game.value)
+                  )
+                    ? `${game.value} ${meta.unit}`
+                    : "—"
+                }
+              </strong>
+
+              <strong style="
+                color:${color};
+                font-size:10px;
+                text-align:center;
+              ">
+                ${symbol}
+              </strong>
+
+            </div>
+          `;
+        }
+      )
+      .join("");
+
+
+  return `
+    <div style="
+      background:#09111f;
+      border:
+        1px solid
+        rgba(0,255,231,.28);
+      border-radius:10px;
+      padding:9px;
+    ">
+
+      <div style="
+        display:flex;
+        justify-content:
+          space-between;
+        align-items:flex-start;
+        gap:8px;
+      ">
+
+        <div style="
+          min-width:0;
+        ">
+
+          <strong style="
+            display:block;
+            color:#fff;
+            font-size:9px;
+            font-weight:900;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            white-space:nowrap;
+          ">
+            ${sanitize(
+              info.title ||
+              "CAREER"
+            )}
+          </strong>
+
+          <small style="
+            display:block;
+            color:#60708d;
+            font-size:6.5px;
+            margin-top:3px;
+          ">
+            TODAY'S LINE ·
+            ${sanitize(
+              String(data.side || "")
+            )}
+            ${data.line}
+            ${sanitize(meta.label)}
+          </small>
+
+        </div>
+
+        <button
+          type="button"
+          onclick="
+            closeMLBPropCareer(
+              ${index}
+            )
+          "
+          style="
+            width:21px;
+            height:21px;
+            border-radius:50%;
+            border:
+              1px solid #1a2740;
+            background:#0f1628;
+            color:#71839f;
+            cursor:pointer;
+          "
+        >
+          ×
+        </button>
+
+      </div>
+
+
+      <div style="
+        display:grid;
+        grid-template-columns:
+          1fr 1fr;
+        gap:5px;
+        margin-top:8px;
+      ">
+
+        <div style="
+          background:#0f1628;
+          border:
+            1px solid #1a2740;
+          border-radius:8px;
+          padding:7px;
+        ">
+
+          <small style="
+            color:#60708d;
+            font-size:6px;
+            font-weight:800;
+          ">
+            CAREER
+          </small>
+
+          <div style="
+            margin-top:3px;
+          ">
+            <strong style="
+              color:#fff;
+              font-size:14px;
+            ">
+              ${
+                careerGames
+                  ? `${careerWins}/${careerGames}`
+                  : "—"
+              }
+            </strong>
+
+            <span style="
+              color:#00ffe7;
+              font-size:8px;
+              margin-left:4px;
+              font-weight:800;
+            ">
+              ${
+                Number.isFinite(
+                  careerPct
+                )
+                  ? `${careerPct.toFixed(
+                      0
+                    )}%`
+                  : ""
+              }
+            </span>
+          </div>
+
+        </div>
+
+
+        <div style="
+          background:#0f1628;
+          border:
+            1px solid #1a2740;
+          border-radius:8px;
+          padding:7px;
+        ">
+
+          <small style="
+            color:#60708d;
+            font-size:6px;
+            font-weight:800;
+          ">
+            LAST 10
+          </small>
+
+          <div style="
+            margin-top:3px;
+          ">
+            <strong style="
+              color:#fff;
+              font-size:14px;
+            ">
+              ${
+                last10Games
+                  ? `${last10Wins}/${last10Games}`
+                  : "—"
+              }
+            </strong>
+
+            <span style="
+              color:#00ffe7;
+              font-size:8px;
+              margin-left:4px;
+              font-weight:800;
+            ">
+              ${
+                Number.isFinite(
+                  last10Pct
+                )
+                  ? `${last10Pct.toFixed(
+                      0
+                    )}%`
+                  : ""
+              }
+            </span>
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div style="
+        display:grid;
+        grid-template-columns:
+          repeat(
+            ${metrics.length},
+            minmax(0,1fr)
+          );
+        gap:2px;
+
+        background:#0f1628;
+
+        border:
+          1px solid #1a2740;
+
+        border-radius:8px;
+
+        padding:7px 4px;
+
+        margin-top:6px;
+      ">
+
+        ${metrics
+          .map(
+            ([label, value]) => `
+              <div style="
+                text-align:center;
+                min-width:0;
+              ">
+
+                <strong style="
+                  display:block;
+                  color:#fff;
+                  font-size:9px;
+                ">
+                  ${
+                    Number.isFinite(
+                      Number(value)
+                    )
+                      ? Number(value)
+                          .toFixed(2)
+                          .replace(
+                            /0+$/,
+                            ""
+                          )
+                          .replace(
+                            /\.$/,
+                            ""
+                          )
+                      : "—"
+                  }
+                </strong>
+
+                <small style="
+                  color:#60708d;
+                  font-size:5.8px;
+                  font-weight:800;
+                ">
+                  ${label}
+                </small>
+
+              </div>
+            `
+          )
+          .join("")}
+
+      </div>
+
+
+      ${
+        results.length
+          ? `
+            <div style="
+              color:#60708d;
+              font-size:6px;
+              font-weight:800;
+              margin-top:8px;
+              margin-bottom:2px;
+            ">
+              GAME BY GAME
+            </div>
+
+            ${gamesHTML}
+
+            ${
+              results.length > 5
+                ? `
+                  <button
+                    type="button"
+                    data-expanded="false"
+                    onclick="
+                      toggleMLBPropCareerGames(
+                        ${index},
+                        this
+                      )
+                    "
+                    style="
+                      display:block;
+                      width:100%;
+                      margin-top:5px;
+                      padding:6px;
+                      border:
+                        1px solid
+                        #1a2740;
+                      border-radius:7px;
+                      background:#0f1628;
+                      color:#00ffe7;
+                      font-size:6px;
+                      font-weight:800;
+                      cursor:pointer;
+                    "
+                  >
+                    VIEW ALL GAMES ↓
+                  </button>
+                `
+                : ""
+            }
+          `
+          : `
+            <div style="
+              color:#60708d;
+              font-size:8px;
+              text-align:center;
+              padding:10px 0 2px;
+            ">
+              NO CAREER HISTORY
+            </div>
+          `
+      }
+
+    </div>
+  `;
+}
+
+
+async function openMLBPropCareer(
+  index,
+  encodedInfo,
+  button
+) {
+  const box =
+    document.getElementById(
+      `mlbPropCareerDetail${index}`
+    );
+
+  if (!box) return;
+
+
+  let info;
+
+  try {
+    info =
+      JSON.parse(
+        decodeURIComponent(
+          encodedInfo
+        )
+      );
+  } catch (error) {
+    console.error(
+      "CAREER PAYLOAD ERROR:",
+      error
+    );
+
+    return;
+  }
+
+
+  const key =
+    [
+      info.playerId,
+      info.market,
+      info.side,
+      info.line,
+      info.contextType,
+      info.contextValue,
+      info.venueId,
+      info.pitcherId
+    ].join("|");
+
+
+  if (
+    box.style.display !==
+      "none" &&
+    box.dataset.key === key
+  ) {
+    closeMLBPropCareer(index);
+    return;
+  }
+
+
+  document
+    .querySelectorAll(
+      `#mlbSelectedPropCard${index} .mlb-career-btn`
+    )
+    .forEach(btn => {
+      btn.style.borderColor =
+        "#1a2740";
+
+      btn.style.background =
+        "#0f1628";
+    });
+
+
+  if (button) {
+    button.style.borderColor =
+      "rgba(0,255,231,.55)";
+
+    button.style.background =
+      "rgba(0,255,231,.055)";
+  }
+
+
+  box.style.display =
+    "block";
+
+  box.dataset.key =
+    key;
+
+  box.innerHTML = `
+    <div style="
+      background:#09111f;
+      border:
+        1px solid
+        rgba(0,255,231,.22);
+      border-radius:10px;
+      padding:10px;
+      color:#71839f;
+      font-size:8px;
+      text-align:center;
+    ">
+      LOADING CAREER...
+    </div>
+  `;
+
+
+  try {
+
+    let data =
+      mlbPropCareerCache.get(
+        key
+      );
+
+
+    if (!data) {
+
+      const {
+        data: sessionData
+      } =
+        await supabaseClient.auth
+          .getSession();
+
+
+      const token =
+        sessionData
+          ?.session
+          ?.access_token;
+
+
+      if (!token) {
+        throw new Error(
+          "Unauthorized"
+        );
+      }
+
+
+      const params =
+        new URLSearchParams({
+          mode:
+            "player-props-context",
+
+          playerId:
+            String(
+              info.playerId || ""
+            ),
+
+          playerName:
+            String(
+              info.playerName || ""
+            ),
+
+          market:
+            String(
+              info.market || ""
+            ),
+
+          side:
+            String(
+              info.side || "OVER"
+            ),
+
+          line:
+            String(
+              info.line
+            ),
+
+          contextType:
+            String(
+              info.contextType ||
+              ""
+            ),
+
+          contextValue:
+            String(
+              info.contextValue ||
+              ""
+            )
+        });
+
+
+      if (info.venueId) {
+        params.set(
+          "venueId",
+          String(info.venueId)
+        );
+      }
+
+
+      if (info.venueName) {
+        params.set(
+          "venueName",
+          String(info.venueName)
+        );
+      }
+
+
+      if (info.pitcherId) {
+        params.set(
+          "pitcherId",
+          String(info.pitcherId)
+        );
+      }
+
+
+      if (info.pitcherName) {
+        params.set(
+          "pitcherName",
+          String(info.pitcherName)
+        );
+      }
+
+
+      const response =
+        await fetch(
+          `/api/analyze-mlb?${params.toString()}`,
+          {
+            headers: {
+              Authorization:
+                `Bearer ${token}`
+            }
+          }
+        );
+
+
+      data =
+        await response.json();
+
+
+      if (
+        !response.ok ||
+        data?.ok !== true
+      ) {
+        throw new Error(
+          data?.error ||
+          "Could not load career history"
+        );
+      }
+
+
+      mlbPropCareerCache.set(
+        key,
+        data
+      );
+    }
+
+
+    if (
+      box.dataset.key !== key
+    ) {
+      return;
+    }
+
+
+    box.innerHTML =
+      renderMLBPropCareer(
+        index,
+        data,
+        info
+      );
+
+
+  } catch (error) {
+
+    console.error(
+      "CAREER ERROR:",
+      error
+    );
+
+
+    box.innerHTML = `
+      <div style="
+        color:#ff8b8b;
+        font-size:8px;
+        text-align:center;
+        padding:10px;
+      ">
+        ${sanitize(
+          error.message ||
+          "Could not load career history"
+        )}
+      </div>
+    `;
+  }
+}
+
+
+window.openMLBPropCareer =
+  openMLBPropCareer;
+
+window.closeMLBPropCareer =
+  closeMLBPropCareer;
+
+window.toggleMLBPropCareerGames =
+  toggleMLBPropCareerGames;
 async function showMLBPropPlayer(
   index,
   encodedPlayer,
