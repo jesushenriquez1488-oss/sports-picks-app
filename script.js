@@ -12898,28 +12898,25 @@ const requestedSide =
  */
 const getPropSideScore = prop => {
 
-  /*
-   * HR conserva su lógica especial
-   * de ventaja contra el sportsbook.
-   */
+  const finalValue =
+    Number(prop.finalValue);
+
   if (
-    prop.market ===
-    "batter_home_runs"
+    prop.finalSignal &&
+    Number.isFinite(finalValue)
   ) {
-
-    const advantage =
-      Number(
-        prop.modelAdvantage
-      );
-
-    if (
-      Number.isFinite(
-        advantage
-      )
-    ) {
-      return advantage;
-    }
+    return finalValue;
   }
+
+  const edge =
+    Number(prop.edge);
+
+  if (Number.isFinite(edge)) {
+    return edge;
+  }
+
+  return -9999;
+};
 
 
   /*
@@ -12952,9 +12949,12 @@ const propMap =
 
 rawPlayerProps.forEach(prop => {
 
-  const propSide =
-    String(prop.side || "")
-      .toUpperCase();
+ const propSide =
+  String(
+    prop.finalSignal?.side ||
+    prop.side ||
+    ""
+  ).toUpperCase();
 
   const existing =
     propMap.get(
@@ -13172,33 +13172,79 @@ rawPlayerProps.forEach(prop => {
     );
 
 
-  const line =
-    Number(selectedProp.line);
+ const line =
+  Number(selectedProp.line);
 
-  const side =
-    String(
-      selectedProp.side || "OVER"
-    ).toUpperCase();
+const side =
+  String(
+    selectedProp.finalSignal?.side ||
+    selectedProp.side ||
+    "OVER"
+  ).toUpperCase();
 
 
-  const projection =
-    Number(selectedProp.projection);
+const projection =
+  Number(selectedProp.projection);
 
- const confidence =
+const confidence =
   Number(
+    selectedProp.finalSignal?.confidence ??
     selectedProp.displayConfidence ??
     selectedProp.confidence ??
     0
   );
 
-  const odds =
-    Number(selectedProp.odds);
+const value =
+  selectedProp.finalValue !== null &&
+  selectedProp.finalValue !== undefined
+    ? Number(selectedProp.finalValue)
+    : null;
 
-  const oddsText =
-    Number.isFinite(odds)
-      ? `${odds > 0 ? "+" : ""}${odds}`
-      : "—";
+const implied =
+  selectedProp.finalSportsbookImpliedPct !== null &&
+  selectedProp.finalSportsbookImpliedPct !== undefined
+    ? Number(
+        selectedProp.finalSportsbookImpliedPct
+      )
+    : null;
 
+const bookmaker =
+  selectedProp.finalSportsbookPrice
+    ?.bookmaker ||
+  selectedProp.bookmaker ||
+  null;
+
+const odds =
+  Number(
+    selectedProp.finalSportsbookPrice?.odds ??
+    selectedProp.odds
+  );
+
+const oddsText =
+  Number.isFinite(odds)
+    ? `${odds > 0 ? "+" : ""}${odds}`
+    : "—";
+
+const valueStatus =
+  Number.isFinite(value)
+    ? value >= 10
+      ? {
+          text: "VALUE PLAY",
+          color: "#00ffe7"
+        }
+      : value > 0
+        ? {
+            text: "LOW VALUE",
+            color: "#ffad5c"
+          }
+        : {
+            text: "EXPENSIVE LINE · NO VALUE",
+            color: "#ff5d73"
+          }
+    : {
+        text: "NO PRICE DATA",
+        color: "#71839f"
+      };
 
   /*
    * Resultados recientes.
@@ -13452,11 +13498,26 @@ if (isPitcher) {
         const meta =
           MARKET_META[prop.market];
 
-        const active =
-          prop.market ===
-          selectedProp.market;
+       const active =
+  prop.market ===
+  selectedProp.market;
 
-        return `
+const propValue =
+  prop.finalValue !== null &&
+  prop.finalValue !== undefined
+    ? Number(prop.finalValue)
+    : null;
+
+const propValueColor =
+  Number.isFinite(propValue)
+    ? propValue >= 10
+      ? "#00ffe7"
+      : propValue > 0
+        ? "#ffad5c"
+        : "#ff5d73"
+    : "#71839f";
+
+return `
           <button
             type="button"
            onclick="showMLBPropPlayer(
@@ -13468,7 +13529,11 @@ if (isPitcher) {
   '${prop.market}',
   '${windowKey}',
   false,
-  '${String(prop.side || "").toUpperCase()}'
+ '${String(
+  prop.finalSignal?.side ||
+  prop.side ||
+  ""
+).toUpperCase()}'
 )"
             style="
               flex:0 0 auto;
@@ -13494,10 +13559,32 @@ if (isPitcher) {
               cursor:pointer;
             "
           >
-            ${sanitize(
-              meta?.short ||
-              prop.market
-            )}
+            <div style="
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  line-height:1.05;
+">
+  <span>
+    ${sanitize(
+      meta?.short ||
+      prop.market
+    )}
+  </span>
+
+  <small style="
+    margin-top:3px;
+    font-size:7px;
+    color:${propValueColor};
+    font-weight:900;
+  ">
+    ${
+      Number.isFinite(propValue)
+        ? `${propValue >= 0 ? "+" : ""}${propValue.toFixed(1)}%`
+        : "NO DATA"
+    }
+  </small>
+</div>
           </button>
         `;
       })
@@ -13528,7 +13615,11 @@ if (isPitcher) {
   '${selectedProp.market}',
   '${key}',
   false,
-  '${String(selectedProp.side || "").toUpperCase()}'
+ '${String(
+  selectedProp.finalSignal?.side ||
+  selectedProp.side ||
+  ""
+).toUpperCase()}'
 )"
           style="
             flex:1;
@@ -14023,10 +14114,11 @@ if (isPitcher) {
 </div>
       `
       : `
-       <div style="
+   : `
+<div style="
   display:grid;
   grid-template-columns:
-    repeat(3,minmax(0,1fr));
+    repeat(4,minmax(0,1fr));
   margin-top:10px;
   background:#0f1628;
   border-radius:9px;
@@ -14038,37 +14130,24 @@ if (isPitcher) {
     padding:8px 3px;
     border-right:1px solid #1a2740;
   ">
-
     <small style="
       display:block;
       color:#60708d;
       font-size:6.5px;
       font-weight:800;
-      letter-spacing:.04em;
       white-space:nowrap;
     ">
-      SPORTSBOOK
+      ODDS
     </small>
 
     <strong style="
       display:block;
       margin-top:4px;
-      color:#fff;
-      font-size:14px;
-      line-height:1;
+      color:#ffad5c;
+      font-size:13px;
     ">
-      ${line}
+      ${oddsText}
     </strong>
-
-    <small style="
-      display:block;
-      margin-top:3px;
-      color:#4f6078;
-      font-size:6px;
-    ">
-      LINE
-    </small>
-
   </div>
 
 
@@ -14077,72 +14156,21 @@ if (isPitcher) {
     padding:8px 3px;
     border-right:1px solid #1a2740;
   ">
-
     <small style="
       display:block;
       color:#60708d;
       font-size:6.5px;
       font-weight:800;
-      letter-spacing:.04em;
       white-space:nowrap;
     ">
-      CASHEDGE
+      CONF.
     </small>
 
     <strong style="
       display:block;
       margin-top:4px;
       color:#00ffe7;
-      font-size:14px;
-      line-height:1;
-    ">
-      ${
-        Number.isFinite(
-          projection
-        )
-          ? projection.toFixed(2)
-          : "—"
-      }
-    </strong>
-
-    <small style="
-      display:block;
-      margin-top:3px;
-      color:#4f6078;
-      font-size:6px;
-    ">
-      PROJECTION
-    </small>
-
-  </div>
-
-
-  <div style="
-    text-align:center;
-    padding:8px 3px;
-  ">
-
-    <small style="
-      display:block;
-      color:#60708d;
-      font-size:6.5px;
-      font-weight:800;
-      letter-spacing:.04em;
-      white-space:nowrap;
-    ">
-      CONFIDENCE
-    </small>
-
-    <strong style="
-      display:block;
-      margin-top:4px;
-      color:${
-        confidence >= 65
-          ? "#00ffe7"
-          : "#fff"
-      };
-      font-size:14px;
-      line-height:1;
+      font-size:13px;
     ">
       ${
         confidence > 0
@@ -14150,16 +14178,65 @@ if (isPitcher) {
           : "—"
       }
     </strong>
+  </div>
 
+
+  <div style="
+    text-align:center;
+    padding:8px 3px;
+    border-right:1px solid #1a2740;
+  ">
     <small style="
       display:block;
-      margin-top:3px;
-      color:#4f6078;
-      font-size:6px;
+      color:#60708d;
+      font-size:6.5px;
+      font-weight:800;
+      white-space:nowrap;
     ">
-      MODEL
+      VALUE
     </small>
 
+    <strong style="
+      display:block;
+      margin-top:4px;
+      color:${valueStatus.color};
+      font-size:13px;
+    ">
+      ${
+        Number.isFinite(value)
+          ? `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`
+          : "—"
+      }
+    </strong>
+  </div>
+
+
+  <div style="
+    text-align:center;
+    padding:8px 3px;
+  ">
+    <small style="
+      display:block;
+      color:#60708d;
+      font-size:6.5px;
+      font-weight:800;
+      white-space:nowrap;
+    ">
+      BOOK PROB.
+    </small>
+
+    <strong style="
+      display:block;
+      margin-top:4px;
+      color:#78aaff;
+      font-size:13px;
+    ">
+      ${
+        Number.isFinite(implied)
+          ? implied.toFixed(1) + "%"
+          : "—"
+      }
+    </strong>
   </div>
 
 </div>
@@ -14814,17 +14891,44 @@ const todayConditionsHTML =
             · ${oddsText}
           </div>
 
-          <small style="
-            display:block;
-            margin-top:4px;
-            color:#60708d;
-            font-size:8px;
-          ">
-            ${sanitize(
-              selectedProp.bookmaker ||
-              ""
-            )}
-          </small>
+          <div style="
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-top:5px;
+  font-size:8px;
+">
+
+  ${
+    bookmaker
+      ? `
+        <span style="color:#71839f;">
+          ${sanitize(bookmaker)}
+        </span>
+      `
+      : ""
+  }
+
+  <span style="
+    color:${valueStatus.color};
+    font-weight:900;
+  ">
+    ${valueStatus.text}
+  </span>
+
+  ${
+    Number.isFinite(value)
+      ? `
+        <strong style="
+          color:${valueStatus.color};
+        ">
+          ${value >= 0 ? "+" : ""}${value.toFixed(1)}%
+        </strong>
+      `
+      : ""
+  }
+
+</div>
         </div>
 
       </div>
