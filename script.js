@@ -10926,8 +10926,10 @@ const cards =
   Number(
     prop.finalSignal?.confidence || 0
   );
-      const hrChance =
-        Number(prop.modelProbability);
+     const hrChance =
+  Number(
+    prop.finalSignal?.confidence || 0
+  );
 
       const sportsbookChance =
         Number(prop.sportsbookProbability);
@@ -10969,7 +10971,7 @@ const cards =
               font-size:7px;
               color:#71839f;
             ">
-              SCORE
+              PROB
             </small>
           `
           : `
@@ -11123,7 +11125,7 @@ ${
       font-weight:800;
       letter-spacing:.05em;
     ">
-      ADVANTAGE
+      VALUE
     </div>
 
     <strong style="
@@ -13963,16 +13965,10 @@ return `
       line-height:1;
     ">
       ${
-        Number.isFinite(
-          Number(
-            selectedProp.modelProbability
-          )
-        )
-          ? Number(
-              selectedProp.modelProbability
-            ).toFixed(1) + "%"
-          : "—"
-      }
+         Number.isFinite(confidence)
+    ? confidence.toFixed(1) + "%"
+    : "—"
+}
     </strong>
 
     <small style="
