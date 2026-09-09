@@ -5882,7 +5882,830 @@ window.showNFLPlayerPropsCategory =
 // Una sola respuesta de NFL Player Props por eventId durante la sesión de página.
 // Player Props y Player Stats comparten exactamente el mismo payload.
 const nflPlayerPropsSharedCache = {};
+const nflPlayerPropsCareerCache =
+  new Map();
+function closeNFLPlayerPropsCareer(
+  index
+) {
 
+  const box =
+    document.getElementById(
+      `nflPropCareerDetail${index}`
+    );
+
+  if (!box) return;
+
+
+  box.innerHTML = "";
+  box.style.display = "none";
+  box.dataset.key = "";
+}
+function toggleNFLPlayerPropsCareerGames(
+  index,
+  button
+) {
+
+  const expanded =
+    button.dataset.expanded ===
+    "true";
+
+
+  document
+    .querySelectorAll(
+      `.nfl-prop-career-extra-${index}`
+    )
+    .forEach(row => {
+
+      row.style.display =
+        expanded
+          ? "none"
+          : "grid";
+    });
+
+
+  button.dataset.expanded =
+    expanded
+      ? "false"
+      : "true";
+
+
+  button.innerText =
+    expanded
+      ? "VIEW ALL GAMES ↓"
+      : "SHOW LESS ↑";
+}
+function renderNFLPlayerPropsCareer(
+  index,
+  data,
+  info
+) {
+
+  const meta =
+    ceNFLPropMeta(
+      data?.market ||
+      info?.market ||
+      ""
+    );
+
+
+  const marketLabel =
+    meta?.label ||
+    "PROP";
+
+
+  const marketUnit =
+    meta?.unit ||
+    "";
+
+
+  const careerCoverage =
+    data?.career?.coverage ||
+    {};
+
+
+  const last10Coverage =
+    data?.last10?.coverage ||
+    {};
+
+
+  const careerGames =
+    Number(
+      data?.career?.games ||
+      careerCoverage?.games ||
+      0
+    );
+
+
+  const last10Games =
+    Number(
+      data?.last10?.games ||
+      last10Coverage?.games ||
+      0
+    );
+
+
+  const careerWins =
+    Number(
+      careerCoverage?.wins ||
+      0
+    );
+
+
+  const last10Wins =
+    Number(
+      last10Coverage?.wins ||
+      0
+    );
+
+
+  const careerPct =
+    Number(
+      careerCoverage?.percentage
+    );
+
+
+  const last10Pct =
+    Number(
+      last10Coverage?.percentage
+    );
+
+
+  const results =
+    Array.isArray(
+      data?.results
+    )
+      ? data.results
+      : [];
+
+
+  const gamesHTML =
+    results
+      .map(
+        (game, i) => {
+
+          const date =
+            game?.date
+              ? new Date(
+                  game.date
+                ).toLocaleDateString(
+                  "en-US",
+                  {
+                    month: "short",
+                    day: "numeric",
+                    year: "2-digit"
+                  }
+                )
+              : "—";
+
+
+          const result =
+            String(
+              game?.result ||
+              ""
+            ).toUpperCase();
+
+
+          const symbol =
+            result === "HIT"
+              ? "✓"
+              : result === "MISS"
+                ? "✕"
+                : "—";
+
+
+          const resultColor =
+            result === "HIT"
+              ? "#00ffe7"
+              : result === "MISS"
+                ? "#ff6b6b"
+                : "#71839f";
+
+
+          const prefix =
+            String(
+              game?.homeAway ||
+              ""
+            ).toUpperCase() ===
+            "AWAY"
+              ? "@"
+              : "vs";
+
+
+          const hidden =
+            i >= 5;
+
+
+          return `
+            <div
+              class="${
+                hidden
+                  ? `nfl-prop-career-extra-${index}`
+                  : ""
+              }"
+              style="
+                ${
+                  hidden
+                    ? "display:none;"
+                    : "display:grid;"
+                }
+
+                grid-template-columns:
+                  62px
+                  minmax(0,1fr)
+                  auto
+                  12px;
+
+                align-items:center;
+                gap:5px;
+                padding:6px 0;
+                border-top:
+                  1px solid #18243a;
+              "
+            >
+
+              <span style="
+                color:#60708d;
+                font-size:7px;
+              ">
+                ${date}
+              </span>
+
+
+              <span style="
+                color:#8b9bb5;
+                font-size:7px;
+                overflow:hidden;
+                text-overflow:ellipsis;
+                white-space:nowrap;
+              ">
+                ${prefix}
+                ${sanitize(
+                  game?.opponent ||
+                  "OPP"
+                )}
+              </span>
+
+
+              <strong style="
+                color:#fff;
+                font-size:8px;
+                white-space:nowrap;
+              ">
+                ${
+                  Number.isFinite(
+                    Number(
+                      game?.value
+                    )
+                  )
+                    ? `${
+                        Number(
+                          game.value
+                        )
+                      }${
+                        marketUnit
+                          ? ` ${marketUnit}`
+                          : ""
+                      }`
+                    : "—"
+                }
+              </strong>
+
+
+              <strong style="
+                color:${resultColor};
+                font-size:10px;
+                text-align:center;
+              ">
+                ${symbol}
+              </strong>
+
+            </div>
+          `;
+        }
+      )
+      .join("");
+
+
+  return `
+    <div style="
+      background:#09111f;
+      border:
+        1px solid
+        rgba(0,255,231,.28);
+      border-radius:10px;
+      padding:9px;
+    ">
+
+      <div style="
+        display:flex;
+        justify-content:
+          space-between;
+        align-items:flex-start;
+        gap:8px;
+      ">
+
+        <div style="
+          min-width:0;
+        ">
+
+          <strong style="
+            display:block;
+            color:#fff;
+            font-size:9px;
+            font-weight:900;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            white-space:nowrap;
+          ">
+            ${sanitize(
+              info?.title ||
+              "CAREER"
+            )}
+          </strong>
+
+
+          <small style="
+            display:block;
+            color:#60708d;
+            font-size:6.5px;
+            margin-top:3px;
+          ">
+            TODAY'S LINE ·
+            ${sanitize(
+              String(
+                data?.side ||
+                ""
+              )
+            )}
+            ${data?.line}
+            ${sanitize(
+              marketLabel
+            )}
+          </small>
+
+        </div>
+
+
+        <button
+          type="button"
+          onclick="
+            closeNFLPlayerPropsCareer(
+              ${index}
+            )
+          "
+          style="
+            width:21px;
+            height:21px;
+            border-radius:50%;
+            border:
+              1px solid #1a2740;
+            background:#0f1628;
+            color:#71839f;
+            cursor:pointer;
+          "
+        >
+          ×
+        </button>
+
+      </div>
+
+
+      <div style="
+        display:grid;
+        grid-template-columns:
+          1fr 1fr;
+        gap:5px;
+        margin-top:8px;
+      ">
+
+        <div style="
+          background:#0f1628;
+          border:
+            1px solid #1a2740;
+          border-radius:8px;
+          padding:7px;
+        ">
+
+          <small style="
+            color:#60708d;
+            font-size:6px;
+            font-weight:800;
+          ">
+            CAREER
+          </small>
+
+          <div style="
+            margin-top:3px;
+          ">
+
+            <strong style="
+              color:#fff;
+              font-size:14px;
+            ">
+              ${
+                careerGames
+                  ? `${careerWins}/${careerGames}`
+                  : "—"
+              }
+            </strong>
+
+            <span style="
+              color:#00ffe7;
+              font-size:8px;
+              margin-left:4px;
+              font-weight:800;
+            ">
+              ${
+                Number.isFinite(
+                  careerPct
+                )
+                  ? `${careerPct.toFixed(0)}%`
+                  : ""
+              }
+            </span>
+
+          </div>
+
+        </div>
+
+
+        <div style="
+          background:#0f1628;
+          border:
+            1px solid #1a2740;
+          border-radius:8px;
+          padding:7px;
+        ">
+
+          <small style="
+            color:#60708d;
+            font-size:6px;
+            font-weight:800;
+          ">
+            LAST 10
+          </small>
+
+          <div style="
+            margin-top:3px;
+          ">
+
+            <strong style="
+              color:#fff;
+              font-size:14px;
+            ">
+              ${
+                last10Games
+                  ? `${last10Wins}/${last10Games}`
+                  : "—"
+              }
+            </strong>
+
+            <span style="
+              color:#00ffe7;
+              font-size:8px;
+              margin-left:4px;
+              font-weight:800;
+            ">
+              ${
+                Number.isFinite(
+                  last10Pct
+                )
+                  ? `${last10Pct.toFixed(0)}%`
+                  : ""
+              }
+            </span>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      ${
+        results.length
+          ? `
+            <div style="
+              color:#60708d;
+              font-size:6px;
+              font-weight:800;
+              margin-top:8px;
+              margin-bottom:2px;
+            ">
+              GAME BY GAME
+            </div>
+
+
+            ${gamesHTML}
+
+
+            ${
+              results.length > 5
+                ? `
+                  <button
+                    type="button"
+                    data-expanded="false"
+                    onclick="
+                      toggleNFLPlayerPropsCareerGames(
+                        ${index},
+                        this
+                      )
+                    "
+                    style="
+                      display:block;
+                      width:100%;
+                      margin-top:5px;
+                      padding:6px;
+                      border:
+                        1px solid #1a2740;
+                      border-radius:7px;
+                      background:#0f1628;
+                      color:#00ffe7;
+                      font-size:6px;
+                      font-weight:800;
+                      cursor:pointer;
+                    "
+                  >
+                    VIEW ALL GAMES ↓
+                  </button>
+                `
+                : ""
+            }
+          `
+          : `
+            <div style="
+              color:#60708d;
+              font-size:8px;
+              text-align:center;
+              padding:10px 0 2px;
+            ">
+              NO CAREER HISTORY
+            </div>
+          `
+      }
+
+    </div>
+  `;
+}
+async function openNFLPlayerPropsCareer(
+  index,
+  encodedInfo,
+  button
+) {
+
+  const box =
+    document.getElementById(
+      `nflPropCareerDetail${index}`
+    );
+
+  if (!box) return;
+
+
+  let info;
+
+  try {
+
+    info =
+      JSON.parse(
+        decodeURIComponent(
+          encodedInfo
+        )
+      );
+
+  } catch (error) {
+
+    console.error(
+      "NFL PLAYER PROPS CAREER PAYLOAD ERROR:",
+      error
+    );
+
+    return;
+  }
+
+
+  const key =
+    [
+      info.athleteId,
+      info.market,
+      info.side,
+      info.line,
+      info.careerType,
+      info.contextValue,
+      info.opponentId
+    ].join("|");
+
+
+  /*
+   * Si toca otra vez el mismo
+   * VIEW CAREER, lo cerramos.
+   */
+  if (
+    box.style.display !== "none" &&
+    box.dataset.key === key
+  ) {
+
+    closeNFLPlayerPropsCareer(
+      index
+    );
+
+    return;
+  }
+
+
+  box.style.display =
+    "block";
+
+  box.dataset.key =
+    key;
+
+
+  box.innerHTML = `
+    <div style="
+      background:#09111f;
+      border:
+        1px solid
+        rgba(0,255,231,.22);
+      border-radius:10px;
+      padding:10px;
+      color:#71839f;
+      font-size:8px;
+      text-align:center;
+    ">
+      LOADING CAREER...
+    </div>
+  `;
+
+
+  try {
+
+    /*
+     * Primero revisamos el cache
+     * de esta sesión de página.
+     */
+    let data =
+      nflPlayerPropsCareerCache.get(
+        key
+      );
+
+
+    if (!data) {
+
+      const {
+        data: sessionData
+      } =
+        await supabaseClient.auth
+          .getSession();
+
+
+      const token =
+        sessionData
+          ?.session
+          ?.access_token;
+
+
+      if (!token) {
+        throw new Error(
+          "Unauthorized"
+        );
+      }
+
+
+      const params =
+        new URLSearchParams({
+          mode:
+            "nfl-player-props-career",
+
+          athleteId:
+            String(
+              info.athleteId ||
+              ""
+            ),
+
+          market:
+            String(
+              info.market ||
+              ""
+            ),
+
+          side:
+            String(
+              info.side ||
+              "OVER"
+            ),
+
+          line:
+            String(
+              info.line
+            ),
+
+          careerType:
+            String(
+              info.careerType ||
+              "history"
+            ),
+
+          contextValue:
+            String(
+              info.contextValue ||
+              ""
+            ),
+
+          experienceYears:
+            String(
+              info.experienceYears ||
+              0
+            )
+        });
+
+
+      if (info.opponentId) {
+
+        params.set(
+          "opponentId",
+          String(
+            info.opponentId
+          )
+        );
+      }
+
+
+      if (info.opponentName) {
+
+        params.set(
+          "opponentName",
+          String(
+            info.opponentName
+          )
+        );
+      }
+
+
+      const response =
+        await fetch(
+          `/api/football-data?${params.toString()}`,
+          {
+            headers: {
+              Authorization:
+                `Bearer ${token}`
+            }
+          }
+        );
+
+
+      data =
+        await response.json();
+
+
+      if (
+        !response.ok ||
+        data?.ok !== true
+      ) {
+
+        throw new Error(
+          data?.error ||
+          "Could not load career history"
+        );
+      }
+
+
+      nflPlayerPropsCareerCache.set(
+        key,
+        data
+      );
+    }
+
+
+    /*
+     * El usuario pudo haber abierto
+     * otra tarjeta mientras cargaba.
+     */
+    if (
+      box.dataset.key !== key
+    ) {
+      return;
+    }
+
+
+    box.innerHTML =
+      renderNFLPlayerPropsCareer(
+        index,
+        data,
+        info
+      );
+
+
+  } catch (error) {
+
+    console.error(
+      "NFL PLAYER PROPS CAREER ERROR:",
+      error
+    );
+
+
+    if (
+      box.dataset.key !== key
+    ) {
+      return;
+    }
+
+
+    box.innerHTML = `
+      <div style="
+        background:#09111f;
+        border:
+          1px solid
+          rgba(255,107,107,.25);
+        border-radius:10px;
+        padding:10px;
+        color:#ff8a8a;
+        font-size:8px;
+        text-align:center;
+      ">
+        COULD NOT LOAD CAREER HISTORY
+      </div>
+    `;
+  }
+}
 async function getNFLPlayerPropsShared(
   eventId,
   accessToken
@@ -7755,7 +8578,82 @@ ${
       hasCoverage
         ? Number(coverage.percentage)
         : null;
+    /*
+     * NFL PLAYER PROPS — CAREER PAYLOAD
+     */
 
+    const careerInfo = {
+      athleteId:
+        selectedProp?.athleteId ||
+        player?.id ||
+        "",
+
+      playerName:
+        selectedProp?.player ||
+        player?.name ||
+        "",
+
+      experienceYears:
+        Number(
+          selectedProp?.experienceYears ??
+          player?.experienceYears ??
+          0
+        ),
+
+      market:
+        selectedProp?.market ||
+        "",
+
+      side:
+        String(
+          selectedProp?.side ||
+          propSide ||
+          "OVER"
+        ).toUpperCase(),
+
+      line:
+        Number(
+          selectedProp?.line ??
+          propLine
+        ),
+
+      careerType,
+
+      contextValue:
+        careerType === "location"
+          ? propLocationLabel
+          : careerType === "vs"
+            ? propVsOpponent
+            : "",
+
+      opponentId:
+        careerType === "vs"
+          ? String(
+              propVsCoverage
+                ?.opponentId ||
+              ""
+            )
+          : "",
+
+      opponentName:
+        careerType === "vs"
+          ? propVsOpponent
+          : "",
+
+      title:
+        `${label} · CAREER`
+    };
+
+
+    const encodedCareerInfo =
+      encodeURIComponent(
+        JSON.stringify(
+          careerInfo
+        )
+      ).replace(
+        /'/g,
+        "%27"
+      );
 
     return `
       <div style="
@@ -7826,16 +8724,32 @@ ${
                   : ""
                 
               }
-                            <small style="
-                display:block;
-                margin-top:7px;
-                color:#00ffe7;
-                font-size:5.8px;
-                font-weight:900;
-                letter-spacing:.03em;
-              ">
-                VIEW CAREER ›
-              </small>
+                           <button
+  type="button"
+  class="nfl-prop-career-btn"
+  onclick="
+    openNFLPlayerPropsCareer(
+      ${index},
+      '${encodedCareerInfo}',
+      this
+    )
+  "
+  style="
+    display:block;
+    width:100%;
+    margin-top:7px;
+    padding:0;
+    border:0;
+    background:transparent;
+    color:#00ffe7;
+    font-size:5.8px;
+    font-weight:900;
+    letter-spacing:.03em;
+    cursor:pointer;
+  "
+>
+  VIEW CAREER ›
+</button>
             `
             : `
               <strong style="
@@ -8126,6 +9040,20 @@ ${
           ? todayConditionsCard
           : matchupCard + situationalCard
       }
+      ${
+  source === "props"
+    ? `
+      <div
+        id="nflPropCareerDetail${index}"
+        data-key=""
+        style="
+          display:none;
+          margin-bottom:9px;
+        "
+      ></div>
+    `
+    : ""
+}
       <div style="
         background:#0b1323;
         border:1px solid #1a2740;
@@ -8148,6 +9076,7 @@ ${
         ">
           ${currentMetrics}
         </div>
+        
       </div>
 
       <div style="
