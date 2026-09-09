@@ -6896,7 +6896,133 @@ const backLabel =
   const propSide = String(selectedProp?.side || "Over").toLowerCase() === "under"
     ? "Under"
     : "Over";
+  /*
+   * NFL PLAYER PROPS — DATA V3
+   * Solo se utilizará en la vista de Player Props.
+   */
 
+  const propConfidence =
+    selectedProp &&
+    Number.isFinite(
+      Number(selectedProp.confidence)
+    )
+      ? Number(selectedProp.confidence)
+      : null;
+
+
+  const propModelConfidence =
+    selectedProp &&
+    Number.isFinite(
+      Number(selectedProp.modelConfidence)
+    )
+      ? Number(selectedProp.modelConfidence)
+      : null;
+
+
+  const propValue =
+    selectedProp &&
+    Number.isFinite(
+      Number(selectedProp.value)
+    )
+      ? Number(selectedProp.value)
+      : null;
+
+
+  const propBookProbability =
+    selectedProp &&
+    Number.isFinite(
+      Number(selectedProp.sportsbookImpliedPct)
+    )
+      ? Number(
+          selectedProp.sportsbookImpliedPct
+        )
+      : null;
+
+
+  const propBookmaker =
+    selectedProp?.bookmaker ||
+    null;
+
+
+  const propOddsDecimal =
+    selectedProp &&
+    Number.isFinite(
+      Number(selectedProp.odds)
+    )
+      ? Number(selectedProp.odds)
+      : null;
+
+
+  const propOddsAmerican =
+    propOddsDecimal &&
+    propOddsDecimal > 1
+      ? propOddsDecimal >= 2
+        ? Math.round(
+            (propOddsDecimal - 1) *
+            100
+          )
+        : Math.round(
+            -100 /
+            (propOddsDecimal - 1)
+          )
+      : null;
+
+
+  const propOddsText =
+    Number.isFinite(
+      propOddsAmerican
+    )
+      ? `${
+          propOddsAmerican > 0
+            ? "+"
+            : ""
+        }${propOddsAmerican}`
+      : "—";
+    /*
+   * NFL PLAYER PROPS — HISTORICAL CONDITIONS V3
+   *
+   * Estos datos vienen del MISMO cálculo
+   * que ya participa en el confidence 50/50.
+   */
+
+  const propHistoricalCoverages =
+    source === "props" &&
+    selectedProp?.historicalCoverages &&
+    typeof selectedProp.historicalCoverages === "object"
+      ? selectedProp.historicalCoverages
+      : {};
+
+
+  const propLocationCoverage =
+    propHistoricalCoverages.location ||
+    null;
+
+
+  const propHistoryCoverage =
+    propHistoricalCoverages.history ||
+    null;
+
+
+  const propVsCoverage =
+    propHistoricalCoverages.vs ||
+    null;
+
+
+  const propLocationLabel =
+    String(
+      propLocationCoverage?.condition ||
+      (
+        isAwayPlayer
+          ? "AWAY"
+          : "HOME"
+      )
+    ).toUpperCase();
+
+
+  const propVsOpponent =
+    propVsCoverage?.opponent ||
+    opponentTeam ||
+    "OPPONENT";
   const gradePropValue = value => {
     if (!selectedProp || !Number.isFinite(propLine) || !Number.isFinite(value)) return null;
     if (value === propLine) return "push";
@@ -6965,16 +7091,226 @@ const backLabel =
               ${selectedProp.bookmaker ? ` · ${sanitize(selectedProp.bookmaker)}` : ""}
             </div>
           </div>
-          ${Number.isFinite(Number(selectedProp.confidence)) ? `
-            <div style="text-align:right;flex-shrink:0;">
-              <strong style="display:block;color:#00ffe7;font-size:18px;line-height:1;">
-                ${Number(selectedProp.confidence).toFixed(1)}%
-              </strong>
-              <small style="display:block;margin-top:4px;color:#60708d;font-size:7px;">MODEL</small>
-            </div>
-          ` : ""}
-        </div>
+                   ${
+            source === "props"
+              ? `
+                <div style="
+                  text-align:right;
+                  flex-shrink:0;
+                ">
+                  <strong style="
+                    display:block;
+                    color:${
+                      propValue !== null &&
+                      propValue >= 10
+                        ? "#00ffe7"
+                        : propValue !== null &&
+                          propValue > 0
+                          ? "#ffad5c"
+                          : "#71839f"
+                    };
+                    font-size:10px;
+                    font-weight:900;
+                    line-height:1.1;
+                  ">
+                    ${
+                      propValue !== null &&
+                      propValue >= 10
+                        ? "VALUE PLAY"
+                        : propValue !== null &&
+                          propValue > 0
+                          ? "SMALL VALUE"
+                          : "LOW VALUE"
+                    }
+                  </strong>
 
+                  <small style="
+                    display:block;
+                    margin-top:4px;
+                    color:#71839f;
+                    font-size:8px;
+                    font-weight:800;
+                  ">
+                    ${
+                      propValue !== null
+                        ? `${propValue >= 0 ? "+" : ""}${propValue.toFixed(1)}%`
+                        : "—"
+                    }
+                  </small>
+                </div>
+              `
+              : Number.isFinite(
+                  Number(
+                    selectedProp.confidence
+                  )
+                )
+                ? `
+                  <div style="
+                    text-align:right;
+                    flex-shrink:0;
+                  ">
+                    <strong style="
+                      display:block;
+                      color:#00ffe7;
+                      font-size:18px;
+                      line-height:1;
+                    ">
+                      ${Number(
+                        selectedProp.confidence
+                      ).toFixed(1)}%
+                    </strong>
+
+                    <small style="
+                      display:block;
+                      margin-top:4px;
+                      color:#60708d;
+                      font-size:7px;
+                    ">
+                      MODEL
+                    </small>
+                  </div>
+                `
+                : ""
+          }
+        </div>
+        ${
+          source === "props"
+            ? `
+              <div style="
+                display:grid;
+                grid-template-columns:
+                  repeat(4,minmax(0,1fr));
+                gap:6px;
+                margin-bottom:10px;
+              ">
+
+                <div style="
+                  background:#0f1628;
+                  border-radius:8px;
+                  padding:8px 3px;
+                  text-align:center;
+                ">
+                  <small style="
+                    display:block;
+                    color:#60708d;
+                    font-size:7px;
+                    font-weight:800;
+                  ">
+                    ODDS
+                  </small>
+
+                  <strong style="
+                    display:block;
+                    margin-top:5px;
+                    color:#ffad5c;
+                    font-size:12px;
+                  ">
+                    ${propOddsText}
+                  </strong>
+                </div>
+
+
+                <div style="
+                  background:#0f1628;
+                  border-radius:8px;
+                  padding:8px 3px;
+                  text-align:center;
+                ">
+                  <small style="
+                    display:block;
+                    color:#60708d;
+                    font-size:7px;
+                    font-weight:800;
+                  ">
+                    CONF.
+                  </small>
+
+                  <strong style="
+                    display:block;
+                    margin-top:5px;
+                    color:#00ffe7;
+                    font-size:12px;
+                  ">
+                    ${
+                      propConfidence !== null
+                        ? `${propConfidence.toFixed(1)}%`
+                        : "—"
+                    }
+                  </strong>
+                </div>
+
+
+                <div style="
+                  background:#0f1628;
+                  border-radius:8px;
+                  padding:8px 3px;
+                  text-align:center;
+                ">
+                  <small style="
+                    display:block;
+                    color:#60708d;
+                    font-size:7px;
+                    font-weight:800;
+                  ">
+                    VALUE
+                  </small>
+
+                  <strong style="
+                    display:block;
+                    margin-top:5px;
+                    color:${
+                      propValue !== null &&
+                      propValue >= 10
+                        ? "#00ffe7"
+                        : propValue !== null &&
+                          propValue > 0
+                          ? "#ffad5c"
+                          : "#71839f"
+                    };
+                    font-size:12px;
+                  ">
+                    ${
+                      propValue !== null
+                        ? `${propValue >= 0 ? "+" : ""}${propValue.toFixed(1)}%`
+                        : "—"
+                    }
+                  </strong>
+                </div>
+
+
+                <div style="
+                  background:#0f1628;
+                  border-radius:8px;
+                  padding:8px 3px;
+                  text-align:center;
+                ">
+                  <small style="
+                    display:block;
+                    color:#60708d;
+                    font-size:7px;
+                    font-weight:800;
+                  ">
+                    BOOK PROB.
+                  </small>
+
+                  <strong style="
+                    display:block;
+                    margin-top:5px;
+                    color:#78aaff;
+                    font-size:12px;
+                  ">
+                    ${
+                      propBookProbability !== null
+                        ? `${propBookProbability.toFixed(1)}%`
+                        : "—"
+                    }
+                  </strong>
+                </div>
+
+              </div>
+            `
+            : ""
+        }
         ${playerProps.length > 1 ? `
           <div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;padding-bottom:2px;">
             ${playerProps.map(prop => {
@@ -7374,6 +7710,228 @@ ${
 
   </div>
 `;
+    /*
+   * =====================================================
+   * NFL PLAYER PROPS — TODAY'S CONDITIONS
+   * =====================================================
+   *
+   * Exclusivo de Player Props.
+   *
+   * Usa exactamente los coverage que vienen
+   * del backend y que forman parte del 50/50.
+   * =====================================================
+   */
+
+   const renderNFLPropConditionCard = ({
+    icon,
+    label,
+    coverage,
+    careerType
+  }) => {
+    const hasCoverage =
+      coverage &&
+      Number.isFinite(
+        Number(coverage.percentage)
+      ) &&
+      Number.isFinite(
+        Number(coverage.games)
+      ) &&
+      Number(coverage.games) > 0;
+
+
+    const wins =
+      hasCoverage
+        ? Number(coverage.wins || 0)
+        : null;
+
+
+    const games =
+      hasCoverage
+        ? Number(coverage.games || 0)
+        : null;
+
+
+    const percentage =
+      hasCoverage
+        ? Number(coverage.percentage)
+        : null;
+
+
+    return `
+      <div style="
+        min-width:0;
+        background:#0f1628;
+        border:1px solid #1a2740;
+        border-radius:9px;
+        padding:10px 5px;
+        text-align:center;
+      ">
+
+        <small style="
+          display:block;
+          color:#71839f;
+          font-size:7px;
+          font-weight:800;
+          line-height:1.2;
+          white-space:nowrap;
+          overflow:hidden;
+          text-overflow:ellipsis;
+        ">
+          ${icon} ${sanitize(label)}
+        </small>
+
+
+        ${
+          hasCoverage
+            ? `
+              <strong style="
+                display:block;
+                margin-top:7px;
+                color:#fff;
+                font-size:15px;
+                line-height:1;
+              ">
+                ${wins}/${games}
+              </strong>
+
+              <small style="
+                display:block;
+                margin-top:5px;
+                color:${
+                  percentage >= 70
+                    ? "#00ffe7"
+                    : percentage >= 50
+                      ? "#d6dfef"
+                      : "#71839f"
+                };
+                font-size:7px;
+                font-weight:900;
+              ">
+                ${percentage.toFixed(0)}% COVERED
+              </small>
+
+              ${
+                games === 1
+                  ? `
+                    <small style="
+                      display:block;
+                      margin-top:4px;
+                      color:#8a7b55;
+                      font-size:5.5px;
+                      font-weight:800;
+                    ">
+                      LIMITED HISTORY
+                    </small>
+                  `
+                  : ""
+                
+              }
+                            <small style="
+                display:block;
+                margin-top:7px;
+                color:#00ffe7;
+                font-size:5.8px;
+                font-weight:900;
+                letter-spacing:.03em;
+              ">
+                VIEW CAREER ›
+              </small>
+            `
+            : `
+              <strong style="
+                display:block;
+                margin-top:8px;
+                color:#60708d;
+                font-size:10px;
+              ">
+                NO HISTORY
+              </strong>
+            `
+        }
+
+      </div>
+    `;
+  };
+
+
+  const todayConditionsCard =
+    source === "props"
+      ? `
+        <div style="
+          background:#0b1323;
+          border:1px solid #1a2740;
+          border-radius:11px;
+          padding:11px;
+          margin-bottom:9px;
+        ">
+
+          <div style="
+            color:#71839f;
+            font-size:8px;
+            font-weight:800;
+            letter-spacing:.08em;
+            margin-bottom:9px;
+          ">
+            TODAY'S CONDITIONS
+          </div>
+
+
+          <div style="
+            display:grid;
+            grid-template-columns:
+              repeat(3,minmax(0,1fr));
+            gap:6px;
+          ">
+
+            ${renderNFLPropConditionCard({
+              icon:
+                propLocationLabel === "HOME"
+                  ? "🏠"
+                  : "✈️",
+
+              label:
+                propLocationLabel,
+
+              coverage:
+                propLocationCoverage,
+              careerType: "location",
+            })}
+
+
+            ${renderNFLPropConditionCard({
+              icon: "📚",
+
+              label: "HISTORY",
+
+              coverage:
+                propHistoryCoverage,
+              careerType: "history",
+            })}
+
+
+            ${renderNFLPropConditionCard({
+              icon: "🆚",
+
+              label:
+                `VS ${
+                  String(
+                    propVsOpponent
+                  )
+                    .split(" ")
+                    .pop()
+                    .toUpperCase()
+                }`,
+
+              coverage:
+                propVsCoverage,
+              careerType: "vs",
+            })}
+
+          </div>
+
+        </div>
+      `
+      : "";
   const gameNumbers = log => {
     if (player.position === "QB") {
       return [
@@ -7561,11 +8119,13 @@ ${
           </button>
         `).join("")}
       </div>
-
       ${hitRateCard}
-${matchupCard}
-${situationalCard}
 
+      ${
+        source === "props"
+          ? todayConditionsCard
+          : matchupCard + situationalCard
+      }
       <div style="
         background:#0b1323;
         border:1px solid #1a2740;
