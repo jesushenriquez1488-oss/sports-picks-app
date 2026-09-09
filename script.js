@@ -10400,11 +10400,10 @@ async function loadMLBPlayerPropsRecommendations(index) {
       ) &&
       Number(prop.finalValue) >= 10
   )
-  .sort(
-    (a, b) =>
-      Number(b.finalValue || 0) -
-      Number(a.finalValue || 0)
-  );
+ .sort((a, b) =>
+  Number(b.finalValue || 0) -
+  Number(a.finalValue || 0)
+);
 
 const seenPlayers =
   new Set();
