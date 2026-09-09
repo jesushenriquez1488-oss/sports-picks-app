@@ -6380,7 +6380,7 @@ const previousGamesNeeded =
  * Solamente buscamos la cantidad necesaria
  * para completar 10.
  */
-const previousPlayerGameStats = [];
+let previousPlayerGameStats = [];
 
 
 if (
@@ -6412,7 +6412,90 @@ if (
   }
 }
 
+/*
+ * PLAYER PROPS — HISTORIAL POR ATHLETE ID
+ *
+ * Si el jugador cambió de equipo,
+ * no podemos depender del calendario
+ * del equipo ACTUAL para encontrar
+ * sus juegos de la temporada anterior.
+ */
+if (
+  previousGamesNeeded > 0 &&
+  athleteId
+) {
+  try {
 
+    const historicalResult =
+      await loadNFLPlayerGamelogCached(
+        athleteId,
+        NFL_PREVIOUS_SEASON
+      );
+
+    const historicalLogs =
+      Array.isArray(
+        historicalResult?.logs
+      )
+        ? historicalResult.logs
+        : [];
+
+    const historicalPlayerStats =
+      historicalLogs
+        .slice(0, 10)
+        .map(log => ({
+          passingYards:
+            nflSafeNum(
+              log?.passing?.yards
+            ),
+
+          rushingYards:
+            nflSafeNum(
+              log?.rushing?.yards
+            ),
+
+          rushingCarries:
+            nflSafeNum(
+              log?.rushing?.attempts
+            ),
+
+          receivingYards:
+            nflSafeNum(
+              log?.receiving?.yards
+            ),
+
+          receptions:
+            nflSafeNum(
+              log?.receiving?.receptions
+            ),
+
+          targets:
+            nflSafeNum(
+              log?.receiving?.targets
+            ),
+
+          totalPlays: 0,
+          found: true
+        }));
+
+    if (
+      historicalPlayerStats.length >
+      previousPlayerGameStats.length
+    ) {
+      previousPlayerGameStats =
+        historicalPlayerStats.slice(
+          0,
+          previousGamesNeeded
+        );
+    }
+
+  } catch (error) {
+    console.warn(
+      "NFL PLAYER PROPS historical gamelog:",
+      player,
+      error.message
+    );
+  }
+}
 /*
  * =====================================================
  * 4. HISTORIAL FINAL DE PLAYER PROPS
