@@ -10862,13 +10862,19 @@ if (category !== "homeRuns") {
       ? data.analyzedPlayerLines
       : []
   )
-    .filter(prop =>
-      prop.market ===
-        "batter_home_runs" &&
-      String(prop.side || "")
-        .toUpperCase() === "OVER" &&
-      Number(prop.modelAdvantage || 0) > 0
-    )
+   .filter(prop =>
+  prop.market ===
+    "batter_home_runs" &&
+  String(
+    prop.finalSignal?.side ||
+    prop.side ||
+    ""
+  ).toUpperCase() === "OVER" &&
+  Number.isFinite(
+    Number(prop.finalValue)
+  ) &&
+  Number(prop.finalValue) > 0
+)
       .sort((a, b) =>
         Number(b.confidence || 0) -
         Number(a.confidence || 0)
@@ -10917,18 +10923,18 @@ const cards =
   homeRunProps
     .map(prop => {
 
-      const confidence =
-        Number(prop.confidence || 0);
-
+     const confidence =
+  Number(
+    prop.finalSignal?.confidence || 0
+  );
       const hrChance =
         Number(prop.modelProbability);
 
       const sportsbookChance =
         Number(prop.sportsbookProbability);
 
-      const advantage =
-        Number(prop.modelAdvantage);
-
+     const advantage =
+  Number(prop.finalValue);
       const odds =
         Number(prop.odds);
 
