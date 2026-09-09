@@ -5726,7 +5726,7 @@ if (!selectedEvent) {
       // Cache nuevo: ya contiene el board completo de líneas para Player Stats.
       // Si el cache es de una versión anterior, lo reconstruimos una sola vez.
      if (
-  cachedJson.playerLinesVersion === 2 &&
+  cachedJson.playerLinesVersion === 3 &&
   Array.isArray(
     cachedJson.playerLines
   ) &&
@@ -8454,7 +8454,7 @@ for (const prop of analyzedProps) {
 
     // Board completo de mercado para Player Stats.
     // Sale de la misma respuesta de Odds API; no hace otra consulta.
-    playerLinesVersion: 2,
+    playerLinesVersion: 3,
     totalPlayerLines:   playerLines.length,
     playerLines,
 
