@@ -6675,7 +6675,51 @@ function showNFLPlayerDetail(
 
     return n(log.receiving?.yards);
   };
+const homeLogs =
+  allLogs.filter(
+    log =>
+      String(
+        log?.homeAway || ""
+      ).toUpperCase() === "HOME"
+  );
 
+const awayLogs =
+  allLogs.filter(
+    log =>
+      String(
+        log?.homeAway || ""
+      ).toUpperCase() === "AWAY"
+  );
+
+
+const averageLogValue = logsList => {
+  const values =
+    logsList
+      .map(primaryGameValue)
+      .filter(value =>
+        Number.isFinite(value)
+      );
+
+  if (!values.length) {
+    return null;
+  }
+
+  return (
+    values.reduce(
+      (sum, value) =>
+        sum + value,
+      0
+    ) /
+    values.length
+  );
+};
+
+
+const homeAverage =
+  averageLogValue(homeLogs);
+
+const awayAverage =
+  averageLogValue(awayLogs);
   const last5Values = logs.slice(0, 5).map(primaryGameValue);
 
   const median = values => {
@@ -7119,7 +7163,217 @@ const backLabel =
       `}
     </div>
   `;
+const currentVenue =
+  isAwayPlayer
+    ? "AWAY"
+    : "HOME";
+const homeHitRate =
+  selectedProp
+    ? hitRateForLogs(homeLogs)
+    : null;
 
+const awayHitRate =
+  selectedProp
+    ? hitRateForLogs(awayLogs)
+    : null;
+
+const situationalCard = `
+  <div style="
+    background:#0b1323;
+    border:1px solid #1a2740;
+    border-radius:11px;
+    padding:11px;
+    margin-bottom:9px;
+  ">
+
+    <div style="
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      margin-bottom:10px;
+    ">
+      <div style="
+        color:#71839f;
+        font-size:8px;
+        font-weight:800;
+        letter-spacing:.07em;
+      ">
+        SITUATIONAL · HOME / AWAY
+      </div>
+
+      <div style="
+        color:#00ffe7;
+        font-size:8px;
+        font-weight:800;
+      ">
+        TODAY: ${currentVenue}
+      </div>
+    </div>
+
+
+    <div style="
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:7px;
+    ">
+
+      <div style="
+        background:${
+          currentVenue === "HOME"
+            ? "rgba(0,255,231,.06)"
+            : "#0f1628"
+        };
+        border:1px solid ${
+          currentVenue === "HOME"
+            ? "rgba(0,255,231,.28)"
+            : "#17243a"
+        };
+        border-radius:9px;
+        padding:10px;
+        text-align:center;
+      ">
+
+        <small style="
+          display:block;
+          color:#60708d;
+          font-size:7px;
+          font-weight:800;
+        ">
+          HOME
+        </small>
+
+        <strong style="
+          display:block;
+          margin-top:5px;
+          color:#fff;
+          font-size:16px;
+        ">
+          ${
+            homeAverage !== null
+              ? homeAverage.toFixed(1)
+              : "—"
+          }
+        </strong>
+
+        <small style="
+          display:block;
+          margin-top:3px;
+          color:#556688;
+          font-size:6.5px;
+        ">
+          ${primaryLabel}
+          · ${homeLogs.length} GAME${
+            homeLogs.length === 1
+              ? ""
+              : "S"
+          }
+        </small>
+</small>
+
+${
+  homeHitRate?.total
+    ? `
+      <div style="
+        margin-top:7px;
+        color:${
+          homeHitRate.pct >= 70
+            ? "#00ffe7"
+            : "#71839f"
+        };
+        font-size:8px;
+        font-weight:800;
+      ">
+        ${homeHitRate.hits}/${homeHitRate.total}
+        HIT ·
+        ${homeHitRate.pct.toFixed(0)}%
+      </div>
+    `
+    : ""
+}
+
+</div>
+      </div>
+
+
+      <div style="
+        background:${
+          currentVenue === "AWAY"
+            ? "rgba(0,255,231,.06)"
+            : "#0f1628"
+        };
+        border:1px solid ${
+          currentVenue === "AWAY"
+            ? "rgba(0,255,231,.28)"
+            : "#17243a"
+        };
+        border-radius:9px;
+        padding:10px;
+        text-align:center;
+      ">
+
+        <small style="
+          display:block;
+          color:#60708d;
+          font-size:7px;
+          font-weight:800;
+        ">
+          AWAY
+        </small>
+
+        <strong style="
+          display:block;
+          margin-top:5px;
+          color:#fff;
+          font-size:16px;
+        ">
+          ${
+            awayAverage !== null
+              ? awayAverage.toFixed(1)
+              : "—"
+          }
+        </strong>
+
+        <small style="
+          display:block;
+          margin-top:3px;
+          color:#556688;
+          font-size:6.5px;
+        ">
+          ${primaryLabel}
+          · ${awayLogs.length} GAME${
+            awayLogs.length === 1
+              ? ""
+              : "S"
+          }
+        </small>
+${
+  awayHitRate?.total
+    ? `
+      <div style="
+        margin-top:7px;
+        color:${
+          awayHitRate.pct >= 70
+            ? "#00ffe7"
+            : "#71839f"
+        };
+        font-size:8px;
+        font-weight:800;
+      ">
+        ${awayHitRate.hits}/${awayHitRate.total}
+        HIT ·
+        ${awayHitRate.pct.toFixed(0)}%
+      </div>
+    `
+    : ""
+}
+
+      </div>
+
+    </div>
+
+  </div>
+`;
   const gameNumbers = log => {
     if (player.position === "QB") {
       return [
@@ -7309,7 +7563,8 @@ const backLabel =
       </div>
 
       ${hitRateCard}
-      ${matchupCard}
+${matchupCard}
+${situationalCard}
 
       <div style="
         background:#0b1323;
