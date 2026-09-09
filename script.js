@@ -5904,7 +5904,7 @@ async function getNFLPlayerPropsShared(
   }
 
   const response = await fetch(
-    `/api/football-data?mode=nfl-player-props&eventId=${encodeURIComponent(key)}`,
+  `/api/football-data?mode=nfl-player-props&eventId=${encodeURIComponent(key)}&force=true`
     {
       headers: {
         Authorization:
