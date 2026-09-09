@@ -4629,6 +4629,607 @@ async function loadNFLPlayerPropsData(index) {
     return null;
   }
 }
+function getNFLPlayerPropMarketLabel(
+  market
+) {
+  const labels = {
+    player_pass_yds:
+      "Passing Yards",
+
+    player_rush_yds:
+      "Rushing Yards",
+
+    player_rush_attempts:
+      "Rush Attempts",
+
+    player_receptions:
+      "Receptions",
+
+    player_reception_yds:
+      "Receiving Yards"
+  };
+
+  return (
+    labels[market] ||
+    market ||
+    "Player Prop"
+  );
+}
+function groupNFLPlayerPropLinesByPlayer(
+  lines
+) {
+  const playersMap =
+    new Map();
+
+
+  (Array.isArray(lines)
+    ? lines
+    : []
+  ).forEach(prop => {
+
+    const playerName =
+      String(
+        prop?.player || ""
+      ).trim();
+
+    if (!playerName) {
+      return;
+    }
+
+
+    const athleteId =
+      String(
+        prop?.athleteId || ""
+      ).trim();
+
+
+    const playerKey =
+      athleteId
+        ? `id:${athleteId}`
+        : `name:${playerName.toLowerCase()}`;
+
+
+    if (!playersMap.has(playerKey)) {
+      playersMap.set(
+        playerKey,
+        {
+          athleteId:
+            athleteId || null,
+
+          player:
+            playerName,
+
+          position:
+            String(
+              prop?.position || ""
+            ).toUpperCase(),
+
+          props: []
+        }
+      );
+    }
+
+
+    playersMap
+      .get(playerKey)
+      .props
+      .push(prop);
+  });
+
+
+  return Array.from(
+    playersMap.values()
+  );
+}
+function renderNFLPropsPlayerRow(
+  index,
+  item,
+  returnCategory = "all"
+) {
+  const props =
+    Array.isArray(item?.props)
+      ? item.props
+      : [];
+
+
+  const markets =
+    [
+      ...new Set(
+        props
+          .map(prop => prop?.market)
+          .filter(Boolean)
+      )
+    ];
+
+
+  const marketNames =
+    markets
+      .map(market =>
+        getNFLPlayerPropMarketLabel(
+          market
+        )
+      )
+      .join(" · ");
+
+
+  const encodedPlayer =
+    encodeURIComponent(
+      item?.player || ""
+    );
+
+
+  const athleteId =
+    String(
+      item?.athleteId || ""
+    );
+
+
+  return `
+    <button
+      type="button"
+      onclick="showNFLPropsPlayerLines(
+        ${index},
+        '${encodedPlayer}',
+        '${returnCategory}',
+        '${athleteId}'
+      )"
+      style="
+        width:100%;
+        background:#081321;
+        border:1px solid #17243a;
+        border-radius:12px;
+        padding:13px 14px;
+        margin-bottom:7px;
+        display:grid;
+        grid-template-columns:minmax(0,1fr) auto;
+        align-items:center;
+        gap:12px;
+        text-align:left;
+        cursor:pointer;
+      "
+    >
+
+      <div style="min-width:0;">
+
+        <div style="
+          font-size:13px;
+          font-weight:800;
+          color:#fff;
+        ">
+          ${sanitize(
+            item?.player || "Player"
+          )}
+
+          ${
+            item?.position
+              ? `
+                <span style="
+                  margin-left:6px;
+                  color:#71839f;
+                  font-size:9px;
+                  font-weight:800;
+                ">
+                  · ${sanitize(
+                    item.position
+                  )}
+                </span>
+              `
+              : ""
+          }
+        </div>
+
+
+        <div style="
+          margin-top:4px;
+          font-size:9px;
+          color:#71839f;
+        ">
+          ${sanitize(
+            marketNames ||
+            "Player Props"
+          )}
+        </div>
+
+      </div>
+
+
+      <div style="
+        font-size:22px;
+        color:#52647d;
+      ">
+        ›
+      </div>
+
+    </button>
+  `;
+}
+function showNFLPropsPlayerLines(
+  index,
+  encodedPlayer,
+  returnCategory = "all",
+  athleteId = ""
+) {
+  const state =
+    nflPlayerPropsState[index] || {};
+
+  const data =
+    state.data || {};
+
+  const container =
+    document.getElementById(
+      `nflPlayerPropsContent${index}`
+    );
+
+  if (!container) {
+    return;
+  }
+
+
+  const playerName =
+    decodeURIComponent(
+      encodedPlayer || ""
+    );
+
+
+  const allLines =
+    Array.isArray(
+      data.analyzedPlayerLines
+    )
+      ? data.analyzedPlayerLines
+      : [];
+
+
+  const playerLines =
+    allLines.filter(prop => {
+
+      if (
+        athleteId &&
+        String(prop?.athleteId || "") ===
+          String(athleteId)
+      ) {
+        return true;
+      }
+
+      return (
+        String(prop?.player || "")
+          .trim()
+          .toLowerCase() ===
+        String(playerName)
+          .trim()
+          .toLowerCase()
+      );
+    });
+
+
+  if (!playerLines.length) {
+    container.innerHTML = `
+      <div class="ps-empty">
+        No Player Props available
+        for this player.
+      </div>
+    `;
+
+    return;
+  }
+
+
+  const position =
+    String(
+      playerLines[0]?.position || ""
+    ).toUpperCase();
+
+
+  container.innerHTML = `
+
+    <button
+      type="button"
+      class="ps-back-analysis-btn"
+      onclick="showNFLPlayerPropsCategory(
+        ${index},
+        '${returnCategory}'
+      )"
+      style="margin-bottom:14px;"
+    >
+      ← BACK TO ${
+        returnCategory === "qbs"
+          ? "QBs"
+          : returnCategory === "rbs"
+            ? "RBs"
+            : returnCategory === "receivers"
+              ? "RECEIVERS"
+              : "ALL"
+      }
+    </button>
+
+
+    <div style="
+      margin-bottom:14px;
+    ">
+
+      <div style="
+        font-size:16px;
+        font-weight:900;
+        color:#fff;
+      ">
+        ${sanitize(playerName)}
+
+        ${
+          position
+            ? `
+              <span style="
+                margin-left:6px;
+                color:#71839f;
+                font-size:10px;
+              ">
+                · ${sanitize(position)}
+              </span>
+            `
+            : ""
+        }
+      </div>
+
+
+      <div style="
+        margin-top:3px;
+        font-size:10px;
+        color:#71839f;
+      ">
+        Available Player Props
+      </div>
+
+    </div>
+
+
+    ${
+      playerLines
+        .map(prop =>
+          renderNFLPlayerPropCard(prop)
+        )
+        .join("")
+    }
+  `;
+}
+
+
+window.showNFLPropsPlayerLines =
+  showNFLPropsPlayerLines;
+function renderNFLPlayerPropCard(prop) {
+
+  const confidence =
+    Number(prop?.confidence || 0);
+
+  const projection =
+    Number(prop?.projection || 0);
+
+  const line =
+    Number(prop?.line || 0);
+
+  const side =
+    String(
+      prop?.side || ""
+    ).toUpperCase();
+
+  const position =
+    String(
+      prop?.position || ""
+    ).toUpperCase();
+
+  const marketLabel =
+    getNFLPlayerPropMarketLabel(
+      prop?.market
+    );
+
+
+  const implied =
+    prop?.sportsbookImpliedPct != null &&
+    Number.isFinite(
+      Number(prop.sportsbookImpliedPct)
+    )
+      ? Number(
+          prop.sportsbookImpliedPct
+        )
+      : null;
+
+
+  const value =
+    prop?.value != null &&
+    Number.isFinite(
+      Number(prop.value)
+    )
+      ? Number(prop.value)
+      : null;
+
+
+  const odds =
+    prop?.odds != null &&
+    Number.isFinite(
+      Number(prop.odds)
+    )
+      ? Number(prop.odds)
+      : null;
+
+
+  return `
+    <div
+      style="
+        background:#081321;
+        border:1px solid ${
+          confidence >= 75
+            ? "rgba(0,255,231,.30)"
+            : "#17243a"
+        };
+        border-radius:12px;
+        padding:13px 14px;
+        margin-bottom:8px;
+      "
+    >
+
+      <div style="
+        display:flex;
+        justify-content:space-between;
+        gap:12px;
+        align-items:flex-start;
+      ">
+
+        <div style="min-width:0;">
+
+          <div style="
+            font-size:13px;
+            font-weight:800;
+            color:#fff;
+          ">
+            ${sanitize(prop?.player || "Player")}
+
+            ${
+              position
+                ? `
+                  <span style="
+                    margin-left:6px;
+                    color:#71839f;
+                    font-size:9px;
+                    font-weight:800;
+                  ">
+                    · ${sanitize(position)}
+                  </span>
+                `
+                : ""
+            }
+          </div>
+
+
+          <div style="
+            font-size:12px;
+            font-weight:800;
+            color:#00ffe7;
+            margin-top:4px;
+          ">
+            ${sanitize(side)}
+            ${line}
+            ${sanitize(marketLabel)}
+          </div>
+
+        </div>
+
+
+        <div style="
+          text-align:right;
+          flex-shrink:0;
+        ">
+          <div style="
+            font-size:16px;
+            font-weight:900;
+            color:#00ffe7;
+          ">
+            ${confidence.toFixed(1)}%
+          </div>
+
+          <div style="
+            font-size:8px;
+            color:#71839f;
+          ">
+            CONFIDENCE
+          </div>
+        </div>
+
+      </div>
+
+
+      <div style="
+        display:flex;
+        flex-wrap:wrap;
+        gap:16px;
+        margin-top:10px;
+      ">
+
+        <div>
+          <div style="
+            font-size:7px;
+            font-weight:800;
+            color:#5f748f;
+          ">
+            PROJECTION
+          </div>
+
+          <strong style="
+            font-size:11px;
+            color:#fff;
+          ">
+            ${projection.toFixed(1)}
+          </strong>
+        </div>
+
+
+        <div>
+          <div style="
+            font-size:7px;
+            font-weight:800;
+            color:#5f748f;
+          ">
+            BOOK %
+          </div>
+
+          <strong style="
+            font-size:11px;
+            color:#fff;
+          ">
+            ${
+              implied !== null
+                ? `${implied.toFixed(1)}%`
+                : "—"
+            }
+          </strong>
+        </div>
+
+
+        <div>
+          <div style="
+            font-size:7px;
+            font-weight:800;
+            color:#5f748f;
+          ">
+            VALUE
+          </div>
+
+          <strong style="
+            font-size:11px;
+            color:#00ffe7;
+          ">
+            ${
+              value !== null
+                ? `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`
+                : "—"
+            }
+          </strong>
+        </div>
+
+
+        <div>
+          <div style="
+            font-size:7px;
+            font-weight:800;
+            color:#5f748f;
+          ">
+            SPORTSBOOK
+          </div>
+
+          <strong style="
+            font-size:10px;
+            color:#fff;
+          ">
+            ${sanitize(prop?.bookmaker || "—")}
+            ${
+              odds !== null
+                ? ` · ${odds.toFixed(2)}`
+                : ""
+            }
+          </strong>
+        </div>
+
+      </div>
+
+    </div>
+  `;
+}
 function showNFLPlayerPropsCategory(
   index,
   category = "best"
@@ -4684,24 +5285,39 @@ function showNFLPlayerPropsCategory(
    */
   let lines = [];
 
-  if (category === "best") {
+ if (category === "best") {
 
-    lines = [
-      ...(
-        Array.isArray(data.props)
-          ? data.props
-          : []
-      ),
+  lines = [
+    ...(
+      Array.isArray(data.props)
+        ? data.props
+        : []
+    ),
 
-      ...(
-        Array.isArray(data.lockedProps)
-          ? data.lockedProps
-          : []
-      )
-    ];
+    ...(
+      Array.isArray(data.lockedProps)
+        ? data.lockedProps
+        : []
+    )
+  ]
+    .sort((a, b) => {
 
-  } else {
+      const valueDiff =
+        Number(b.value || 0) -
+        Number(a.value || 0);
 
+      if (valueDiff !== 0) {
+        return valueDiff;
+      }
+
+      return (
+        Number(b.confidence || 0) -
+        Number(a.confidence || 0)
+      );
+    })
+    .slice(0, 7);
+
+} else {
     const allLines =
       Array.isArray(
         data.analyzedPlayerLines
@@ -4766,12 +5382,40 @@ function showNFLPlayerPropsCategory(
     return;
   }
 
+if (category === "best") {
+  container.innerHTML =
+    lines
+      .map(prop =>
+        renderNFLPlayerPropCard(prop)
+      )
+      .join("");
 
-  container.innerHTML = `
-    <div class="ps-empty">
-      ${lines.length} Player Props available.
-    </div>
-  `;
+  return;
+}
+
+
+const groupedPlayers =
+  groupNFLPlayerPropLinesByPlayer(
+    lines
+  )
+    .sort((a, b) =>
+      String(a.player || "")
+        .localeCompare(
+          String(b.player || "")
+        )
+    );
+
+
+container.innerHTML =
+  groupedPlayers
+    .map(item =>
+      renderNFLPropsPlayerRow(
+        index,
+        item,
+        category
+      )
+    )
+    .join("");
 }
 
 
