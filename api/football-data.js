@@ -8484,7 +8484,693 @@ debug:                    propsDebug,
  
   return res.status(200).json(finalResponse);
 }
- 
+ /*
+ * =====================================================
+ * NFL PLAYER PROPS — CAREER LOGS ON DEMAND
+ * =====================================================
+ *
+ * Exclusivo de Player Props.
+ *
+ * Se usa solamente cuando el usuario
+ * abre VIEW CAREER.
+ *
+ * Reutiliza nfl_player_gamelog_cache.
+ * No toca análisis normal NFL.
+ * =====================================================
+ */
+
+async function loadNFLPlayerPropsCareerLogs({
+  athleteId,
+  experienceYears = 0
+}) {
+
+  const athleteKey =
+    String(athleteId || "");
+
+  if (!athleteKey) {
+    return [];
+  }
+
+
+  const currentSeason =
+    getNFLPlayerStatsSeasonYear();
+
+
+  const years =
+    Math.max(
+      0,
+      Math.floor(
+        nflSafeNum(
+          experienceYears,
+          0
+        )
+      )
+    );
+
+
+  const firstSeason =
+    years > 0
+      ? currentSeason - years
+      : currentSeason;
+
+
+  const seasons = [];
+
+  for (
+    let season = currentSeason;
+    season >= firstSeason;
+    season--
+  ) {
+    seasons.push(season);
+  }
+
+
+  const seasonLogs =
+    await Promise.all(
+      seasons.map(
+        async season => {
+
+          try {
+
+            const result =
+              await loadNFLPlayerGamelogCached(
+                athleteKey,
+                season
+              );
+
+
+            return Array.isArray(
+              result?.logs
+            )
+              ? result.logs
+              : [];
+
+          } catch (error) {
+
+            console.warn(
+              "NFL PLAYER PROPS CAREER:",
+              athleteKey,
+              season,
+              error.message
+            );
+
+            return [];
+          }
+        }
+      )
+    );
+
+
+  const uniqueGames =
+    new Map();
+
+
+  for (
+    const log of
+      seasonLogs.flat()
+  ) {
+
+    const gameKey =
+      String(
+        log?.gameId ||
+        `${log?.season || ""}|${log?.date || ""}`
+      );
+
+
+    if (!gameKey) {
+      continue;
+    }
+
+
+    uniqueGames.set(
+      gameKey,
+      log
+    );
+  }
+
+
+  return Array.from(
+    uniqueGames.values()
+  )
+    .sort(
+      (a, b) =>
+        new Date(
+          b?.date || 0
+        ) -
+        new Date(
+          a?.date || 0
+        )
+    );
+}
+/*
+ * =====================================================
+ * NFL PLAYER PROPS — CAREER ENDPOINT
+ * =====================================================
+ *
+ * Exclusivo de Player Props.
+ *
+ * Se ejecuta solamente al tocar
+ * VIEW CAREER.
+ * =====================================================
+ */
+
+async function handleNFLPlayerPropsCareer(
+  req,
+  res
+) {
+
+  // =========================
+  // PREMIUM AUTH
+  // =========================
+
+  const authHeader =
+    String(
+      req.headers.authorization || ""
+    );
+
+  const token =
+    authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : null;
+
+
+  if (!token) {
+    return res.status(401).json({
+      error: "Unauthorized"
+    });
+  }
+
+
+  const {
+    data: authData,
+    error: authError
+  } =
+    await supabaseAdmin.auth
+      .getUser(token);
+
+
+  if (
+    authError ||
+    !authData?.user?.id
+  ) {
+    return res.status(401).json({
+      error: "Unauthorized"
+    });
+  }
+
+
+  const {
+    data: profile,
+    error: profileError
+  } =
+    await supabaseAdmin
+      .from("users")
+      .select(
+        "is_premium, subscription_status"
+      )
+      .eq(
+        "id",
+        authData.user.id
+      )
+      .maybeSingle();
+
+
+  if (profileError) {
+    return res.status(500).json({
+      error:
+        "Unable to verify subscription"
+    });
+  }
+
+
+  const isPremiumUser =
+    profile?.is_premium === true ||
+    profile?.subscription_status ===
+      "active" ||
+    profile?.subscription_status ===
+      "trialing" ||
+    authData.user.email ===
+      ADMIN_EMAIL;
+
+
+  if (!isPremiumUser) {
+    return res.status(403).json({
+      error: "Premium required"
+    });
+  }
+
+
+  // =========================
+  // INPUT
+  // =========================
+
+  const athleteId =
+    String(
+      req.query.athleteId ||
+      req.body?.athleteId ||
+      ""
+    );
+
+
+  const market =
+    String(
+      req.query.market ||
+      req.body?.market ||
+      ""
+    );
+
+
+  const side =
+    String(
+      req.query.side ||
+      req.body?.side ||
+      "OVER"
+    ).toUpperCase();
+
+
+  const line =
+    Number(
+      req.query.line ??
+      req.body?.line
+    );
+
+
+  const careerType =
+    String(
+      req.query.careerType ||
+      req.body?.careerType ||
+      "history"
+    ).toLowerCase();
+
+
+  const contextValue =
+    String(
+      req.query.contextValue ||
+      req.body?.contextValue ||
+      ""
+    );
+
+
+  const opponentId =
+    String(
+      req.query.opponentId ||
+      req.body?.opponentId ||
+      ""
+    );
+
+
+  const opponentName =
+    String(
+      req.query.opponentName ||
+      req.body?.opponentName ||
+      ""
+    );
+
+
+  const experienceYears =
+    Math.max(
+      0,
+      Math.floor(
+        nflSafeNum(
+          req.query.experienceYears ??
+          req.body?.experienceYears ??
+          0
+        )
+      )
+    );
+
+
+  if (
+    !athleteId ||
+    !market ||
+    !Number.isFinite(line)
+  ) {
+    return res.status(400).json({
+      ok: false,
+      mode:
+        "nfl-player-props-career",
+      error:
+        "athleteId, market and line are required"
+    });
+  }
+
+
+  if (
+    ![
+      "history",
+      "location",
+      "vs"
+    ].includes(careerType)
+  ) {
+    return res.status(400).json({
+      ok: false,
+      mode:
+        "nfl-player-props-career",
+      error:
+        "Invalid careerType"
+    });
+  }
+
+
+  // =========================
+  // MARKET VALUE
+  // =========================
+
+  const getCareerPropValue =
+    gameLog => {
+
+      if (!gameLog) {
+        return null;
+      }
+
+
+      if (
+        market ===
+        "player_pass_yds"
+      ) {
+        const value =
+          Number(
+            gameLog?.passing?.yards
+          );
+
+        return Number.isFinite(value)
+          ? value
+          : null;
+      }
+
+
+      if (
+        market ===
+        "player_rush_yds"
+      ) {
+        const value =
+          Number(
+            gameLog?.rushing?.yards
+          );
+
+        return Number.isFinite(value)
+          ? value
+          : null;
+      }
+
+
+      if (
+        market ===
+        "player_rush_attempts"
+      ) {
+        const value =
+          Number(
+            gameLog?.rushing?.attempts
+          );
+
+        return Number.isFinite(value)
+          ? value
+          : null;
+      }
+
+
+      if (
+        market ===
+        "player_receptions"
+      ) {
+        const value =
+          Number(
+            gameLog?.receiving
+              ?.receptions
+          );
+
+        return Number.isFinite(value)
+          ? value
+          : null;
+      }
+
+
+      if (
+        market ===
+        "player_reception_yds"
+      ) {
+        const value =
+          Number(
+            gameLog?.receiving?.yards
+          );
+
+        return Number.isFinite(value)
+          ? value
+          : null;
+      }
+
+
+      return null;
+    };
+
+
+  // =========================
+  // CAREER LOGS
+  // =========================
+
+  const allCareerLogs =
+    await loadNFLPlayerPropsCareerLogs({
+      athleteId,
+      experienceYears
+    });
+
+
+  let contextLogs =
+    allCareerLogs;
+
+
+  if (
+    careerType === "location"
+  ) {
+
+    const location =
+      contextValue.toUpperCase();
+
+
+    contextLogs =
+      allCareerLogs.filter(
+        log =>
+          String(
+            log?.homeAway || ""
+          ).toUpperCase() ===
+          location
+      );
+  }
+
+
+  if (
+    careerType === "vs"
+  ) {
+
+    contextLogs =
+      allCareerLogs.filter(
+        log => {
+
+          const idMatch =
+            opponentId &&
+            log?.opponentId &&
+            String(
+              log.opponentId
+            ) === opponentId;
+
+
+          const nameMatch =
+            opponentName &&
+            cleanText(
+              log?.opponent || ""
+            ) ===
+            cleanText(
+              opponentName
+            );
+
+
+          return (
+            idMatch ||
+            nameMatch
+          );
+        }
+      );
+  }
+
+
+  // =========================
+  // GRADE GAMES
+  // =========================
+
+  const buildCareerResult =
+    logs => {
+
+      let wins = 0;
+      let losses = 0;
+      let pushes = 0;
+
+      const results = [];
+
+
+      for (const log of logs) {
+
+        const value =
+          getCareerPropValue(log);
+
+
+        if (
+          !Number.isFinite(value)
+        ) {
+          continue;
+        }
+
+
+        let result;
+
+
+        if (value === line) {
+
+          result = "PUSH";
+          pushes++;
+
+        } else {
+
+          const covered =
+            side === "UNDER"
+              ? value < line
+              : value > line;
+
+
+          if (covered) {
+            result = "HIT";
+            wins++;
+          } else {
+            result = "MISS";
+            losses++;
+          }
+        }
+
+
+        results.push({
+          date:
+            log?.date || null,
+
+          season:
+            log?.season || null,
+
+          week:
+            log?.week || null,
+
+          gameId:
+            log?.gameId || null,
+
+          homeAway:
+            String(
+              log?.homeAway || ""
+            ).toUpperCase(),
+
+          opponent:
+            log?.opponent || null,
+
+          opponentId:
+            log?.opponentId || null,
+
+          value,
+
+          result
+        });
+      }
+
+
+      const decisions =
+        wins + losses;
+
+
+      const coverage =
+        decisions > 0
+          ? {
+              wins,
+              losses,
+              pushes,
+
+              games:
+                wins +
+                losses +
+                pushes,
+
+              percentage:
+                Number(
+                  (
+                    (
+                      wins /
+                      decisions
+                    ) *
+                    100
+                  ).toFixed(1)
+                )
+            }
+          : null;
+
+
+      return {
+        coverage,
+        results
+      };
+    };
+
+
+  const careerResult =
+    buildCareerResult(
+      contextLogs
+    );
+
+
+  const last10Result =
+    buildCareerResult(
+      contextLogs.slice(0, 10)
+    );
+
+
+  return res.status(200).json({
+    ok: true,
+
+    mode:
+      "nfl-player-props-career",
+
+    athleteId,
+
+    market,
+
+    side,
+
+    line,
+
+    contextType:
+      careerType,
+
+    contextValue,
+
+    opponentId:
+      opponentId || null,
+
+    opponentName:
+      opponentName || null,
+
+    career: {
+      games:
+        careerResult.results.length,
+
+      coverage:
+        careerResult.coverage
+    },
+
+    last10: {
+      games:
+        last10Result.results.length,
+
+      coverage:
+        last10Result.coverage
+    },
+
+    results:
+      careerResult.results
+  });
+}
 // ============================================================
 // FIN BLOQUE NFL PLAYER PROPS
 // ============================================================
@@ -13516,9 +14202,28 @@ if (req.method === "OPTIONS") {
 });
   try {
      const mode = req.query.mode || req.body?.mode;
-  if (mode === "nfl-player-props") {
-    return await handleNFLPlayerProps(req, res);
-  }
+
+
+if (
+  mode ===
+  "nfl-player-props-career"
+) {
+  return await handleNFLPlayerPropsCareer(
+    req,
+    res
+  );
+}
+
+
+if (
+  mode ===
+  "nfl-player-props"
+) {
+  return await handleNFLPlayerProps(
+    req,
+    res
+  );
+}
     if (mode === "nfl-player-stats") {
     return await handleNFLPlayerStats(req, res);
   }
