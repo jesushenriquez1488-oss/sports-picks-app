@@ -4991,10 +4991,17 @@ async function getNFLTeamRosterPlayers(espnTeamId, season) {
           a.shortName ||
           ""
         ),
-        position:
-          a?.position?.abbreviation ||
-          a?.position?.name ||
-          ""
+       position:
+  a?.position?.abbreviation ||
+  a?.position?.name ||
+  "",
+
+experienceYears:
+  nflSafeNum(
+    a?.experience?.years ??
+    a?.experience?.value ??
+    0
+  )
       }));
 
   } catch (error) {
@@ -6004,7 +6011,288 @@ const allCurrentRoster = [
 
 const playerSeasonStatsCache =
   new Map();
+/*
+ * NFL PLAYER PROPS — HISTORICAL COVERAGE
+ *
+ * Exclusivo de Player Props.
+ *
+ * Compara cada juego contra
+ * la línea y el SIDE de hoy.
+ *
+ * IMPORTANTE:
+ * - 0% real SÍ cuenta.
+ * - Sin juegos válidos = null.
+ * - Los pushes no son win ni loss.
+ */
+const getNFLPropHistoricalValue = (
+  gameLog,
+  market
+) => {
 
+  if (!gameLog) return null;
+
+
+  if (
+    market ===
+    "player_pass_yds"
+  ) {
+    const value =
+      Number(
+        gameLog?.passing?.yards
+      );
+
+    return Number.isFinite(value)
+      ? value
+      : null;
+  }
+
+
+  if (
+    market ===
+    "player_rush_yds"
+  ) {
+    const value =
+      Number(
+        gameLog?.rushing?.yards
+      );
+
+    return Number.isFinite(value)
+      ? value
+      : null;
+  }
+
+
+  if (
+    market ===
+    "player_rush_attempts"
+  ) {
+    const value =
+      Number(
+        gameLog?.rushing?.attempts
+      );
+
+    return Number.isFinite(value)
+      ? value
+      : null;
+  }
+
+
+  if (
+    market ===
+    "player_receptions"
+  ) {
+    const value =
+      Number(
+        gameLog?.receiving?.receptions
+      );
+
+    return Number.isFinite(value)
+      ? value
+      : null;
+  }
+
+
+  if (
+    market ===
+    "player_reception_yds"
+  ) {
+    const value =
+      Number(
+        gameLog?.receiving?.yards
+      );
+
+    return Number.isFinite(value)
+      ? value
+      : null;
+  }
+
+
+  return null;
+};
+
+
+const buildNFLPropHistoricalCoverage = ({
+  logs = [],
+  market,
+  line,
+  side
+}) => {
+
+  const targetLine =
+    Number(line);
+
+  if (
+    !Number.isFinite(targetLine) ||
+    !Array.isArray(logs) ||
+    !logs.length
+  ) {
+    return null;
+  }
+
+
+  const targetSide =
+    String(
+      side || "OVER"
+    ).toUpperCase();
+
+
+  let wins = 0;
+  let losses = 0;
+  let pushes = 0;
+
+
+  for (const gameLog of logs) {
+
+    const value =
+      getNFLPropHistoricalValue(
+        gameLog,
+        market
+      );
+
+
+    if (
+      !Number.isFinite(value)
+    ) {
+      continue;
+    }
+
+
+    if (
+      value === targetLine
+    ) {
+      pushes++;
+      continue;
+    }
+
+
+    const covered =
+      targetSide === "UNDER"
+        ? value < targetLine
+        : value > targetLine;
+
+
+    if (covered) {
+      wins++;
+    } else {
+      losses++;
+    }
+  }
+
+
+  const decisions =
+    wins + losses;
+
+
+  /*
+   * Si no existe ninguna decisión real,
+   * esta condición NO participa.
+   */
+  if (decisions <= 0) {
+    return null;
+  }
+
+
+  return {
+    wins,
+    losses,
+    pushes,
+
+    games:
+      wins +
+      losses +
+      pushes,
+
+    percentage:
+      Number(
+        (
+          (
+            wins /
+            decisions
+          ) *
+          100
+        ).toFixed(1)
+      )
+  };
+};
+
+
+/*
+ * El bloque histórico siempre vale 50%.
+ *
+ * Solamente entran condiciones
+ * que realmente tengan información.
+ *
+ * Ejemplo:
+ *
+ * 5 disponibles = 10% final cada una.
+ * 4 disponibles = 12.5% final cada una.
+ * 3 disponibles = 16.67% final cada una.
+ *
+ * Un 0% REAL sí entra.
+ * null NO entra.
+ */
+const combineNFLPropHistoricalCoverage =
+  coverages => {
+
+    const available =
+      (
+        Array.isArray(coverages)
+          ? coverages
+          : []
+      ).filter(item =>
+        item &&
+        Number.isFinite(
+          Number(
+            item.percentage
+          )
+        )
+      );
+
+
+    if (!available.length) {
+      return {
+        percentage: null,
+        conditionsUsed: 0,
+        historicalWeightEach: null
+      };
+    }
+
+
+    const percentage =
+      available.reduce(
+        (sum, item) =>
+          sum +
+          Number(
+            item.percentage
+          ),
+        0
+      ) /
+      available.length;
+
+
+    return {
+      percentage:
+        Number(
+          percentage.toFixed(1)
+        ),
+
+      conditionsUsed:
+        available.length,
+
+      /*
+       * Porcentaje que representa
+       * cada condición dentro del
+       * confidence FINAL.
+       */
+      historicalWeightEach:
+        Number(
+          (
+            50 /
+            available.length
+          ).toFixed(2)
+        )
+    };
+  };
 
 /*
  * Stats de equipo:
@@ -6102,6 +6390,232 @@ const [
       return r;
     } catch { return null; }
   }
+  /*
+ * NFL PLAYER PROPS — CAREER HISTORY
+ *
+ * Exclusivo de Player Props.
+ *
+ * Carga todas las temporadas disponibles
+ * del jugador una sola vez por ejecución
+ * y reutiliza nfl_player_gamelog_cache.
+ */
+const nflPropCareerLogsCache =
+  new Map();
+
+
+const loadNFLPropCareerLogs =
+  async ({
+    athleteId,
+    experienceYears = 0,
+    existingLogs = []
+  }) => {
+
+    const athleteKey =
+      String(
+        athleteId || ""
+      );
+
+
+    const baseLogs =
+      Array.isArray(existingLogs)
+        ? existingLogs
+        : [];
+
+
+    if (!athleteKey) {
+      return baseLogs;
+    }
+
+
+    if (
+      nflPropCareerLogsCache.has(
+        athleteKey
+      )
+    ) {
+      return nflPropCareerLogsCache.get(
+        athleteKey
+      );
+    }
+
+
+    const existingSeasons =
+      baseLogs
+        .map(log =>
+          Number(
+            log?.season
+          )
+        )
+        .filter(
+          Number.isFinite
+        );
+
+
+    const oldestExistingSeason =
+      existingSeasons.length
+        ? Math.min(
+            ...existingSeasons
+          )
+        : NFL_SEASON;
+
+
+    const years =
+      Math.max(
+        0,
+        Math.floor(
+          nflSafeNum(
+            experienceYears,
+            0
+          )
+        )
+      );
+
+
+    /*
+     * Ejemplo:
+     *
+     * temporada 2026
+     * experienceYears = 6
+     *
+     * buscamos desde 2020.
+     */
+    const experienceStartSeason =
+      years > 0
+        ? NFL_SEASON - years
+        : oldestExistingSeason;
+
+
+    const firstCareerSeason =
+      Math.min(
+        oldestExistingSeason,
+        experienceStartSeason
+      );
+
+
+    const seasonsAlreadyLoaded =
+      new Set(
+        existingSeasons
+      );
+
+
+    const seasonsToLoad =
+      [];
+
+
+    for (
+      let season = NFL_SEASON;
+      season >= firstCareerSeason;
+      season--
+    ) {
+
+      if (
+        !seasonsAlreadyLoaded.has(
+          season
+        )
+      ) {
+        seasonsToLoad.push(
+          season
+        );
+      }
+    }
+
+
+    const loadedSeasons =
+      await Promise.all(
+        seasonsToLoad.map(
+          async season => {
+
+            try {
+
+              const result =
+                await loadNFLPlayerGamelogCached(
+                  athleteKey,
+                  season
+                );
+
+
+              return Array.isArray(
+                result?.logs
+              )
+                ? result.logs
+                : [];
+
+            } catch (error) {
+
+              console.warn(
+                "NFL PLAYER PROPS career season:",
+                athleteKey,
+                season,
+                error.message
+              );
+
+              return [];
+            }
+          }
+        )
+      );
+
+
+    /*
+     * Unimos:
+     *
+     * - logs que Player Stats ya tenía
+     * - temporadas cargadas por athleteId
+     *
+     * sin duplicar juegos.
+     */
+    const uniqueGames =
+      new Map();
+
+
+    for (
+      const log of [
+        ...baseLogs,
+        ...loadedSeasons.flat()
+      ]
+    ) {
+
+      const gameKey =
+        String(
+          log?.gameId ||
+          `${log?.season || ""}|${log?.date || ""}`
+        );
+
+
+      if (!gameKey) {
+        continue;
+      }
+
+
+      uniqueGames.set(
+        gameKey,
+        log
+      );
+    }
+
+
+    const careerLogs =
+      Array.from(
+        uniqueGames.values()
+      )
+        .sort(
+          (a, b) =>
+            new Date(
+              b?.date || 0
+            ) -
+            new Date(
+              a?.date || 0
+            )
+        );
+
+
+    nflPropCareerLogsCache.set(
+      athleteKey,
+      careerLogs
+    );
+
+
+    return careerLogs;
+  };
  
   // 6. Analizar cada prop
 const analyzedProps = [];
@@ -7317,6 +7831,366 @@ if (
       ).toFixed(1)
     );
 }
+    /*
+ * =====================================================
+ * NFL PLAYER PROPS — FINAL CONFIDENCE
+ * =====================================================
+ *
+ * 50% = MODELO CASHEDGE
+ *
+ * 50% = HISTORIAL REAL:
+ *
+ * - LAST 10
+ * - SEASON
+ * - HISTORY
+ * - HOME o AWAY de HOY
+ * - VS rival de HOY
+ *
+ * Si falta una condición:
+ * NO vale 0.
+ * Se elimina y su peso se redistribuye.
+ *
+ * Un 0% REAL sí cuenta.
+ * =====================================================
+ */
+
+
+/*
+ * Confidence puro del modelo
+ * después de cualquier ajuste
+ * de volatilidad.
+ */
+const modelConfidence =
+  Number(confidence);
+
+
+/*
+ * =====================================================
+ * HISTORIAL COMPLETO DEL JUGADOR
+ * =====================================================
+ */
+
+const propExperienceYears =
+  nflSafeNum(
+    awayRosterMatch?.experienceYears ??
+    homeRosterMatch?.experienceYears ??
+    0
+  );
+
+
+const careerLogs =
+  await loadNFLPropCareerLogs({
+    athleteId,
+
+    experienceYears:
+      propExperienceYears,
+
+    existingLogs: []
+  });
+
+
+/*
+ * =====================================================
+ * LAST 10
+ * =====================================================
+ */
+
+const last10HistoricalLogs =
+  careerLogs.slice(
+    0,
+    Math.min(
+      10,
+      careerLogs.length
+    )
+  );
+
+
+/*
+ * =====================================================
+ * SEASON
+ *
+ * SOLO temporada actual.
+ * =====================================================
+ */
+
+const seasonHistoricalLogs =
+  careerLogs.filter(
+    log =>
+      Number(
+        log?.season
+      ) ===
+      Number(
+        NFL_SEASON
+      )
+  );
+
+
+/*
+ * =====================================================
+ * ¿EL JUGADOR HOY ESTÁ HOME O AWAY?
+ * =====================================================
+ *
+ * SOLO utilizaremos UNA de las dos.
+ */
+
+const playerIsHome =
+  homeRosterMatch &&
+  !awayRosterMatch
+    ? true
+
+    : awayRosterMatch &&
+      !homeRosterMatch
+      ? false
+
+      : gameIds === homeGameIds
+        ? true
+
+        : gameIds === awayGameIds
+          ? false
+
+          : null;
+
+
+const todayLocation =
+  playerIsHome === true
+    ? "HOME"
+    : playerIsHome === false
+      ? "AWAY"
+      : null;
+
+
+/*
+ * =====================================================
+ * HOME / AWAY DE HOY
+ * =====================================================
+ */
+
+const locationHistoricalLogs =
+  todayLocation
+    ? careerLogs.filter(
+        log =>
+          String(
+            log?.homeAway || ""
+          ).toUpperCase() ===
+          todayLocation
+      )
+    : [];
+
+
+/*
+ * =====================================================
+ * RIVAL DE HOY
+ * =====================================================
+ */
+
+const currentOpponentTeam =
+  playerIsHome === true
+    ? selectedEvent.away_team
+    : playerIsHome === false
+      ? selectedEvent.home_team
+      : null;
+
+
+const currentOpponentId =
+  playerIsHome === true
+    ? awayESPNId
+    : playerIsHome === false
+      ? homeESPNId
+      : null;
+
+
+/*
+ * =====================================================
+ * VS RIVAL DE HOY
+ * =====================================================
+ */
+
+const vsHistoricalLogs =
+  currentOpponentTeam
+    ? careerLogs.filter(
+        log => {
+
+          const idMatch =
+            currentOpponentId &&
+            log?.opponentId &&
+            String(
+              log.opponentId
+            ) ===
+            String(
+              currentOpponentId
+            );
+
+
+          const nameMatch =
+            cleanText(
+              log?.opponent || ""
+            ) ===
+            cleanText(
+              currentOpponentTeam
+            );
+
+
+          return (
+            idMatch ||
+            nameMatch
+          );
+        }
+      )
+    : [];
+
+
+/*
+ * =====================================================
+ * COBERTURA — LAST 10
+ * =====================================================
+ */
+
+const last10Coverage =
+  buildNFLPropHistoricalCoverage({
+    logs:
+      last10HistoricalLogs,
+
+    market,
+    line,
+
+    side:
+      propSide
+  });
+
+
+/*
+ * =====================================================
+ * COBERTURA — SEASON
+ * =====================================================
+ */
+
+const seasonCoverage =
+  buildNFLPropHistoricalCoverage({
+    logs:
+      seasonHistoricalLogs,
+
+    market,
+    line,
+
+    side:
+      propSide
+  });
+
+
+/*
+ * =====================================================
+ * COBERTURA — HISTORY
+ * =====================================================
+ */
+
+const historyCoverage =
+  buildNFLPropHistoricalCoverage({
+    logs:
+      careerLogs,
+
+    market,
+    line,
+
+    side:
+      propSide
+  });
+
+
+/*
+ * =====================================================
+ * COBERTURA — HOME O AWAY DE HOY
+ * =====================================================
+ */
+
+const locationCoverage =
+  buildNFLPropHistoricalCoverage({
+    logs:
+      locationHistoricalLogs,
+
+    market,
+    line,
+
+    side:
+      propSide
+  });
+
+
+/*
+ * =====================================================
+ * COBERTURA — VS RIVAL
+ * =====================================================
+ */
+
+const vsCoverage =
+  buildNFLPropHistoricalCoverage({
+    logs:
+      vsHistoricalLogs,
+
+    market,
+    line,
+
+    side:
+      propSide
+  });
+
+
+/*
+ * =====================================================
+ * BLOQUE HISTÓRICO
+ * =====================================================
+ *
+ * Si existen 5:
+ * cada una pesa 10% del final.
+ *
+ * Si existen 4:
+ * cada una pesa 12.5%.
+ *
+ * Si existen 3:
+ * cada una pesa 16.67%.
+ *
+ * etc.
+ */
+
+const historicalSummary =
+  combineNFLPropHistoricalCoverage([
+    last10Coverage,
+    seasonCoverage,
+    historyCoverage,
+    locationCoverage,
+    vsCoverage
+  ]);
+
+
+/*
+ * =====================================================
+ * FINAL CONFIDENCE
+ * =====================================================
+ *
+ * 50% MODELO
+ * 50% HISTÓRICO
+ *
+ * IMPORTANTE:
+ * si el modelo NO favorece este SIDE,
+ * el historial no puede revivirlo.
+ */
+
+confidence =
+  modelConfidence > 0 &&
+  historicalSummary.percentage !== null
+    ? Number(
+        (
+          (
+            modelConfidence *
+            0.50
+          ) +
+          (
+            historicalSummary
+              .percentage *
+            0.50
+          )
+        ).toFixed(1)
+      )
+    : 0;
     const decimalOdds =
   Number(prop.odds);
 
@@ -7359,13 +8233,98 @@ position:
   odds: prop.odds,
   bookmaker: prop.bookmaker,
   projection,
-  edge,
+    edge,
+
+  /*
+   * Confidence CashEdge puro,
+   * antes del 50/50 histórico.
+   */
+  modelConfidence:
+    Number(
+      modelConfidence.toFixed(1)
+    ),
+
+  /*
+   * Confidence FINAL.
+   */
   confidence,
-   sportsbookImpliedPct,
-value,
+
+  /*
+   * Promedio del bloque histórico.
+   */
+  historicalConfidence:
+    historicalSummary.percentage,
+
+  historicalConditionsUsed:
+    historicalSummary.conditionsUsed,
+
+  historicalWeightEach:
+    historicalSummary.historicalWeightEach,
+
+  /*
+   * Las 5 condiciones reales.
+   *
+   * location será solamente
+   * HOME o AWAY según el juego de hoy.
+   */
+  historicalCoverages: {
+
+    last10:
+      last10Coverage,
+
+    season:
+      seasonCoverage,
+
+    history:
+      historyCoverage,
+
+    location:
+      locationCoverage
+        ? {
+            condition:
+              todayLocation,
+
+            ...locationCoverage
+          }
+        : null,
+
+    vs:
+      vsCoverage
+        ? {
+            opponent:
+              currentOpponentTeam,
+
+            opponentId:
+              currentOpponentId,
+
+            ...vsCoverage
+          }
+        : null
+  },
+
+  /*
+   * Mismo formato que espera
+   * el frontend de Player Props.
+   */
+  finalSignal:
+    confidence > 0
+      ? {
+          side:
+            propSide,
+
+          confidence:
+            Number(
+              confidence.toFixed(1)
+            )
+        }
+      : null,
+
+  sportsbookImpliedPct,
+
+  value,
+
   isPremium:
     confidence >= 75,
-
   debug:
     market === "player_pass_yds"
       ? projectionDebug
