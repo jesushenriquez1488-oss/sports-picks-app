@@ -6100,7 +6100,8 @@ const propsDebug = {
   noConfidence: 0,
   analyzed: 0,
   rejectedConfidence: [],
-  qbDiagnostics: []
+ qbDiagnostics: [],
+wrDiagnostics: []
 };
  
   for (const prop of uniqueProps) {
@@ -7069,6 +7070,74 @@ projectionDebug = {
         airYardsScore:           ypr * recent5Targets * 0.10,
         paceScore:               paceScore * recent5RecYds
       });
+    if (
+  propsDebug.wrDiagnostics.length < 20
+) {
+  propsDebug.wrDiagnostics.push({
+    player,
+    line,
+
+    recent5RecYds:
+      Number(
+        recent5RecYds.toFixed(1)
+      ),
+
+    recent5Rec:
+      Number(
+        recent5Rec.toFixed(1)
+      ),
+
+    recent5Targets:
+      Number(
+        recent5Targets.toFixed(1)
+      ),
+
+    ypr:
+      Number(
+        ypr.toFixed(2)
+      ),
+
+    seasonRecYds:
+      Number(
+        seasonRecYds.toFixed(1)
+      ),
+
+    oppRecYardsDefScore:
+      Number(
+        oppRecYardsDefScore.toFixed(3)
+      ),
+
+    recentTargetsScore:
+      Number(
+        (
+          recent5Targets *
+          ypr *
+          0.68
+        ).toFixed(1)
+      ),
+
+    coverageMatchupScore:
+      Number(
+        (
+          recent5RecYds *
+          oppRecYardsDefScore
+        ).toFixed(1)
+      ),
+
+    paceScore:
+      Number(
+        (
+          paceScore *
+          recent5RecYds
+        ).toFixed(1)
+      ),
+
+    projection:
+      Number(
+        projection.toFixed(1)
+      )
+  });
+}
     }
  
    if (!projection || projection <= 0) {
