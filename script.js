@@ -3991,12 +3991,12 @@ const propsButtonHTML = type === "nfl"
   ? `
     <button
       type="button"
-      onclick="toggleNFLPlayerProps(
-        ${index},
-        '${awayEsc}',
-        '${homeEsc}',
-        '${eventIdEsc}'
-      )"
+     onclick="openNFLPlayerProps(
+  ${index},
+  '${eventIdEsc}',
+  '${awayEsc}',
+  '${homeEsc}'
+)"
       style="
         width:100%;
         min-height:46px;
@@ -4232,10 +4232,16 @@ ${propsPanelHTML}
 </div>
  
 `;
- resultDiv.innerHTML = `
+resultDiv.innerHTML = `
   <div id="nflAnalysisView${index}">
     ${footballAnalysisHTML}
   </div>
+
+  <div
+    id="nflPlayerPropsView${index}"
+    class="nfl-player-props-view"
+    style="display:none;"
+  ></div>
 
   <div
     id="nflPlayerStatsView${index}"
@@ -4261,6 +4267,516 @@ ${propsPanelHTML}
 // ============================================================
 
 const nflPlayerStatsState = {};
+const nflPlayerPropsState = {};
+function getNFLPlayerPropsViews(index) {
+  return {
+    analysisView:
+      document.getElementById(
+        `nflAnalysisView${index}`
+      ),
+
+    propsView:
+      document.getElementById(
+        `nflPlayerPropsView${index}`
+      ),
+
+    statsView:
+      document.getElementById(
+        `nflPlayerStatsView${index}`
+      )
+  };
+}
+function renderNFLPlayerPropsShell(index) {
+  const state =
+    nflPlayerPropsState[index] || {};
+
+  const {
+    propsView
+  } = getNFLPlayerPropsViews(index);
+
+  if (!propsView) return;
+
+
+  propsView.innerHTML = `
+    <div class="ps-card">
+
+      <div class="ps-sticky-bar">
+
+        <button
+          type="button"
+          class="ps-back-analysis-btn"
+          onclick="closeNFLPlayerProps(${index})"
+        >
+          ← BACK TO ANALYSIS
+        </button>
+
+        <div class="ps-sticky-game">
+          <small>NFL PLAYER PROPS</small>
+
+          <strong>
+            ${sanitize(state.awayTeam || "Away")}
+            vs
+            ${sanitize(state.homeTeam || "Home")}
+          </strong>
+        </div>
+
+      </div>
+
+
+      <div
+        class="ps-market-tabs"
+        id="nflPropsNavigation${index}"
+        style="
+          margin-top:14px;
+          margin-bottom:16px;
+          overflow-x:auto;
+        "
+      >
+
+        <button
+          type="button"
+          class="active"
+          data-prop-view="best"
+          onclick="showNFLPlayerPropsCategory(
+            ${index},
+            'best'
+          )"
+        >
+          🔥 BEST
+        </button>
+
+
+        <button
+          type="button"
+          data-prop-view="qbs"
+          onclick="showNFLPlayerPropsCategory(
+            ${index},
+            'qbs'
+          )"
+        >
+          🏈 QBs
+        </button>
+
+
+        <button
+          type="button"
+          data-prop-view="rbs"
+          onclick="showNFLPlayerPropsCategory(
+            ${index},
+            'rbs'
+          )"
+        >
+          🏃 RBs
+        </button>
+
+
+        <button
+          type="button"
+          data-prop-view="receivers"
+          onclick="showNFLPlayerPropsCategory(
+            ${index},
+            'receivers'
+          )"
+        >
+          🎯 RECEIVERS
+        </button>
+
+
+        <button
+          type="button"
+          data-prop-view="all"
+          onclick="showNFLPlayerPropsCategory(
+            ${index},
+            'all'
+          )"
+        >
+          📋 ALL
+        </button>
+
+      </div>
+
+
+      <div id="nflPlayerPropsContent${index}">
+        <div class="loading-analysis">
+          Loading Player Props...
+        </div>
+      </div>
+
+    </div>
+  `;
+}
+function closeNFLPlayerProps(index) {
+  const {
+    analysisView,
+    propsView
+  } = getNFLPlayerPropsViews(index);
+
+  if (propsView) {
+    propsView.style.display = "none";
+  }
+
+  if (analysisView) {
+    analysisView.style.display = "block";
+
+    requestAnimationFrame(() => {
+      analysisView.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    });
+  }
+}
+
+window.closeNFLPlayerProps =
+  closeNFLPlayerProps;
+function openNFLPlayerProps(
+  index,
+  eventId,
+  awayTeam,
+  homeTeam
+) {
+  const {
+    analysisView,
+    propsView,
+    statsView
+  } = getNFLPlayerPropsViews(index);
+
+
+  if (
+    !analysisView ||
+    !propsView
+  ) {
+    return;
+  }
+
+
+  nflPlayerPropsState[index] = {
+    ...(
+      nflPlayerPropsState[index] ||
+      {}
+    ),
+
+    eventId,
+    awayTeam,
+    homeTeam,
+    mainView: "best"
+  };
+
+
+  analysisView.style.display =
+    "none";
+
+
+  if (statsView) {
+    statsView.style.display =
+      "none";
+  }
+
+
+  propsView.style.display =
+    "block";
+
+
+  renderNFLPlayerPropsShell(
+    index
+  );
+loadNFLPlayerPropsData(
+  index
+).then(data => {
+
+  if (!data) {
+    return;
+  }
+
+  showNFLPlayerPropsCategory(
+    index,
+    "best"
+  );
+});
+
+  const card =
+    propsView.closest(".card");
+
+
+  if (card) {
+    card.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+  }
+}
+
+
+window.openNFLPlayerProps =
+  openNFLPlayerProps;
+async function loadNFLPlayerPropsData(index) {
+  const state =
+    nflPlayerPropsState[index] || {};
+
+  const container =
+    document.getElementById(
+      `nflPlayerPropsContent${index}`
+    );
+
+  if (!container) {
+    return null;
+  }
+
+
+  /*
+   * Si ya tenemos el payload cargado,
+   * no hacemos ninguna llamada otra vez.
+   */
+  if (state.data) {
+    return state.data;
+  }
+
+
+  const {
+    data: sessionData
+  } =
+    await supabaseClient.auth.getSession();
+
+
+  if (!sessionData.session) {
+    container.innerHTML = `
+      <div class="ps-empty">
+        You must sign in.
+      </div>
+    `;
+
+    return null;
+  }
+
+
+  if (
+    !IS_ADMIN &&
+    !isPremiumUser
+  ) {
+    container.innerHTML = `
+      <div class="player-edge-locked">
+        <p>
+          🔒 Player Props are available with Premium.
+        </p>
+
+        <button
+          class="unlock-btn"
+          onclick="openPromoModal()"
+        >
+          🔓 UNLOCK PREMIUM
+        </button>
+      </div>
+    `;
+
+    return null;
+  }
+
+
+  if (!state.eventId) {
+    container.innerHTML = `
+      <div class="ps-empty">
+        Player Props are not available for this game.
+      </div>
+    `;
+
+    return null;
+  }
+
+
+  try {
+
+    const sharedProps =
+      await getNFLPlayerPropsShared(
+        state.eventId,
+        sessionData.session.access_token
+      );
+
+
+    const data =
+      sharedProps.data || {};
+
+
+    if (!sharedProps.ok) {
+      throw new Error(
+        data.error ||
+        data.reason ||
+        "Error loading NFL Player Props"
+      );
+    }
+
+
+    nflPlayerPropsState[index] = {
+      ...state,
+      data,
+      dataLoadedAt:
+        Date.now()
+    };
+
+
+    return data;
+
+  } catch (error) {
+
+    container.innerHTML = `
+      <div class="ps-empty">
+        ${sanitize(
+          error.message ||
+          "Error loading NFL Player Props"
+        )}
+      </div>
+    `;
+
+    return null;
+  }
+}
+function showNFLPlayerPropsCategory(
+  index,
+  category = "best"
+) {
+  const state =
+    nflPlayerPropsState[index] || {};
+
+  const data =
+    state.data || {};
+
+  const container =
+    document.getElementById(
+      `nflPlayerPropsContent${index}`
+    );
+
+  if (!container) {
+    return;
+  }
+
+
+  /*
+   * Marcar tab activo.
+   */
+  const navigation =
+    document.getElementById(
+      `nflPropsNavigation${index}`
+    );
+
+  if (navigation) {
+    navigation
+      .querySelectorAll("button")
+      .forEach(button => {
+        button.classList.toggle(
+          "active",
+          button.dataset.propView === category
+        );
+      });
+  }
+
+
+  nflPlayerPropsState[index] = {
+    ...state,
+    mainView: category
+  };
+
+
+  /*
+   * BEST:
+   * mantiene las recomendaciones CashEdge.
+   *
+   * Resto:
+   * usa todas las líneas ya proyectadas.
+   */
+  let lines = [];
+
+  if (category === "best") {
+
+    lines = [
+      ...(
+        Array.isArray(data.props)
+          ? data.props
+          : []
+      ),
+
+      ...(
+        Array.isArray(data.lockedProps)
+          ? data.lockedProps
+          : []
+      )
+    ];
+
+  } else {
+
+    const allLines =
+      Array.isArray(
+        data.analyzedPlayerLines
+      )
+        ? data.analyzedPlayerLines
+        : [];
+
+
+    if (category === "qbs") {
+
+      lines =
+        allLines.filter(
+          prop =>
+            String(
+              prop.position || ""
+            ).toUpperCase() === "QB"
+        );
+
+    } else if (category === "rbs") {
+
+      lines =
+        allLines.filter(
+          prop =>
+            String(
+              prop.position || ""
+            ).toUpperCase() === "RB"
+        );
+
+    } else if (
+      category === "receivers"
+    ) {
+
+      lines =
+        allLines.filter(prop => {
+          const position =
+            String(
+              prop.position || ""
+            ).toUpperCase();
+
+          return (
+            position === "WR" ||
+            position === "TE"
+          );
+        });
+
+    } else {
+
+      lines =
+        allLines;
+    }
+  }
+
+
+  if (!lines.length) {
+    container.innerHTML = `
+      <div class="ps-empty">
+        No Player Props available
+        in this category.
+      </div>
+    `;
+
+    return;
+  }
+
+
+  container.innerHTML = `
+    <div class="ps-empty">
+      ${lines.length} Player Props available.
+    </div>
+  `;
+}
+
+
+window.showNFLPlayerPropsCategory =
+  showNFLPlayerPropsCategory;
 // Una sola respuesta de NFL Player Props por eventId durante la sesión de página.
 // Player Props y Player Stats comparten exactamente el mismo payload.
 const nflPlayerPropsSharedCache = {};
