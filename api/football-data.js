@@ -5617,8 +5617,26 @@ async function handleNFLPlayerProps(req, res) {
     });
   }
 
-  const ODDS_API_KEY = process.env.ODDS_API_KEY;
-  const NFL_SEASON   = 2025;
+ const ODDS_API_KEY = process.env.ODDS_API_KEY;
+
+/*
+ * NFL PLAYER PROPS — TEMPORADAS
+ *
+ * NFL_SEASON:
+ * temporada actual detectada automáticamente.
+ *
+ * NFL_PREVIOUS_SEASON:
+ * temporada anterior disponible para el
+ * historial especial de Player Props.
+ *
+ * Esto NO modifica la lógica del análisis
+ * normal de NFL.
+ */
+const NFL_SEASON =
+  getNFLPlayerStatsSeasonYear();
+
+const NFL_PREVIOUS_SEASON =
+  NFL_SEASON - 1;
  
   // 1. Eventos NFL
   const eventsRes = await fetch(
@@ -5686,10 +5704,15 @@ if (!selectedEvent) {
 
       // Cache nuevo: ya contiene el board completo de líneas para Player Stats.
       // Si el cache es de una versión anterior, lo reconstruimos una sola vez.
-      if (
-        cachedJson.playerLinesVersion === 1 &&
-        Array.isArray(cachedJson.playerLines)
-      ) {
+     if (
+  cachedJson.playerLinesVersion === 2 &&
+  Array.isArray(
+    cachedJson.playerLines
+  ) &&
+  Array.isArray(
+    cachedJson.analyzedPlayerLines
+  )
+) {
         return res.status(200).json({
           ...cachedJson,
           cached: true
@@ -5769,41 +5792,83 @@ if (!selectedEvent) {
         continue;
       }
 
-      for (const o of mkt?.outcomes || []) {
-        if (
-          String(o.name || "").toUpperCase() !==
-          "OVER"
-        ) {
-          continue;
-        }
+     for (const o of mkt?.outcomes || []) {
 
-        const line = nflSafeNum(o.point);
+  const side =
+    String(
+      o.name || ""
+    ).toUpperCase();
 
-        if (!(line > 0) || !o.description) {
-          continue;
-        }
 
-        const marketProp = {
-          player: o.description,
-          market: mkt.key,
-          side: "OVER",
-          line,
-          odds: o.price,
-          bookmaker: bk.title
-        };
+  /*
+   * PLAYER PROPS:
+   * solamente analizamos OVER / UNDER.
+   */
+  if (
+    side !== "OVER" &&
+    side !== "UNDER"
+  ) {
+    continue;
+  }
 
-        // Board de investigación:
-        // conserva cualquier línea real publicada.
-        allPlayerLinesRaw.push(marketProp);
 
-        // Modelo CashEdge:
-        // mantiene sus filtros actuales sin cambios.
-        if (line < NFL_MIN_LINES[mkt.key]) {
-          continue;
-        }
+  const line =
+    nflSafeNum(o.point);
 
-        rawProps.push(marketProp);
-      }
+
+  if (
+    !(line > 0) ||
+    !o.description
+  ) {
+    continue;
+  }
+
+
+  const marketProp = {
+    player: o.description,
+    market: mkt.key,
+    side,
+    line,
+    odds: o.price,
+    bookmaker: bk.title
+  };
+
+
+  /*
+   * PLAYER STATS:
+   *
+   * Conservamos su board como estaba:
+   * una línea OVER real por mercado.
+   *
+   * NO metemos UNDER aquí para no cambiar
+   * el comportamiento actual de Player Stats.
+   */
+  if (
+    side === "OVER"
+  ) {
+    allPlayerLinesRaw.push(
+      marketProp
+    );
+  }
+
+
+  /*
+   * PLAYER PROPS:
+   *
+   * OVER y UNDER sí pasan al modelo.
+   */
+  if (
+    line <
+    NFL_MIN_LINES[mkt.key]
+  ) {
+    continue;
+  }
+
+
+  rawProps.push(
+    marketProp
+  );
+}
     }
   }
 
@@ -5849,9 +5914,8 @@ if (!selectedEvent) {
   const uniqueMap = new Map();
 
   for (const prop of rawProps) {
-    const key =
-      `${prop.player}|${prop.market}|${prop.line}`;
-
+  const key =
+  `${prop.player}|${prop.market}|${prop.side}|${prop.line}`;
     const cur =
       uniqueMap.get(key);
 
@@ -5874,9 +5938,10 @@ if (!selectedEvent) {
     }
   }
 
-  const uniqueProps =
-    Array.from(uniqueMap.values())
-      .slice(0, 100);
+const uniqueProps =
+  Array.from(
+    uniqueMap.values()
+  );
 
  
   if (!uniqueProps.length) {
@@ -5891,8 +5956,18 @@ if (!selectedEvent) {
   // 4. ESPN IDs y stats de temporada
   const awayESPNId = findESPNTeamId(selectedEvent.away_team);
   const homeESPNId = findESPNTeamId(selectedEvent.home_team);
- const CURRENT_NFL_ROSTER_SEASON =
-  new Date().getFullYear();
+/*
+ * NFL PLAYER PROPS — ROSTER ACTUAL
+ *
+ * Usamos NFL_SEASON y no simplemente
+ * new Date().getFullYear().
+ *
+ * Así enero/febrero siguen perteneciendo
+ * correctamente a la temporada anterior.
+ */
+const CURRENT_NFL_ROSTER_SEASON =
+  NFL_SEASON;
+
 
 const [awayRoster, homeRoster] =
   await Promise.all([
@@ -5906,22 +5981,101 @@ const [awayRoster, homeRoster] =
     )
   ]);
 
+
 const allCurrentRoster = [
   ...awayRoster,
   ...homeRoster
 ];
 
-const playerSeasonStatsCache = new Map();
-  const [awayTeamStats, homeTeamStats] = await Promise.all([
-    awayESPNId ? getNFLTeamSeasonStats(awayESPNId, NFL_SEASON).catch(() => null) : Promise.resolve(null),
-    homeESPNId ? getNFLTeamSeasonStats(homeESPNId, NFL_SEASON).catch(() => null) : Promise.resolve(null)
-  ]);
- 
-  // 5. Últimos 5 game IDs por equipo
-  const [awayGameIds, homeGameIds] = await Promise.all([
-    awayESPNId ? getNFLTeamRecentGameIds(awayESPNId, NFL_SEASON, 5).catch(() => []) : Promise.resolve([]),
-    homeESPNId ? getNFLTeamRecentGameIds(homeESPNId, NFL_SEASON, 5).catch(() => []) : Promise.resolve([])
-  ]);
+
+const playerSeasonStatsCache =
+  new Map();
+
+
+/*
+ * Stats de equipo:
+ *
+ * Estas siguen siendo de la temporada ACTUAL.
+ *
+ * Todavía NO mezclamos las estadísticas
+ * del equipo 2025 con las de 2026.
+ */
+const [
+  awayTeamStats,
+  homeTeamStats
+] = await Promise.all([
+
+  awayESPNId
+    ? getNFLTeamSeasonStats(
+        awayESPNId,
+        NFL_SEASON
+      ).catch(() => null)
+    : Promise.resolve(null),
+
+  homeESPNId
+    ? getNFLTeamSeasonStats(
+        homeESPNId,
+        NFL_SEASON
+      ).catch(() => null)
+    : Promise.resolve(null)
+
+]);
+
+
+/*
+ * NFL PLAYER PROPS — HISTORIAL DE JUEGOS
+ *
+ * Tenemos separados:
+ *
+ * 1. Juegos de temporada actual.
+ * 2. Juegos de temporada anterior.
+ *
+ * IMPORTANTE:
+ * todavía NO los mezclamos aquí.
+ *
+ * El siguiente paso decidirá, jugador por jugador,
+ * cuándo utilizar 2025 como respaldo.
+ */
+const [
+  awayGameIds,
+  homeGameIds,
+  awayPreviousGameIds,
+  homePreviousGameIds
+] = await Promise.all([
+
+  awayESPNId
+    ? getNFLTeamRecentGameIds(
+        awayESPNId,
+        NFL_SEASON,
+        10
+      ).catch(() => [])
+    : Promise.resolve([]),
+
+  homeESPNId
+    ? getNFLTeamRecentGameIds(
+        homeESPNId,
+        NFL_SEASON,
+        10
+      ).catch(() => [])
+    : Promise.resolve([]),
+
+  awayESPNId
+    ? getNFLTeamRecentGameIds(
+        awayESPNId,
+        NFL_PREVIOUS_SEASON,
+        10
+      ).catch(() => [])
+    : Promise.resolve([]),
+
+  homeESPNId
+    ? getNFLTeamRecentGameIds(
+        homeESPNId,
+        NFL_PREVIOUS_SEASON,
+        10
+      ).catch(() => [])
+    : Promise.resolve([])
+
+]);
  
   // Cache de boxscores
   const boxCache = new Map();
@@ -5937,7 +6091,7 @@ const playerSeasonStatsCache = new Map();
  
   // 6. Analizar cada prop
 const analyzedProps = [];
-
+const analyzedPlayerLines = [];
 const propsDebug = {
   totalUnique: uniqueProps.length,
   noPlayerHistory: 0,
@@ -5950,7 +6104,16 @@ const propsDebug = {
 };
  
   for (const prop of uniqueProps) {
-    const { player, market, line } = prop;
+     const {
+    player,
+    market,
+    line
+  } = prop;
+
+  const propSide =
+    String(
+      prop.side || "OVER"
+    ).toUpperCase();
  const athleteId =
   findNFLAthleteId(
     player,
@@ -5985,38 +6148,597 @@ if (athleteId) {
     );
   }
 }
-    // Intentar away primero, luego home
-    let gameIds    = awayGameIds;
-    let teamStats  = awayTeamStats;
-    let oppStats   = homeTeamStats;
-    let winProb    = awayWinProb;
-    let spreadVal  = nflSafeNum(awaySpread, 0);
- 
-    const playerGameStats = [];
-    for (const gid of gameIds.slice(0, 5)) {
-      const s = await getBoxscore(gid, player);
-      if (s?.found) playerGameStats.push(s);
+ // =====================================================
+// NFL PLAYER PROPS — HISTORIAL MÓVIL DE 10 JUEGOS
+// SOLO PLAYER PROPS
+// =====================================================
+//
+// Regla:
+//
+// 0 juegos actuales  = 0 actual + 10 anterior
+// 1 juego actual     = 1 actual + 9 anterior
+// 2 juegos actuales  = 2 actual + 8 anterior
+// 3 juegos actuales  = 3 actual + 7 anterior
+// 4 juegos actuales  = 4 actual + 6 anterior
+// 5 juegos actuales  = 5 actual + 5 anterior
+// ...
+// 9 juegos actuales  = 9 actual + 1 anterior
+// 10+ juegos actuales = últimos 10 actual
+//
+// De esta muestra salen después:
+// Last 3
+// Last 5
+// Last 10
+//
+// =====================================================
+
+
+const normalizedPropPlayer =
+  normalizeNFLPlayerName(player);
+
+
+/*
+ * Determinar correctamente a qué equipo
+ * pertenece el jugador ACTUALMENTE.
+ */
+const awayRosterMatch =
+  awayRoster.find(p =>
+    (
+      athleteId &&
+      String(p?.id || "") === String(athleteId)
+    ) ||
+    (
+      normalizedPropPlayer &&
+      p?.cleanName === normalizedPropPlayer
+    )
+  ) || null;
+
+
+const homeRosterMatch =
+  homeRoster.find(p =>
+    (
+      athleteId &&
+      String(p?.id || "") === String(athleteId)
+    ) ||
+    (
+      normalizedPropPlayer &&
+      p?.cleanName === normalizedPropPlayer
+    )
+  ) || null;
+
+
+/*
+ * Contexto por defecto AWAY.
+ */
+let gameIds =
+  awayGameIds;
+
+let previousGameIds =
+  awayPreviousGameIds;
+
+let teamStats =
+  awayTeamStats;
+
+let oppStats =
+  homeTeamStats;
+
+let winProb =
+  awayWinProb;
+
+let spreadVal =
+  nflSafeNum(
+    awaySpread,
+    0
+  );
+
+
+/*
+ * Si el roster confirma que pertenece
+ * al HOME team, cambiamos el contexto.
+ */
+if (
+  homeRosterMatch &&
+  !awayRosterMatch
+) {
+
+  gameIds =
+    homeGameIds;
+
+  previousGameIds =
+    homePreviousGameIds;
+
+  teamStats =
+    homeTeamStats;
+
+  oppStats =
+    awayTeamStats;
+
+  winProb =
+    homeWinProb;
+
+  spreadVal =
+    nflSafeNum(
+      homeSpread,
+      0
+    );
+}
+
+
+/*
+ * =====================================================
+ * 1. TEMPORADA ACTUAL
+ * =====================================================
+ *
+ * Buscamos hasta 10 partidos donde
+ * realmente aparezca el jugador.
+ */
+let currentPlayerGameStats = [];
+
+
+for (
+  const gid of gameIds.slice(0, 10)
+) {
+
+  const s =
+    await getBoxscore(
+      gid,
+      player
+    );
+
+  if (s?.found) {
+    currentPlayerGameStats.push(s);
+  }
+}
+
+
+/*
+ * Fallback de seguridad.
+ *
+ * Si el roster no identificó el equipo
+ * y AWAY no encontró al jugador,
+ * intentamos HOME como hacía el sistema antes.
+ */
+if (
+  !awayRosterMatch &&
+  !homeRosterMatch &&
+  !currentPlayerGameStats.length
+) {
+
+  const homeCurrentStats = [];
+
+
+  for (
+    const gid of homeGameIds.slice(0, 10)
+  ) {
+
+    const s =
+      await getBoxscore(
+        gid,
+        player
+      );
+
+    if (s?.found) {
+      homeCurrentStats.push(s);
     }
- 
-    // Si no encontró datos en away, intentar home
-    if (!playerGameStats.length && homeGameIds.length) {
-      gameIds   = homeGameIds;
-      teamStats = homeTeamStats;
-      oppStats  = awayTeamStats;
-      winProb   = homeWinProb;
-      spreadVal = nflSafeNum(homeSpread, 0);
- 
-      for (const gid of gameIds.slice(0, 5)) {
-        const s = await getBoxscore(gid, player);
-        if (s?.found) playerGameStats.push(s);
-      }
+  }
+
+
+  if (homeCurrentStats.length) {
+
+    currentPlayerGameStats =
+      homeCurrentStats;
+
+    gameIds =
+      homeGameIds;
+
+    previousGameIds =
+      homePreviousGameIds;
+
+    teamStats =
+      homeTeamStats;
+
+    oppStats =
+      awayTeamStats;
+
+    winProb =
+      homeWinProb;
+
+    spreadVal =
+      nflSafeNum(
+        homeSpread,
+        0
+      );
+  }
+}
+
+
+/*
+ * =====================================================
+ * 2. ¿CUÁNTOS JUEGOS DE LA TEMPORADA ANTERIOR?
+ * =====================================================
+ */
+const currentGamesUsed =
+  Math.min(
+    10,
+    currentPlayerGameStats.length
+  );
+
+
+const previousGamesNeeded =
+  Math.max(
+    0,
+    10 - currentGamesUsed
+  );
+
+
+/*
+ * =====================================================
+ * 3. TEMPORADA ANTERIOR
+ * =====================================================
+ *
+ * Solamente buscamos la cantidad necesaria
+ * para completar 10.
+ */
+const previousPlayerGameStats = [];
+
+
+if (
+  previousGamesNeeded > 0
+) {
+
+  for (
+    const gid of previousGameIds.slice(0, 10)
+  ) {
+
+    if (
+      previousPlayerGameStats.length >=
+      previousGamesNeeded
+    ) {
+      break;
     }
- 
-   if (!playerGameStats.length) {
+
+
+    const s =
+      await getBoxscore(
+        gid,
+        player
+      );
+
+
+    if (s?.found) {
+      previousPlayerGameStats.push(s);
+    }
+  }
+}
+
+
+/*
+ * =====================================================
+ * 4. HISTORIAL FINAL DE PLAYER PROPS
+ * =====================================================
+ *
+ * Siempre:
+ *
+ * temporada actual primero,
+ * después temporada anterior
+ * solamente para completar 10.
+ */
+const propsHistory10 = [
+  ...currentPlayerGameStats.slice(0, 10),
+  ...previousPlayerGameStats
+].slice(0, 10);
+
+
+/*
+ * Ventanas derivadas de LA MISMA muestra.
+ *
+ * Ejemplo con 1 juego de 2026:
+ *
+ * Last 3  = 1 de 2026 + 2 de 2025
+ * Last 5  = 1 de 2026 + 4 de 2025
+ * Last 10 = 1 de 2026 + 9 de 2025
+ */
+const propsLast3Games =
+  propsHistory10.slice(
+    0,
+    Math.min(
+      3,
+      propsHistory10.length
+    )
+  );
+
+
+const propsLast5Games =
+  propsHistory10.slice(
+    0,
+    Math.min(
+      5,
+      propsHistory10.length
+    )
+  );
+
+
+const propsLast10Games =
+  propsHistory10.slice(
+    0,
+    Math.min(
+      10,
+      propsHistory10.length
+    )
+  );
+
+
+/*
+ * IMPORTANTE:
+ *
+ * La fórmula existente trabaja actualmente
+ * con "recent5".
+ *
+ * Por eso mantenemos playerGameStats como
+ * la ventana Last 5.
+ *
+ * NO convertimos la fórmula en promedio de 10.
+ */
+const playerGameStats =
+  propsLast5Games;
+
+
+/*
+ * Sin historial no se puede proyectar.
+ */
+if (
+  !playerGameStats.length
+) {
+
   propsDebug.noPlayerHistory++;
+
   continue;
 }
- 
+ // =====================================================
+// NFL PLAYER PROPS — WEIGHTED 10-GAME BASELINE
+// SOLO PLAYER PROPS
+// =====================================================
+//
+// Mantiene hasta 10 juegos de contexto,
+// pero la temporada ACTUAL gana peso rápidamente.
+//
+// 0 juegos actuales  = 0% actual / 100% anterior
+// 1 juego actual     = 25% / 75%
+// 2 juegos actuales  = 40% / 60%
+// 3 juegos actuales  = 60% / 40%
+// 4 juegos actuales  = 75% / 25%
+// 5 juegos actuales  = 85% / 15%
+// 6 juegos actuales  = 90% / 10%
+// 7 juegos actuales  = 94% / 6%
+// 8 juegos actuales  = 97% / 3%
+// 9 juegos actuales  = 99% / 1%
+// 10+ juegos actuales = 100% / 0%
+//
+// =====================================================
+
+
+const propsCurrentSeasonGames =
+  currentPlayerGameStats.slice(
+    0,
+    10
+  );
+
+
+const propsPreviousSeasonGames =
+  previousPlayerGameStats.slice(
+    0,
+    10
+  );
+
+
+const propsCurrentGameCount =
+  Math.min(
+    10,
+    propsCurrentSeasonGames.length
+  );
+
+
+const propsCurrentWeightByGames = {
+  0: 0.00,
+  1: 0.25,
+  2: 0.40,
+  3: 0.60,
+  4: 0.75,
+  5: 0.85,
+  6: 0.90,
+  7: 0.94,
+  8: 0.97,
+  9: 0.99,
+  10: 1.00
+};
+
+
+const propsCurrentSeasonWeight =
+  propsCurrentWeightByGames[
+    propsCurrentGameCount
+  ] ?? 1;
+
+
+const propsPreviousSeasonWeight =
+  1 -
+  propsCurrentSeasonWeight;
+
+
+/*
+ * Promedio de una estadística dentro
+ * de una temporada específica.
+ *
+ * IMPORTANTE:
+ * un 0 real cuenta como dato válido.
+ *
+ * Ejemplo:
+ * RB con 0 recepciones en un partido
+ * debe conservar ese cero.
+ */
+const propsSeasonAverage = (
+  games,
+  key
+) => {
+
+  if (
+    !Array.isArray(games) ||
+    !games.length
+  ) {
+    return null;
+  }
+
+
+  const values =
+    games.map(game =>
+      nflSafeNum(
+        game?.[key],
+        0
+      )
+    );
+
+
+  if (!values.length) {
+    return null;
+  }
+
+
+  return (
+    values.reduce(
+      (sum, value) =>
+        sum + value,
+      0
+    ) /
+    values.length
+  );
+};
+
+
+/*
+ * Baseline ponderado.
+ *
+ * Si existen ambas temporadas:
+ * aplica los pesos definidos arriba.
+ *
+ * Si el jugador no tiene historial anterior
+ * —por ejemplo un rookie—
+ * usamos 100% de la temporada actual.
+ *
+ * Si todavía no jugó esta temporada:
+ * usamos 100% de la temporada anterior.
+ */
+const propsWeightedAverage = (
+  key,
+  fallback = 0
+) => {
+
+  const currentAvg =
+    propsSeasonAverage(
+      propsCurrentSeasonGames,
+      key
+    );
+
+
+  const previousAvg =
+    propsSeasonAverage(
+      propsPreviousSeasonGames,
+      key
+    );
+
+
+  const hasCurrent =
+    Number.isFinite(
+      Number(currentAvg)
+    );
+
+
+  const hasPrevious =
+    Number.isFinite(
+      Number(previousAvg)
+    );
+
+
+  /*
+   * Tenemos ambas temporadas.
+   */
+  if (
+    hasCurrent &&
+    hasPrevious
+  ) {
+    return (
+      Number(currentAvg) *
+        propsCurrentSeasonWeight +
+      Number(previousAvg) *
+        propsPreviousSeasonWeight
+    );
+  }
+
+
+  /*
+   * Rookie / sin historial anterior.
+   */
+  if (hasCurrent) {
+    return Number(currentAvg);
+  }
+
+
+  /*
+   * Todavía sin juegos actuales.
+   */
+  if (hasPrevious) {
+    return Number(previousAvg);
+  }
+
+
+  return nflSafeNum(
+    fallback,
+    0
+  );
+};
+
+
+/*
+ * BASELINES POR MERCADO
+ *
+ * Todavía NO sustituyen las variables
+ * del modelo.
+ *
+ * En el próximo paso conectaremos estos
+ * valores a las fórmulas.
+ */
+const propsBaselinePassYds =
+  propsWeightedAverage(
+    "passingYards"
+  );
+
+
+const propsBaselineRushYds =
+  propsWeightedAverage(
+    "rushingYards"
+  );
+
+
+const propsBaselineCarries =
+  propsWeightedAverage(
+    "rushingCarries"
+  );
+
+
+const propsBaselineRecYds =
+  propsWeightedAverage(
+    "receivingYards"
+  );
+
+
+const propsBaselineRec =
+  propsWeightedAverage(
+    "receptions"
+  );
+
+
+const propsBaselineTargets =
+  propsWeightedAverage(
+    "targets"
+  );
     // Promedios recientes
     const avgStat = (key) => {
       const vals = playerGameStats.map(s => nflSafeNum(s[key]));
@@ -6071,67 +6793,115 @@ if (athleteId) {
     const oppCatchDefScore   = calcOppCatchDefenseScore(oppStats);
     const oppRecYardsDefScore= calcOppRecYardsDefenseScore(oppStats);
  
-    // Season averages
-  // =====================================================
-// SEASON AVERAGES REALES DEL JUGADOR
-// Si ESPN no tiene temporada válida, usamos Last 5,
-// nunca estadísticas del equipo como si fueran del player.
+// =====================================================
+// PLAYER PROPS — BASELINE PARA LA PROYECCIÓN
+// =====================================================
+//
+// IMPORTANTE:
+//
+// playerSeasonStats sigue existiendo y conserva
+// la temporada ACTUAL real de ESPN.
+//
+// NO lo eliminamos porque lo necesitaremos para:
+//
+// - Season en la interfaz
+// - comparación vs temporada actual
+// - tendencias
+//
+// Pero para la PROYECCIÓN usamos ahora
+// nuestro baseline ponderado de hasta 10 juegos.
+//
 // =====================================================
 
-const seasonPassYds =
+
+const currentSeasonPassYds =
   nflSafeNum(
     playerSeasonStats?.passingYardsPerGame,
-    recent5PassYds
-  ) > 0
-    ? nflSafeNum(
-        playerSeasonStats?.passingYardsPerGame,
-        recent5PassYds
-      )
-    : recent5PassYds;
+    0
+  );
 
-const seasonRushYds =
+
+const currentSeasonRushYds =
   nflSafeNum(
     playerSeasonStats?.rushingYardsPerGame,
-    recent5RushYds
-  ) > 0
-    ? nflSafeNum(
-        playerSeasonStats?.rushingYardsPerGame,
-        recent5RushYds
-      )
-    : recent5RushYds;
+    0
+  );
 
-const seasonCarries =
+
+const currentSeasonCarries =
   nflSafeNum(
     playerSeasonStats?.rushAttemptsPerGame,
-    recent5Carries
-  ) > 0
-    ? nflSafeNum(
-        playerSeasonStats?.rushAttemptsPerGame,
-        recent5Carries
-      )
-    : recent5Carries;
+    0
+  );
 
-const seasonRecYds =
+
+const currentSeasonRecYds =
   nflSafeNum(
     playerSeasonStats?.receivingYardsPerGame,
-    recent5RecYds
-  ) > 0
-    ? nflSafeNum(
-        playerSeasonStats?.receivingYardsPerGame,
-        recent5RecYds
-      )
-    : recent5RecYds;
+    0
+  );
 
-const seasonRec =
+
+const currentSeasonRec =
   nflSafeNum(
     playerSeasonStats?.receptionsPerGame,
-    recent5Rec
-  ) > 0
-    ? nflSafeNum(
-        playerSeasonStats?.receptionsPerGame,
-        recent5Rec
-      )
-    : recent5Rec;
+    0
+  );
+
+
+// =====================================================
+// BASELINE QUE ENTRA AL MODELO
+// =====================================================
+//
+// Prioridad:
+//
+// 1. Weighted baseline CashEdge
+// 2. Season actual ESPN
+// 3. Last 5
+//
+// Así nunca dejamos al modelo sin una referencia
+// válida si falta algún dato histórico.
+// =====================================================
+
+
+const seasonPassYds =
+  propsBaselinePassYds > 0
+    ? propsBaselinePassYds
+    : currentSeasonPassYds > 0
+      ? currentSeasonPassYds
+      : recent5PassYds;
+
+
+const seasonRushYds =
+  propsBaselineRushYds > 0
+    ? propsBaselineRushYds
+    : currentSeasonRushYds > 0
+      ? currentSeasonRushYds
+      : recent5RushYds;
+
+
+const seasonCarries =
+  propsBaselineCarries > 0
+    ? propsBaselineCarries
+    : currentSeasonCarries > 0
+      ? currentSeasonCarries
+      : recent5Carries;
+
+
+const seasonRecYds =
+  propsBaselineRecYds > 0
+    ? propsBaselineRecYds
+    : currentSeasonRecYds > 0
+      ? currentSeasonRecYds
+      : recent5RecYds;
+
+
+const seasonRec =
+  propsBaselineRec > 0
+    ? propsBaselineRec
+    : currentSeasonRec > 0
+      ? currentSeasonRec
+      : recent5Rec;
  
     let projection = 0;
     let projectionDebug = null;
@@ -6307,7 +7077,14 @@ projectionDebug = {
 }
  
     projection = Number(projection.toFixed(1));
-    const edge       = Number((projection - line).toFixed(2));
+   const edge =
+  propSide === "UNDER"
+    ? Number(
+        (line - projection).toFixed(2)
+      )
+    : Number(
+        (projection - line).toFixed(2)
+      );
     if (
   market === "player_pass_yds" &&
   propsDebug.qbDiagnostics.length < 10
@@ -6374,7 +7151,65 @@ if (
       ).toFixed(1)
     );
 }
- 
+    const decimalOdds =
+  Number(prop.odds);
+
+const sportsbookImpliedPct =
+  Number.isFinite(decimalOdds) &&
+  decimalOdds > 1
+    ? Number(
+        (
+          100 / decimalOdds
+        ).toFixed(1)
+      )
+    : null;
+
+
+const value =
+  sportsbookImpliedPct !== null
+    ? Number(
+        (
+          confidence -
+          sportsbookImpliedPct
+        ).toFixed(1)
+      )
+    : null;
+    const propPosition =
+  String(
+    awayRosterMatch?.position ||
+    homeRosterMatch?.position ||
+    ""
+  ).toUpperCase();
+ const analyzedLine = {
+  player,
+   athleteId:
+  athleteId || null,
+
+position:
+  propPosition,
+  market,
+  side: propSide,
+  line,
+  odds: prop.odds,
+  bookmaker: prop.bookmaker,
+  projection,
+  edge,
+  confidence,
+   sportsbookImpliedPct,
+value,
+  isPremium:
+    confidence >= 75,
+
+  debug:
+    market === "player_pass_yds"
+      ? projectionDebug
+      : undefined
+};
+
+
+analyzedPlayerLines.push(
+  analyzedLine
+);
  if (confidence <= 0) {
   propsDebug.noConfidence++;
 
@@ -6407,23 +7242,9 @@ if (
   continue;
 }
  
- analyzedProps.push({
-  player,
-  market,
-  side: "OVER",
-  line,
-  odds: prop.odds,
-  bookmaker: prop.bookmaker,
-  projection,
-  edge,
-  confidence,
-  isPremium: confidence >= 75,
-
-  debug:
-    market === "player_pass_yds"
-      ? projectionDebug
-      : undefined
-});
+analyzedProps.push(
+  analyzedLine
+);
     propsDebug.analyzed++;
   }
  
@@ -6439,7 +7260,31 @@ if (
     Number(a.edge || 0)
   );
 });
+analyzedPlayerLines.sort((a, b) => {
 
+  const confDiff =
+    Number(b.confidence || 0) -
+    Number(a.confidence || 0);
+
+  if (confDiff !== 0) {
+    return confDiff;
+  }
+
+
+  const valueDiff =
+    Number(b.value || 0) -
+    Number(a.value || 0);
+
+  if (valueDiff !== 0) {
+    return valueDiff;
+  }
+
+
+  return (
+    Number(b.edge || 0) -
+    Number(a.edge || 0)
+  );
+});
 // =====================================================
 // UN SOLO PROP POR JUGADOR
 // conservar únicamente su mejor recomendación
@@ -6471,14 +7316,16 @@ for (const prop of analyzedProps) {
 
     // Board completo de mercado para Player Stats.
     // Sale de la misma respuesta de Odds API; no hace otra consulta.
-    playerLinesVersion: 1,
+    playerLinesVersion: 2,
     totalPlayerLines:   playerLines.length,
     playerLines,
 
     // Recomendaciones CashEdge: lógica actual intacta.
-    totalRawProps:      rawProps.length,
-    totalAnalyzedProps: analyzedProps.length,
-    debug:              propsDebug,
+   totalRawProps:            rawProps.length,
+totalAnalyzedProps:       analyzedProps.length,
+totalAnalyzedPlayerLines: analyzedPlayerLines.length,
+analyzedPlayerLines,
+debug:                    propsDebug,
     props:              uniquePlayerProps.slice(0, 3),
     lockedProps:        uniquePlayerProps.slice(3, 40)
   };
