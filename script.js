@@ -14049,7 +14049,7 @@ return `
       letter-spacing:.04em;
       white-space:nowrap;
     ">
-      ADVANTAGE
+      VALUE
     </small>
 
     <strong style="
@@ -14057,7 +14057,7 @@ return `
       margin-top:4px;
       color:${
         Number(
-          selectedProp.modelAdvantage
+          value
         ) > 0
           ? "#00ffe7"
           : "#ff6b6b"
@@ -14067,18 +14067,18 @@ return `
     ">
       ${
         Number(
-          selectedProp.modelAdvantage
+          value
         ) > 0
           ? "+"
           : ""
       }${
         Number.isFinite(
           Number(
-            selectedProp.modelAdvantage
+           value
           )
         )
           ? Number(
-              selectedProp.modelAdvantage
+              value
             ).toFixed(1) + "%"
           : "—"
       }
@@ -14090,7 +14090,7 @@ return `
       color:#4f6078;
       font-size:6px;
     ">
-      VS BOOK
+     FINAL VALUE
     </small>
 
   </div>
