@@ -7415,11 +7415,24 @@ analyzedProps.push(
   }
  
  analyzedProps.sort((a, b) => {
+
+  const valueDiff =
+    Number(b.value || 0) -
+    Number(a.value || 0);
+
+  if (valueDiff !== 0) {
+    return valueDiff;
+  }
+
+
   const confDiff =
     Number(b.confidence || 0) -
     Number(a.confidence || 0);
 
-  if (confDiff !== 0) return confDiff;
+  if (confDiff !== 0) {
+    return confDiff;
+  }
+
 
   return (
     Number(b.edge || 0) -
