@@ -5903,10 +5903,10 @@ async function getNFLPlayerPropsShared(
     return nflPlayerPropsSharedCache[key];
   }
 
-  const response = await fetch(
-  `/api/football-data?mode=nfl-player-props&eventId=${encodeURIComponent(key)}&force=true`
-    {
-      headers: {
+const response = await fetch(
+  `/api/football-data?mode=nfl-player-props&eventId=${encodeURIComponent(key)}&force=true`,
+  {
+    headers: {
         Authorization:
           `Bearer ${accessToken}`
       }
