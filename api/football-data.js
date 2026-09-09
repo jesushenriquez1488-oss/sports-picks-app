@@ -8227,6 +8227,8 @@ const value =
 
 position:
   propPosition,
+   experienceYears:
+  propExperienceYears,
   market,
   side: propSide,
   line,
