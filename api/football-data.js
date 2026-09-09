@@ -4652,7 +4652,21 @@ function calculateNFLConfidence(market, edge) {
  
   // Interpolación lineal entre puntos fijos
   function interpolate(points, e) {
-    if (e < points[0][0]) return 0;
+    if (e < points[0][0]) {
+
+  const firstEdge =
+    points[0][0];
+
+  const progress =
+    e / firstEdge;
+
+  return Number(
+    (
+      50 +
+      progress * 24.9
+    ).toFixed(1)
+  );
+}
     if (e >= points[points.length - 1][0]) return points[points.length - 1][1];
     for (let i = 0; i < points.length - 1; i++) {
       const [x0, y0] = points[i];
