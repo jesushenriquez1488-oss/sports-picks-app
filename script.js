@@ -3986,6 +3986,10 @@ if (data.limitReached === true || data.upgradeRequired === true) {
   String(eventId || "")
     .replace(/\\/g, "\\\\")
     .replace(/'/g, "\\'");
+    const propsGameTimeEsc =
+  String(gameTime || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'");
 
 const propsButtonHTML = type === "nfl"
   ? `
@@ -3995,7 +3999,8 @@ const propsButtonHTML = type === "nfl"
   ${index},
   '${eventIdEsc}',
   '${awayEsc}',
-  '${homeEsc}'
+  '${homeEsc}',
+  '${propsGameTimeEsc}'
 )"
       style="
         width:100%;
@@ -4433,7 +4438,8 @@ function openNFLPlayerProps(
   index,
   eventId,
   awayTeam,
-  homeTeam
+  homeTeam,
+  gameTime
 ) {
   const {
     analysisView,
@@ -4456,10 +4462,11 @@ function openNFLPlayerProps(
       {}
     ),
 
-    eventId,
-    awayTeam,
-    homeTeam,
-    mainView: "best"
+   eventId,
+awayTeam,
+homeTeam,
+gameTime,
+mainView: "best"
   };
 
 
@@ -4629,6 +4636,271 @@ async function loadNFLPlayerPropsData(index) {
     return null;
   }
 }
+async function loadNFLPlayerStatsForProps(
+  index
+) {
+  const propsState =
+    nflPlayerPropsState[index] || {};
+
+  if (
+    nflPlayerStatsState[index]?.data
+  ) {
+    return nflPlayerStatsState[index].data;
+  }
+
+
+  const {
+    data: sessionData
+  } =
+    await supabaseClient.auth.getSession();
+
+
+  if (!sessionData.session) {
+    throw new Error(
+      "You must sign in."
+    );
+  }
+
+
+  const params =
+    new URLSearchParams({
+      mode:
+        "nfl-player-stats",
+
+      eventId:
+        propsState.eventId || "",
+
+      awayTeam:
+        propsState.awayTeam || "",
+
+      homeTeam:
+        propsState.homeTeam || "",
+
+      gameTime:
+        propsState.gameTime || ""
+    });
+
+
+  const response =
+    await fetch(
+      `/api/football-data?${params.toString()}`,
+      {
+        headers: {
+          Authorization:
+            `Bearer ${sessionData.session.access_token}`
+        }
+      }
+    );
+
+
+  const data =
+    await response.json();
+
+
+  if (!response.ok) {
+    throw new Error(
+      data.error ||
+      "Player Stats are not available."
+    );
+  }
+
+
+  nflPlayerStatsState[index] = {
+    data,
+
+    windowKey:
+      "last5",
+
+    eventId:
+      propsState.eventId,
+
+    awayTeam:
+      propsState.awayTeam,
+
+    homeTeam:
+      propsState.homeTeam,
+
+    gameTime:
+      propsState.gameTime,
+
+    currentProps:
+      Array.isArray(
+        propsState.data?.analyzedPlayerLines
+      )
+        ? propsState.data.analyzedPlayerLines
+        : []
+  };
+
+
+  return data;
+}
+function findNFLStatsPlayerForProp(
+  index,
+  playerName,
+  athleteId = ""
+) {
+  const statsData =
+    nflPlayerStatsState[index]?.data;
+
+  if (!statsData) {
+    return null;
+  }
+
+
+  const players = [
+    ...(
+      statsData.teams?.away?.players ||
+      []
+    ),
+
+    ...(
+      statsData.teams?.home?.players ||
+      []
+    )
+  ];
+
+
+  if (athleteId) {
+    const idMatch =
+      players.find(
+        player =>
+          String(
+            player?.id || ""
+          ) ===
+          String(athleteId)
+      );
+
+    if (idMatch) {
+      return idMatch;
+    }
+  }
+
+
+  return (
+    players.find(
+      player =>
+        ceNFLNamesMatch(
+          player?.name,
+          playerName
+        )
+    ) ||
+    null
+  );
+}
+async function openNFLPropPlayerDetail(
+  index,
+  encodedPlayer,
+  returnCategory = "all",
+  athleteId = "",
+  selectedMarket = ""
+) {
+  const playerName =
+    decodeURIComponent(
+      encodedPlayer || ""
+    );
+
+
+  const container =
+    document.getElementById(
+      `nflPlayerPropsContent${index}`
+    );
+
+  if (!container) {
+    return;
+  }
+
+
+  container.innerHTML = `
+    <div class="loading-analysis">
+      Loading Player Stats...
+    </div>
+  `;
+
+
+  try {
+
+    await loadNFLPlayerStatsForProps(
+      index
+    );
+
+
+    const player =
+      findNFLStatsPlayerForProp(
+        index,
+        playerName,
+        athleteId
+      );
+
+
+    if (!player) {
+      throw new Error(
+        "Player Stats are not available for this player."
+      );
+    }
+
+
+    /*
+     * Al entrar desde Player Props,
+     * usamos las líneas profundas del
+     * payload de Player Props.
+     */
+    const propsState =
+      nflPlayerPropsState[index] || {};
+
+
+    if (nflPlayerStatsState[index]) {
+      nflPlayerStatsState[index].currentProps =
+        Array.isArray(
+          propsState.data?.analyzedPlayerLines
+        )
+          ? propsState.data.analyzedPlayerLines
+          : [];
+    }
+
+
+    /*
+     * Guardamos de dónde vino para
+     * que BACK vuelva correctamente.
+     */
+    nflPlayerPropsState[index] = {
+      ...propsState,
+
+      detailReturnCategory:
+        returnCategory,
+
+      detailPlayer:
+        playerName,
+
+      detailAthleteId:
+        athleteId || player.id || ""
+    };
+
+
+    window.showNFLPlayerDetail(
+      index,
+      player.id,
+      "props",
+      null,
+      "last5",
+      selectedMarket
+    );
+
+  } catch (error) {
+
+    container.innerHTML = `
+      <div class="ps-empty">
+        ${sanitize(
+          error.message ||
+          "Player Stats are not available."
+        )}
+      </div>
+    `;
+  }
+}
+
+
+window.openNFLPropPlayerDetail =
+  openNFLPropPlayerDetail;
 function getNFLPlayerPropMarketLabel(
   market
 ) {
@@ -4762,17 +5034,41 @@ function renderNFLPropsPlayerRow(
     String(
       item?.athleteId || ""
     );
+const preferredProp =
+  props
+    .slice()
+    .sort((a, b) => {
 
+      const valueDiff =
+        Number(b?.value || 0) -
+        Number(a?.value || 0);
+
+      if (valueDiff !== 0) {
+        return valueDiff;
+      }
+
+      return (
+        Number(b?.confidence || 0) -
+        Number(a?.confidence || 0)
+      );
+    })[0] || null;
+
+
+const selectedMarket =
+  String(
+    preferredProp?.market || ""
+  );
 
   return `
     <button
       type="button"
-      onclick="showNFLPropsPlayerLines(
-        ${index},
-        '${encodedPlayer}',
-        '${returnCategory}',
-        '${athleteId}'
-      )"
+      onclick="openNFLPropPlayerDetail(
+  ${index},
+  '${encodedPlayer}',
+  '${returnCategory}',
+  '${athleteId}',
+  '${selectedMarket}'
+)"
       style="
         width:100%;
         background:#081321;
@@ -4879,26 +5175,120 @@ function showNFLPropsPlayerLines(
       : [];
 
 
-  const playerLines =
-    allLines.filter(prop => {
+ const matchedPlayerLines =
+  allLines.filter(prop => {
 
-      if (
-        athleteId &&
-        String(prop?.athleteId || "") ===
-          String(athleteId)
-      ) {
-        return true;
-      }
+    if (
+      athleteId &&
+      String(prop?.athleteId || "") ===
+        String(athleteId)
+    ) {
+      return true;
+    }
 
-      return (
-        String(prop?.player || "")
-          .trim()
-          .toLowerCase() ===
-        String(playerName)
-          .trim()
-          .toLowerCase()
-      );
-    });
+    return (
+      String(prop?.player || "")
+        .trim()
+        .toLowerCase() ===
+      String(playerName)
+        .trim()
+        .toLowerCase()
+    );
+  });
+
+
+/*
+ * Solo líneas realmente evaluadas.
+ * Confidence 0 no se muestra.
+ */
+const actionableLines =
+  matchedPlayerLines.filter(prop =>
+    Number(prop?.confidence || 0) > 0
+  );
+
+
+/*
+ * UNA sola línea por mercado.
+ *
+ * Si varias casas ofrecen Passing Yards,
+ * conservamos la que CashEdge considera
+ * de mayor VALUE.
+ */
+const playerLines =
+  Array.from(
+    actionableLines.reduce(
+      (map, prop) => {
+
+        const market =
+          String(
+            prop?.market || ""
+          );
+
+        if (!market) {
+          return map;
+        }
+
+
+        const current =
+          map.get(market);
+
+
+        if (!current) {
+          map.set(
+            market,
+            prop
+          );
+
+          return map;
+        }
+
+
+        const currentValue =
+          Number(
+            current?.value || 0
+          );
+
+        const newValue =
+          Number(
+            prop?.value || 0
+          );
+
+
+        if (
+          newValue >
+          currentValue
+        ) {
+          map.set(
+            market,
+            prop
+          );
+
+          return map;
+        }
+
+
+        if (
+          newValue ===
+          currentValue &&
+          Number(
+            prop?.confidence || 0
+          ) >
+          Number(
+            current?.confidence || 0
+          )
+        ) {
+          map.set(
+            market,
+            prop
+          );
+        }
+
+
+        return map;
+      },
+      new Map()
+    ).values()
+  );
 
 
   if (!playerLines.length) {
@@ -4931,8 +5321,10 @@ function showNFLPropsPlayerLines(
       style="margin-bottom:14px;"
     >
       ← BACK TO ${
-        returnCategory === "qbs"
-          ? "QBs"
+       returnCategory === "best"
+  ? "BEST"
+  : returnCategory === "qbs"
+    ? "QBs"
           : returnCategory === "rbs"
             ? "RBs"
             : returnCategory === "receivers"
@@ -4993,6 +5385,38 @@ function showNFLPropsPlayerLines(
 
 window.showNFLPropsPlayerLines =
   showNFLPropsPlayerLines;
+function formatNFLPropAmericanOdds(
+  decimalOdds
+) {
+  const decimal =
+    Number(decimalOdds);
+
+  if (
+    !Number.isFinite(decimal) ||
+    decimal <= 1
+  ) {
+    return "—";
+  }
+
+  let american;
+
+  if (decimal >= 2) {
+    american =
+      Math.round(
+        (decimal - 1) * 100
+      );
+  } else {
+    american =
+      Math.round(
+        -100 /
+        (decimal - 1)
+      );
+  }
+
+  return american > 0
+    ? `+${american}`
+    : `${american}`;
+}
 function renderNFLPlayerPropCard(prop) {
 
   const confidence =
@@ -5216,12 +5640,12 @@ function renderNFLPlayerPropCard(prop) {
             font-size:10px;
             color:#fff;
           ">
-            ${sanitize(prop?.bookmaker || "—")}
-            ${
-              odds !== null
-                ? ` · ${odds.toFixed(2)}`
-                : ""
-            }
+           ${sanitize(prop?.bookmaker || "—")}
+${
+  odds !== null
+    ? ` · ${formatNFLPropAmericanOdds(odds)}`
+    : ""
+}
           </strong>
         </div>
 
@@ -5385,9 +5809,43 @@ function showNFLPlayerPropsCategory(
 if (category === "best") {
   container.innerHTML =
     lines
-      .map(prop =>
-        renderNFLPlayerPropCard(prop)
-      )
+      .map(prop => {
+
+        const encodedPlayer =
+          encodeURIComponent(
+            prop?.player || ""
+          );
+
+        const athleteId =
+          String(
+            prop?.athleteId || ""
+          );
+
+        return `
+          <button
+            type="button"
+           onclick="openNFLPropPlayerDetail(
+  ${index},
+  '${encodedPlayer}',
+  'best',
+  '${athleteId}',
+  '${String(prop?.market || "")}'
+)"
+            style="
+              width:100%;
+              padding:0;
+              margin:0;
+              border:0;
+              background:transparent;
+              text-align:left;
+              cursor:pointer;
+              display:block;
+            "
+          >
+            ${renderNFLPlayerPropCard(prop)}
+          </button>
+        `;
+      })
       .join("");
 
   return;
@@ -6044,7 +6502,14 @@ function showNFLPlayerDetail(
   selectedPropMarket = ""
 ) {
   const state = nflPlayerStatsState[index];
-  const box = document.getElementById(`nflPlayerStatsView${index}`);
+ const box =
+  source === "props"
+    ? document.getElementById(
+        `nflPlayerPropsContent${index}`
+      )
+    : document.getElementById(
+        `nflPlayerStatsView${index}`
+      );
 
   if (!state?.data || !box) return;
 
@@ -6287,18 +6752,58 @@ function showNFLPlayerDetail(
   const bestLast5 = last5Values.length ? Math.max(...last5Values) : null;
   const lowestLast5 = last5Values.length ? Math.min(...last5Values) : null;
   const typicalLast5 = last5Values.length ? median(last5Values) : null;
+const propsState =
+  nflPlayerPropsState[index] || {};
 
-  const backAction = source === "category"
-    ? `window.showNFLCategoryList(
-        ${index},
-        '${marketKey}',
-        '${windowKey}'
-      )`
-    : `window.showNFLPlayerStatsView(${index}, 'hot')`;
+const propsReturnCategory =
+  propsState.detailReturnCategory ||
+  "all";
 
-  const backLabel = source === "category" && marketLabels[marketKey]
-    ? `← BACK TO ${marketLabels[marketKey]}`
-    : "← BACK TO HOT PLAYERS";
+const propsReturnPlayer =
+  propsState.detailPlayer ||
+  player.name;
+
+const propsReturnAthleteId =
+  propsState.detailAthleteId ||
+  player.id ||
+  "";
+
+
+const backAction =
+ source === "props"
+  ? `window.showNFLPlayerPropsCategory(
+      ${index},
+      '${propsReturnCategory}'
+    )`
+    : source === "category"
+      ? `window.showNFLCategoryList(
+          ${index},
+          '${marketKey}',
+          '${windowKey}'
+        )`
+      : `window.showNFLPlayerStatsView(
+          ${index},
+          'hot'
+        )`;
+
+
+const backLabel =
+  source === "props"
+    ? `← BACK TO ${
+        propsReturnCategory === "best"
+          ? "BEST"
+          : propsReturnCategory === "qbs"
+            ? "QBs"
+            : propsReturnCategory === "rbs"
+              ? "RBs"
+              : propsReturnCategory === "receivers"
+                ? "RECEIVERS"
+                : "ALL"
+      }`
+    : source === "category" &&
+      marketLabels[marketKey]
+      ? `← BACK TO ${marketLabels[marketKey]}`
+      : "← BACK TO HOT PLAYERS";
 
   const rawPlayerProps = Array.isArray(state.currentProps)
     ? state.currentProps
