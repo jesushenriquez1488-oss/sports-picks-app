@@ -4736,90 +4736,90 @@ function calculateNFLConfidence(
   }
 
 
-  const scales = {
+ const scales = {
 
-    player_pass_yds: [
-      [5, 52],
-      [10, 54],
-      [15, 57],
-      [20, 60],
-      [25, 63],
-      [30, 66],
-      [35, 69],
-      [40, 72],
-      [45, 75],
-      [50, 78],
-      [55, 81],
-      [60, 85],
-      [65, 89],
-      [70, 93]
-    ],
-
-
-    player_rush_attempts: [
-      [0.5, 52],
-      [1, 54],
-      [2, 58],
-      [3, 62],
-      [4, 66],
-      [5, 70],
-      [6, 74],
-      [7, 78],
-      [8, 83],
-      [9, 88]
-    ],
+  player_pass_yds: [
+    [5, 53],
+    [10, 55],
+    [15, 58],
+    [20, 61],
+    [25, 64],
+    [30, 67],
+    [35, 70],
+    [40, 73],
+    [45, 76],
+    [50, 79],
+    [55, 82],
+    [60, 86],
+    [65, 90],
+    [70, 94]
+  ],
 
 
-    player_receptions: [
-      [0.2, 52],
-      [0.4, 54],
-      [0.8, 58],
-      [1.2, 62],
-      [1.6, 66],
-      [2, 70],
-      [2.5, 74],
-      [3, 78],
-      [3.5, 82],
-      [4, 87],
-      [4.5, 92]
-    ],
+  player_rush_attempts: [
+    [0.5, 53],
+    [1, 55],
+    [2, 59],
+    [3, 63],
+    [4, 67],
+    [5, 71],
+    [6, 75],
+    [7, 79],
+    [8, 84],
+    [9, 89]
+  ],
 
 
-    player_reception_yds: [
-      [2.5, 52],
-      [5, 54],
-      [10, 58],
-      [15, 62],
-      [20, 66],
-      [25, 70],
-      [30, 74],
-      [35, 78],
-      [40, 82],
-      [45, 86],
-      [50, 89],
-      [55, 92],
-      [60, 95],
-      [65, 97]
-    ],
+  player_receptions: [
+    [0.2, 53],
+    [0.4, 55],
+    [0.8, 59],
+    [1.2, 63],
+    [1.6, 67],
+    [2, 71],
+    [2.5, 75],
+    [3, 79],
+    [3.5, 83],
+    [4, 88],
+    [4.5, 93]
+  ],
 
 
-    player_rush_yds: [
-      [2.5, 52],
-      [5, 54],
-      [10, 58],
-      [15, 62],
-      [20, 66],
-      [25, 70],
-      [30, 74],
-      [35, 78],
-      [40, 82],
-      [45, 86],
-      [50, 89],
-      [55, 92],
-      [60, 95],
-      [65, 97]
-    ]
-  };
+  player_reception_yds: [
+    [2.5, 53],
+    [5, 55],
+    [10, 60],
+    [15, 64],
+    [20, 68],
+    [25, 72],
+    [30, 76],
+    [35, 80],
+    [40, 84],
+    [45, 88],
+    [50, 91],
+    [55, 94],
+    [60, 96],
+    [65, 98]
+  ],
+
+
+  player_rush_yds: [
+    [2.5, 53],
+    [5, 55],
+    [10, 60],
+    [15, 64],
+    [20, 68],
+    [25, 72],
+    [30, 76],
+    [35, 80],
+    [40, 84],
+    [45, 88],
+    [50, 91],
+    [55, 94],
+    [60, 96],
+    [65, 98]
+  ]
+};
 
 
   const scale =
@@ -5809,7 +5809,7 @@ if (!selectedEvent) {
       // Cache nuevo: ya contiene el board completo de líneas para Player Stats.
       // Si el cache es de una versión anterior, lo reconstruimos una sola vez.
      if (
-  cachedJson.playerLinesVersion === 4 &&
+  cachedJson.playerLinesVersion === 5&&
   Array.isArray(
     cachedJson.playerLines
   ) &&
@@ -8260,18 +8260,14 @@ const historicalSummary =
 confidence =
   modelConfidence > 0 &&
   historicalSummary.percentage !== null
-    ? Number(
-        (
+    ? Math.max(
+        50,
+        Number(
           (
-            modelConfidence *
-            0.50
-          ) +
-          (
-            historicalSummary
-              .percentage *
-            0.50
-          )
-        ).toFixed(1)
+            modelConfidence * 0.65 +
+            historicalSummary.percentage * 0.35
+          ).toFixed(1)
+        )
       )
     : 0;
     const decimalOdds =
@@ -8539,7 +8535,7 @@ for (const prop of analyzedProps) {
 
     // Board completo de mercado para Player Stats.
     // Sale de la misma respuesta de Odds API; no hace otra consulta.
-    playerLinesVersion: 4,
+    playerLinesVersion: 5,
     totalPlayerLines:   playerLines.length,
     playerLines,
 
