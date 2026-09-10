@@ -9004,54 +9004,7 @@ ${
         
       </div>
 
-      <div style="
-        display:grid;
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:8px;
-        margin-bottom:9px;
-      ">
-        <div style="
-          background:#0b1323;
-          border:1px solid #1a2740;
-          border-radius:11px;
-          padding:11px;
-        ">
-          <div style="color:#71839f;font-size:8px;font-weight:800;letter-spacing:.07em;">
-            RECENT TREND
-          </div>
-          <div style="
-            margin-top:7px;
-            color:${trendColor};
-            font-size:14px;
-            font-weight:850;
-            line-height:1.1;
-          ">${trendSymbol} ${trendLabel}</div>
-          <div style="margin-top:5px;color:#71839f;font-size:8px;line-height:1.3;">
-            ${trendVsSeason}
-          </div>
-        </div>
-
-        <div style="
-          background:#0b1323;
-          border:1px solid #1a2740;
-          border-radius:11px;
-          padding:11px;
-        ">
-          <div style="color:#71839f;font-size:8px;font-weight:800;letter-spacing:.07em;">
-            CONSISTENCY
-          </div>
-          <div style="
-            margin-top:7px;
-            color:#fff;
-            font-size:14px;
-            font-weight:850;
-            line-height:1.1;
-          ">${consistency}</div>
-          <div style="margin-top:5px;color:#71839f;font-size:8px;line-height:1.3;">
-            ${consistencyText}
-          </div>
-        </div>
-      </div>
+    
 
       <div style="
         background:#0b1323;
