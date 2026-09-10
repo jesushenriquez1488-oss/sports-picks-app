@@ -8098,10 +8098,7 @@ const backLabel =
         <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;">
           ${["last3", "last5", "last10", "season"].map(key => {
             const result = hitWindows[key];
-           const strong =
-  result?.total
-    ? `<span style="color:#00ffe7;">${result.hits}</span>/${result.total}`
-    : "—";
+           const strong = result?.total ? `${result.hits}/${result.total}` : "—";
             const pct = result?.pct !== null && result?.pct !== undefined
               ? `${result.pct.toFixed(0)}%`
               : "NO DATA";
@@ -8616,9 +8613,7 @@ ${
   font-size:15px;
   line-height:1;
 ">
-  <span style="color:#00ffe7;">
-    ${wins}
-  </span>/${games}
+${wins}/${games}
 </strong>
               <small style="
                 display:block;
