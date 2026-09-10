@@ -7543,82 +7543,7 @@ const homeAverage =
 
 const awayAverage =
   averageLogValue(awayLogs);
-  const last5Values = logs.slice(0, 5).map(primaryGameValue);
-
-  const median = values => {
-    if (!values.length) return 0;
-    const sorted = values.slice().sort((a, b) => a - b);
-    const middle = Math.floor(sorted.length / 2);
-
-    return sorted.length % 2
-      ? sorted[middle]
-      : (sorted[middle - 1] + sorted[middle]) / 2;
-  };
-
-  const mean = last5Values.length
-    ? last5Values.reduce((sum, value) => sum + value, 0) / last5Values.length
-    : 0;
-
-  const variance = last5Values.length > 1
-    ? last5Values.reduce(
-        (sum, value) => sum + Math.pow(value - mean, 2),
-        0
-      ) / last5Values.length
-    : 0;
-
-  const standardDeviation = Math.sqrt(variance);
-  const variation = mean > 0 ? standardDeviation / mean : null;
-
-  let consistency = "NOT ENOUGH DATA";
-  let consistencyText = "More recent games are needed.";
-
-  if (variation !== null && last5Values.length >= 2) {
-    if (variation <= 0.20) {
-      consistency = "HIGH";
-      consistencyText = "Production has stayed very steady game to game.";
-    } else if (variation <= 0.40) {
-      consistency = "MEDIUM";
-      consistencyText = "Production has moved around some game to game.";
-    } else {
-      consistency = "LOW";
-      consistencyText = "Production has changed a lot from game to game.";
-    }
-  }
-
-  const trendWindowKey = windowKey === "season" ? "last5" : windowKey;
-  const trendCurrent = primaryWindowValue(trendWindowKey);
-  const seasonValue = primaryWindowValue("season");
-  const trendPercent = seasonValue > 0
-    ? ((trendCurrent - seasonValue) / seasonValue) * 100
-    : null;
-
-  let trendLabel = "NOT ENOUGH DATA";
-  let trendColor = "#71839f";
-  let trendSymbol = "→";
-
-  if (trendPercent !== null) {
-    if (trendPercent > 5) {
-      trendLabel = "TRENDING UP";
-      trendColor = "#00ffe7";
-      trendSymbol = "↑";
-    } else if (trendPercent < -5) {
-      trendLabel = "TRENDING DOWN";
-      trendColor = "#ff6b6b";
-      trendSymbol = "↓";
-    } else {
-      trendLabel = "STABLE";
-      trendColor = "#d6dfef";
-      trendSymbol = "→";
-    }
-  }
-
-  const trendVsSeason = trendPercent === null
-    ? "Season comparison unavailable"
-    : `${trendPercent >= 0 ? "+" : ""}${trendPercent.toFixed(1)}% vs Season`;
-
-  const bestLast5 = last5Values.length ? Math.max(...last5Values) : null;
-  const lowestLast5 = last5Values.length ? Math.min(...last5Values) : null;
-  const typicalLast5 = last5Values.length ? median(last5Values) : null;
+ 
 const propsState =
   nflPlayerPropsState[index] || {};
 
@@ -9171,46 +9096,9 @@ ${
         </div>
       </div>
 
-      <div style="
-        background:#0b1323;
-        border:1px solid #1a2740;
-        border-radius:11px;
-        padding:11px;
-        margin-bottom:13px;
-      ">
-        <div style="
-          color:#71839f;
-          font-size:8px;
-          font-weight:800;
-          letter-spacing:.07em;
-          margin-bottom:9px;
-        ">LAST 5 PERFORMANCE</div>
+     
 
-        ${
-          last5Values.length
-            ? `
-                <div style="
-                  display:grid;
-                  grid-template-columns:repeat(3,minmax(0,1fr));
-                  gap:8px;
-                ">
-                  <div>
-                    <small style="display:block;color:#60708d;font-size:7px;">BEST GAME</small>
-                    <strong style="display:block;margin-top:4px;color:#fff;font-size:14px;">${bestLast5.toFixed(0)} YDS</strong>
-                  </div>
-                  <div>
-                    <small style="display:block;color:#60708d;font-size:7px;">LOWEST GAME</small>
-                    <strong style="display:block;margin-top:4px;color:#fff;font-size:14px;">${lowestLast5.toFixed(0)} YDS</strong>
-                  </div>
-                  <div>
-                    <small style="display:block;color:#60708d;font-size:7px;">TYPICAL GAME</small>
-                    <strong style="display:block;margin-top:4px;color:#00ffe7;font-size:14px;">${typicalLast5.toFixed(0)} YDS</strong>
-                  </div>
-                </div>
-              `
-            : `<div class="ps-no-data">Not enough recent games yet.</div>`
-        }
-      </div>
+     
 
       <div style="
         color:#71839f;
