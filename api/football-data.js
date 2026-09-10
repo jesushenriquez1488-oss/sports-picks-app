@@ -4646,111 +4646,194 @@ const NFL_MIN_LINES = {
  
 // ---- Confidence por mercado ----
 // Escala exacta del documento CASHEDGE NFL FASE 1
-function calculateNFLConfidence(market, edge) {
-  const e = nflSafeNum(edge);
-  if (e <= 0) return 0;
- 
-  // Interpolación lineal entre puntos fijos
-  function interpolate(points, e) {
-    if (e < points[0][0]) {
+function calculateNFLConfidence(
+  market,
+  edge
+) {
 
-  const firstEdge =
-    points[0][0];
+  const e =
+    nflSafeNum(edge);
 
-  const progress =
-    e / firstEdge;
-
-  return Number(
-    (
-      50 +
-      progress * 24.9
-    ).toFixed(1)
-  );
-}
-    if (e >= points[points.length - 1][0]) return points[points.length - 1][1];
-    for (let i = 0; i < points.length - 1; i++) {
-      const [x0, y0] = points[i];
-      const [x1, y1] = points[i + 1];
-      if (e >= x0 && e < x1) {
-        return Number((y0 + ((e - x0) / (x1 - x0)) * (y1 - y0)).toFixed(1));
-      }
-    }
+  if (e <= 0) {
     return 0;
   }
- 
+
+
+  function interpolate(
+    points,
+    value
+  ) {
+
+    const [
+      firstEdge,
+      firstConfidence
+    ] = points[0];
+
+
+    if (value < firstEdge) {
+
+      const progress =
+        value / firstEdge;
+
+      return Number(
+        (
+          50 +
+          progress *
+            (
+              firstConfidence -
+              50
+            )
+        ).toFixed(1)
+      );
+    }
+
+
+    if (
+      value >=
+      points[
+        points.length - 1
+      ][0]
+    ) {
+      return points[
+        points.length - 1
+      ][1];
+    }
+
+
+    for (
+      let i = 0;
+      i < points.length - 1;
+      i++
+    ) {
+
+      const [x0, y0] =
+        points[i];
+
+      const [x1, y1] =
+        points[i + 1];
+
+
+      if (
+        value >= x0 &&
+        value < x1
+      ) {
+
+        return Number(
+          (
+            y0 +
+            (
+              (value - x0) /
+              (x1 - x0)
+            ) *
+            (y1 - y0)
+          ).toFixed(1)
+        );
+      }
+    }
+
+
+    return 0;
+  }
+
+
   const scales = {
-   player_pass_yds: [
-  [15, 75],
-  [20, 78],
-  [25, 81],
-  [30, 84],
-  [35, 86],
-  [40, 88],
-  [45, 91],
-  [50, 93],
-  [55, 95],
-  [60, 96],
-  [65, 98],
-  [70, 99]
-],
-   player_rush_attempts: [
-  [2.0, 75],
-  [3.0, 78],
-  [4.0, 81],
-  [5.0, 84],
-  [6.0, 87],
-  [7.0, 91],
-  [8.0, 95],
-  [9.0, 99]
-],
 
-player_receptions: [
-  [0.8, 75],
-  [1.2, 78],
-  [1.6, 81],
-  [2.0, 84],
-  [2.5, 87],
-  [3.0, 90],
-  [3.5, 93],
-  [4.0, 96],
-  [4.5, 99]
-],
+    player_pass_yds: [
+      [5, 52],
+      [10, 54],
+      [15, 57],
+      [20, 60],
+      [25, 63],
+      [30, 66],
+      [35, 69],
+      [40, 72],
+      [45, 75],
+      [50, 78],
+      [55, 81],
+      [60, 85],
+      [65, 89],
+      [70, 93]
+    ],
 
-player_reception_yds: [
-  [10, 75],
-  [15, 78],
-  [20, 81],
-  [25, 84],
-  [30, 86],
-  [35, 88],
-  [40, 91],
-  [45, 93],
-  [50, 95],
-  [55, 96],
-  [60, 98],
-  [65, 99]
-],
 
-player_rush_yds: [
-  [10, 75],
-  [15, 78],
-  [20, 81],
-  [25, 84],
-  [30, 86],
-  [35, 88],
-  [40, 91],
-  [45, 93],
-  [50, 95],
-  [55, 96],
-  [60, 98],
-  [65, 99]
-]
+    player_rush_attempts: [
+      [0.5, 52],
+      [1, 54],
+      [2, 58],
+      [3, 62],
+      [4, 66],
+      [5, 70],
+      [6, 74],
+      [7, 78],
+      [8, 83],
+      [9, 88]
+    ],
+
+
+    player_receptions: [
+      [0.2, 52],
+      [0.4, 54],
+      [0.8, 58],
+      [1.2, 62],
+      [1.6, 66],
+      [2, 70],
+      [2.5, 74],
+      [3, 78],
+      [3.5, 82],
+      [4, 87],
+      [4.5, 92]
+    ],
+
+
+    player_reception_yds: [
+      [2.5, 52],
+      [5, 54],
+      [10, 58],
+      [15, 62],
+      [20, 66],
+      [25, 70],
+      [30, 74],
+      [35, 78],
+      [40, 82],
+      [45, 86],
+      [50, 89],
+      [55, 92],
+      [60, 95],
+      [65, 97]
+    ],
+
+
+    player_rush_yds: [
+      [2.5, 52],
+      [5, 54],
+      [10, 58],
+      [15, 62],
+      [20, 66],
+      [25, 70],
+      [30, 74],
+      [35, 78],
+      [40, 82],
+      [45, 86],
+      [50, 89],
+      [55, 92],
+      [60, 95],
+      [65, 97]
+    ]
   };
- 
-  const scale = scales[market];
-  if (!scale) return 0;
- 
-  return interpolate(scale, e);
+
+
+  const scale =
+    scales[market];
+
+  if (!scale) {
+    return 0;
+  }
+
+
+  return interpolate(
+    scale,
+    e
+  );
 }
  
 // ---- ESPN Helpers ----
@@ -5726,7 +5809,7 @@ if (!selectedEvent) {
       // Cache nuevo: ya contiene el board completo de líneas para Player Stats.
       // Si el cache es de una versión anterior, lo reconstruimos una sola vez.
      if (
-  cachedJson.playerLinesVersion === 3 &&
+  cachedJson.playerLinesVersion === 4 &&
   Array.isArray(
     cachedJson.playerLines
   ) &&
@@ -8456,7 +8539,7 @@ for (const prop of analyzedProps) {
 
     // Board completo de mercado para Player Stats.
     // Sale de la misma respuesta de Odds API; no hace otra consulta.
-    playerLinesVersion: 3,
+    playerLinesVersion: 4,
     totalPlayerLines:   playerLines.length,
     playerLines,
 
