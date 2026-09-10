@@ -7828,16 +7828,15 @@ const backLabel =
           margin-bottom:${playerProps.length > 1 ? "10px" : "8px"};
         ">
           <div>
-            <div style="color:#71839f;font-size:8px;font-weight:800;letter-spacing:.08em;">
-              TODAY'S PROP
-            </div>
+            <div style="color:#00ffe7;font-size:8px;font-weight:800;letter-spacing:.08em;">
+  TODAY'S PROP
+</div>
             <div style="margin-top:5px;color:#fff;font-size:14px;font-weight:850;line-height:1.15;">
               ${propSide.toUpperCase()} ${propLine} ${selectedMeta.short}
             </div>
             <div style="margin-top:4px;color:#60708d;font-size:8px;line-height:1.3;">
-              ${Number.isFinite(Number(selectedProp.projection)) ? `Model projection ${Number(selectedProp.projection).toFixed(1)} ${selectedMeta.unit}` : "Current market line"}
-              ${selectedProp.bookmaker ? ` · ${sanitize(selectedProp.bookmaker)}` : ""}
-            </div>
+  ${Number.isFinite(Number(selectedProp.projection)) ? `Model projection ${Number(selectedProp.projection).toFixed(1)} ${selectedMeta.unit}` : "Current market line"}
+</div>
           </div>
                    ${
             source === "props"
@@ -8608,15 +8607,16 @@ ${
           hasCoverage
             ? `
               <strong style="
-                display:block;
-                margin-top:7px;
-                color:#fff;
-                font-size:15px;
-                line-height:1;
-              ">
-                ${wins}/${games}
-              </strong>
-
+  display:block;
+  margin-top:7px;
+  color:#fff;
+  font-size:15px;
+  line-height:1;
+">
+  <span style="color:#00ffe7;">
+    ${wins}
+  </span>/${games}
+</strong>
               <small style="
                 display:block;
                 margin-top:5px;
