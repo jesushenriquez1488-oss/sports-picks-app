@@ -4532,7 +4532,7 @@ const cacheAgeMs =
 
 const cacheIsFresh =
   cacheAgeMs <
-    15 * 60 * 1000;
+    60 * 60 * 1000;
 
 if (
   cached?.analysis_json &&
