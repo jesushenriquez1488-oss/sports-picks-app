@@ -1,6 +1,15 @@
 const crypto = require("crypto");
-const { createClient } =
+
+const {
+  createClient
+} =
   require("@supabase/supabase-js");
+
+const {
+  runMarketPipeline
+} =
+  require("../../lib/marketPipeline");
+
 
 const supabaseAdmin =
   createClient(
@@ -13,15 +22,123 @@ const supabaseAdmin =
 // HELPERS
 // ============================================================
 
+function secureEqual(
+  supplied,
+  expected
+) {
+
+  if (
+    !supplied ||
+    !expected
+  ) {
+    return false;
+  }
+
+
+  const a =
+    crypto
+      .createHash("sha256")
+      .update(
+        String(supplied)
+      )
+      .digest();
+
+
+  const b =
+    crypto
+      .createHash("sha256")
+      .update(
+        String(expected)
+      )
+      .digest();
+
+
+  return crypto
+    .timingSafeEqual(
+      a,
+      b
+    );
+}
+
+
+// ============================================================
+// PIPELINE
+//
+// IMPORTANT:
+//
+// The market quote is stored FIRST.
+//
+// If Market Intelligence fails afterwards,
+// the quote is NOT lost.
+// ============================================================
+
+async function runPipelineSafely({
+
+  gameId,
+  sport,
+
+  providerTimestamp,
+  receivedAt
+
+}) {
+
+  try {
+
+    return await runMarketPipeline({
+
+      supabaseAdmin,
+
+      gameId,
+      sport,
+
+      providerTimestamp,
+      receivedAt
+    });
+
+
+  } catch (error) {
+
+    console.error(
+      "MARKET PIPELINE AFTER QUOTE INGEST ERROR:",
+      error
+    );
+
+
+    return {
+
+      ok: false,
+
+      error:
+        error.message ||
+        String(error)
+    };
+  }
+}
+
+
+// ============================================================
+// SAFE TEXT
+// ============================================================
+
 function safeText(value) {
+
   const text =
-    String(value ?? "").trim();
+    String(
+      value ?? ""
+    )
+      .trim();
+
 
   return text || null;
 }
 
 
+// ============================================================
+// SAFE LINE
+// ============================================================
+
 function safeLine(value) {
+
   if (
     value === null ||
     value === undefined ||
@@ -30,7 +147,10 @@ function safeLine(value) {
     return null;
   }
 
-  const n = Number(value);
+
+  const n =
+    Number(value);
+
 
   return Number.isFinite(n)
     ? n
@@ -38,69 +158,117 @@ function safeLine(value) {
 }
 
 
-function safeAmericanPrice(value) {
-  const n = Number(value);
+// ============================================================
+// SAFE AMERICAN PRICE
+// ============================================================
 
-  if (!Number.isFinite(n)) {
+function safeAmericanPrice(value) {
+
+  const n =
+    Number(value);
+
+
+  if (
+    !Number.isFinite(n)
+  ) {
     return null;
   }
+
 
   return Math.round(n);
 }
 
 
-function sameNumber(a, b) {
+// ============================================================
+// SAME NUMBER
+// ============================================================
+
+function sameNumber(
+  a,
+  b
+) {
+
   const aNull =
     a === null ||
     a === undefined;
+
 
   const bNull =
     b === null ||
     b === undefined;
 
-  if (aNull && bNull) {
+
+  if (
+    aNull &&
+    bNull
+  ) {
     return true;
   }
 
-  if (aNull || bNull) {
+
+  if (
+    aNull ||
+    bNull
+  ) {
     return false;
   }
 
-  return Number(a) === Number(b);
+
+  return (
+    Number(a) ===
+    Number(b)
+  );
 }
 
 
+// ============================================================
+// DEDUPE KEY
+// ============================================================
+
 function makeDedupeKey({
+
   cashedgeGameId,
   sportsbookKey,
+
   marketType,
   selectionKey,
+
   previousLine,
   newLine,
+
   previousPrice,
   newPrice,
+
   providerTimestamp,
   observedAt
+
 }) {
 
-  const raw = JSON.stringify({
-    cashedgeGameId,
-    sportsbookKey,
-    marketType,
-    selectionKey,
-    previousLine,
-    newLine,
-    previousPrice,
-    newPrice,
+  const raw =
+    JSON.stringify({
 
-    /*
-     * Provider timestamp is preferred.
-     * observedAt is fallback only.
-     */
-    movementTime:
-      providerTimestamp ||
-      observedAt
-  });
+      cashedgeGameId,
+      sportsbookKey,
+
+      marketType,
+      selectionKey,
+
+      previousLine,
+      newLine,
+
+      previousPrice,
+      newPrice,
+
+      /*
+       * Provider timestamp is preferred.
+       * observedAt is fallback only.
+       */
+
+      movementTime:
+        providerTimestamp ||
+        observedAt
+    });
+
 
   return crypto
     .createHash("sha256")
@@ -114,53 +282,96 @@ function makeDedupeKey({
 // ============================================================
 
 module.exports =
-  async function handler(req, res) {
+  async function handler(
+    req,
+    res
+  ) {
 
-    if (req.method !== "POST") {
+    // ========================================================
+    // POST ONLY
+    // ========================================================
+
+    if (
+      req.method !== "POST"
+    ) {
+
       return res
         .status(405)
         .json({
+
           ok: false,
-          error: "POST required"
+
+          error:
+            "POST required"
         });
     }
+
 
     try {
 
       // ======================================================
       // AUTH
+      //
+      // MARKET_INGEST_SECRET only.
+      //
+      // No query string secret.
       // ======================================================
 
       const configuredSecret =
-        process.env.MARKET_INGEST_SECRET;
+        process.env
+          .MARKET_INGEST_SECRET;
 
-      if (!configuredSecret) {
+
+      if (
+        !configuredSecret
+      ) {
+
         return res
           .status(500)
           .json({
+
             ok: false,
+
             error:
               "MARKET_INGEST_SECRET is not configured"
           });
       }
 
+
       const authHeader =
         String(
-          req.headers.authorization ||
+          req.headers
+            .authorization ||
           ""
         );
 
+
       const bearer =
-        authHeader.startsWith("Bearer ")
-          ? authHeader.slice(7)
+        authHeader
+          .startsWith(
+            "Bearer "
+          )
+          ? authHeader
+              .slice(7)
+              .trim()
           : "";
 
-      if (bearer !== configuredSecret) {
+
+      if (
+        !secureEqual(
+          bearer,
+          configuredSecret
+        )
+      ) {
+
         return res
           .status(401)
           .json({
+
             ok: false,
-            error: "Unauthorized"
+
+            error:
+              "Unauthorized"
           });
       }
 
@@ -181,20 +392,32 @@ module.exports =
             shadow_mode,
             ingestion_enabled
           `)
-          .eq("id", 1)
+          .eq(
+            "id",
+            1
+          )
           .maybeSingle();
 
-      if (settingsError) {
+
+      if (
+        settingsError
+      ) {
         throw settingsError;
       }
 
+
       if (
-        settings?.ingestion_enabled !== true
+        settings
+          ?.ingestion_enabled !==
+        true
       ) {
+
         return res
           .status(503)
           .json({
+
             ok: false,
+
             error:
               "Market ingestion is disabled"
           });
@@ -208,65 +431,101 @@ module.exports =
       const body =
         req.body || {};
 
+
       const sport =
-        safeText(body.sport)
+        safeText(
+          body.sport
+        )
           ?.toLowerCase();
+
 
       const cashedgeGameId =
         safeText(
-          body.cashedge_game_id
+          body
+            .cashedge_game_id
         );
 
+
       const provider =
-        safeText(body.provider);
+        safeText(
+          body.provider
+        );
+
 
       const providerEventId =
         safeText(
-          body.provider_event_id
+          body
+            .provider_event_id
         );
+
 
       const sportsbookKey =
         safeText(
-          body.sportsbook_key
-        )?.toLowerCase();
+          body
+            .sportsbook_key
+        )
+          ?.toLowerCase();
+
 
       const sportsbookName =
         safeText(
-          body.sportsbook_name
+          body
+            .sportsbook_name
         );
+
 
       const marketType =
         safeText(
-          body.market_type
-        )?.toLowerCase();
+          body
+            .market_type
+        )
+          ?.toLowerCase();
+
 
       const selectionKey =
         safeText(
-          body.selection_key
-        )?.toLowerCase();
+          body
+            .selection_key
+        )
+          ?.toLowerCase();
+
 
       const selectionName =
         safeText(
-          body.selection_name
+          body
+            .selection_name
         );
 
+
       let line =
-        safeLine(body.line);
+        safeLine(
+          body.line
+        );
+
 
       const priceAmerican =
         safeAmericanPrice(
-          body.price_american
+          body
+            .price_american
         );
 
+
       const providerTimestamp =
-        body.provider_timestamp
+        body
+          .provider_timestamp
           ? new Date(
-              body.provider_timestamp
-            ).toISOString()
+              body
+                .provider_timestamp
+            )
+              .toISOString()
           : null;
 
+
+      // This is when CashEdge received
+      // and began processing the provider update.
       const observedAt =
-        new Date().toISOString();
+        new Date()
+          .toISOString();
 
 
       // ======================================================
@@ -281,15 +540,22 @@ module.exports =
         !marketType ||
         !selectionKey
       ) {
+
         return res
           .status(400)
           .json({
+
             ok: false,
+
             error:
               "Missing required market quote fields"
           });
       }
 
+
+      // ======================================================
+      // SUPPORTED MARKETS
+      // ======================================================
 
       const allowedMarkets =
         new Set([
@@ -298,54 +564,84 @@ module.exports =
           "total"
         ]);
 
+
       if (
         !allowedMarkets.has(
           marketType
         )
       ) {
+
         return res
           .status(400)
           .json({
+
             ok: false,
+
             error:
               "Unsupported market_type"
           });
       }
 
 
-      /*
-       * Moneyline has PRICE but no spread/total LINE.
-       *
-       * Cubs ML -122:
-       * line  = null
-       * price = -122
-       */
+      // ======================================================
+      // MONEYLINE
+      //
+      // Moneyline has PRICE but does not have
+      // a spread/total line.
+      //
+      // Example:
+      //
+      // Cubs ML -122
+      //
+      // line  = null
+      // price = -122
+      // ======================================================
+
       if (
-        marketType === "moneyline"
+        marketType ===
+        "moneyline"
       ) {
+
         line = null;
       }
 
 
-      if (priceAmerican === null) {
+      // ======================================================
+      // PRICE REQUIRED
+      // ======================================================
+
+      if (
+        priceAmerican === null
+      ) {
+
         return res
           .status(400)
           .json({
+
             ok: false,
+
             error:
               "Valid price_american is required"
           });
       }
 
 
+      // ======================================================
+      // SPREAD / TOTAL LINE REQUIRED
+      // ======================================================
+
       if (
-        marketType !== "moneyline" &&
+        marketType !==
+          "moneyline" &&
         line === null
       ) {
+
         return res
           .status(400)
           .json({
+
             ok: false,
+
             error:
               "Spread/total requires line"
           });
@@ -375,15 +671,24 @@ module.exports =
           )
           .maybeSingle();
 
-      if (contextError) {
+
+      if (
+        contextError
+      ) {
         throw contextError;
       }
 
-      if (!pickContext) {
+
+      if (
+        !pickContext
+      ) {
+
         return res
           .status(404)
           .json({
+
             ok: false,
+
             error:
               "CashEdge game is not being tracked by Market Intelligence"
           });
@@ -392,6 +697,13 @@ module.exports =
 
       // ======================================================
       // GET CURRENT QUOTE
+      //
+      // One current state per:
+      //
+      // game
+      // sportsbook
+      // market
+      // selection
       // ======================================================
 
       const {
@@ -421,7 +733,10 @@ module.exports =
           )
           .maybeSingle();
 
-      if (existingError) {
+
+      if (
+        existingError
+      ) {
         throw existingError;
       }
 
@@ -430,7 +745,9 @@ module.exports =
       // FIRST OBSERVATION = BASELINE
       // ======================================================
 
-      if (!existing) {
+      if (
+        !existing
+      ) {
 
         const {
           data: created,
@@ -441,11 +758,14 @@ module.exports =
               "market_current_quotes"
             )
             .insert({
+
               sport,
+
               cashedge_game_id:
                 cashedgeGameId,
 
               provider,
+
               provider_event_id:
                 providerEventId,
 
@@ -465,6 +785,7 @@ module.exports =
                 selectionName,
 
               line,
+
               price_american:
                 priceAmerican,
 
@@ -480,45 +801,93 @@ module.exports =
             .select()
             .single();
 
-        if (insertError) {
+
+        if (
+          insertError
+        ) {
           throw insertError;
         }
+
+
+        // ====================================================
+        // PIPELINE
+        //
+        // A first quote is not a movement for this book,
+        // but a NEW sportsbook can change:
+        //
+        // - consensus
+        // - best line
+        // - opportunity
+        // - Important Moves
+        //
+        // Therefore baseline DOES trigger the pipeline.
+        // ====================================================
+
+        const pipeline =
+          await runPipelineSafely({
+
+            gameId:
+              cashedgeGameId,
+
+            sport,
+
+            providerTimestamp,
+
+            receivedAt:
+              observedAt
+          });
+
 
         return res
           .status(200)
           .json({
+
             ok: true,
+
             shadowMode:
-              settings?.shadow_mode === true,
+              settings
+                ?.shadow_mode ===
+              true,
 
-            result: "baseline",
+            result:
+              "baseline",
 
-            changed: false,
+            changed:
+              false,
+
+            pipeline,
 
             quote: {
+
               sportsbook:
-                created.sportsbook_name ||
-                created.sportsbook_key,
+                created
+                  .sportsbook_name ||
+                created
+                  .sportsbook_key,
 
               marketType:
-                created.market_type,
+                created
+                  .market_type,
 
               selection:
-                created.selection_name ||
-                created.selection_key,
+                created
+                  .selection_name ||
+                created
+                  .selection_key,
 
               line:
                 created.line,
 
               price:
-                created.price_american
+                created
+                  .price_american
             }
           });
       }
 
 
       // ======================================================
-      // DID ANYTHING ACTUALLY CHANGE?
+      // DID LINE OR PRICE ACTUALLY CHANGE?
       // ======================================================
 
       const lineChanged =
@@ -527,12 +896,16 @@ module.exports =
           line
         );
 
+
       const priceChanged =
         Number(
-          existing.price_american
-        ) !== Number(
+          existing
+            .price_american
+        ) !==
+        Number(
           priceAmerican
         );
+
 
       const actuallyChanged =
         lineChanged ||
@@ -540,10 +913,16 @@ module.exports =
 
 
       // ======================================================
-      // SAME QUOTE — ONLY REFRESH FRESHNESS
+      // SAME QUOTE
+      //
+      // Refresh freshness timestamps only.
+      //
+      // DO NOT run Market Pipeline.
       // ======================================================
 
-      if (!actuallyChanged) {
+      if (
+        !actuallyChanged
+      ) {
 
         const {
           error: refreshError
@@ -553,17 +932,21 @@ module.exports =
               "market_current_quotes"
             )
             .update({
+
               provider,
+
               provider_event_id:
                 providerEventId,
 
               sportsbook_name:
                 sportsbookName ||
-                existing.sportsbook_name,
+                existing
+                  .sportsbook_name,
 
               selection_name:
                 selectionName ||
-                existing.selection_name,
+                existing
+                  .selection_name,
 
               provider_timestamp:
                 providerTimestamp,
@@ -579,23 +962,45 @@ module.exports =
               existing.id
             );
 
-        if (refreshError) {
+
+        if (
+          refreshError
+        ) {
           throw refreshError;
         }
+
 
         return res
           .status(200)
           .json({
+
             ok: true,
+
             shadowMode:
-              settings?.shadow_mode === true,
+              settings
+                ?.shadow_mode ===
+              true,
 
-            result: "unchanged",
+            result:
+              "unchanged",
 
-            changed: false,
+            changed:
+              false,
 
-            lineChanged: false,
-            priceChanged: false
+            lineChanged:
+              false,
+
+            priceChanged:
+              false,
+
+            pipeline: {
+
+              triggered:
+                false,
+
+              reason:
+                "Quote unchanged"
+            }
           });
       }
 
@@ -606,8 +1011,10 @@ module.exports =
 
       const dedupeKey =
         makeDedupeKey({
+
           cashedgeGameId,
           sportsbookKey,
+
           marketType,
           selectionKey,
 
@@ -618,7 +1025,8 @@ module.exports =
             line,
 
           previousPrice:
-            existing.price_american,
+            existing
+              .price_american,
 
           newPrice:
             priceAmerican,
@@ -628,6 +1036,10 @@ module.exports =
         });
 
 
+      // ======================================================
+      // STORE MARKET MOVEMENT HISTORY
+      // ======================================================
+
       const {
         error: historyError
       } =
@@ -636,6 +1048,7 @@ module.exports =
             "market_odds_updates"
           )
           .insert({
+
             sport,
 
             cashedge_game_id:
@@ -651,7 +1064,8 @@ module.exports =
 
             sportsbook_name:
               sportsbookName ||
-              existing.sportsbook_name,
+              existing
+                .sportsbook_name,
 
             market_type:
               marketType,
@@ -661,7 +1075,8 @@ module.exports =
 
             selection_name:
               selectionName ||
-              existing.selection_name,
+              existing
+                .selection_name,
 
             previous_line:
               existing.line,
@@ -670,7 +1085,8 @@ module.exports =
               line,
 
             previous_price_american:
-              existing.price_american,
+              existing
+                .price_american,
 
             new_price_american:
               priceAmerican,
@@ -689,16 +1105,22 @@ module.exports =
               body
           });
 
+
+      // A duplicate historical update is acceptable.
+      // Anything else is a real database failure.
+
       if (
         historyError &&
-        historyError.code !== "23505"
+        historyError.code !==
+          "23505"
       ) {
+
         throw historyError;
       }
 
 
       // ======================================================
-      // UPDATE CURRENT STATE
+      // UPDATE CURRENT MARKET STATE
       // ======================================================
 
       const {
@@ -709,6 +1131,7 @@ module.exports =
             "market_current_quotes"
           )
           .update({
+
             provider,
 
             provider_event_id:
@@ -716,11 +1139,13 @@ module.exports =
 
             sportsbook_name:
               sportsbookName ||
-              existing.sportsbook_name,
+              existing
+                .sportsbook_name,
 
             selection_name:
               selectionName ||
-              existing.selection_name,
+              existing
+                .selection_name,
 
             line,
 
@@ -741,36 +1166,80 @@ module.exports =
             existing.id
           );
 
-      if (currentError) {
+
+      if (
+        currentError
+      ) {
         throw currentError;
       }
 
 
+      // ======================================================
+      // RUN MARKET INTELLIGENCE
+      //
+      // IMPORTANT:
+      //
+      // The quote and movement have ALREADY been stored.
+      //
+      // A downstream Intelligence error must never cause
+      // CashEdge to lose provider market data.
+      // ======================================================
+
+      const pipeline =
+        await runPipelineSafely({
+
+          gameId:
+            cashedgeGameId,
+
+          sport,
+
+          providerTimestamp,
+
+          receivedAt:
+            observedAt
+        });
+
+
+      // ======================================================
+      // RESPONSE
+      // ======================================================
+
       return res
         .status(200)
         .json({
+
           ok: true,
 
           shadowMode:
-            settings?.shadow_mode === true,
+            settings
+              ?.shadow_mode ===
+            true,
 
-          result: "changed",
+          result:
+            "changed",
 
-          changed: true,
+          changed:
+            true,
+
+          pipeline,
 
           lineChanged,
           priceChanged,
 
           previous: {
+
             line:
               existing.line,
 
             price:
-              existing.price_american
+              existing
+                .price_american
           },
 
           current: {
+
             line,
+
             price:
               priceAmerican
           }
@@ -784,10 +1253,13 @@ module.exports =
         error
       );
 
+
       return res
         .status(500)
         .json({
+
           ok: false,
+
           error:
             error.message
         });
