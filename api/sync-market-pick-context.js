@@ -1,3 +1,6 @@
+const crypto =
+  require("crypto");
+
 const { createClient } =
   require("@supabase/supabase-js");
 
@@ -6,6 +9,49 @@ const supabaseAdmin =
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
+
+
+// ============================================================
+// SECURITY
+// ============================================================
+
+function secureEqual(
+  supplied,
+  expected
+) {
+
+  if (
+    !supplied ||
+    !expected
+  ) {
+    return false;
+  }
+
+
+  const a =
+    crypto
+      .createHash("sha256")
+      .update(
+        String(supplied)
+      )
+      .digest();
+
+
+  const b =
+    crypto
+      .createHash("sha256")
+      .update(
+        String(expected)
+      )
+      .digest();
+
+
+  return crypto
+    .timingSafeEqual(
+      a,
+      b
+    );
+}
 
 
 // ============================================================
@@ -460,22 +506,50 @@ module.exports =
   ) {
 
     if (
-      req.method !== "GET" &&
-      req.method !== "POST"
+      req.method !== "GET"
     ) {
+
+      res.setHeader(
+        "Allow",
+        "GET"
+      );
+
+
       return res
         .status(405)
         .json({
+          ok: false,
           error:
-            "Method not allowed"
+            "GET required"
         });
     }
+
 
     try {
 
       // ======================================================
       // SECURITY
+      //
+      // CRON_SECRET only.
+      // No query-string secrets.
       // ======================================================
+
+      const expectedSecret =
+        process.env
+          .CRON_SECRET;
+
+
+      if (!expectedSecret) {
+
+        return res
+          .status(500)
+          .json({
+            ok: false,
+            error:
+              "CRON_SECRET is not configured"
+          });
+      }
+
 
       const authHeader =
         String(
@@ -483,34 +557,24 @@ module.exports =
           ""
         );
 
-      const bearerToken =
-        authHeader.startsWith("Bearer ")
-          ? authHeader.slice(7)
+
+      const bearer =
+        authHeader.startsWith(
+          "Bearer "
+        )
+          ? authHeader
+              .slice(7)
+              .trim()
           : "";
 
-      const querySecret =
-        String(
-          req.query.secret || ""
-        );
-
-      const validSecret =
-        process.env.CRON_SECRET ||
-        process.env.GENERATE_DAILY_SECRET;
-
-      if (!validSecret) {
-        return res
-          .status(500)
-          .json({
-            ok: false,
-            error:
-              "Missing CRON_SECRET / GENERATE_DAILY_SECRET"
-          });
-      }
 
       if (
-        bearerToken !== validSecret &&
-        querySecret !== validSecret
+        !secureEqual(
+          bearer,
+          expectedSecret
+        )
       ) {
+
         return res
           .status(401)
           .json({
