@@ -6,6 +6,11 @@ const {
 } =
   require("@supabase/supabase-js");
 
+const {
+  runMarketPipeline
+} =
+  require("../../lib/marketPipeline");
+
 
 const supabaseAdmin =
   createClient(
@@ -18,17 +23,121 @@ const supabaseAdmin =
 // HELPERS
 // ============================================================
 
+function secureEqual(
+  supplied,
+  expected
+) {
+
+  if (
+    !supplied ||
+    !expected
+  ) {
+    return false;
+  }
+
+
+  const a =
+    crypto
+      .createHash("sha256")
+      .update(
+        String(supplied)
+      )
+      .digest();
+
+
+  const b =
+    crypto
+      .createHash("sha256")
+      .update(
+        String(expected)
+      )
+      .digest();
+
+
+  return crypto
+    .timingSafeEqual(
+      a,
+      b
+    );
+}
+
+
+// ============================================================
+// PIPELINE
+//
+// Split data is stored FIRST.
+//
+// Market Intelligence is executed afterwards so a pipeline
+// failure can never cause CashEdge to lose provider data.
+// ============================================================
+
+async function runPipelineSafely({
+
+  gameId,
+  sport,
+
+  providerTimestamp,
+  receivedAt
+
+}) {
+
+  try {
+
+    return await runMarketPipeline({
+
+      supabaseAdmin,
+
+      gameId,
+      sport,
+
+      providerTimestamp,
+      receivedAt
+    });
+
+
+  } catch (error) {
+
+    console.error(
+      "MARKET PIPELINE AFTER SPLIT INGEST ERROR:",
+      error
+    );
+
+
+    return {
+
+      ok: false,
+
+      error:
+        error.message ||
+        String(error)
+    };
+  }
+}
+
+
+// ============================================================
+// TEXT
+// ============================================================
+
 function cleanText(value) {
-  return String(value || "")
+
+  return String(
+    value || ""
+  )
     .trim();
 }
 
 
 function normalizeText(value) {
+
   return cleanText(value)
     .toLowerCase();
 }
 
+
+// ============================================================
+// NUMBER
+// ============================================================
 
 function safeNumber(value) {
 
@@ -40,8 +149,10 @@ function safeNumber(value) {
     return null;
   }
 
+
   const n =
     Number(value);
+
 
   return Number.isFinite(n)
     ? n
@@ -49,10 +160,15 @@ function safeNumber(value) {
 }
 
 
+// ============================================================
+// PERCENTAGE
+// ============================================================
+
 function pct(value) {
 
   const n =
     safeNumber(value);
+
 
   if (
     n === null ||
@@ -62,11 +178,16 @@ function pct(value) {
     return null;
   }
 
+
   return Number(
     n.toFixed(2)
   );
 }
 
+
+// ============================================================
+// HASH
+// ============================================================
 
 function makeHash(value) {
 
@@ -89,13 +210,21 @@ module.exports =
     res
   ) {
 
+    // ========================================================
+    // POST ONLY
+    // ========================================================
+
     if (
-      req.method !== "POST"
+      req.method !==
+      "POST"
     ) {
+
       return res
         .status(405)
         .json({
+
           ok: false,
+
           error:
             "POST required"
         });
@@ -106,28 +235,46 @@ module.exports =
 
       // ======================================================
       // SECURITY
+      //
+      // MARKET_INGEST_SECRET only.
+      //
+      // No secret in URL.
       // ======================================================
 
       const auth =
         String(
-          req.headers.authorization ||
+          req.headers
+            .authorization ||
           ""
         );
 
 
       const token =
-        auth.startsWith("Bearer ")
-          ? auth.slice(7)
+        auth
+          .startsWith(
+            "Bearer "
+          )
+          ? auth
+              .slice(7)
+              .trim()
           : "";
 
 
+      const configuredSecret =
+        process.env
+          .MARKET_INGEST_SECRET;
+
+
       if (
-        !process.env.MARKET_INGEST_SECRET
+        !configuredSecret
       ) {
+
         return res
           .status(500)
           .json({
+
             ok: false,
+
             error:
               "MARKET_INGEST_SECRET is missing"
           });
@@ -135,13 +282,18 @@ module.exports =
 
 
       if (
-        token !==
-        process.env.MARKET_INGEST_SECRET
+        !secureEqual(
+          token,
+          configuredSecret
+        )
       ) {
+
         return res
           .status(401)
           .json({
+
             ok: false,
+
             error:
               "Unauthorized"
           });
@@ -171,20 +323,28 @@ module.exports =
           .maybeSingle();
 
 
-      if (settingsError) {
+      if (
+        settingsError
+      ) {
         throw settingsError;
       }
 
 
       if (
-        settings?.ingestion_enabled !==
+        settings
+          ?.ingestion_enabled !==
         true
       ) {
+
         return res
           .status(200)
           .json({
+
             ok: true,
-            skipped: true,
+
+            skipped:
+              true,
+
             reason:
               "Market ingestion disabled"
           });
@@ -207,7 +367,8 @@ module.exports =
 
       const gameId =
         cleanText(
-          body.cashedge_game_id
+          body
+            .cashedge_game_id
         );
 
 
@@ -217,35 +378,44 @@ module.exports =
         );
 
 
-      // IMPORTANT:
+      // ======================================================
+      // IMPORTANT
       //
       // provider = Owls
       //
-      // split_source = DraftKings / Circa / etc.
+      // split source =
+      // DraftKings / Circa / another sportsbook
       //
-      // We intentionally keep these separate.
+      // These must NEVER be mixed together.
+      // ======================================================
+
       const splitSourceKey =
         normalizeText(
-          body.split_source_key
+          body
+            .split_source_key
         );
 
 
       const splitSourceName =
         cleanText(
-          body.split_source_name ||
-          body.split_source_key
+          body
+            .split_source_name ||
+          body
+            .split_source_key
         );
 
 
       const marketType =
         normalizeText(
-          body.market_type
+          body
+            .market_type
         );
 
 
       const selectionKey =
         normalizeText(
-          body.selection_key
+          body
+            .selection_key
         );
 
 
@@ -257,28 +427,39 @@ module.exports =
 
       const price =
         safeNumber(
-          body.price_american
+          body
+            .price_american
         );
 
 
       const moneyPct =
         pct(
-          body.money_pct
+          body
+            .money_pct
         );
 
 
       const ticketsPct =
         pct(
-          body.tickets_pct
+          body
+            .tickets_pct
         );
 
 
       const providerTimestamp =
-        body.provider_timestamp
+        body
+          .provider_timestamp
           ? new Date(
-              body.provider_timestamp
-            ).toISOString()
+              body
+                .provider_timestamp
+            )
+              .toISOString()
           : null;
+
+
+      const observedAt =
+        new Date()
+          .toISOString();
 
 
       // ======================================================
@@ -297,7 +478,9 @@ module.exports =
         return res
           .status(400)
           .json({
+
             ok: false,
+
             error:
               "Missing required split fields"
           });
@@ -317,7 +500,9 @@ module.exports =
         return res
           .status(400)
           .json({
+
             ok: false,
+
             error:
               "Invalid market_type"
           });
@@ -332,7 +517,9 @@ module.exports =
         return res
           .status(400)
           .json({
+
             ok: false,
+
             error:
               "money_pct and tickets_pct must be between 0 and 100"
           });
@@ -362,17 +549,23 @@ module.exports =
           .maybeSingle();
 
 
-      if (contextError) {
+      if (
+        contextError
+      ) {
         throw contextError;
       }
 
 
-      if (!context) {
+      if (
+        !context
+      ) {
 
         return res
           .status(404)
           .json({
+
             ok: false,
+
             error:
               "Game not tracked by CashEdge Market Intelligence"
           });
@@ -380,15 +573,20 @@ module.exports =
 
 
       if (
-        context.current_is_premium !==
+        context
+          .current_is_premium !==
         true
       ) {
 
         return res
           .status(200)
           .json({
+
             ok: true,
-            skipped: true,
+
+            skipped:
+              true,
+
             reason:
               "Game is not currently Premium"
           });
@@ -398,8 +596,16 @@ module.exports =
       // ======================================================
       // LATEST SNAPSHOT FROM THE SAME SPLIT SOURCE
       //
-      // DraftKings must never overwrite / compare itself
+      // DraftKings must never overwrite or compare itself
       // against Circa.
+      //
+      // Scope:
+      //
+      // game
+      // provider
+      // split source
+      // market
+      // selection
       // ======================================================
 
       const {
@@ -442,39 +648,58 @@ module.exports =
           .order(
             "observed_at",
             {
-              ascending: false
+              ascending:
+                false
             }
           )
           .limit(1)
           .maybeSingle();
 
 
-      if (previousError) {
+      if (
+        previousError
+      ) {
         throw previousError;
       }
 
 
       // ======================================================
       // IDENTICAL STATE
+      //
+      // No new snapshot.
+      // No Market Pipeline execution.
       // ======================================================
 
       const unchanged =
         previous &&
+
         safeNumber(
           previous.line
-        ) === line &&
+        ) ===
+          line &&
+
         safeNumber(
-          previous.price_american
-        ) === price &&
+          previous
+            .price_american
+        ) ===
+          price &&
+
         safeNumber(
-          previous.money_pct
-        ) === moneyPct &&
+          previous
+            .money_pct
+        ) ===
+          moneyPct &&
+
         safeNumber(
-          previous.tickets_pct
-        ) === ticketsPct;
+          previous
+            .tickets_pct
+        ) ===
+          ticketsPct;
 
 
-      if (unchanged) {
+      if (
+        unchanged
+      ) {
 
         return res
           .status(200)
@@ -484,11 +709,14 @@ module.exports =
 
             shadowMode:
               settings
-                ?.shadow_mode === true,
+                ?.shadow_mode ===
+              true,
 
-            created: false,
+            created:
+              false,
 
-            unchanged: true,
+            unchanged:
+              true,
 
             provider,
 
@@ -510,8 +738,18 @@ module.exports =
                 (
                   moneyPct -
                   ticketsPct
-                ).toFixed(2)
-              )
+                )
+                  .toFixed(2)
+              ),
+
+            pipeline: {
+
+              triggered:
+                false,
+
+              reason:
+                "Split unchanged"
+            }
           });
       }
 
@@ -542,7 +780,7 @@ module.exports =
           ticketsPct,
 
           providerTimestamp
-      });
+        });
 
 
       // ======================================================
@@ -598,14 +836,22 @@ module.exports =
               body,
 
             observed_at:
-              new Date()
-                .toISOString()
+              observedAt
           });
 
 
-      if (insertError) {
+      if (
+        insertError
+      ) {
 
-        // Unique dedupe collision = already stored.
+        // ====================================================
+        // UNIQUE DEDUPE COLLISION
+        //
+        // Snapshot already exists.
+        //
+        // Do not run Pipeline again.
+        // ====================================================
+
         if (
           insertError.code ===
           "23505"
@@ -614,14 +860,54 @@ module.exports =
           return res
             .status(200)
             .json({
+
               ok: true,
-              created: false,
-              duplicate: true
+
+              created:
+                false,
+
+              duplicate:
+                true,
+
+              pipeline: {
+
+                triggered:
+                  false,
+
+                reason:
+                  "Split snapshot already stored"
+              }
             });
         }
 
+
         throw insertError;
       }
+
+
+      // ======================================================
+      // RUN MARKET INTELLIGENCE
+      //
+      // IMPORTANT:
+      //
+      // The split snapshot has already been persisted.
+      //
+      // If the Intelligence layer fails, CashEdge still
+      // retains the provider snapshot.
+      // ======================================================
+
+      const pipeline =
+        await runPipelineSafely({
+
+          gameId,
+
+          sport,
+
+          providerTimestamp,
+
+          receivedAt:
+            observedAt
+        });
 
 
       // ======================================================
@@ -636,9 +922,11 @@ module.exports =
 
           shadowMode:
             settings
-              ?.shadow_mode === true,
+              ?.shadow_mode ===
+            true,
 
-          created: true,
+          created:
+            true,
 
           provider,
 
@@ -660,10 +948,13 @@ module.exports =
               (
                 moneyPct -
                 ticketsPct
-              ).toFixed(2)
+              )
+                .toFixed(2)
             ),
 
-          providerTimestamp
+          providerTimestamp,
+
+          pipeline
         });
 
 
@@ -678,7 +969,9 @@ module.exports =
       return res
         .status(500)
         .json({
+
           ok: false,
+
           error:
             error.message
         });
