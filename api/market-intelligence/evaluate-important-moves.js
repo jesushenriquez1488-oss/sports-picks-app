@@ -1,3 +1,6 @@
+const crypto =
+  require("crypto");
+
 const {
   createClient
 } =
@@ -16,6 +19,38 @@ const supabaseAdmin =
   );
 
 
+function secureEqual(
+  supplied,
+  expected
+) {
+
+  if (
+    !supplied ||
+    !expected
+  ) {
+    return false;
+  }
+
+  const a =
+    crypto
+      .createHash("sha256")
+      .update(String(supplied))
+      .digest();
+
+  const b =
+    crypto
+      .createHash("sha256")
+      .update(String(expected))
+      .digest();
+
+  return crypto
+    .timingSafeEqual(
+      a,
+      b
+    );
+}
+
+
 module.exports =
   async function handler(
     req,
@@ -23,7 +58,7 @@ module.exports =
   ) {
 
     if (
-      req.method !== "GET"
+      req.method !== "POST"
     ) {
 
       return res
@@ -31,14 +66,31 @@ module.exports =
         .json({
           ok: false,
           error:
-            "GET required"
+            "POST required"
         });
     }
 
 
     try {
 
-      const authHeader =
+      const expectedSecret =
+        process.env
+          .MARKET_PIPELINE_SECRET;
+
+
+      if (!expectedSecret) {
+
+        return res
+          .status(500)
+          .json({
+            ok: false,
+            error:
+              "MARKET_PIPELINE_SECRET is not configured"
+          });
+      }
+
+
+      const auth =
         String(
           req.headers.authorization ||
           ""
@@ -46,40 +98,16 @@ module.exports =
 
 
       const bearer =
-        authHeader.startsWith(
-          "Bearer "
-        )
-          ? authHeader.slice(7)
+        auth.startsWith("Bearer ")
+          ? auth.slice(7).trim()
           : "";
 
 
-      const querySecret =
-        String(
-          req.query.secret ||
-          ""
-        );
-
-
-      const validSecret =
-        process.env.CRON_SECRET ||
-        process.env.GENERATE_DAILY_SECRET;
-
-
-      if (!validSecret) {
-
-        return res
-          .status(500)
-          .json({
-            ok: false,
-            error:
-              "Missing server secret"
-          });
-      }
-
-
       if (
-        bearer !== validSecret &&
-        querySecret !== validSecret
+        !secureEqual(
+          bearer,
+          expectedSecret
+        )
       ) {
 
         return res
@@ -94,7 +122,7 @@ module.exports =
 
       const gameId =
         String(
-          req.query.game_id ||
+          req.body?.game_id ||
           ""
         )
           .trim();
