@@ -1,4 +1,9 @@
-const { createClient } =
+const crypto =
+  require("crypto");
+
+const {
+  createClient
+} =
   require("@supabase/supabase-js");
 
 const {
@@ -14,6 +19,53 @@ const supabaseAdmin =
   );
 
 
+// ============================================================
+// SECURITY
+// ============================================================
+
+function secureEqual(
+  supplied,
+  expected
+) {
+
+  if (
+    !supplied ||
+    !expected
+  ) {
+    return false;
+  }
+
+
+  const a =
+    crypto
+      .createHash("sha256")
+      .update(
+        String(supplied)
+      )
+      .digest();
+
+
+  const b =
+    crypto
+      .createHash("sha256")
+      .update(
+        String(expected)
+      )
+      .digest();
+
+
+  return crypto
+    .timingSafeEqual(
+      a,
+      b
+    );
+}
+
+
+// ============================================================
+// HANDLER
+// ============================================================
+
 module.exports =
   async function handler(
     req,
@@ -21,14 +73,15 @@ module.exports =
   ) {
 
     if (
-      req.method !== "GET"
+      req.method !== "POST"
     ) {
+
       return res
         .status(405)
         .json({
           ok: false,
           error:
-            "GET required"
+            "POST required"
         });
     }
 
@@ -36,37 +89,50 @@ module.exports =
     try {
 
       // ======================================================
-      // SECURITY
+      // AUTH
       // ======================================================
 
-      const secret =
-        String(
-          req.query.secret ||
-          ""
-        );
-
-
-      const validSecret =
-        process.env.CRON_SECRET ||
+      const configuredSecret =
         process.env
-          .GENERATE_DAILY_SECRET;
+          .MARKET_PIPELINE_SECRET;
 
 
-      if (!validSecret) {
+      if (!configuredSecret) {
+
         return res
           .status(500)
           .json({
             ok: false,
             error:
-              "Missing server secret"
+              "MARKET_PIPELINE_SECRET is not configured"
           });
       }
 
 
+      const authHeader =
+        String(
+          req.headers.authorization ||
+          ""
+        );
+
+
+      const bearer =
+        authHeader.startsWith(
+          "Bearer "
+        )
+          ? authHeader
+              .slice(7)
+              .trim()
+          : "";
+
+
       if (
-        secret !==
-        validSecret
+        !secureEqual(
+          bearer,
+          configuredSecret
+        )
       ) {
+
         return res
           .status(401)
           .json({
@@ -81,14 +147,20 @@ module.exports =
       // GAME
       // ======================================================
 
+      const body =
+        req.body || {};
+
+
       const gameId =
         String(
-          req.query.game_id ||
+          body.game_id ||
           ""
-        ).trim();
+        )
+          .trim();
 
 
       if (!gameId) {
+
         return res
           .status(400)
           .json({
@@ -105,6 +177,7 @@ module.exports =
 
       const result =
         await evaluateMarketGame({
+
           supabaseAdmin,
           gameId
         });
