@@ -1,3 +1,6 @@
+const crypto =
+  require("crypto");
+
 const {
   createClient
 } =
@@ -11,6 +14,53 @@ const supabaseAdmin =
   );
 
 
+// ============================================================
+// SECURITY
+// ============================================================
+
+function secureEqual(
+  supplied,
+  expected
+) {
+
+  if (
+    !supplied ||
+    !expected
+  ) {
+    return false;
+  }
+
+
+  const a =
+    crypto
+      .createHash("sha256")
+      .update(
+        String(supplied)
+      )
+      .digest();
+
+
+  const b =
+    crypto
+      .createHash("sha256")
+      .update(
+        String(expected)
+      )
+      .digest();
+
+
+  return crypto
+    .timingSafeEqual(
+      a,
+      b
+    );
+}
+
+
+// ============================================================
+// HANDLER
+// ============================================================
+
 module.exports =
   async function handler(
     req,
@@ -20,6 +70,12 @@ module.exports =
     if (
       req.method !== "GET"
     ) {
+
+      res.setHeader(
+        "Allow",
+        "GET"
+      );
+
 
       return res
         .status(405)
@@ -33,6 +89,30 @@ module.exports =
 
     try {
 
+      // ======================================================
+      // SERVER-ONLY AUTH
+      //
+      // MARKET_PIPELINE_SECRET only.
+      // No query-string secrets.
+      // ======================================================
+
+      const expectedSecret =
+        process.env
+          .MARKET_PIPELINE_SECRET;
+
+
+      if (!expectedSecret) {
+
+        return res
+          .status(500)
+          .json({
+            ok: false,
+            error:
+              "MARKET_PIPELINE_SECRET is not configured"
+          });
+      }
+
+
       const authHeader =
         String(
           req.headers.authorization ||
@@ -44,27 +124,16 @@ module.exports =
         authHeader.startsWith(
           "Bearer "
         )
-          ? authHeader.slice(7)
+          ? authHeader
+              .slice(7)
+              .trim()
           : "";
 
 
-      const querySecret =
-        String(
-          req.query.secret ||
-          ""
-        );
-
-
-      const validSecret =
-        process.env.CRON_SECRET ||
-        process.env.GENERATE_DAILY_SECRET;
-
-
       if (
-        !validSecret ||
-        (
-          bearer !== validSecret &&
-          querySecret !== validSecret
+        !secureEqual(
+          bearer,
+          expectedSecret
         )
       ) {
 
@@ -77,6 +146,10 @@ module.exports =
           });
       }
 
+
+      // ======================================================
+      // IMPORTANT EVENTS
+      // ======================================================
 
       const {
         data: events,
@@ -163,6 +236,10 @@ module.exports =
       }
 
 
+      // ======================================================
+      // PREMIUM CONTEXT
+      // ======================================================
+
       const {
         data: contexts,
         error: contextError
@@ -205,6 +282,10 @@ module.exports =
             )
         );
 
+
+      // ======================================================
+      // GROUP EVENTS BY GAME
+      // ======================================================
 
       const groups =
         new Map();
@@ -341,6 +422,10 @@ module.exports =
         });
       }
 
+
+      // ======================================================
+      // SORT GAMES
+      // ======================================================
 
       const games =
         Array
