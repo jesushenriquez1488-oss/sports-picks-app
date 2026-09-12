@@ -1,6 +1,11 @@
-const crypto = require("crypto");
-const { createClient } =
+const crypto =
+  require("crypto");
+
+const {
+  createClient
+} =
   require("@supabase/supabase-js");
+
 
 const supabaseAdmin =
   createClient(
@@ -13,15 +18,20 @@ const supabaseAdmin =
 // HELPERS
 // ============================================================
 
-function safeText(value) {
-  const text =
-    String(value ?? "").trim();
+function cleanText(value) {
+  return String(value || "")
+    .trim();
+}
 
-  return text || null;
+
+function normalizeText(value) {
+  return cleanText(value)
+    .toLowerCase();
 }
 
 
 function safeNumber(value) {
+
   if (
     value === null ||
     value === undefined ||
@@ -30,7 +40,8 @@ function safeNumber(value) {
     return null;
   }
 
-  const n = Number(value);
+  const n =
+    Number(value);
 
   return Number.isFinite(n)
     ? n
@@ -38,7 +49,8 @@ function safeNumber(value) {
 }
 
 
-function safePercent(value) {
+function pct(value) {
+
   const n =
     safeNumber(value);
 
@@ -56,73 +68,13 @@ function safePercent(value) {
 }
 
 
-function safeAmericanPrice(value) {
-  const n =
-    safeNumber(value);
-
-  if (n === null) {
-    return null;
-  }
-
-  return Math.round(n);
-}
-
-
-function sameNumber(a, b) {
-  const x =
-    safeNumber(a);
-
-  const y =
-    safeNumber(b);
-
-  if (
-    x === null &&
-    y === null
-  ) {
-    return true;
-  }
-
-  if (
-    x === null ||
-    y === null
-  ) {
-    return false;
-  }
-
-  return x === y;
-}
-
-
-function makeDedupeKey({
-  cashedgeGameId,
-  provider,
-  marketType,
-  selectionKey,
-  moneyPct,
-  ticketsPct,
-  line,
-  priceAmerican,
-  providerTimestamp
-}) {
-
-  const raw =
-    JSON.stringify({
-      cashedgeGameId,
-      provider,
-      marketType,
-      selectionKey,
-      moneyPct,
-      ticketsPct,
-      line,
-      priceAmerican,
-      providerTimestamp:
-        providerTimestamp || null
-    });
-
+function makeHash(value) {
 
   return crypto
     .createHash("sha256")
-    .update(raw)
+    .update(
+      JSON.stringify(value)
+    )
     .digest("hex");
 }
 
@@ -153,42 +105,38 @@ module.exports =
     try {
 
       // ======================================================
-      // AUTH
+      // SECURITY
       // ======================================================
 
-      const configuredSecret =
-        process.env.MARKET_INGEST_SECRET;
-
-
-      if (!configuredSecret) {
-        return res
-          .status(500)
-          .json({
-            ok: false,
-            error:
-              "MARKET_INGEST_SECRET is not configured"
-          });
-      }
-
-
-      const authHeader =
+      const auth =
         String(
           req.headers.authorization ||
           ""
         );
 
 
-      const bearer =
-        authHeader.startsWith(
-          "Bearer "
-        )
-          ? authHeader.slice(7)
+      const token =
+        auth.startsWith("Bearer ")
+          ? auth.slice(7)
           : "";
 
 
       if (
-        bearer !==
-        configuredSecret
+        !process.env.MARKET_INGEST_SECRET
+      ) {
+        return res
+          .status(500)
+          .json({
+            ok: false,
+            error:
+              "MARKET_INGEST_SECRET is missing"
+          });
+      }
+
+
+      if (
+        token !==
+        process.env.MARKET_INGEST_SECRET
       ) {
         return res
           .status(401)
@@ -216,7 +164,10 @@ module.exports =
             shadow_mode,
             ingestion_enabled
           `)
-          .eq("id", 1)
+          .eq(
+            "id",
+            1
+          )
           .maybeSingle();
 
 
@@ -226,16 +177,16 @@ module.exports =
 
 
       if (
-        settings
-          ?.ingestion_enabled !==
+        settings?.ingestion_enabled !==
         true
       ) {
         return res
-          .status(503)
+          .status(200)
           .json({
-            ok: false,
-            error:
-              "Market ingestion is disabled"
+            ok: true,
+            skipped: true,
+            reason:
+              "Market ingestion disabled"
           });
       }
 
@@ -249,62 +200,76 @@ module.exports =
 
 
       const sport =
-        safeText(
+        normalizeText(
           body.sport
-        )?.toLowerCase();
+        );
 
 
-      const cashedgeGameId =
-        safeText(
+      const gameId =
+        cleanText(
           body.cashedge_game_id
         );
 
 
       const provider =
-        safeText(
+        normalizeText(
           body.provider
         );
 
 
+      // IMPORTANT:
+      //
+      // provider = Owls
+      //
+      // split_source = DraftKings / Circa / etc.
+      //
+      // We intentionally keep these separate.
+      const splitSourceKey =
+        normalizeText(
+          body.split_source_key
+        );
+
+
+      const splitSourceName =
+        cleanText(
+          body.split_source_name ||
+          body.split_source_key
+        );
+
+
       const marketType =
-        safeText(
+        normalizeText(
           body.market_type
-        )?.toLowerCase();
+        );
 
 
       const selectionKey =
-        safeText(
+        normalizeText(
           body.selection_key
-        )?.toLowerCase();
-
-
-      const selectionName =
-        safeText(
-          body.selection_name
         );
 
 
-      const moneyPct =
-        safePercent(
-          body.money_pct
-        );
-
-
-      const ticketsPct =
-        safePercent(
-          body.tickets_pct
-        );
-
-
-      let line =
+      const line =
         safeNumber(
           body.line
         );
 
 
-      const priceAmerican =
-        safeAmericanPrice(
+      const price =
+        safeNumber(
           body.price_american
+        );
+
+
+      const moneyPct =
+        pct(
+          body.money_pct
+        );
+
+
+      const ticketsPct =
+        pct(
+          body.tickets_pct
         );
 
 
@@ -322,11 +287,13 @@ module.exports =
 
       if (
         !sport ||
-        !cashedgeGameId ||
+        !gameId ||
         !provider ||
+        !splitSourceKey ||
         !marketType ||
         !selectionKey
       ) {
+
         return res
           .status(400)
           .json({
@@ -338,9 +305,30 @@ module.exports =
 
 
       if (
+        ![
+          "moneyline",
+          "spread",
+          "total"
+        ].includes(
+          marketType
+        )
+      ) {
+
+        return res
+          .status(400)
+          .json({
+            ok: false,
+            error:
+              "Invalid market_type"
+          });
+      }
+
+
+      if (
         moneyPct === null ||
         ticketsPct === null
       ) {
+
         return res
           .status(400)
           .json({
@@ -351,39 +339,8 @@ module.exports =
       }
 
 
-      const allowedMarkets =
-        new Set([
-          "moneyline",
-          "spread",
-          "total"
-        ]);
-
-
-      if (
-        !allowedMarkets.has(
-          marketType
-        )
-      ) {
-        return res
-          .status(400)
-          .json({
-            ok: false,
-            error:
-              "Unsupported market_type"
-          });
-      }
-
-
-      if (
-        marketType ===
-        "moneyline"
-      ) {
-        line = null;
-      }
-
-
       // ======================================================
-      // VERIFY CASHEDGE IS TRACKING GAME
+      // VERIFY THAT CASHEDGE IS TRACKING THIS PREMIUM
       // ======================================================
 
       const {
@@ -395,15 +352,12 @@ module.exports =
             "market_pick_context"
           )
           .select(`
-            id,
-            sport,
-            market_type,
-            selection_key,
+            cashedge_game_id,
             current_is_premium
           `)
           .eq(
             "cashedge_game_id",
-            cashedgeGameId
+            gameId
           )
           .maybeSingle();
 
@@ -414,51 +368,68 @@ module.exports =
 
 
       if (!context) {
+
         return res
           .status(404)
           .json({
             ok: false,
             error:
-              "Game is not tracked by Market Intelligence"
+              "Game not tracked by CashEdge Market Intelligence"
           });
       }
 
 
       if (
-        context
-          .current_is_premium !==
+        context.current_is_premium !==
         true
       ) {
+
         return res
-          .status(409)
+          .status(200)
           .json({
-            ok: false,
-            error:
+            ok: true,
+            skipped: true,
+            reason:
               "Game is not currently Premium"
           });
       }
 
 
       // ======================================================
-      // GET LATEST SNAPSHOT
+      // LATEST SNAPSHOT FROM THE SAME SPLIT SOURCE
+      //
+      // DraftKings must never overwrite / compare itself
+      // against Circa.
       // ======================================================
 
       const {
-        data: latest,
-        error: latestError
+        data: previous,
+        error: previousError
       } =
         await supabaseAdmin
           .from(
             "market_split_snapshots"
           )
-          .select("*")
+          .select(`
+            id,
+            line,
+            price_american,
+            money_pct,
+            tickets_pct,
+            provider_timestamp,
+            observed_at
+          `)
           .eq(
             "cashedge_game_id",
-            cashedgeGameId
+            gameId
           )
           .eq(
             "provider",
             provider
+          )
+          .eq(
+            "split_source_key",
+            splitSourceKey
           )
           .eq(
             "market_type",
@@ -478,52 +449,60 @@ module.exports =
           .maybeSingle();
 
 
-      if (latestError) {
-        throw latestError;
+      if (previousError) {
+        throw previousError;
       }
 
 
       // ======================================================
-      // SAME STATE = NO NEW SNAPSHOT
+      // IDENTICAL STATE
       // ======================================================
 
-      if (
-        latest &&
-        sameNumber(
-          latest.money_pct,
-          moneyPct
-        ) &&
-        sameNumber(
-          latest.tickets_pct,
-          ticketsPct
-        ) &&
-        sameNumber(
-          latest.line,
-          line
-        ) &&
-        sameNumber(
-          latest.price_american,
-          priceAmerican
-        )
-      ) {
+      const unchanged =
+        previous &&
+        safeNumber(
+          previous.line
+        ) === line &&
+        safeNumber(
+          previous.price_american
+        ) === price &&
+        safeNumber(
+          previous.money_pct
+        ) === moneyPct &&
+        safeNumber(
+          previous.tickets_pct
+        ) === ticketsPct;
+
+
+      if (unchanged) {
 
         return res
           .status(200)
           .json({
+
             ok: true,
 
             shadowMode:
               settings
-                ?.shadow_mode ===
-              true,
+                ?.shadow_mode === true,
 
-            result:
-              "unchanged",
+            created: false,
 
-            snapshotCreated:
-              false,
+            unchanged: true,
+
+            provider,
+
+            splitSource:
+              splitSourceKey,
+
+            gameId,
+
+            marketType,
+
+            selectionKey,
 
             moneyPct,
+
             ticketsPct,
 
             divergence:
@@ -538,30 +517,39 @@ module.exports =
 
 
       // ======================================================
-      // NEW SNAPSHOT
+      // DEDUPE
       // ======================================================
 
-      const observedAt =
-        new Date()
-          .toISOString();
-
-
       const dedupeKey =
-        makeDedupeKey({
-          cashedgeGameId,
-          provider,
-          marketType,
-          selectionKey,
-          moneyPct,
-          ticketsPct,
-          line,
-          priceAmerican,
-          providerTimestamp
-        });
+        makeHash({
 
+          gameId,
+
+          provider,
+
+          splitSourceKey,
+
+          marketType,
+
+          selectionKey,
+
+          line,
+
+          price,
+
+          moneyPct,
+
+          ticketsPct,
+
+          providerTimestamp
+      });
+
+
+      // ======================================================
+      // INSERT NEW SNAPSHOT
+      // ======================================================
 
       const {
-        data: created,
         error: insertError
       } =
         await supabaseAdmin
@@ -573,9 +561,15 @@ module.exports =
             sport,
 
             cashedge_game_id:
-              cashedgeGameId,
+              gameId,
 
             provider,
+
+            split_source_key:
+              splitSourceKey,
+
+            split_source_name:
+              splitSourceName,
 
             market_type:
               marketType,
@@ -583,13 +577,10 @@ module.exports =
             selection_key:
               selectionKey,
 
-            selection_name:
-              selectionName,
-
             line,
 
             price_american:
-              priceAmerican,
+              price,
 
             money_pct:
               moneyPct,
@@ -597,66 +588,45 @@ module.exports =
             tickets_pct:
               ticketsPct,
 
-            observed_at:
-              observedAt,
+            provider_timestamp:
+              providerTimestamp,
 
             dedupe_key:
               dedupeKey,
 
             raw_payload:
-              body.raw_payload ||
-              body
-          })
-          .select()
-          .single();
+              body,
+
+            observed_at:
+              new Date()
+                .toISOString()
+          });
 
 
-      if (
-        insertError &&
-        insertError.code !==
-        "23505"
-      ) {
+      if (insertError) {
+
+        // Unique dedupe collision = already stored.
+        if (
+          insertError.code ===
+          "23505"
+        ) {
+
+          return res
+            .status(200)
+            .json({
+              ok: true,
+              created: false,
+              duplicate: true
+            });
+        }
+
         throw insertError;
       }
 
 
-      if (
-        insertError?.code ===
-        "23505"
-      ) {
-        return res
-          .status(200)
-          .json({
-            ok: true,
-
-            shadowMode:
-              settings
-                ?.shadow_mode ===
-              true,
-
-            result:
-              "duplicate",
-
-            snapshotCreated:
-              false
-          });
-      }
-
-
       // ======================================================
-      // SIMPLE INFORMATIONAL READ
-      //
-      // NOT YET A SHARP SIGNAL.
+      // RESPONSE
       // ======================================================
-
-      const divergence =
-        Number(
-          (
-            moneyPct -
-            ticketsPct
-          ).toFixed(2)
-        );
-
 
       return res
         .status(200)
@@ -666,44 +636,34 @@ module.exports =
 
           shadowMode:
             settings
-              ?.shadow_mode ===
-            true,
+              ?.shadow_mode === true,
 
-          result:
-            latest
-              ? "changed"
-              : "baseline",
+          created: true,
 
-          snapshotCreated:
-            true,
+          provider,
 
-          snapshot: {
+          splitSource:
+            splitSourceKey,
 
-            id:
-              created.id,
+          gameId,
 
-            marketType,
+          marketType,
 
-            selectionKey,
+          selectionKey,
 
-            line:
-              created.line,
+          moneyPct,
 
-            price:
-              created
-                .price_american,
+          ticketsPct,
 
-            moneyPct:
-              created.money_pct,
+          divergence:
+            Number(
+              (
+                moneyPct -
+                ticketsPct
+              ).toFixed(2)
+            ),
 
-            ticketsPct:
-              created.tickets_pct,
-
-            divergence,
-
-            observedAt:
-              created.observed_at
-          }
+          providerTimestamp
         });
 
 
