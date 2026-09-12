@@ -1,5 +1,11 @@
-const { createClient } =
+const crypto =
+  require("crypto");
+
+const {
+  createClient
+} =
   require("@supabase/supabase-js");
+
 
 const supabaseAdmin =
   createClient(
@@ -9,10 +15,54 @@ const supabaseAdmin =
 
 
 // ============================================================
+// SECURITY
+// ============================================================
+
+function secureEqual(
+  supplied,
+  expected
+) {
+
+  if (
+    !supplied ||
+    !expected
+  ) {
+    return false;
+  }
+
+
+  const a =
+    crypto
+      .createHash("sha256")
+      .update(
+        String(supplied)
+      )
+      .digest();
+
+
+  const b =
+    crypto
+      .createHash("sha256")
+      .update(
+        String(expected)
+      )
+      .digest();
+
+
+  return crypto
+    .timingSafeEqual(
+      a,
+      b
+    );
+}
+
+
+// ============================================================
 // HELPERS
 // ============================================================
 
 function safeNumber(value) {
+
   if (
     value === null ||
     value === undefined ||
@@ -21,7 +71,10 @@ function safeNumber(value) {
     return null;
   }
 
-  const n = Number(value);
+
+  const n =
+    Number(value);
+
 
   return Number.isFinite(n)
     ? n
@@ -30,22 +83,34 @@ function safeNumber(value) {
 
 
 function median(values) {
+
   const clean =
     values
       .map(Number)
       .filter(Number.isFinite)
-      .sort((a, b) => a - b);
+      .sort(
+        (a, b) =>
+          a - b
+      );
+
 
   if (!clean.length) {
     return null;
   }
 
-  const middle =
-    Math.floor(clean.length / 2);
 
-  if (clean.length % 2) {
+  const middle =
+    Math.floor(
+      clean.length / 2
+    );
+
+
+  if (
+    clean.length % 2
+  ) {
     return clean[middle];
   }
+
 
   return (
     clean[middle - 1] +
@@ -58,9 +123,13 @@ function median(values) {
 // AMERICAN ODDS → IMPLIED PROBABILITY
 // ============================================================
 
-function americanToProbability(odds) {
+function americanToProbability(
+  odds
+) {
+
   const n =
     safeNumber(odds);
+
 
   if (
     n === null ||
@@ -69,7 +138,11 @@ function americanToProbability(odds) {
     return null;
   }
 
-  if (n < 0) {
+
+  if (
+    n < 0
+  ) {
+
     return (
       Math.abs(n) /
       (
@@ -78,6 +151,7 @@ function americanToProbability(odds) {
       )
     );
   }
+
 
   return (
     100 /
@@ -93,9 +167,13 @@ function americanToProbability(odds) {
 // IMPLIED PROBABILITY → AMERICAN ODDS
 // ============================================================
 
-function probabilityToAmerican(prob) {
+function probabilityToAmerican(
+  prob
+) {
+
   const p =
     safeNumber(prob);
+
 
   if (
     p === null ||
@@ -105,13 +183,18 @@ function probabilityToAmerican(prob) {
     return null;
   }
 
-  if (p >= 0.5) {
+
+  if (
+    p >= 0.5
+  ) {
+
     return Math.round(
       -100 *
       p /
       (1 - p)
     );
   }
+
 
   return Math.round(
     100 *
@@ -134,11 +217,19 @@ module.exports =
     if (
       req.method !== "GET"
     ) {
+
+      res.setHeader(
+        "Allow",
+        "GET"
+      );
+
+
       return res
         .status(405)
         .json({
           ok: false,
-          error: "GET required"
+          error:
+            "GET required"
         });
     }
 
@@ -146,33 +237,53 @@ module.exports =
     try {
 
       // ======================================================
-      // SECURITY
+      // SERVER-ONLY AUTH
+      //
+      // MARKET_PIPELINE_SECRET only.
+      // No query-string secrets.
       // ======================================================
 
-      const secret =
-        String(
-          req.query.secret || ""
-        );
-
-      const validSecret =
-        process.env.CRON_SECRET ||
-        process.env.GENERATE_DAILY_SECRET;
+      const expectedSecret =
+        process.env
+          .MARKET_PIPELINE_SECRET;
 
 
-      if (!validSecret) {
+      if (!expectedSecret) {
+
         return res
           .status(500)
           .json({
             ok: false,
             error:
-              "Missing server secret"
+              "MARKET_PIPELINE_SECRET is not configured"
           });
       }
 
 
+      const authHeader =
+        String(
+          req.headers.authorization ||
+          ""
+        );
+
+
+      const bearer =
+        authHeader.startsWith(
+          "Bearer "
+        )
+          ? authHeader
+              .slice(7)
+              .trim()
+          : "";
+
+
       if (
-        secret !== validSecret
+        !secureEqual(
+          bearer,
+          expectedSecret
+        )
       ) {
+
         return res
           .status(401)
           .json({
@@ -185,15 +296,21 @@ module.exports =
 
       // ======================================================
       // GAME
+      //
+      // game_id may stay in query string.
+      // It is not a secret.
       // ======================================================
 
       const gameId =
         String(
-          req.query.game_id || ""
-        ).trim();
+          req.query.game_id ||
+          ""
+        )
+          .trim();
 
 
       if (!gameId) {
+
         return res
           .status(400)
           .json({
@@ -236,12 +353,17 @@ module.exports =
           .maybeSingle();
 
 
-      if (contextError) {
+      if (
+        contextError
+      ) {
         throw contextError;
       }
 
 
-      if (!context) {
+      if (
+        !context
+      ) {
+
         return res
           .status(404)
           .json({
@@ -255,6 +377,7 @@ module.exports =
       if (
         context.current_is_premium !== true
       ) {
+
         return res
           .status(200)
           .json({
@@ -267,13 +390,18 @@ module.exports =
 
       const marketType =
         String(
-          context.market_type || ""
-        ).toLowerCase();
+          context.market_type ||
+          ""
+        )
+          .toLowerCase();
+
 
       const selectionKey =
         String(
-          context.selection_key || ""
-        ).toLowerCase();
+          context.selection_key ||
+          ""
+        )
+          .toLowerCase();
 
 
       // ======================================================
@@ -314,7 +442,9 @@ module.exports =
           );
 
 
-      if (quoteError) {
+      if (
+        quoteError
+      ) {
         throw quoteError;
       }
 
@@ -329,7 +459,10 @@ module.exports =
           );
 
 
-      if (!validQuotes.length) {
+      if (
+        !validQuotes.length
+      ) {
+
         return res
           .status(200)
           .json({
@@ -404,6 +537,7 @@ module.exports =
             selectionKey,
 
             marketNow: {
+
               status:
                 "clear",
 
@@ -423,13 +557,15 @@ module.exports =
                       (
                         medianProbability *
                         100
-                      ).toFixed(2)
+                      )
+                        .toFixed(2)
                     )
             },
 
             distribution:
               validQuotes.map(
                 quote => ({
+
                   sportsbook:
                     quote.sportsbook_name ||
                     quote.sportsbook_key,
@@ -447,15 +583,19 @@ module.exports =
       // ======================================================
 
       const lineQuotes =
-        validQuotes.filter(
-          quote =>
-            safeNumber(
-              quote.line
-            ) !== null
-        );
+        validQuotes
+          .filter(
+            quote =>
+              safeNumber(
+                quote.line
+              ) !== null
+          );
 
 
-      if (!lineQuotes.length) {
+      if (
+        !lineQuotes.length
+      ) {
+
         return res
           .status(200)
           .json({
@@ -491,15 +631,21 @@ module.exports =
       ) {
 
         const line =
-          Number(quote.line);
+          Number(
+            quote.line
+          );
+
 
         const key =
           String(line);
 
 
         if (
-          !groups.has(key)
+          !groups.has(
+            key
+          )
         ) {
+
           groups.set(
             key,
             {
@@ -518,56 +664,63 @@ module.exports =
 
 
       const distribution =
-        Array.from(
-          groups.values()
-        )
-          .map(group => {
+        Array
+          .from(
+            groups.values()
+          )
+          .map(
+            group => {
 
-            const prices =
-              group.quotes
-                .map(
-                  quote =>
-                    safeNumber(
-                      quote.price_american
-                    )
-                )
-                .filter(
-                  Number.isFinite
-                );
-
-
-            return {
-              line:
-                group.line,
-
-              books:
-                group.quotes.length,
-
-              representativePrice:
-                Math.round(
-                  median(prices)
-                ),
-
-              sportsbooks:
+              const prices =
                 group.quotes
                   .map(
                     quote =>
-                      quote.sportsbook_name ||
-                      quote.sportsbook_key
+                      safeNumber(
+                        quote.price_american
+                      )
                   )
-            };
-          })
+                  .filter(
+                    Number.isFinite
+                  );
+
+
+              return {
+
+                line:
+                  group.line,
+
+                books:
+                  group.quotes.length,
+
+                representativePrice:
+                  Math.round(
+                    median(prices)
+                  ),
+
+                sportsbooks:
+                  group.quotes
+                    .map(
+                      quote =>
+                        quote.sportsbook_name ||
+                        quote.sportsbook_key
+                    )
+              };
+            }
+          )
           .sort(
             (a, b) => {
 
               if (
-                b.books !== a.books
+                b.books !==
+                a.books
               ) {
+
                 return (
                   b.books -
                   a.books
                 );
               }
+
 
               return (
                 a.line -
@@ -591,10 +744,12 @@ module.exports =
 
 
       const leaders =
-        distribution.filter(
-          item =>
-            item.books === maxBooks
-        );
+        distribution
+          .filter(
+            item =>
+              item.books ===
+              maxBooks
+          );
 
 
       // ======================================================
@@ -664,7 +819,8 @@ module.exports =
                       (
                         winner.line -
                         firstLine
-                      ).toFixed(2)
+                      )
+                        .toFixed(2)
                     ),
 
               movementFromCurrentCashEdge:
@@ -674,7 +830,8 @@ module.exports =
                       (
                         winner.line -
                         currentCashEdgeLine
-                      ).toFixed(2)
+                      )
+                        .toFixed(2)
                     )
             },
 
