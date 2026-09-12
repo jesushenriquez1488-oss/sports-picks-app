@@ -1,5 +1,11 @@
-const { createClient } =
+const crypto =
+  require("crypto");
+
+const {
+  createClient
+} =
   require("@supabase/supabase-js");
+
 
 const supabaseAdmin =
   createClient(
@@ -9,10 +15,54 @@ const supabaseAdmin =
 
 
 // ============================================================
+// SECURITY
+// ============================================================
+
+function secureEqual(
+  supplied,
+  expected
+) {
+
+  if (
+    !supplied ||
+    !expected
+  ) {
+    return false;
+  }
+
+
+  const a =
+    crypto
+      .createHash("sha256")
+      .update(
+        String(supplied)
+      )
+      .digest();
+
+
+  const b =
+    crypto
+      .createHash("sha256")
+      .update(
+        String(expected)
+      )
+      .digest();
+
+
+  return crypto
+    .timingSafeEqual(
+      a,
+      b
+    );
+}
+
+
+// ============================================================
 // HELPERS
 // ============================================================
 
 function safeNumber(value) {
+
   if (
     value === null ||
     value === undefined ||
@@ -21,7 +71,10 @@ function safeNumber(value) {
     return null;
   }
 
-  const n = Number(value);
+
+  const n =
+    Number(value);
+
 
   return Number.isFinite(n)
     ? n
@@ -33,6 +86,7 @@ function betterAmericanPrice(
   candidate,
   current
 ) {
+
   /*
    * With American odds, the numerically larger value
    * is always the better payout:
@@ -48,13 +102,16 @@ function betterAmericanPrice(
   const b =
     safeNumber(current);
 
+
   if (a === null) {
     return false;
   }
 
+
   if (b === null) {
     return true;
   }
+
 
   return a > b;
 }
@@ -81,6 +138,7 @@ function isBetterQuote(
       candidate.price_american
     );
 
+
   const bestPrice =
     safeNumber(
       currentBest.price_american
@@ -89,6 +147,7 @@ function isBetterQuote(
 
   // ==========================================================
   // MONEYLINE
+  //
   // Only price matters.
   // ==========================================================
 
@@ -104,7 +163,10 @@ function isBetterQuote(
 
 
   const candidateLine =
-    safeNumber(candidate.line);
+    safeNumber(
+      candidate.line
+    );
+
 
   const bestLine =
     safeNumber(
@@ -117,6 +179,7 @@ function isBetterQuote(
   ) {
     return false;
   }
+
 
   if (
     bestLine === null
@@ -149,6 +212,7 @@ function isBetterQuote(
         return true;
       }
 
+
       if (
         candidateLine < bestLine
       ) {
@@ -166,6 +230,7 @@ function isBetterQuote(
       ) {
         return true;
       }
+
 
       if (
         candidateLine > bestLine
@@ -205,6 +270,7 @@ function isBetterQuote(
       return true;
     }
 
+
     if (
       candidateLine < bestLine
     ) {
@@ -239,6 +305,13 @@ module.exports =
     if (
       req.method !== "GET"
     ) {
+
+      res.setHeader(
+        "Allow",
+        "GET"
+      );
+
+
       return res
         .status(405)
         .json({
@@ -252,32 +325,53 @@ module.exports =
     try {
 
       // ======================================================
-      // SECURITY
+      // SERVER-ONLY AUTH
+      //
+      // MARKET_PIPELINE_SECRET only.
+      // No query-string secrets.
       // ======================================================
 
-      const secret =
-        String(
-          req.query.secret || ""
-        );
+      const expectedSecret =
+        process.env
+          .MARKET_PIPELINE_SECRET;
 
-      const validSecret =
-        process.env.CRON_SECRET ||
-        process.env.GENERATE_DAILY_SECRET;
 
-      if (!validSecret) {
+      if (!expectedSecret) {
+
         return res
           .status(500)
           .json({
             ok: false,
             error:
-              "Missing server secret"
+              "MARKET_PIPELINE_SECRET is not configured"
           });
       }
 
 
+      const authHeader =
+        String(
+          req.headers.authorization ||
+          ""
+        );
+
+
+      const bearer =
+        authHeader.startsWith(
+          "Bearer "
+        )
+          ? authHeader
+              .slice(7)
+              .trim()
+          : "";
+
+
       if (
-        secret !== validSecret
+        !secureEqual(
+          bearer,
+          expectedSecret
+        )
       ) {
+
         return res
           .status(401)
           .json({
@@ -290,15 +384,21 @@ module.exports =
 
       // ======================================================
       // GAME
+      //
+      // game_id may stay in query string.
+      // It is not a secret.
       // ======================================================
 
       const gameId =
         String(
-          req.query.game_id || ""
-        ).trim();
+          req.query.game_id ||
+          ""
+        )
+          .trim();
 
 
       if (!gameId) {
+
         return res
           .status(400)
           .json({
@@ -341,12 +441,17 @@ module.exports =
           .maybeSingle();
 
 
-      if (contextError) {
+      if (
+        contextError
+      ) {
         throw contextError;
       }
 
 
-      if (!context) {
+      if (
+        !context
+      ) {
+
         return res
           .status(404)
           .json({
@@ -360,6 +465,7 @@ module.exports =
       if (
         context.current_is_premium !== true
       ) {
+
         return res
           .status(200)
           .json({
@@ -373,13 +479,18 @@ module.exports =
 
       const marketType =
         String(
-          context.market_type || ""
-        ).toLowerCase();
+          context.market_type ||
+          ""
+        )
+          .toLowerCase();
+
 
       const selectionKey =
         String(
-          context.selection_key || ""
-        ).toLowerCase();
+          context.selection_key ||
+          ""
+        )
+          .toLowerCase();
 
 
       // ======================================================
@@ -422,7 +533,9 @@ module.exports =
           );
 
 
-      if (quoteError) {
+      if (
+        quoteError
+      ) {
         throw quoteError;
       }
 
@@ -436,6 +549,7 @@ module.exports =
                 safeNumber(
                   quote.price_american
                 );
+
 
               if (
                 price === null
@@ -468,9 +582,11 @@ module.exports =
       if (
         validQuotes.length === 0
       ) {
+
         return res
           .status(200)
           .json({
+
             ok: true,
 
             tracked: true,
@@ -499,6 +615,7 @@ module.exports =
 
       let best = null;
 
+
       for (
         const quote
         of validQuotes
@@ -512,7 +629,9 @@ module.exports =
             selectionKey
           )
         ) {
-          best = quote;
+
+          best =
+            quote;
         }
       }
 
@@ -537,6 +656,7 @@ module.exports =
                 return -1;
               }
 
+
               if (
                 isBetterQuote(
                   b,
@@ -547,6 +667,7 @@ module.exports =
               ) {
                 return 1;
               }
+
 
               return 0;
             }
@@ -579,6 +700,7 @@ module.exports =
           cashedge: {
 
             firstFound: {
+
               line:
                 context
                   .first_premium_line,
@@ -589,6 +711,7 @@ module.exports =
             },
 
             current: {
+
               line:
                 context
                   .current_cashedge_line,
@@ -627,6 +750,7 @@ module.exports =
           rankedBooks:
             ranked.map(
               quote => ({
+
                 sportsbook:
                   quote.sportsbook_name ||
                   quote.sportsbook_key,
