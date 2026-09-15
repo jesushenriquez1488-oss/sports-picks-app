@@ -7,9 +7,9 @@ const {
   require("@supabase/supabase-js");
 
 const {
-  isInsideCooldown
+  revalidateMarketNotification
 } =
-  require("../lib/marketNotificationDecision");
+  require("../lib/marketNotificationRevalidation");
 
 
 const supabaseAdmin =
@@ -66,183 +66,26 @@ function secureEqual(
 
 
 // ============================================================
-// UNIQUE TEST PREFIX
-// ============================================================
-
-function makeTestPrefix() {
-
-  return (
-    "synthetic-cooldown-" +
-    Date.now() +
-    "-" +
-    crypto
-      .randomBytes(6)
-      .toString("hex")
-  );
-}
-
-
-// ============================================================
-// INSERT SYNTHETIC PARENT
-// ============================================================
-
-async function insertSyntheticParent({
-  prefix,
-  gameId,
-  kind,
-  createdAt
-}) {
-
-  const notificationKey =
-    `${prefix}-${kind}-${crypto
-      .randomBytes(6)
-      .toString("hex")}`;
-
-  const {
-    data,
-    error
-  } =
-    await supabaseAdmin
-      .from(
-        "market_notification_outbox"
-      )
-      .insert({
-
-        market_event_id:
-          null,
-
-        cashedge_game_id:
-          gameId,
-
-        notification_key:
-          notificationKey,
-
-        notification_kind:
-          kind,
-
-        delivery_class:
-          "immediate",
-
-        audience:
-          "premium",
-
-        title:
-          "Synthetic Cooldown Test",
-
-        body:
-          "Synthetic test notification.",
-
-        deep_link:
-          null,
-
-        priority:
-          "normal",
-
-        expires_at:
-          new Date(
-            Date.now() +
-            60 * 60 * 1000
-          )
-            .toISOString(),
-
-        status:
-          "shadow",
-
-        dispatch_enabled:
-          false,
-
-        notification_provider:
-          null,
-
-        payload: {
-          synthetic: true,
-          cooldownTest: true,
-          prefix
-        },
-
-        revalidation_required:
-          false,
-
-        last_validated_at:
-          null,
-
-        attempt_count:
-          0,
-
-        next_attempt_at:
-          null,
-
-        processing_started_at:
-          null,
-
-        lock_token:
-          null,
-
-        provider_message_id:
-          null,
-
-        cancelled_at:
-          null,
-
-        cancel_reason:
-          null,
-
-        source_event_at:
-          createdAt,
-
-        created_at:
-          createdAt,
-
-        sent_at:
-          null,
-
-        error_message:
-          null
-      })
-      .select(`
-        id,
-        notification_key,
-        cashedge_game_id,
-        notification_kind,
-        created_at
-      `)
-      .single();
-
-
-  if (error) {
-    throw error;
-  }
-
-
-  return data;
-}
-
-
-// ============================================================
 // CLEANUP
 // ============================================================
 
-async function cleanupSyntheticRows(
-  prefix
+async function cleanup(
+  notificationKey
 ) {
 
-  const {
-    error
-  } =
-    await supabaseAdmin
-      .from(
-        "market_notification_outbox"
-      )
-      .delete()
-      .like(
-        "notification_key",
-        `${prefix}%`
-      );
-
-
-  if (error) {
-    throw error;
+  if (!notificationKey) {
+    return;
   }
+
+  await supabaseAdmin
+    .from(
+      "market_notification_outbox"
+    )
+    .delete()
+    .eq(
+      "notification_key",
+      notificationKey
+    );
 }
 
 
@@ -322,24 +165,40 @@ module.exports =
     }
 
 
-    const prefix =
-      makeTestPrefix();
+    // ========================================================
+    // UNIQUE SYNTHETIC TEST DATA
+    // ========================================================
+
+    const testId =
+      Date.now() +
+      "-" +
+      crypto
+        .randomBytes(6)
+        .toString("hex");
 
 
-    const recentGameId =
-      `${prefix}-game-recent`;
+    const fakeGameId =
+      `synthetic-revalidation-game-${testId}`;
 
-    const oldGameId =
-      `${prefix}-game-old`;
 
-    const otherGameId =
-      `${prefix}-game-other`;
+    const notificationKey =
+      `synthetic-revalidation-${testId}`;
+
+
+    const lockToken =
+      `synthetic-revalidation-lock-${crypto
+        .randomBytes(12)
+        .toString("hex")}`;
+
+
+    let parentId =
+      null;
 
 
     try {
 
       // ======================================================
-      // SAFETY CHECK
+      // 1. SAFETY SETTINGS
       // ======================================================
 
       const {
@@ -377,6 +236,8 @@ module.exports =
           .status(409)
           .json({
             ok: false,
+            stage:
+              "preflight",
             error:
               "notifications_enabled must be false before this test"
           });
@@ -384,211 +245,346 @@ module.exports =
 
 
       // ======================================================
-      // TIMES
+      // 2. VALUE_AVAILABLE RULE MUST EXIST
+      // ======================================================
+
+      const {
+        data: rule,
+        error: ruleError
+      } =
+        await supabaseAdmin
+          .from(
+            "market_notification_rules"
+          )
+          .select(`
+            notification_kind,
+            enabled,
+            revalidation_required
+          `)
+          .eq(
+            "notification_kind",
+            "VALUE_AVAILABLE"
+          )
+          .maybeSingle();
+
+
+      if (ruleError) {
+        throw ruleError;
+      }
+
+
+      if (!rule) {
+
+        return res
+          .status(409)
+          .json({
+            ok: false,
+            stage:
+              "preflight",
+            error:
+              "VALUE_AVAILABLE rule not found"
+          });
+      }
+
+
+      if (
+        rule.enabled !==
+        true
+      ) {
+
+        return res
+          .status(409)
+          .json({
+            ok: false,
+            stage:
+              "preflight",
+            error:
+              "VALUE_AVAILABLE rule must be enabled for this test"
+          });
+      }
+
+
+      // ======================================================
+      // 3. CREATE SYNTHETIC OWNED PARENT
+      //
+      // Fake game intentionally has NO valid current market
+      // opportunity.
+      //
+      // Revalidation must cancel it before fanout.
       // ======================================================
 
       const now =
-        Date.now();
-
-      const recentCreatedAt =
-        new Date(
-          now -
-          60 * 1000
-        )
+        new Date()
           .toISOString();
 
-      const oldCreatedAt =
+
+      const expiresAt =
         new Date(
-          now -
-          20 * 60 * 1000
+          Date.now() +
+          10 * 60 * 1000
         )
           .toISOString();
 
 
+      const {
+        data: inserted,
+        error: insertError
+      } =
+        await supabaseAdmin
+          .from(
+            "market_notification_outbox"
+          )
+          .insert({
+
+            market_event_id:
+              null,
+
+            cashedge_game_id:
+              fakeGameId,
+
+            notification_key:
+              notificationKey,
+
+            notification_kind:
+              "VALUE_AVAILABLE",
+
+            delivery_class:
+              "immediate",
+
+            audience:
+              "premium",
+
+            title:
+              "Synthetic Revalidation Test",
+
+            body:
+              "This synthetic alert must be cancelled.",
+
+            deep_link:
+              `/premium-radar?game_id=${encodeURIComponent(
+                fakeGameId
+              )}`,
+
+            priority:
+              "high",
+
+            expires_at:
+              expiresAt,
+
+            status:
+              "processing",
+
+            dispatch_enabled:
+              false,
+
+            notification_provider:
+              null,
+
+            payload: {
+              synthetic: true,
+              revalidationTest: true,
+              gameId:
+                fakeGameId
+            },
+
+            revalidation_required:
+              true,
+
+            last_validated_at:
+              null,
+
+            attempt_count:
+              0,
+
+            next_attempt_at:
+              null,
+
+            processing_started_at:
+              now,
+
+            lock_token:
+              lockToken,
+
+            provider_message_id:
+              null,
+
+            cancelled_at:
+              null,
+
+            cancel_reason:
+              null,
+
+            source_event_at:
+              now,
+
+            created_at:
+              now,
+
+            sent_at:
+              null,
+
+            error_message:
+              null
+          })
+          .select(`
+            id,
+            status,
+            lock_token,
+            notification_kind,
+            cashedge_game_id
+          `)
+          .single();
+
+
+      if (insertError) {
+        throw insertError;
+      }
+
+
+      parentId =
+        inserted.id;
+
+
       // ======================================================
-      // CREATE RECENT VALUE_AVAILABLE
-      //
-      // 1 minute ago.
-      // Must trigger the 15-minute cooldown.
+      // 4. CALL REAL REVALIDATION ENGINE
       // ======================================================
 
-      const recentParent =
-        await insertSyntheticParent({
-
-          prefix,
-
-          gameId:
-            recentGameId,
-
-          kind:
-            "VALUE_AVAILABLE",
-
-          createdAt:
-            recentCreatedAt
-        });
-
-
-      // ======================================================
-      // CREATE OLD VALUE_AVAILABLE
-      //
-      // 20 minutes ago.
-      // Must NOT trigger the 15-minute cooldown.
-      // ======================================================
-
-      const oldParent =
-        await insertSyntheticParent({
-
-          prefix,
-
-          gameId:
-            oldGameId,
-
-          kind:
-            "VALUE_AVAILABLE",
-
-          createdAt:
-            oldCreatedAt
-        });
-
-
-      // ======================================================
-      // TEST 1
-      //
-      // SAME GAME + SAME KIND + 1 MINUTE AGO
-      // EXPECTED: TRUE
-      // ======================================================
-
-      const sameGameSameKind =
-        await isInsideCooldown({
+      const revalidation =
+        await revalidateMarketNotification({
 
           supabaseAdmin,
 
-          gameId:
-            recentGameId,
+          notificationId:
+            parentId,
 
-          kind:
-            "VALUE_AVAILABLE",
-
-          cooldownSeconds:
-            900
+          lockToken
         });
 
 
       // ======================================================
-      // TEST 2
+      // 5. READ FINAL PARENT STATE
+      // ======================================================
+
+      const {
+        data: parentAfter,
+        error: parentAfterError
+      } =
+        await supabaseAdmin
+          .from(
+            "market_notification_outbox"
+          )
+          .select(`
+            id,
+            status,
+            dispatch_enabled,
+            cancelled_at,
+            cancel_reason,
+            lock_token,
+            processing_started_at,
+            last_validated_at
+          `)
+          .eq(
+            "id",
+            parentId
+          )
+          .maybeSingle();
+
+
+      if (parentAfterError) {
+        throw parentAfterError;
+      }
+
+
+      // ======================================================
+      // 6. VERIFY NO DELIVERY WAS CREATED
+      // ======================================================
+
+      const {
+        count: deliveryCount,
+        error: deliveryError
+      } =
+        await supabaseAdmin
+          .from(
+            "market_notification_deliveries"
+          )
+          .select(
+            "id",
+            {
+              count:
+                "exact",
+              head:
+                true
+            }
+          )
+          .eq(
+            "notification_id",
+            parentId
+          );
+
+
+      if (deliveryError) {
+        throw deliveryError;
+      }
+
+
+      // ======================================================
+      // 7. VALID REASONS
       //
-      // SAME GAME + DIFFERENT KIND
-      // EXPECTED: FALSE
-      // ======================================================
-
-      const sameGameDifferentKind =
-        await isInsideCooldown({
-
-          supabaseAdmin,
-
-          gameId:
-            recentGameId,
-
-          kind:
-            "STALE_LINE",
-
-          cooldownSeconds:
-            900
-        });
-
-
-      // ======================================================
-      // TEST 3
+      // The normal expected reason for a fake game is:
       //
-      // DIFFERENT GAME + SAME KIND
-      // EXPECTED: FALSE
-      // ======================================================
-
-      const differentGameSameKind =
-        await isInsideCooldown({
-
-          supabaseAdmin,
-
-          gameId:
-            otherGameId,
-
-          kind:
-            "VALUE_AVAILABLE",
-
-          cooldownSeconds:
-            900
-        });
-
-
-      // ======================================================
-      // TEST 4
+      // Current market opportunity could not be verified
       //
-      // SAME KIND BUT CREATED 20 MINUTES AGO
-      // EXPECTED: FALSE
+      // The other two are also safe invalidation outcomes if
+      // calculateMarketOpportunity returns a partial state.
       // ======================================================
 
-      const expiredCooldown =
-        await isInsideCooldown({
-
-          supabaseAdmin,
-
-          gameId:
-            oldGameId,
-
-          kind:
-            "VALUE_AVAILABLE",
-
-          cooldownSeconds:
-            900
-        });
+      const validCancelReasons =
+        [
+          "Current market opportunity could not be verified",
+          "Game is no longer a current Premium selection",
+          "Current market evaluation is unavailable"
+        ];
 
 
-      // ======================================================
-      // TEST 5
-      //
-      // COOLDOWN DISABLED
-      // EXPECTED: FALSE
-      // ======================================================
+      const cancelledCorrectly =
+        revalidation
+          ?.result ===
+          "CANCELLED" &&
+        revalidation
+          ?.valid ===
+          false &&
+        revalidation
+          ?.ownershipValid ===
+          true &&
+        parentAfter
+          ?.status ===
+          "cancelled" &&
+        parentAfter
+          ?.cancelled_at != null &&
+        validCancelReasons
+          .includes(
+            parentAfter
+              ?.cancel_reason
+          );
 
-      const zeroCooldown =
-        await isInsideCooldown({
 
-          supabaseAdmin,
-
-          gameId:
-            recentGameId,
-
-          kind:
-            "VALUE_AVAILABLE",
-
-          cooldownSeconds:
-            0
-        });
+      const noFanout =
+        Number(
+          deliveryCount || 0
+        ) === 0;
 
 
       // ======================================================
-      // RESULT BEFORE CLEANUP
+      // 8. CLEANUP
       // ======================================================
 
-      const passed =
-        sameGameSameKind === true &&
-        sameGameDifferentKind === false &&
-        differentGameSameKind === false &&
-        expiredCooldown === false &&
-        zeroCooldown === false;
-
-
-      // ======================================================
-      // CLEANUP
-      // ======================================================
-
-      await cleanupSyntheticRows(
-        prefix
+      await cleanup(
+        notificationKey
       );
 
 
       const {
-        count: remaining,
+        count: remainingRows,
         error: remainingError
       } =
         await supabaseAdmin
@@ -598,13 +594,15 @@ module.exports =
           .select(
             "id",
             {
-              count: "exact",
-              head: true
+              count:
+                "exact",
+              head:
+                true
             }
           )
-          .like(
+          .eq(
             "notification_key",
-            `${prefix}%`
+            notificationKey
           );
 
 
@@ -613,84 +611,101 @@ module.exports =
       }
 
 
+      // ======================================================
+      // RESULT
+      // ======================================================
+
       return res
         .status(200)
         .json({
 
           ok:
-            passed &&
+            cancelledCorrectly &&
+            noFanout &&
             Number(
-              remaining || 0
+              remainingRows || 0
             ) === 0,
 
           test:
-            "notification_cooldown",
+            "notification_revalidation_invalid_opportunity",
 
-          cooldownSeconds:
-            900,
+          syntheticGameId:
+            fakeGameId,
 
-          recentParent: {
-            id:
-              recentParent.id,
+          revalidation: {
 
-            ageSeconds:
-              60
+            result:
+              revalidation
+                ?.result ||
+              null,
+
+            valid:
+              revalidation
+                ?.valid ??
+              null,
+
+            ownershipValid:
+              revalidation
+                ?.ownershipValid ??
+              null,
+
+            reason:
+              revalidation
+                ?.reason ||
+              null
           },
 
-          oldParent: {
-            id:
-              oldParent.id,
+          parentAfterRevalidation: {
 
-            ageSeconds:
-              1200
+            status:
+              parentAfter
+                ?.status ||
+              null,
+
+            dispatchEnabled:
+              parentAfter
+                ?.dispatch_enabled ===
+              true,
+
+            cancelled:
+              parentAfter
+                ?.cancelled_at !=
+              null,
+
+            cancelReason:
+              parentAfter
+                ?.cancel_reason ||
+              null,
+
+            lockCleared:
+              parentAfter
+                ?.lock_token ==
+              null,
+
+            processingCleared:
+              parentAfter
+                ?.processing_started_at ==
+              null
           },
 
-          checks: {
+          fanout: {
 
-            sameGameSameKind: {
-              expected:
-                true,
-              actual:
-                sameGameSameKind
-            },
-
-            sameGameDifferentKind: {
-              expected:
-                false,
-              actual:
-                sameGameDifferentKind
-            },
-
-            differentGameSameKind: {
-              expected:
-                false,
-              actual:
-                differentGameSameKind
-            },
-
-            expiredCooldown: {
-              expected:
-                false,
-              actual:
-                expiredCooldown
-            },
-
-            zeroCooldown: {
-              expected:
-                false,
-              actual:
-                zeroCooldown
-            }
+            deliveriesCreated:
+              Number(
+                deliveryCount || 0
+              )
           },
 
           cleanup: {
+
             remainingSyntheticRows:
               Number(
-                remaining || 0
+                remainingRows || 0
               )
           },
 
           settings: {
+
             notificationsEnabled:
               settings
                 ?.notifications_enabled ===
@@ -717,8 +732,8 @@ module.exports =
 
       try {
 
-        await cleanupSyntheticRows(
-          prefix
+        await cleanup(
+          notificationKey
         );
 
       } catch (
@@ -726,14 +741,14 @@ module.exports =
       ) {
 
         console.error(
-          "COOLDOWN TEST CLEANUP ERROR:",
+          "REVALIDATION TEST CLEANUP ERROR:",
           cleanupError
         );
       }
 
 
       console.error(
-        "MARKET NOTIFICATION COOLDOWN TEST ERROR:",
+        "MARKET NOTIFICATION REVALIDATION TEST ERROR:",
         error
       );
 
@@ -743,7 +758,7 @@ module.exports =
         .json({
           ok: false,
           test:
-            "notification_cooldown",
+            "notification_revalidation_invalid_opportunity",
           error:
             error.message ||
             String(error)
