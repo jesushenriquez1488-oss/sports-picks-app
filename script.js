@@ -562,27 +562,46 @@ function refreshResultsAfterUnlock() {
 }
 
 window.addEventListener("load", async () => {
-  const { data: sessionData } = await supabaseClient.auth.getSession();
+  const { data: sessionData } =
+    await supabaseClient.auth.getSession();
 
   if (!sessionData.session) {
 
-    const { data: { subscription } } =
-      supabaseClient.auth.onAuthStateChange(async (event, session) => {
+    const {
+      data: { subscription }
+    } =
+      supabaseClient.auth.onAuthStateChange(
+        async (event, session) => {
 
-        if (event === "SIGNED_IN" && session) {
-          subscription.unsubscribe();
-          await handleUserSession(session.user);
+          if (
+            event === "SIGNED_IN" &&
+            session
+          ) {
+
+            subscription.unsubscribe();
+
+            await handleUserSession(
+              session.user
+            );
+
+            await handleCashEdgeNotificationDeepLink();
+          }
+
         }
-
-      });
+      );
 
     return;
   }
 
-  await handleUserSession(sessionData.session.user);
+
+  await handleUserSession(
+    sessionData.session.user
+  );
+
+
+  await handleCashEdgeNotificationDeepLink();
 
 });
-
 async function handleUserSession(user) {
   
   const { data: profile, error } = await supabaseClient
@@ -13105,6 +13124,199 @@ window.openPremiumRadar =
 
 window.closePremiumRadar =
   closePremiumRadar;
+// ============================================================
+// CASHEDGE NOTIFICATION DEEP LINK
+//
+// Expected:
+// /?premium_radar=1&game_id=...
+//
+// No recalcula nada.
+// Solo abre Premium Radar y enfoca la tarjeta correcta.
+// ============================================================
+
+let cashEdgeNotificationDeepLinkHandled =
+  false;
+
+
+async function handleCashEdgeNotificationDeepLink() {
+
+  if (
+    cashEdgeNotificationDeepLinkHandled
+  ) {
+    return false;
+  }
+
+
+  const params =
+    new URLSearchParams(
+      window.location.search
+    );
+
+
+  const shouldOpenRadar =
+    params.get(
+      "premium_radar"
+    ) === "1";
+
+
+  const gameId =
+    String(
+      params.get(
+        "game_id"
+      ) || ""
+    ).trim();
+
+
+  if (
+    !shouldOpenRadar ||
+    !gameId
+  ) {
+    return false;
+  }
+
+
+  cashEdgeNotificationDeepLinkHandled =
+    true;
+
+
+  try {
+
+    await openPremiumRadar(
+      "today"
+    );
+
+
+    const radarCards =
+      Array.from(
+        document.querySelectorAll(
+          "[data-radar-game-id]"
+        )
+      );
+
+
+    const targetCard =
+      radarCards.find(
+        card =>
+          String(
+            card.dataset
+              .radarGameId ||
+            ""
+          ) ===
+          gameId
+      ) ||
+      null;
+
+
+    if (targetCard) {
+
+      targetCard.scrollIntoView({
+        behavior:
+          "smooth",
+        block:
+          "center"
+      });
+
+
+      const previousTransition =
+        targetCard.style.transition;
+
+      const previousBorderColor =
+        targetCard.style.borderColor;
+
+      const previousBoxShadow =
+        targetCard.style.boxShadow;
+
+
+      targetCard.style.transition =
+        "box-shadow .25s ease, border-color .25s ease";
+
+      targetCard.style.borderColor =
+        "#00ffe7";
+
+      targetCard.style.boxShadow =
+        "0 0 0 2px rgba(0,255,231,.22), 0 0 30px rgba(0,255,231,.20)";
+
+
+      setTimeout(
+        () => {
+
+          targetCard.style.transition =
+            previousTransition;
+
+          targetCard.style.borderColor =
+            previousBorderColor;
+
+          targetCard.style.boxShadow =
+            previousBoxShadow;
+
+        },
+        2200
+      );
+
+    } else {
+
+      console.warn(
+        "CashEdge notification deep link: Premium Radar card not found.",
+        gameId
+      );
+    }
+
+
+    // Remove only our notification parameters.
+    // Other URL parameters remain untouched.
+    const cleanUrl =
+      new URL(
+        window.location.href
+      );
+
+
+    cleanUrl.searchParams.delete(
+      "premium_radar"
+    );
+
+    cleanUrl.searchParams.delete(
+      "game_id"
+    );
+
+
+    const cleanSearch =
+      cleanUrl.searchParams
+        .toString();
+
+
+    window.history.replaceState(
+      {},
+      document.title,
+      cleanUrl.pathname +
+        (
+          cleanSearch
+            ? `?${cleanSearch}`
+            : ""
+        ) +
+        cleanUrl.hash
+    );
+
+
+    return Boolean(
+      targetCard
+    );
+
+  } catch (error) {
+
+    cashEdgeNotificationDeepLinkHandled =
+      false;
+
+
+    console.warn(
+      "CashEdge notification deep link failed:",
+      error?.message ||
+      error
+    );
+
+
+    return false;
+  }
+}
 window.loadParlayToday = loadParlayToday;
 const enableBtn = document.getElementById("enableNotificationsBtn");
 
