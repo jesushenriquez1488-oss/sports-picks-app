@@ -51,7 +51,74 @@ function secureEqual(
       b
     );
 }
+// ============================================================
+// CENTRAL DATE
+// ============================================================
 
+function getCentralDate() {
+  const parts =
+    new Intl.DateTimeFormat(
+      "en-US",
+      {
+        timeZone:
+          "America/Chicago",
+
+        year:
+          "numeric",
+
+        month:
+          "2-digit",
+
+        day:
+          "2-digit"
+      }
+    )
+      .formatToParts(
+        new Date()
+      );
+
+  const map =
+    Object.fromEntries(
+      parts.map(
+        part => [
+          part.type,
+          part.value
+        ]
+      )
+    );
+
+  return (
+    `${map.year}-${map.month}-${map.day}`
+  );
+}
+
+
+function addDays(
+  dateString,
+  days
+) {
+  const [
+    year,
+    month,
+    day
+  ] =
+    String(dateString)
+      .split("-")
+      .map(Number);
+
+  return new Date(
+    Date.UTC(
+      year,
+      month - 1,
+      day + days,
+      12,
+      0,
+      0
+    )
+  )
+    .toISOString()
+    .slice(0, 10);
+}
 
 // ============================================================
 // HANDLER
@@ -242,89 +309,150 @@ module.exports =
         );
 
 
-      // ========================================================
-      // PROVIDER-NEUTRAL TRACKED GAME CONTRACT
-      // ========================================================
+ // ========================================================
+// ACTIVE DATE WINDOW
+// ========================================================
 
-      const games =
-        contexts
-          .map(
-            context => {
+const today =
+  getCentralDate();
 
-              const game =
-                gameMap.get(
-                  String(
-                    context
-                      .cashedge_game_id
-                  )
-                );
-
-              if (!game) {
-                return null;
-              }
+const footballEndDate =
+  addDays(
+    today,
+    6
+  );
 
 
-              return {
-                sport:
-                  String(
-                    context.sport ||
-                    game.sport ||
-                    ""
-                  )
-                    .trim()
-                    .toLowerCase(),
+// ========================================================
+// PROVIDER-NEUTRAL TRACKED GAME CONTRACT
+// ========================================================
 
-                cashedge_game_id:
-                  String(
-                    context
-                      .cashedge_game_id
-                  ),
+const games =
+  contexts
+    .map(
+      context => {
 
-                game_date:
-                  game.game_date ||
-                  null,
+        const game =
+          gameMap.get(
+            String(
+              context
+                .cashedge_game_id
+            )
+          );
 
-                away_team:
-                  game.away_team ||
-                  null,
+        if (!game) {
+          return null;
+        }
 
-                home_team:
-                  game.home_team ||
-                  null,
 
-                canonical_pick:
-                  context
-                    .canonical_pick ||
-                  null,
-
-                market_type:
-                  context
-                    .market_type ||
-                  null,
-
-                selection_key:
-                  context
-                    .selection_key ||
-                  null,
-
-                line:
-                  context
-                    .current_cashedge_line ??
-                  null,
-
-                price_american:
-                  context
-                    .current_cashedge_price_american ??
-                  null,
-
-                confidence:
-                  context
-                    .current_confidence ??
-                  null
-              };
-            }
+        const sport =
+          String(
+            context.sport ||
+            game.sport ||
+            ""
           )
-          .filter(Boolean);
+            .trim()
+            .toLowerCase();
+
+        const gameDate =
+          String(
+            game.game_date ||
+            ""
+          )
+            .trim();
+
+
+        // ==================================================
+        // DATE SAFETY
+        //
+        // Daily sports:
+        // MLB / NBA / WNBA / NCAAB
+        // Only TODAY.
+        //
+        // Football:
+        // NFL / NCAAF
+        // TODAY + NEXT 6 DAYS.
+        //
+        // This prevents stale Premium rows from finished games
+        // from being exposed to the Live Market Worker.
+        // ==================================================
+
+        const football =
+          sport === "nfl" ||
+          sport === "ncaaf";
+
+        if (
+          football
+        ) {
+          if (
+            gameDate < today ||
+            gameDate >
+              footballEndDate
+          ) {
+            return null;
+          }
+        } else {
+          if (
+            gameDate !== today
+          ) {
+            return null;
+          }
+        }
+
+
+        return {
+          sport,
+
+          cashedge_game_id:
+            String(
+              context
+                .cashedge_game_id
+            ),
+
+          game_date:
+            gameDate,
+
+          away_team:
+            game.away_team ||
+            null,
+
+          home_team:
+            game.home_team ||
+            null,
+
+          canonical_pick:
+            context
+              .canonical_pick ||
+            null,
+
+          market_type:
+            context
+              .market_type ||
+            null,
+
+          selection_key:
+            context
+              .selection_key ||
+            null,
+
+          line:
+            context
+              .current_cashedge_line ??
+            null,
+
+          price_american:
+            context
+              .current_cashedge_price_american ??
+            null,
+
+          confidence:
+            context
+              .current_confidence ??
+            null
+        };
+      }
+    )
+    .filter(Boolean);
 
 
       return res
