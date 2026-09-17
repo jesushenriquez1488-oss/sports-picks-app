@@ -360,9 +360,9 @@ function buildCanonicalMarketSplit({
       safeNumber(line),
 
     price_american:
-      safeAmericanPrice(
-        priceAmerican
-      ),
+  safeNumber(
+    priceAmerican
+  ),
 
     money_pct:
       safePercentage(
