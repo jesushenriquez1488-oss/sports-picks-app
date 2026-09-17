@@ -848,19 +848,30 @@ async function processOddsUpdate(
           "moneyline"
         ) {
 
-          line =
-            Number(
-              outcome.point
-            );
-
-
           if (
-            !Number.isFinite(
-              line
-            )
-          ) {
-            continue;
-          }
+  outcome.point === null ||
+  outcome.point === undefined ||
+  String(
+    outcome.point
+  ).trim() === ""
+) {
+  continue;
+}
+
+
+line =
+  Number(
+    outcome.point
+  );
+
+
+if (
+  !Number.isFinite(
+    line
+  )
+) {
+  continue;
+}
         }
 
 
