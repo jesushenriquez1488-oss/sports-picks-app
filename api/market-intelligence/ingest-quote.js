@@ -982,9 +982,8 @@ const observedAt =
             dedupe_key:
               dedupeKey,
 
-            raw_payload:
-              body.raw_payload ||
-              body
+           raw_payload:
+  canonicalQuote.raw_payload
           });
 
 
