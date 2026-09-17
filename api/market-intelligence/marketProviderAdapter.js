@@ -287,7 +287,9 @@ function safePercentage(value) {
     return null;
   }
 
-  return number;
+return Number(
+  number.toFixed(2)
+);
 }
 
 
