@@ -290,7 +290,314 @@ async function getTeamInjuries(sport, league, teamId) {
 
   return injuries;
 }
- 
+ const ncaafSportsDataInjuryCache =
+  global.__NCAAF_SPORTSDATA_INJURY_CACHE__ || {
+    data: null,
+    updatedAt: 0
+  };
+
+global.__NCAAF_SPORTSDATA_INJURY_CACHE__ =
+  ncaafSportsDataInjuryCache;
+
+async function getSportsDataIONCAAFInjuredPlayers() {
+  const API_KEY =
+    process.env.SPORTSDATAIO_KEY ||
+    process.env.SPORTSDATA_API_KEY;
+
+  if (!API_KEY) {
+    throw new Error(
+      "SportsDataIO API key not configured"
+    );
+  }
+
+  const now = Date.now();
+  const CACHE_MS = 3 * 60 * 1000;
+
+  if (
+    Array.isArray(
+      ncaafSportsDataInjuryCache.data
+    ) &&
+    now -
+      ncaafSportsDataInjuryCache.updatedAt <
+      CACHE_MS
+  ) {
+    return ncaafSportsDataInjuryCache.data;
+  }
+
+  const url =
+    "https://api.sportsdata.io/v3/cfb/scores/json/InjuredPlayers";
+
+  const response =
+    await fetch(url, {
+      headers: {
+        "Ocp-Apim-Subscription-Key":
+          API_KEY
+      }
+    });
+
+  if (!response.ok) {
+    throw new Error(
+      `SportsDataIO CFB injuries ${response.status}`
+    );
+  }
+
+  const raw =
+    await response.json();
+
+  if (!Array.isArray(raw)) {
+    throw new Error(
+      "SportsDataIO CFB injuries returned invalid data"
+    );
+  }
+
+  const injuries =
+    raw.map(player => ({
+      name:
+        `${player.FirstName || ""} ${player.LastName || ""}`
+          .trim(),
+
+      position:
+        player.Position || null,
+
+      athleteId:
+        player.PlayerID != null
+          ? String(player.PlayerID)
+          : null,
+
+      sportsDataTeamId:
+        player.TeamID != null
+          ? String(player.TeamID)
+          : null,
+
+      teamKey:
+        player.Team || null,
+
+      status:
+        player.InjuryStatus || null,
+
+      startDate:
+        player.InjuryStartDate || null,
+
+      returnDate:
+        null,
+
+      notes:
+        player.InjuryNotes || "",
+
+      bodyPart:
+        player.InjuryBodyPart || null,
+
+      updatedAt:
+        player.Updated || null
+    }));
+
+  ncaafSportsDataInjuryCache.data =
+    injuries;
+
+  ncaafSportsDataInjuryCache.updatedAt =
+    now;
+
+  return injuries;
+}
+const ncaafSportsDataTeamsCache =
+  global.__NCAAF_SPORTSDATA_TEAMS_CACHE__ || {
+    data: null,
+    updatedAt: 0
+  };
+
+global.__NCAAF_SPORTSDATA_TEAMS_CACHE__ =
+  ncaafSportsDataTeamsCache;
+
+async function getSportsDataIONCAAFTeams() {
+  const API_KEY =
+    process.env.SPORTSDATAIO_KEY ||
+    process.env.SPORTSDATA_API_KEY;
+
+  if (!API_KEY) {
+    throw new Error(
+      "SportsDataIO API key not configured"
+    );
+  }
+
+  const now = Date.now();
+  const CACHE_MS = 24 * 60 * 60 * 1000;
+
+  if (
+    Array.isArray(
+      ncaafSportsDataTeamsCache.data
+    ) &&
+    now -
+      ncaafSportsDataTeamsCache.updatedAt <
+      CACHE_MS
+  ) {
+    return ncaafSportsDataTeamsCache.data;
+  }
+
+  const url =
+    "https://api.sportsdata.io/v3/cfb/scores/json/Teams";
+
+  const response =
+    await fetch(url, {
+      headers: {
+        "Ocp-Apim-Subscription-Key":
+          API_KEY
+      }
+    });
+
+  if (!response.ok) {
+    throw new Error(
+      `SportsDataIO CFB teams ${response.status}`
+    );
+  }
+
+  const raw =
+    await response.json();
+
+  if (!Array.isArray(raw)) {
+    throw new Error(
+      "SportsDataIO CFB teams returned invalid data"
+    );
+  }
+
+  const teams =
+    raw
+      .filter(
+        team =>
+          team?.Active !== false
+      )
+      .map(team => ({
+        teamId:
+          String(team.TeamID),
+
+        key:
+          String(team.Key || ""),
+
+        school:
+          String(team.School || ""),
+
+        name:
+          String(team.Name || ""),
+
+        fullName:
+          `${team.School || ""} ${team.Name || ""}`
+            .trim(),
+
+        shortDisplayName:
+          String(
+            team.ShortDisplayName || ""
+          )
+      }));
+
+  ncaafSportsDataTeamsCache.data =
+    teams;
+
+  ncaafSportsDataTeamsCache.updatedAt =
+    now;
+
+  return teams;
+}
+function normalizeSportsDataNCAAFTeamName(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]/g, "")
+    .trim();
+}
+
+async function resolveSportsDataIONCAAFTeam(
+  teamName
+) {
+  const teams =
+    await getSportsDataIONCAAFTeams();
+
+  const target =
+    normalizeSportsDataNCAAFTeamName(
+      teamName
+    );
+
+  if (!target) {
+    return null;
+  }
+
+  const exactFullName =
+    teams.find(
+      team =>
+        normalizeSportsDataNCAAFTeamName(
+          team.fullName
+        ) === target
+    );
+
+  if (exactFullName) {
+    return exactFullName;
+  }
+
+  const exactSchool =
+    teams.find(
+      team =>
+        normalizeSportsDataNCAAFTeamName(
+          team.school
+        ) === target
+    );
+
+  if (exactSchool) {
+    return exactSchool;
+  }
+
+  const exactShortName =
+    teams.find(
+      team =>
+        normalizeSportsDataNCAAFTeamName(
+          team.shortDisplayName
+        ) === target ||
+        normalizeSportsDataNCAAFTeamName(
+          team.key
+        ) === target
+    );
+
+  return exactShortName || null;
+}
+async function getSportsDataIONCAAFTeamInjuries(
+  teamName
+) {
+  const team =
+    await resolveSportsDataIONCAAFTeam(
+      teamName
+    );
+
+  if (!team) {
+    throw new Error(
+      `SportsDataIO CFB team not resolved: ${teamName}`
+    );
+  }
+
+  const allInjuries =
+    await getSportsDataIONCAAFInjuredPlayers();
+
+  const injuries =
+    allInjuries.filter(player => {
+      const sameTeamId =
+        player.sportsDataTeamId &&
+        String(player.sportsDataTeamId) ===
+          String(team.teamId);
+
+      const sameTeamKey =
+        player.teamKey &&
+        team.key &&
+        String(player.teamKey)
+          .toUpperCase() ===
+          String(team.key)
+            .toUpperCase();
+
+      return sameTeamId || sameTeamKey;
+    });
+
+  return {
+    team,
+    injuries
+  };
+}
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -329,7 +636,26 @@ if (token && token !== "null" && token !== "undefined") {
         error: "Sport inválido. Usa nba, nfl o ncaaf"
       });
     }
- 
+ if (normalizedSport === "ncaaf") {
+  const {
+    team: sportsDataTeam,
+    injuries
+  } = await getSportsDataIONCAAFTeamInjuries(team);
+
+  return res.status(200).json({
+    team,
+    sport: normalizedSport,
+    count: injuries.length,
+    injuries,
+    source: "sportsdataio",
+    providerTeam: {
+      teamId: sportsDataTeam.teamId,
+      key: sportsDataTeam.key,
+      school: sportsDataTeam.school,
+      name: sportsDataTeam.name
+    }
+  });
+}
     let teamId = config.dynamic
       ? null
       : resolveStaticTeamId(normalizedSport, team);
