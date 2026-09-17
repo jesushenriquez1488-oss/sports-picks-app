@@ -5,7 +5,7 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const ODDS_CACHE_TIME = 10 * 60 * 1000;
+const ODDS_CACHE_TIME = 60 * 1000;
 const CASHEDGE_BOOKMAKERS = [
   "draftkings",
   "fanduel",
