@@ -15651,12 +15651,7 @@ if (type === "ncaaf") {
         teamBGames
       )
     ]);
-  console.log("NCAAF INJURY DEBUG:", {
-  teamA,
-  teamAInjuries,
-  teamB,
-  teamBInjuries
-});
+ 
 }
 
 const injuryAdjA =
