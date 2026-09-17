@@ -3785,6 +3785,7 @@ if (gamesSinceInjury === 3) {
 // porque el equipo ya lleva suficiente
 // muestra jugando sin él.
 return 0;
+  }
 // ============================================================
 // NCAAF STARTER OFFENSIVE VALUE
 // ============================================================
