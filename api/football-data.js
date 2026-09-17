@@ -3813,10 +3813,20 @@ function getNCAAFStarterBaseImpact(
     productionScore
   );
 }
+
 // ============================================================
 // NCAAF INJURY ADJUSTMENT
 // SOLO TITULARES QB / RB / WR / TE
 // ============================================================
+function normalizeNCAAFPlayerMatchName(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\b(jr|sr|ii|iii|iv|v)\b\.?/g, "")
+    .replace(/[^a-z0-9]/g, "")
+    .trim();
+}
 async function getNCAAFStarterIdsFromLastGame(
   teamRef,
   teamGames = []
@@ -3896,22 +3906,58 @@ async function getNCAAFStarterIdsFromLastGame(
     const rosterData =
       await rosterRes.json();
 
-    const starterIds =
-      (rosterData?.entries || [])
-        .filter(entry =>
-          entry?.starter === true &&
-          entry?.didNotPlay !== true
-        )
-        .map(entry =>
-          String(
-            entry?.playerId ||
-            entry?.athlete?.id ||
-            ""
-          )
-        )
-        .filter(Boolean);
+   const starterEntries =
+  (rosterData?.entries || [])
+    .filter(entry =>
+      entry?.starter === true &&
+      entry?.didNotPlay !== true
+    );
 
-    return starterIds;
+const starterIds =
+  starterEntries
+    .map(entry =>
+      String(
+        entry?.playerId ||
+        entry?.athlete?.id ||
+        ""
+      )
+    )
+    .filter(Boolean);
+
+starterIds.profiles =
+  starterEntries
+    .map(entry => ({
+      athleteId:
+        String(
+          entry?.playerId ||
+          entry?.athlete?.id ||
+          ""
+        ),
+
+      name:
+        String(
+          entry?.athlete?.displayName ||
+          entry?.athlete?.fullName ||
+          entry?.displayName ||
+          entry?.fullName ||
+          ""
+        ).trim(),
+
+      position:
+        String(
+          entry?.athlete?.position?.abbreviation ||
+          entry?.position?.abbreviation ||
+          ""
+        )
+          .toUpperCase()
+          .trim()
+    }))
+    .filter(
+      player =>
+        player.athleteId
+    );
+
+return starterIds;
 
   } catch {
     return null;
@@ -3974,11 +4020,53 @@ async function getInjuryAdjustmentNCAAF(
       // SOLO TITULARES CONFIRMADOS
       // ======================================================
 
-     if (
-  !starterIds.includes(
+const starterProfiles =
+  Array.isArray(starterIds?.profiles)
+    ? starterIds.profiles
+    : [];
+
+const directStarterId =
+  starterIds.includes(
     String(player.athleteId)
   )
-) {
+    ? String(player.athleteId)
+    : null;
+
+const normalizedPlayerName =
+  normalizeNCAAFPlayerMatchName(
+    player.name
+  );
+
+const matchedStarterProfile =
+  !directStarterId &&
+  normalizedPlayerName
+    ? starterProfiles.find(
+        starter => {
+          const sameName =
+            normalizeNCAAFPlayerMatchName(
+              starter.name
+            ) ===
+            normalizedPlayerName;
+
+          const samePosition =
+            normalizeNFLPosition(
+              starter.position
+            ) === pos;
+
+          return (
+            sameName &&
+            samePosition
+          );
+        }
+      )
+    : null;
+
+const resolvedESPNStarterId =
+  directStarterId ||
+  matchedStarterProfile?.athleteId ||
+  null;
+
+if (!resolvedESPNStarterId) {
   continue;
 }
 
@@ -4028,12 +4116,12 @@ async function getInjuryAdjustmentNCAAF(
       // VALOR REAL DEL TITULAR SEGÚN SU PRODUCCIÓN
       // ======================================================
 
-      const stats =
-        await getNFLPlayerSeasonStats(
-          player.athleteId,
-          "ncaaf",
-          season
-        );
+     const stats =
+  await getNFLPlayerSeasonStats(
+    resolvedESPNStarterId,
+    "ncaaf",
+    season
+  );
 
 
       const baseImpact =
