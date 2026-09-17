@@ -794,42 +794,252 @@ function getGenerationGameId(game) {
       ""
   ].join("|");
 }
-    function getMarket(game, marketKey) {
-      const bookmakers = game.bookmakers || [];
+   const CASHEDGE_REFERENCE_BOOK_PRIORITY = [
+  "draftkings",
+  "fanduel",
+  "betmgm",
+  "williamhill_us",
+  "betrivers",
+  "fanatics",
+  "hardrockbet",
+  "ballybet",
+  "betparx",
+  "espnbet"
+];
 
-      for (const book of bookmakers) {
-        const market = (book.markets || []).find(m => m.key === marketKey);
-        if (market) return market;
-      }
+function getReferenceBookRank(bookKey) {
+  const index =
+    CASHEDGE_REFERENCE_BOOK_PRIORITY.indexOf(
+      String(bookKey || "").toLowerCase()
+    );
 
-      return null;
-    }
+  return index === -1 ? 999 : index;
+}
 
-   function getSpread(game, teamName) {
-      const market = getMarket(game, "spreads");
-      const outcome = market?.outcomes?.find(o => o.name === teamName);
-      return outcome?.point ?? 0;
-    }
+function getMarket(game, marketKey) {
+  const candidates = [];
 
-    function getSpreadPrice(game, teamName) {
-      const market = getMarket(game, "spreads");
-      const outcome = market?.outcomes?.find(o => o.name === teamName);
-      return outcome?.price ?? -110;
-    }
-
-    function getTotal(game) {
-      const market = getMarket(game, "totals");
-      const outcome = market?.outcomes?.[0];
-     return outcome?.point ?? 0;
-    }
-
-    function getTotalPrice(game, overUnder) {
-      const market = getMarket(game, "totals");
-      const outcome = market?.outcomes?.find(
-        o => String(o.name).toLowerCase() === overUnder
+  for (const book of game.bookmakers || []) {
+    const market =
+      (book.markets || []).find(
+        m => m.key === marketKey
       );
-      return outcome?.price ?? -110;
+
+    if (!market) continue;
+
+    if (marketKey === "h2h") {
+      candidates.push({
+        book,
+        market,
+        line: null
+      });
+
+      continue;
     }
+
+    let line = null;
+
+    if (marketKey === "totals") {
+      const over =
+        (market.outcomes || []).find(
+          o =>
+            String(o.name || "").toLowerCase() ===
+            "over"
+        );
+
+      const under =
+        (market.outcomes || []).find(
+          o =>
+            String(o.name || "").toLowerCase() ===
+            "under"
+        );
+
+      const rawLine =
+        over?.point ??
+        under?.point;
+
+      if (
+        rawLine !== null &&
+        rawLine !== undefined &&
+        Number.isFinite(Number(rawLine))
+      ) {
+        line = Number(rawLine);
+      }
+    }
+
+    if (marketKey === "spreads") {
+      const awayOutcome =
+        (market.outcomes || []).find(
+          o =>
+            o.name ===
+            game.away_team
+        );
+
+      const rawLine =
+        awayOutcome?.point;
+
+      if (
+        rawLine !== null &&
+        rawLine !== undefined &&
+        Number.isFinite(Number(rawLine))
+      ) {
+        line = Number(rawLine);
+      }
+    }
+
+    if (line === null) {
+      continue;
+    }
+
+    candidates.push({
+      book,
+      market,
+      line
+    });
+  }
+
+  if (!candidates.length) {
+    return null;
+  }
+
+  if (marketKey === "h2h") {
+    candidates.sort(
+      (a, b) =>
+        getReferenceBookRank(a.book.key) -
+        getReferenceBookRank(b.book.key)
+    );
+
+    return candidates[0].market;
+  }
+
+  const groups = new Map();
+
+  for (const candidate of candidates) {
+    const key =
+      String(candidate.line);
+
+    if (!groups.has(key)) {
+      groups.set(key, []);
+    }
+
+    groups
+      .get(key)
+      .push(candidate);
+  }
+
+  const maxBooks =
+    Math.max(
+      ...Array.from(groups.values())
+        .map(group => group.length)
+    );
+
+  const leaders =
+    Array.from(groups.values())
+      .filter(
+        group =>
+          group.length === maxBooks
+      );
+
+  const finalists =
+    leaders.flat();
+
+  finalists.sort(
+    (a, b) =>
+      getReferenceBookRank(a.book.key) -
+      getReferenceBookRank(b.book.key)
+  );
+
+  return finalists[0]?.market || null;
+}
+
+  function getSpread(game, teamName) {
+  const market = getMarket(game, "spreads");
+
+  const outcome =
+    market?.outcomes?.find(
+      o => o.name === teamName
+    );
+
+  if (
+    outcome?.point === null ||
+    outcome?.point === undefined ||
+    outcome?.point === ""
+  ) {
+    return null;
+  }
+
+  const value = Number(outcome.point);
+
+  return Number.isFinite(value)
+    ? value
+    : null;
+}
+
+ function getSpreadPrice(game, teamName) {
+  const market = getMarket(game, "spreads");
+
+  const outcome =
+    market?.outcomes?.find(
+      o => o.name === teamName
+    );
+
+  if (
+    outcome?.price === null ||
+    outcome?.price === undefined ||
+    outcome?.price === ""
+  ) {
+    return null;
+  }
+
+  const value = Number(outcome.price);
+
+  return Number.isFinite(value)
+    ? value
+    : null;
+}
+
+function getTotal(game) {
+  const market = getMarket(game, "totals");
+  const outcome = market?.outcomes?.[0];
+
+  if (
+    outcome?.point === null ||
+    outcome?.point === undefined
+  ) {
+    return null;
+  }
+
+  const value = Number(outcome.point);
+
+  return Number.isFinite(value)
+    ? value
+    : null;
+}
+
+   function getTotalPrice(game, overUnder) {
+  const market = getMarket(game, "totals");
+
+  const outcome =
+    market?.outcomes?.find(
+      o =>
+        String(o.name || "").toLowerCase() ===
+        String(overUnder || "").toLowerCase()
+    );
+
+  if (
+    outcome?.price === null ||
+    outcome?.price === undefined ||
+    outcome?.price === ""
+  ) {
+    return null;
+  }
+
+  const value = Number(outcome.price);
+
+  return Number.isFinite(value)
+    ? value
+    : null;
+}
 
     function getH2HOutcomes(game) {
       const market = getMarket(game, "h2h");
@@ -1316,7 +1526,7 @@ else if (sport.league === "mlb") {
     homeSpreadPrice,
     outcomes,
     gameTime: game.commence_time,
-    totalLine: totalLine || 8,
+   totalLine,
     overPrice,
     underPrice,
     forceRefresh:
@@ -2920,19 +3130,52 @@ if (
 }
 
 const currentMarket = {
-  awaySpread: Number(awaySpread ?? 0),
-  homeSpread: Number(homeSpread ?? 0),
-  total: Number(total ?? 0)
+  awaySpread:
+    awaySpread === null ||
+    awaySpread === undefined ||
+    awaySpread === ""
+      ? null
+      : Number(awaySpread),
+
+  homeSpread:
+    homeSpread === null ||
+    homeSpread === undefined ||
+    homeSpread === ""
+      ? null
+      : Number(homeSpread),
+
+  total:
+    total === null ||
+    total === undefined ||
+    total === ""
+      ? null
+      : Number(total)
 };
 
 const cachedMarket =
   existing?.analysis_json?.marketSnapshot;
 
+const normalizeCachedMarketValue = value => {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : null;
+};
+
 const marketUnchanged =
   cachedMarket &&
-  Number(cachedMarket.awaySpread) === currentMarket.awaySpread &&
-  Number(cachedMarket.homeSpread) === currentMarket.homeSpread &&
-  Number(cachedMarket.total) === currentMarket.total;
+  normalizeCachedMarketValue(cachedMarket.awaySpread) === currentMarket.awaySpread &&
+  normalizeCachedMarketValue(cachedMarket.homeSpread) === currentMarket.homeSpread &&
+  normalizeCachedMarketValue(cachedMarket.total) === currentMarket.total;
 // Caché normal mientras todavía faltan
 // más de 30 minutos.
 if (
@@ -3098,46 +3341,121 @@ if (
     const totalProj = projA + projB;
     const projectedMargin = projA - projB;
 
-    const awaySpreadEdge = projectedMargin + Number(awaySpread || 0);
-    const homeSpreadEdge = -projectedMargin + Number(homeSpread || 0);
+   const hasSpreadMarket =
+  currentMarket.awaySpread !== null &&
+  currentMarket.homeSpread !== null &&
+  Number.isFinite(currentMarket.awaySpread) &&
+  Number.isFinite(currentMarket.homeSpread);
 
-    const spreadEdge = Math.max(awaySpreadEdge, homeSpreadEdge);
-    const totalEdge =
-      Number(total || 0) > 0 ? Math.abs(totalProj - Number(total)) : 0;
+const hasTotalMarket =
+  currentMarket.total !== null &&
+  Number.isFinite(currentMarket.total) &&
+  currentMarket.total > 0;
 
-    const spreadConfidence = getConfidence(spreadEdge);
-    const totalConfidence =
-      Number(total || 0) > 0 ? getConfidence(totalEdge) : 0;
+const awaySpreadEdge =
+  hasSpreadMarket
+    ? projectedMargin + currentMarket.awaySpread
+    : null;
 
-    let pick = "";
-    let confidence = 0;
-    let mainEdge = 0;
+const homeSpreadEdge =
+  hasSpreadMarket
+    ? -projectedMargin + currentMarket.homeSpread
+    : null;
 
-   if (spreadConfidence >= totalConfidence) {
-      pick =
-        awaySpreadEdge >= homeSpreadEdge
-          ? `${awayTeam} ${Number(awaySpread) > 0 ? "+" : ""}${awaySpread}`
-          : `${homeTeam} ${Number(homeSpread) > 0 ? "+" : ""}${homeSpread}`;
+const spreadEdge =
+  hasSpreadMarket
+    ? Math.max(awaySpreadEdge, homeSpreadEdge)
+    : null;
 
-      confidence = spreadConfidence;
-      mainEdge = spreadEdge;
-    } else {
-      pick = totalProj > Number(total) ? "Over" : "Under";
-      confidence = totalConfidence;
-      mainEdge = totalEdge;
-    }
+const totalEdge =
+  hasTotalMarket
+    ? Math.abs(totalProj - currentMarket.total)
+    : null;
 
-    let pickPrice = -110;
+const spreadConfidence =
+  hasSpreadMarket
+    ? getConfidence(spreadEdge)
+    : 0;
 
-    if (spreadConfidence >= totalConfidence) {
-      pickPrice = awaySpreadEdge >= homeSpreadEdge
-        ? Number(awaySpreadPrice ?? -110)
-        : Number(homeSpreadPrice ?? -110);
-    } else {
-      pickPrice = totalProj > Number(total)
-        ? Number(overPrice ?? -110)
-        : Number(underPrice ?? -110);
-    }
+const totalConfidence =
+  hasTotalMarket
+    ? getConfidence(totalEdge)
+    : 0;
+
+   let pick = "";
+let confidence = 0;
+let mainEdge = 0;
+let pickPrice = null;
+
+if (
+  hasSpreadMarket &&
+  (
+    !hasTotalMarket ||
+    spreadConfidence >= totalConfidence
+  )
+) {
+  const useAwaySpread =
+    awaySpreadEdge >= homeSpreadEdge;
+
+  const selectedSpread =
+    useAwaySpread
+      ? currentMarket.awaySpread
+      : currentMarket.homeSpread;
+
+  const selectedTeam =
+    useAwaySpread
+      ? awayTeam
+      : homeTeam;
+
+  pick =
+    `${selectedTeam} ${
+      selectedSpread > 0 ? "+" : ""
+    }${selectedSpread}`;
+
+  confidence = spreadConfidence;
+  mainEdge = spreadEdge;
+
+  const rawPrice =
+    useAwaySpread
+      ? awaySpreadPrice
+      : homeSpreadPrice;
+
+  if (
+    rawPrice !== null &&
+    rawPrice !== undefined &&
+    rawPrice !== "" &&
+    Number.isFinite(Number(rawPrice))
+  ) {
+    pickPrice = Number(rawPrice);
+  }
+}
+
+else if (hasTotalMarket) {
+  const isOver =
+    totalProj > currentMarket.total;
+
+  pick =
+    isOver
+      ? "Over"
+      : "Under";
+
+  confidence = totalConfidence;
+  mainEdge = totalEdge;
+
+  const rawPrice =
+    isOver
+      ? overPrice
+      : underPrice;
+
+  if (
+    rawPrice !== null &&
+    rawPrice !== undefined &&
+    rawPrice !== "" &&
+    Number.isFinite(Number(rawPrice))
+  ) {
+    pickPrice = Number(rawPrice);
+  }
+}
 
     if (confidence < 60) {
       const noPlayData = {
@@ -3336,7 +3654,7 @@ const risk = isPremiumPick ? "Bajo" : "Medio";
         projA,
         projB,
         totalProj,
-        totalLine: Number(total || 0),
+        totalLine: currentMarket.total,
         modelAnalysis: getModelAnalysis(verdict),
         awayRestNote: awayRest.note,
         homeRestNote: homeRest.note,
