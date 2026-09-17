@@ -1625,6 +1625,14 @@ function ceReferenceBookRank(bookKey) {
 }
 
 function ceSafeMarketNumber(value) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
   const number = Number(value);
 
   return Number.isFinite(number)
@@ -2191,6 +2199,9 @@ const h2hOutcomes =
           <p><strong>Away spread:</strong> ${awayTeamSpreadText(awaySpread)}</p>
           <p><strong>Home spread:</strong> ${homeTeamSpreadText(homeSpread)}</p>
 <p><strong>Total:</strong> ${
+  total !== null &&
+  total !== undefined &&
+  total !== "" &&
   Number.isFinite(Number(total))
     ? total
     : "Not available"
@@ -2227,6 +2238,14 @@ const h2hOutcomes =
   }
 }
 function awayTeamSpreadText(spread) {
+  if (
+    spread === null ||
+    spread === undefined ||
+    spread === ""
+  ) {
+    return "Not available";
+  }
+
   const value = Number(spread);
 
   if (!Number.isFinite(value)) {
@@ -2237,6 +2256,14 @@ function awayTeamSpreadText(spread) {
 }
 
 function homeTeamSpreadText(spread) {
+  if (
+    spread === null ||
+    spread === undefined ||
+    spread === ""
+  ) {
+    return "Not available";
+  }
+
   const value = Number(spread);
 
   if (!Number.isFinite(value)) {
