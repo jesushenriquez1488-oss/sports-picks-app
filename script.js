@@ -1591,6 +1591,247 @@ window.addEventListener("load", () => {
   loadLoginOverallAccuracy();
   setTimeout(startHeroTypewriter, 800);
 });
+// ============================================================
+// CASHEDGE MARKET REFERENCE
+//
+// Normal CashEdge board only.
+// No averages.
+// No synthetic lines.
+// Always returns a line that exists at a real sportsbook.
+// ============================================================
+
+const CASHEDGE_REFERENCE_BOOK_PRIORITY = [
+  "draftkings",
+  "fanduel",
+  "betmgm",
+  "williamhill_us",
+  "betrivers",
+  "fanatics",
+  "hardrockbet",
+  "ballybet",
+  "betparx",
+  "espnbet"
+];
+
+function ceReferenceBookRank(bookKey) {
+  const index =
+    CASHEDGE_REFERENCE_BOOK_PRIORITY.indexOf(
+      String(bookKey || "").toLowerCase()
+    );
+
+  return index === -1
+    ? 999
+    : index;
+}
+
+function ceSafeMarketNumber(value) {
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : null;
+}
+
+function ceGetMarketLine(
+  game,
+  marketKey,
+  market
+) {
+  if (!market) {
+    return null;
+  }
+
+  if (marketKey === "totals") {
+    const over =
+      (market.outcomes || []).find(
+        outcome =>
+          String(outcome.name || "")
+            .toLowerCase() === "over"
+      );
+
+    const under =
+      (market.outcomes || []).find(
+        outcome =>
+          String(outcome.name || "")
+            .toLowerCase() === "under"
+      );
+
+    return (
+      ceSafeMarketNumber(over?.point) ??
+      ceSafeMarketNumber(under?.point)
+    );
+  }
+
+  if (marketKey === "spreads") {
+    const awayOutcome =
+      (market.outcomes || []).find(
+        outcome =>
+          outcome.name === game.away_team
+      );
+
+    return ceSafeMarketNumber(
+      awayOutcome?.point
+    );
+  }
+
+  return null;
+}
+
+function ceResolveReferenceMarket(
+  game,
+  marketKey
+) {
+  const candidates = [];
+
+  for (const book of game.bookmakers || []) {
+    const market =
+      (book.markets || []).find(
+        item => item.key === marketKey
+      );
+
+    if (!market) {
+      continue;
+    }
+
+    const line =
+      ceGetMarketLine(
+        game,
+        marketKey,
+        market
+      );
+
+    if (line === null) {
+      continue;
+    }
+
+    candidates.push({
+      book,
+      market,
+      line
+    });
+  }
+
+  if (!candidates.length) {
+    return {
+      status: "unavailable",
+      line: null,
+      book: null,
+      market: null,
+      splitLines: []
+    };
+  }
+
+  const groups = new Map();
+
+  for (const candidate of candidates) {
+    const key =
+      String(candidate.line);
+
+    if (!groups.has(key)) {
+      groups.set(key, []);
+    }
+
+    groups
+      .get(key)
+      .push(candidate);
+  }
+
+  const maxBooks =
+    Math.max(
+      ...Array.from(
+        groups.values()
+      ).map(group => group.length)
+    );
+
+  const leaders =
+    Array.from(groups.entries())
+      .filter(
+        ([, group]) =>
+          group.length === maxBooks
+      );
+
+  const tiedCandidates =
+    leaders.flatMap(
+      ([, group]) => group
+    );
+
+  tiedCandidates.sort(
+    (a, b) =>
+      ceReferenceBookRank(
+        a.book.key
+      ) -
+      ceReferenceBookRank(
+        b.book.key
+      )
+  );
+
+  const selected =
+    tiedCandidates[0];
+
+  return {
+    status:
+      leaders.length === 1
+        ? "clear"
+        : "split",
+
+    line:
+      selected.line,
+
+    book:
+      selected.book,
+
+    market:
+      selected.market,
+
+    splitLines:
+      leaders
+        .map(
+          ([line]) =>
+            Number(line)
+        )
+        .sort(
+          (a, b) => a - b
+        )
+  };
+}
+
+function ceResolveH2HReference(game) {
+  const candidates = [];
+
+  for (const book of game.bookmakers || []) {
+    const market =
+      (book.markets || []).find(
+        item => item.key === "h2h"
+      );
+
+    if (
+      !market ||
+      !Array.isArray(
+        market.outcomes
+      ) ||
+      !market.outcomes.length
+    ) {
+      continue;
+    }
+
+    candidates.push({
+      book,
+      market
+    });
+  }
+
+  candidates.sort(
+    (a, b) =>
+      ceReferenceBookRank(
+        a.book.key
+      ) -
+      ceReferenceBookRank(
+        b.book.key
+      )
+  );
+
+  return candidates[0] || null;
+}
 async function loadGames() {
   const { data: sessionData } = await supabaseClient.auth.getSession();
 
@@ -1831,28 +2072,73 @@ if (window.currentSport === "wnba") {
         minute: "2-digit"
       });
 
-      const bookmaker = game.bookmakers?.[0];
+   const spreadReference =
+  ceResolveReferenceMarket(
+    game,
+    "spreads"
+  );
 
-      let awaySpread = 0;
-      let homeSpread = 0;
-      let total = 0;
+const totalReference =
+  ceResolveReferenceMarket(
+    game,
+    "totals"
+  );
 
-      if (bookmaker) {
-        bookmaker.markets.forEach(m => {
-          if (m.key === "spreads") {
-            const awayOutcome = m.outcomes.find(o => o.name === game.away_team);
-            const homeOutcome = m.outcomes.find(o => o.name === game.home_team);
+const h2hReference =
+  ceResolveH2HReference(
+    game
+  );
 
-            awaySpread = awayOutcome ? awayOutcome.point : 0;
-            homeSpread = homeOutcome ? homeOutcome.point : 0;
-          }
+let awaySpread = null;
+let homeSpread = null;
+let total = null;
 
-          if (m.key === "totals") {
-            total = m.outcomes[0]?.point || 0;
-          }
-        });
-      }
+if (spreadReference.market) {
+  const awayOutcome =
+    (
+      spreadReference
+        .market
+        .outcomes || []
+    ).find(
+      outcome =>
+        outcome.name ===
+        game.away_team
+    );
 
+  const homeOutcome =
+    (
+      spreadReference
+        .market
+        .outcomes || []
+    ).find(
+      outcome =>
+        outcome.name ===
+        game.home_team
+    );
+
+  awaySpread =
+    ceSafeMarketNumber(
+      awayOutcome?.point
+    );
+
+  homeSpread =
+    ceSafeMarketNumber(
+      homeOutcome?.point
+    );
+}
+
+if (totalReference.market) {
+  total =
+    ceSafeMarketNumber(
+      totalReference.line
+    );
+}
+
+const h2hOutcomes =
+  h2hReference
+    ?.market
+    ?.outcomes ||
+  [];
       const useBasketballFormula = [
         "basketball_nba",
         "basketball_wnba",
@@ -1904,14 +2190,18 @@ if (window.currentSport === "wnba") {
           <p><strong>Time:</strong> ${formattedTime}</p>
           <p><strong>Away spread:</strong> ${awayTeamSpreadText(awaySpread)}</p>
           <p><strong>Home spread:</strong> ${homeTeamSpreadText(homeSpread)}</p>
-          <p><strong>Total:</strong> ${total || "Not available"}</p>
+<p><strong>Total:</strong> ${
+  Number.isFinite(Number(total))
+    ? total
+    : "Not available"
+}</p>
           ${
   useBasketballFormula
     ? `<button onclick="analyzeAuto('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index}, '${game.commence_time}')">
         View AI Prediction
       </button>`
     : useMLBFormula
-   ? `<button onclick='analyzeMLB("${escapeText(game.away_team)}","${escapeText(game.home_team)}",${awaySpread},${homeSpread},${index},${JSON.stringify((game.bookmakers?.[0]?.markets.find(m => m.key === "h2h")?.outcomes || [])).replace(/"/g, '&quot;')},${total},"${game.commence_time || ""}","${game.id || ""}")'>
+   ? `<button onclick='analyzeMLB("${escapeText(game.away_team)}","${escapeText(game.home_team)}",${awaySpread},${homeSpread},${index},${JSON.stringify(h2hOutcomes).replace(/"/g, '&quot;')},${total},"${game.commence_time || ""}","${game.id || ""}")'>
         View AI Prediction
    </button>`
     : useFootballFormula
@@ -1937,13 +2227,24 @@ if (window.currentSport === "wnba") {
   }
 }
 function awayTeamSpreadText(spread) {
-  return `${spread > 0 ? "+" : ""}${spread}`;
+  const value = Number(spread);
+
+  if (!Number.isFinite(value)) {
+    return "Not available";
+  }
+
+  return `${value > 0 ? "+" : ""}${value}`;
 }
 
 function homeTeamSpreadText(spread) {
-  return `${spread > 0 ? "+" : ""}${spread}`;
-}
+  const value = Number(spread);
 
+  if (!Number.isFinite(value)) {
+    return "Not available";
+  }
+
+  return `${value > 0 ? "+" : ""}${value}`;
+}
 function escapeText(text) {
   return String(text).replace(/'/g, "\\'");
 }
@@ -2414,7 +2715,17 @@ window.logoutUser = logoutUser;
 window.registerUser = registerUser;
 window.loginUser = loginUser;
 
-async function analyzeMLB(awayTeam, homeTeam, awaySpread, homeSpread, index, outcomes, totalLine = 8, gameTime = null, eventId = null) {
+async function analyzeMLB(
+  awayTeam,
+  homeTeam,
+  awaySpread,
+  homeSpread,
+  index,
+  outcomes,
+  totalLine = null,
+  gameTime = null,
+  eventId = null
+) {
   const resultDiv = document.getElementById(`result${index}`);
   if (!startAnalysisLock(index, "Analyzing MLB...")) return;
   resultDiv.innerHTML = `<div class="loading-analysis">Analyzing MLB...</div>`;
