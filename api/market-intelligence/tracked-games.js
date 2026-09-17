@@ -51,6 +51,8 @@ function secureEqual(
       b
     );
 }
+
+
 // ============================================================
 // CENTRAL DATE
 // ============================================================
@@ -119,6 +121,7 @@ function addDays(
     .toISOString()
     .slice(0, 10);
 }
+
 
 // ============================================================
 // HANDLER
@@ -196,8 +199,137 @@ module.exports =
 
 
       // ========================================================
-      // ACTIVE MARKET INTELLIGENCE GAMES
+      // DATE WINDOW
       // ========================================================
+
+      const today =
+        getCentralDate();
+
+      const footballEndDate =
+        addDays(
+          today,
+          6
+        );
+
+
+      // ========================================================
+      // DAILY SPORTS
+      // MLB / NBA / WNBA / NCAAB
+      // TODAY ONLY
+      // ========================================================
+
+      const {
+        data: dailyRows,
+        error: dailyError
+      } =
+        await supabaseAdmin
+          .from(
+            "daily_picks"
+          )
+          .select(`
+            game_id,
+            sport,
+            game_date,
+            away_team,
+            home_team
+          `)
+          .in(
+            "sport",
+            [
+              "mlb",
+              "nba",
+              "wnba",
+              "ncaab"
+            ]
+          )
+          .eq(
+            "game_date",
+            today
+          );
+
+
+      if (dailyError) {
+        throw dailyError;
+      }
+
+
+      // ========================================================
+      // FOOTBALL
+      // NFL / NCAAF
+      // TODAY + NEXT 6 DAYS
+      // ========================================================
+
+      const {
+        data: footballRows,
+        error: footballError
+      } =
+        await supabaseAdmin
+          .from(
+            "daily_picks"
+          )
+          .select(`
+            game_id,
+            sport,
+            game_date,
+            away_team,
+            home_team
+          `)
+          .in(
+            "sport",
+            [
+              "nfl",
+              "ncaaf"
+            ]
+          )
+          .gte(
+            "game_date",
+            today
+          )
+          .lte(
+            "game_date",
+            footballEndDate
+          );
+
+
+      if (footballError) {
+        throw footballError;
+      }
+
+
+      const currentGames = [
+        ...(dailyRows || []),
+        ...(footballRows || [])
+      ];
+
+
+      if (!currentGames.length) {
+        return res
+          .status(200)
+          .json({
+            ok: true,
+            count: 0,
+            premiumCount: 0,
+            games: []
+          });
+      }
+
+
+      // ========================================================
+      // CURRENT MARKET CONTEXT
+      // LEFT JOIN — CONTEXT IS OPTIONAL
+      // ========================================================
+
+      const gameIds =
+        currentGames
+          .map(
+            game =>
+              String(
+                game.game_id ||
+                ""
+              ).trim()
+          )
+          .filter(Boolean);
+
 
       const {
         data: contexts,
@@ -218,9 +350,9 @@ module.exports =
             current_confidence,
             current_is_premium
           `)
-          .eq(
-            "current_is_premium",
-            true
+          .in(
+            "cashedge_game_id",
+            gameIds
           );
 
 
@@ -229,79 +361,14 @@ module.exports =
       }
 
 
-      if (
-        !Array.isArray(contexts) ||
-        contexts.length === 0
-      ) {
-        return res
-          .status(200)
-          .json({
-            ok: true,
-            games: []
-          });
-      }
-
-
-      const gameIds =
-        contexts
-          .map(
-            row =>
-              String(
-                row
-                  .cashedge_game_id ||
-                ""
-              ).trim()
-          )
-          .filter(Boolean);
-
-
-      if (!gameIds.length) {
-        return res
-          .status(200)
-          .json({
-            ok: true,
-            games: []
-          });
-      }
-
-
-      // ========================================================
-      // CANONICAL CASHEDGE GAME DATA
-      // ========================================================
-
-      const {
-        data: dailyRows,
-        error: dailyError
-      } =
-        await supabaseAdmin
-          .from(
-            "daily_picks"
-          )
-          .select(`
-            game_id,
-            sport,
-            game_date,
-            away_team,
-            home_team
-          `)
-          .in(
-            "game_id",
-            gameIds
-          );
-
-
-      if (dailyError) {
-        throw dailyError;
-      }
-
-
-      const gameMap =
+      const contextMap =
         new Map(
-          (dailyRows || [])
+          (contexts || [])
             .map(
               row => [
                 String(
-                  row.game_id
+                  row
+                    .cashedge_game_id
                 ),
                 row
               ]
@@ -309,158 +376,119 @@ module.exports =
         );
 
 
- // ========================================================
-// ACTIVE DATE WINDOW
-// ========================================================
+      // ========================================================
+      // PROVIDER-NEUTRAL TRACKED GAME CONTRACT
+      // ========================================================
 
-const today =
-  getCentralDate();
+      const games =
+        currentGames
+          .map(
+            game => {
 
-const footballEndDate =
-  addDays(
-    today,
-    6
-  );
+              const gameId =
+                String(
+                  game.game_id ||
+                  ""
+                ).trim();
 
-
-// ========================================================
-// PROVIDER-NEUTRAL TRACKED GAME CONTRACT
-// ========================================================
-
-const games =
-  contexts
-    .map(
-      context => {
-
-        const game =
-          gameMap.get(
-            String(
-              context
-                .cashedge_game_id
-            )
-          );
-
-        if (!game) {
-          return null;
-        }
+              if (!gameId) {
+                return null;
+              }
 
 
-        const sport =
-          String(
-            context.sport ||
-            game.sport ||
-            ""
+              const context =
+                contextMap.get(
+                  gameId
+                ) ||
+                null;
+
+
+              return {
+                sport:
+                  String(
+                    game.sport ||
+                    ""
+                  )
+                    .trim()
+                    .toLowerCase(),
+
+                cashedge_game_id:
+                  gameId,
+
+                game_date:
+                  game.game_date ||
+                  null,
+
+                away_team:
+                  game.away_team ||
+                  null,
+
+                home_team:
+                  game.home_team ||
+                  null,
+
+                current_is_premium:
+                  context
+                    ?.current_is_premium ===
+                  true,
+
+                canonical_pick:
+                  context
+                    ?.canonical_pick ||
+                  null,
+
+                market_type:
+                  context
+                    ?.market_type ||
+                  null,
+
+                selection_key:
+                  context
+                    ?.selection_key ||
+                  null,
+
+                line:
+                  context
+                    ?.current_cashedge_line ??
+                  null,
+
+                price_american:
+                  context
+                    ?.current_cashedge_price_american ??
+                  null,
+
+                confidence:
+                  context
+                    ?.current_confidence ??
+                  null
+              };
+            }
           )
-            .trim()
-            .toLowerCase();
-
-        const gameDate =
-          String(
-            game.game_date ||
-            ""
-          )
-            .trim();
+          .filter(Boolean);
 
 
-        // ==================================================
-        // DATE SAFETY
-        //
-        // Daily sports:
-        // MLB / NBA / WNBA / NCAAB
-        // Only TODAY.
-        //
-        // Football:
-        // NFL / NCAAF
-        // TODAY + NEXT 6 DAYS.
-        //
-        // This prevents stale Premium rows from finished games
-        // from being exposed to the Live Market Worker.
-        // ==================================================
-
-        const football =
-          sport === "nfl" ||
-          sport === "ncaaf";
-
-        if (
-          football
-        ) {
-          if (
-            gameDate < today ||
-            gameDate >
-              footballEndDate
-          ) {
-            return null;
-          }
-        } else {
-          if (
-            gameDate !== today
-          ) {
-            return null;
-          }
-        }
-
-
-        return {
-          sport,
-
-          cashedge_game_id:
-            String(
-              context
-                .cashedge_game_id
-            ),
-
-          game_date:
-            gameDate,
-
-          away_team:
-            game.away_team ||
-            null,
-
-          home_team:
-            game.home_team ||
-            null,
-
-          canonical_pick:
-            context
-              .canonical_pick ||
-            null,
-
-          market_type:
-            context
-              .market_type ||
-            null,
-
-          selection_key:
-            context
-              .selection_key ||
-            null,
-
-          line:
-            context
-              .current_cashedge_line ??
-            null,
-
-          price_american:
-            context
-              .current_cashedge_price_american ??
-            null,
-
-          confidence:
-            context
-              .current_confidence ??
-            null
-        };
-      }
-    )
-    .filter(Boolean);
+      const premiumCount =
+        games.filter(
+          game =>
+            game
+              .current_is_premium ===
+            true
+        ).length;
 
 
       return res
         .status(200)
         .json({
           ok: true,
+
+          date:
+            today,
+
           count:
             games.length,
+
+          premiumCount,
+
           games
         });
 
