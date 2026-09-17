@@ -177,51 +177,114 @@ async function resolveInjuryDetail(injuryRef) {
 }
  
 async function getTeamInjuries(sport, league, teamId) {
-  const listUrl = `https://sports.core.api.espn.com/v2/sports/${sport}/leagues/${league}/teams/${teamId}/injuries`;
- 
+  const listUrl =
+    `https://sports.core.api.espn.com/v2/sports/${sport}/leagues/${league}/teams/${teamId}/injuries?limit=100`;
+
   const listRes = await fetch(listUrl);
-  if (!listRes.ok) return [];
- 
+
+  if (!listRes.ok) {
+    throw new Error(
+      `ESPN injuries list failed: ${listRes.status}`
+    );
+  }
+
   const listData = await listRes.json();
-  const refs = (listData?.items || []).map(item => item?.$ref).filter(Boolean);
- 
-  if (!refs.length) return [];
- 
-const injuries = [];
 
-  const capped = refs.slice(0, 25);
+  const refs =
+    (listData?.items || [])
+      .map(item => item?.$ref)
+      .filter(Boolean);
 
-  const details = await Promise.all(capped.map(ref => resolveInjuryDetail(ref)));
+  if (!refs.length) {
+    return [];
+  }
 
-  const athleteRefs = details.map(d => d?.athlete?.$ref || null);
-  const athletes = await Promise.all(
-    athleteRefs.map(ref => (ref ? resolveAthleteName(ref) : Promise.resolve(null)))
+  const injuries = [];
+
+  const details = await Promise.all(
+    refs.map(ref =>
+      resolveInjuryDetail(ref)
+    )
   );
 
-  for (let i = 0; i < details.length; i++) {
+  const athleteRefs =
+    details.map(
+      detail =>
+        detail?.athlete?.$ref || null
+    );
+
+  const athletes = await Promise.all(
+    athleteRefs.map(ref =>
+      ref
+        ? resolveAthleteName(ref)
+        : Promise.resolve(null)
+    )
+  );
+
+  for (
+    let i = 0;
+    i < details.length;
+    i++
+  ) {
     const detail = details[i];
+
     if (!detail) continue;
-    const athleteInfo = athletes[i];
-    const athleteRef = athleteRefs[i];
+
+    const athleteInfo =
+      athletes[i];
+
+    const athleteRef =
+      athleteRefs[i];
 
     let athleteId = null;
+
     if (athleteRef) {
-      const match = athleteRef.match(/athletes\/(\d+)/);
-      if (match) athleteId = match[1];
+      const match =
+        athleteRef.match(
+          /athletes\/(\d+)/
+        );
+
+      if (match) {
+        athleteId = match[1];
+      }
     }
 
-    const status = detail?.status || detail?.type?.description || "Unknown";
-    const detailType = detail?.details?.type || "";
-    const location = detail?.details?.location || "";
+    const status =
+      detail?.status ||
+      detail?.type?.description ||
+      "Unknown";
+
+    const detailType =
+      detail?.details?.type || "";
+
+    const location =
+      detail?.details?.location || "";
 
     injuries.push({
-      name: athleteInfo?.name || "Unknown player",
-      position: athleteInfo?.position || "",
+      name:
+        athleteInfo?.name ||
+        "Unknown player",
+
+      position:
+        athleteInfo?.position ||
+        "",
+
       athleteId,
+
       status,
-      startDate: detail?.date || null,
-      returnDate: detail?.details?.returnDate || null,
-      notes: detail?.shortComment || detail?.longComment || `${detailType} ${location}`.trim()
+
+      startDate:
+        detail?.date ||
+        null,
+
+      returnDate:
+        detail?.details?.returnDate ||
+        null,
+
+      notes:
+        detail?.shortComment ||
+        detail?.longComment ||
+        `${detailType} ${location}`.trim()
     });
   }
 
