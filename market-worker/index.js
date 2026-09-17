@@ -1,8 +1,3 @@
-// ============================================================
-// CASHEDGE LIVE MARKET WORKER
-// OWLS INSIGHT LIVE CONNECTION
-// ============================================================
-
 "use strict";
 
 const {
@@ -10,27 +5,84 @@ const {
 } = require("socket.io-client");
 
 
+// ============================================================
+// CONFIG
+// ============================================================
+
 const WORKER_NAME =
   "cashedge-live-market-worker";
 
 const OWLS_URL =
   "https://api.owlsinsight.com";
 
-const OWLS_API_KEY =
-  process.env.OWLS_API_KEY;
-
 const CASHEDGE_ORIGIN =
   process.env.CASHEDGE_ORIGIN ||
   "https://www.cashedgeapp.com";
 
+const OWLS_API_KEY =
+  process.env.OWLS_API_KEY;
+
+const MARKET_INGEST_SECRET =
+  process.env.MARKET_INGEST_SECRET;
+
+
+const TRACKED_GAMES_URL =
+  `${CASHEDGE_ORIGIN}/api/market-intelligence/tracked-games`;
+
+const INGEST_QUOTE_URL =
+  `${CASHEDGE_ORIGIN}/api/market-intelligence/ingest-quote`;
+
+
+const SPORTS = [
+  "mlb",
+  "nfl",
+  "nba",
+  "ncaaf",
+  "ncaab",
+  "wnba"
+];
+
+
+/*
+ * Books that we actually want CashEdge
+ * Market Intelligence to consume.
+ *
+ * We are intentionally NOT ingesting the entire
+ * Owls catalog.
+ */
+const BOOKS = [
+  "draftkings",
+  "fanduel",
+  "betmgm",
+  "caesars",
+  "hardrock",
+  "circa"
+];
+
+
+const REFRESH_INTERVAL_MS =
+  60 * 1000;
+
+const MAX_CONCURRENCY =
+  6;
+
 
 // ============================================================
-// SAFETY
+// REQUIRED ENVIRONMENT
 // ============================================================
 
 if (!OWLS_API_KEY) {
   console.error(
-    `[${WORKER_NAME}] OWLS_API_KEY is missing`
+    `[${WORKER_NAME}] OWLS_API_KEY missing`
+  );
+
+  process.exit(1);
+}
+
+
+if (!MARKET_INGEST_SECRET) {
+  console.error(
+    `[${WORKER_NAME}] MARKET_INGEST_SECRET missing`
   );
 
   process.exit(1);
@@ -41,183 +93,1176 @@ if (!OWLS_API_KEY) {
 // STATE
 // ============================================================
 
-let firstOddsUpdateSeen =
+let socket =
+  null;
+
+let refreshTimer =
+  null;
+
+let trackedGameMap =
+  new Map();
+
+let trackedCount =
+  null;
+
+let premiumCount =
+  null;
+
+let processingUpdate =
+  false;
+
+let queuedUpdate =
+  null;
+
+let firstIngestSummaryLogged =
   false;
 
 
+/*
+ * Prevent repeated POSTs when Owls sends the
+ * same board state again.
+ *
+ * key:
+ * game + book + market + selection
+ *
+ * value:
+ * line + price
+ */
+const lastSentSignatures =
+  new Map();
+
+
 // ============================================================
-// OWLS SOCKET
+// NORMALIZATION
 // ============================================================
 
-const socket =
-  io(
-    OWLS_URL,
-    {
-      query: {
-        apiKey:
-          OWLS_API_KEY
-      },
+function normalizeText(
+  value
+) {
+  return String(
+    value || ""
+  )
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .toLowerCase()
+    .replace(
+      /&/g,
+      " and "
+    )
+    .replace(
+      /[^a-z0-9]+/g,
+      " "
+    )
+    .trim()
+    .replace(
+      /\s+/g,
+      " "
+    );
+}
 
-      transports: [
-        "websocket"
-      ],
 
-      reconnection:
-        true,
+function centralDateFromIso(
+  value
+) {
+  const date =
+    new Date(value);
 
-      reconnectionAttempts:
-        Infinity,
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return null;
+  }
 
-      reconnectionDelay:
-        1000,
 
-      reconnectionDelayMax:
-        15000,
+  const parts =
+    new Intl.DateTimeFormat(
+      "en-US",
+      {
+        timeZone:
+          "America/Chicago",
 
-      timeout:
-        20000
+        year:
+          "numeric",
+
+        month:
+          "2-digit",
+
+        day:
+          "2-digit"
+      }
+    )
+      .formatToParts(
+        date
+      );
+
+
+  const map =
+    Object.fromEntries(
+      parts.map(
+        part => [
+          part.type,
+          part.value
+        ]
+      )
+    );
+
+
+  return (
+    `${map.year}-${map.month}-${map.day}`
+  );
+}
+
+
+function makeGameKey({
+  sport,
+  awayTeam,
+  homeTeam,
+  gameDate
+}) {
+  return [
+    normalizeText(sport),
+    normalizeText(awayTeam),
+    normalizeText(homeTeam),
+    gameDate
+  ].join("|");
+}
+
+
+// ============================================================
+// TRACKED CASHEDGE GAMES
+// ============================================================
+
+async function refreshTrackedGames() {
+
+  const response =
+    await fetch(
+      TRACKED_GAMES_URL,
+      {
+        headers: {
+          Authorization:
+            `Bearer ${MARKET_INGEST_SECRET}`
+        }
+      }
+    );
+
+
+  const body =
+    await response
+      .json()
+      .catch(
+        () => null
+      );
+
+
+  if (
+    !response.ok ||
+    body?.ok !== true ||
+    !Array.isArray(body.games)
+  ) {
+    throw new Error(
+      body?.error ||
+      `tracked-games HTTP ${response.status}`
+    );
+  }
+
+
+  const nextMap =
+    new Map();
+
+
+  for (
+    const game
+    of body.games
+  ) {
+
+    if (
+      !game?.sport ||
+      !game?.away_team ||
+      !game?.home_team ||
+      !game?.game_date ||
+      !game?.cashedge_game_id
+    ) {
+      continue;
+    }
+
+
+    const key =
+      makeGameKey({
+        sport:
+          game.sport,
+
+        awayTeam:
+          game.away_team,
+
+        homeTeam:
+          game.home_team,
+
+        gameDate:
+          game.game_date
+      });
+
+
+    nextMap.set(
+      key,
+      game
+    );
+  }
+
+
+  trackedGameMap =
+    nextMap;
+
+
+  /*
+   * Remove dedupe signatures belonging to games
+   * that are no longer Premium.
+   *
+   * If they later become Premium again, they will
+   * receive a fresh baseline.
+   */
+  const activePremiumIds =
+    new Set(
+      body.games
+        .filter(
+          game =>
+            game
+              .current_is_premium ===
+            true
+        )
+        .map(
+          game =>
+            String(
+              game
+                .cashedge_game_id
+            )
+        )
+    );
+
+
+  for (
+    const key
+    of lastSentSignatures.keys()
+  ) {
+
+    const gameId =
+      key.split("|")[0];
+
+    if (
+      !activePremiumIds.has(
+        gameId
+      )
+    ) {
+      lastSentSignatures
+        .delete(
+          key
+        );
+    }
+  }
+
+
+  /*
+   * Only print when the board actually changed,
+   * so Railway logs stay clean.
+   */
+  if (
+    trackedCount !== body.count ||
+    premiumCount !== body.premiumCount
+  ) {
+
+    trackedCount =
+      body.count;
+
+    premiumCount =
+      body.premiumCount;
+
+
+    console.log(
+      `[${WORKER_NAME}] CashEdge tracked games: ${trackedCount}, Premium: ${premiumCount}`
+    );
+  }
+}
+
+
+// ============================================================
+// MARKET MAPPING
+// ============================================================
+
+function getOwlsMarketKey(
+  marketType
+) {
+  if (
+    marketType ===
+    "moneyline"
+  ) {
+    return "h2h";
+  }
+
+
+  if (
+    marketType ===
+    "spread"
+  ) {
+    return "spreads";
+  }
+
+
+  if (
+    marketType ===
+    "total"
+  ) {
+    return "totals";
+  }
+
+
+  return null;
+}
+
+
+function findPremiumOutcome({
+  tracked,
+  market
+}) {
+
+  if (
+    !market ||
+    !Array.isArray(
+      market.outcomes
+    )
+  ) {
+    return null;
+  }
+
+
+  const selection =
+    normalizeText(
+      tracked.selection_key
+    );
+
+
+  if (
+    tracked.market_type ===
+    "total"
+  ) {
+
+    return (
+      market.outcomes.find(
+        outcome =>
+          normalizeText(
+            outcome?.name
+          ) ===
+          selection
+      ) ||
+      null
+    );
+  }
+
+
+  return (
+    market.outcomes.find(
+      outcome =>
+        normalizeText(
+          outcome?.name
+        ) ===
+        selection
+    ) ||
+    null
+  );
+}
+
+
+// ============================================================
+// CASHEDGE INGEST
+// ============================================================
+
+async function ingestQuote(
+  payload
+) {
+
+  const response =
+    await fetch(
+      INGEST_QUOTE_URL,
+      {
+        method:
+          "POST",
+
+        headers: {
+          Authorization:
+            `Bearer ${MARKET_INGEST_SECRET}`,
+
+          "Content-Type":
+            "application/json"
+        },
+
+        body:
+          JSON.stringify(
+            payload
+          )
+      }
+    );
+
+
+  const body =
+    await response
+      .json()
+      .catch(
+        () => null
+      );
+
+
+  if (
+    !response.ok ||
+    body?.ok !== true
+  ) {
+
+    throw new Error(
+      body?.error ||
+      `ingest-quote HTTP ${response.status}`
+    );
+  }
+
+
+  return body;
+}
+
+
+// ============================================================
+// CONCURRENCY
+// ============================================================
+
+async function runJobs(
+  jobs
+) {
+
+  let nextIndex =
+    0;
+
+  let sent =
+    0;
+
+  let errors =
+    0;
+
+
+  async function worker() {
+
+    while (true) {
+
+      const index =
+        nextIndex++;
+
+      if (
+        index >=
+        jobs.length
+      ) {
+        return;
+      }
+
+
+      const job =
+        jobs[index];
+
+
+      try {
+
+        await ingestQuote(
+          job.payload
+        );
+
+
+        lastSentSignatures
+          .set(
+            job.signatureKey,
+            job.signature
+          );
+
+
+        sent += 1;
+
+      } catch (error) {
+
+        errors += 1;
+
+        /*
+         * Keep errors visible,
+         * but do not log every normal quote.
+         */
+        console.error(
+          `[${WORKER_NAME}] ingest error: ${error.message}`
+        );
+      }
+    }
+  }
+
+
+  const workers =
+    [];
+
+
+  const count =
+    Math.min(
+      MAX_CONCURRENCY,
+      jobs.length
+    );
+
+
+  for (
+    let i = 0;
+    i < count;
+    i += 1
+  ) {
+    workers.push(
+      worker()
+    );
+  }
+
+
+  await Promise.all(
+    workers
+  );
+
+
+  return {
+    sent,
+    errors
+  };
+}
+
+
+// ============================================================
+// PROCESS OWLS BOARD
+// ============================================================
+
+async function processOddsUpdate(
+  data
+) {
+
+  const jobs =
+    [];
+
+  const matchedPremiumGames =
+    new Set();
+
+
+  for (
+    const sport
+    of SPORTS
+  ) {
+
+    const events =
+      Array.isArray(
+        data?.sports?.[sport]
+      )
+        ? data.sports[sport]
+        : [];
+
+
+    for (
+      const event
+      of events
+    ) {
+
+      /*
+       * CashEdge Market Intelligence is PRE-GAME.
+       * Never ingest after kickoff.
+       */
+      const commenceTime =
+        event?.commence_time;
+
+      const commenceMs =
+        Date.parse(
+          commenceTime
+        );
+
+
+      if (
+        !Number.isFinite(
+          commenceMs
+        ) ||
+        commenceMs <= Date.now()
+      ) {
+        continue;
+      }
+
+
+      const gameDate =
+        centralDateFromIso(
+          commenceTime
+        );
+
+
+      if (!gameDate) {
+        continue;
+      }
+
+
+      const gameKey =
+        makeGameKey({
+          sport,
+
+          awayTeam:
+            event.away_team,
+
+          homeTeam:
+            event.home_team,
+
+          gameDate
+        });
+
+
+      const tracked =
+        trackedGameMap.get(
+          gameKey
+        );
+
+
+      if (
+        !tracked ||
+        tracked
+          .current_is_premium !==
+        true
+      ) {
+        continue;
+      }
+
+
+      if (
+        !tracked.market_type ||
+        !tracked.selection_key
+      ) {
+        continue;
+      }
+
+
+      matchedPremiumGames.add(
+        tracked
+          .cashedge_game_id
+      );
+
+
+      const owlsMarketKey =
+        getOwlsMarketKey(
+          tracked.market_type
+        );
+
+
+      if (!owlsMarketKey) {
+        continue;
+      }
+
+
+      const bookmakers =
+        Array.isArray(
+          event.bookmakers
+        )
+          ? event.bookmakers
+          : [];
+
+
+      for (
+        const bookmaker
+        of bookmakers
+      ) {
+
+        const sportsbookKey =
+          String(
+            bookmaker?.key ||
+            ""
+          )
+            .trim()
+            .toLowerCase();
+
+
+        if (
+          !BOOKS.includes(
+            sportsbookKey
+          )
+        ) {
+          continue;
+        }
+
+
+        const markets =
+          Array.isArray(
+            bookmaker.markets
+          )
+            ? bookmaker.markets
+            : [];
+
+
+        const market =
+          markets.find(
+            item =>
+              String(
+                item?.key ||
+                ""
+              )
+                .trim()
+                .toLowerCase() ===
+              owlsMarketKey
+          );
+
+
+        if (!market) {
+          continue;
+        }
+
+
+        const outcome =
+          findPremiumOutcome({
+            tracked,
+            market
+          });
+
+
+        if (!outcome) {
+          continue;
+        }
+
+
+        const price =
+          Number(
+            outcome.price
+          );
+
+
+        if (
+          !Number.isFinite(
+            price
+          )
+        ) {
+          continue;
+        }
+
+
+        let line =
+          null;
+
+
+        if (
+          tracked.market_type !==
+          "moneyline"
+        ) {
+
+          line =
+            Number(
+              outcome.point
+            );
+
+
+          if (
+            !Number.isFinite(
+              line
+            )
+          ) {
+            continue;
+          }
+        }
+
+
+        const signatureKey =
+          [
+            tracked
+              .cashedge_game_id,
+
+            sportsbookKey,
+
+            tracked
+              .market_type,
+
+            tracked
+              .selection_key
+          ].join("|");
+
+
+        const signature =
+          `${line ?? "null"}|${Math.round(price)}`;
+
+
+        if (
+          lastSentSignatures
+            .get(
+              signatureKey
+            ) ===
+          signature
+        ) {
+          continue;
+        }
+
+
+        const providerTimestamp =
+          bookmaker.last_update ||
+          data.last_odds_change ||
+          data.timestamp ||
+          null;
+
+
+        jobs.push({
+          signatureKey,
+          signature,
+
+          payload: {
+
+            sport,
+
+            cashedge_game_id:
+              tracked
+                .cashedge_game_id,
+
+            provider:
+              "owls",
+
+            provider_event_id:
+              event.id ||
+              null,
+
+            sportsbook_key:
+              sportsbookKey,
+
+            sportsbook_name:
+              bookmaker.title ||
+              sportsbookKey,
+
+            market_type:
+              tracked
+                .market_type,
+
+            selection_key:
+              tracked
+                .selection_key,
+
+            selection_name:
+              outcome.name ||
+              tracked
+                .selection_key,
+
+            line,
+
+            price_american:
+              Math.round(
+                price
+              ),
+
+            provider_timestamp:
+              providerTimestamp,
+
+            raw_payload: {
+              event_id:
+                event.id ||
+                null,
+
+              commence_time:
+                commenceTime,
+
+              away_team:
+                event.away_team ||
+                null,
+
+              home_team:
+                event.home_team ||
+                null,
+
+              sportsbook_key:
+                sportsbookKey,
+
+              market_key:
+                owlsMarketKey,
+
+              outcome: {
+                name:
+                  outcome.name ||
+                  null,
+
+                point:
+                  outcome.point ??
+                  null,
+
+                price:
+                  outcome.price ??
+                  null
+              },
+
+              last_update:
+                bookmaker
+                  .last_update ||
+                null
+            }
+          }
+        });
+      }
+    }
+  }
+
+
+  const result =
+    await runJobs(
+      jobs
+    );
+
+
+  /*
+   * One startup summary only.
+   * No heartbeat/log spam.
+   */
+  if (
+    !firstIngestSummaryLogged
+  ) {
+
+    firstIngestSummaryLogged =
+      true;
+
+
+    console.log(
+      `[${WORKER_NAME}] live market ingest active`
+    );
+
+    console.log(
+      `[${WORKER_NAME}] matched Premium games: ${matchedPremiumGames.size}`
+    );
+
+    console.log(
+      `[${WORKER_NAME}] quotes sent: ${result.sent}, errors: ${result.errors}`
+    );
+  }
+}
+
+
+// ============================================================
+// SERIALIZE OWLS UPDATES
+// ============================================================
+
+async function queueOddsUpdate(
+  data
+) {
+
+  if (
+    processingUpdate
+  ) {
+
+    /*
+     * Owls sends the current board.
+     * Keep only the newest waiting update.
+     */
+    queuedUpdate =
+      data;
+
+    return;
+  }
+
+
+  processingUpdate =
+    true;
+
+
+  try {
+
+    let current =
+      data;
+
+
+    while (current) {
+
+      queuedUpdate =
+        null;
+
+
+      await processOddsUpdate(
+        current
+      );
+
+
+      current =
+        queuedUpdate;
+    }
+
+  } catch (error) {
+
+    console.error(
+      `[${WORKER_NAME}] odds processing error: ${error.message}`
+    );
+
+  } finally {
+
+    processingUpdate =
+      false;
+  }
+}
+
+
+// ============================================================
+// OWLS CONNECTION
+// ============================================================
+
+function connectOwls() {
+
+  socket =
+    io(
+      OWLS_URL,
+      {
+        query: {
+          apiKey:
+            OWLS_API_KEY
+        },
+
+        transports: [
+          "websocket"
+        ],
+
+        reconnection:
+          true,
+
+        reconnectionAttempts:
+          Infinity,
+
+        reconnectionDelay:
+          1000,
+
+        reconnectionDelayMax:
+          15000,
+
+        timeout:
+          20000
+      }
+    );
+
+
+  socket.on(
+    "connect",
+    () => {
+
+      console.log(
+        `[${WORKER_NAME}] connected to Owls Insight`
+      );
+
+
+      socket.emit(
+        "subscribe",
+        {
+          sports:
+            SPORTS,
+
+          books:
+            BOOKS
+        }
+      );
+
+
+      console.log(
+        `[${WORKER_NAME}] subscribed to CashEdge market books`
+      );
     }
   );
 
 
-// ============================================================
-// CONNECTED
-// ============================================================
+  socket.on(
+    "odds-update",
+    data => {
 
-socket.on(
-  "connect",
-  () => {
-
-    console.log(
-      `[${WORKER_NAME}] connected to Owls Insight`
-    );
-
-    /*
-     * For now we subscribe by SPORT only.
-     *
-     * We intentionally do NOT restrict books yet.
-     * First we verify the real provider payload and
-     * exact sportsbook keys Owls is sending.
-     */
-    socket.emit(
-      "subscribe",
-      {
-        sports: [
-          "mlb",
-          "nfl",
-          "nba",
-          "ncaaf",
-          "ncaab",
-          "wnba"
-        ]
-      }
-    );
-
-    console.log(
-      `[${WORKER_NAME}] subscribed to CashEdge sports`
-    );
-  }
-);
-
-
-// ============================================================
-// ODDS
-// ============================================================
-
-socket.on(
-  "odds-update",
-  data => {
-
-    /*
-     * IMPORTANT:
-     *
-     * We are intentionally NOT sending anything
-     * into CashEdge yet.
-     *
-     * First we verify the exact real Owls payload.
-     */
-
-    if (firstOddsUpdateSeen) {
-      return;
+      queueOddsUpdate(
+        data
+      );
     }
+  );
 
-    firstOddsUpdateSeen =
-      true;
 
-    const sports =
-      data?.sports &&
-      typeof data.sports === "object"
-        ? Object.keys(
-            data.sports
+  socket.on(
+    "connect_error",
+    error => {
+
+      console.error(
+        `[${WORKER_NAME}] Owls connection error: ${error.message}`
+      );
+    }
+  );
+
+
+  socket.on(
+    "disconnect",
+    reason => {
+
+      console.log(
+        `[${WORKER_NAME}] disconnected from Owls: ${reason}`
+      );
+    }
+  );
+}
+
+
+// ============================================================
+// START
+// ============================================================
+
+async function start() {
+
+  console.log(
+    `[${WORKER_NAME}] started`
+  );
+
+
+  console.log(
+    `[${WORKER_NAME}] CashEdge origin: ${CASHEDGE_ORIGIN}`
+  );
+
+
+  /*
+   * Load CashEdge IDs BEFORE opening Owls,
+   * so the first live board can already be matched.
+   */
+  while (true) {
+
+    try {
+
+      await refreshTrackedGames();
+
+      break;
+
+    } catch (error) {
+
+      console.error(
+        `[${WORKER_NAME}] tracked-games error: ${error.message}`
+      );
+
+
+      await new Promise(
+        resolve =>
+          setTimeout(
+            resolve,
+            15000
           )
-        : [];
-
-    const counts = {};
-
-    for (
-      const sport
-      of sports
-    ) {
-      counts[sport] =
-        Array.isArray(
-          data.sports[sport]
-        )
-          ? data.sports[sport].length
-          : 0;
+      );
     }
-
-    console.log(
-      `[${WORKER_NAME}] first Owls odds-update received`
-    );
-
-    console.log(
-      `[${WORKER_NAME}] sports: ${JSON.stringify(counts)}`
-    );
   }
-);
 
 
-// ============================================================
-// CONNECTION ERRORS
-// ============================================================
+  refreshTimer =
+    setInterval(
+      async () => {
 
-socket.on(
-  "connect_error",
-  error => {
+        try {
 
-    console.error(
-      `[${WORKER_NAME}] Owls connection error: ${error.message}`
+          await refreshTrackedGames();
+
+        } catch (error) {
+
+          console.error(
+            `[${WORKER_NAME}] tracked-games refresh error: ${error.message}`
+          );
+        }
+      },
+      REFRESH_INTERVAL_MS
     );
-  }
-);
 
 
-socket.on(
-  "disconnect",
-  reason => {
-
-    console.log(
-      `[${WORKER_NAME}] disconnected from Owls: ${reason}`
-    );
-  }
-);
+  connectOwls();
+}
 
 
 // ============================================================
-// STARTUP
-// ============================================================
-
-console.log(
-  `[${WORKER_NAME}] started`
-);
-
-console.log(
-  `[${WORKER_NAME}] CashEdge origin: ${CASHEDGE_ORIGIN}`
-);
-
-
-// ============================================================
-// GRACEFUL SHUTDOWN
+// SHUTDOWN
 // ============================================================
 
 function shutdown(
@@ -228,7 +1273,22 @@ function shutdown(
     `[${WORKER_NAME}] shutting down: ${signal}`
   );
 
-  socket.disconnect();
+
+  if (
+    refreshTimer
+  ) {
+    clearInterval(
+      refreshTimer
+    );
+  }
+
+
+  if (
+    socket
+  ) {
+    socket.disconnect();
+  }
+
 
   process.exit(0);
 }
@@ -240,8 +1300,16 @@ process.on(
     shutdown("SIGTERM")
 );
 
+
 process.on(
   "SIGINT",
   () =>
     shutdown("SIGINT")
 );
+
+
+// ============================================================
+// RUN
+// ============================================================
+
+start();
