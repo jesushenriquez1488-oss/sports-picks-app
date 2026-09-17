@@ -3764,20 +3764,27 @@ function getNCAAFInjuryAbsenceWeight(
 
   // Lesión nueva:
   // el modelo todavía no la ha absorbido.
-  if (gamesSinceInjury === 0) {
-    return 1;
-  }
-
-  // Ya existe un partido reciente sin él:
-  // reducimos el ajuste a la mitad.
-  if (gamesSinceInjury === 1) {
-    return 0.5;
-  }
-
-  // Con 2+ juegos sin el jugador,
-  // los Edge recientes ya reflejan su ausencia.
-  return 0;
+ if (gamesSinceInjury === 0) {
+  return 1.00;
 }
+
+if (gamesSinceInjury === 1) {
+  return 1.00;
+}
+
+if (gamesSinceInjury === 2) {
+  return 0.60;
+}
+
+if (gamesSinceInjury === 3) {
+  return 0.30;
+}
+
+// En el 5to juego sin el jugador,
+// o después, ya no aplicamos impacto
+// porque el equipo ya lleva suficiente
+// muestra jugando sin él.
+return 0;
 // ============================================================
 // NCAAF STARTER OFFENSIVE VALUE
 // ============================================================
@@ -4030,21 +4037,26 @@ async function getNCAAFStarterIdsBeforeDate(
     }
 
     const previousGame =
-      Array.isArray(teamGames)
-        ? teamGames.find(game => {
-            const gameDate =
-              new Date(
-                game?.date || 0
-              ).getTime();
+  Array.isArray(teamGames)
+    ? teamGames
+        .filter(game => {
+          const gameDate =
+            new Date(
+              game?.date || 0
+            ).getTime();
 
-            return (
-              game?.id &&
-              Number.isFinite(gameDate) &&
-              gameDate < cutoff
-            );
-          })
-        : null;
-
+          return (
+            game?.id &&
+            Number.isFinite(gameDate) &&
+            gameDate < cutoff
+          );
+        })
+        .sort(
+          (a, b) =>
+            new Date(b.date).getTime() -
+            new Date(a.date).getTime()
+        )[0] || null
+    : null;
     if (!previousGame?.id) {
       return null;
     }
