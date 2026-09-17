@@ -9,7 +9,11 @@ const {
   runMarketPipeline
 } =
   require("../../lib/marketPipeline");
-
+const {
+  buildCanonicalMarketQuote,
+  validateCanonicalMarketQuote
+} =
+  require("./marketProviderAdapter");
 
 const supabaseAdmin =
   createClient(
@@ -424,229 +428,107 @@ module.exports =
       }
 
 
-      // ======================================================
-      // PAYLOAD
-      // ======================================================
+const body =
+  req.body || {};
 
-      const body =
-        req.body || {};
+const canonicalQuote =
+  buildCanonicalMarketQuote({
+    sport:
+      body.sport,
 
+    cashedgeGameId:
+      body.cashedge_game_id,
 
-      const sport =
-        safeText(
-          body.sport
-        )
-          ?.toLowerCase();
+    provider:
+      body.provider,
 
+    providerEventId:
+      body.provider_event_id,
 
-      const cashedgeGameId =
-        safeText(
-          body
-            .cashedge_game_id
-        );
+    sportsbookKey:
+      body.sportsbook_key,
 
+    sportsbookName:
+      body.sportsbook_name,
 
-      const provider =
-        safeText(
-          body.provider
-        );
+    marketType:
+      body.market_type,
 
+    selectionKey:
+      body.selection_key,
 
-      const providerEventId =
-        safeText(
-          body
-            .provider_event_id
-        );
+    selectionName:
+      body.selection_name,
 
+    line:
+      body.line,
 
-      const sportsbookKey =
-        safeText(
-          body
-            .sportsbook_key
-        )
-          ?.toLowerCase();
+    priceAmerican:
+      body.price_american,
 
+    providerTimestamp:
+      body.provider_timestamp,
 
-      const sportsbookName =
-        safeText(
-          body
-            .sportsbook_name
-        );
+    rawPayload:
+      body.raw_payload ||
+      body
+  });
 
+const validation =
+  validateCanonicalMarketQuote(
+    canonicalQuote
+  );
 
-      const marketType =
-        safeText(
-          body
-            .market_type
-        )
-          ?.toLowerCase();
+if (!validation.valid) {
+  return res
+    .status(400)
+    .json({
+      ok: false,
+      error:
+        "Invalid canonical market quote",
+      missing:
+        validation.missing
+    });
+}
 
+const sport =
+  canonicalQuote.sport;
 
-      const selectionKey =
-        safeText(
-          body
-            .selection_key
-        )
-          ?.toLowerCase();
+const cashedgeGameId =
+  canonicalQuote.cashedge_game_id;
 
+const provider =
+  canonicalQuote.provider;
 
-      const selectionName =
-        safeText(
-          body
-            .selection_name
-        );
+const providerEventId =
+  canonicalQuote.provider_event_id;
 
+const sportsbookKey =
+  canonicalQuote.sportsbook_key;
 
-      let line =
-        safeLine(
-          body.line
-        );
+const sportsbookName =
+  canonicalQuote.sportsbook_name;
 
+const marketType =
+  canonicalQuote.market_type;
 
-      const priceAmerican =
-        safeAmericanPrice(
-          body
-            .price_american
-        );
+const selectionKey =
+  canonicalQuote.selection_key;
 
+const selectionName =
+  canonicalQuote.selection_name;
 
-      const providerTimestamp =
-        body
-          .provider_timestamp
-          ? new Date(
-              body
-                .provider_timestamp
-            )
-              .toISOString()
-          : null;
+const line =
+  canonicalQuote.line;
 
+const priceAmerican =
+  canonicalQuote.price_american;
 
-      // This is when CashEdge received
-      // and began processing the provider update.
-      const observedAt =
-        new Date()
-          .toISOString();
+const providerTimestamp =
+  canonicalQuote.provider_timestamp;
 
-
-      // ======================================================
-      // REQUIRED VALUES
-      // ======================================================
-
-      if (
-        !sport ||
-        !cashedgeGameId ||
-        !provider ||
-        !sportsbookKey ||
-        !marketType ||
-        !selectionKey
-      ) {
-
-        return res
-          .status(400)
-          .json({
-
-            ok: false,
-
-            error:
-              "Missing required market quote fields"
-          });
-      }
-
-
-      // ======================================================
-      // SUPPORTED MARKETS
-      // ======================================================
-
-      const allowedMarkets =
-        new Set([
-          "moneyline",
-          "spread",
-          "total"
-        ]);
-
-
-      if (
-        !allowedMarkets.has(
-          marketType
-        )
-      ) {
-
-        return res
-          .status(400)
-          .json({
-
-            ok: false,
-
-            error:
-              "Unsupported market_type"
-          });
-      }
-
-
-      // ======================================================
-      // MONEYLINE
-      //
-      // Moneyline has PRICE but does not have
-      // a spread/total line.
-      //
-      // Example:
-      //
-      // Cubs ML -122
-      //
-      // line  = null
-      // price = -122
-      // ======================================================
-
-      if (
-        marketType ===
-        "moneyline"
-      ) {
-
-        line = null;
-      }
-
-
-      // ======================================================
-      // PRICE REQUIRED
-      // ======================================================
-
-      if (
-        priceAmerican === null
-      ) {
-
-        return res
-          .status(400)
-          .json({
-
-            ok: false,
-
-            error:
-              "Valid price_american is required"
-          });
-      }
-
-
-      // ======================================================
-      // SPREAD / TOTAL LINE REQUIRED
-      // ======================================================
-
-      if (
-        marketType !==
-          "moneyline" &&
-        line === null
-      ) {
-
-        return res
-          .status(400)
-          .json({
-
-            ok: false,
-
-            error:
-              "Spread/total requires line"
-          });
-      }
-
+const observedAt =
+  new Date().toISOString();
 
       // ======================================================
       // VERIFY CASHEDGE GAME EXISTS
