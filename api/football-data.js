@@ -4065,7 +4065,15 @@ const resolvedESPNStarterId =
   directStarterId ||
   matchedStarterProfile?.athleteId ||
   null;
-
+console.log("NCAAF INJURY MATCH:", {
+  teamName,
+  player: player.name,
+  position: pos,
+  sportsDataId: player.athleteId,
+  matchedESPNId: resolvedESPNStarterId,
+  matchedStarterName:
+    matchedStarterProfile?.name || null
+});
 if (!resolvedESPNStarterId) {
   continue;
 }
