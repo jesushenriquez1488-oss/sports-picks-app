@@ -123,20 +123,8 @@ async function runPipelineSafely({
 // TEXT
 // ============================================================
 
-function cleanText(value) {
-
-  return String(
-    value || ""
-  )
-    .trim();
-}
 
 
-function normalizeText(value) {
-
-  return cleanText(value)
-    .toLowerCase();
-}
 
 
 // ============================================================
@@ -168,25 +156,6 @@ function safeNumber(value) {
 // PERCENTAGE
 // ============================================================
 
-function pct(value) {
-
-  const n =
-    safeNumber(value);
-
-
-  if (
-    n === null ||
-    n < 0 ||
-    n > 100
-  ) {
-    return null;
-  }
-
-
-  return Number(
-    n.toFixed(2)
-  );
-}
 
 
 // ============================================================
@@ -355,180 +324,120 @@ module.exports =
       }
 
 
-      // ======================================================
-      // PAYLOAD
-      // ======================================================
+  // ======================================================
+// PAYLOAD
+// ======================================================
 
-      const body =
-        req.body || {};
+const body =
+  req.body || {};
 
+const canonicalSplit =
+  buildCanonicalMarketSplit({
+    sport:
+      body.sport,
 
-      const sport =
-        normalizeText(
-          body.sport
-        );
+    cashedgeGameId:
+      body.cashedge_game_id,
 
+    provider:
+      body.provider,
 
-      const gameId =
-        cleanText(
-          body
-            .cashedge_game_id
-        );
+    splitSourceKey:
+      body.split_source_key,
 
+    splitSourceName:
+      body.split_source_name ||
+      body.split_source_key,
 
-      const provider =
-        normalizeText(
-          body.provider
-        );
+    marketType:
+      body.market_type,
 
+    selectionKey:
+      body.selection_key,
 
-      // ======================================================
-      // IMPORTANT
-      //
-      // provider = Owls
-      //
-      // split source =
-      // DraftKings / Circa / another sportsbook
-      //
-      // These must NEVER be mixed together.
-      // ======================================================
+    line:
+      body.line,
 
-      const splitSourceKey =
-        normalizeText(
-          body
-            .split_source_key
-        );
+    priceAmerican:
+      body.price_american,
 
+    moneyPct:
+      body.money_pct,
 
-      const splitSourceName =
-        cleanText(
-          body
-            .split_source_name ||
-          body
-            .split_source_key
-        );
+    ticketsPct:
+      body.tickets_pct,
 
+    providerTimestamp:
+      body.provider_timestamp,
 
-      const marketType =
-        normalizeText(
-          body
-            .market_type
-        );
+    rawPayload:
+      body.raw_payload ||
+      body
+  });
 
+const validation =
+  validateCanonicalMarketSplit(
+    canonicalSplit
+  );
 
-      const selectionKey =
-        normalizeText(
-          body
-            .selection_key
-        );
+if (!validation.valid) {
+  return res
+    .status(400)
+    .json({
+      ok: false,
+      error:
+        "Invalid canonical market split",
+      missing:
+        validation.missing
+    });
+}
 
+const sport =
+  canonicalSplit.sport;
 
-      const line =
-        safeNumber(
-          body.line
-        );
+const gameId =
+  canonicalSplit
+    .cashedge_game_id;
 
+const provider =
+  canonicalSplit.provider;
 
-      const price =
-        safeNumber(
-          body
-            .price_american
-        );
+const splitSourceKey =
+  canonicalSplit
+    .split_source_key;
 
+const splitSourceName =
+  canonicalSplit
+    .split_source_name;
 
-      const moneyPct =
-        pct(
-          body
-            .money_pct
-        );
+const marketType =
+  canonicalSplit.market_type;
 
+const selectionKey =
+  canonicalSplit
+    .selection_key;
 
-      const ticketsPct =
-        pct(
-          body
-            .tickets_pct
-        );
+const line =
+  canonicalSplit.line;
 
+const price =
+  canonicalSplit
+    .price_american;
 
-      const providerTimestamp =
-        body
-          .provider_timestamp
-          ? new Date(
-              body
-                .provider_timestamp
-            )
-              .toISOString()
-          : null;
+const moneyPct =
+  canonicalSplit.money_pct;
 
+const ticketsPct =
+  canonicalSplit
+    .tickets_pct;
 
-      const observedAt =
-        new Date()
-          .toISOString();
+const providerTimestamp =
+  canonicalSplit
+    .provider_timestamp;
 
-
-      // ======================================================
-      // VALIDATION
-      // ======================================================
-
-      if (
-        !sport ||
-        !gameId ||
-        !provider ||
-        !splitSourceKey ||
-        !marketType ||
-        !selectionKey
-      ) {
-
-        return res
-          .status(400)
-          .json({
-
-            ok: false,
-
-            error:
-              "Missing required split fields"
-          });
-      }
-
-
-      if (
-        ![
-          "moneyline",
-          "spread",
-          "total"
-        ].includes(
-          marketType
-        )
-      ) {
-
-        return res
-          .status(400)
-          .json({
-
-            ok: false,
-
-            error:
-              "Invalid market_type"
-          });
-      }
-
-
-      if (
-        moneyPct === null ||
-        ticketsPct === null
-      ) {
-
-        return res
-          .status(400)
-          .json({
-
-            ok: false,
-
-            error:
-              "money_pct and tickets_pct must be between 0 and 100"
-          });
-      }
-
+const observedAt =
+  new Date()
+    .toISOString();
 
       // ======================================================
       // VERIFY THAT CASHEDGE IS TRACKING THIS PREMIUM
@@ -836,8 +745,8 @@ module.exports =
             dedupe_key:
               dedupeKey,
 
-            raw_payload:
-              body,
+           raw_payload:
+  canonicalSplit.raw_payload,
 
             observed_at:
               observedAt
