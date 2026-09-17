@@ -3604,7 +3604,100 @@ const NFL_MAX_TEAM_INJURY_IMPACT = 10;
 // ============================================================
 
 const NCAAF_INJURY_ACTIVE = true;
+function buildNCAAFInjuryFingerprint(
+  injuries = []
+) {
+  if (!Array.isArray(injuries)) {
+    return "";
+  }
 
+  return injuries
+    .filter(player => {
+      const pos =
+        normalizeNFLPosition(
+          player?.position
+        );
+
+      return [
+        "QB",
+        "RB",
+        "WR",
+        "TE"
+      ].includes(pos);
+    })
+    .map(player => {
+      const name =
+        normalizeNCAAFPlayerMatchName(
+          player?.name
+        );
+
+      const position =
+        normalizeNFLPosition(
+          player?.position
+        );
+
+      const status =
+        String(
+          player?.status || ""
+        )
+          .toLowerCase()
+          .trim();
+
+      const startDate =
+        String(
+          player?.startDate || ""
+        );
+
+      return [
+        name,
+        position,
+        status,
+        startDate
+      ].join("|");
+    })
+    .sort()
+    .join("::");
+}
+async function getCurrentNCAAFGameInjuryFingerprint(
+  teamA,
+  teamB
+) {
+  try {
+    const [
+      teamAInjuries,
+      teamBInjuries
+    ] =
+      await Promise.all([
+        getNFLTeamInjuriesList(
+          teamA,
+          "ncaaf"
+        ),
+
+        getNFLTeamInjuriesList(
+          teamB,
+          "ncaaf"
+        )
+      ]);
+
+    const fingerprintA =
+      buildNCAAFInjuryFingerprint(
+        teamAInjuries
+      );
+
+    const fingerprintB =
+      buildNCAAFInjuryFingerprint(
+        teamBInjuries
+      );
+
+    return [
+      fingerprintA,
+      fingerprintB
+    ].join("###");
+
+  } catch {
+    return null;
+  }
+}
 // Probabilidad/peso real de que la lesión afecte el juego.
 function getNCAAFInjuryStatusWeight(status) {
   const s =
@@ -14847,22 +14940,65 @@ if (isInternalRequest) {
           : 99;
         const ttlMin = hoursToKickoff < 3 ? 15 : 45;
 
-        if (ageMin < ttlMin) {
-          const full = cached.analysis_json.fullResponse;
-           const cachedIsPremium =
-            full.picks?.spreadPick?.isPremium === true ||
-            full.picks?.totalPick?.isPremium === true;
+       if (ageMin < ttlMin) {
+  const full =
+    cached.analysis_json.fullResponse;
 
-          if (!isPremiumUser && !cachedIsPremium) {
-            await recordFreeAnalysis(authUserId, false, "analyze-football");
-          }
-          return res.status(200).json(
-  buildFootballPublicResponse(
-    full,
-    isPremiumUser
-  )
-);
-        }
+  let injuryChanged =
+    false;
+
+  const insidePregameFreeze =
+    hoursToKickoff <= 0.5;
+
+  if (
+    type === "ncaaf" &&
+    !insidePregameFreeze
+  ) {
+    const currentFingerprint =
+      await getCurrentNCAAFGameInjuryFingerprint(
+        teamA,
+        teamB
+      );
+
+    const cachedFingerprint =
+      cached.analysis_json
+        ?.ncaafInjuryFingerprint ||
+      full?.ncaafInjuryFingerprint ||
+      null;
+
+    if (
+      currentFingerprint !== null &&
+      currentFingerprint !==
+        cachedFingerprint
+    ) {
+      injuryChanged = true;
+    }
+  }
+
+  if (!injuryChanged) {
+    const cachedIsPremium =
+      full.picks?.spreadPick?.isPremium === true ||
+      full.picks?.totalPick?.isPremium === true;
+
+    if (
+      !isPremiumUser &&
+      !cachedIsPremium
+    ) {
+      await recordFreeAnalysis(
+        authUserId,
+        false,
+        "analyze-football"
+      );
+    }
+
+    return res.status(200).json(
+      buildFootballPublicResponse(
+        full,
+        isPremiumUser
+      )
+    );
+  }
+}
       }
     } catch {}
     // ===== FIN CACHE =====
@@ -15903,10 +16039,17 @@ if (footballFrozen) {
       }
     });
 }
-
+const ncaafInjuryFingerprint =
+  type === "ncaaf"
+    ? await getCurrentNCAAFGameInjuryFingerprint(
+        teamA,
+        teamB
+      )
+    : null;
 
 const fullResponse = {
     sport: type,
+  ncaafInjuryFingerprint,
     odds,
     picks: rawPicks || picks,
     publicConfidence: bestPick ? Number(bestPick.confidence || 0) : 0,
@@ -15940,6 +16083,7 @@ const fullResponse = {
   };
 const analysisJson = {
   locked: false,
+  ncaafInjuryFingerprint,
   isPremiumPick,
   noPlay: !bestPick,
   public: {
