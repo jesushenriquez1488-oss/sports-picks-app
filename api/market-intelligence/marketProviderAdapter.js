@@ -325,8 +325,10 @@ function buildCanonicalMarketSplit({
         cashedgeGameId
       ),
 
-    provider:
-      safeText(provider),
+   provider:
+  safeText(provider)
+    ?.toLowerCase() ||
+  null,
 
     split_source_key:
       safeText(
