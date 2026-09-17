@@ -4024,7 +4024,11 @@ const starterProfiles =
   Array.isArray(starterIds?.profiles)
     ? starterIds.profiles
     : [];
-
+console.log(
+  "NCAAF STARTER PROFILES:",
+  teamName,
+  starterProfiles
+);
 const directStarterId =
   starterIds.includes(
     String(player.athleteId)
