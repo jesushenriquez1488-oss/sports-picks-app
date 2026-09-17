@@ -843,36 +843,165 @@ async function processOddsUpdate(
           null;
 
 
-        if (
-          tracked.market_type !==
-          "moneyline"
-        ) {
+     if (
+  tracked.market_type !==
+  "moneyline"
+) {
+
+  if (
+    outcome.point === null ||
+    outcome.point === undefined ||
+    String(
+      outcome.point
+    ).trim() === ""
+  ) {
+    continue;
+  }
+
+
+  line =
+    Number(
+      outcome.point
+    );
+
+
+  if (
+    !Number.isFinite(
+      line
+    )
+  ) {
+    continue;
+  }
+
+
+  // ========================================================
+  // SPREAD 0 SAFETY
+  //
+  // A real pick'em is valid, but an isolated 0 from one
+  // sportsbook must not overwrite a real spread.
+  //
+  // Accept 0 only when:
+  // 1. CashEdge itself currently has a 0 spread, OR
+  // 2. another approved sportsbook also confirms 0.
+  // ========================================================
+
+  if (
+    tracked.market_type ===
+      "spread" &&
+    line === 0
+  ) {
+
+    const cashEdgeLine =
+      Number(
+        tracked.line
+      );
+
+
+    const cashEdgeConfirmsZero =
+      Number.isFinite(
+        cashEdgeLine
+      ) &&
+      cashEdgeLine === 0;
+
+
+    const anotherBookConfirmsZero =
+      bookmakers.some(
+        otherBook => {
+
+          const otherBookKey =
+            String(
+              otherBook?.key ||
+              ""
+            )
+              .trim()
+              .toLowerCase();
+
 
           if (
-  outcome.point === null ||
-  outcome.point === undefined ||
-  String(
-    outcome.point
-  ).trim() === ""
-) {
-  continue;
-}
+            !otherBookKey ||
+            otherBookKey ===
+              sportsbookKey ||
+            !BOOKS.includes(
+              otherBookKey
+            )
+          ) {
+            return false;
+          }
 
 
-line =
-  Number(
-    outcome.point
-  );
+          const otherMarkets =
+            Array.isArray(
+              otherBook.markets
+            )
+              ? otherBook.markets
+              : [];
 
 
-if (
-  !Number.isFinite(
-    line
-  )
-) {
-  continue;
-}
+          const otherMarket =
+            otherMarkets.find(
+              item =>
+                String(
+                  item?.key ||
+                  ""
+                )
+                  .trim()
+                  .toLowerCase() ===
+                owlsMarketKey
+            );
+
+
+          if (!otherMarket) {
+            return false;
+          }
+
+
+          const otherOutcome =
+            findPremiumOutcome({
+              tracked,
+              market:
+                otherMarket
+            });
+
+
+          if (
+            !otherOutcome ||
+            otherOutcome.point ===
+              null ||
+            otherOutcome.point ===
+              undefined ||
+            String(
+              otherOutcome.point
+            ).trim() ===
+              ""
+          ) {
+            return false;
+          }
+
+
+          const otherLine =
+            Number(
+              otherOutcome.point
+            );
+
+
+          return (
+            Number.isFinite(
+              otherLine
+            ) &&
+            otherLine === 0
+          );
         }
+      );
+
+
+    if (
+      !cashEdgeConfirmsZero &&
+      !anotherBookConfirmsZero
+    ) {
+      continue;
+    }
+  }
+}
 
 
         const signatureKey =
