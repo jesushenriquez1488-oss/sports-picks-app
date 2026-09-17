@@ -135,7 +135,30 @@ const lastSentSignatures =
 // ============================================================
 // NORMALIZATION
 // ============================================================
+function normalizeSportsbookKey(
+  value
+) {
+  const key =
+    String(
+      value || ""
+    )
+      .trim()
+      .toLowerCase();
 
+  if (
+    key === "caesars"
+  ) {
+    return "williamhill_us";
+  }
+
+  if (
+    key === "hardrock"
+  ) {
+    return "hardrockbet";
+  }
+
+  return key;
+}
 function normalizeText(
   value
 ) {
@@ -768,23 +791,28 @@ async function processOddsUpdate(
         of bookmakers
       ) {
 
-        const sportsbookKey =
-          String(
-            bookmaker?.key ||
-            ""
-          )
-            .trim()
-            .toLowerCase();
+       const owlsBookKey =
+  String(
+    bookmaker?.key ||
+    ""
+  )
+    .trim()
+    .toLowerCase();
 
 
-        if (
-          !BOOKS.includes(
-            sportsbookKey
-          )
-        ) {
-          continue;
-        }
+if (
+  !BOOKS.includes(
+    owlsBookKey
+  )
+) {
+  continue;
+}
 
+
+const sportsbookKey =
+  normalizeSportsbookKey(
+    owlsBookKey
+  );
 
         const markets =
           Array.isArray(
