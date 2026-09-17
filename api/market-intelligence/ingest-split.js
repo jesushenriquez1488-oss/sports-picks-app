@@ -11,7 +11,11 @@ const {
 } =
   require("../../lib/marketPipeline");
 
-
+const {
+  buildCanonicalMarketSplit,
+  validateCanonicalMarketSplit
+} =
+  require("./marketProviderAdapter");
 const supabaseAdmin =
   createClient(
     process.env.SUPABASE_URL,
