@@ -14508,7 +14508,11 @@ if (isInternalRequest) {
         (!r.game_time || new Date(r.game_time).getTime() > Date.now())
       );
 
-      if (cached) {
+     if (
+  cached &&
+  req.query.force !== "true" &&
+  req.body?.force !== true
+) {
         const ageMin = (Date.now() - new Date(cached.updated_at).getTime()) / 60000;
         const hoursToKickoff = cached.game_time
           ? (new Date(cached.game_time).getTime() - Date.now()) / 3600000
