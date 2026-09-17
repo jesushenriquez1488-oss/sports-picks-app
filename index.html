@@ -1,1315 +1,2102 @@
-"use strict";
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sports Picks App</title>
+  <link rel="stylesheet" href="style.css">
+<script>
+(function () {
+  const params = new URLSearchParams(window.location.search);
 
-const {
-  io
-} = require("socket.io-client");
+  const success = params.get("success");
+  const canceled = params.get("canceled");
+  const sessionId = params.get("session_id");
+  const metaEventId = params.get("meta_event_id");
 
-
-// ============================================================
-// CONFIG
-// ============================================================
-
-const WORKER_NAME =
-  "cashedge-live-market-worker";
-
-const OWLS_URL =
-  "https://api.owlsinsight.com";
-
-const CASHEDGE_ORIGIN =
-  process.env.CASHEDGE_ORIGIN ||
-  "https://www.cashedgeapp.com";
-
-const OWLS_API_KEY =
-  process.env.OWLS_API_KEY;
-
-const MARKET_INGEST_SECRET =
-  process.env.MARKET_INGEST_SECRET;
-
-
-const TRACKED_GAMES_URL =
-  `${CASHEDGE_ORIGIN}/api/market-intelligence/tracked-games`;
-
-const INGEST_QUOTE_URL =
-  `${CASHEDGE_ORIGIN}/api/market-intelligence/ingest-quote`;
-
-
-const SPORTS = [
-  "mlb",
-  "nfl",
-  "nba",
-  "ncaaf",
-  "ncaab",
-  "wnba"
-];
-
-
-/*
- * Books that we actually want CashEdge
- * Market Intelligence to consume.
- *
- * We are intentionally NOT ingesting the entire
- * Owls catalog.
- */
-const BOOKS = [
-  "draftkings",
-  "fanduel",
-  "betmgm",
-  "caesars",
-  "hardrock",
-  "circa"
-];
-
-
-const REFRESH_INTERVAL_MS =
-  60 * 1000;
-
-const MAX_CONCURRENCY =
-  6;
-
-
-// ============================================================
-// REQUIRED ENVIRONMENT
-// ============================================================
-
-if (!OWLS_API_KEY) {
-  console.error(
-    `[${WORKER_NAME}] OWLS_API_KEY missing`
-  );
-
-  process.exit(1);
-}
-
-
-if (!MARKET_INGEST_SECRET) {
-  console.error(
-    `[${WORKER_NAME}] MARKET_INGEST_SECRET missing`
-  );
-
-  process.exit(1);
-}
-
-
-// ============================================================
-// STATE
-// ============================================================
-
-let socket =
-  null;
-
-let refreshTimer =
-  null;
-
-let trackedGameMap =
-  new Map();
-
-let trackedCount =
-  null;
-
-let premiumCount =
-  null;
-
-let processingUpdate =
-  false;
-
-let queuedUpdate =
-  null;
-
-let firstIngestSummaryLogged =
-  false;
-
-
-/*
- * Prevent repeated POSTs when Owls sends the
- * same board state again.
- *
- * key:
- * game + book + market + selection
- *
- * value:
- * line + price
- */
-const lastSentSignatures =
-  new Map();
-
-
-// ============================================================
-// NORMALIZATION
-// ============================================================
-
-function normalizeText(
-  value
-) {
-  return String(
-    value || ""
-  )
-    .normalize("NFD")
-    .replace(
-      /[\u0300-\u036f]/g,
-      ""
-    )
-    .toLowerCase()
-    .replace(
-      /&/g,
-      " and "
-    )
-    .replace(
-      /[^a-z0-9]+/g,
-      " "
-    )
-    .trim()
-    .replace(
-      /\s+/g,
-      " "
+  if (success === "true" && sessionId) {
+    sessionStorage.setItem(
+      "ce_stripe_return",
+      JSON.stringify({
+        success: true,
+        sessionId,
+        metaEventId
+      })
     );
-}
 
-
-function centralDateFromIso(
-  value
-) {
-  const date =
-    new Date(value);
-
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-    return null;
+    window.history.replaceState(
+      {},
+      document.title,
+      window.location.pathname
+    );
   }
 
-
-  const parts =
-    new Intl.DateTimeFormat(
-      "en-US",
-      {
-        timeZone:
-          "America/Chicago",
-
-        year:
-          "numeric",
-
-        month:
-          "2-digit",
-
-        day:
-          "2-digit"
-      }
-    )
-      .formatToParts(
-        date
-      );
-
-
-  const map =
-    Object.fromEntries(
-      parts.map(
-        part => [
-          part.type,
-          part.value
-        ]
-      )
+  if (canceled === "true") {
+    sessionStorage.setItem(
+      "ce_stripe_return",
+      JSON.stringify({
+        canceled: true
+      })
     );
 
+    window.history.replaceState(
+      {},
+      document.title,
+      window.location.pathname
+    );
+  }
+})();
+</script>
+  <!-- CASHEDGE PRIVACY / CONSENT -->
+  <script>
+  (function () {
 
-  return (
-    `${map.year}-${map.month}-${map.day}`
-  );
-}
+    const KEY = "cashedge_privacy_preferences_v1";
 
+    const GA4_ID = "G-JYL25F28XL";
+    const GOOGLE_ADS_ID = "AW-18266545354";
+    const META_PIXEL_ID = "1360080689410498";
+    const TIKTOK_PIXEL_ID = "D9T3HABC77UDV6S3LSIG";
+    function getPreferences() {
+      try {
+        const saved = localStorage.getItem(KEY);
 
-function makeGameKey({
-  sport,
-  awayTeam,
-  homeTeam,
-  gameDate
-}) {
-  return [
-    normalizeText(sport),
-    normalizeText(awayTeam),
-    normalizeText(homeTeam),
-    gameDate
-  ].join("|");
-}
-
-
-// ============================================================
-// TRACKED CASHEDGE GAMES
-// ============================================================
-
-async function refreshTrackedGames() {
-
-  const response =
-    await fetch(
-      TRACKED_GAMES_URL,
-      {
-        headers: {
-          Authorization:
-            `Bearer ${MARKET_INGEST_SECRET}`
+        if (!saved) {
+          return {
+            decided: false,
+            analytics: false,
+            advertising: false
+          };
         }
+
+        const parsed = JSON.parse(saved);
+
+        return {
+          decided: parsed?.decided === true,
+          analytics: parsed?.analytics === true,
+          advertising: parsed?.advertising === true
+        };
+
+      } catch (error) {
+        return {
+          decided: false,
+          analytics: false,
+          advertising: false
+        };
       }
-    );
-
-
-  const body =
-    await response
-      .json()
-      .catch(
-        () => null
-      );
-
-
-  if (
-    !response.ok ||
-    body?.ok !== true ||
-    !Array.isArray(body.games)
-  ) {
-    throw new Error(
-      body?.error ||
-      `tracked-games HTTP ${response.status}`
-    );
-  }
-
-
-  const nextMap =
-    new Map();
-
-
-  for (
-    const game
-    of body.games
-  ) {
-
-    if (
-      !game?.sport ||
-      !game?.away_team ||
-      !game?.home_team ||
-      !game?.game_date ||
-      !game?.cashedge_game_id
-    ) {
-      continue;
     }
 
+    function deleteCookie(name) {
+      const domains = [
+        "",
+        "cashedgeapp.com",
+        ".cashedgeapp.com"
+      ];
 
-    const key =
-      makeGameKey({
-        sport:
-          game.sport,
+      domains.forEach(domain => {
+        const domainPart = domain
+          ? `; domain=${domain}`
+          : "";
 
-        awayTeam:
-          game.away_team,
-
-        homeTeam:
-          game.home_team,
-
-        gameDate:
-          game.game_date
+        document.cookie =
+          `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/${domainPart}`;
       });
-
-
-    nextMap.set(
-      key,
-      game
-    );
-  }
-
-
-  trackedGameMap =
-    nextMap;
-
-
-  /*
-   * Remove dedupe signatures belonging to games
-   * that are no longer Premium.
-   *
-   * If they later become Premium again, they will
-   * receive a fresh baseline.
-   */
-  const activePremiumIds =
-    new Set(
-      body.games
-        .filter(
-          game =>
-            game
-              .current_is_premium ===
-            true
-        )
-        .map(
-          game =>
-            String(
-              game
-                .cashedge_game_id
-            )
-        )
-    );
-
-
-  for (
-    const key
-    of lastSentSignatures.keys()
-  ) {
-
-    const gameId =
-      key.split("|")[0];
-
-    if (
-      !activePremiumIds.has(
-        gameId
-      )
-    ) {
-      lastSentSignatures
-        .delete(
-          key
-        );
     }
-  }
 
+    function clearAnalyticsCookies() {
+      document.cookie.split(";").forEach(cookie => {
+        const name = cookie.split("=")[0].trim();
 
-  /*
-   * Only print when the board actually changed,
-   * so Railway logs stay clean.
-   */
-  if (
-    trackedCount !== body.count ||
-    premiumCount !== body.premiumCount
-  ) {
+        if (
+          name === "_gid" ||
+          name === "_gat" ||
+          name.startsWith("_ga")
+        ) {
+          deleteCookie(name);
+        }
+      });
+    }
 
-    trackedCount =
-      body.count;
+    function clearAdvertisingCookies() {
+      deleteCookie("_fbp");
+      deleteCookie("_fbc");
+    }
 
-    premiumCount =
-      body.premiumCount;
-
-
-    console.log(
-      `[${WORKER_NAME}] CashEdge tracked games: ${trackedCount}, Premium: ${premiumCount}`
-    );
-  }
-}
-
-
-// ============================================================
-// MARKET MAPPING
-// ============================================================
-
-function getOwlsMarketKey(
-  marketType
-) {
-  if (
-    marketType ===
-    "moneyline"
-  ) {
-    return "h2h";
-  }
-
-
-  if (
-    marketType ===
-    "spread"
-  ) {
-    return "spreads";
-  }
-
-
-  if (
-    marketType ===
-    "total"
-  ) {
-    return "totals";
-  }
-
-
-  return null;
-}
-
-
-function findPremiumOutcome({
-  tracked,
-  market
-}) {
-
-  if (
-    !market ||
-    !Array.isArray(
-      market.outcomes
-    )
-  ) {
-    return null;
-  }
-
-
-  const selection =
-    normalizeText(
-      tracked.selection_key
-    );
-
-
-  if (
-    tracked.market_type ===
-    "total"
-  ) {
-
-    return (
-      market.outcomes.find(
-        outcome =>
-          normalizeText(
-            outcome?.name
-          ) ===
-          selection
-      ) ||
-      null
-    );
-  }
-
-
-  return (
-    market.outcomes.find(
-      outcome =>
-        normalizeText(
-          outcome?.name
-        ) ===
-        selection
-    ) ||
-    null
-  );
-}
-
-
-// ============================================================
-// CASHEDGE INGEST
-// ============================================================
-
-async function ingestQuote(
-  payload
-) {
-
-  const response =
-    await fetch(
-      INGEST_QUOTE_URL,
-      {
-        method:
-          "POST",
-
-        headers: {
-          Authorization:
-            `Bearer ${MARKET_INGEST_SECRET}`,
-
-          "Content-Type":
-            "application/json"
-        },
-
-        body:
-          JSON.stringify(
-            payload
-          )
-      }
-    );
-
-
-  const body =
-    await response
-      .json()
-      .catch(
-        () => null
-      );
-
-
-  if (
-    !response.ok ||
-    body?.ok !== true
-  ) {
-
-    throw new Error(
-      body?.error ||
-      `ingest-quote HTTP ${response.status}`
-    );
-  }
-
-
-  return body;
-}
-
-
-// ============================================================
-// CONCURRENCY
-// ============================================================
-
-async function runJobs(
-  jobs
-) {
-
-  let nextIndex =
-    0;
-
-  let sent =
-    0;
-
-  let errors =
-    0;
-
-
-  async function worker() {
-
-    while (true) {
-
-      const index =
-        nextIndex++;
+    function loadGoogle(preferences) {
 
       if (
-        index >=
-        jobs.length
+        !preferences.analytics &&
+        !preferences.advertising
       ) {
         return;
       }
 
-
-      const job =
-        jobs[index];
-
-
-      try {
-
-        await ingestQuote(
-          job.payload
-        );
-
-
-        lastSentSignatures
-          .set(
-            job.signatureKey,
-            job.signature
-          );
-
-
-        sent += 1;
-
-      } catch (error) {
-
-        errors += 1;
-
-        /*
-         * Keep errors visible,
-         * but do not log every normal quote.
-         */
-        console.error(
-          `[${WORKER_NAME}] ingest error: ${error.message}`
-        );
+      if (window.__cashEdgeGoogleLoaded) {
+        return;
       }
+
+      window.__cashEdgeGoogleLoaded = true;
+
+      window.dataLayer = window.dataLayer || [];
+
+      window.gtag = function () {
+        window.dataLayer.push(arguments);
+      };
+
+     window.gtag("consent", "default", {
+  analytics_storage:
+    preferences.analytics ? "granted" : "denied",
+
+  ad_storage:
+    preferences.advertising ? "granted" : "denied",
+
+  ad_user_data:
+    preferences.advertising ? "granted" : "denied",
+
+  ad_personalization:
+    preferences.advertising ? "granted" : "denied"
+});
+
+window.gtag("js", new Date());
+
+      if (preferences.analytics) {
+        window.gtag("config", GA4_ID);
+      }
+
+      if (preferences.advertising) {
+        window.gtag("config", GOOGLE_ADS_ID);
+      }
+
+      const tagId = preferences.analytics
+        ? GA4_ID
+        : GOOGLE_ADS_ID;
+
+      const script =
+        document.createElement("script");
+
+      script.async = true;
+      script.src =
+        `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(tagId)}`;
+
+      document.head.appendChild(script);
     }
-  }
 
+    function loadMetaPixel() {
 
-  const workers =
-    [];
-
-
-  const count =
-    Math.min(
-      MAX_CONCURRENCY,
-      jobs.length
-    );
-
-
-  for (
-    let i = 0;
-    i < count;
-    i += 1
-  ) {
-    workers.push(
-      worker()
-    );
-  }
-
-
-  await Promise.all(
-    workers
-  );
-
-
-  return {
-    sent,
-    errors
-  };
-}
-
-
-// ============================================================
-// PROCESS OWLS BOARD
-// ============================================================
-
-async function processOddsUpdate(
-  data
-) {
-
-  const jobs =
-    [];
-
-  const matchedPremiumGames =
-    new Set();
-
-
-  for (
-    const sport
-    of SPORTS
-  ) {
-
-    const events =
-      Array.isArray(
-        data?.sports?.[sport]
-      )
-        ? data.sports[sport]
-        : [];
-
-
-    for (
-      const event
-      of events
-    ) {
-
-      /*
-       * CashEdge Market Intelligence is PRE-GAME.
-       * Never ingest after kickoff.
-       */
-      const commenceTime =
-        event?.commence_time;
-
-      const commenceMs =
-        Date.parse(
-          commenceTime
-        );
-
-
-      if (
-        !Number.isFinite(
-          commenceMs
-        ) ||
-        commenceMs <= Date.now()
-      ) {
-        continue;
+      if (window.__cashEdgeMetaLoaded) {
+        return;
       }
 
+      window.__cashEdgeMetaLoaded = true;
 
-      const gameDate =
-        centralDateFromIso(
-          commenceTime
-        );
+      !function(f,b,e,v,n,t,s) {
+        if(f.fbq)return;
 
+        n=f.fbq=function(){
+          n.callMethod
+            ? n.callMethod.apply(n,arguments)
+            : n.queue.push(arguments);
+        };
 
-      if (!gameDate) {
-        continue;
-      }
+        if(!f._fbq)f._fbq=n;
 
+        n.push=n;
+        n.loaded=true;
+        n.version="2.0";
+        n.queue=[];
 
-      const gameKey =
-        makeGameKey({
-          sport,
+        t=b.createElement(e);
+        t.async=true;
+        t.src=v;
 
-          awayTeam:
-            event.away_team,
+        s=b.getElementsByTagName(e)[0];
+        s.parentNode.insertBefore(t,s);
 
-          homeTeam:
-            event.home_team,
-
-          gameDate
-        });
-
-
-      const tracked =
-        trackedGameMap.get(
-          gameKey
-        );
-
-
-      if (
-        !tracked ||
-        tracked
-          .current_is_premium !==
-        true
-      ) {
-        continue;
-      }
-
-
-      if (
-        !tracked.market_type ||
-        !tracked.selection_key
-      ) {
-        continue;
-      }
-
-
-      matchedPremiumGames.add(
-        tracked
-          .cashedge_game_id
+      }(
+        window,
+        document,
+        "script",
+        "https://connect.facebook.net/en_US/fbevents.js"
       );
 
-
-      const owlsMarketKey =
-        getOwlsMarketKey(
-          tracked.market_type
-        );
-
-
-      if (!owlsMarketKey) {
-        continue;
-      }
-
-
-      const bookmakers =
-        Array.isArray(
-          event.bookmakers
-        )
-          ? event.bookmakers
-          : [];
-
-
-      for (
-        const bookmaker
-        of bookmakers
-      ) {
-
-        const sportsbookKey =
-          String(
-            bookmaker?.key ||
-            ""
-          )
-            .trim()
-            .toLowerCase();
-
-
-        if (
-          !BOOKS.includes(
-            sportsbookKey
-          )
-        ) {
-          continue;
-        }
-
-
-        const markets =
-          Array.isArray(
-            bookmaker.markets
-          )
-            ? bookmaker.markets
-            : [];
-
-
-        const market =
-          markets.find(
-            item =>
-              String(
-                item?.key ||
-                ""
-              )
-                .trim()
-                .toLowerCase() ===
-              owlsMarketKey
-          );
-
-
-        if (!market) {
-          continue;
-        }
-
-
-        const outcome =
-          findPremiumOutcome({
-            tracked,
-            market
-          });
-
-
-        if (!outcome) {
-          continue;
-        }
-
-
-        const price =
-          Number(
-            outcome.price
-          );
-
-
-        if (
-          !Number.isFinite(
-            price
-          )
-        ) {
-          continue;
-        }
-
-
-        let line =
-          null;
-
-
-        if (
-          tracked.market_type !==
-          "moneyline"
-        ) {
-
-          line =
-            Number(
-              outcome.point
-            );
-
-
-          if (
-            !Number.isFinite(
-              line
-            )
-          ) {
-            continue;
-          }
-        }
-
-
-        const signatureKey =
-          [
-            tracked
-              .cashedge_game_id,
-
-            sportsbookKey,
-
-            tracked
-              .market_type,
-
-            tracked
-              .selection_key
-          ].join("|");
-
-
-        const signature =
-          `${line ?? "null"}|${Math.round(price)}`;
-
-
-        if (
-          lastSentSignatures
-            .get(
-              signatureKey
-            ) ===
-          signature
-        ) {
-          continue;
-        }
-
-
-        const providerTimestamp =
-          bookmaker.last_update ||
-          data.last_odds_change ||
-          data.timestamp ||
-          null;
-
-
-        jobs.push({
-          signatureKey,
-          signature,
-
-          payload: {
-
-            sport,
-
-            cashedge_game_id:
-              tracked
-                .cashedge_game_id,
-
-            provider:
-              "owls",
-
-            provider_event_id:
-              event.id ||
-              null,
-
-            sportsbook_key:
-              sportsbookKey,
-
-            sportsbook_name:
-              bookmaker.title ||
-              sportsbookKey,
-
-            market_type:
-              tracked
-                .market_type,
-
-            selection_key:
-              tracked
-                .selection_key,
-
-            selection_name:
-              outcome.name ||
-              tracked
-                .selection_key,
-
-            line,
-
-            price_american:
-              Math.round(
-                price
-              ),
-
-            provider_timestamp:
-              providerTimestamp,
-
-            raw_payload: {
-              event_id:
-                event.id ||
-                null,
-
-              commence_time:
-                commenceTime,
-
-              away_team:
-                event.away_team ||
-                null,
-
-              home_team:
-                event.home_team ||
-                null,
-
-              sportsbook_key:
-                sportsbookKey,
-
-              market_key:
-                owlsMarketKey,
-
-              outcome: {
-                name:
-                  outcome.name ||
-                  null,
-
-                point:
-                  outcome.point ??
-                  null,
-
-                price:
-                  outcome.price ??
-                  null
-              },
-
-              last_update:
-                bookmaker
-                  .last_update ||
-                null
-            }
-          }
-        });
-      }
+      fbq("init", META_PIXEL_ID);
+      fbq("track", "PageView");
     }
-  }
+    function loadTikTokPixel() {
 
-
-  const result =
-    await runJobs(
-      jobs
-    );
-
-
-  /*
-   * One startup summary only.
-   * No heartbeat/log spam.
-   */
-  if (
-    !firstIngestSummaryLogged
-  ) {
-
-    firstIngestSummaryLogged =
-      true;
-
-
-    console.log(
-      `[${WORKER_NAME}] live market ingest active`
-    );
-
-    console.log(
-      `[${WORKER_NAME}] matched Premium games: ${matchedPremiumGames.size}`
-    );
-
-    console.log(
-      `[${WORKER_NAME}] quotes sent: ${result.sent}, errors: ${result.errors}`
-    );
-  }
-}
-
-
-// ============================================================
-// SERIALIZE OWLS UPDATES
-// ============================================================
-
-async function queueOddsUpdate(
-  data
-) {
-
-  if (
-    processingUpdate
-  ) {
-
-    /*
-     * Owls sends the current board.
-     * Keep only the newest waiting update.
-     */
-    queuedUpdate =
-      data;
-
+  if (window.__cashEdgeTikTokLoaded) {
     return;
   }
 
+  window.__cashEdgeTikTokLoaded = true;
 
-  processingUpdate =
-    true;
+  !function (w, d, t) {
 
+    w.TiktokAnalyticsObject = t;
 
-  try {
+    var ttq = w[t] = w[t] || [];
 
-    let current =
-      data;
+    ttq.methods = [
+      "page",
+      "track",
+      "identify",
+      "instances",
+      "debug",
+      "on",
+      "off",
+      "once",
+      "ready",
+      "alias",
+      "group",
+      "enableCookie",
+      "disableCookie",
+      "holdConsent",
+      "revokeConsent",
+      "grantConsent"
+    ];
 
-
-    while (current) {
-
-      queuedUpdate =
-        null;
-
-
-      await processOddsUpdate(
-        current
-      );
-
-
-      current =
-        queuedUpdate;
-    }
-
-  } catch (error) {
-
-    console.error(
-      `[${WORKER_NAME}] odds processing error: ${error.message}`
-    );
-
-  } finally {
-
-    processingUpdate =
-      false;
-  }
-}
-
-
-// ============================================================
-// OWLS CONNECTION
-// ============================================================
-
-function connectOwls() {
-
-  socket =
-    io(
-      OWLS_URL,
-      {
-        query: {
-          apiKey:
-            OWLS_API_KEY
-        },
-
-        transports: [
-          "websocket"
-        ],
-
-        reconnection:
-          true,
-
-        reconnectionAttempts:
-          Infinity,
-
-        reconnectionDelay:
-          1000,
-
-        reconnectionDelayMax:
-          15000,
-
-        timeout:
-          20000
-      }
-    );
-
-
-  socket.on(
-    "connect",
-    () => {
-
-      console.log(
-        `[${WORKER_NAME}] connected to Owls Insight`
-      );
-
-
-      socket.emit(
-        "subscribe",
-        {
-          sports:
-            SPORTS,
-
-          books:
-            BOOKS
-        }
-      );
-
-
-      console.log(
-        `[${WORKER_NAME}] subscribed to CashEdge market books`
-      );
-    }
-  );
-
-
-  socket.on(
-    "odds-update",
-    data => {
-
-      queueOddsUpdate(
-        data
-      );
-    }
-  );
-
-
-  socket.on(
-    "connect_error",
-    error => {
-
-      console.error(
-        `[${WORKER_NAME}] Owls connection error: ${error.message}`
-      );
-    }
-  );
-
-
-  socket.on(
-    "disconnect",
-    reason => {
-
-      console.log(
-        `[${WORKER_NAME}] disconnected from Owls: ${reason}`
-      );
-    }
-  );
-}
-
-
-// ============================================================
-// START
-// ============================================================
-
-async function start() {
-
-  console.log(
-    `[${WORKER_NAME}] started`
-  );
-
-
-  console.log(
-    `[${WORKER_NAME}] CashEdge origin: ${CASHEDGE_ORIGIN}`
-  );
-
-
-  /*
-   * Load CashEdge IDs BEFORE opening Owls,
-   * so the first live board can already be matched.
-   */
-  while (true) {
-
-    try {
-
-      await refreshTrackedGames();
-
-      break;
-
-    } catch (error) {
-
-      console.error(
-        `[${WORKER_NAME}] tracked-games error: ${error.message}`
-      );
-
-
-      await new Promise(
-        resolve =>
-          setTimeout(
-            resolve,
-            15000
+    ttq.setAndDefer = function(t, e) {
+      t[e] = function() {
+        t.push(
+          [e].concat(
+            Array.prototype.slice.call(arguments, 0)
           )
+        );
+      };
+    };
+
+    for (
+      var i = 0;
+      i < ttq.methods.length;
+      i++
+    ) {
+      ttq.setAndDefer(
+        ttq,
+        ttq.methods[i]
       );
     }
-  }
 
+    ttq.instance = function(t) {
 
-  refreshTimer =
-    setInterval(
-      async () => {
+      var e = ttq._i[t] || [];
 
-        try {
+      for (
+        var n = 0;
+        n < ttq.methods.length;
+        n++
+      ) {
+        ttq.setAndDefer(
+          e,
+          ttq.methods[n]
+        );
+      }
 
-          await refreshTrackedGames();
+      return e;
+    };
 
-        } catch (error) {
+    ttq.load = function(e, n) {
 
-          console.error(
-            `[${WORKER_NAME}] tracked-games refresh error: ${error.message}`
+      var r =
+        "https://analytics.tiktok.com/i18n/pixel/events.js";
+
+      var o = n && n.partner;
+
+      ttq._i = ttq._i || {};
+      ttq._i[e] = [];
+      ttq._i[e]._u = r;
+
+      ttq._t = ttq._t || {};
+      ttq._t[e] = +new Date();
+
+      ttq._o = ttq._o || {};
+      ttq._o[e] = n || {};
+
+      n = document.createElement("script");
+
+      n.type = "text/javascript";
+      n.async = true;
+      n.src =
+        r +
+        "?sdkid=" +
+        e +
+        "&lib=" +
+        t;
+
+      e =
+        document.getElementsByTagName(
+          "script"
+        )[0];
+
+      e.parentNode.insertBefore(
+        n,
+        e
+      );
+    };
+
+    ttq.load(TIKTOK_PIXEL_ID);
+    ttq.page();
+
+  }(
+    window,
+    document,
+    "ttq"
+  );
+}
+
+    window.ceGetPrivacyPreferences =
+      getPreferences;
+
+   window.ceSetPrivacyPreferences =
+  function ({
+    analytics = false,
+    advertising = false
+  }) {
+
+    const previousPreferences =
+      getPreferences();
+
+    const preferences = {
+      decided: true,
+      analytics: analytics === true,
+      advertising: advertising === true,
+      updatedAt: new Date().toISOString()
+    };
+
+    localStorage.setItem(
+      KEY,
+      JSON.stringify(preferences)
+    );
+
+    if (!preferences.analytics) {
+      clearAnalyticsCookies();
+    }
+
+    if (!preferences.advertising) {
+      clearAdvertisingCookies();
+    }
+
+    /*
+      Si el usuario ya había autorizado algo
+      anteriormente y ahora lo revoca,
+      recargamos para retirar completamente
+      los trackers que ya estaban cargados.
+    */
+    const revokedPreviousConsent =
+      previousPreferences.decided === true &&
+      (
+        (
+          previousPreferences.analytics &&
+          !preferences.analytics
+        ) ||
+        (
+          previousPreferences.advertising &&
+          !preferences.advertising
+        )
+      );
+
+    if (revokedPreviousConsent) {
+      window.location.reload();
+      return;
+    }
+
+    /*
+      Primera decisión o consentimiento nuevo:
+      aplicar inmediatamente SIN recargar.
+    */
+    if (
+      preferences.analytics ||
+      preferences.advertising
+    ) {
+
+      if (!window.__cashEdgeGoogleLoaded) {
+
+        loadGoogle(preferences);
+
+      } else if (
+        typeof window.gtag === "function"
+      ) {
+
+        window.gtag(
+          "consent",
+          "update",
+          {
+            analytics_storage:
+              preferences.analytics
+                ? "granted"
+                : "denied",
+
+            ad_storage:
+              preferences.advertising
+                ? "granted"
+                : "denied",
+
+            ad_user_data:
+              preferences.advertising
+                ? "granted"
+                : "denied",
+
+            ad_personalization:
+              preferences.advertising
+                ? "granted"
+                : "denied"
+          }
+        );
+
+        if (
+          preferences.analytics &&
+          !previousPreferences.analytics
+        ) {
+          window.gtag(
+            "config",
+            GA4_ID
           );
         }
-      },
-      REFRESH_INTERVAL_MS
-    );
 
+        if (
+          preferences.advertising &&
+          !previousPreferences.advertising
+        ) {
+          window.gtag(
+            "config",
+            GOOGLE_ADS_ID
+          );
+        }
+      }
+    }
 
-  connectOwls();
+    if (preferences.advertising) {
+      loadMetaPixel();
+    }
+
+    const banner =
+      document.getElementById(
+        "cePrivacyBanner"
+      );
+
+    if (banner) {
+      banner.style.display = "none";
+    }
+
+    const modal =
+      document.getElementById(
+        "cePrivacyModal"
+      );
+
+    if (modal) {
+      modal.style.display = "none";
+    }
+  };
+    const preferences = getPreferences();
+
+    if (preferences.decided) {
+
+      if (
+        preferences.analytics ||
+        preferences.advertising
+      ) {
+        loadGoogle(preferences);
+      }
+
+    if (preferences.advertising) {
+  loadMetaPixel();
+  loadTikTokPixel();
 }
+    }
+
+  })();
+  </script>
 
 
-// ============================================================
-// SHUTDOWN
-// ============================================================
+  <!-- ONESIGNAL - LO DEJAMOS IGUAL POR AHORA -->
+  <script
+    src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js"
+    defer>
+  </script>
 
-function shutdown(
-  signal
-) {
+<script>
+  window.OneSignalDeferred =
+    window.OneSignalDeferred || [];
 
-  console.log(
-    `[${WORKER_NAME}] shutting down: ${signal}`
+  OneSignalDeferred.push(
+    async function(OneSignal) {
+
+      await OneSignal.init({
+        appId:
+          "ef80e3e1-b203-4efd-ac58-936fa06a9108",
+
+        requiresUserPrivacyConsent: true,
+
+        notifyButton: {
+          enable: false
+        },
+
+        allowLocalhostAsSecureOrigin: true
+      });
+
+    }
   );
+</script>
+</head>
+
+<body>
+   <div id="bg-glow"></div> 
+<div id="splashScreen">
+  <div class="splash-brand">CASHEDGE</div>
+  <div class="splash-sub">AI SPORTS ANALYTICS</div>
+  <div class="splash-brain-wrap">
+    <div class="splash-ring1"></div>
+    <div class="splash-ring2"></div>
+    <div class="splash-ring3"></div>
+    <div class="splash-glow"></div>
+    <img src="https://cashedgeapp.com/brain.png" class="splash-brain">
+  </div>
+  <div class="splash-typewriter-wrap">
+    <div id="splashTypewriter"></div>
+    <div class="splash-cursor"></div>
+  </div>
+  <div class="splash-dots">
+    <div class="splash-dot"></div>
+    <div class="splash-dot"></div>
+    <div class="splash-dot"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const text="Find your edge.";
+  let i=0;
+  const el=document.getElementById("splashTypewriter");
+  function type(){if(i<=text.length){el.textContent=text.substring(0,i);i++;setTimeout(type,80);}}
+  setTimeout(type,600);
+  setTimeout(function(){
+    const splash=document.getElementById("splashScreen");
+    splash.style.transition="opacity .8s ease";
+    splash.style.opacity="0";
+    setTimeout(function(){splash.style.display="none";},800);
+  },3800);
+})();
+</script>
+<section id="ceLanding" class="ce-landing" style="display:none;">
+
+<div style="max-width:920px;margin:0 auto;padding:0 16px 40px;font-family:Arial,sans-serif;">
 
 
-  if (
-    refreshTimer
-  ) {
-    clearInterval(
-      refreshTimer
-    );
-  }
+<!-- ===== 1. HERO ===== -->
+
+<div style="text-align:center;padding:36px 0 8px;">
+
+  <div class="ce-live-badge">
+    <span class="ce-live-dot"></span>
+    LIVE TRACKING
+  </div>
+
+  <h1 style="font-size:34px;line-height:1.25;font-weight:900;color:#fff;margin:18px 0 14px;">
+    Stop wasting hours figuring out<br>
+    <span style="color:#00ffe7;">which games actually matter.</span>
+  </h1>
+
+  <p style="font-size:14px;line-height:1.7;color:#8899bb;max-width:600px;margin:0 auto 26px;">
+    Sport-specific models built from formulas developed through 30+ years of
+    sports-analysis experience already went through today's board — and flagged
+    only what cleared the bar.
+  </p>
+
+<button
+  type="button"
+  onclick="document.getElementById('ceFeaturedPremiumSection')?.scrollIntoView({behavior:'smooth',block:'start'})"
+  style="display:block;width:100%;max-width:560px;margin:0 auto;padding:17px;border:none;border-radius:12px;background:linear-gradient(135deg,#00ffe7,#7c3cff);color:#020814;font-size:15px;font-weight:900;letter-spacing:0.5px;cursor:pointer;text-transform:uppercase;"
+>
+  SEE A REAL PREMIUM ANALYSIS →
+</button>
+<button
+  type="button"
+  onclick="ceShowAuth()"
+  style="
+    display:block;
+    width:max-content;
+    margin:12px auto 0;
+    padding:9px 18px;
+    background:rgba(0,255,231,0.04);
+    border:1px solid rgba(0,255,231,0.45);
+    border-radius:20px;
+    color:#00ffe7;
+    font-size:11px;
+    font-weight:800;
+    letter-spacing:.5px;
+    cursor:pointer;
+  "
+>
+  ALREADY A MEMBER? &nbsp; LOG IN →
+</button>
+  <div style="font-size:11px;color:#5a7a9a;margin-top:12px;">
+  No card required · 3 free analyses daily · Premium Pick results tracked publicly
+  </div>
+
+  <div style="font-size:11px;color:#8899bb;margin-top:6px;">
+    Join free. Upgrade only if you want to unlock Premium.
+  </div>
+
+  <div style="font-size:15px;color:#a0b4cc;line-height:1.7;max-width:520px;margin:30px auto 0;font-style:italic;">
+    The hardest decision isn't picking the right game.<br>
+    It's knowing which games to ignore.
+  </div>
+
+</div>
 
 
-  if (
-    socket
-  ) {
-    socket.disconnect();
-  }
+<!-- ===== 2. EL PROBLEMA ===== -->
+
+<div style="background:#0a0f1e;border:1px solid #1a2240;border-radius:14px;padding:28px 24px;margin:44px 0 0;">
+
+  <div style="font-size:10px;color:#7c3cff;letter-spacing:1.5px;font-weight:700;margin-bottom:12px;">THE PROBLEM WITH GENERIC TOOLS</div>
+
+  <h2 style="font-size:22px;font-weight:900;color:#fff;margin:0 0 16px;line-height:1.35;">
+  Every sport is different. Your model should be too.
+  </h2>
+
+  <p style="font-size:13px;line-height:1.8;color:#a0b4cc;margin:0 0 14px;">
+   Ask a general-purpose AI for a prediction and it will usually produce one — whether or not the
+    matchup presents a meaningful signal.
+  </p>
+
+  <div style="border-left:2px solid #16243d;padding-left:16px;margin:0 0 16px;">
+    <div style="font-size:13px;line-height:1.9;color:#8899bb;">
+      It doesn't know Coors Field plays nothing like Petco Park.<br>
+      It doesn't know a bullpen that threw 28 pitches yesterday is a different bullpen today.<br>
+      It doesn't know a team playing its second night in a row isn't the same team.<br>
+      It doesn't check whether the injured quarterback was the starter or the backup.
+    </div>
+  </div>
+
+  <p style="font-size:15px;line-height:1.7;color:#00ffe7;font-weight:700;margin:0;">
+    It answers because you asked — not because there's an edge.
+  </p>
+
+</div>
 
 
-  process.exit(0);
+<!-- ===== 3. EL NÚMERO ===== -->
+
+<div style="margin:44px 0 0;text-align:center;">
+
+  <div style="font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:18px;">SO DOES IT WORK? — PREMIUM PICK RESULTS ARE PUBLIC</div>
+
+  <div style="background:#0a0f1e;border:1px solid rgba(0,255,231,0.25);border-radius:14px;padding:30px 20px;">
+
+    <div style="font-size:52px;font-weight:900;color:#00ffe7;line-height:1;">
+      <span id="ceHeroAccuracy" style="font-size:52px;font-weight:900;color:#00ffe7;">0%</span>
+    </div>
+
+    <div style="font-size:11px;color:#5a7a9a;letter-spacing:1.5px;font-weight:700;margin-top:10px;">
+      PREMIUM PICKS ACCURACY
+    </div>
+
+    <div style="height:1px;background:#16243d;margin:20px auto;max-width:280px;"></div>
+
+    <p id="ceHeroRecord" style="font-size:14px;color:#d0dcec;margin:0;">Loading...</p>
+
+  </div>
+
+  <div style="font-size:11px;color:#5a7a9a;margin-top:14px;line-height:1.7;max-width:560px;margin-left:auto;margin-right:auto;">
+    Based exclusively on Premium Pick results recorded in our public performance
+tracking — the same Premium Picks subscribers receive. Every Premium Pick is
+graded against the line recorded when it was released, including losses.
+  </div>
+
+  <div style="font-size:10px;color:#4a5f7f;margin-top:8px;">
+    Historical performance does not guarantee future results.
+  </div>
+
+</div>
+
+
+<!-- ===== 4. RENDIMIENTO POR DEPORTE ===== -->
+
+<div class="ce-sports-section" style="margin:34px 0 0;">
+  <p style="text-align:center;font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:16px;">BROKEN DOWN BY SPORT</p>
+  <div id="ceSportsGrid" class="ce-sports-grid"></div>
+</div>
+
+
+<!-- ===== 5. LA DEMO DEL FILTRO ===== -->
+
+<div style="margin:44px 0 0;">
+
+  <div style="text-align:center;font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:6px;">WHAT THE FILTER DOES</div>
+  <div style="text-align:center;font-size:12px;color:#5a7a9a;margin-bottom:18px;">A typical day on the board</div>
+
+  <div style="background:#0a0f1e;border:1px solid #1a2240;border-radius:14px;padding:6px 18px;">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid #16243d;opacity:0.45;">
+      <div style="font-size:12px;color:#8899bb;">Dodgers vs Padres</div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span style="font-size:12px;color:#5a7a9a;">54%</span>
+        <span style="font-size:10px;color:#5a7a9a;letter-spacing:0.5px;min-width:88px;text-align:right;">FILTERED OUT</span>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid #16243d;opacity:0.45;">
+      <div style="font-size:12px;color:#8899bb;">Astros vs Mariners</div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span style="font-size:12px;color:#5a7a9a;">58%</span>
+        <span style="font-size:10px;color:#5a7a9a;letter-spacing:0.5px;min-width:88px;text-align:right;">FILTERED OUT</span>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid #16243d;">
+      <div style="font-size:12px;color:#fff;font-weight:700;">Yankees vs Red Sox</div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span style="font-size:13px;color:#00ffe7;font-weight:700;">91%</span>
+        <span style="font-size:10px;color:#00ffe7;letter-spacing:0.5px;min-width:88px;text-align:right;">FLAGGED</span>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid #16243d;opacity:0.45;">
+      <div style="font-size:12px;color:#8899bb;">Cubs vs Cardinals</div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span style="font-size:12px;color:#5a7a9a;">61%</span>
+        <span style="font-size:10px;color:#5a7a9a;letter-spacing:0.5px;min-width:88px;text-align:right;">FILTERED OUT</span>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid #16243d;">
+      <div style="font-size:12px;color:#fff;font-weight:700;">Braves vs Mets</div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span style="font-size:13px;color:#00ffe7;font-weight:700;">88%</span>
+        <span style="font-size:10px;color:#00ffe7;letter-spacing:0.5px;min-width:88px;text-align:right;">FLAGGED</span>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;opacity:0.45;">
+      <div style="font-size:12px;color:#8899bb;">Rangers vs Angels</div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span style="font-size:12px;color:#5a7a9a;">49%</span>
+        <span style="font-size:10px;color:#5a7a9a;letter-spacing:0.5px;min-width:88px;text-align:right;">FILTERED OUT</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="text-align:center;font-size:12px;color:#8899bb;line-height:1.7;margin-top:14px;">
+    Four of these never reach you. That's not the model failing — that's the model working.
+  </div>
+
+  <div style="text-align:center;font-size:10px;color:#4a5f7f;margin-top:8px;">
+    Illustrative example of how the confidence filter works.
+  </div>
+
+</div>
+ <!-- ===== 6. REAL PREMIUM PICK ===== -->
+
+<div
+  id="ceFeaturedPremiumSection"
+  style="margin:44px 0 0;scroll-margin-top:24px;"
+>
+
+  <div style="
+    text-align:center;
+    font-size:10px;
+    color:#00ffe7;
+    letter-spacing:1.5px;
+    font-weight:800;
+    margin-bottom:7px;
+  ">
+    REAL PREMIUM PICK · PREVIOUSLY RELEASED
+  </div>
+
+  <div style="
+    text-align:center;
+    font-size:24px;
+    line-height:1.25;
+    color:#fff;
+    font-weight:900;
+    margin-bottom:8px;
+  ">
+    See what CashEdge Premium looks like.
+  </div>
+
+  <div style="
+    text-align:center;
+    font-size:12px;
+    line-height:1.6;
+    color:#6f84a3;
+    max-width:500px;
+    margin:0 auto 20px;
+  ">
+    One real Premium Pick from yesterday's tracked results,
+    shown with its final outcome.
+  </div>
+
+  <div id="ceFeaturedPremiumWrap">
+    <div style="
+      background:#0a0f1e;
+      border:1px solid #1a2240;
+      border-radius:14px;
+      padding:26px;
+      text-align:center;
+      color:#8899bb;
+      font-size:12px;
+    ">
+      Loading real Premium Pick...
+    </div>
+  </div>
+
+  <div style="
+    text-align:center;
+    margin-top:22px;
+    padding:20px 18px;
+    background:#0a0f1e;
+    border:1px solid rgba(0,255,231,0.18);
+    border-radius:12px;
+  ">
+
+    <div style="
+      font-size:16px;
+      color:#fff;
+      font-weight:800;
+      margin-bottom:5px;
+    ">
+      Want to see today's board?
+    </div>
+
+    <div style="
+  font-size:12px;
+  color:#8899bb;
+  line-height:1.6;
+  margin-bottom:14px;
+">
+  Create your free account and get
+  <strong style="color:#00ffe7;">3 regular analyses every day.</strong>
+  <br>
+  <span style="font-size:11px;color:#5a7a9a;">
+    No card required. Upgrade only if you want Premium.
+  </span>
+</div>
+
+    <button
+      type="button"
+      onclick="ceShowAuth()"
+      style="
+        width:100%;
+        padding:15px;
+        border:none;
+        border-radius:10px;
+        background:linear-gradient(135deg,#00ffe7,#7c3cff);
+        color:#020814;
+        font-size:13px;
+        font-weight:900;
+        letter-spacing:.5px;
+        cursor:pointer;
+        text-transform:uppercase;
+      "
+    >
+      CREATE FREE ACCOUNT →
+    </button>
+
+  </div>
+
+</div>
+
+<!-- ===== 7. CÓMO SE CONSTRUYE ===== -->
+
+<div style="margin:44px 0 0;">
+
+  <div style="text-align:center;font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:20px;">HOW A FLAGGED MATCHUP IS BUILT</div>
+
+  <div style="background:#0a0f1e;border:1px solid #1a2240;border-radius:14px;padding:24px 20px;">
+
+    <div style="display:flex;align-items:center;gap:14px;padding:12px 0;">
+      <div style="flex-shrink:0;width:34px;height:34px;border-radius:8px;background:#0f1628;display:flex;align-items:center;justify-content:center;font-size:15px;">📥</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;color:#fff;font-weight:700;">Raw sports data</div>
+        <div style="font-size:11px;color:#5a7a9a;margin-top:2px;">Box scores, lines, weather, injuries, depth charts</div>
+      </div>
+    </div>
+
+    <div style="height:16px;border-left:1px solid #1a2240;margin-left:17px;"></div>
+
+    <div style="display:flex;align-items:center;gap:14px;padding:12px 0;">
+      <div style="flex-shrink:0;width:34px;height:34px;border-radius:8px;background:#0f1628;display:flex;align-items:center;justify-content:center;font-size:15px;">🧠</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;color:#fff;font-weight:700;">30+ years of analysis experience</div>
+        <div style="font-size:11px;color:#5a7a9a;margin-top:2px;">The weighting comes from three decades of doing this</div>
+      </div>
+    </div>
+
+    <div style="height:16px;border-left:1px solid #1a2240;margin-left:17px;"></div>
+
+    <div style="display:flex;align-items:center;gap:14px;padding:12px 0;">
+      <div style="flex-shrink:0;width:34px;height:34px;border-radius:8px;background:#0f1628;display:flex;align-items:center;justify-content:center;font-size:15px;">⚙️</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;color:#fff;font-weight:700;">A separate formula per sport</div>
+        <div style="font-size:11px;color:#5a7a9a;margin-top:2px;">Park and bullpen. Schedule strength. Rest.</div>
+      </div>
+    </div>
+
+    <div style="height:16px;border-left:1px solid #1a2240;margin-left:17px;"></div>
+
+    <div style="display:flex;align-items:center;gap:14px;padding:12px 0;">
+      <div style="flex-shrink:0;width:34px;height:34px;border-radius:8px;background:#0f1628;display:flex;align-items:center;justify-content:center;font-size:15px;">📊</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;color:#fff;font-weight:700;">Projection vs the market line</div>
+        <div style="font-size:11px;color:#5a7a9a;margin-top:2px;">The distance between them is the whole game</div>
+      </div>
+    </div>
+
+    <div style="height:16px;border-left:1px solid #1a2240;margin-left:17px;"></div>
+
+    <div style="display:flex;align-items:center;gap:14px;padding:12px 0;">
+      <div style="flex-shrink:0;width:34px;height:34px;border-radius:8px;background:rgba(124,60,255,0.12);border:1px solid rgba(124,60,255,0.3);display:flex;align-items:center;justify-content:center;font-size:15px;">🚫</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;color:#a07cff;font-weight:700;">The confidence filter</div>
+        <div style="font-size:11px;color:#8899bb;margin-top:2px;">This is where most matchups die. Not enough separation, no flag.</div>
+      </div>
+    </div>
+
+    <div style="height:16px;border-left:1px solid #1a2240;margin-left:17px;"></div>
+
+    <div style="display:flex;align-items:center;gap:14px;padding:12px 0 0;">
+      <div style="flex-shrink:0;width:34px;height:34px;border-radius:8px;background:rgba(0,255,231,0.1);border:1px solid rgba(0,255,231,0.3);display:flex;align-items:center;justify-content:center;font-size:15px;">✓</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;color:#00ffe7;font-weight:700;">What reaches you</div>
+        <div style="font-size:11px;color:#8899bb;margin-top:2px;">A handful a day, across every sport. That's the point.</div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- ===== 8. CAPTURAS REALES ===== -->
+
+<div style="margin:44px 0 0;">
+
+  <div style="text-align:center;font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:6px;">WHAT CHANGES WHEN YOU UPGRADE</div>
+ <div style="text-align:center;font-size:12px;color:#5a7a9a;margin-bottom:20px;">Start free. Upgrade only when you want Premium recommendations.</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;" class="ce-shots-grid">
+
+    <div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;">
+        <span style="font-size:10px;color:#8899bb;letter-spacing:1.5px;font-weight:700;">FREE</span>
+        <span style="font-size:11px;color:#5a7a9a;">· included, three a day</span>
+      </div>
+      <div style="border:1px solid #1a2240;border-radius:12px;overflow:hidden;background:#0a0f1e;">
+       <picture>
+              <source srcset="/screen-free.webp" type="image/webp">
+              <img src="/screen-free.jpg" alt="Free view: a matchup the model did not flag, showing the model's lean, run projections and game conditions" width="900" height="513" loading="lazy" style="width:100%;height:auto;display:block;">
+            </picture>
+      </div>
+   <div style="font-size:11px;color:#5a7a9a;line-height:1.7;margin-top:10px;text-align:center;">
+          Projections, park, weather, bullpen and the model's lean.
+        </div>
+    </div>
+
+    <div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;">
+        <span style="font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;">PREMIUM</span>
+        <span style="font-size:11px;color:#5a7a9a;">· when the model flags one</span>
+      </div>
+      <div style="border:1px solid rgba(0,255,231,0.25);border-radius:12px;overflow:hidden;background:#0a0f1e;">
+       <picture>
+              <source srcset="/screen-premium.webp" type="image/webp">
+              <img src="/screen-premium.jpg" alt="Premium view: a flagged matchup fully unlocked, with the selection, player props and the full model breakdown" width="900" height="769" loading="lazy" style="width:100%;height:auto;display:block;">
+            </picture>
+      </div>
+      
+      <div style="font-size:11px;color:#5a7a9a;line-height:1.7;margin-top:10px;text-align:center;">
+       The model's recommendation, player props, full reasoning,
+        and every Premium signal.
+      </div>
+    </div>
+
+  </div>
+
+<div style="border:1px solid #1a2240;border-radius:14px;overflow:hidden;margin-top:22px;max-width:620px;margin-left:auto;margin-right:auto;">
+
+      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0f1628;">
+        <div style="padding:12px 14px;"></div>
+        <div style="padding:12px 8px;font-size:10px;color:#8899bb;letter-spacing:1px;font-weight:700;text-align:center;border-left:1px solid #1a2240;">FREE</div>
+        <div style="padding:12px 8px;font-size:10px;color:#00ffe7;letter-spacing:1px;font-weight:700;text-align:center;border-left:1px solid #1a2240;">PREMIUM</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0a0f1e;border-top:1px solid #1a2240;">
+        <div style="padding:12px 14px;font-size:12px;color:#d0dcec;">Browse today's board</div>
+        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
+        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0a0f1e;border-top:1px solid #1a2240;">
+        <div style="padding:12px 14px;font-size:12px;color:#d0dcec;">Edge vs. market line</div>
+        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
+        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0a0f1e;border-top:1px solid #1a2240;">
+        <div style="padding:12px 14px;font-size:12px;color:#d0dcec;">Projections, park, weather, bullpen</div>
+        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
+        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0a0f1e;border-top:1px solid #1a2240;">
+        <div style="padding:12px 14px;font-size:12px;color:#d0dcec;">Analyses per day</div>
+        <div style="padding:12px 8px;font-size:12px;color:#8899bb;text-align:center;border-left:1px solid #1a2240;">3</div>
+        <div style="padding:12px 8px;font-size:12px;color:#00ffe7;font-weight:700;text-align:center;border-left:1px solid #1a2240;">Unlimited</div>
+      </div>
+<div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0a0f1e;border-top:1px solid #1a2240;">
+        <div style="padding:12px 14px;font-size:12px;color:#d0dcec;">Confidence score</div>
+        <div style="padding:12px 8px;font-size:12px;text-align:center;border-left:1px solid #1a2240;">🔒</div>
+        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0a0f1e;border-top:1px solid #1a2240;">
+       <div style="padding:12px 14px;font-size:12px;color:#d0dcec;">Premium recommendations</div>
+        <div style="padding:12px 8px;font-size:12px;text-align:center;border-left:1px solid #1a2240;">🔒</div>
+        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0a0f1e;border-top:1px solid #1a2240;">
+        <div style="padding:12px 14px;font-size:12px;color:#d0dcec;">Player props</div>
+        <div style="padding:12px 8px;font-size:12px;text-align:center;border-left:1px solid #1a2240;">🔒</div>
+        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0a0f1e;border-top:1px solid #1a2240;">
+        <div style="padding:12px 14px;font-size:12px;color:#d0dcec;">Daily AI parlay</div>
+        <div style="padding:12px 8px;font-size:12px;text-align:center;border-left:1px solid #1a2240;">🔒</div>
+        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0a0f1e;border-top:1px solid #1a2240;">
+        <div style="padding:12px 14px;font-size:12px;color:#d0dcec;">Full model breakdown</div>
+        <div style="padding:12px 8px;font-size:12px;text-align:center;border-left:1px solid #1a2240;">🔒</div>
+        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
+      </div>
+<div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0a0f1e;border-top:1px solid #1a2240;">
+        <div style="padding:12px 14px;font-size:12px;color:#d0dcec;">Premium alerts</div>
+        <div style="padding:12px 8px;font-size:12px;text-align:center;border-left:1px solid #1a2240;">🔒</div>
+        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
+      </div>
+    </div>
+
+    <div style="text-align:center;font-size:15px;color:#d0dcec;line-height:1.7;margin-top:20px;max-width:560px;margin-left:auto;margin-right:auto;">
+      The app works without paying.<br>
+      <span style="color:#00ffe7;font-weight:700;">Premium unlocks what the model actually recommends.</span>
+    </div>
+
+<!-- ===== 9. SIN / CON ===== -->
+
+<div style="text-align:center;font-size:15px;color:#a0b4cc;line-height:1.7;max-width:520px;margin:44px auto 18px;">
+  If your game-day routine looks like the left column, CashEdge was built for you.
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+
+  <div style="background:#0a0f1e;border:1px solid #1a2240;border-radius:14px;padding:20px 18px;">
+    <div style="font-size:10px;color:#5a7a9a;letter-spacing:1.5px;font-weight:700;margin-bottom:14px;">YOUR ROUTINE WITHOUT CASHEDGE</div>
+    <div style="font-size:12px;color:#8899bb;line-height:1.6;padding:9px 0;border-bottom:1px solid #16243d;">Three hours cross-checking stats</div>
+    <div style="font-size:12px;color:#8899bb;line-height:1.6;padding:9px 0;border-bottom:1px solid #16243d;">Five tabs, five opinions, no agreement</div>
+    <div style="font-size:12px;color:#8899bb;line-height:1.6;padding:9px 0;border-bottom:1px solid #16243d;">No way to tell a strong spot from a coin flip</div>
+    <div style="font-size:12px;color:#8899bb;line-height:1.6;padding:9px 0 0;">Second-guessing yourself right up to kickoff</div>
+  </div>
+
+  <div style="background:#0a0f1e;border:1px solid rgba(0,255,231,0.25);border-radius:14px;padding:20px 18px;">
+    <div style="font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:14px;">YOUR ROUTINE WITH IT</div>
+    <div style="font-size:12px;color:#d0dcec;line-height:1.6;padding:9px 0;border-bottom:1px solid #16243d;">The board was filtered before you opened the app</div>
+    <div style="font-size:12px;color:#d0dcec;line-height:1.6;padding:9px 0;border-bottom:1px solid #16243d;">One number: how far the model sits from the line</div>
+    <div style="font-size:12px;color:#d0dcec;line-height:1.6;padding:9px 0;border-bottom:1px solid #16243d;">Weak matchups never reach you</div>
+    <div style="font-size:12px;color:#d0dcec;line-height:1.6;padding:9px 0 0;">Ten minutes instead of three hours</div>
+  </div>
+
+</div>
+  <!-- ===== 10. QUÉ PASA DESPUÉS DE REGISTRARTE ===== -->
+
+<div style="margin:44px 0 0;">
+
+  <div style="text-align:center;font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:20px;">WHAT HAPPENS AFTER YOU JOIN</div>
+
+  <div style="background:#0a0f1e;border:1px solid #1a2240;border-radius:14px;padding:6px 22px;">
+
+    <div style="display:flex;gap:16px;padding:16px 0;border-bottom:1px solid #16243d;">
+      <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,255,231,0.3);color:#00ffe7;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</div>
+      <div>
+        <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:3px;">Create your account</div>
+        <div style="font-size:12px;color:#8899bb;line-height:1.6;">Free. No card. Under a minute.</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:16px;padding:16px 0;border-bottom:1px solid #16243d;">
+      <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,255,231,0.3);color:#00ffe7;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</div>
+      <div>
+        <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:3px;">Run your 3 free analyses</div>
+        <div style="font-size:12px;color:#8899bb;line-height:1.6;">Any sport, any matchup on today's board. Resets every day.</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:16px;padding:16px 0;border-bottom:1px solid #16243d;">
+      <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,255,231,0.3);color:#00ffe7;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</div>
+      <div>
+        <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:3px;">Hit a flagged matchup</div>
+        <div style="font-size:12px;color:#8899bb;line-height:1.6;">You'll see the confidence and the edge. The selection stays locked — and it doesn't spend one of your free analyses.</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:16px;padding:16px 0;border-bottom:1px solid #16243d;">
+      <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,255,231,0.3);color:#00ffe7;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">4</div>
+      <div>
+        <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:3px;">Unlock everything</div>
+        <div style="font-size:12px;color:#8899bb;line-height:1.6;">Every flagged matchup, player props, the daily parlay, the full breakdown.</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:16px;padding:16px 0;">
+      <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,255,231,0.3);color:#00ffe7;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">5</div>
+      <div>
+        <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:3px;">Watch every Premium Pick result get graded</div>
+        <div style="font-size:12px;color:#8899bb;line-height:1.6;">Win, lose, or push, each Premium Pick result is added to the public performance record.</div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- ===== 11. PREMIUM ===== -->
+
+<div style="margin:44px 0 0;">
+
+  <div style="text-align:center;font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:18px;">WHAT PREMIUM ACTUALLY CHANGES</div>
+
+  <div style="background:#0a0f1e;border:1px solid rgba(0,255,231,0.25);border-radius:14px;padding:28px 24px;">
+
+    <div style="font-size:19px;line-height:1.5;color:#fff;font-weight:900;margin-bottom:16px;">
+      Premium is seeing what the model is actually confident about.
+    </div>
+
+    <div style="font-size:14px;line-height:2;color:#a0b4cc;margin-bottom:22px;">
+      No more guessing which spot is real.<br>
+      No more checking five sites to confirm one number.<br>
+      No more wondering whether the edge was ever there.
+    </div>
+
+    <div style="border-top:1px solid #16243d;padding-top:18px;">
+      <div style="font-size:11px;color:#5a7a9a;letter-spacing:1px;font-weight:700;margin-bottom:12px;">EVERY DAY, ACROSS EVERY SPORT</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;">
+        <div style="font-size:12px;color:#d0dcec;line-height:1.6;">Every flagged matchup</div>
+        <div style="font-size:12px;color:#d0dcec;line-height:1.6;">Every player prop</div>
+        <div style="font-size:12px;color:#d0dcec;line-height:1.6;">Every projection and breakdown</div>
+        <div style="font-size:12px;color:#d0dcec;line-height:1.6;">The daily parlay</div>
+        <div style="font-size:12px;color:#d0dcec;line-height:1.6;">Alerts on the strongest signals</div>
+        <div style="font-size:12px;color:#d0dcec;line-height:1.6;">No daily cap on analyses</div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- ===== 12. OBJECIONES ===== -->
+
+<div style="margin:44px 0 0;">
+
+  <div style="text-align:center;font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:18px;">STRAIGHT ANSWERS</div>
+
+  <div style="background:#0a0f1e;border:1px solid #1a2240;border-radius:14px;padding:6px 22px;">
+
+    <div style="padding:16px 0;border-bottom:1px solid #16243d;">
+      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:6px;">Is this just ChatGPT with a skin on it?</div>
+      <div style="font-size:12px;color:#8899bb;line-height:1.7;">No. Each sport runs its own statistical model with its own inputs — park factors and bullpen fatigue for baseball, schedule strength and positional injury weighting for football, rest and back-to-backs for basketball. No language model writes the projection.</div>
+    </div>
+
+    <div style="padding:16px 0;border-bottom:1px solid #16243d;">
+      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:6px;">Why do some days have almost no flagged games?</div>
+      <div style="font-size:12px;color:#8899bb;line-height:1.7;">Because the model didn't find enough separation from the line. A day with two flagged matchups is the system working, not failing.</div>
+    </div>
+
+    <div style="padding:16px 0;border-bottom:1px solid #16243d;">
+      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:6px;">The lines move. Does that change anything?</div>
+      <div style="font-size:12px;color:#8899bb;line-height:1.7;">Yes. Every edge is measured against the line at the time of the analysis, and that line is recorded with the result. If the market moves, the edge you'd get later isn't the one the model measured.</div>
+    </div>
+
+    <div style="padding:16px 0;border-bottom:1px solid #16243d;">
+      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:6px;">Do you delete the losses?</div>
+      <div style="font-size:12px;color:#8899bb;line-height:1.7;">No. Every published result is graded automatically and stays on the record with the line it was recorded at.</div>
+    </div>
+
+    <div style="padding:16px 0;border-bottom:1px solid #16243d;">
+      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:6px;">Can I cancel?</div>
+      <div style="font-size:12px;color:#8899bb;line-height:1.7;">Any time, from your account. No call, no email, no retention script.</div>
+    </div>
+
+    <div style="padding:16px 0;">
+      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:6px;">Is this betting advice?</div>
+      <div style="font-size:12px;color:#8899bb;line-height:1.7;">No. CashEdge is a statistical analysis tool. What you do with the output is your call.</div>
+    </div>
+
+  </div>
+
+
+</div>
+
+
+<!-- ===== 13. CTA FINAL ===== -->
+
+<div style="text-align:center;margin:44px 0 0;padding:32px 20px;background:#0a0f1e;border:1px solid rgba(0,255,231,0.25);border-radius:14px;">
+
+  <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:8px;">Today's board is already filtered.</div>
+  <div style="font-size:13px;color:#8899bb;line-height:1.7;max-width:440px;margin:0 auto 22px;">
+    Three analyses, free, every day. See what the model does with a real slate before you decide anything.
+  </div>
+
+  <button type="button" onclick="ceShowAuth()" style="display:block;width:100%;max-width:420px;margin:0 auto;padding:17px;border:none;border-radius:12px;background:linear-gradient(135deg,#00ffe7,#7c3cff);color:#020814;font-size:15px;font-weight:900;letter-spacing:0.5px;cursor:pointer;text-transform:uppercase;">
+    See today's board — free →
+  </button>
+
+  <div style="font-size:11px;color:#8899bb;margin-top:12px;">
+    Join free. Upgrade only if you want to unlock Premium.
+  </div>
+
+  <div style="font-size:11px;color:#5a7a9a;margin-top:10px;">
+    Already know what you want?
+    <a href="#" onclick="ceShowAuth();return false;" style="color:#00ffe7;text-decoration:underline;">Go straight to Premium — $19.99/mo</a>
+  </div>
+
+  <div class="ce-login-line" style="margin-top:10px;">
+    <button type="button" onclick="ceShowAuth()" style="background:none;border:none;font-size:11px;color:#5a7a9a;text-decoration:underline;cursor:pointer;">Already have an account? Log in</button>
+  </div>
+
+</div>
+
+
+<!-- ===== 14. AVISO LEGAL ===== -->
+
+<div style="margin:36px 0 0;padding-top:22px;border-top:1px solid #16243d;text-align:center;">
+  <div style="font-size:11px;color:#5a7a9a;line-height:1.8;max-width:560px;margin:0 auto;">
+  18+ and any higher minimum age required by applicable law in your jurisdiction.
+Play responsibly. If gambling is causing harm, seek support through an official
+problem-gambling resource in your jurisdiction.
+  </div>
+  <div style="font-size:10px;color:#4a5f7f;line-height:1.8;max-width:560px;margin:10px auto 0;">
+    Historical performance does not guarantee future results. CashEdge provides
+    statistical analysis and informational content, not financial or betting advice.
+  </div>
+</div>
+
+
+</div>
+
+<style>
+@media (max-width: 760px) {
+  #ceLanding .ce-shots-grid { grid-template-columns: 1fr !important; }
+}
+@media (max-width: 640px) {
+  #ceLanding h1 { font-size: 25px !important; }
+  #ceLanding h2 { font-size: 19px !important; }
+}
+</style>
+
+</section>
+  <div class="ce-auth-screen">
+<div id="authBox" class="auth-box">
+
+  <!-- LOGIN -->
+  <div id="loginView">
+    <h3>Login</h3>
+
+    <input id="loginEmail" placeholder="Email">
+
+<div class="password-wrapper">
+  <input
+    id="loginPassword"
+    type="password"
+    placeholder="Password"
+  >
+
+  <span
+    class="password-toggle"
+    onclick="togglePassword('loginPassword', this)"
+  >
+    👁️
+  </span>
+</div>
+<p class="forgot-password" onclick="resetPassword()">
+  Forgot password?
+</p>
+    <div class="login-trust-compact" id="loginOverallCard">
+  <div class="ltc-left">
+    <div class="ltc-label">AI ACCURACY</div>
+    <div class="ltc-pct" id="loginOverallAccuracy">--%</div>
+  </div>
+  <div class="ltc-divider"></div>
+  <div class="ltc-right">
+    <div class="ltc-label">OVERALL RECORD</div>
+    <div class="ltc-record" id="loginOverallRecord">Loading...</div>
+  </div>
+</div>
+    <button onclick="loginUser(
+      document.getElementById('loginEmail').value,
+      document.getElementById('loginPassword').value
+    )">
+      Login
+    </button>
+<button type="button" class="google-login-btn" onclick="loginWithGoogle()">
+  <img class="google-icon" src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg">
+  Continue with Google
+</button>
+    <p class="auth-switch">
+      Don’t have an account?
+    </p>
+
+    <button
+      type="button"
+      class="auth-link-btn"
+      onclick="showSignup()"
+    >
+      Create account
+    </button>
+  </div>
+
+  <!-- SIGNUP -->
+ <!-- SIGNUP -->
+<div id="signupView" style="display:none;">
+
+  <div style="text-align:center;margin-bottom:4px">
+    <span style="font-size:20px;font-weight:900;letter-spacing:2px;background:linear-gradient(90deg,#fff,#00ffe7,#9b7cff);-webkit-background-clip:text;-webkit-text-fill-color:transparent">CASHEDGE</span>
+  </div>
+  <div style="text-align:center;font-size:9px;letter-spacing:1.5px;color:rgba(0,255,231,.55);font-family:monospace;margin-bottom:16px">JOIN THE EDGE</div>
+
+  <!-- FEATURES GRID 2x2 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px">
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:rgba(0,255,231,.05);border:1px solid rgba(0,255,231,.14)">
+      <span style="font-size:18px">🏆</span>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#fff">Premium Picks</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.4)">High-confidence plays</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:rgba(0,255,231,.05);border:1px solid rgba(0,255,231,.14)">
+      <span style="font-size:18px">🧠</span>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#fff">AI Analysis</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.4)">Data-driven picks</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:rgba(0,255,231,.05);border:1px solid rgba(0,255,231,.14)">
+      <span style="font-size:18px">⚡</span>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#fff">Parlay AI</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.4)">Smart combinations</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:rgba(0,255,231,.05);border:1px solid rgba(0,255,231,.14)">
+      <span style="font-size:18px">📊</span>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#fff">Live Tracking</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.4)">Real-time results</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EMAIL -->
+  <div style="margin-bottom:4px;font-size:10px;font-weight:700;color:rgba(0,255,231,.7);letter-spacing:1px">EMAIL</div>
+  <input id="signupEmail" placeholder="you@email.com" style="margin-bottom:14px">
+
+  <!-- PASSWORD -->
+  <div style="margin-bottom:4px;font-size:10px;font-weight:700;color:rgba(0,255,231,.7);letter-spacing:1px">PASSWORD</div>
+  <div class="password-wrapper" style="margin-bottom:6px">
+    <input id="signupPassword" type="password" placeholder="Min. 8 characters" oninput="updatePasswordStrength(this.value)">
+    <span class="password-toggle" onclick="togglePassword('signupPassword', this)">👁️</span>
+  </div>
+
+  <!-- STRENGTH BAR -->
+  <div style="height:3px;border-radius:2px;background:rgba(255,255,255,.08);margin-bottom:6px">
+    <div id="strengthBar" style="height:100%;border-radius:2px;width:0%;background:linear-gradient(90deg,#00ffe7,#7c3cff);transition:width .3s,background .3s"></div>
+  </div>
+  <div id="strengthLabel" style="font-size:9px;color:rgba(255,255,255,.3);margin-bottom:14px;font-family:monospace;letter-spacing:.5px"></div>
+
+  <!-- TERMS -->
+  <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:16px">
+    <div id="termsCheck" style="width:18px;height:18px;border-radius:6px;border:1px solid rgba(0,255,231,.30);background:transparent;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;font-size:10px;color:#00ffe7;cursor:pointer" onclick="this.innerHTML=this.innerHTML?'':'✓';this.style.background=this.innerHTML?'rgba(0,255,231,.08)':'transparent'"></div>
+    <div style="font-size:10px;color:rgba(255,255,255,.40);line-height:1.5">I agree to the <a href="/terms.html" style="color:#00ffe7;font-weight:700;text-decoration:none">Terms of Service</a> and <a href="/privacy.html" style="color:#00ffe7;font-weight:700;text-decoration:none">Privacy Policy</a>. Must be 18+ and meet any higher minimum age required by applicable law.</div>
+  </div>
+
+  <button onclick="registerUser(
+    document.getElementById('signupEmail').value,
+    document.getElementById('signupPassword').value
+  )">Create my account</button>
+
+  <div style="display:flex;align-items:center;gap:8px;margin:12px 0">
+    <div style="flex:1;height:1px;background:rgba(255,255,255,.08)"></div>
+    <div style="font-size:9px;color:rgba(255,255,255,.25);font-family:monospace">OR</div>
+    <div style="flex:1;height:1px;background:rgba(255,255,255,.08)"></div>
+  </div>
+
+  <button type="button" class="google-login-btn" onclick="loginWithGoogle()">
+    <img class="google-icon" src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg">
+    Sign up with Google
+  </button>
+
+  <!-- TRUST ROW -->
+  <div style="display:flex;justify-content:center;gap:20px;margin:14px 0;padding:12px 0;border-top:1px solid rgba(255,255,255,.06);border-bottom:1px solid rgba(255,255,255,.06)">
+    <div style="text-align:center">
+      <div style="font-size:14px">🔒</div>
+      <div style="font-size:8px;color:rgba(255,255,255,.28);font-family:monospace;margin-top:2px">SSL Secure</div>
+    </div>
+    <div style="text-align:center">
+      <div style="font-size:14px">⚡</div>
+      <div style="font-size:8px;color:rgba(255,255,255,.28);font-family:monospace;margin-top:2px">Instant Access</div>
+    </div>
+    <div style="text-align:center">
+      <div style="font-size:14px">🏆</div>
+     <div style="font-size:8px;color:rgba(255,255,255,.28);font-family:monospace;margin-top:2px"><span id="signupAccuracy">--</span> Accuracy</div>
+    </div>
+    <div style="text-align:center">
+      <div style="font-size:14px">❌</div>
+      <div style="font-size:8px;color:rgba(255,255,255,.28);font-family:monospace;margin-top:2px">Cancel Anytime</div>
+    </div>
+  </div>
+
+  <p class="auth-switch">Already have an account?</p>
+  <button type="button" class="auth-link-btn" onclick="showLogin()">Back to login</button>
+
+</div>
+ 
+ 
+   <div id="authMessage"></div>
+ <div class="auth-landing-info">
+<div class="login-effects">
+  <div class="shooting-star star1"></div>
+  <div class="shooting-star star2"></div>
+  <div class="shooting-star star3"></div>
+  <div class="shooting-star star4"></div>
+  <div class="shooting-star star5"></div>
+</div>
+  <div class="auth-brand">
+    CASHEDGE 
+  </div>
+
+  <h2>
+    Premium AI Sports Analysis
+  </h2>
+
+  <p>
+    CashEdge analyzes market lines, team momentum, injuries, weather,
+    matchup data and advanced projections to help users find stronger picks.
+  </p>
+
+ <div class="auth-feature-grid premium-animated-grid">
+
+  <div class="auth-ai-card">
+
+    <div class="feature-icon svg-brain">
+      <svg viewBox="0 0 64 64">
+        <path d="M24 10c-7 0-12 5-12 12 0 2 .5 4 1.5 5.5C9 30 7 34 7 39c0 8 6 14 14 14h6V10h-3z"/>
+        <path d="M40 10c7 0 12 5 12 12 0 2-.5 4-1.5 5.5C55 30 57 34 57 39c0 8-6 14-14 14h-6V10h3z"/>
+        <path d="M27 18c-5 1-8 4-8 9M37 18c5 1 8 4 8 9M20 36c4 0 7 2 8 6M44 36c-4 0-7 2-8 6M32 12v42"/>
+      </svg>
+    </div>
+
+    <strong>AI Model</strong>
+
+    <div class="rotating-text">
+      <span>Data-driven projections</span>
+      <span>Analyzing momentum...</span>
+    </div>
+
+    <div class="mini-progress"></div>
+
+  </div>
+
+
+  <div class="auth-ai-card">
+
+    <div class="feature-icon svg-trophy">
+      <svg viewBox="0 0 64 64">
+        <path d="M18 10h28v12c0 9-6 16-14 16S18 31 18 22V10z"/>
+        <path d="M18 16H9v5c0 8 5 13 12 13M46 16h9v5c0 8-5 13-12 13"/>
+        <path d="M32 38v9M23 54h18M27 47h10"/>
+        <path d="M32 17l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/>
+      </svg>
+    </div>
+
+    <strong>Premium Picks</strong>
+
+    <div class="rotating-text">
+      <span>High-confidence plays</span>
+      <span>Finding value...</span>
+    </div>
+
+    <div class="mini-progress"></div>
+
+  </div>
+
+
+  <div class="auth-ai-card">
+
+    <div class="feature-icon svg-bolt">
+      <svg viewBox="0 0 64 64">
+        <path d="M38 4L14 36h18l-6 24 24-34H33z"/>
+      </svg>
+    </div>
+
+    <strong>Parlay AI</strong>
+
+    <div class="rotating-text">
+      <span>Smart daily combinations</span>
+      <span>Optimizing edge...</span>
+    </div>
+
+    <div class="mini-progress"></div>
+
+  </div>
+
+</div>
+
+</div>
+</div>
+
+ <div id="resetPasswordBox" class="auth-box" style="display:none;">
+  <h3>Reset Password</h3>
+
+  <input id="newPassword" type="password" placeholder="New password">
+
+  <input id="confirmNewPassword" type="password" placeholder="Confirm password">
+
+  <button type="button" onclick="updateNewPassword()">
+    Update Password
+  </button>
+   </div>
+<div id="userBox" class="user-box" style="display:none;">
+  <div class="user-left">
+    <span id="userEmail"></span>
+    <div class="account-links">
+      <a href="#" onclick="openCustomerPortal(); return false;">Manage subscription</a>
+      <span>•</span>
+      <a href="#" onclick="logoutUser(); return false;">Logout</a>
+      <span> • </span>
+<a href="#" onclick="requestDeleteAccount(); return false;">
+  Delete Account
+</a>
+    </div>
+  </div>
+  <span id="premiumStatus"></span>
+</div>
+
+<div class="hero ai-hero" id="heroSection" style="display:none;">
+
+  <div class="hero-left">
+    <div class="hero-eyebrow">
+      <div class="hero-live-dot"></div>
+      AI SPORTS PICKS · LIVE
+    </div>
+    <h1 id="appTitle" class="hero-title">
+      <span id="heroLine1">CASH</span><span id="heroLine2" class="hero-line2-grad">EDGE</span>
+    </h1>
+    <p class="hero-typewriter" id="heroTypewriter"></p>
+  </div>
+
+</div>
+
+<div class="premium-monthly-box" id="premiumBox">
+  <div style="max-width:560px;margin:0 auto;text-align:center;">
+
+    <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,255,231,0.08);border:1px solid rgba(0,255,231,0.25);border-radius:20px;padding:4px 12px;font-size:10px;color:#00ffe7;font-weight:600;letter-spacing:1px;margin-bottom:14px;">
+      <span style="width:6px;height:6px;border-radius:50%;background:#00ffe7;animation:nfl-pulse 1.5s infinite;display:inline-block;"></span>
+      PREMIUM ACCESS
+    </div>
+
+    <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:6px;">Stop guessing. <span style="background:linear-gradient(90deg,#00ffe7,#7c3cff);-webkit-background-clip:text;background-clip:text;color:transparent;">Bet with the model.</span></div>
+    <div id="premiumBoxRecord" style="font-size:12px;color:#8899bb;margin-bottom:16px;">Premium Pick results are tracked publicly, including wins, losses, and pushes.</div>
+
+    <div style="background:#0a1220;border:1px solid #14243d;border-radius:14px;padding:16px 20px;margin-bottom:14px;text-align:left;">
+      <div style="display:flex;align-items:center;gap:10px;padding-bottom:10px;border-bottom:1px solid #14243d;">
+        <span style="font-size:15px;">🔓</span>
+        <span style="font-size:12px;color:#d0dcec;">Every premium pick unlocked — all sports</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #14243d;">
+        <span style="font-size:15px;">⚡</span>
+        <span style="font-size:12px;color:#d0dcec;">Daily AI Parlay — pays 5-7x when it hits</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #14243d;">
+        <span style="font-size:15px;">🎯</span>
+        <span style="font-size:12px;color:#d0dcec;">Player props flagged by the model</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding-top:10px;">
+        <span style="font-size:15px;">♾️</span>
+        <span style="font-size:12px;color:#d0dcec;">Unlimited analyses — no 3-hour wait</span>
+      </div>
+    </div>
+
+    <button onclick="openPromoModal()" style="display:block;width:100%;padding:16px;border:none;border-radius:12px;background:linear-gradient(135deg,#00ffe7,#7c3cff);color:#020814;font-size:14px;font-weight:900;letter-spacing:0.5px;cursor:pointer;text-transform:uppercase;box-shadow:0 0 25px rgba(0,255,231,0.35),0 0 50px rgba(124,60,255,0.2);">
+      🔓 GET PREMIUM — $19.99/MO
+    </button>
+    <div style="font-size:10px;color:#5a7a9a;margin-top:8px;">Less than one losing bet. Cancel anytime.</div>
+
+  </div>
+</div>
+
+  <main class="ai-main-area">
+
+<div class="league-tabs">
+
+  <button class="league-btn active" onclick="selectSport(event,'basketball_nba','NBA')">
+    <div class="league-icon">🏀</div>
+
+    <div class="league-info">
+      <strong>NBA</strong>
+      <small>Análisis completo</small>
+    </div>
+
+    <span class="league-arrow">»</span>
+  </button>
+
+  <button class="league-btn" onclick="selectSport(event,'basketball_wnba','WNBA')">
+    <div class="league-icon">🏀</div>
+
+    <div class="league-info">
+      <strong>WNBA</strong>
+      <small>Women's League</small>
+    </div>
+
+    <span class="league-arrow">»</span>
+  </button>
+
+  <button class="league-btn" onclick="selectSport(event,'basketball_ncaab','NCAAB')">
+    <div class="league-icon">NCAA</div>
+
+    <div class="league-info">
+      <strong>NCAAB</strong>
+      <small>College Basketball</small>
+    </div>
+
+    <span class="league-arrow">»</span>
+  </button>
+
+  <button class="league-btn" onclick="selectSport(event,'basketball_euroleague','EuroLeague')">
+    <div class="league-icon">🌐</div>
+
+    <div class="league-info">
+      <strong>EuroLeague</strong>
+      <small>European Basketball</small>
+    </div>
+
+    <span class="league-arrow">»</span>
+  </button>
+
+  <button class="league-btn" onclick="selectSport(event,'baseball_mlb','MLB')">
+    <div class="league-icon">⚾</div>
+
+    <div class="league-info">
+      <strong>MLB</strong>
+      <small>Baseball model</small>
+    </div>
+
+    <span class="league-arrow">»</span>
+  </button>
+
+  <button class="league-btn" onclick="selectSport(event,'americanfootball_nfl','NFL')">
+    <div class="league-icon">🏈</div>
+
+    <div class="league-info">
+      <strong>NFL</strong>
+      <small>Football model</small>
+    </div>
+
+    <span class="league-arrow">»</span>
+  </button>
+
+  <button class="league-btn" onclick="selectSport(event,'americanfootball_ncaaf','NCAAF')">
+    <div class="league-icon">NCAA</div>
+
+    <div class="league-info">
+      <strong>NCAAF</strong>
+      <small>College Football</small>
+    </div>
+
+    <span class="league-arrow">»</span>
+  </button>
+<button
+  class="league-btn premium-radar-league-btn"
+  onclick="openPremiumRadar()"
+>
+  <div class="league-icon">📡</div>
+
+  <div class="league-info">
+    <strong>PREMIUM RADAR</strong>
+    <small>
+      <span id="premiumRadarCount">--</span>
+      Premium opportunities
+    </small>
+  </div>
+
+  <span class="league-arrow">»</span>
+</button>
+</div>
+
+<button id="searchBtn" onclick="loadGames()">
+  Find NBA games
+</button>
+<button class="parlay-premium-btn" onclick="loadParlayToday()">
+  ⚡ Today's AI Parlay
+</button>
+
+<div id="parlayTodayBox"></div>
+
+<div
+  id="premiumRadarView"
+  style="display:none;"
+></div>
+
+<div id="status"></div>
+<div id="games"></div>
+<div id="performancePanel"></div>
+<footer class="site-footer">
+  <div class="footer-inner">
+
+    <h3>CashEdge Sports Picks</h3>
+
+    <p class="footer-description">
+      AI-powered sports analytics, statistical projections,
+      and premium picks for informational purposes only.
+    </p>
+
+    <div class="footer-links">
+  <a href="/privacy.html">Privacy Policy</a>
+  <a href="/terms.html">Terms of Service</a>
+
+  <a href="#"
+     onclick="ceOpenPrivacyPreferences(); return false;">
+    Cookie Preferences
+  </a>
+
+  <a href="mailto:supportcashedge@gmail.com">
+    Support
+  </a>
+</div>
+
+    <p class="footer-disclaimer">
+      CashEdge does not guarantee winnings, profits, or betting outcomes.
+      Sports betting involves risk.
+
+      Users are responsible for complying with local laws
+      and must be 18+ or the legal age in their jurisdiction.
+    </p>
+
+    <p class="footer-copy">
+      © 2026 CashEdge. All rights reserved.
+    </p>
+
+  </div>
+</footer>
+
+</main>
+
+</div>
+<!-- CASHEDGE PRIVACY BANNER -->
+<div id="cePrivacyBanner" style="
+  display:none;
+  position:fixed;
+  left:16px;
+  right:16px;
+  bottom:16px;
+  max-width:760px;
+  margin:auto;
+  background:#081120;
+  border:1px solid #1a3655;
+  border-radius:16px;
+  padding:20px;
+  z-index:999999;
+  box-shadow:0 15px 50px rgba(0,0,0,.65);
+  font-family:Arial,sans-serif;
+">
+
+  <div style="
+    color:#fff;
+    font-size:17px;
+    font-weight:800;
+    margin-bottom:8px;
+  ">
+    Your Privacy Choices
+  </div>
+
+  <div style="
+    color:#a0b4cc;
+    font-size:12px;
+    line-height:1.6;
+    margin-bottom:16px;
+  ">
+    We use cookies and similar technologies to operate CashEdge,
+    understand usage, measure advertising performance, and improve
+    our services. You can accept all cookies, reject non-essential
+    cookies, or manage your preferences.
+  </div>
+
+  <div style="
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+  ">
+
+    <button
+      onclick="ceAcceptAllPrivacy()"
+      style="
+        flex:1;
+        min-width:150px;
+        padding:12px;
+        border:0;
+        border-radius:9px;
+        background:#00ffe7;
+        color:#020814;
+        font-weight:800;
+        cursor:pointer;
+      ">
+      Accept All
+    </button>
+
+    <button
+      onclick="ceRejectPrivacy()"
+      style="
+        flex:1;
+        min-width:150px;
+        padding:12px;
+        border:1px solid #42516b;
+        border-radius:9px;
+        background:#10192b;
+        color:#fff;
+        font-weight:700;
+        cursor:pointer;
+      ">
+      Reject Non-Essential
+    </button>
+
+    <button
+      onclick="ceOpenPrivacyPreferences()"
+      style="
+        flex:1;
+        min-width:150px;
+        padding:12px;
+        border:1px solid #42516b;
+        border-radius:9px;
+        background:transparent;
+        color:#d0dcec;
+        font-weight:700;
+        cursor:pointer;
+      ">
+      Manage Preferences
+    </button>
+
+  </div>
+</div>
+
+
+<!-- PRIVACY PREFERENCES MODAL -->
+<div id="cePrivacyModal" style="
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.75);
+  z-index:1000000;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+">
+
+  <div style="
+    width:100%;
+    max-width:460px;
+    background:#081120;
+    border:1px solid #1a3655;
+    border-radius:16px;
+    padding:24px;
+    font-family:Arial,sans-serif;
+  ">
+
+    <h2 style="
+      margin:0 0 8px;
+      color:#fff;
+      font-size:20px;
+    ">
+      Privacy Preferences
+    </h2>
+
+    <p style="
+      color:#8899bb;
+      font-size:12px;
+      line-height:1.6;
+    ">
+      Choose which optional technologies CashEdge may use.
+    </p>
+
+    <div style="
+      padding:14px 0;
+      border-bottom:1px solid #1a2240;
+    ">
+      <label style="color:#fff;font-weight:700;">
+        <input type="checkbox" checked disabled>
+        Necessary
+      </label>
+
+      <div style="
+        color:#667b98;
+        font-size:11px;
+        margin-top:5px;
+      ">
+        Required for login, security, subscriptions and core platform functions.
+      </div>
+    </div>
+
+    <div style="
+      padding:14px 0;
+      border-bottom:1px solid #1a2240;
+    ">
+      <label style="color:#fff;font-weight:700;">
+        <input
+          id="ceAnalyticsPreference"
+          type="checkbox">
+        Analytics
+      </label>
+
+      <div style="
+        color:#667b98;
+        font-size:11px;
+        margin-top:5px;
+      ">
+        Helps us understand platform usage and improve CashEdge.
+      </div>
+    </div>
+
+    <div style="
+      padding:14px 0;
+    ">
+      <label style="color:#fff;font-weight:700;">
+        <input
+          id="ceAdvertisingPreference"
+          type="checkbox">
+        Advertising
+      </label>
+
+      <div style="
+        color:#667b98;
+        font-size:11px;
+        margin-top:5px;
+      ">
+        Allows advertising measurement through services such as Meta and Google.
+      </div>
+    </div>
+
+    <button
+      onclick="ceSavePrivacyPreferences()"
+      style="
+        width:100%;
+        padding:13px;
+        border:0;
+        border-radius:9px;
+        background:linear-gradient(135deg,#00ffe7,#7c3cff);
+        color:#020814;
+        font-weight:900;
+        cursor:pointer;
+        margin-top:10px;
+      ">
+      Save Preferences
+    </button>
+
+    <button
+      onclick="ceClosePrivacyPreferences()"
+      style="
+        width:100%;
+        padding:11px;
+        border:0;
+        background:transparent;
+        color:#8899bb;
+        cursor:pointer;
+        margin-top:5px;
+      ">
+      Cancel
+    </button>
+
+  </div>
+</div>
+
+
+<script>
+function ceAcceptAllPrivacy() {
+  window.ceSetPrivacyPreferences({
+    analytics: true,
+    advertising: true
+  });
 }
 
+function ceRejectPrivacy() {
+  window.ceSetPrivacyPreferences({
+    analytics: false,
+    advertising: false
+  });
+}
 
-process.on(
-  "SIGTERM",
-  () =>
-    shutdown("SIGTERM")
+function ceOpenPrivacyPreferences() {
+
+  const preferences =
+    window.ceGetPrivacyPreferences();
+
+  document.getElementById(
+    "ceAnalyticsPreference"
+  ).checked =
+    preferences.analytics === true;
+
+  document.getElementById(
+    "ceAdvertisingPreference"
+  ).checked =
+    preferences.advertising === true;
+
+  document.getElementById(
+    "cePrivacyModal"
+  ).style.display = "flex";
+}
+
+function ceClosePrivacyPreferences() {
+  document.getElementById(
+    "cePrivacyModal"
+  ).style.display = "none";
+}
+
+function ceSavePrivacyPreferences() {
+
+  const analytics =
+    document.getElementById(
+      "ceAnalyticsPreference"
+    ).checked;
+
+  const advertising =
+    document.getElementById(
+      "ceAdvertisingPreference"
+    ).checked;
+
+  window.ceSetPrivacyPreferences({
+    analytics,
+    advertising
+  });
+}
+
+document.addEventListener(
+  "DOMContentLoaded",
+  function () {
+
+    const preferences =
+      window.ceGetPrivacyPreferences();
+
+    if (!preferences.decided) {
+      document.getElementById(
+        "cePrivacyBanner"
+      ).style.display = "block";
+    }
+
+  }
 );
-
-
-process.on(
-  "SIGINT",
-  () =>
-    shutdown("SIGINT")
-);
-
-
-// ============================================================
-// RUN
-// ============================================================
-
-start();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="script.js"></script>
+<script src="push-client.js"></script>
+<script src="push-native-client.js"></script>
+</body>
+</html>
