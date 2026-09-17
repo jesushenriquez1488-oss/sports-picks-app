@@ -3827,6 +3827,220 @@ function normalizeNCAAFPlayerMatchName(value) {
     .replace(/[^a-z0-9]/g, "")
     .trim();
 }
+async function getNCAAFRosterProfiles(
+  teamRef
+) {
+  try {
+    let teamId =
+      /^\d+$/.test(
+        String(teamRef?.id || "")
+      )
+        ? String(teamRef.id)
+        : null;
+
+    if (!teamId) {
+      const resolved =
+        await findNCAAFTeamIdDynamic(
+          teamRef?.id
+        );
+
+      teamId =
+        resolved?.id
+          ? String(resolved.id)
+          : null;
+    }
+
+    if (!teamId) {
+      return [];
+    }
+
+    const url =
+      `https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/${teamId}/roster`;
+
+    const res =
+      await fetch(url);
+
+    if (!res.ok) {
+      return [];
+    }
+
+    const data =
+      await res.json();
+
+    const groups =
+      Array.isArray(data?.athletes)
+        ? data.athletes
+        : [];
+
+    const profiles = [];
+
+    for (const group of groups) {
+      const players =
+        Array.isArray(group?.items)
+          ? group.items
+          : [];
+
+      for (const player of players) {
+        const athleteId =
+          String(
+            player?.id ||
+            ""
+          );
+
+        const name =
+          String(
+            player?.fullName ||
+            player?.displayName ||
+            ""
+          ).trim();
+
+        const position =
+          String(
+            player?.position?.abbreviation ||
+            ""
+          )
+            .toUpperCase()
+            .trim();
+
+        if (
+          !athleteId ||
+          !name
+        ) {
+          continue;
+        }
+
+        profiles.push({
+          athleteId,
+          name,
+          position
+        });
+      }
+    }
+
+    return profiles;
+
+  } catch {
+    return [];
+  }
+}
+async function getNCAAFStarterIdsBeforeDate(
+  teamRef,
+  teamGames = [],
+  beforeDate
+) {
+  try {
+    const cutoff =
+      new Date(beforeDate).getTime();
+
+    if (!Number.isFinite(cutoff)) {
+      return null;
+    }
+
+    const previousGame =
+      Array.isArray(teamGames)
+        ? teamGames.find(game => {
+            const gameDate =
+              new Date(
+                game?.date || 0
+              ).getTime();
+
+            return (
+              game?.id &&
+              Number.isFinite(gameDate) &&
+              gameDate < cutoff
+            );
+          })
+        : null;
+
+    if (!previousGame?.id) {
+      return null;
+    }
+
+    let teamId =
+      /^\d+$/.test(
+        String(teamRef?.id || "")
+      )
+        ? String(teamRef.id)
+        : null;
+
+    if (!teamId) {
+      const resolved =
+        await findNCAAFTeamIdDynamic(
+          teamRef?.id
+        );
+
+      teamId =
+        resolved?.id
+          ? String(resolved.id)
+          : null;
+    }
+
+    if (!teamId) {
+      return null;
+    }
+
+    const gameId =
+      String(previousGame.id);
+
+    const competitorUrl =
+      `https://sports.core.api.espn.com/v2/sports/football/leagues/college-football` +
+      `/events/${gameId}` +
+      `/competitions/${gameId}` +
+      `/competitors/${teamId}`;
+
+    const competitorRes =
+      await fetch(competitorUrl);
+
+    if (!competitorRes.ok) {
+      return null;
+    }
+
+    const competitorData =
+      await competitorRes.json();
+
+    const rosterRef =
+      competitorData?.roster?.$ref;
+
+    if (!rosterRef) {
+      return null;
+    }
+
+    const rosterUrl =
+      rosterRef.replace(
+        /^http:/,
+        "https:"
+      );
+
+    const rosterRes =
+      await fetch(rosterUrl);
+
+    if (!rosterRes.ok) {
+      return null;
+    }
+
+    const rosterData =
+      await rosterRes.json();
+
+    return (
+      rosterData?.entries || []
+    )
+      .filter(entry =>
+        entry?.starter === true &&
+        entry?.didNotPlay !== true
+      )
+      .map(entry =>
+        String(
+          entry?.playerId ||
+          entry?.athlete?.id ||
+          ""
+        )
+      )
+      .filter(Boolean);
+
+  } catch {
+    return null;
+  }
+}
 async function getNCAAFStarterIdsFromLastGame(
   teamRef,
   teamGames = []
@@ -3970,7 +4184,11 @@ async function getInjuryAdjustmentNCAAF(
   teamGames = []
 ) {
   try {
-   const [injuries, starterIds] =
+   const [
+  injuries,
+  starterIds,
+  rosterProfiles
+] =
   await Promise.all([
     getNFLTeamInjuriesList(
       teamName,
@@ -3980,9 +4198,12 @@ async function getInjuryAdjustmentNCAAF(
     getNCAAFStarterIdsFromLastGame(
       teamRef,
       teamGames
+    ),
+
+    getNCAAFRosterProfiles(
+      teamRef
     )
   ]);
-
 
     // Sin depth chart confiable no inventamos lesiones.
    if (!Array.isArray(starterIds)) {
@@ -4020,41 +4241,24 @@ async function getInjuryAdjustmentNCAAF(
       // SOLO TITULARES CONFIRMADOS
       // ======================================================
 
-const starterProfiles =
-  Array.isArray(starterIds?.profiles)
-    ? starterIds.profiles
-    : [];
-console.log(
-  "NCAAF STARTER PROFILES:",
-  teamName,
-  starterProfiles
-);
-const directStarterId =
-  starterIds.includes(
-    String(player.athleteId)
-  )
-    ? String(player.athleteId)
-    : null;
-
 const normalizedPlayerName =
   normalizeNCAAFPlayerMatchName(
     player.name
   );
 
-const matchedStarterProfile =
-  !directStarterId &&
+const matchedRosterProfile =
   normalizedPlayerName
-    ? starterProfiles.find(
-        starter => {
+    ? rosterProfiles.find(
+        profile => {
           const sameName =
             normalizeNCAAFPlayerMatchName(
-              starter.name
+              profile.name
             ) ===
             normalizedPlayerName;
 
           const samePosition =
             normalizeNFLPosition(
-              starter.position
+              profile.position
             ) === pos;
 
           return (
@@ -4066,19 +4270,43 @@ const matchedStarterProfile =
     : null;
 
 const resolvedESPNStarterId =
-  directStarterId ||
-  matchedStarterProfile?.athleteId ||
+  matchedRosterProfile?.athleteId ||
   null;
-console.log("NCAAF INJURY MATCH:", {
-  teamName,
-  player: player.name,
-  position: pos,
-  sportsDataId: player.athleteId,
-  matchedESPNId: resolvedESPNStarterId,
-  matchedStarterName:
-    matchedStarterProfile?.name || null
-});
+
 if (!resolvedESPNStarterId) {
+  continue;
+}
+
+const isCurrentStarter =
+  starterIds.includes(
+    String(resolvedESPNStarterId)
+  );
+
+let wasStarterBeforeInjury =
+  false;
+
+if (
+  !isCurrentStarter &&
+  player.startDate
+) {
+  const previousStarterIds =
+    await getNCAAFStarterIdsBeforeDate(
+      teamRef,
+      teamGames,
+      player.startDate
+    );
+
+  wasStarterBeforeInjury =
+    Array.isArray(previousStarterIds) &&
+    previousStarterIds.includes(
+      String(resolvedESPNStarterId)
+    );
+}
+
+if (
+  !isCurrentStarter &&
+  !wasStarterBeforeInjury
+) {
   continue;
 }
 
