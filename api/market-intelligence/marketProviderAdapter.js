@@ -272,10 +272,189 @@ function validateCanonicalMarketQuote(
 
 
 // ============================================================
+// CANONICAL CASHEDGE SPLIT
+// ============================================================
+
+function safePercentage(value) {
+  const number =
+    Number(value);
+
+  if (
+    !Number.isFinite(number) ||
+    number < 0 ||
+    number > 100
+  ) {
+    return null;
+  }
+
+  return number;
+}
+
+
+function buildCanonicalMarketSplit({
+  sport,
+  cashedgeGameId,
+
+  provider,
+
+  splitSourceKey,
+  splitSourceName,
+
+  marketType,
+
+  selectionKey,
+
+  line,
+  priceAmerican,
+
+  moneyPct,
+  ticketsPct,
+
+  providerTimestamp,
+
+  rawPayload = null
+}) {
+  return {
+    sport:
+      safeText(sport)
+        ?.toLowerCase() ||
+      null,
+
+    cashedge_game_id:
+      safeText(
+        cashedgeGameId
+      ),
+
+    provider:
+      safeText(provider),
+
+    split_source_key:
+      safeText(
+        splitSourceKey
+      )
+        ?.toLowerCase() ||
+      null,
+
+    split_source_name:
+      safeText(
+        splitSourceName
+      ),
+
+    market_type:
+      normalizeMarketType(
+        marketType
+      ),
+
+    selection_key:
+      safeText(
+        selectionKey
+      )
+        ?.toLowerCase() ||
+      null,
+
+    line:
+      safeNumber(line),
+
+    price_american:
+      safeAmericanPrice(
+        priceAmerican
+      ),
+
+    money_pct:
+      safePercentage(
+        moneyPct
+      ),
+
+    tickets_pct:
+      safePercentage(
+        ticketsPct
+      ),
+
+    provider_timestamp:
+      normalizeProviderTimestamp(
+        providerTimestamp
+      ),
+
+    raw_payload:
+      rawPayload
+  };
+}
+
+
+// ============================================================
+// SPLIT VALIDATION
+// ============================================================
+
+function validateCanonicalMarketSplit(
+  split
+) {
+  const errors = [];
+
+  if (!split?.sport) {
+    errors.push("sport");
+  }
+
+  if (!split?.cashedge_game_id) {
+    errors.push(
+      "cashedge_game_id"
+    );
+  }
+
+  if (!split?.provider) {
+    errors.push("provider");
+  }
+
+  if (!split?.split_source_key) {
+    errors.push(
+      "split_source_key"
+    );
+  }
+
+  if (!split?.market_type) {
+    errors.push(
+      "market_type"
+    );
+  }
+
+  if (!split?.selection_key) {
+    errors.push(
+      "selection_key"
+    );
+  }
+
+  if (
+    split?.money_pct === null
+  ) {
+    errors.push(
+      "money_pct"
+    );
+  }
+
+  if (
+    split?.tickets_pct === null
+  ) {
+    errors.push(
+      "tickets_pct"
+    );
+  }
+
+  return {
+    valid:
+      errors.length === 0,
+
+    missing:
+      errors
+  };
+}
+
+
+// ============================================================
 // EXPORTS
 // ============================================================
 
 module.exports = {
   buildCanonicalMarketQuote,
-  validateCanonicalMarketQuote
+  validateCanonicalMarketQuote,
+  buildCanonicalMarketSplit,
+  validateCanonicalMarketSplit
 };
