@@ -537,7 +537,30 @@ module.exports =
       "Content-Type, Authorization"
     );
 
+res.setHeader(
+  "Cache-Control",
+  "no-store, no-cache, must-revalidate, proxy-revalidate"
+);
 
+res.setHeader(
+  "Pragma",
+  "no-cache"
+);
+
+res.setHeader(
+  "Expires",
+  "0"
+);
+
+res.setHeader(
+  "CDN-Cache-Control",
+  "no-store"
+);
+
+res.setHeader(
+  "Vercel-CDN-Cache-Control",
+  "no-store"
+);
     if (req.method === "OPTIONS") {
       return res
         .status(200)
