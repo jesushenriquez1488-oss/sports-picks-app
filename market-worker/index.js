@@ -403,7 +403,223 @@ async function refreshCashEdgeState() {
 
   await refreshTrackedGames();
 }
+// ============================================================
+// OWLS CURRENT BOARD REVALIDATION
+//
+// WebSocket:
+//   detects market changes immediately.
+//
+// REST snapshot:
+//   confirms that unchanged sportsbook prices are still
+//   currently available.
+//
+// This does NOT create fake movement.
+// An unchanged quote only refreshes its last-seen time.
+// ============================================================
 
+async function refreshOwlsCurrentBoard() {
+
+  const activeSports =
+    Array.from(
+      new Set(
+        Array
+          .from(
+            trackedGameMap.values()
+          )
+          .filter(
+            game =>
+              game
+                ?.current_is_premium ===
+              true
+          )
+          .map(
+            game =>
+              String(
+                game?.sport || ""
+              )
+                .trim()
+                .toLowerCase()
+          )
+          .filter(
+            sport =>
+              SPORTS.includes(
+                sport
+              )
+          )
+      )
+    );
+
+
+  if (
+    !activeSports.length
+  ) {
+    return;
+  }
+
+
+  const sports = {};
+
+
+  for (
+    const sport
+    of activeSports
+  ) {
+
+    try {
+
+      const url =
+        `${OWLS_URL}/api/v1/${sport}/odds?books=${encodeURIComponent(
+          BOOKS.join(",")
+        )}`;
+
+
+      const response =
+        await fetch(
+          url,
+          {
+            headers: {
+              Authorization:
+                `Bearer ${OWLS_API_KEY}`
+            }
+          }
+        );
+
+
+      const body =
+        await response
+          .json()
+          .catch(
+            () => null
+          );
+
+
+      if (
+        !response.ok ||
+        body?.success !== true ||
+        !body?.data ||
+        typeof body.data !==
+          "object"
+      ) {
+
+        console.error(
+          `[${WORKER_NAME}] Owls REST ${sport} error: ${
+            body?.error ||
+            `HTTP ${response.status}`
+          }`
+        );
+
+        continue;
+      }
+
+
+      const eventsForSport =
+        [];
+
+
+      for (
+        const [
+          bookName,
+          bookEvents
+        ]
+        of Object.entries(
+          body.data
+        )
+      ) {
+
+        const rawBookKey =
+          String(
+            bookName || ""
+          )
+            .trim()
+            .toLowerCase();
+
+
+        if (
+          !BOOKS.includes(
+            rawBookKey
+          ) ||
+          !Array.isArray(
+            bookEvents
+          )
+        ) {
+          continue;
+        }
+
+
+        for (
+          const event
+          of bookEvents
+        ) {
+
+          const bookmakers =
+            Array.isArray(
+              event?.bookmakers
+            )
+              ? event.bookmakers
+                  .filter(
+                    bookmaker =>
+                      String(
+                        bookmaker?.key ||
+                        ""
+                      )
+                        .trim()
+                        .toLowerCase() ===
+                      rawBookKey
+                  )
+              : [];
+
+
+          if (
+            !bookmakers.length
+          ) {
+            continue;
+          }
+
+
+          eventsForSport.push({
+            ...event,
+            bookmakers
+          });
+        }
+      }
+
+
+      if (
+        eventsForSport.length
+      ) {
+        sports[sport] =
+          eventsForSport;
+      }
+
+    } catch (error) {
+
+      console.error(
+        `[${WORKER_NAME}] Owls REST ${sport} refresh error: ${error.message}`
+      );
+    }
+  }
+
+
+  if (
+    !Object.keys(
+      sports
+    ).length
+  ) {
+    return;
+  }
+
+
+  queueOddsUpdate({
+    sports,
+
+    timestamp:
+      new Date()
+        .toISOString(),
+
+    last_odds_change:
+      null
+  });
+}
 
 async function syncPickContextSafe() {
 
@@ -2496,24 +2712,36 @@ async function start() {
   /*
    * Tracked games refresh every minute.
    */
-  refreshTimer =
-    setInterval(
-      async () => {
+ refreshTimer =
+  setInterval(
+    async () => {
 
-        try {
+      try {
 
-          await refreshTrackedGames();
+        await refreshCashEdgeState();
 
-        } catch (error) {
+      } catch (error) {
 
-          console.error(
-            `[${WORKER_NAME}] tracked-games refresh error: ${error.message}`
-          );
-        }
-      },
+        console.error(
+          `[${WORKER_NAME}] tracked-games refresh error: ${error.message}`
+        );
+      }
 
-      REFRESH_INTERVAL_MS
-    );
+
+      try {
+
+        await refreshOwlsCurrentBoard();
+
+      } catch (error) {
+
+        console.error(
+          `[${WORKER_NAME}] Owls board revalidation error: ${error.message}`
+        );
+      }
+
+    },
+    REFRESH_INTERVAL_MS
+  );
 
 
   /*
@@ -2535,7 +2763,16 @@ async function start() {
 
       PICK_CONTEXT_SYNC_INTERVAL_MS
     );
+try {
 
+  await refreshOwlsCurrentBoard();
+
+} catch (error) {
+
+  console.error(
+    `[${WORKER_NAME}] initial Owls board revalidation error: ${error.message}`
+  );
+}
 
   /*
    * Start live Owls feed.
