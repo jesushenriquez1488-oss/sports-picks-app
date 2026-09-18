@@ -794,97 +794,177 @@ const observedAt =
         priceChanged;
 
 
-      // ======================================================
-      // SAME QUOTE
-      //
-      // Refresh freshness timestamps only.
-      //
-      // DO NOT run Market Pipeline.
-      // ======================================================
+     // ======================================================
+// SAME QUOTE
+//
+// Normally an unchanged quote does not need to run the
+// pipeline.
+//
+// EXCEPTION:
+// If Market Intelligence was reset and the current
+// evaluation is NO_DATA (or missing), rebuild it from the
+// current stored market state.
+// ======================================================
 
-      if (
-        !actuallyChanged
-      ) {
+if (
+  !actuallyChanged
+) {
 
-        const {
-          error: refreshError
-        } =
-          await supabaseAdmin
-            .from(
-              "market_current_quotes"
-            )
-            .update({
+  const {
+    error: refreshError
+  } =
+    await supabaseAdmin
+      .from(
+        "market_current_quotes"
+      )
+      .update({
 
-              provider,
+        provider,
 
-              provider_event_id:
-                providerEventId,
+        provider_event_id:
+          providerEventId,
 
-              sportsbook_name:
-                sportsbookName ||
-                existing
-                  .sportsbook_name,
+        sportsbook_name:
+          sportsbookName ||
+          existing
+            .sportsbook_name,
 
-              selection_name:
-                selectionName ||
-                existing
-                  .selection_name,
+        selection_name:
+          selectionName ||
+          existing
+            .selection_name,
 
-              provider_timestamp:
-                providerTimestamp,
+        provider_timestamp:
+          providerTimestamp,
 
-              observed_at:
-                observedAt,
+        observed_at:
+          observedAt,
 
-              updated_at:
-                observedAt
-            })
-            .eq(
-              "id",
-              existing.id
-            );
-
-
-        if (
-          refreshError
-        ) {
-          throw refreshError;
-        }
+        updated_at:
+          observedAt
+      })
+      .eq(
+        "id",
+        existing.id
+      );
 
 
-        return res
-          .status(200)
-          .json({
+  if (
+    refreshError
+  ) {
+    throw refreshError;
+  }
 
-            ok: true,
 
-            shadowMode:
-              settings
-                ?.shadow_mode ===
-              true,
+  // ====================================================
+  // CHECK WHETHER MARKET INTELLIGENCE NEEDS REBUILD
+  // ====================================================
 
-            result:
-              "unchanged",
+  const {
+    data: evaluationState,
+    error: evaluationStateError
+  } =
+    await supabaseAdmin
+      .from(
+        "market_evaluation_games"
+      )
+      .select(`
+        latest_alignment_state
+      `)
+      .eq(
+        "cashedge_game_id",
+        cashedgeGameId
+      )
+      .maybeSingle();
 
-            changed:
-              false,
 
-            lineChanged:
-              false,
+  if (
+    evaluationStateError
+  ) {
+    throw evaluationStateError;
+  }
 
-            priceChanged:
-              false,
 
-            pipeline: {
+  const needsPipelineRebuild =
+    !evaluationState ||
+    String(
+      evaluationState
+        .latest_alignment_state ||
+      ""
+    )
+      .trim()
+      .toUpperCase() ===
+        "NO_DATA";
 
-              triggered:
-                false,
 
-              reason:
-                "Quote unchanged"
-            }
-          });
-      }
+  let pipeline = {
+    triggered:
+      false,
+
+    reason:
+      "Quote unchanged"
+  };
+
+
+  if (
+    needsPipelineRebuild
+  ) {
+
+    const rebuildResult =
+      await runPipelineSafely({
+
+        gameId:
+          cashedgeGameId,
+
+        sport,
+
+        providerTimestamp,
+
+        receivedAt:
+          observedAt
+      });
+
+
+    pipeline = {
+
+      triggered:
+        true,
+
+      reason:
+        "Market Intelligence rebuild",
+
+      result:
+        rebuildResult
+    };
+  }
+
+
+  return res
+    .status(200)
+    .json({
+
+      ok: true,
+
+      shadowMode:
+        settings
+          ?.shadow_mode ===
+        true,
+
+      result:
+        "unchanged",
+
+      changed:
+        false,
+
+      lineChanged:
+        false,
+
+      priceChanged:
+        false,
+
+      pipeline
+    });
+}
 
 
       // ======================================================
