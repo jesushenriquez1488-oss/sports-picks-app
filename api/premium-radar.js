@@ -2512,7 +2512,23 @@ const activeOpportunityEvent =
   ) ||
   null;
 
+const liveOpportunityData =
+  activeOpportunityEvent
+    ?.event_data ||
+  {};
 
+
+const liveOpportunityMarket =
+  (
+    liveOpportunityData
+      ?.marketNow &&
+    typeof liveOpportunityData
+      .marketNow ===
+      "object"
+  )
+    ? liveOpportunityData
+        .marketNow
+    : null;
 const staleLineEvent =
   visibleMarketEvents.find(
     event =>
@@ -2708,40 +2724,71 @@ movementReferenceSelectionKey:
 
           consensus: {
 
-            line:
-              marketEvaluation
-                ?.latest_market_line ??
-              null,
+  line:
+    liveOpportunityMarket
+      ?.line ??
+    marketEvaluation
+      ?.latest_market_line ??
+    null,
 
-            price:
-              marketEvaluation
-                ?.latest_market_price_american ??
-              null
-          },
+  price:
+    liveOpportunityMarket
+      ?.price ??
+    marketEvaluation
+      ?.latest_market_price_american ??
+    null,
 
+  books:
+    liveOpportunityMarket
+      ?.books ??
+    liveOpportunityMarket
+      ?.totalBooks ??
+    null,
+
+  booksAtLine:
+    liveOpportunityMarket
+      ?.booksAtLine ??
+    null
+},
 
           bestAvailable: {
 
-            sportsbookKey:
-              marketEvaluation
-                ?.latest_best_sportsbook_key ||
-              null,
+  sportsbookKey:
+    marketEvaluation
+      ?.latest_opportunity_book_key ||
+    liveOpportunityData
+      ?.sportsbookKey ||
+    marketEvaluation
+      ?.latest_best_sportsbook_key ||
+    null,
 
-            sportsbook:
-              marketEvaluation
-                ?.latest_best_sportsbook_name ||
-              null,
+  sportsbook:
+    marketEvaluation
+      ?.latest_opportunity_book_name ||
+    liveOpportunityData
+      ?.sportsbook ||
+    marketEvaluation
+      ?.latest_best_sportsbook_name ||
+    null,
 
-            line:
-              marketEvaluation
-                ?.latest_best_line ??
-              null,
+  line:
+    marketEvaluation
+      ?.latest_opportunity_best_line ??
+    liveOpportunityData
+      ?.bestLine ??
+    marketEvaluation
+      ?.latest_best_line ??
+    null,
 
-            price:
-              marketEvaluation
-                ?.latest_best_price_american ??
-              null
-          },
+  price:
+    marketEvaluation
+      ?.latest_opportunity_best_price ??
+    liveOpportunityData
+      ?.bestPrice ??
+    marketEvaluation
+      ?.latest_best_price_american ??
+    null
+},
 
 
          bettingSplits: {
