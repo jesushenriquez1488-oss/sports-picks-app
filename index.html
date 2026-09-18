@@ -1716,21 +1716,176 @@ problem-gambling resource in your jurisdiction.
 
     <span class="league-arrow">»</span>
   </button>
+<style>
+  .premium-radar-league-btn {
+    position: relative;
+    overflow: hidden;
+
+    border: 1px solid rgba(0, 230, 118, .55) !important;
+
+    background:
+      radial-gradient(
+        circle at 15% 50%,
+        rgba(0, 230, 118, .13),
+        transparent 36%
+      ),
+      linear-gradient(
+        135deg,
+        rgba(4, 20, 18, .98),
+        rgba(5, 14, 24, .98)
+      ) !important;
+
+    box-shadow:
+      0 0 12px rgba(0, 230, 118, .22),
+      0 0 28px rgba(0, 230, 118, .10) !important;
+
+    animation:
+      premiumMarketGlow 2.4s ease-in-out infinite;
+  }
+
+  .premium-radar-league-btn:hover {
+    border-color:
+      rgba(0, 230, 118, .85) !important;
+
+    box-shadow:
+      0 0 18px rgba(0, 230, 118, .38),
+      0 0 42px rgba(0, 230, 118, .18) !important;
+  }
+
+  .premium-radar-league-btn
+  .premium-market-icon {
+    border-color:
+      rgba(0, 230, 118, .55) !important;
+
+    background:
+      radial-gradient(
+        circle,
+        rgba(0, 230, 118, .22),
+        rgba(0, 230, 118, .05)
+      ) !important;
+
+    box-shadow:
+      0 0 14px rgba(0, 230, 118, .25) !important;
+  }
+
+  .premium-market-title {
+    color: #ffffff !important;
+  }
+
+  .premium-market-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+
+    color: #00e676;
+    font-weight: 900;
+  }
+
+  .premium-market-live-dot {
+    width: 7px;
+    height: 7px;
+
+    border-radius: 50%;
+
+    background: #00e676;
+
+    box-shadow:
+      0 0 7px rgba(0, 230, 118, .95);
+
+    animation:
+      premiumLivePulse 1.4s ease-in-out infinite;
+  }
+
+  @keyframes premiumMarketGlow {
+    0%,
+    100% {
+      box-shadow:
+        0 0 10px rgba(0, 230, 118, .18),
+        0 0 24px rgba(0, 230, 118, .08);
+    }
+
+    50% {
+      box-shadow:
+        0 0 18px rgba(0, 230, 118, .35),
+        0 0 38px rgba(0, 230, 118, .15);
+    }
+  }
+
+  @keyframes premiumLivePulse {
+    0%,
+    100% {
+      opacity: .55;
+      transform: scale(.85);
+    }
+
+    50% {
+      opacity: 1;
+      transform: scale(1.15);
+    }
+  }
+</style>
+
+
 <button
   class="league-btn premium-radar-league-btn"
   onclick="openPremiumRadar()"
 >
-  <div class="league-icon">📡</div>
 
-  <div class="league-info">
-    <strong>PREMIUM RADAR</strong>
-    <small>
-      <span id="premiumRadarCount">--</span>
-      Premium opportunities
-    </small>
+  <div
+    class="league-icon premium-market-icon"
+  >
+    📡
   </div>
 
-  <span class="league-arrow">»</span>
+
+  <div class="league-info">
+
+    <strong
+      class="premium-market-title"
+    >
+      PREMIUM MARKET INTELLIGENCE
+    </strong>
+
+
+    <small>
+
+      <span
+        class="premium-market-live"
+      >
+        <span
+          class="premium-market-live-dot"
+        ></span>
+
+        LIVE
+      </span>
+
+      &nbsp;·&nbsp;
+
+      <span
+        id="premiumRadarCount"
+      >
+        --
+      </span>
+
+      Premium opportunities
+
+    </small>
+
+  </div>
+
+
+  <span
+    class="league-arrow"
+    style="
+      color:#00e676;
+      text-shadow:
+        0 0 8px
+        rgba(0,230,118,.45);
+    "
+  >
+    »
+  </span>
+
 </button>
 </div>
 
