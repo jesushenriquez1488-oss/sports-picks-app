@@ -14434,31 +14434,30 @@ const cards =
               </div>
 
 
-              <div
-                style="
-                  padding:4px 8px;
+             <div
+  style="
+    padding:5px 11px;
 
-                  border-radius:999px;
+    border-radius:999px;
 
-                  background:#0a1322;
+    background:#0a1322;
 
-                  border:
-                    1px solid
-                    #17304b;
+    border:
+      1px solid
+      #17304b;
 
-                  color:#ff9f43;
+    color:#ff9f43;
 
-                  font-size:9px;
-                  font-weight:900;
+    font-size:16px;
+    font-weight:900;
 
-                  white-space:nowrap;
-                "
-              >
-                ${formatNumber(
-                  row.current_confidence
-                )}%
-              </div>
-
+    white-space:nowrap;
+  "
+>
+  ${formatNumber(
+    row.current_confidence
+  )}%
+</div>
             </div>
 
 
