@@ -172,7 +172,8 @@ let firstIngestSummaryLogged =
  */
 const lastSentSignatures =
   new Map();
-
+const QUOTE_REVALIDATE_MS =
+  60 * 1000;
 
 // ============================================================
 // NORMALIZATION
@@ -1452,12 +1453,17 @@ async function runJobs(
         );
 
 
-        lastSentSignatures
-          .set(
-            job.signatureKey,
-            job.signature
-          );
+       lastSentSignatures
+  .set(
+    job.signatureKey,
+    {
+      signature:
+        job.signature,
 
+      sentAt:
+        Date.now()
+    }
+  );
 
         sent += 1;
 
@@ -1903,20 +1909,47 @@ const sportsbookKey =
           ].join("|");
 
 
-        const signature =
-          `${line ?? "null"}|${Math.round(price)}`;
+const signature =
+  `${line ?? "null"}|${Math.round(price)}`;
 
 
-        if (
-          lastSentSignatures
-            .get(
-              signatureKey
-            ) ===
-          signature
-        ) {
-          continue;
-        }
+const previousSent =
+  lastSentSignatures
+    .get(
+      signatureKey
+    ) ||
+  null;
 
+
+const sameQuote =
+  previousSent
+    ?.signature ===
+  signature;
+
+
+const lastSentAt =
+  Number(
+    previousSent
+      ?.sentAt ||
+    0
+  );
+
+
+const needsRevalidation =
+  !lastSentAt ||
+  (
+    Date.now() -
+    lastSentAt
+  ) >=
+    QUOTE_REVALIDATE_MS;
+
+
+if (
+  sameQuote &&
+  !needsRevalidation
+) {
+  continue;
+}
 
         const providerTimestamp =
           bookmaker.last_update ||
