@@ -14133,316 +14133,327 @@ const oppositeMoneyPct =
         // MARKET SUMMARY — COMPACT
         // ====================================================
 
-        const marketSummaryHTML =
-          hasMarketIntelligence
-            ? `
-                <div
-                  style="
-                    display:grid;
+       const marketSummaryHTML =
+  hasMarketIntelligence
+    ? `
+        <div
+          style="
+            display:grid;
+            grid-template-columns:
+              repeat(
+                3,
+                minmax(0,1fr)
+              );
 
-                    grid-template-columns:
-                      repeat(
-                        3,
-                        minmax(0,1fr)
-                      );
+            gap:0;
+            margin-top:9px;
 
-                    gap:0;
+            border:
+              1px solid
+              #15243a;
 
-                    margin-top:9px;
+            border-radius:10px;
 
-                    border:
-                      1px solid
-                      #15243a;
+            overflow:hidden;
 
-                    border-radius:10px;
+            background:#08101c;
+          "
+        >
 
-                    overflow:hidden;
-
-                    background:#08101c;
-                  "
-                >
-
-                  <div
-                    style="
-                      padding:8px 9px;
-
-                      border-right:
-                        1px solid
-                        #15243a;
-                    "
-                  >
-
-                    <div
-                      style="
-                        color:#526983;
-                        font-size:6px;
-                        font-weight:900;
-                        letter-spacing:.7px;
-                        margin-bottom:4px;
-                      "
-                    >
-                      ${movementTitle}
-                    </div>
-
-
-                    ${
-                      movement &&
-                      (
-                        movementBaseline !== "—" ||
-                        movementNow !== "—"
-                      )
-                        ? `
-                            <strong
-                              style="
-                                color:#fff;
-                                font-size:10px;
-                                white-space:nowrap;
-                              "
-                            >
-                              ${radarEscape(
-                                movementBaseline
-                              )}
-
-                              <span
-                                style="
-                                  color:#526983;
-                                  margin:0 3px;
-                                "
-                              >
-                                →
-                              </span>
-
-                              <span
-                                style="
-                                  color:#00ffe7;
-                                "
-                              >
-                                ${radarEscape(
-                                  movementNow
-                                )}
-                              </span>
-                            </strong>
-                          `
-                        : `
-                            <div
-                              style="
-                                color:#71839f;
-                                font-size:8px;
-                                font-weight:800;
-                              "
-                            >
-                              No strong market signal
-                            </div>
-                          `
-                    }
-
-                  </div>
-
-
-                  <div
-                    style="
-                      padding:8px 9px;
-
-                      border-right:
-                        1px solid
-                        #15243a;
-                    "
-                  >
-
-                    <div
-                      style="
-                        color:#526983;
-                        font-size:6px;
-                        font-weight:900;
-                        letter-spacing:.7px;
-                        margin-bottom:4px;
-                      "
-                    >
-                    <div
-  style="
-    padding:8px 9px;
-
-    border-right:
-      1px solid
-      #15243a;
-  "
->
-
-  <div
-    style="
-      color:#526983;
-      font-size:6px;
-      font-weight:900;
-      letter-spacing:.7px;
-      margin-bottom:4px;
-    "
-  >
-    BETTING SPLITS
-  </div>
-
-
-  ${
-    ticketsPctNumber !== null &&
-    moneyPctNumber !== null
-      ? `
-
+          <!-- LINE MOVEMENT -->
           <div
             style="
-              color:#8ca0b8;
-              font-size:6px;
-              font-weight:800;
-              margin-bottom:4px;
-            "
-          >
-            ON CASHEDGE PICK
-          </div>
+              padding:8px 9px;
 
-
-          <div
-            style="
-              color:#fff;
-              font-size:8px;
-              font-weight:900;
-              margin-bottom:5px;
-              line-height:1.2;
-            "
-          >
-            ${radarEscape(
-              splitPickLabel
-            )}
-          </div>
-
-
-          <div
-            style="
-              display:flex;
-              gap:10px;
-              margin-bottom:5px;
+              border-right:
+                1px solid
+                #15243a;
             "
           >
 
-            <div>
-              <span
-                style="
-                  display:block;
-                  color:#71839f;
-                  font-size:6px;
-                "
-              >
-                TICKETS
-              </span>
-
-              <strong
-                style="
-                  color:#fff;
-                  font-size:10px;
-                "
-              >
-                ${radarEscape(
-                  premiumRadarPercent(
-                    ticketsPctNumber
-                  )
-                )}
-              </strong>
+            <div
+              style="
+                color:#526983;
+                font-size:6px;
+                font-weight:900;
+                letter-spacing:.7px;
+                margin-bottom:4px;
+              "
+            >
+              ${movementTitle}
             </div>
 
 
-            <div>
-              <span
-                style="
-                  display:block;
-                  color:#71839f;
-                  font-size:6px;
-                "
-              >
-                MONEY
-              </span>
-
-              <strong
-                style="
-                  color:#00ffe7;
-                  font-size:10px;
-                "
-              >
-                ${radarEscape(
-                  premiumRadarPercent(
-                    moneyPctNumber
-                  )
-                )}
-              </strong>
-            </div>
-
-          </div>
-
-
-          <div
-            style="
-              color:#526983;
-              font-size:6px;
-              line-height:1.3;
-            "
-          >
-            OTHER SIDE:
-            ${radarEscape(
-              premiumRadarPercent(
-                oppositeTicketsPct
+            ${
+              movement &&
+              (
+                movementBaseline !== "—" ||
+                movementNow !== "—"
               )
-            )}
-            tickets ·
-            ${radarEscape(
-              premiumRadarPercent(
-                oppositeMoneyPct
-              )
-            )}
-            money
-          </div>
-
-        `
-      : `
-
-          <div
-            style="
-              color:#71839f;
-              font-size:7px;
-              font-weight:800;
-            "
-          >
-            Split data not available yet
-          </div>
-
-        `
-  }
-
-</div>
-                      ALIGNMENT
-                    </div>
-
-
+                ? `
                     <strong
                       style="
-                        display:block;
-
-                        color:
-                          ${alignmentMeta.color};
-
-                        font-size:8px;
-                        line-height:1.25;
+                        color:#fff;
+                        font-size:9px;
+                        white-space:nowrap;
                       "
                     >
                       ${radarEscape(
-                        alignmentMeta.label
-                          .replace(
-                            "MARKET MOVING ",
-                            ""
-                          )
+                        movementBaseline
                       )}
+
+                      <span
+                        style="
+                          color:#526983;
+                          margin:0 3px;
+                        "
+                      >
+                        →
+                      </span>
+
+                      <span
+                        style="
+                          color:#00ffe7;
+                        "
+                      >
+                        ${radarEscape(
+                          movementNow
+                        )}
+                      </span>
                     </strong>
+                  `
+                : `
+                    <div
+                      style="
+                        color:#71839f;
+                        font-size:7px;
+                        font-weight:800;
+                        line-height:1.2;
+                      "
+                    >
+                      No strong market signal
+                    </div>
+                  `
+            }
 
-                  </div>
+          </div>
 
-                </div>
-              `
-            : "";
+
+          <!-- BETTING SPLITS -->
+          <div
+            style="
+              padding:8px 9px;
+
+              border-right:
+                1px solid
+                #15243a;
+            "
+          >
+
+            <div
+              style="
+                color:#526983;
+                font-size:6px;
+                font-weight:900;
+                letter-spacing:.7px;
+                margin-bottom:4px;
+              "
+            >
+              BETTING SPLITS
+            </div>
+
+
+            ${
+              ticketsPctNumber !== null &&
+              moneyPctNumber !== null
+                ? `
+
+                    <div
+                      style="
+                        color:#71839f;
+                        font-size:5px;
+                        font-weight:800;
+                        letter-spacing:.4px;
+                        margin-bottom:2px;
+                      "
+                    >
+                      CASHEDGE SIDE
+                    </div>
+
+
+                    <div
+                      style="
+                        color:#dce6f4;
+                        font-size:6.5px;
+                        font-weight:800;
+                        line-height:1.1;
+
+                        white-space:nowrap;
+                        overflow:hidden;
+                        text-overflow:ellipsis;
+
+                        margin-bottom:4px;
+                      "
+                    >
+                      ${radarEscape(
+                        splitPickLabel
+                      )}
+                    </div>
+
+
+                    <div
+                      style="
+                        display:flex;
+                        align-items:flex-start;
+                        gap:9px;
+                        margin-bottom:4px;
+                      "
+                    >
+
+                      <div>
+                        <span
+                          style="
+                            display:block;
+                            color:#71839f;
+                            font-size:5px;
+                            margin-bottom:1px;
+                          "
+                        >
+                          TICKETS
+                        </span>
+
+                        <strong
+                          style="
+                            color:#fff;
+                            font-size:8px;
+                            line-height:1;
+                          "
+                        >
+                          ${radarEscape(
+                            premiumRadarPercent(
+                              ticketsPctNumber
+                            )
+                          )}
+                        </strong>
+                      </div>
+
+
+                      <div>
+                        <span
+                          style="
+                            display:block;
+                            color:#71839f;
+                            font-size:5px;
+                            margin-bottom:1px;
+                          "
+                        >
+                          MONEY
+                        </span>
+
+                        <strong
+                          style="
+                            color:#00ffe7;
+                            font-size:8px;
+                            line-height:1;
+                          "
+                        >
+                          ${radarEscape(
+                            premiumRadarPercent(
+                              moneyPctNumber
+                            )
+                          )}
+                        </strong>
+                      </div>
+
+                    </div>
+
+
+                    <div
+                      style="
+                        color:#526983;
+                        font-size:5px;
+                        line-height:1.15;
+                        white-space:nowrap;
+                      "
+                    >
+                      OTHER SIDE:
+                      ${radarEscape(
+                        premiumRadarPercent(
+                          oppositeTicketsPct
+                        )
+                      )}
+                      T ·
+                      ${radarEscape(
+                        premiumRadarPercent(
+                          oppositeMoneyPct
+                        )
+                      )}
+                      M
+                    </div>
+
+                  `
+                : `
+                    <div
+                      style="
+                        color:#71839f;
+                        font-size:6px;
+                        font-weight:800;
+                        line-height:1.2;
+                      "
+                    >
+                      Split data not available yet
+                    </div>
+                  `
+            }
+
+          </div>
+
+
+          <!-- ALIGNMENT -->
+          <div
+            style="
+              padding:8px 9px;
+            "
+          >
+
+            <div
+              style="
+                color:#526983;
+                font-size:6px;
+                font-weight:900;
+                letter-spacing:.7px;
+                margin-bottom:4px;
+              "
+            >
+              ALIGNMENT
+            </div>
+
+
+            <strong
+              style="
+                display:block;
+
+                color:
+                  ${alignmentMeta.color};
+
+                font-size:7px;
+                line-height:1.2;
+              "
+            >
+              ${radarEscape(
+                alignmentMeta.label
+                  .replace(
+                    "MARKET MOVING ",
+                    ""
+                  )
+              )}
+            </strong>
+
+          </div>
+
+        </div>
+      `
+    : "";
 
 
         // ====================================================
