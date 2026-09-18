@@ -13310,9 +13310,13 @@ if (
 
 
         const movementTitle =
-          movementUsesPrice
-            ? "MONEYLINE MOVEMENT"
-            : "LINE MOVEMENT";
+  movementMarketType ===
+    "moneyline"
+    ? "MONEYLINE MOVEMENT"
+    : movementData.metricType ===
+        "price_probability"
+      ? "PRICE MOVEMENT"
+      : "LINE MOVEMENT";
 
 
         const movementHTML =
@@ -13414,7 +13418,7 @@ if (
           opportunityHTML = `
             <div
               style="
-                height:100%;
+               
 
                 padding:16px;
 
@@ -13603,7 +13607,7 @@ if (
           opportunityHTML = `
             <div
               style="
-                height:100%;
+                
                 padding:16px;
 
                 border:
@@ -13740,7 +13744,7 @@ if (
           opportunityHTML = `
             <div
               style="
-                height:100%;
+              
                 padding:16px;
 
                 border:
