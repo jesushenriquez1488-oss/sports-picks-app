@@ -13528,7 +13528,7 @@ const cards =
                 LIVE MARKET
               </strong>
 
-              Waiting for enough live sportsbook data.
+             Monitoring market activity...
             </div>
           `;
         }
