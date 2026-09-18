@@ -1560,7 +1560,91 @@ event_type,
       // ============================================================
 // MARKET PULSE — RAW LIVE MARKET MOVEMENTS
 // ============================================================
+// ============================================================
+// BETTING SPLITS — LATEST SNAPSHOT PER SPORTSBOOK
+// ============================================================
 
+let marketSplitsByGameId =
+  new Map();
+
+
+if (radarGameIds.length) {
+
+  const {
+    data: marketSplitRows,
+    error: marketSplitRowsError
+  } =
+    await supabaseAdmin
+      .from(
+        "market_split_snapshots"
+      )
+      .select(`
+        cashedge_game_id,
+        provider,
+        split_source_key,
+        split_source_name,
+        market_type,
+        selection_key,
+        line,
+        price_american,
+        money_pct,
+        tickets_pct,
+        provider_timestamp,
+        observed_at
+      `)
+      .in(
+        "cashedge_game_id",
+        radarGameIds
+      )
+      .order(
+        "observed_at",
+        {
+          ascending: false
+        }
+      )
+      .limit(2000);
+
+
+  if (marketSplitRowsError) {
+    throw marketSplitRowsError;
+  }
+
+
+  for (
+    const split
+    of marketSplitRows || []
+  ) {
+
+    const gameId =
+      String(
+        split.cashedge_game_id ||
+        ""
+      );
+
+
+    if (!gameId) {
+      continue;
+    }
+
+
+    if (
+      !marketSplitsByGameId
+        .has(gameId)
+    ) {
+
+      marketSplitsByGameId.set(
+        gameId,
+        []
+      );
+    }
+
+
+    marketSplitsByGameId
+      .get(gameId)
+      .push(split);
+  }
+}
+      
 let marketOddsUpdatesByGameId =
   new Map();
 
@@ -1788,7 +1872,228 @@ const rows =
         marketContextByGameId
           .get(gameKey) ||
         null;
+const splitMarketType =
+  String(
+    marketContext
+      ?.market_type ||
+    ""
+  )
+    .toLowerCase()
+    .trim();
 
+
+const splitSelectionKey =
+  String(
+    marketContext
+      ?.selection_key ||
+    ""
+  )
+    .toLowerCase()
+    .trim();
+
+
+const gameSplitRows =
+  marketSplitsByGameId
+    .get(gameKey) ||
+  [];
+
+
+const latestSplitBySource =
+  new Map();
+
+
+for (
+  const split
+  of gameSplitRows
+) {
+
+  const rowMarket =
+    String(
+      split.market_type ||
+      ""
+    )
+      .toLowerCase()
+      .trim();
+
+
+  const rowSelection =
+    String(
+      split.selection_key ||
+      ""
+    )
+      .toLowerCase()
+      .trim();
+
+
+  if (
+    rowMarket !==
+      splitMarketType ||
+    rowSelection !==
+      splitSelectionKey
+  ) {
+    continue;
+  }
+
+
+  const sourceKey =
+    String(
+      split.split_source_key ||
+      split.split_source_name ||
+      ""
+    )
+      .toLowerCase()
+      .trim();
+
+
+  if (
+    !sourceKey ||
+    latestSplitBySource.has(
+      sourceKey
+    )
+  ) {
+    continue;
+  }
+
+
+  latestSplitBySource.set(
+    sourceKey,
+    split
+  );
+}
+
+
+const bettingSplitSources =
+  Array.from(
+    latestSplitBySource.values()
+  )
+    .map(
+      split => {
+
+        const money =
+          Number(
+            split.money_pct
+          );
+
+        const tickets =
+          Number(
+            split.tickets_pct
+          );
+
+
+        const moneyPct =
+          Number.isFinite(money)
+            ? money
+            : null;
+
+
+        const ticketsPct =
+          Number.isFinite(tickets)
+            ? tickets
+            : null;
+
+
+        const divergence =
+          (
+            moneyPct !== null &&
+            ticketsPct !== null
+          )
+            ? Number(
+                (
+                  moneyPct -
+                  ticketsPct
+                ).toFixed(2)
+              )
+            : null;
+
+
+        return {
+
+          sportsbookKey:
+            split.split_source_key ||
+            null,
+
+          sportsbook:
+            split.split_source_name ||
+            split.split_source_key ||
+            null,
+
+          provider:
+            split.provider ||
+            null,
+
+          line:
+            split.line ?? null,
+
+          price:
+            split.price_american ??
+            null,
+
+          ticketsPct,
+
+          moneyPct,
+
+          divergence,
+
+          observedAt:
+            split.observed_at ||
+            null
+        };
+      }
+    );
+
+
+const splitDirections =
+  new Set(
+    bettingSplitSources
+      .map(
+        source => {
+
+          if (
+            source.divergence ===
+            null
+          ) {
+            return null;
+          }
+
+          if (
+            source.divergence > 0
+          ) {
+            return "WITH";
+          }
+
+          if (
+            source.divergence < 0
+          ) {
+            return "AGAINST";
+          }
+
+          return "NEUTRAL";
+        }
+      )
+      .filter(Boolean)
+  );
+
+
+let bettingSplitStatus =
+  "NO_DATA";
+
+
+if (
+  bettingSplitSources.length === 1
+) {
+
+  bettingSplitStatus =
+    "SINGLE_SOURCE";
+
+} else if (
+  bettingSplitSources.length > 1
+) {
+
+  bettingSplitStatus =
+    splitDirections.size > 1
+      ? "MIXED"
+      : "CONSISTENT";
+}
 
       const marketEvaluation =
         marketEvaluationByGameId
@@ -2333,17 +2638,28 @@ movementReferenceSelectionKey:
           },
 
 
-          ticketsPct:
-            marketEvaluation
-              ?.latest_tickets_pct ??
-            null,
+         bettingSplits: {
+
+  status:
+    bettingSplitStatus,
+
+  sources:
+    bettingSplitSources
+},
 
 
-          moneyPct:
-            marketEvaluation
-              ?.latest_money_pct ??
-            null,
+ticketsPct:
+  bettingSplitSources.length === 1
+    ? bettingSplitSources[0]
+        .ticketsPct
+    : null,
 
+
+moneyPct:
+  bettingSplitSources.length === 1
+    ? bettingSplitSources[0]
+        .moneyPct
+    : null,
 
           opportunity: {
 
