@@ -1282,6 +1282,30 @@ premiumQuoteCounts.set(
       `[${WORKER_NAME}] quotes sent: ${result.sent}, errors: ${result.errors}`
     );
     for (
+  const tracked
+  of trackedGameMap.values()
+) {
+
+  if (
+    tracked?.sport !== "mlb" ||
+    tracked?.current_is_premium !== true
+  ) {
+    continue;
+  }
+
+
+  if (
+    !matchedPremiumGames.has(
+      tracked.cashedge_game_id
+    )
+  ) {
+
+    console.log(
+      `[${WORKER_NAME}] MLB Premium NOT matched in Owls board: ${tracked.cashedge_game_id} | ${tracked.away_team} @ ${tracked.home_team}`
+    );
+  }
+}
+    for (
   const gameId
   of matchedPremiumGames
 ) {
