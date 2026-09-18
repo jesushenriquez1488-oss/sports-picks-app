@@ -792,7 +792,63 @@ const sourceDailyPickIds =
     )
     .filter(Boolean);
 
+const radarGameIds =
+  [
+    ...new Set(
+      radarRows
+        .map(
+          row =>
+            row.game_id
+        )
+        .filter(Boolean)
+    )
+  ];
 
+
+let marketContextByGameId =
+  new Map();
+
+
+if (radarGameIds.length) {
+
+  const {
+    data: marketContexts,
+    error: marketContextsError
+  } =
+    await supabaseAdmin
+      .from(
+        "market_pick_context"
+      )
+      .select(`
+        cashedge_game_id,
+        market_type,
+        first_premium_price_american,
+        current_cashedge_price_american
+      `)
+      .in(
+        "cashedge_game_id",
+        radarGameIds
+      );
+
+
+  if (marketContextsError) {
+    throw marketContextsError;
+  }
+
+
+  marketContextByGameId =
+    new Map(
+      (marketContexts || [])
+        .map(
+          context => [
+            String(
+              context.cashedge_game_id
+            ),
+            context
+          ]
+        )
+    );
+}
 let gameTimeByDailyPickId =
   new Map();
 
@@ -854,7 +910,23 @@ const rows =
   radarRows.map(
     row => ({
       ...row,
+market_type:
+  marketContextByGameId.get(
+    String(row.game_id)
+  )?.market_type ||
+  null,
 
+first_premium_price_american:
+  marketContextByGameId.get(
+    String(row.game_id)
+  )?.first_premium_price_american ??
+  null,
+
+current_market_price_american:
+  marketContextByGameId.get(
+    String(row.game_id)
+  )?.current_cashedge_price_american ??
+  null,
       game_time:
         row.source_daily_pick_id
           ? gameTimeByDailyPickId.get(
