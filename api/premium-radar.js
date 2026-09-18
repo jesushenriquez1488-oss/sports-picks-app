@@ -2134,33 +2134,33 @@ const marketPulse = {
         null;
 
 
-    const activity =
+  const activity =
   currentMarketEvents
     .filter(
-            event =>
-              event.event_family ===
-                "movement" ||
-              event.event_family ===
-                "opportunity" ||
-              (
-                event.event_family ===
-                  "signal" &&
-                (
-                  event.is_active ===
-                    true ||
-                  event.is_important ===
-                    true ||
-                  Number(
-                    event.signal_strength ||
-                    0
-                  ) >= 2
-                )
-              )
-          )
-          .slice(
-            0,
-            12
+      event => {
+
+        if (
+          event.event_family ===
+          "signal"
+        ) {
+          return (
+            event.is_active ===
+            true
           );
+        }
+
+        return (
+          event.event_family ===
+            "movement" ||
+          event.event_family ===
+            "opportunity"
+        );
+      }
+    )
+    .slice(
+      0,
+      12
+    );
 
 
       return {
