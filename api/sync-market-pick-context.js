@@ -122,7 +122,30 @@ function safeAmericanPrice(value) {
 
   return Math.round(n);
 }
+function americanToProbability(price) {
 
+  const odds =
+    safeAmericanPrice(price);
+
+  if (
+    odds === null ||
+    odds === 0
+  ) {
+    return null;
+  }
+
+  if (odds > 0) {
+    return (
+      100 /
+      (odds + 100)
+    );
+  }
+
+  return (
+    Math.abs(odds) /
+    (Math.abs(odds) + 100)
+  );
+}
 
 function normalizeSelection(value) {
   return String(value || "")
@@ -157,8 +180,11 @@ function extractMLB(row) {
   }
 
   let marketType = null;
-  let selectionKey = null;
-  let line = null;
+let selectionKey = null;
+let line = null;
+
+let movementReferenceMarketType = null;
+let movementReferenceSelectionKey = null;
 
   if (
     card.type === "OVER" ||
@@ -173,19 +199,25 @@ function extractMLB(row) {
         analysis?.premium?.totalLine
       );
 
-  } else if (
-    card.type === "RUNLINE"
-  ) {
-    marketType = "spread";
+ } else if (
+  card.type === "RUNLINE"
+) {
+  marketType = "spread";
 
-    selectionKey =
-      normalizeSelection(
-        card.team ||
-        card.play
-      );
+  selectionKey =
+    normalizeSelection(
+      card.team ||
+      card.play
+    );
 
-    line =
-      safeNum(card.spread);
+  movementReferenceMarketType =
+    "moneyline";
+
+  movementReferenceSelectionKey =
+    selectionKey;
+
+  line =
+    safeNum(card.spread);
 
   } else if (
     card.type === "ML"
@@ -197,7 +229,11 @@ function extractMLB(row) {
         card.team ||
         card.play
       );
+  movementReferenceMarketType =
+    "moneyline";
 
+  movementReferenceSelectionKey =
+    selectionKey;
     /*
      * IMPORTANT:
      * Moneyline does NOT have a spread/total line.
@@ -218,10 +254,13 @@ function extractMLB(row) {
 
     marketType,
 
-    selectionKey,
+selectionKey,
 
-    line,
+movementReferenceMarketType,
 
+movementReferenceSelectionKey,
+
+line,
     priceAmerican:
       safeAmericanPrice(
         card.odds_american
@@ -875,12 +914,20 @@ module.exports =
                     canonical.marketType ||
                     null,
 
-                  selection_key:
-                    canonical.selectionKey ||
-                    null,
+               selection_key:
+  canonical.selectionKey ||
+  null,
 
-                  first_premium_line:
-                    canonical.line,
+movement_reference_market_type:
+  canonical.movementReferenceMarketType ||
+  null,
+
+movement_reference_selection_key:
+  canonical.movementReferenceSelectionKey ||
+  null,
+
+first_premium_line:
+  canonical.line,
 
                   first_premium_price_american:
                     canonical.priceAmerican,
@@ -944,13 +991,21 @@ module.exports =
                     existing.market_type ||
                     null,
 
-                  selection_key:
-                    canonical.selectionKey ||
-                    existing.selection_key ||
-                    null,
+                 selection_key:
+  canonical.selectionKey ||
+  existing.selection_key ||
+  null,
 
-                  current_cashedge_line:
-                    canonical.line,
+movement_reference_market_type:
+  canonical.movementReferenceMarketType ||
+  null,
+
+movement_reference_selection_key:
+  canonical.movementReferenceSelectionKey ||
+  null,
+
+current_cashedge_line:
+  canonical.line,
 
                   current_cashedge_price_american:
                     canonical.priceAmerican,
