@@ -1265,7 +1265,9 @@ async function refreshBettingSplits() {
           )
             ? body.data
             : [];
-
+console.log(
+  `[${WORKER_NAME}] ${sport} splits board — events: ${events.length}, status: ${body?.meta?.status || "unknown"}, total: ${body?.meta?.total_games ?? body?.meta?.active_games ?? "unknown"}, books: ${Array.isArray(body?.meta?.books) ? body.meta.books.join(",") : "unknown"}`
+);
 
         for (
           const event
@@ -1397,15 +1399,9 @@ async function refreshBettingSplits() {
     }
 
 
-    if (
-      sent > 0 ||
-      errors > 0
-    ) {
-
-      console.log(
-        `[${WORKER_NAME}] betting splits — sent: ${sent}, errors: ${errors}`
-      );
-    }
+   console.log(
+  `[${WORKER_NAME}] betting splits — sent: ${sent}, errors: ${errors}`
+);
 
   } finally {
 
