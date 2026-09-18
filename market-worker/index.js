@@ -32,6 +32,8 @@ const TRACKED_GAMES_URL =
 const INGEST_QUOTE_URL =
   `${CASHEDGE_ORIGIN}/api/market-intelligence/ingest-quote`;
 
+const INGEST_SPLIT_URL =
+  `${CASHEDGE_ORIGIN}/api/market-intelligence/ingest-split`;
 const PICK_CONTEXT_SYNC_URL =
   process.env.PICK_CONTEXT_SYNC_URL;
 const SPORTS = [
@@ -63,6 +65,8 @@ const BOOKS = [
 
 const REFRESH_INTERVAL_MS =
   60 * 1000;
+const SPLIT_REFRESH_INTERVAL_MS =
+  15 * 1000;
 const OWLS_WATCHDOG_INTERVAL_MS =
   30 * 1000;
 
@@ -110,6 +114,14 @@ let socket =
 
 let refreshTimer =
   null;
+let splitTimer =
+  null;
+
+let splitRefreshRunning =
+  false;
+
+const lastSentSplitSignatures =
+  new Map();
 let watchdogTimer =
   null;
 
@@ -677,7 +689,692 @@ async function ingestQuote(
   return body;
 }
 
+async function ingestSplit(
+  payload
+) {
 
+  const response =
+    await fetch(
+      INGEST_SPLIT_URL,
+      {
+        method:
+          "POST",
+
+        headers: {
+          Authorization:
+            `Bearer ${MARKET_INGEST_SECRET}`,
+
+          "Content-Type":
+            "application/json"
+        },
+
+        body:
+          JSON.stringify(
+            payload
+          )
+      }
+    );
+
+
+  const body =
+    await response
+      .json()
+      .catch(
+        () => null
+      );
+
+
+  if (
+    !response.ok ||
+    body?.ok !== true
+  ) {
+
+    throw new Error(
+      body?.error ||
+      `ingest-split HTTP ${response.status}`
+    );
+  }
+
+
+  return body;
+}
+
+
+function getSplitTarget(
+  tracked
+) {
+
+  let marketType =
+    tracked.market_type;
+
+  let selectionKey =
+    tracked.selection_key;
+
+
+  /*
+   * MLB Runline:
+   * CashEdge wager remains spread,
+   * but Market Intelligence movement/splits
+   * use the selected team's moneyline.
+   */
+  if (
+    tracked.sport === "mlb" &&
+    tracked.market_type === "spread"
+  ) {
+
+    marketType =
+      "moneyline";
+  }
+
+
+  return {
+    marketType,
+    selectionKey
+  };
+}
+
+
+function findTrackedSplitGame({
+  sport,
+  awayTeam,
+  homeTeam
+}) {
+
+  const away =
+    normalizeTeamForGameKey(
+      sport,
+      awayTeam
+    );
+
+  const home =
+    normalizeTeamForGameKey(
+      sport,
+      homeTeam
+    );
+
+
+  for (
+    const tracked
+    of trackedGameMap.values()
+  ) {
+
+    if (
+      tracked.current_is_premium !== true ||
+      tracked.sport !== sport
+    ) {
+      continue;
+    }
+
+
+    const trackedAway =
+      normalizeTeamForGameKey(
+        sport,
+        tracked.away_team
+      );
+
+    const trackedHome =
+      normalizeTeamForGameKey(
+        sport,
+        tracked.home_team
+      );
+
+
+    if (
+      trackedAway === away &&
+      trackedHome === home
+    ) {
+      return tracked;
+    }
+  }
+
+
+  return null;
+}
+
+
+function buildSplitPayload({
+  sport,
+  tracked,
+  providerSplit
+}) {
+
+  const {
+    marketType,
+    selectionKey
+  } =
+    getSplitTarget(
+      tracked
+    );
+
+
+  const normalizedSelection =
+    normalizeText(
+      selectionKey
+    );
+
+  const awayKey =
+    normalizeText(
+      tracked.away_team
+    );
+
+  const homeKey =
+    normalizeText(
+      tracked.home_team
+    );
+
+
+  let line =
+    null;
+
+  let price =
+    null;
+
+  let moneyPct =
+    null;
+
+  let ticketsPct =
+    null;
+
+
+  if (
+    marketType === "total"
+  ) {
+
+    const total =
+      providerSplit?.total;
+
+    if (!total) {
+      return null;
+    }
+
+
+    line =
+      Number(
+        total.line
+      );
+
+
+    if (
+      normalizedSelection === "over"
+    ) {
+
+      moneyPct =
+        Number(
+          total.over_handle_pct
+        );
+
+      ticketsPct =
+        Number(
+          total.over_bets_pct
+        );
+
+    } else if (
+      normalizedSelection === "under"
+    ) {
+
+      moneyPct =
+        Number(
+          total.under_handle_pct
+        );
+
+      ticketsPct =
+        Number(
+          total.under_bets_pct
+        );
+
+    } else {
+      return null;
+    }
+
+  } else if (
+    marketType === "spread"
+  ) {
+
+    const spread =
+      providerSplit?.spread;
+
+    if (!spread) {
+      return null;
+    }
+
+
+    if (
+      normalizedSelection ===
+      awayKey
+    ) {
+
+      line =
+        Number(
+          spread.away_line
+        );
+
+      moneyPct =
+        Number(
+          spread.away_handle_pct
+        );
+
+      ticketsPct =
+        Number(
+          spread.away_bets_pct
+        );
+
+    } else if (
+      normalizedSelection ===
+      homeKey
+    ) {
+
+      line =
+        Number(
+          spread.home_line
+        );
+
+      moneyPct =
+        Number(
+          spread.home_handle_pct
+        );
+
+      ticketsPct =
+        Number(
+          spread.home_bets_pct
+        );
+
+    } else {
+      return null;
+    }
+
+  } else if (
+    marketType === "moneyline"
+  ) {
+
+    const moneyline =
+      providerSplit?.moneyline;
+
+    if (!moneyline) {
+      return null;
+    }
+
+
+    if (
+      normalizedSelection ===
+      awayKey
+    ) {
+
+      price =
+        Number(
+          moneyline.away_price
+        );
+
+      moneyPct =
+        Number(
+          moneyline.away_handle_pct
+        );
+
+      ticketsPct =
+        Number(
+          moneyline.away_bets_pct
+        );
+
+    } else if (
+      normalizedSelection ===
+      homeKey
+    ) {
+
+      price =
+        Number(
+          moneyline.home_price
+        );
+
+      moneyPct =
+        Number(
+          moneyline.home_handle_pct
+        );
+
+      ticketsPct =
+        Number(
+          moneyline.home_bets_pct
+        );
+
+    } else {
+      return null;
+    }
+
+  } else {
+    return null;
+  }
+
+
+  if (
+    !Number.isFinite(
+      moneyPct
+    ) ||
+    !Number.isFinite(
+      ticketsPct
+    )
+  ) {
+    return null;
+  }
+
+
+  if (
+    marketType !== "moneyline" &&
+    !Number.isFinite(
+      line
+    )
+  ) {
+    return null;
+  }
+
+
+  if (
+    marketType === "moneyline" &&
+    !Number.isFinite(
+      price
+    )
+  ) {
+    return null;
+  }
+
+
+  let sourceKey =
+    String(
+      providerSplit?.book ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+
+
+  if (
+    sourceKey === "dk"
+  ) {
+    sourceKey =
+      "draftkings";
+  }
+
+
+  return {
+    sport,
+
+    cashedge_game_id:
+      tracked.cashedge_game_id,
+
+    provider:
+      "owls",
+
+    split_source_key:
+      sourceKey,
+
+    split_source_name:
+      providerSplit?.title ||
+      sourceKey,
+
+    market_type:
+      marketType,
+
+    selection_key:
+      selectionKey,
+
+    line:
+      marketType === "moneyline"
+        ? null
+        : line,
+
+    price_american:
+      marketType === "moneyline"
+        ? Math.round(price)
+        : null,
+
+    money_pct:
+      moneyPct,
+
+    tickets_pct:
+      ticketsPct,
+
+    provider_timestamp:
+      null
+  };
+}
+
+
+async function refreshBettingSplits() {
+
+  if (
+    splitRefreshRunning
+  ) {
+    return;
+  }
+
+
+  splitRefreshRunning =
+    true;
+
+
+  let sent =
+    0;
+
+  let errors =
+    0;
+
+
+  try {
+
+    const activeSports =
+      [
+        ...new Set(
+          Array.from(
+            trackedGameMap.values()
+          )
+            .filter(
+              game =>
+                game.current_is_premium ===
+                true
+            )
+            .map(
+              game =>
+                game.sport
+            )
+            .filter(
+              sport =>
+                SPORTS.includes(
+                  sport
+                )
+            )
+        )
+      ];
+
+
+    for (
+      const sport
+      of activeSports
+    ) {
+
+      try {
+
+        const response =
+          await fetch(
+            `${OWLS_URL}/api/v1/${sport}/splits`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${OWLS_API_KEY}`
+              }
+            }
+          );
+
+
+        const body =
+          await response
+            .json()
+            .catch(
+              () => null
+            );
+
+
+        if (
+          !response.ok
+        ) {
+
+          throw new Error(
+            body?.error ||
+            `Owls splits HTTP ${response.status}`
+          );
+        }
+
+
+        const events =
+          Array.isArray(
+            body?.data
+          )
+            ? body.data
+            : [];
+
+
+        for (
+          const event
+          of events
+        ) {
+
+          const tracked =
+            findTrackedSplitGame({
+              sport,
+
+              awayTeam:
+                event.away_team,
+
+              homeTeam:
+                event.home_team
+            });
+
+
+          if (!tracked) {
+            continue;
+          }
+
+
+          const sources =
+            Array.isArray(
+              event.splits
+            )
+              ? event.splits
+              : [];
+
+
+          for (
+            const providerSplit
+            of sources
+          ) {
+
+            const payload =
+              buildSplitPayload({
+                sport,
+                tracked,
+                providerSplit
+              });
+
+
+            if (!payload) {
+              continue;
+            }
+
+
+            const signatureKey =
+              [
+                payload
+                  .cashedge_game_id,
+
+                payload
+                  .split_source_key,
+
+                payload
+                  .market_type,
+
+                payload
+                  .selection_key
+              ].join("|");
+
+
+            const signature =
+              [
+                payload.line ??
+                  "null",
+
+                payload
+                  .price_american ??
+                  "null",
+
+                payload
+                  .money_pct,
+
+                payload
+                  .tickets_pct
+              ].join("|");
+
+
+            if (
+              lastSentSplitSignatures
+                .get(
+                  signatureKey
+                ) ===
+              signature
+            ) {
+              continue;
+            }
+
+
+            try {
+
+              await ingestSplit(
+                payload
+              );
+
+
+              lastSentSplitSignatures
+                .set(
+                  signatureKey,
+                  signature
+                );
+
+
+              sent += 1;
+
+            } catch (error) {
+
+              errors += 1;
+
+              console.error(
+                `[${WORKER_NAME}] split ingest error: ${error.message}`
+              );
+            }
+          }
+        }
+
+      } catch (error) {
+
+        errors += 1;
+
+        console.error(
+          `[${WORKER_NAME}] ${sport} splits error: ${error.message}`
+        );
+      }
+    }
+
+
+    if (
+      sent > 0 ||
+      errors > 0
+    ) {
+
+      console.log(
+        `[${WORKER_NAME}] betting splits — sent: ${sent}, errors: ${errors}`
+      );
+    }
+
+  } finally {
+
+    splitRefreshRunning =
+      false;
+  }
+}
 // ============================================================
 // CONCURRENCY
 // ============================================================
@@ -1750,7 +2447,27 @@ async function start() {
 
 
   connectOwls();
-  startOwlsWatchdog();
+startOwlsWatchdog();
+
+
+try {
+
+  await refreshBettingSplits();
+
+} catch (error) {
+
+  console.error(
+    `[${WORKER_NAME}] initial splits error: ${error.message}`
+  );
+}
+
+
+splitTimer =
+  setInterval(
+    refreshBettingSplits,
+    SPLIT_REFRESH_INTERVAL_MS
+  );
+  
 }
 
 
@@ -1782,7 +2499,14 @@ if (
     watchdogTimer
   );
 }
+if (
+  splitTimer
+) {
 
+  clearInterval(
+    splitTimer
+  );
+}
   if (
     socket
   ) {
