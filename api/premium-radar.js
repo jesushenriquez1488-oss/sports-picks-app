@@ -808,37 +808,169 @@ const radarGameIds =
 let marketContextByGameId =
   new Map();
 
+let marketEvaluationByGameId =
+  new Map();
+
+let marketEventsByGameId =
+  new Map();
+
+let marketIntelligenceEnabled =
+  false;
+
 
 if (radarGameIds.length) {
 
-  const {
-    data: marketContexts,
-    error: marketContextsError
-  } =
-    await supabaseAdmin
-      .from(
-        "market_pick_context"
-      )
-      .select(`
-        cashedge_game_id,
-        market_type,
-        first_premium_price_american,
-        current_cashedge_price_american
-      `)
-      .in(
-        "cashedge_game_id",
-        radarGameIds
-      );
+  const [
+    marketContextsResult,
+    marketEvaluationsResult,
+    marketEventsResult,
+    marketSettingsResult
+  ] =
+    await Promise.all([
+
+      supabaseAdmin
+        .from(
+          "market_pick_context"
+        )
+        .select(`
+          cashedge_game_id,
+          market_type,
+          first_premium_line,
+          first_premium_price_american,
+          current_cashedge_line,
+          current_cashedge_price_american,
+          movement_reference_market_type,
+          movement_reference_selection_key,
+          movement_baseline_price_american
+        `)
+        .in(
+          "cashedge_game_id",
+          radarGameIds
+        ),
 
 
-  if (marketContextsError) {
-    throw marketContextsError;
+      supabaseAdmin
+        .from(
+          "market_evaluation_games"
+        )
+        .select(`
+          cashedge_game_id,
+          latest_alignment_state,
+          latest_market_line,
+          latest_market_price_american,
+          latest_best_sportsbook_key,
+          latest_best_sportsbook_name,
+          latest_best_line,
+          latest_best_price_american,
+          latest_money_pct,
+          latest_tickets_pct,
+          latest_opportunity_state,
+          latest_opportunity_type,
+          latest_opportunity_line_value,
+          latest_opportunity_price_value_cents,
+          latest_opportunity_book_key,
+          latest_opportunity_book_name,
+          latest_opportunity_best_line,
+          latest_opportunity_best_price,
+          opportunity_state_started_at,
+          updated_at
+        `)
+        .in(
+          "cashedge_game_id",
+          radarGameIds
+        ),
+
+
+      supabaseAdmin
+        .from(
+          "market_events"
+        )
+        .select(`
+          id,
+          cashedge_game_id,
+          event_family,
+          event_type,
+          direction,
+          severity,
+          signal_strength,
+          headline,
+          explanation,
+          event_data,
+          importance_level,
+          is_important,
+          is_important_now,
+          is_active,
+          first_detected_at,
+          last_detected_at,
+          resolved_at
+        `)
+        .in(
+          "cashedge_game_id",
+          radarGameIds
+        )
+        .in(
+          "event_family",
+          [
+            "movement",
+            "opportunity",
+            "signal"
+          ]
+        )
+        .order(
+          "first_detected_at",
+          {
+            ascending: false
+          }
+        )
+        .limit(2000),
+
+
+      supabaseAdmin
+        .from(
+          "market_intelligence_settings"
+        )
+        .select(`
+          frontend_enabled
+        `)
+        .eq(
+          "id",
+          1
+        )
+        .maybeSingle()
+
+    ]);
+
+
+  if (marketContextsResult.error) {
+    throw marketContextsResult.error;
   }
+
+  if (marketEvaluationsResult.error) {
+    throw marketEvaluationsResult.error;
+  }
+
+  if (marketEventsResult.error) {
+    throw marketEventsResult.error;
+  }
+
+  if (marketSettingsResult.error) {
+    throw marketSettingsResult.error;
+  }
+
+
+  marketIntelligenceEnabled =
+    marketSettingsResult
+      .data
+      ?.frontend_enabled ===
+    true;
 
 
   marketContextByGameId =
     new Map(
-      (marketContexts || [])
+      (
+        marketContextsResult.data ||
+        []
+      )
         .map(
           context => [
             String(
@@ -848,10 +980,67 @@ if (radarGameIds.length) {
           ]
         )
     );
-}
-let gameTimeByDailyPickId =
-  new Map();
 
+
+  marketEvaluationByGameId =
+    new Map(
+      (
+        marketEvaluationsResult.data ||
+        []
+      )
+        .map(
+          evaluation => [
+            String(
+              evaluation
+                .cashedge_game_id
+            ),
+            evaluation
+          ]
+        )
+    );
+
+
+  for (
+    const event of
+    marketEventsResult.data ||
+    []
+  ) {
+
+    const gameKey =
+      String(
+        event.cashedge_game_id
+      );
+
+
+    if (
+      !marketEventsByGameId
+        .has(gameKey)
+    ) {
+
+      marketEventsByGameId
+        .set(
+          gameKey,
+          []
+        );
+    }
+
+
+    const gameEvents =
+      marketEventsByGameId
+        .get(gameKey);
+
+
+    if (
+      gameEvents.length <
+      20
+    ) {
+
+      gameEvents.push(
+        event
+      );
+    }
+  }
+}
 let sourceEventIdByDailyPickId =
   new Map();
 
@@ -908,43 +1097,376 @@ if (sourceDailyPickIds.length) {
 
 const rows =
   radarRows.map(
-    row => ({
-      ...row,
-market_type:
-  marketContextByGameId.get(
-    String(row.game_id)
-  )?.market_type ||
-  null,
+    row => {
 
-first_premium_price_american:
-  marketContextByGameId.get(
-    String(row.game_id)
-  )?.first_premium_price_american ??
-  null,
+      const gameKey =
+        String(
+          row.game_id
+        );
 
-current_market_price_american:
-  marketContextByGameId.get(
-    String(row.game_id)
-  )?.current_cashedge_price_american ??
-  null,
-      game_time:
-        row.source_daily_pick_id
-          ? gameTimeByDailyPickId.get(
-              String(
-                row.source_daily_pick_id
+
+      const marketContext =
+        marketContextByGameId
+          .get(gameKey) ||
+        null;
+
+
+      const marketEvaluation =
+        marketEvaluationByGameId
+          .get(gameKey) ||
+        null;
+
+
+      const marketEvents =
+        marketEventsByGameId
+          .get(gameKey) ||
+        [];
+
+
+      const latestMovement =
+        marketEvents.find(
+          event =>
+            event.event_family ===
+            "movement"
+        ) ||
+        null;
+
+
+      const activeOpportunityEvent =
+        marketEvents.find(
+          event =>
+            event.event_family ===
+              "opportunity" &&
+            event.is_active ===
+              true
+        ) ||
+        null;
+
+
+      const staleLineEvent =
+        marketEvents.find(
+          event =>
+            event.event_family ===
+              "opportunity" &&
+            event.is_active ===
+              true &&
+            event
+              ?.event_data
+              ?.staleLine
+              ?.detected ===
+              true
+        ) ||
+        null;
+
+
+      const activity =
+        marketEvents
+          .filter(
+            event =>
+              event.event_family ===
+                "movement" ||
+              event.event_family ===
+                "opportunity" ||
+              (
+                event.event_family ===
+                  "signal" &&
+                (
+                  event.is_active ===
+                    true ||
+                  event.is_important ===
+                    true ||
+                  Number(
+                    event.signal_strength ||
+                    0
+                  ) >= 2
+                )
               )
-            ) || null
-          : null,
+          )
+          .slice(
+            0,
+            12
+          );
 
-      source_event_id:
-        row.source_daily_pick_id
-          ? sourceEventIdByDailyPickId.get(
-              String(
-                row.source_daily_pick_id
-              )
-            ) || null
-          : null
-    })
+
+      return {
+
+        ...row,
+
+
+        market_type:
+          marketContext
+            ?.market_type ||
+          null,
+
+
+        first_premium_price_american:
+          marketContext
+            ?.first_premium_price_american ??
+          null,
+
+
+        current_market_price_american:
+          marketContext
+            ?.current_cashedge_price_american ??
+          null,
+
+
+        game_time:
+          row.source_daily_pick_id
+            ? gameTimeByDailyPickId.get(
+                String(
+                  row.source_daily_pick_id
+                )
+              ) || null
+            : null,
+
+
+        source_event_id:
+          row.source_daily_pick_id
+            ? sourceEventIdByDailyPickId.get(
+                String(
+                  row.source_daily_pick_id
+                )
+              ) || null
+            : null,
+
+
+        market_intelligence: {
+
+          available:
+            Boolean(
+              marketEvaluation ||
+              latestMovement ||
+              activeOpportunityEvent
+            ),
+
+
+          marketType:
+            marketContext
+              ?.market_type ||
+            null,
+
+
+          movementReferenceMarketType:
+            marketContext
+              ?.movement_reference_market_type ||
+            null,
+
+
+          alignment:
+            marketEvaluation
+              ?.latest_alignment_state ||
+            null,
+
+
+          consensus: {
+
+            line:
+              marketEvaluation
+                ?.latest_market_line ??
+              null,
+
+            price:
+              marketEvaluation
+                ?.latest_market_price_american ??
+              null
+          },
+
+
+          bestAvailable: {
+
+            sportsbookKey:
+              marketEvaluation
+                ?.latest_best_sportsbook_key ||
+              null,
+
+            sportsbook:
+              marketEvaluation
+                ?.latest_best_sportsbook_name ||
+              null,
+
+            line:
+              marketEvaluation
+                ?.latest_best_line ??
+              null,
+
+            price:
+              marketEvaluation
+                ?.latest_best_price_american ??
+              null
+          },
+
+
+          ticketsPct:
+            marketEvaluation
+              ?.latest_tickets_pct ??
+            null,
+
+
+          moneyPct:
+            marketEvaluation
+              ?.latest_money_pct ??
+            null,
+
+
+          opportunity: {
+
+            state:
+              marketEvaluation
+                ?.latest_opportunity_state ||
+              null,
+
+            type:
+              marketEvaluation
+                ?.latest_opportunity_type ||
+              null,
+
+            lineValue:
+              marketEvaluation
+                ?.latest_opportunity_line_value ??
+              null,
+
+            priceValueCents:
+              marketEvaluation
+                ?.latest_opportunity_price_value_cents ??
+              null,
+
+            sportsbookKey:
+              marketEvaluation
+                ?.latest_opportunity_book_key ||
+              null,
+
+            sportsbook:
+              marketEvaluation
+                ?.latest_opportunity_book_name ||
+              null,
+
+            line:
+              marketEvaluation
+                ?.latest_opportunity_best_line ??
+              null,
+
+            price:
+              marketEvaluation
+                ?.latest_opportunity_best_price ??
+              null,
+
+            startedAt:
+              marketEvaluation
+                ?.opportunity_state_started_at ||
+              null,
+
+            headline:
+              activeOpportunityEvent
+                ?.headline ||
+              null,
+
+            explanation:
+              activeOpportunityEvent
+                ?.explanation ||
+              null
+          },
+
+
+          staleLine:
+            staleLineEvent
+              ?.event_data
+              ?.staleLine ||
+            null,
+
+
+          movement:
+            latestMovement
+              ? {
+
+                  eventType:
+                    latestMovement
+                      .event_type,
+
+                  direction:
+                    latestMovement
+                      .direction,
+
+                  headline:
+                    latestMovement
+                      .headline,
+
+                  explanation:
+                    latestMovement
+                      .explanation,
+
+                  detectedAt:
+                    latestMovement
+                      .first_detected_at,
+
+                  data:
+                    latestMovement
+                      .event_data ||
+                    {}
+
+                }
+              : null,
+
+
+          importantNow:
+            marketEvents.some(
+              event =>
+                event.is_important_now ===
+                true
+            ),
+
+
+          activity:
+            activity.map(
+              event => ({
+
+                id:
+                  event.id,
+
+                family:
+                  event.event_family,
+
+                type:
+                  event.event_type,
+
+                direction:
+                  event.direction,
+
+                severity:
+                  event.severity,
+
+                headline:
+                  event.headline,
+
+                explanation:
+                  event.explanation,
+
+                importanceLevel:
+                  event.importance_level,
+
+                importantNow:
+                  event.is_important_now ===
+                  true,
+
+                active:
+                  event.is_active ===
+                  true,
+
+                detectedAt:
+                  event.first_detected_at,
+
+                lastDetectedAt:
+                  event.last_detected_at,
+
+                data:
+                  event.event_data ||
+                  {}
+
+              })
+            )
+        }
+      };
+    }
   );
 
       // ======================================================
@@ -1142,9 +1664,11 @@ current_market_price_american:
 
           today,
 
-          footballEndDate,
+         footballEndDate,
 
-          grouped
+marketIntelligenceEnabled,
+
+grouped
         });
 
 
