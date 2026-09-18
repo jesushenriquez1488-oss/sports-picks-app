@@ -1556,7 +1556,8 @@ if (radarGameIds.length) {
 }
 let sourceEventIdByDailyPickId =
   new Map();
-
+let sourceMarketByDailyPickId =
+  new Map();
 
 if (sourceDailyPickIds.length) {
 
@@ -1605,6 +1606,79 @@ if (sourceDailyPickIds.length) {
           ]
         )
     );
+  sourceMarketByDailyPickId =
+  new Map(
+    (sourceDailyPicks || [])
+      .map(
+        row => {
+
+          const card =
+            row.analysis_json
+              ?.premium
+              ?.recommendedCards
+              ?.[0] ||
+            null;
+
+
+          const cardType =
+            String(
+              card?.type || ""
+            )
+              .toUpperCase()
+              .trim();
+
+
+          let marketType =
+            null;
+
+
+          if (
+            cardType === "ML"
+          ) {
+
+            marketType =
+              "moneyline";
+
+          } else if (
+            cardType === "RUNLINE"
+          ) {
+
+            marketType =
+              "spread";
+
+          } else if (
+            cardType === "OVER" ||
+            cardType === "UNDER"
+          ) {
+
+            marketType =
+              "total";
+          }
+
+
+          const price =
+            Number(
+              card?.odds_american
+            );
+
+
+          return [
+            String(row.id),
+
+            {
+              marketType,
+
+              price:
+                Number.isFinite(
+                  price
+                )
+                  ? price
+                  : null
+            }
+          ];
+        }
+      )
+  );
 }
 
 
@@ -1722,21 +1796,53 @@ home_team_logo:
   null,
 
         market_type:
-          marketContext
-            ?.market_type ||
-          null,
+  marketContext
+    ?.market_type ||
+  (
+    row.source_daily_pick_id
+      ? sourceMarketByDailyPickId
+          .get(
+            String(
+              row.source_daily_pick_id
+            )
+          )
+          ?.marketType ||
+        null
+      : null
+  ),
+
+     first_premium_price_american:
+  marketContext
+    ?.first_premium_price_american ??
+  (
+    row.source_daily_pick_id
+      ? sourceMarketByDailyPickId
+          .get(
+            String(
+              row.source_daily_pick_id
+            )
+          )
+          ?.price ??
+        null
+      : null
+  ),
 
 
-        first_premium_price_american:
-          marketContext
-            ?.first_premium_price_american ??
-          null,
-
-
-        current_market_price_american:
-          marketContext
-            ?.current_cashedge_price_american ??
-          null,
+       current_market_price_american:
+  marketContext
+    ?.current_cashedge_price_american ??
+  (
+    row.source_daily_pick_id
+      ? sourceMarketByDailyPickId
+          .get(
+            String(
+              row.source_daily_pick_id
+            )
+          )
+          ?.price ??
+        null
+      : null
+  ),
 
 
         game_time:
