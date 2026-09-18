@@ -52,7 +52,384 @@ function addDays(
     .toISOString()
     .slice(0, 10);
 }
+// ============================================================
+// PREMIUM RADAR TEAM LOGOS
+// ============================================================
 
+const PREMIUM_RADAR_LOGO_CACHE_TTL_MS =
+  6 * 60 * 60 * 1000;
+
+
+const premiumRadarLogoCache =
+  globalThis
+    .__cashEdgePremiumRadarLogoCache ||
+  new Map();
+
+
+globalThis
+  .__cashEdgePremiumRadarLogoCache =
+  premiumRadarLogoCache;
+
+
+// ============================================================
+// NORMALIZE TEAM NAME
+// ============================================================
+
+function normalizeRadarTeamName(
+  value
+) {
+
+  return String(
+    value || ""
+  )
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .toLowerCase()
+    .replace(
+      /[^a-z0-9]/g,
+      ""
+    );
+}
+
+
+// ============================================================
+// ESPN SPORT PATH
+// ============================================================
+
+function getPremiumRadarEspnPath(
+  sport
+) {
+
+  const normalizedSport =
+    String(
+      sport || ""
+    )
+      .toLowerCase()
+      .trim();
+
+
+  const paths = {
+
+    mlb:
+      "baseball/mlb",
+
+    nba:
+      "basketball/nba",
+
+    wnba:
+      "basketball/wnba",
+
+    ncaab:
+      "basketball/mens-college-basketball",
+
+    nfl:
+      "football/nfl",
+
+    ncaaf:
+      "football/college-football"
+  };
+
+
+  return (
+    paths[
+      normalizedSport
+    ] ||
+    null
+  );
+}
+
+
+// ============================================================
+// TEAM NAME MATCH
+// ============================================================
+
+function radarTeamMatches(
+  expectedName,
+  espnTeam
+) {
+
+  const expected =
+    normalizeRadarTeamName(
+      expectedName
+    );
+
+
+  if (!expected) {
+    return false;
+  }
+
+
+  const aliases = [
+
+    espnTeam
+      ?.displayName,
+
+    espnTeam
+      ?.shortDisplayName,
+
+    espnTeam
+      ?.name,
+
+    espnTeam
+      ?.location,
+
+    espnTeam
+      ?.abbreviation
+
+  ]
+    .map(
+      normalizeRadarTeamName
+    )
+    .filter(Boolean);
+
+
+  return aliases.some(
+    alias =>
+      alias === expected ||
+      (
+        alias.length >= 4 &&
+        expected.length >= 4 &&
+        (
+          alias.includes(
+            expected
+          ) ||
+          expected.includes(
+            alias
+          )
+        )
+      )
+  );
+}
+
+
+// ============================================================
+// LOAD ESPN SCOREBOARD
+// ============================================================
+
+async function loadPremiumRadarLogoBoard(
+  sport,
+  gameDate
+) {
+
+  const sportPath =
+    getPremiumRadarEspnPath(
+      sport
+    );
+
+
+  if (
+    !sportPath ||
+    !gameDate
+  ) {
+
+    return [];
+  }
+
+
+  const compactDate =
+    String(
+      gameDate
+    )
+      .replaceAll(
+        "-",
+        ""
+      );
+
+
+  const cacheKey =
+    `${sportPath}:${compactDate}`;
+
+
+  const cached =
+    premiumRadarLogoCache
+      .get(
+        cacheKey
+      );
+
+
+  if (
+    cached &&
+    (
+      Date.now() -
+      cached.createdAt
+    ) <
+    PREMIUM_RADAR_LOGO_CACHE_TTL_MS
+  ) {
+
+    return cached.events;
+  }
+
+
+  try {
+
+    const url =
+      `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard?dates=${compactDate}`;
+
+
+    const response =
+      await fetch(
+        url
+      );
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        `ESPN scoreboard ${response.status}`
+      );
+    }
+
+
+    const data =
+      await response.json();
+
+
+    const events =
+      Array.isArray(
+        data?.events
+      )
+        ? data.events
+        : [];
+
+
+    premiumRadarLogoCache
+      .set(
+        cacheKey,
+        {
+          createdAt:
+            Date.now(),
+
+          events
+        }
+      );
+
+
+    return events;
+
+  } catch (error) {
+
+    console.warn(
+      "PREMIUM RADAR LOGO ERROR:",
+      sport,
+      gameDate,
+      error?.message ||
+      error
+    );
+
+
+    return [];
+  }
+}
+
+
+// ============================================================
+// RESOLVE GAME LOGOS
+// ============================================================
+
+function resolvePremiumRadarGameLogos(
+  row,
+  events
+) {
+
+  for (
+    const event of
+    events || []
+  ) {
+
+    const competitors =
+      event
+        ?.competitions
+        ?.[0]
+        ?.competitors ||
+      [];
+
+
+    const away =
+      competitors.find(
+        competitor =>
+          competitor
+            ?.homeAway ===
+          "away"
+      );
+
+
+    const home =
+      competitors.find(
+        competitor =>
+          competitor
+            ?.homeAway ===
+          "home"
+      );
+
+
+    if (
+      !away ||
+      !home
+    ) {
+
+      continue;
+    }
+
+
+    const awayMatches =
+      radarTeamMatches(
+        row.away_team,
+        away.team
+      );
+
+
+    const homeMatches =
+      radarTeamMatches(
+        row.home_team,
+        home.team
+      );
+
+
+    if (
+      !awayMatches ||
+      !homeMatches
+    ) {
+
+      continue;
+    }
+
+
+    return {
+
+      away:
+        away
+          ?.team
+          ?.logos
+          ?.[0]
+          ?.href ||
+        away
+          ?.team
+          ?.logo ||
+        null,
+
+
+      home:
+        home
+          ?.team
+          ?.logos
+          ?.[0]
+          ?.href ||
+        home
+          ?.team
+          ?.logo ||
+        null
+    };
+  }
+
+
+  return {
+    away: null,
+    home: null
+  };
+}
 
 // ============================================================
 // RADAR FIELDS
@@ -782,7 +1159,92 @@ const radarRows = [
   ...(dailyRows || []),
   ...(footballRows || [])
 ];
+const logoBoardRequests =
+  [
+    ...new Map(
+      radarRows.map(
+        row => {
 
+          const key =
+            `${row.sport}:${row.game_date}`;
+
+
+          return [
+            key,
+            {
+              key,
+              sport:
+                row.sport,
+              gameDate:
+                row.game_date
+            }
+          ];
+        }
+      )
+    ).values()
+  ];
+
+
+const logoBoardResults =
+  await Promise.all(
+    logoBoardRequests.map(
+      async request => ({
+
+        key:
+          request.key,
+
+        events:
+          await loadPremiumRadarLogoBoard(
+            request.sport,
+            request.gameDate
+          )
+
+      })
+    )
+  );
+
+
+const logoBoardByKey =
+  new Map(
+    logoBoardResults.map(
+      result => [
+        result.key,
+        result.events
+      ]
+    )
+  );
+
+
+const teamLogosByGameId =
+  new Map();
+
+
+for (
+  const row of
+  radarRows
+) {
+
+  const logoKey =
+    `${row.sport}:${row.game_date}`;
+
+
+  const events =
+    logoBoardByKey.get(
+      logoKey
+    ) ||
+    [];
+
+
+  teamLogosByGameId.set(
+    String(
+      row.game_id
+    ),
+    resolvePremiumRadarGameLogos(
+      row,
+      events
+    )
+  );
+}
 
 const sourceDailyPickIds =
   radarRows
@@ -1191,7 +1653,22 @@ const rows =
       return {
 
         ...row,
+away_team_logo:
+  teamLogosByGameId
+    .get(
+      gameKey
+    )
+    ?.away ||
+  null,
 
+
+home_team_logo:
+  teamLogosByGameId
+    .get(
+      gameKey
+    )
+    ?.home ||
+  null,
 
         market_type:
           marketContext
