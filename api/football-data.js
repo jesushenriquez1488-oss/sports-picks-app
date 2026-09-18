@@ -15835,10 +15835,24 @@ const injuryAdjB =
       : 0;
 
 const projectedTeamAInj =
-  round(projectedTeamA + injuryAdjA);
+  round(
+    type === "ncaaf"
+      ? Math.max(
+          0,
+          projectedTeamA + injuryAdjA
+        )
+      : projectedTeamA + injuryAdjA
+  );
 
 const projectedTeamBInj =
-  round(projectedTeamB + injuryAdjB);
+  round(
+    type === "ncaaf"
+      ? Math.max(
+          0,
+          projectedTeamB + injuryAdjB
+        )
+      : projectedTeamB + injuryAdjB
+  );
 // ============================================================
 // PACE PROFILE — EARLY SEASON STABILIZATION
 // ============================================================
@@ -15895,8 +15909,25 @@ console.log("PACE MODULE:", {
 });
 // Aplicar la mitad del ajuste a cada equipo
 const halfAdj = paceModule.adjustment / 2;
-const projectedTeamAFinal = round(projectedTeamAInj + halfAdj);
-const projectedTeamBFinal = round(projectedTeamBInj + halfAdj);
+const projectedTeamAFinal =
+  round(
+    type === "ncaaf"
+      ? Math.max(
+          0,
+          projectedTeamAInj + halfAdj
+        )
+      : projectedTeamAInj + halfAdj
+  );
+
+const projectedTeamBFinal =
+  round(
+    type === "ncaaf"
+      ? Math.max(
+          0,
+          projectedTeamBInj + halfAdj
+        )
+      : projectedTeamBInj + halfAdj
+  );
 
 const baseProjectedTotal = round(projectedTeamA + projectedTeamB);
 const projectedTotal = round(projectedTeamAFinal + projectedTeamBFinal);
