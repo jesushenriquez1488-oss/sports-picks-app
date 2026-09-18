@@ -718,9 +718,13 @@ if (radarViewMode === "history") {
             ]
           )
           .eq(
-            "game_date",
-            today
-          );
+  "game_date",
+  today
+)
+.eq(
+  "current_is_premium",
+  true
+);
 
 
       if (dailyError) {
@@ -755,10 +759,14 @@ if (radarViewMode === "history") {
             "game_date",
             today
           )
-          .lte(
-            "game_date",
-            footballEndDate
-          );
+         .lte(
+  "game_date",
+  footballEndDate
+)
+.eq(
+  "current_is_premium",
+  true
+);
 
 
       if (footballError) {
