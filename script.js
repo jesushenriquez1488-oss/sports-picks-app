@@ -14133,7 +14133,7 @@ const oppositeMoneyPct =
         // MARKET SUMMARY — COMPACT
         // ====================================================
 
-      const marketSummaryHTML =
+     const marketSummaryHTML =
   hasMarketIntelligence
     ? `
         <div
