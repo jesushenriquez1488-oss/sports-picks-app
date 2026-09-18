@@ -264,16 +264,63 @@ function centralDateFromIso(
 }
 
 
+function normalizeTeamForGameKey(
+  sport,
+  value
+) {
+
+  const normalized =
+    normalizeText(value);
+
+
+  if (
+    normalizeText(sport) === "mlb"
+  ) {
+
+    const athleticsAliases =
+      new Set([
+        "athletics",
+        "oakland athletics",
+        "sacramento athletics",
+        "las vegas athletics",
+        "a s"
+      ]);
+
+
+    if (
+      athleticsAliases.has(
+        normalized
+      )
+    ) {
+      return "athletics";
+    }
+  }
+
+
+  return normalized;
+}
+
+
 function makeGameKey({
   sport,
   awayTeam,
   homeTeam,
   gameDate
 }) {
+
   return [
     normalizeText(sport),
-    normalizeText(awayTeam),
-    normalizeText(homeTeam),
+
+    normalizeTeamForGameKey(
+      sport,
+      awayTeam
+    ),
+
+    normalizeTeamForGameKey(
+      sport,
+      homeTeam
+    ),
+
     gameDate
   ].join("|");
 }
