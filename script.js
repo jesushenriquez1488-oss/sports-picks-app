@@ -12275,6 +12275,569 @@ function nextPremiumRadarImportantMove() {
 
 window.nextPremiumRadarImportantMove =
   nextPremiumRadarImportantMove;
+const PREMIUM_RADAR_REFRESH_MS =
+  15 * 1000;
+
+let premiumRadarAutoRefreshTimer =
+  null;
+
+let premiumRadarAutoRefreshToken =
+  null;
+
+
+function premiumRadarPulseEscape(
+  value
+) {
+  return String(
+    value ?? ""
+  )
+    .replaceAll(
+      "&",
+      "&amp;"
+    )
+    .replaceAll(
+      "<",
+      "&lt;"
+    )
+    .replaceAll(
+      ">",
+      "&gt;"
+    )
+    .replaceAll(
+      '"',
+      "&quot;"
+    )
+    .replaceAll(
+      "'",
+      "&#039;"
+    );
+}
+
+
+function premiumRadarRenderPulse(
+  intelligence = {}
+) {
+
+  const pulse =
+    intelligence?.pulse ||
+    {};
+
+
+  const status =
+    String(
+      pulse.status ||
+      "NO_STRONG_MARKET_SIGNAL"
+    )
+      .toUpperCase()
+      .trim();
+
+
+  let title =
+    "NO STRONG MARKET SIGNAL";
+
+  let color =
+    "#71839f";
+
+  let background =
+    "rgba(113,131,159,.05)";
+
+  let border =
+    "rgba(113,131,159,.22)";
+
+
+  if (
+    status ===
+    "MINOR_MARKET_MOVEMENT"
+  ) {
+
+    title =
+      "MINOR MARKET MOVEMENT";
+
+    color =
+      "#00a8ff";
+
+    background =
+      "rgba(0,168,255,.06)";
+
+    border =
+      "rgba(0,168,255,.25)";
+
+  } else if (
+    status ===
+    "IMPORTANT_MOVE"
+  ) {
+
+    title =
+      "IMPORTANT MARKET MOVEMENT";
+
+    color =
+      "#ffd166";
+
+    background =
+      "rgba(255,209,102,.07)";
+
+    border =
+      "rgba(255,209,102,.30)";
+  }
+
+
+  const updates =
+    Array.isArray(
+      pulse.updates
+    )
+      ? pulse.updates.slice(
+          0,
+          3
+        )
+      : [];
+
+
+  const marketType =
+    String(
+      intelligence
+        ?.movementReferenceMarketType ||
+      intelligence?.marketType ||
+      ""
+    )
+      .toLowerCase()
+      .trim();
+
+
+  const updateRows =
+    updates
+      .map(
+        update => {
+
+          const previousLine =
+            premiumRadarNum(
+              update.previousLine
+            );
+
+          const newLine =
+            premiumRadarNum(
+              update.newLine
+            );
+
+          const previousPrice =
+            premiumRadarNum(
+              update.previousPrice
+            );
+
+          const newPrice =
+            premiumRadarNum(
+              update.newPrice
+            );
+
+
+          const pieces = [];
+
+
+          if (
+            previousLine !== null &&
+            newLine !== null &&
+            previousLine !==
+              newLine
+          ) {
+
+            pieces.push(
+              `${premiumRadarLine(
+                previousLine,
+                marketType
+              )} → ${premiumRadarLine(
+                newLine,
+                marketType
+              )}`
+            );
+          }
+
+
+          if (
+            previousPrice !== null &&
+            newPrice !== null &&
+            previousPrice !==
+              newPrice
+          ) {
+
+            pieces.push(
+              `${premiumRadarAmerican(
+                previousPrice
+              )} → ${premiumRadarAmerican(
+                newPrice
+              )}`
+            );
+          }
+
+
+          if (!pieces.length) {
+            return "";
+          }
+
+
+          const book =
+            update.sportsbook ||
+            update.sportsbookKey ||
+            "Sportsbook";
+
+
+          return `
+            <div
+              style="
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                gap:8px;
+                padding:5px 0;
+                border-top:
+                  1px solid
+                  rgba(255,255,255,.04);
+              "
+            >
+              <span
+                style="
+                  color:#8ca0b8;
+                  font-size:7px;
+                  font-weight:800;
+                "
+              >
+                ${premiumRadarPulseEscape(
+                  book
+                )}
+              </span>
+
+              <strong
+                style="
+                  color:#dce7f5;
+                  font-size:8px;
+                  font-weight:900;
+                  white-space:nowrap;
+                "
+              >
+                ${premiumRadarPulseEscape(
+                  pieces.join(
+                    " · "
+                  )
+                )}
+              </strong>
+            </div>
+          `;
+        }
+      )
+      .filter(Boolean)
+      .join("");
+
+
+  return `
+    <div
+      style="
+        margin-top:9px;
+        padding:9px 11px;
+
+        border:
+          1px solid
+          ${border};
+
+        border-radius:10px;
+
+        background:
+          ${background};
+      "
+    >
+
+      <div
+        style="
+          display:flex;
+          justify-content:space-between;
+          align-items:center;
+          gap:8px;
+        "
+      >
+
+        <div
+          style="
+            color:${color};
+            font-size:7px;
+            font-weight:900;
+            letter-spacing:.8px;
+          "
+        >
+          MARKET PULSE
+        </div>
+
+
+        <div
+          style="
+            color:${color};
+            font-size:7px;
+            font-weight:900;
+          "
+        >
+          ${premiumRadarPulseEscape(
+            title
+          )}
+        </div>
+
+      </div>
+
+
+      <div
+        style="
+          color:#71839f;
+          font-size:7px;
+          line-height:1.35;
+          margin-top:4px;
+        "
+      >
+        ${premiumRadarPulseEscape(
+          pulse.explanation ||
+          "Monitoring current market activity."
+        )}
+      </div>
+
+
+      ${
+        updateRows
+          ? `
+              <div
+                style="
+                  margin-top:5px;
+                "
+              >
+                ${updateRows}
+              </div>
+            `
+          : ""
+      }
+
+    </div>
+  `;
+}
+function stopPremiumRadarAutoRefresh() {
+
+  if (
+    premiumRadarAutoRefreshTimer
+  ) {
+
+    clearInterval(
+      premiumRadarAutoRefreshTimer
+    );
+  }
+
+
+  premiumRadarAutoRefreshTimer =
+    null;
+
+  premiumRadarAutoRefreshToken =
+    null;
+}
+
+
+async function refreshPremiumRadarMarketSilently() {
+
+  if (
+    !premiumRadarAutoRefreshToken
+  ) {
+    return;
+  }
+
+
+  const radarView =
+    document.getElementById(
+      "premiumRadarView"
+    );
+
+
+  if (
+    !radarView ||
+    radarView.style.display ===
+      "none"
+  ) {
+    return;
+  }
+
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/premium-radar",
+        {
+          headers: {
+            Authorization:
+              `Bearer ${premiumRadarAutoRefreshToken}`
+          }
+        }
+      );
+
+
+    const data =
+      await response.json();
+
+
+    if (
+      !response.ok ||
+      data.locked === true
+    ) {
+      return;
+    }
+
+
+    const rowsById =
+      new Map();
+
+
+    const grouped =
+      data.grouped &&
+      typeof data.grouped ===
+        "object"
+        ? data.grouped
+        : {};
+
+
+    Object.values(
+      grouped
+    )
+      .forEach(
+        sports => {
+
+          Object.values(
+            sports || {}
+          )
+            .forEach(
+              rows => {
+
+                (
+                  Array.isArray(
+                    rows
+                  )
+                    ? rows
+                    : []
+                )
+                  .forEach(
+                    row => {
+
+                      const gameId =
+                        String(
+                          row.game_id ||
+                          ""
+                        );
+
+
+                      if (gameId) {
+
+                        rowsById.set(
+                          gameId,
+                          row
+                        );
+                      }
+                    }
+                  );
+              }
+            );
+        }
+      );
+
+
+    const cards =
+      Array.from(
+        radarView
+          .querySelectorAll(
+            "[data-radar-game-id]"
+          )
+      );
+
+
+    for (
+      const card
+      of cards
+    ) {
+
+      const gameId =
+        String(
+          card.dataset
+            .radarGameId ||
+          ""
+        );
+
+
+      const row =
+        rowsById.get(
+          gameId
+        );
+
+
+      if (!row) {
+        continue;
+      }
+
+
+      const intelligence =
+        row.market_intelligence ||
+        {};
+
+
+      const pulsePanel =
+        card.querySelector(
+          "[data-radar-pulse]"
+        );
+
+
+      if (pulsePanel) {
+
+        pulsePanel.innerHTML =
+          premiumRadarRenderPulse(
+            intelligence
+          );
+      }
+
+
+      card.dataset
+        .radarImportant =
+          intelligence
+            .importantNow ===
+          true
+            ? "1"
+            : "0";
+    }
+
+
+    updatePremiumRadarImportantButton();
+
+
+  } catch (error) {
+
+    console.warn(
+      "Premium Radar silent refresh skipped:",
+      error.message
+    );
+  }
+}
+
+
+function startPremiumRadarAutoRefresh(
+  accessToken
+) {
+
+  stopPremiumRadarAutoRefresh();
+
+
+  premiumRadarAutoRefreshToken =
+    accessToken ||
+    null;
+
+
+  if (
+    !premiumRadarAutoRefreshToken
+  ) {
+    return;
+  }
+
+
+  premiumRadarAutoRefreshTimer =
+    setInterval(
+      refreshPremiumRadarMarketSilently,
+      PREMIUM_RADAR_REFRESH_MS
+    );
+}
 // ============================================================
 // PREMIUM RADAR
 // ============================================================
@@ -12283,7 +12846,7 @@ async function openPremiumRadar(
   viewMode = "today",
   historyDate = null
 ) {
-
+stopPremiumRadarAutoRefresh();
   const radarView =
     document.getElementById(
       "premiumRadarView"
@@ -13158,7 +13721,18 @@ const cards =
           marketFeatureEnabled &&
           intelligence.available ===
           true;
-
+const marketPulseHTML =
+  marketFeatureEnabled
+    ? `
+        <div
+          data-radar-pulse="true"
+        >
+          ${premiumRadarRenderPulse(
+            intelligence
+          )}
+        </div>
+      `
+    : "";
 
         const marketType =
           String(
@@ -13726,7 +14300,7 @@ const cards =
                                 font-weight:800;
                               "
                             >
-                              No material move yet
+                              No strong market signal
                             </div>
                           `
                     }
@@ -14691,9 +15265,11 @@ const cards =
 
             ${opportunityHTML}
 
-            ${marketSummaryHTML}
+${marketPulseHTML}
 
-            ${marketActivityHTML}
+${marketSummaryHTML}
+
+${marketActivityHTML}
 
             ${analysisButtonHTML}
 
@@ -15224,6 +15800,13 @@ ${
     `;
 updatePremiumRadarImportantButton();
 
+if (!isHistoryRequest) {
+
+  startPremiumRadarAutoRefresh(
+    session.access_token
+  );
+}
+
   } catch (error) {
 
     console.error(
@@ -15287,7 +15870,7 @@ updatePremiumRadarImportantButton();
 // ============================================================
 
 function closePremiumRadar() {
-
+stopPremiumRadarAutoRefresh();
   const radarView =
     document.getElementById(
       "premiumRadarView"
