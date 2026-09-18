@@ -1401,9 +1401,11 @@ first_premium_line,
         )
         .select(`
           id,
-          cashedge_game_id,
-          event_family,
-          event_type,
+cashedge_game_id,
+market_type,
+selection_key,
+event_family,
+event_type,
           direction,
           severity,
           signal_strength,
@@ -1826,7 +1828,103 @@ const movementReferenceSelectionKey =
   )
     .toLowerCase()
     .trim();
+const actualMarketType =
+  String(
+    marketContext
+      ?.market_type ||
+    ""
+  )
+    .toLowerCase()
+    .trim();
 
+
+const actualSelectionKey =
+  String(
+    marketContext
+      ?.selection_key ||
+    ""
+  )
+    .toLowerCase()
+    .trim();
+
+
+function eventMatchesMarket(
+  event,
+  targetMarketType,
+  targetSelectionKey
+) {
+
+  const eventMarketType =
+    String(
+      event?.market_type ||
+      ""
+    )
+      .toLowerCase()
+      .trim();
+
+
+  const eventSelectionKey =
+    String(
+      event?.selection_key ||
+      ""
+    )
+      .toLowerCase()
+      .trim();
+
+
+  return (
+    eventMarketType ===
+      targetMarketType &&
+    eventSelectionKey ===
+      targetSelectionKey
+  );
+}
+
+
+const currentMarketEvents =
+  marketEvents.filter(
+    event => {
+
+      const family =
+        String(
+          event?.event_family ||
+          ""
+        )
+          .toLowerCase()
+          .trim();
+
+
+      if (
+        family ===
+          "movement" ||
+        family ===
+          "signal"
+      ) {
+
+        return eventMatchesMarket(
+          event,
+          movementReferenceMarketType,
+          movementReferenceSelectionKey
+        );
+      }
+
+
+      if (
+        family ===
+        "opportunity"
+      ) {
+
+        return eventMatchesMarket(
+          event,
+          actualMarketType,
+          actualSelectionKey
+        );
+      }
+
+
+      return false;
+    }
+  );
 
 const recentRawMovements =
   rawMarketUpdates
@@ -1915,7 +2013,7 @@ const recentMovementBooks =
 
 
 const hasImportantNow =
-  marketEvents.some(
+  currentMarketEvents.some(
     event =>
       event.is_important_now ===
       true
@@ -2001,7 +2099,7 @@ const marketPulse = {
       )
 };
       const latestMovement =
-        marketEvents.find(
+       currentMarketEvents.find(
           event =>
             event.event_family ===
             "movement"
@@ -2010,7 +2108,7 @@ const marketPulse = {
 
 
       const activeOpportunityEvent =
-        marketEvents.find(
+        currentMarketEvents.find(
           event =>
             event.event_family ===
               "opportunity" &&
@@ -2021,7 +2119,7 @@ const marketPulse = {
 
 
       const staleLineEvent =
-        marketEvents.find(
+          currentMarketEvents.find(
           event =>
             event.event_family ===
               "opportunity" &&
@@ -2036,9 +2134,9 @@ const marketPulse = {
         null;
 
 
-      const activity =
-        marketEvents
-          .filter(
+    const activity =
+  currentMarketEvents
+    .filter(
             event =>
               event.event_family ===
                 "movement" ||
@@ -2172,7 +2270,18 @@ pulse:
             marketContext
               ?.market_type ||
             null,
+selectionKey:
+  marketContext
+    ?.selection_key ||
+  null,
 
+
+movementReferenceSelectionKey:
+  marketContext
+    ?.movement_reference_selection_key ||
+  marketContext
+    ?.selection_key ||
+  null,
 
           movementReferenceMarketType:
             marketContext
