@@ -239,6 +239,14 @@ async function loadPremiumRadarLogoBoard(
       );
 
 
+  const normalizedSport =
+    String(
+      sport || ""
+    )
+      .toLowerCase()
+      .trim();
+
+
   const cacheKey =
     `${sportPath}:${compactDate}`;
 
@@ -265,34 +273,78 @@ async function loadPremiumRadarLogoBoard(
 
   try {
 
-    const url =
-      `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard?dates=${compactDate}`;
+    const urls =
+      normalizedSport ===
+      "ncaaf"
+        ? [
+            `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard?dates=${compactDate}&groups=80&limit=500`,
+
+            `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard?dates=${compactDate}&groups=81&limit=500`
+          ]
+        : [
+            `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard?dates=${compactDate}&limit=500`
+          ];
 
 
-    const response =
-      await fetch(
-        url
+    const responses =
+      await Promise.all(
+        urls.map(
+          url =>
+            fetch(url)
+        )
       );
 
 
-    if (!response.ok) {
+    const eventMap =
+      new Map();
 
-      throw new Error(
-        `ESPN scoreboard ${response.status}`
-      );
+
+    for (
+      const response of
+      responses
+    ) {
+
+      if (!response.ok) {
+        continue;
+      }
+
+
+      const data =
+        await response.json();
+
+
+      const events =
+        Array.isArray(
+          data?.events
+        )
+          ? data.events
+          : [];
+
+
+      for (
+        const event of
+        events
+      ) {
+
+        const eventKey =
+          String(
+            event?.id ||
+            `${event?.date || ""}:${event?.name || ""}`
+          );
+
+
+        eventMap.set(
+          eventKey,
+          event
+        );
+      }
     }
 
 
-    const data =
-      await response.json();
-
-
     const events =
-      Array.isArray(
-        data?.events
-      )
-        ? data.events
-        : [];
+      Array.from(
+        eventMap.values()
+      );
 
 
     premiumRadarLogoCache
@@ -323,7 +375,6 @@ async function loadPremiumRadarLogoBoard(
     return [];
   }
 }
-
 
 // ============================================================
 // RESOLVE GAME LOGOS
