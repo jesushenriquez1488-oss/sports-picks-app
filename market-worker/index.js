@@ -32,7 +32,8 @@ const TRACKED_GAMES_URL =
 const INGEST_QUOTE_URL =
   `${CASHEDGE_ORIGIN}/api/market-intelligence/ingest-quote`;
 
-
+const PICK_CONTEXT_SYNC_URL =
+  process.env.PICK_CONTEXT_SYNC_URL;
 const SPORTS = [
   "mlb",
   "nfl",
@@ -62,7 +63,11 @@ const BOOKS = [
 
 const REFRESH_INTERVAL_MS =
   60 * 1000;
+const OWLS_WATCHDOG_INTERVAL_MS =
+  30 * 1000;
 
+const OWLS_HEARTBEAT_STALE_MS =
+  3 * 60 * 1000;
 const MAX_CONCURRENCY =
   6;
 
@@ -87,7 +92,14 @@ if (!MARKET_INGEST_SECRET) {
 
   process.exit(1);
 }
+if (!PICK_CONTEXT_SYNC_URL) {
 
+  console.error(
+    `[${WORKER_NAME}] PICK_CONTEXT_SYNC_URL missing`
+  );
+
+  process.exit(1);
+}
 
 // ============================================================
 // STATE
@@ -98,6 +110,17 @@ let socket =
 
 let refreshTimer =
   null;
+let watchdogTimer =
+  null;
+
+let lastOwlsHeartbeatAt =
+  null;
+
+let lastOwlsOddsUpdateAt =
+  null;
+
+let watchdogReconnectActive =
+  false;
 
 let trackedGameMap =
   new Map();
@@ -259,7 +282,62 @@ function makeGameKey({
 // ============================================================
 // TRACKED CASHEDGE GAMES
 // ============================================================
+async function syncPickContext() {
 
+  const response =
+    await fetch(
+      PICK_CONTEXT_SYNC_URL,
+      {
+        headers: {
+          Authorization:
+            `Bearer ${MARKET_INGEST_SECRET}`
+        }
+      }
+    );
+
+
+  const body =
+    await response
+      .json()
+      .catch(
+        () => null
+      );
+
+
+  if (
+    !response.ok ||
+    body?.ok !== true
+  ) {
+
+    throw new Error(
+      body?.error ||
+      `pick-context sync HTTP ${response.status}`
+    );
+  }
+
+
+  if (
+    Number(body.created || 0) > 0 ||
+    Number(body.deactivated || 0) > 0 ||
+    Number(body.errors || 0) > 0
+  ) {
+
+    console.log(
+      `[${WORKER_NAME}] pick context sync — created: ${Number(body.created || 0)}, updated: ${Number(body.updated || 0)}, deactivated: ${Number(body.deactivated || 0)}, errors: ${Number(body.errors || 0)}`
+    );
+  }
+
+
+  return body;
+}
+
+
+async function refreshCashEdgeState() {
+
+  await syncPickContext();
+
+  await refreshTrackedGames();
+}
 async function refreshTrackedGames() {
 
   const response =
@@ -1265,6 +1343,72 @@ async function queueOddsUpdate(
 // OWLS CONNECTION
 // ============================================================
 
+function markOwlsHeartbeat() {
+
+  lastOwlsHeartbeatAt =
+    Date.now();
+}
+
+
+function forceOwlsReconnect(
+  reason
+) {
+
+  if (watchdogReconnectActive) {
+    return;
+  }
+
+
+  watchdogReconnectActive =
+    true;
+
+
+  console.error(
+    `[${WORKER_NAME}] forcing Owls reconnect: ${reason}`
+  );
+
+
+  const oldSocket =
+    socket;
+
+
+  socket =
+    null;
+
+
+  if (oldSocket) {
+
+    try {
+
+      oldSocket
+        .removeAllListeners();
+
+      oldSocket
+        .disconnect();
+
+    } catch (error) {
+
+      console.error(
+        `[${WORKER_NAME}] Owls disconnect cleanup error: ${error.message}`
+      );
+    }
+  }
+
+
+  setTimeout(
+    () => {
+
+      watchdogReconnectActive =
+        false;
+
+      connectOwls();
+
+    },
+    1000
+  );
+}
+
+
 function connectOwls() {
 
   socket =
@@ -1302,9 +1446,35 @@ function connectOwls() {
     "connect",
     () => {
 
+      markOwlsHeartbeat();
+
+
       console.log(
         `[${WORKER_NAME}] connected to Owls Insight`
       );
+
+
+      /*
+       * Engine.IO ping is the real transport heartbeat.
+       * It does not depend on sportsbook lines moving.
+       */
+      const engine =
+        socket
+          ?.io
+          ?.engine;
+
+
+      if (
+        engine &&
+        typeof engine.on ===
+          "function"
+      ) {
+
+        engine.on(
+          "ping",
+          markOwlsHeartbeat
+        );
+      }
 
 
       socket.emit(
@@ -1329,6 +1499,12 @@ function connectOwls() {
   socket.on(
     "odds-update",
     data => {
+
+      markOwlsHeartbeat();
+
+      lastOwlsOddsUpdateAt =
+        Date.now();
+
 
       queueOddsUpdate(
         data
@@ -1360,6 +1536,59 @@ function connectOwls() {
 }
 
 
+function startOwlsWatchdog() {
+
+  if (watchdogTimer) {
+
+    clearInterval(
+      watchdogTimer
+    );
+  }
+
+
+  watchdogTimer =
+    setInterval(
+      () => {
+
+        /*
+         * If Socket.IO already knows it is disconnected,
+         * its normal reconnect system handles it.
+         */
+        if (
+          !socket ||
+          socket.connected !== true
+        ) {
+          return;
+        }
+
+
+        if (!lastOwlsHeartbeatAt) {
+          return;
+        }
+
+
+        const heartbeatAge =
+          Date.now() -
+          lastOwlsHeartbeatAt;
+
+
+        if (
+          heartbeatAge >
+          OWLS_HEARTBEAT_STALE_MS
+        ) {
+
+          forceOwlsReconnect(
+            `no Socket.IO heartbeat for ${Math.round(
+              heartbeatAge / 1000
+            )}s`
+          );
+        }
+
+      },
+      OWLS_WATCHDOG_INTERVAL_MS
+    );
+}
+
 // ============================================================
 // START
 // ============================================================
@@ -1384,8 +1613,7 @@ async function start() {
 
     try {
 
-      await refreshTrackedGames();
-
+     await refreshCashEdgeState();
       break;
 
     } catch (error) {
@@ -1412,8 +1640,7 @@ async function start() {
 
         try {
 
-          await refreshTrackedGames();
-
+         await refreshCashEdgeState();
         } catch (error) {
 
           console.error(
@@ -1426,6 +1653,7 @@ async function start() {
 
 
   connectOwls();
+  startOwlsWatchdog();
 }
 
 
@@ -1449,7 +1677,14 @@ function shutdown(
       refreshTimer
     );
   }
+if (
+  watchdogTimer
+) {
 
+  clearInterval(
+    watchdogTimer
+  );
+}
 
   if (
     socket
