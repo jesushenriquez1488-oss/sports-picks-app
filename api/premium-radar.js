@@ -1346,9 +1346,10 @@ if (radarGameIds.length) {
           "market_pick_context"
         )
         .select(`
-          cashedge_game_id,
-          market_type,
-          first_premium_line,
+         cashedge_game_id,
+market_type,
+selection_key,
+first_premium_line,
           first_premium_price_american,
           current_cashedge_line,
           current_cashedge_price_american,
@@ -1554,6 +1555,95 @@ if (radarGameIds.length) {
     }
   }
 }
+      // ============================================================
+// MARKET PULSE — RAW LIVE MARKET MOVEMENTS
+// ============================================================
+
+let marketOddsUpdatesByGameId =
+  new Map();
+
+
+if (radarGameIds.length) {
+
+  const {
+    data: rawMarketUpdates,
+    error: rawMarketUpdatesError
+  } =
+    await supabaseAdmin
+      .from(
+        "market_odds_updates"
+      )
+      .select(`
+        id,
+        cashedge_game_id,
+        sportsbook_key,
+        sportsbook_name,
+        market_type,
+        selection_key,
+        previous_line,
+        new_line,
+        previous_price_american,
+        new_price_american,
+        provider_timestamp,
+        observed_at
+      `)
+      .in(
+        "cashedge_game_id",
+        radarGameIds
+      )
+      .order(
+        "observed_at",
+        {
+          ascending: false
+        }
+      )
+      .limit(1000);
+
+
+  if (rawMarketUpdatesError) {
+    throw rawMarketUpdatesError;
+  }
+
+
+  for (
+    const update
+    of rawMarketUpdates || []
+  ) {
+
+    const gameId =
+      String(
+        update.cashedge_game_id ||
+        ""
+      );
+
+
+    if (!gameId) {
+      continue;
+    }
+
+
+    if (
+      !marketOddsUpdatesByGameId
+        .has(gameId)
+    ) {
+
+      marketOddsUpdatesByGameId
+        .set(
+          gameId,
+          []
+        );
+    }
+
+
+    marketOddsUpdatesByGameId
+      .get(gameId)
+      .push(update);
+  }
+}
+
+
+let gameTimeByDailyPickId =
+  new Map();
 let sourceEventIdByDailyPickId =
   new Map();
 let sourceMarketByDailyPickId =
@@ -1708,8 +1798,208 @@ const rows =
         marketEventsByGameId
           .get(gameKey) ||
         [];
+const rawMarketUpdates =
+  marketOddsUpdatesByGameId
+    .get(gameKey) ||
+  [];
 
 
+const movementReferenceMarketType =
+  String(
+    marketContext
+      ?.movement_reference_market_type ||
+    marketContext
+      ?.market_type ||
+    ""
+  )
+    .toLowerCase()
+    .trim();
+
+
+const movementReferenceSelectionKey =
+  String(
+    marketContext
+      ?.movement_reference_selection_key ||
+    marketContext
+      ?.selection_key ||
+    ""
+  )
+    .toLowerCase()
+    .trim();
+
+
+const recentRawMovements =
+  rawMarketUpdates
+    .filter(
+      update => {
+
+        const updateMarket =
+          String(
+            update.market_type ||
+            ""
+          )
+            .toLowerCase()
+            .trim();
+
+
+        const updateSelection =
+          String(
+            update.selection_key ||
+            ""
+          )
+            .toLowerCase()
+            .trim();
+
+
+        if (
+          movementReferenceMarketType &&
+          updateMarket !==
+            movementReferenceMarketType
+        ) {
+          return false;
+        }
+
+
+        if (
+          movementReferenceSelectionKey &&
+          updateSelection !==
+            movementReferenceSelectionKey
+        ) {
+          return false;
+        }
+
+
+        const movementTime =
+          new Date(
+            update.observed_at ||
+            update.provider_timestamp ||
+            0
+          ).getTime();
+
+
+        if (
+          !Number.isFinite(
+            movementTime
+          )
+        ) {
+          return false;
+        }
+
+
+        return (
+          Date.now() -
+          movementTime
+        ) <=
+          30 * 60 * 1000;
+      }
+    )
+    .slice(
+      0,
+      12
+    );
+
+
+const recentMovementBooks =
+  [
+    ...new Set(
+      recentRawMovements
+        .map(
+          update =>
+            update.sportsbook_key ||
+            update.sportsbook_name ||
+            null
+        )
+        .filter(Boolean)
+    )
+  ];
+
+
+const hasImportantNow =
+  marketEvents.some(
+    event =>
+      event.is_important_now ===
+      true
+  );
+
+
+const marketPulse = {
+
+  status:
+    hasImportantNow
+      ? "IMPORTANT_MOVE"
+      : recentRawMovements.length
+        ? "MINOR_MARKET_MOVEMENT"
+        : "NO_STRONG_MARKET_SIGNAL",
+
+  movementCount:
+    recentRawMovements.length,
+
+  sportsbookCount:
+    recentMovementBooks.length,
+
+  latestAt:
+    recentRawMovements[0]
+      ?.observed_at ||
+    recentRawMovements[0]
+      ?.provider_timestamp ||
+    null,
+
+  headline:
+    hasImportantNow
+      ? "IMPORTANT MARKET MOVEMENT"
+      : recentRawMovements.length
+        ? "MINOR MARKET MOVEMENT"
+        : "NO STRONG MARKET SIGNAL",
+
+  explanation:
+    hasImportantNow
+      ? "A material market signal is currently active."
+      : recentRawMovements.length
+        ? `${recentMovementBooks.length} sportsbook${
+            recentMovementBooks.length === 1
+              ? ""
+              : "s"
+          } adjusted recently. Movement remains below the Important Move threshold.`
+        : "No significant market signal detected in the recent movement window.",
+
+  updates:
+    recentRawMovements
+      .slice(
+        0,
+        6
+      )
+      .map(
+        update => ({
+
+          sportsbook:
+            update.sportsbook_name ||
+            update.sportsbook_key ||
+            null,
+
+          sportsbookKey:
+            update.sportsbook_key ||
+            null,
+
+          previousLine:
+            update.previous_line ?? null,
+
+          newLine:
+            update.new_line ?? null,
+
+          previousPrice:
+            update.previous_price_american ?? null,
+
+          newPrice:
+            update.new_price_american ?? null,
+
+          observedAt:
+            update.observed_at ||
+            update.provider_timestamp ||
+            null
+
+        })
+      )
+};
       const latestMovement =
         marketEvents.find(
           event =>
@@ -1867,14 +2157,17 @@ home_team_logo:
 
         market_intelligence: {
 
-          available:
-            Boolean(
-              marketEvaluation ||
-              latestMovement ||
-              activeOpportunityEvent
-            ),
+available:
+  Boolean(
+    marketContext ||
+    marketEvaluation ||
+    latestMovement ||
+    activeOpportunityEvent ||
+    recentRawMovements.length
+  ),
 
-
+pulse:
+  marketPulse,
           marketType:
             marketContext
               ?.market_type ||
@@ -2042,12 +2335,8 @@ home_team_logo:
               : null,
 
 
-          importantNow:
-            marketEvents.some(
-              event =>
-                event.is_important_now ===
-                true
-            ),
+importantNow:
+  hasImportantNow,
 
 
           activity:
