@@ -2340,11 +2340,92 @@ const recentMovementBooks =
   ];
 
 
+const visibleMarketEvents =
+  (
+    typeof currentMarketEvents !==
+      "undefined"
+      ? currentMarketEvents
+      : marketEvents
+  ) || [];
+
+
+const recentEventCutoff =
+  Date.now() -
+  (
+    30 *
+    60 *
+    1000
+  );
+
+
+function isRecentRadarMovement(
+  event
+) {
+
+  if (
+    event?.event_family !==
+    "movement"
+  ) {
+    return false;
+  }
+
+
+  const eventTime =
+    new Date(
+      event.last_detected_at ||
+      event.first_detected_at ||
+      0
+    )
+      .getTime();
+
+
+  return (
+    Number.isFinite(
+      eventTime
+    ) &&
+    eventTime >=
+      recentEventCutoff
+  );
+}
+
+
 const hasImportantNow =
-  currentMarketEvents.some(
-    event =>
-      event.is_important_now ===
-      true
+  visibleMarketEvents.some(
+    event => {
+
+      if (
+        event.is_important_now !==
+        true
+      ) {
+        return false;
+      }
+
+
+      if (
+        event.event_family ===
+        "movement"
+      ) {
+        return isRecentRadarMovement(
+          event
+        );
+      }
+
+
+      if (
+        event.event_family ===
+          "signal" ||
+        event.event_family ===
+          "opportunity"
+      ) {
+        return (
+          event.is_active ===
+          true
+        );
+      }
+
+
+      return false;
+    }
   );
 
 
@@ -2407,16 +2488,20 @@ const marketPulse = {
             null,
 
           previousLine:
-            update.previous_line ?? null,
+            update.previous_line ??
+            null,
 
           newLine:
-            update.new_line ?? null,
+            update.new_line ??
+            null,
 
           previousPrice:
-            update.previous_price_american ?? null,
+            update.previous_price_american ??
+            null,
 
           newPrice:
-            update.new_price_american ?? null,
+            update.new_price_american ??
+            null,
 
           observedAt:
             update.observed_at ||
@@ -2426,131 +2511,78 @@ const marketPulse = {
         })
       )
 };
-    const recentMovementCutoff =
-  Date.now() -
-  (
-    30 *
-    60 *
-    1000
-  );
 
 
 const latestMovement =
-  currentMarketEvents.find(
-    event => {
-
-      if (
-        event.event_family !==
-        "movement"
-      ) {
-        return false;
-      }
-
-
-      const eventTime =
-        new Date(
-          event.last_detected_at ||
-          event.first_detected_at ||
-          0
-        )
-          .getTime();
-
-
-      return (
-        Number.isFinite(
-          eventTime
-        ) &&
-        eventTime >=
-          recentMovementCutoff
-      );
-    }
+  visibleMarketEvents.find(
+    event =>
+      isRecentRadarMovement(
+        event
+      )
   ) ||
   null;
 
 
-      const activeOpportunityEvent =
-        currentMarketEvents.find(
-          event =>
-            event.event_family ===
-              "opportunity" &&
-            event.is_active ===
-              true
-        ) ||
-        null;
+const activeOpportunityEvent =
+  visibleMarketEvents.find(
+    event =>
+      event.event_family ===
+        "opportunity" &&
+      event.is_active ===
+        true
+  ) ||
+  null;
 
 
-      const staleLineEvent =
-          currentMarketEvents.find(
-          event =>
-            event.event_family ===
-              "opportunity" &&
-            event.is_active ===
-              true &&
-            event
-              ?.event_data
-              ?.staleLine
-              ?.detected ===
-              true
-        ) ||
-        null;
+const staleLineEvent =
+  visibleMarketEvents.find(
+    event =>
+      event.event_family ===
+        "opportunity" &&
+      event.is_active ===
+        true &&
+      event
+        ?.event_data
+        ?.staleLine
+        ?.detected ===
+        true
+  ) ||
+  null;
 
 
- const activity =
-  currentMarketEvents
+const activity =
+  visibleMarketEvents
     .filter(
       event => {
 
-        const family =
-          String(
-            event.event_family ||
-            ""
-          )
-            .toLowerCase()
-            .trim();
-
-
         if (
-          family ===
-          "signal"
-        ) {
-          return (
-            event.is_active ===
-            true
-          );
-        }
-
-
-        if (
-          family ===
-          "opportunity"
-        ) {
-          return (
-            event.is_active ===
-            true
-          );
-        }
-
-
-        if (
-          family ===
+          event.event_family ===
           "movement"
         ) {
-
-          const eventTime =
-            new Date(
-              event.last_detected_at ||
-              event.first_detected_at ||
-              0
-            )
-              .getTime();
+          return isRecentRadarMovement(
+            event
+          );
+        }
 
 
+        if (
+          event.event_family ===
+            "signal"
+        ) {
           return (
-            Number.isFinite(
-              eventTime
-            ) &&
-            eventTime >=
-              recentMovementCutoff
+            event.is_active ===
+            true
+          );
+        }
+
+
+        if (
+          event.event_family ===
+            "opportunity"
+        ) {
+          return (
+            event.is_active ===
+            true
           );
         }
 
@@ -2562,7 +2594,6 @@ const latestMovement =
       0,
       12
     );
-
 
       return {
 
