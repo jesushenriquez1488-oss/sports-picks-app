@@ -868,9 +868,10 @@ if (
       .from(
         "market_evaluation_games"
       )
-      .select(`
-        latest_alignment_state
-      `)
+.select(`
+  latest_alignment_state,
+  updated_at
+`)
       .eq(
         "cashedge_game_id",
         cashedgeGameId
@@ -885,16 +886,41 @@ if (
   }
 
 
-  const needsPipelineRebuild =
-    !evaluationState ||
-    String(
-      evaluationState
-        .latest_alignment_state ||
-      ""
-    )
-      .trim()
-      .toUpperCase() ===
-        "NO_DATA";
+const needsPipelineRebuild =
+  !evaluationState ||
+  String(
+    evaluationState
+      .latest_alignment_state ||
+    ""
+  )
+    .trim()
+    .toUpperCase() ===
+      "NO_DATA";
+
+
+const evaluationUpdatedMs =
+  new Date(
+    evaluationState
+      ?.updated_at ||
+    0
+  )
+    .getTime();
+
+
+const periodicRefreshDue =
+  !Number.isFinite(
+    evaluationUpdatedMs
+  ) ||
+  (
+    Date.now() -
+    evaluationUpdatedMs
+  ) >=
+    60 * 1000;
+
+
+const shouldRunPipeline =
+  needsPipelineRebuild ||
+  periodicRefreshDue;
 
 
   let pipeline = {
@@ -906,9 +932,9 @@ if (
   };
 
 
-  if (
-    needsPipelineRebuild
-  ) {
+ if (
+  shouldRunPipeline
+) {
 
     const rebuildResult =
       await runPipelineSafely({
@@ -931,8 +957,9 @@ if (
         true,
 
       reason:
-        "Market Intelligence rebuild",
-
+  needsPipelineRebuild
+    ? "Market Intelligence rebuild"
+    : "Periodic live market refresh",
       result:
         rebuildResult
     };
