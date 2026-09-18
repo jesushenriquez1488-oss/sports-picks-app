@@ -747,7 +747,8 @@ async function processOddsUpdate(
 
   const matchedPremiumGames =
     new Set();
-
+const premiumQuoteCounts =
+  new Map();
 
   for (
     const sport
@@ -1145,7 +1146,14 @@ const sportsbookKey =
           data.last_odds_change ||
           data.timestamp ||
           null;
-
+premiumQuoteCounts.set(
+  tracked.cashedge_game_id,
+  (
+    premiumQuoteCounts.get(
+      tracked.cashedge_game_id
+    ) || 0
+  ) + 1
+);
 
         jobs.push({
           signatureKey,
@@ -1273,6 +1281,24 @@ const sportsbookKey =
     console.log(
       `[${WORKER_NAME}] quotes sent: ${result.sent}, errors: ${result.errors}`
     );
+    for (
+  const gameId
+  of matchedPremiumGames
+) {
+
+  if (
+    (
+      premiumQuoteCounts.get(
+        gameId
+      ) || 0
+    ) === 0
+  ) {
+
+    console.log(
+      `[${WORKER_NAME}] Premium matched but no usable quotes: ${gameId}`
+    );
+  }
+}
   }
 }
 
