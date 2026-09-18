@@ -14133,19 +14133,17 @@ const oppositeMoneyPct =
         // MARKET SUMMARY — COMPACT
         // ====================================================
 
-       const marketSummaryHTML =
+      const marketSummaryHTML =
   hasMarketIntelligence
     ? `
         <div
           style="
             display:grid;
             grid-template-columns:
-              repeat(
-                3,
-                minmax(0,1fr)
-              );
+              minmax(0,.9fr)
+              minmax(0,1.15fr)
+              minmax(0,.95fr);
 
-            gap:0;
             margin-top:9px;
 
             border:
@@ -14164,6 +14162,7 @@ const oppositeMoneyPct =
           <div
             style="
               padding:8px 9px;
+              min-width:0;
 
               border-right:
                 1px solid
@@ -14243,6 +14242,7 @@ const oppositeMoneyPct =
           <div
             style="
               padding:8px 9px;
+              min-width:0;
 
               border-right:
                 1px solid
@@ -14277,7 +14277,7 @@ const oppositeMoneyPct =
                         margin-bottom:2px;
                       "
                     >
-                      CASHEDGE SIDE
+                      ON CASHEDGE PICK
                     </div>
 
 
@@ -14292,7 +14292,7 @@ const oppositeMoneyPct =
                         overflow:hidden;
                         text-overflow:ellipsis;
 
-                        margin-bottom:4px;
+                        margin-bottom:5px;
                       "
                     >
                       ${radarEscape(
@@ -14305,12 +14305,12 @@ const oppositeMoneyPct =
                       style="
                         display:flex;
                         align-items:flex-start;
-                        gap:9px;
-                        margin-bottom:4px;
+                        gap:10px;
                       "
                     >
 
                       <div>
+
                         <span
                           style="
                             display:block;
@@ -14324,6 +14324,7 @@ const oppositeMoneyPct =
 
                         <strong
                           style="
+                            display:block;
                             color:#fff;
                             font-size:8px;
                             line-height:1;
@@ -14335,10 +14336,12 @@ const oppositeMoneyPct =
                             )
                           )}
                         </strong>
+
                       </div>
 
 
                       <div>
+
                         <span
                           style="
                             display:block;
@@ -14352,6 +14355,7 @@ const oppositeMoneyPct =
 
                         <strong
                           style="
+                            display:block;
                             color:#00ffe7;
                             font-size:8px;
                             line-height:1;
@@ -14363,32 +14367,9 @@ const oppositeMoneyPct =
                             )
                           )}
                         </strong>
+
                       </div>
 
-                    </div>
-
-
-                    <div
-                      style="
-                        color:#526983;
-                        font-size:5px;
-                        line-height:1.15;
-                        white-space:nowrap;
-                      "
-                    >
-                      OTHER SIDE:
-                      ${radarEscape(
-                        premiumRadarPercent(
-                          oppositeTicketsPct
-                        )
-                      )}
-                      T ·
-                      ${radarEscape(
-                        premiumRadarPercent(
-                          oppositeMoneyPct
-                        )
-                      )}
-                      M
                     </div>
 
                   `
@@ -14413,6 +14394,7 @@ const oppositeMoneyPct =
           <div
             style="
               padding:8px 9px;
+              min-width:0;
             "
           >
 
@@ -14438,6 +14420,9 @@ const oppositeMoneyPct =
 
                 font-size:7px;
                 line-height:1.2;
+
+                word-break:normal;
+                overflow-wrap:anywhere;
               "
             >
               ${radarEscape(
@@ -14454,7 +14439,6 @@ const oppositeMoneyPct =
         </div>
       `
     : "";
-
 
         // ====================================================
         // RECENT ACTIVITY — COMPACT
