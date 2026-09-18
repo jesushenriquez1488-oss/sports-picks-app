@@ -12283,7 +12283,8 @@ let premiumRadarAutoRefreshTimer =
 
 let premiumRadarAutoRefreshToken =
   null;
-
+let premiumRadarRefreshInFlight =
+  false;
 
 function premiumRadarPulseEscape(
   value
@@ -12634,7 +12635,8 @@ function stopPremiumRadarAutoRefresh() {
 async function refreshPremiumRadarMarketSilently() {
 
   if (
-    !premiumRadarAutoRefreshToken
+    !premiumRadarAutoRefreshToken ||
+    premiumRadarRefreshInFlight
   ) {
     return;
   }
@@ -12655,152 +12657,20 @@ async function refreshPremiumRadarMarketSilently() {
   }
 
 
+  premiumRadarRefreshInFlight =
+    true;
+
+
   try {
 
-    const response =
-      await fetch(
-        "/api/premium-radar",
-        {
-          headers: {
-            Authorization:
-              `Bearer ${premiumRadarAutoRefreshToken}`
-          }
-        }
-      );
-
-
-    const data =
-      await response.json();
-
-
-    if (
-      !response.ok ||
-      data.locked === true
-    ) {
-      return;
-    }
-
-
-    const rowsById =
-      new Map();
-
-
-    const grouped =
-      data.grouped &&
-      typeof data.grouped ===
-        "object"
-        ? data.grouped
-        : {};
-
-
-    Object.values(
-      grouped
-    )
-      .forEach(
-        sports => {
-
-          Object.values(
-            sports || {}
-          )
-            .forEach(
-              rows => {
-
-                (
-                  Array.isArray(
-                    rows
-                  )
-                    ? rows
-                    : []
-                )
-                  .forEach(
-                    row => {
-
-                      const gameId =
-                        String(
-                          row.game_id ||
-                          ""
-                        );
-
-
-                      if (gameId) {
-
-                        rowsById.set(
-                          gameId,
-                          row
-                        );
-                      }
-                    }
-                  );
-              }
-            );
-        }
-      );
-
-
-    const cards =
-      Array.from(
-        radarView
-          .querySelectorAll(
-            "[data-radar-game-id]"
-          )
-      );
-
-
-    for (
-      const card
-      of cards
-    ) {
-
-      const gameId =
-        String(
-          card.dataset
-            .radarGameId ||
-          ""
-        );
-
-
-      const row =
-        rowsById.get(
-          gameId
-        );
-
-
-      if (!row) {
-        continue;
-      }
-
-
-      const intelligence =
-        row.market_intelligence ||
-        {};
-
-
-      const pulsePanel =
-        card.querySelector(
-          "[data-radar-pulse]"
-        );
-
-
-      if (pulsePanel) {
-
-        pulsePanel.innerHTML =
-          premiumRadarRenderPulse(
-            intelligence
-          );
-      }
-
-
-      card.dataset
-        .radarImportant =
-          intelligence
-            .importantNow ===
+    await openPremiumRadar(
+      "today",
+      null,
+      {
+        silentRefresh:
           true
-            ? "1"
-            : "0";
-    }
-
-
-    updatePremiumRadarImportantButton();
+      }
+    );
 
 
   } catch (error) {
@@ -12809,9 +12679,13 @@ async function refreshPremiumRadarMarketSilently() {
       "Premium Radar silent refresh skipped:",
       error.message
     );
+
+  } finally {
+
+    premiumRadarRefreshInFlight =
+      false;
   }
 }
-
 
 function startPremiumRadarAutoRefresh(
   accessToken
@@ -12844,9 +12718,25 @@ function startPremiumRadarAutoRefresh(
 
 async function openPremiumRadar(
   viewMode = "today",
-  historyDate = null
+  historyDate = null,
+  options = {}
 ) {
-stopPremiumRadarAutoRefresh();
+
+  const silentRefresh =
+    options?.silentRefresh ===
+    true;
+
+  const savedScrollY =
+    silentRefresh
+      ? window.scrollY
+      : null;
+
+
+  if (!silentRefresh) {
+
+    stopPremiumRadarAutoRefresh();
+  }
+
   const radarView =
     document.getElementById(
       "premiumRadarView"
@@ -12935,7 +12825,7 @@ stopPremiumRadarAutoRefresh();
 
   radarView.style.display =
     "block";
-
+if (!silentRefresh) {
 
   radarView.innerHTML = `
     <div
@@ -12978,7 +12868,7 @@ stopPremiumRadarAutoRefresh();
       </div>
     </div>
   `;
-
+}
 
   try {
 
@@ -13769,7 +13659,48 @@ const marketPulseHTML =
         const bestAvailable =
           intelligence.bestAvailable ||
           {};
+const ticketsPctNumber =
+  premiumRadarNum(
+    intelligence.ticketsPct
+  );
 
+
+const moneyPctNumber =
+  premiumRadarNum(
+    intelligence.moneyPct
+  );
+
+
+const splitPickLabel =
+  String(
+    row.current_pick ||
+    intelligence.selectionKey ||
+    "CashEdge pick"
+  );
+
+
+const oppositeTicketsPct =
+  ticketsPctNumber !== null
+    ? Math.max(
+        0,
+        Math.min(
+          100,
+          100 - ticketsPctNumber
+        )
+      )
+    : null;
+
+
+const oppositeMoneyPct =
+  moneyPctNumber !== null
+    ? Math.max(
+        0,
+        Math.min(
+          100,
+          100 - moneyPctNumber
+        )
+      )
+    : null;
 
         // ====================================================
         // CURRENT MARKET
@@ -14327,92 +14258,162 @@ const marketPulseHTML =
                         margin-bottom:4px;
                       "
                     >
-                      BETTING SPLITS
-                    </div>
-
-
                     <div
-                      style="
-                        display:flex;
-                        gap:10px;
-                      "
-                    >
+  style="
+    padding:8px 9px;
 
-                      <div>
+    border-right:
+      1px solid
+      #15243a;
+  "
+>
 
-                        <span
-                          style="
-                            display:block;
-                            color:#71839f;
-                            font-size:6px;
-                          "
-                        >
-                          TICKETS
-                        </span>
-
-                        <strong
-                          style="
-                            color:#fff;
-                            font-size:10px;
-                          "
-                        >
-                          ${radarEscape(
-                            premiumRadarPercent(
-                              intelligence.ticketsPct
-                            )
-                          )}
-                        </strong>
-
-                      </div>
+  <div
+    style="
+      color:#526983;
+      font-size:6px;
+      font-weight:900;
+      letter-spacing:.7px;
+      margin-bottom:4px;
+    "
+  >
+    BETTING SPLITS
+  </div>
 
 
-                      <div>
+  ${
+    ticketsPctNumber !== null &&
+    moneyPctNumber !== null
+      ? `
 
-                        <span
-                          style="
-                            display:block;
-                            color:#71839f;
-                            font-size:6px;
-                          "
-                        >
-                          MONEY
-                        </span>
-
-                        <strong
-                          style="
-                            color:#00ffe7;
-                            font-size:10px;
-                          "
-                        >
-                          ${radarEscape(
-                            premiumRadarPercent(
-                              intelligence.moneyPct
-                            )
-                          )}
-                        </strong>
-
-                      </div>
-
-                    </div>
-
-                  </div>
+          <div
+            style="
+              color:#8ca0b8;
+              font-size:6px;
+              font-weight:800;
+              margin-bottom:4px;
+            "
+          >
+            ON CASHEDGE PICK
+          </div>
 
 
-                  <div
-                    style="
-                      padding:8px 9px;
-                    "
-                  >
+          <div
+            style="
+              color:#fff;
+              font-size:8px;
+              font-weight:900;
+              margin-bottom:5px;
+              line-height:1.2;
+            "
+          >
+            ${radarEscape(
+              splitPickLabel
+            )}
+          </div>
 
-                    <div
-                      style="
-                        color:#526983;
-                        font-size:6px;
-                        font-weight:900;
-                        letter-spacing:.7px;
-                        margin-bottom:4px;
-                      "
-                    >
+
+          <div
+            style="
+              display:flex;
+              gap:10px;
+              margin-bottom:5px;
+            "
+          >
+
+            <div>
+              <span
+                style="
+                  display:block;
+                  color:#71839f;
+                  font-size:6px;
+                "
+              >
+                TICKETS
+              </span>
+
+              <strong
+                style="
+                  color:#fff;
+                  font-size:10px;
+                "
+              >
+                ${radarEscape(
+                  premiumRadarPercent(
+                    ticketsPctNumber
+                  )
+                )}
+              </strong>
+            </div>
+
+
+            <div>
+              <span
+                style="
+                  display:block;
+                  color:#71839f;
+                  font-size:6px;
+                "
+              >
+                MONEY
+              </span>
+
+              <strong
+                style="
+                  color:#00ffe7;
+                  font-size:10px;
+                "
+              >
+                ${radarEscape(
+                  premiumRadarPercent(
+                    moneyPctNumber
+                  )
+                )}
+              </strong>
+            </div>
+
+          </div>
+
+
+          <div
+            style="
+              color:#526983;
+              font-size:6px;
+              line-height:1.3;
+            "
+          >
+            OTHER SIDE:
+            ${radarEscape(
+              premiumRadarPercent(
+                oppositeTicketsPct
+              )
+            )}
+            tickets ·
+            ${radarEscape(
+              premiumRadarPercent(
+                oppositeMoneyPct
+              )
+            )}
+            money
+          </div>
+
+        `
+      : `
+
+          <div
+            style="
+              color:#71839f;
+              font-size:7px;
+              font-weight:800;
+            "
+          >
+            Split data not available yet
+          </div>
+
+        `
+  }
+
+</div>
                       ALIGNMENT
                     </div>
 
@@ -14476,26 +14477,60 @@ const marketPulseHTML =
                   : "#00a8ff";
 
 
-            const headline =
-              event.headline ||
-              event.explanation ||
-              String(
-                event.type ||
-                "Market update"
-              )
-                .replaceAll(
-                  "_",
-                  " "
-                );
+            const eventType =
+  String(
+    event.type ||
+    ""
+  )
+    .toUpperCase()
+    .trim();
 
 
-            const explanation =
-              event.explanation &&
-              event.explanation !==
-                headline
-                ? event.explanation
-                : "";
+let headline =
+  event.headline ||
+  event.explanation ||
+  String(
+    event.type ||
+    "Market update"
+  )
+    .replaceAll(
+      "_",
+      " "
+    );
 
+
+let explanation =
+  event.explanation &&
+  event.explanation !==
+    headline
+    ? event.explanation
+    : "";
+
+
+if (
+  eventType ===
+  "POTENTIAL_SHARP_AGAINST"
+) {
+
+  headline =
+    "Larger Bets Leaning Against CashEdge";
+
+  explanation =
+    "More money than ticket volume is appearing on the opposite side. This may indicate larger average wagers, but sharp action is not confirmed.";
+}
+
+
+if (
+  eventType ===
+  "POTENTIAL_SHARP_MONEY"
+) {
+
+  headline =
+    "Larger Bets Leaning With CashEdge";
+
+  explanation =
+    "More money than ticket volume is appearing on the CashEdge side. This may indicate larger average wagers, but sharp action is not confirmed.";
+}
 
             const timeText =
               premiumRadarAgo(
@@ -15554,20 +15589,48 @@ ${
   onclick="nextPremiumRadarImportantMove()"
   style="
     display:none;
+    position:fixed;
+    right:18px;
+    bottom:18px;
+    z-index:9999;
+
     align-items:center;
-    gap:5px;
-    border:1px solid rgba(255,209,102,.42);
-    background:rgba(255,209,102,.08);
+    justify-content:center;
+    gap:6px;
+
+    border:
+      1px solid
+      rgba(255,209,102,.55);
+
+    background:
+      rgba(9,17,30,.96);
+
     color:#ffd166;
-    border-radius:9px;
-    padding:9px 12px;
-    font-size:9px;
+
+    border-radius:999px;
+
+    padding:11px 16px;
+
+    font-size:10px;
     font-weight:900;
+
     cursor:pointer;
+
+    box-shadow:
+      0 5px 22px
+      rgba(0,0,0,.45),
+      0 0 14px
+      rgba(255,209,102,.12);
+
+    backdrop-filter:
+      blur(10px);
   "
 >
-  ⚡ IMPORTANT MOVES
-  <span id="premiumRadarImportantMovesCount">
+  ⚡ NEXT IMPORTANT
+
+  <span
+    id="premiumRadarImportantMovesCount"
+  >
     0
   </span>
 </button>
@@ -15800,22 +15863,49 @@ ${
     `;
 updatePremiumRadarImportantButton();
 
-if (!isHistoryRequest) {
+
+if (silentRefresh) {
+
+  requestAnimationFrame(
+    () => {
+
+      window.scrollTo({
+        top:
+          savedScrollY,
+
+        behavior:
+          "auto"
+      });
+    }
+  );
+
+} else if (
+  !isHistoryRequest
+) {
 
   startPremiumRadarAutoRefresh(
     session.access_token
   );
 }
-
   } catch (error) {
 
-    console.error(
-      "PREMIUM RADAR ERROR:",
-      error
+  console.error(
+    "PREMIUM RADAR ERROR:",
+    error
+  );
+
+
+  if (silentRefresh) {
+
+    console.warn(
+      "Premium Radar silent refresh failed. Keeping current view."
     );
 
+    return;
+  }
 
-    radarView.innerHTML = `
+
+  radarView.innerHTML = `
       <div
         style="
           max-width:650px;
