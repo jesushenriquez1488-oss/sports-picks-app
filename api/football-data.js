@@ -2662,9 +2662,15 @@ function calculateFBSMatchupAdjustedEdges({
   previousGames = [],
   currentPowerMap = null,
   previousPowerMap = null,
+  currentFcsPowerMap = null,
+  previousFcsPowerMap = null,
+  currentLeagueAvg = LEAGUE_AVG_FALLBACK,
+  previousLeagueAvg = LEAGUE_AVG_FALLBACK,
   todayOpponentPower = null
 }) {
-  if (!todayOpponentPower) return null;
+  if (!todayOpponentPower) {
+    return null;
+  }
 
   const todayOff =
     Number(todayOpponentPower.off);
@@ -2679,99 +2685,177 @@ function calculateFBSMatchupAdjustedEdges({
     return null;
   }
 
-  const current =
-    currentGames.slice(
-      0,
-      MAX_GAMES_USED
-    );
+  // ====================================================
+  // CONSTRUIR UN PARTIDO USANDO POWER DEL RIVAL
+  //
+  // Ya NO dependemos de opponentGamesUsed.
+  //
+  // FBS -> ESPN Power
+  // FCS -> CashEdge FCS Power
+  //
+  // Si el Power de esa temporada no existe,
+  // usamos el Power de la otra temporada como fallback.
+  // ====================================================
 
-  // Misma transición normal del modelo:
-  // 0-3 actuales -> completar con temporada anterior.
-  // 4+ actuales -> solamente temporada actual.
-  const gamesToUse =
-    current.length >= 4
-      ? current.map(game => ({
-          game,
-          powerMap: currentPowerMap
-        }))
-      : [
-          ...current.map(game => ({
-            game,
-            powerMap: currentPowerMap
-          })),
-
-          ...previousGames
-            .slice(
-              0,
-              MAX_GAMES_USED -
-                current.length
-            )
-            .map(game => ({
-              game,
-              powerMap: previousPowerMap
-            }))
-        ];
-
-  const candidates = [];
-
-  for (
-    const {
-      game,
-      powerMap
-    } of gamesToUse
-  ) {
-    if (
-      Number(game.opponentGamesUsed) <= 0
-    ) {
-      continue;
+  const buildCandidate = ({
+    game,
+    primaryPowerMap,
+    primaryFcsPowerMap,
+    fallbackPowerMap,
+    fallbackFcsPowerMap,
+    leagueAvg,
+    seasonSource
+  }) => {
+    if (!game) {
+      return null;
     }
 
-    const historicalPower =
-      powerMap?.[
-        String(game.opponentId)
-      ];
+    const opponentId =
+      String(
+        game.opponentId || ""
+      );
+
+    if (!opponentId) {
+      return null;
+    }
+
+    let historicalPower =
+      null;
+
+    let powerSource =
+      null;
+
+    if (
+      primaryPowerMap?.[
+        opponentId
+      ]
+    ) {
+      historicalPower =
+        primaryPowerMap[
+          opponentId
+        ];
+
+      powerSource =
+        "fbs_same_season";
+    } else if (
+      primaryFcsPowerMap?.[
+        opponentId
+      ]
+    ) {
+      historicalPower =
+        primaryFcsPowerMap[
+          opponentId
+        ];
+
+      powerSource =
+        "fcs_same_season";
+    } else if (
+      fallbackPowerMap?.[
+        opponentId
+      ]
+    ) {
+      historicalPower =
+        fallbackPowerMap[
+          opponentId
+        ];
+
+      powerSource =
+        "fbs_other_season";
+    } else if (
+      fallbackFcsPowerMap?.[
+        opponentId
+      ]
+    ) {
+      historicalPower =
+        fallbackFcsPowerMap[
+          opponentId
+        ];
+
+      powerSource =
+        "fcs_other_season";
+    }
 
     if (!historicalPower) {
-      continue;
+      return null;
     }
 
     const histOff =
-      Number(historicalPower.off);
+      Number(
+        historicalPower.off
+      );
 
     const histDef =
-      Number(historicalPower.def);
+      Number(
+        historicalPower.def
+      );
+
+    const teamPoints =
+      Number(
+        game.teamPoints
+      );
+
+    const pointsAllowed =
+      Number(
+        game.pointsAllowed
+      );
 
     if (
       !Number.isFinite(histOff) ||
-      !Number.isFinite(histDef)
+      !Number.isFinite(histDef) ||
+      !Number.isFinite(teamPoints) ||
+      !Number.isFinite(pointsAllowed)
     ) {
-      continue;
+      return null;
     }
 
+    const safeLeagueAvg =
+      Number.isFinite(
+        Number(leagueAvg)
+      )
+        ? Number(leagueAvg)
+        : LEAGUE_AVG_FALLBACK;
+
+    // Qué debía permitir esa defensa
+    // según su Power.
+    const expectedPointsAllowed =
+      safeLeagueAvg -
+      histDef;
+
+    // Qué debía anotar esa ofensiva
+    // según su Power.
+    const expectedPointsScored =
+      safeLeagueAvg +
+      histOff;
+
+    // Cómo rindió realmente el equipo
+    // contra ese nivel de rival.
     const rawOffEdge =
-      Number(game.teamPoints) -
-      Number(
-        game.opponentAvgPointsAllowed
-      );
+      teamPoints -
+      expectedPointsAllowed;
 
     const rawDefEdge =
-      Number(game.pointsAllowed) -
-      Number(
-        game.opponentAvgPointsScored
-      );
+      pointsAllowed -
+      expectedPointsScored;
 
-    if (
-      !Number.isFinite(rawOffEdge) ||
-      !Number.isFinite(rawDefEdge)
-    ) {
-      continue;
-    }
-
-    candidates.push({
+    return {
       game,
+
+      seasonSource,
+      powerSource,
+
+      opponent:
+        game.opponent,
+
+      opponentId,
 
       histOff,
       histDef,
+
+      teamPoints,
+      pointsAllowed,
+
+      expectedPointsAllowed,
+      expectedPointsScored,
 
       rawOffEdge,
       rawDefEdge,
@@ -2781,103 +2865,260 @@ function calculateFBSMatchupAdjustedEdges({
           historicalPower,
           todayOpponentPower
         )
-    });
+    };
+  };
+
+
+  // ====================================================
+  // TEMPORADA ACTUAL
+  //
+  // Estos juegos tienen PRIORIDAD ABSOLUTA.
+  // No se eliminan por similarity.
+  // ====================================================
+
+  const currentCandidates =
+    currentGames
+      .slice(
+        0,
+        MAX_GAMES_USED
+      )
+      .map(game =>
+        buildCandidate({
+          game,
+
+          primaryPowerMap:
+            currentPowerMap,
+
+          primaryFcsPowerMap:
+            currentFcsPowerMap,
+
+          fallbackPowerMap:
+            previousPowerMap,
+
+          fallbackFcsPowerMap:
+            previousFcsPowerMap,
+
+          leagueAvg:
+            currentLeagueAvg,
+
+          seasonSource:
+            "current"
+        })
+      )
+      .filter(Boolean);
+
+
+  // ====================================================
+  // TEMPORADA ANTERIOR
+  //
+  // Solo sirve para COMPLETAR la muestra.
+  // ====================================================
+
+  const previousCandidates =
+    previousGames
+      .slice(
+        0,
+        MAX_GAMES_USED
+      )
+      .map(game =>
+        buildCandidate({
+          game,
+
+          primaryPowerMap:
+            previousPowerMap,
+
+          primaryFcsPowerMap:
+            previousFcsPowerMap,
+
+          fallbackPowerMap:
+            currentPowerMap,
+
+          fallbackFcsPowerMap:
+            currentFcsPowerMap,
+
+          leagueAvg:
+            previousLeagueAvg,
+
+          seasonSource:
+            "previous"
+        })
+      )
+      .filter(Boolean)
+      .sort(
+        (a, b) =>
+          a.distance -
+          b.distance
+      );
+
+
+  // ====================================================
+  // TRANSICIÓN
+  //
+  // 4+ actuales:
+  //   SOLO temporada actual.
+  //
+  // 0-3 actuales:
+  //   conservar TODOS los actuales
+  //   y completar con los mejores anteriores
+  //   por similitud Power.
+  // ====================================================
+
+  let selected;
+
+  if (
+    currentCandidates.length >= 4
+  ) {
+    selected =
+      currentCandidates.slice(
+        0,
+        MAX_GAMES_USED
+      );
+  } else {
+    const previousNeeded =
+      Math.max(
+        0,
+        MAX_GAMES_USED -
+          currentCandidates.length
+      );
+
+    selected = [
+      ...currentCandidates,
+
+      ...previousCandidates.slice(
+        0,
+        previousNeeded
+      )
+    ];
   }
 
-  const selection =
-    selectNCAAFMatchupSamples(
-      candidates
-    );
-
-  if (!selection.samples.length) {
+  if (!selected.length) {
     return null;
   }
 
+
+  // ====================================================
+  // AJUSTAR CADA EDGE HACIA EL RIVAL DE HOY
+  //
+  // REGLA FIJA:
+  // 1 Power = 0.8 Edge
+  // SIN CLAMP
+  // ====================================================
+
   const multiplier =
-    selection.multiplier;
+    NCAAF_POWER_EDGE_MULT;
 
   const translated =
-    selection.samples.map(sample => {
-      const {
-        game,
-        histOff,
-        histDef,
-        rawOffEdge,
-        rawDefEdge,
-        distance
-      } = sample;
+    selected.map(sample => {
 
-      // OFF:
-      // defensa actual más fuerte
-      // -> Edge ofensivo baja.
       const adjustedOffEdge =
-        rawOffEdge -
+        sample.rawOffEdge -
         (
           todayDef -
-          histDef
+          sample.histDef
         ) *
         multiplier;
 
-      // DEF:
-      // ofensiva actual más fuerte
-      // -> Defensive Edge empeora.
-      //
-      // Recuerda:
-      // positivo = defensa mala.
       const adjustedDefEdge =
-        rawDefEdge +
+        sample.rawDefEdge +
         (
           todayOff -
-          histOff
+          sample.histOff
         ) *
         multiplier;
 
       return {
         opponent:
-          game.opponent,
+          sample.opponent,
 
         opponentId:
-          String(game.opponentId),
+          sample.opponentId,
+
+        seasonSource:
+          sample.seasonSource,
+
+        powerSource:
+          sample.powerSource,
+
+        historicalOff:
+          round(
+            sample.histOff
+          ),
+
+        historicalDef:
+          round(
+            sample.histDef
+          ),
 
         distance:
-          round(distance),
+          round(
+            sample.distance
+          ),
 
         multiplier,
 
-        historicalOff:
-          round(histOff),
-
-        historicalDef:
-          round(histDef),
-
-        rawOffEdge:
-          round(rawOffEdge),
-
-        rawDefEdge:
-          round(rawDefEdge),
-
-        adjustedOffEdge:
-          round(adjustedOffEdge),
-
-        adjustedDefEdge:
-          round(adjustedDefEdge),
-
         teamPoints:
-          Number(game.teamPoints),
+          sample.teamPoints,
 
         pointsAllowed:
-          Number(game.pointsAllowed)
+          sample.pointsAllowed,
+
+        expectedPointsScored:
+          round(
+            sample.expectedPointsScored
+          ),
+
+        expectedPointsAllowed:
+          round(
+            sample.expectedPointsAllowed
+          ),
+
+        rawOffEdge:
+          round(
+            sample.rawOffEdge
+          ),
+
+        rawDefEdge:
+          round(
+            sample.rawDefEdge
+          ),
+
+        adjustedOffEdge:
+          round(
+            adjustedOffEdge
+          ),
+
+        adjustedDefEdge:
+          round(
+            adjustedDefEdge
+          )
       };
     });
 
+
   return {
     mode:
-      selection.mode,
+      currentCandidates.length >= 4
+        ? "current_only"
+        : "current_plus_best_previous",
 
     multiplier,
 
     gamesUsed:
       translated.length,
+
+    currentGamesUsed:
+      translated.filter(
+        game =>
+          game.seasonSource ===
+          "current"
+      ).length,
+
+    previousGamesUsed:
+      translated.filter(
+        game =>
+          game.seasonSource ===
+          "previous"
+      ).length,
 
     avgOffensiveEdge:
       round(
@@ -15131,6 +15372,22 @@ if (type === "ncaaf") {
 
   const previousFpiMap =
     await getFPIMap(previousSeason);
+  const [
+  currentFcsPowerMap,
+  previousFcsPowerMap
+] = await Promise.all([
+  getFCSPowerMap(
+    selectedSeason,
+    currentSeasonAllGames,
+    currentFpiMap
+  ),
+
+  getFCSPowerMap(
+    previousSeason,
+    previousSeasonAllGames,
+    previousFpiMap
+  )
+]);
 
   const idA =
     resolveTeamIdFromGames(
@@ -15252,6 +15509,18 @@ if (type === "ncaaf") {
 
         previousPowerMap:
           previousFpiMap,
+        currentFcsPowerMap,
+previousFcsPowerMap,
+
+currentLeagueAvg:
+  computeLeagueBaseline(
+    currentSeasonAllGames
+  ),
+
+previousLeagueAvg:
+  computeLeagueBaseline(
+    previousSeasonAllGames
+  ),
 
         todayOpponentPower:
           fB
@@ -15270,6 +15539,18 @@ if (type === "ncaaf") {
 
         previousPowerMap:
           previousFpiMap,
+        currentFcsPowerMap,
+previousFcsPowerMap,
+
+currentLeagueAvg:
+  computeLeagueBaseline(
+    currentSeasonAllGames
+  ),
+
+previousLeagueAvg:
+  computeLeagueBaseline(
+    previousSeasonAllGames
+  ),
 
         todayOpponentPower:
           fA
@@ -15414,22 +15695,35 @@ if (type === "ncaaf") {
       });
 
     const fbs =
-      calculateFBSMatchupAdjustedEdges({
-        currentGames:
-          currentTeamBGames,
+  calculateFBSMatchupAdjustedEdges({
+    currentGames:
+      currentTeamBGames,
 
-        previousGames:
-          previousTeamBGames,
+    previousGames:
+      previousTeamBGames,
 
-        currentPowerMap:
-          currentFpiMap,
+    currentPowerMap:
+      currentFpiMap,
 
-        previousPowerMap:
-          previousFpiMap,
+    previousPowerMap:
+      previousFpiMap,
 
-        todayOpponentPower:
-          fA
-      });
+    currentFcsPowerMap,
+    previousFcsPowerMap,
+
+    currentLeagueAvg:
+      computeLeagueBaseline(
+        currentSeasonAllGames
+      ),
+
+    previousLeagueAvg:
+      computeLeagueBaseline(
+        previousSeasonAllGames
+      ),
+
+    todayOpponentPower:
+      fA
+  });
 
     if (fcs && fbs) {
 
@@ -15538,23 +15832,36 @@ if (type === "ncaaf") {
           fA
       });
 
-    const fbs =
-      calculateFBSMatchupAdjustedEdges({
-        currentGames:
-          currentTeamAGames,
+  const fbs =
+  calculateFBSMatchupAdjustedEdges({
+    currentGames:
+      currentTeamAGames,
 
-        previousGames:
-          previousTeamAGames,
+    previousGames:
+      previousTeamAGames,
 
-        currentPowerMap:
-          currentFpiMap,
+    currentPowerMap:
+      currentFpiMap,
 
-        previousPowerMap:
-          previousFpiMap,
+    previousPowerMap:
+      previousFpiMap,
 
-        todayOpponentPower:
-          fB
-      });
+    currentFcsPowerMap,
+    previousFcsPowerMap,
+
+    currentLeagueAvg:
+      computeLeagueBaseline(
+        currentSeasonAllGames
+      ),
+
+    previousLeagueAvg:
+      computeLeagueBaseline(
+        previousSeasonAllGames
+      ),
+
+    todayOpponentPower:
+      fB
+  });
 
     if (fcs && fbs) {
 
