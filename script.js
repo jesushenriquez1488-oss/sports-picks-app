@@ -12959,7 +12959,10 @@ const response =
       headers: {
         Authorization:
           `Bearer ${session.access_token}`
-      }
+      },
+
+      cache:
+        "no-store"
     }
   );
 
