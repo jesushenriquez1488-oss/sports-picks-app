@@ -1594,38 +1594,17 @@ let marketSplitsByGameId =
 if (radarGameIds.length) {
 
   const {
-    data: marketSplitRows,
-    error: marketSplitRowsError
-  } =
-    await supabaseAdmin
-      .from(
-        "market_split_snapshots"
-      )
-      .select(`
-        cashedge_game_id,
-        provider,
-        split_source_key,
-        split_source_name,
-        market_type,
-        selection_key,
-        line,
-        price_american,
-        money_pct,
-        tickets_pct,
-        provider_timestamp,
-        observed_at
-      `)
-      .in(
-        "cashedge_game_id",
-        radarGameIds
-      )
-      .order(
-        "observed_at",
-        {
-          ascending: false
-        }
-      )
-      .limit(2000);
+  data: marketSplitRows,
+  error: marketSplitRowsError
+} =
+  await supabaseAdmin
+    .rpc(
+      "get_latest_market_split_snapshots",
+      {
+        p_game_ids:
+          radarGameIds
+      }
+    );
 
 
   if (marketSplitRowsError) {
