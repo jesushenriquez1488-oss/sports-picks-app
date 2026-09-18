@@ -12950,8 +12950,7 @@ if (
                         ? sports[sport]
                         : [];
 
-
-                   const cards =
+const cards =
   rows
     .map(
       row => {
@@ -13109,14 +13108,13 @@ if (
 
 
         // ====================================================
-        // CURRENT CASHEDGE MARKET
+        // CURRENT MARKET
         // ====================================================
 
         const currentMarketText =
           isMoneyline
             ? premiumRadarAmerican(
-                row
-                  .current_market_price_american
+                row.current_market_price_american
               )
             : premiumRadarLine(
                 row.current_market_line,
@@ -13127,8 +13125,7 @@ if (
         const openingMarketText =
           isMoneyline
             ? premiumRadarAmerican(
-                row
-                  .first_premium_price_american
+                row.first_premium_price_american
               )
             : premiumRadarLine(
                 row.opening_market_line,
@@ -13148,20 +13145,19 @@ if (
             : "OPEN";
 
 
-        const topMarketHTML =
+        const marketLineHTML =
           (
             openingMarketText !== "—" &&
             currentMarketText !== "—" &&
-            openingMarketText !==
-              currentMarketText
+            openingMarketText !== currentMarketText
           )
             ? `
                 <div
                   style="
-                    margin-top:8px;
                     color:#71839f;
-                    font-size:9px;
+                    font-size:8px;
                     font-weight:800;
+                    margin-top:5px;
                   "
                 >
                   ${openingMarketLabel}
@@ -13169,7 +13165,7 @@ if (
                   <strong
                     style="
                       color:#cbd7e8;
-                      margin-left:4px;
+                      margin-left:3px;
                     "
                   >
                     ${radarEscape(
@@ -13180,7 +13176,7 @@ if (
                   <span
                     style="
                       color:#526983;
-                      margin:0 6px;
+                      margin:0 5px;
                     "
                   >
                     →
@@ -13191,7 +13187,7 @@ if (
                   <strong
                     style="
                       color:#00ffe7;
-                      margin-left:4px;
+                      margin-left:3px;
                     "
                   >
                     ${radarEscape(
@@ -13203,10 +13199,10 @@ if (
             : `
                 <div
                   style="
-                    margin-top:8px;
                     color:#71839f;
-                    font-size:9px;
+                    font-size:8px;
                     font-weight:800;
+                    margin-top:5px;
                   "
                 >
                   ${currentMarketLabel}
@@ -13223,32 +13219,6 @@ if (
                   </strong>
                 </div>
               `;
-
-
-        // ====================================================
-        // BEST AVAILABLE / CONSENSUS
-        // ====================================================
-
-        const consensusQuote =
-          premiumRadarQuote(
-            marketType,
-            consensus.line,
-            consensus.price
-          );
-
-
-        const bestAvailableQuote =
-          premiumRadarQuote(
-            marketType,
-            bestAvailable.line,
-            bestAvailable.price
-          );
-
-
-        const bestSportsbook =
-          bestAvailable
-            .sportsbook ||
-          "—";
 
 
         // ====================================================
@@ -13286,12 +13256,10 @@ if (
         const movementBaseline =
           movementUsesPrice
             ? premiumRadarAmerican(
-                movementData
-                  .baselinePrice
+                movementData.baselinePrice
               )
             : premiumRadarLine(
-                movementData
-                  .baselineLine,
+                movementData.baselineLine,
                 movementMarketType
               );
 
@@ -13299,111 +13267,26 @@ if (
         const movementNow =
           movementUsesPrice
             ? premiumRadarAmerican(
-                movementData
-                  .marketPrice
+                movementData.marketPrice
               )
             : premiumRadarLine(
-                movementData
-                  .marketLine,
+                movementData.marketLine,
                 movementMarketType
               );
 
 
         const movementTitle =
-  movementMarketType ===
-    "moneyline"
-    ? "MONEYLINE MOVEMENT"
-    : movementData.metricType ===
-        "price_probability"
-      ? "PRICE MOVEMENT"
-      : "LINE MOVEMENT";
-
-
-        const movementHTML =
-          movement &&
-          (
-            movementBaseline !== "—" ||
-            movementNow !== "—"
-          )
-            ? `
-                <div>
-
-                  <div
-                    style="
-                      color:#526983;
-                      font-size:8px;
-                      font-weight:900;
-                      letter-spacing:.9px;
-                      margin-bottom:7px;
-                    "
-                  >
-                    ${movementTitle}
-                  </div>
-
-                  <div
-                    style="
-                      color:#fff;
-                      font-size:14px;
-                      font-weight:900;
-                    "
-                  >
-                    ${radarEscape(
-                      movementBaseline
-                    )}
-
-                    <span
-                      style="
-                        color:#526983;
-                        margin:0 5px;
-                      "
-                    >
-                      →
-                    </span>
-
-                    <span
-                      style="
-                        color:#00ffe7;
-                      "
-                    >
-                      ${radarEscape(
-                        movementNow
-                      )}
-                    </span>
-                  </div>
-
-                </div>
-              `
-            : `
-                <div>
-
-                  <div
-                    style="
-                      color:#526983;
-                      font-size:8px;
-                      font-weight:900;
-                      letter-spacing:.9px;
-                      margin-bottom:7px;
-                    "
-                  >
-                    MARKET MOVEMENT
-                  </div>
-
-                  <div
-                    style="
-                      color:#8ca0b8;
-                      font-size:11px;
-                      font-weight:800;
-                    "
-                  >
-                    No material move yet
-                  </div>
-
-                </div>
-              `;
+          movementMarketType ===
+            "moneyline"
+            ? "MONEYLINE MOVEMENT"
+            : movementData.metricType ===
+                "price_probability"
+              ? "PRICE MOVEMENT"
+              : "LINE MOVEMENT";
 
 
         // ====================================================
-        // OPPORTUNITY PANEL
+        // OPPORTUNITY — COMPACT
         // ====================================================
 
         let opportunityHTML =
@@ -13418,22 +13301,17 @@ if (
           opportunityHTML = `
             <div
               style="
-               
-
-                padding:16px;
+                margin-top:10px;
+                padding:11px 12px;
 
                 border:
                   1px solid
                   ${opportunityMeta.border};
 
-                border-radius:14px;
+                border-radius:11px;
 
                 background:
                   ${opportunityMeta.background};
-
-                box-shadow:
-                  0 0 24px
-                  rgba(0,255,231,.04);
               "
             >
 
@@ -13441,30 +13319,34 @@ if (
                 style="
                   display:flex;
                   justify-content:space-between;
-                  gap:10px;
                   align-items:flex-start;
-                  margin-bottom:10px;
+                  gap:8px;
                 "
               >
 
-                <div>
+                <div
+                  style="
+                    min-width:0;
+                  "
+                >
 
                   <div
                     style="
                       color:${opportunityMeta.color};
-                      font-size:9px;
+                      font-size:7px;
                       font-weight:900;
-                      letter-spacing:1.2px;
-                      margin-bottom:5px;
+                      letter-spacing:.9px;
+                      margin-bottom:3px;
                     "
                   >
                     MARKET OPPORTUNITY
                   </div>
 
+
                   <div
                     style="
                       color:#fff;
-                      font-size:17px;
+                      font-size:13px;
                       font-weight:900;
                       line-height:1.15;
                     "
@@ -13480,10 +13362,10 @@ if (
                 <div
                   style="
                     color:${opportunityMeta.color};
-                    font-size:10px;
+                    font-size:8px;
                     font-weight:900;
-                    text-align:right;
                     white-space:nowrap;
+                    text-align:right;
                   "
                 >
                   ${radarEscape(
@@ -13495,49 +13377,57 @@ if (
               </div>
 
 
-              <div
-                style="
-                  color:#9eb0c7;
-                  font-size:10px;
-                  line-height:1.45;
-                  margin-bottom:14px;
-                "
-              >
-                ${radarEscape(
-                  opportunityMeta.subtitle ||
-                  ""
-                )}
-              </div>
+              ${
+                opportunityMeta.subtitle
+                  ? `
+                      <div
+                        style="
+                          color:#8ca0b8;
+                          font-size:8px;
+                          line-height:1.3;
+                          margin-top:5px;
+                        "
+                      >
+                        ${radarEscape(
+                          opportunityMeta.subtitle
+                        )}
+                      </div>
+                    `
+                  : ""
+              }
 
 
               <div
                 style="
                   display:grid;
+
                   grid-template-columns:
                     repeat(
                       2,
                       minmax(0,1fr)
                     );
-                  gap:8px;
+
+                  gap:6px;
+                  margin-top:8px;
                 "
               >
 
                 <div
                   style="
+                    padding:7px 8px;
+                    border-radius:8px;
                     background:
                       rgba(0,0,0,.18);
-                    border-radius:9px;
-                    padding:10px;
                   "
                 >
 
                   <div
                     style="
                       color:#526983;
-                      font-size:7px;
+                      font-size:6px;
                       font-weight:900;
-                      letter-spacing:.8px;
-                      margin-bottom:4px;
+                      letter-spacing:.7px;
+                      margin-bottom:3px;
                     "
                   >
                     BEST AVAILABLE
@@ -13545,8 +13435,9 @@ if (
 
                   <strong
                     style="
+                      display:block;
                       color:#fff;
-                      font-size:11px;
+                      font-size:9px;
                       line-height:1.3;
                     "
                   >
@@ -13561,20 +13452,20 @@ if (
 
                 <div
                   style="
+                    padding:7px 8px;
+                    border-radius:8px;
                     background:
                       rgba(0,0,0,.18);
-                    border-radius:9px;
-                    padding:10px;
                   "
                 >
 
                   <div
                     style="
                       color:#526983;
-                      font-size:7px;
+                      font-size:6px;
                       font-weight:900;
-                      letter-spacing:.8px;
-                      margin-bottom:4px;
+                      letter-spacing:.7px;
+                      margin-bottom:3px;
                     "
                   >
                     CONSENSUS
@@ -13582,8 +13473,9 @@ if (
 
                   <strong
                     style="
+                      display:block;
                       color:#cbd7e8;
-                      font-size:11px;
+                      font-size:9px;
                       line-height:1.3;
                     "
                   >
@@ -13601,191 +13493,49 @@ if (
           `;
 
         } else if (
-          hasMarketIntelligence
+          marketFeatureEnabled &&
+          !hasMarketIntelligence
         ) {
 
           opportunityHTML = `
             <div
               style="
-                
-                padding:16px;
-
-                border:
-                  1px solid
-                  #1a2b43;
-
-                border-radius:14px;
-
-                background:
-                  #09111e;
-              "
-            >
-
-              <div
-                style="
-                  color:#71839f;
-                  font-size:9px;
-                  font-weight:900;
-                  letter-spacing:1px;
-                  margin-bottom:7px;
-                "
-              >
-                LIVE MARKET
-              </div>
-
-
-              <div
-                style="
-                  color:#fff;
-                  font-size:15px;
-                  font-weight:900;
-                  margin-bottom:13px;
-                "
-              >
-                No active market opportunity
-              </div>
-
-
-              <div
-                style="
-                  display:grid;
-                  grid-template-columns:
-                    repeat(
-                      2,
-                      minmax(0,1fr)
-                    );
-                  gap:8px;
-                "
-              >
-
-                <div
-                  style="
-                    background:#070d17;
-                    border-radius:9px;
-                    padding:10px;
-                  "
-                >
-
-                  <div
-                    style="
-                      color:#526983;
-                      font-size:7px;
-                      font-weight:900;
-                      margin-bottom:4px;
-                    "
-                  >
-                    BEST AVAILABLE
-                  </div>
-
-                  <strong
-                    style="
-                      color:#fff;
-                      font-size:11px;
-                    "
-                  >
-                    ${radarEscape(
-                      bestSportsbook
-                    )}
-
-                    ${
-                      bestAvailableQuote !==
-                      "—"
-                        ? ` · ${radarEscape(
-                            bestAvailableQuote
-                          )}`
-                        : ""
-                    }
-                  </strong>
-
-                </div>
-
-
-                <div
-                  style="
-                    background:#070d17;
-                    border-radius:9px;
-                    padding:10px;
-                  "
-                >
-
-                  <div
-                    style="
-                      color:#526983;
-                      font-size:7px;
-                      font-weight:900;
-                      margin-bottom:4px;
-                    "
-                  >
-                    MARKET CONSENSUS
-                  </div>
-
-                  <strong
-                    style="
-                      color:#00ffe7;
-                      font-size:11px;
-                    "
-                  >
-                    ${radarEscape(
-                      consensusQuote
-                    )}
-                  </strong>
-
-                </div>
-
-              </div>
-
-            </div>
-          `;
-
-        } else if (
-          marketFeatureEnabled
-        ) {
-
-          opportunityHTML = `
-            <div
-              style="
-              
-                padding:16px;
+                margin-top:10px;
+                padding:9px 11px;
 
                 border:
                   1px solid
                   #16243a;
 
-                border-radius:14px;
+                border-radius:9px;
 
                 background:#09111e;
+
+                color:#71839f;
+
+                font-size:8px;
+                font-weight:800;
               "
             >
-
-              <div
+              <strong
                 style="
-                  color:#71839f;
-                  font-size:9px;
-                  font-weight:900;
-                  letter-spacing:1px;
-                  margin-bottom:6px;
+                  color:#8ca0b8;
+                  font-size:7px;
+                  letter-spacing:.8px;
+                  margin-right:5px;
                 "
               >
                 LIVE MARKET
-              </div>
+              </strong>
 
-              <div
-                style="
-                  color:#8ca0b8;
-                  font-size:11px;
-                  line-height:1.45;
-                "
-              >
-                Waiting for enough live sportsbook data.
-              </div>
-
+              Waiting for enough live sportsbook data.
             </div>
           `;
         }
 
 
         // ====================================================
-        // MARKET SUMMARY
+        // MARKET SUMMARY — COMPACT
         // ====================================================
 
         const marketSummaryHTML =
@@ -13797,22 +13547,19 @@ if (
 
                     grid-template-columns:
                       repeat(
-                        auto-fit,
-                        minmax(
-                          180px,
-                          1fr
-                        )
+                        3,
+                        minmax(0,1fr)
                       );
 
                     gap:0;
 
-                    margin-top:14px;
+                    margin-top:9px;
 
                     border:
                       1px solid
                       #15243a;
 
-                    border-radius:12px;
+                    border-radius:10px;
 
                     overflow:hidden;
 
@@ -13822,19 +13569,8 @@ if (
 
                   <div
                     style="
-                      padding:13px;
-                      border-right:
-                        1px solid
-                        #15243a;
-                    "
-                  >
-                    ${movementHTML}
-                  </div>
+                      padding:8px 9px;
 
-
-                  <div
-                    style="
-                      padding:13px;
                       border-right:
                         1px solid
                         #15243a;
@@ -13844,45 +13580,121 @@ if (
                     <div
                       style="
                         color:#526983;
-                        font-size:8px;
+                        font-size:6px;
                         font-weight:900;
-                        letter-spacing:.9px;
-                        margin-bottom:7px;
+                        letter-spacing:.7px;
+                        margin-bottom:4px;
+                      "
+                    >
+                      ${movementTitle}
+                    </div>
+
+
+                    ${
+                      movement &&
+                      (
+                        movementBaseline !== "—" ||
+                        movementNow !== "—"
+                      )
+                        ? `
+                            <strong
+                              style="
+                                color:#fff;
+                                font-size:10px;
+                                white-space:nowrap;
+                              "
+                            >
+                              ${radarEscape(
+                                movementBaseline
+                              )}
+
+                              <span
+                                style="
+                                  color:#526983;
+                                  margin:0 3px;
+                                "
+                              >
+                                →
+                              </span>
+
+                              <span
+                                style="
+                                  color:#00ffe7;
+                                "
+                              >
+                                ${radarEscape(
+                                  movementNow
+                                )}
+                              </span>
+                            </strong>
+                          `
+                        : `
+                            <div
+                              style="
+                                color:#71839f;
+                                font-size:8px;
+                                font-weight:800;
+                              "
+                            >
+                              No material move yet
+                            </div>
+                          `
+                    }
+
+                  </div>
+
+
+                  <div
+                    style="
+                      padding:8px 9px;
+
+                      border-right:
+                        1px solid
+                        #15243a;
+                    "
+                  >
+
+                    <div
+                      style="
+                        color:#526983;
+                        font-size:6px;
+                        font-weight:900;
+                        letter-spacing:.7px;
+                        margin-bottom:4px;
                       "
                     >
                       BETTING SPLITS
                     </div>
 
+
                     <div
                       style="
                         display:flex;
-                        gap:18px;
-                        align-items:center;
+                        gap:10px;
                       "
                     >
 
                       <div>
 
-                        <div
+                        <span
                           style="
+                            display:block;
                             color:#71839f;
-                            font-size:7px;
-                            font-weight:800;
+                            font-size:6px;
                           "
                         >
                           TICKETS
-                        </div>
+                        </span>
 
                         <strong
                           style="
                             color:#fff;
-                            font-size:14px;
+                            font-size:10px;
                           "
                         >
                           ${radarEscape(
                             premiumRadarPercent(
-                              intelligence
-                                .ticketsPct
+                              intelligence.ticketsPct
                             )
                           )}
                         </strong>
@@ -13892,26 +13704,25 @@ if (
 
                       <div>
 
-                        <div
+                        <span
                           style="
+                            display:block;
                             color:#71839f;
-                            font-size:7px;
-                            font-weight:800;
+                            font-size:6px;
                           "
                         >
                           MONEY
-                        </div>
+                        </span>
 
                         <strong
                           style="
                             color:#00ffe7;
-                            font-size:14px;
+                            font-size:10px;
                           "
                         >
                           ${radarEscape(
                             premiumRadarPercent(
-                              intelligence
-                                .moneyPct
+                              intelligence.moneyPct
                             )
                           )}
                         </strong>
@@ -13925,33 +13736,40 @@ if (
 
                   <div
                     style="
-                      padding:13px;
+                      padding:8px 9px;
                     "
                   >
 
                     <div
                       style="
                         color:#526983;
-                        font-size:8px;
+                        font-size:6px;
                         font-weight:900;
-                        letter-spacing:.9px;
-                        margin-bottom:7px;
+                        letter-spacing:.7px;
+                        margin-bottom:4px;
                       "
                     >
-                      MARKET ALIGNMENT
+                      ALIGNMENT
                     </div>
+
 
                     <strong
                       style="
+                        display:block;
+
                         color:
                           ${alignmentMeta.color};
 
-                        font-size:11px;
-                        line-height:1.3;
+                        font-size:8px;
+                        line-height:1.25;
                       "
                     >
                       ${radarEscape(
                         alignmentMeta.label
+                          .replace(
+                            "MARKET MOVING ",
+                            ""
+                          )
                       )}
                     </strong>
 
@@ -13963,7 +13781,7 @@ if (
 
 
         // ====================================================
-        // RECENT MARKET ACTIVITY
+        // RECENT ACTIVITY — COMPACT
         // ====================================================
 
         const activity =
@@ -14027,8 +13845,8 @@ if (
                 style="
                   position:relative;
                   padding:
-                    1px 0 14px
-                    23px;
+                    0 0 8px
+                    17px;
                 "
               >
 
@@ -14036,10 +13854,10 @@ if (
                   style="
                     position:absolute;
                     left:2px;
-                    top:5px;
+                    top:4px;
 
-                    width:8px;
-                    height:8px;
+                    width:6px;
+                    height:6px;
 
                     border-radius:50%;
 
@@ -14047,7 +13865,7 @@ if (
                       ${dotColor};
 
                     box-shadow:
-                      0 0 9px
+                      0 0 6px
                       ${dotColor};
                   "
                 ></span>
@@ -14056,9 +13874,9 @@ if (
                 <div
                   style="
                     color:#71839f;
-                    font-size:8px;
+                    font-size:6px;
                     font-weight:800;
-                    margin-bottom:3px;
+                    margin-bottom:1px;
                   "
                 >
                   ${radarEscape(
@@ -14071,9 +13889,9 @@ if (
                 <div
                   style="
                     color:#e3ebf7;
-                    font-size:11px;
+                    font-size:9px;
                     font-weight:800;
-                    line-height:1.35;
+                    line-height:1.25;
                   "
                 >
                   ${radarEscape(
@@ -14088,9 +13906,9 @@ if (
                         <div
                           style="
                             color:#71839f;
-                            font-size:9px;
-                            line-height:1.4;
-                            margin-top:3px;
+                            font-size:7px;
+                            line-height:1.25;
+                            margin-top:2px;
                           "
                         >
                           ${radarEscape(
@@ -14135,8 +13953,8 @@ if (
             ? `
                 <div
                   style="
-                    margin-top:16px;
-                    padding-top:15px;
+                    margin-top:10px;
+                    padding-top:9px;
 
                     border-top:
                       1px solid
@@ -14147,20 +13965,19 @@ if (
                   <div
                     style="
                       display:flex;
-                      justify-content:
-                        space-between;
+                      justify-content:space-between;
                       align-items:center;
-                      gap:10px;
-                      margin-bottom:12px;
+                      gap:8px;
+                      margin-bottom:7px;
                     "
                   >
 
                     <div
                       style="
                         color:#fff;
-                        font-size:10px;
+                        font-size:8px;
                         font-weight:900;
-                        letter-spacing:1px;
+                        letter-spacing:.8px;
                       "
                     >
                       RECENT MARKET ACTIVITY
@@ -14169,7 +13986,7 @@ if (
                     <div
                       style="
                         color:#526983;
-                        font-size:8px;
+                        font-size:6px;
                         font-weight:800;
                       "
                     >
@@ -14189,14 +14006,13 @@ if (
                     <div
                       style="
                         position:absolute;
-                        left:5px;
-                        top:8px;
-                        bottom:8px;
+                        left:4px;
+                        top:5px;
+                        bottom:5px;
 
                         width:1px;
 
-                        background:
-                          #1b3049;
+                        background:#1b3049;
                       "
                     ></div>
 
@@ -14208,21 +14024,17 @@ if (
                   ${
                     hiddenActivity
                       ? `
-                          <details
-                            style="
-                              margin-top:-4px;
-                            "
-                          >
+                          <details>
 
                             <summary
                               style="
                                 color:#00ffe7;
-                                font-size:9px;
+                                font-size:7px;
                                 font-weight:900;
-                                letter-spacing:.7px;
+                                letter-spacing:.6px;
                                 cursor:pointer;
                                 list-style:none;
-                                padding:6px 0;
+                                padding:3px 0;
                               "
                             >
                               VIEW ALL MOVEMENTS
@@ -14232,21 +14044,20 @@ if (
                             <div
                               style="
                                 position:relative;
-                                margin-top:10px;
+                                margin-top:6px;
                               "
                             >
 
                               <div
                                 style="
                                   position:absolute;
-                                  left:5px;
-                                  top:8px;
-                                  bottom:8px;
+                                  left:4px;
+                                  top:5px;
+                                  bottom:5px;
 
                                   width:1px;
 
-                                  background:
-                                    #1b3049;
+                                  background:#1b3049;
                                 "
                               ></div>
 
@@ -14265,7 +14076,7 @@ if (
 
 
         // ====================================================
-        // FINAL SCORE
+        // HISTORY SCORE
         // ====================================================
 
         const historyFinalHTML =
@@ -14274,11 +14085,10 @@ if (
             ? `
                 <div
                   style="
-                    margin-top:10px;
-
                     color:#8ca0b8;
-                    font-size:10px;
+                    font-size:7px;
                     font-weight:800;
+                    margin-top:3px;
                   "
                 >
                   FINAL
@@ -14286,7 +14096,7 @@ if (
                   <span
                     style="
                       color:#d7e1ef;
-                      margin-left:5px;
+                      margin-left:3px;
                     "
                   >
                     ${radarEscape(
@@ -14299,7 +14109,7 @@ if (
 
 
         // ====================================================
-        // FULL ANALYSIS BUTTON
+        // ANALYSIS BUTTON
         // ====================================================
 
         const analysisButtonHTML =
@@ -14311,22 +14121,21 @@ if (
 
                   style="
                     width:100%;
-                    margin-top:16px;
-                    padding:12px 14px;
+                    margin-top:10px;
+                    padding:9px 12px;
 
                     border:
                       1px solid
                       #1a2638;
 
-                    border-radius:9px;
+                    border-radius:8px;
 
                     background:#0a1019;
-
                     color:#526983;
 
-                    font-size:10px;
+                    font-size:8px;
                     font-weight:900;
-                    letter-spacing:.8px;
+                    letter-spacing:.7px;
 
                     cursor:not-allowed;
                     opacity:.75;
@@ -14367,29 +14176,25 @@ if (
 
                   style="
                     width:100%;
-                    margin-top:16px;
-                    padding:12px 14px;
+                    margin-top:10px;
+                    padding:9px 12px;
 
                     border:
                       1px solid
-                      rgba(0,255,231,.40);
+                      rgba(0,255,231,.35);
 
-                    border-radius:9px;
+                    border-radius:8px;
 
                     background:
-                      rgba(0,255,231,.07);
+                      rgba(0,255,231,.06);
 
                     color:#00ffe7;
 
-                    font-size:10px;
+                    font-size:8px;
                     font-weight:900;
-                    letter-spacing:.8px;
+                    letter-spacing:.7px;
 
                     cursor:pointer;
-
-                    box-shadow:
-                      0 0 18px
-                      rgba(0,255,231,.04);
                   "
                 >
                   VIEW FULL ANALYSIS →
@@ -14398,7 +14203,7 @@ if (
 
 
         // ====================================================
-        // CARD
+        // FINAL CARD
         // ====================================================
 
         return `
@@ -14435,34 +14240,23 @@ if (
                     : "#14243d"
                 };
 
-              border-radius:16px;
+              border-radius:14px;
 
-              padding:18px;
+              padding:13px;
 
               min-width:0;
-
-              box-shadow:
-                ${
-                  intelligence
-                    .importantNow === true
-                    ? "0 0 25px rgba(0,255,231,.05)"
-                    : "none"
-                };
             "
           >
 
-            <!-- =============================================
-                 HEADER
-            ============================================== -->
+            <!-- HEADER -->
 
             <div
               style="
                 display:flex;
-                justify-content:
-                  space-between;
+                justify-content:space-between;
                 align-items:center;
-                gap:12px;
-                margin-bottom:15px;
+                gap:8px;
+                margin-bottom:9px;
               "
             >
 
@@ -14470,16 +14264,16 @@ if (
                 style="
                   display:flex;
                   align-items:center;
-                  gap:8px;
+                  gap:6px;
                 "
               >
 
                 <span
                   style="
                     color:${stateColor};
-                    font-size:9px;
+                    font-size:8px;
                     font-weight:900;
-                    letter-spacing:1.2px;
+                    letter-spacing:1px;
                   "
                 >
                   ${radarEscape(
@@ -14495,20 +14289,22 @@ if (
                           style="
                             width:5px;
                             height:5px;
+
                             border-radius:50%;
+
                             background:#00e676;
+
                             box-shadow:
-                              0 0 8px
-                              rgba(0,230,118,.8);
+                              0 0 6px
+                              rgba(0,230,118,.7);
                           "
                         ></span>
 
                         <span
                           style="
                             color:#71839f;
-                            font-size:8px;
+                            font-size:7px;
                             font-weight:900;
-                            letter-spacing:.8px;
                           "
                         >
                           LIVE MARKET
@@ -14523,9 +14319,8 @@ if (
               <div
                 style="
                   color:#526983;
-                  font-size:9px;
+                  font-size:8px;
                   font-weight:800;
-                  letter-spacing:.8px;
                 "
               >
                 ${radarEscape(
@@ -14539,352 +14334,273 @@ if (
             </div>
 
 
-            <!-- =============================================
-                 MATCHUP + MARKET OPPORTUNITY
-            ============================================== -->
+            <!-- MATCHUP -->
 
             <div
               style="
                 display:grid;
 
                 grid-template-columns:
-                  repeat(
-                    auto-fit,
-                    minmax(
-                      280px,
-                      1fr
-                    )
-                  );
+                  auto
+                  minmax(0,1fr)
+                  auto;
 
-                gap:14px;
-                align-items:stretch;
+                align-items:center;
+
+                gap:8px;
+
+                margin-bottom:9px;
               "
             >
 
-              <!-- LEFT -->
-
-              <div>
-
-                <div
-                  style="
-                    display:grid;
-
-                    grid-template-columns:
-                      auto
-                      minmax(0,1fr)
-                      auto;
-
-                    align-items:center;
-                    gap:11px;
-
-                    margin-bottom:15px;
-                  "
-                >
-
-                  ${premiumRadarTeamLogoHTML(
-                    row.away_team,
-                    row.away_team_logo
-                  )}
+              ${premiumRadarTeamLogoHTML(
+                row.away_team,
+                row.away_team_logo
+              )}
 
 
-                  <div
-                    style="
-                      min-width:0;
-                      text-align:center;
-                    "
-                  >
-
-                    <div
-                      style="
-                        color:#fff;
-                        font-size:16px;
-                        font-weight:900;
-                        line-height:1.35;
-                      "
-                    >
-                      ${radarEscape(
-                        row.away_team ||
-                        "Away"
-                      )}
-
-                      <span
-                        style="
-                          color:#526983;
-                          font-weight:500;
-                          margin:0 5px;
-                        "
-                      >
-                        @
-                      </span>
-
-                      ${radarEscape(
-                        row.home_team ||
-                        "Home"
-                      )}
-                    </div>
-
-                    ${historyFinalHTML}
-
-                  </div>
-
-
-                  ${premiumRadarTeamLogoHTML(
-                    row.home_team,
-                    row.home_team_logo
-                  )}
-
-                </div>
-
+              <div
+                style="
+                  min-width:0;
+                  text-align:center;
+                "
+              >
 
                 <div
                   style="
-                    color:#00ffe7;
-                    font-size:20px;
+                    color:#fff;
+                    font-size:13px;
                     font-weight:900;
-                    line-height:1.2;
+                    line-height:1.25;
                   "
                 >
                   ${radarEscape(
-                    row.current_pick ||
-                    "—"
+                    row.away_team ||
+                    "Away"
+                  )}
+
+                  <span
+                    style="
+                      color:#526983;
+                      font-weight:500;
+                      margin:0 3px;
+                    "
+                  >
+                    @
+                  </span>
+
+                  ${radarEscape(
+                    row.home_team ||
+                    "Home"
                   )}
                 </div>
 
-
-                ${topMarketHTML}
-
-
-                <div
-                  style="
-                    display:flex;
-                    flex-wrap:wrap;
-                    gap:8px;
-                    margin-top:13px;
-                  "
-                >
-
-                  <div
-                    style="
-                      min-width:130px;
-                      padding:10px 13px;
-
-                      background:#0a1322;
-
-                      border:
-                        1px solid
-                        #14243d;
-
-                      border-radius:10px;
-                    "
-                  >
-
-                    <div
-                      style="
-                        color:#526983;
-                        font-size:7px;
-                        font-weight:900;
-                        letter-spacing:.9px;
-                      "
-                    >
-                      CONFIDENCE
-                    </div>
-
-                    <strong
-                      style="
-                        display:block;
-                        margin-top:4px;
-
-                        color:#ff9f43;
-                        font-size:19px;
-                      "
-                    >
-                      ${formatNumber(
-                        row.current_confidence
-                      )}%
-                    </strong>
-
-                  </div>
-
-
-                  <div
-                    style="
-                      flex:1;
-                      min-width:190px;
-
-                      padding:10px 13px;
-
-                      background:#0a1322;
-
-                      border:
-                        1px solid
-                        #14243d;
-
-                      border-radius:10px;
-                    "
-                  >
-
-                    <div
-                      style="
-                        color:#526983;
-                        font-size:7px;
-                        font-weight:900;
-                        letter-spacing:.9px;
-                        margin-bottom:7px;
-                      "
-                    >
-                      CASHEDGE PROJECTION
-                    </div>
-
-
-                    <div
-                      style="
-                        display:flex;
-                        flex-wrap:wrap;
-                        gap:14px;
-                      "
-                    >
-
-                      <div>
-                        <small
-                          style="
-                            display:block;
-                            color:#71839f;
-                            font-size:7px;
-                          "
-                        >
-                          AWAY
-                        </small>
-
-                        <strong
-                          style="
-                            color:#fff;
-                            font-size:12px;
-                          "
-                        >
-                          ${projection.awayValue}
-                        </strong>
-                      </div>
-
-
-                      <div>
-                        <small
-                          style="
-                            display:block;
-                            color:#71839f;
-                            font-size:7px;
-                          "
-                        >
-                          HOME
-                        </small>
-
-                        <strong
-                          style="
-                            color:#fff;
-                            font-size:12px;
-                          "
-                        >
-                          ${projection.homeValue}
-                        </strong>
-                      </div>
-
-
-                      <div>
-                        <small
-                          style="
-                            display:block;
-                            color:#71839f;
-                            font-size:7px;
-                          "
-                        >
-                          ${projection.bottomLeftLabel}
-                        </small>
-
-                        <strong
-                          style="
-                            color:#ffd166;
-                            font-size:12px;
-                          "
-                        >
-                          ${projection.bottomLeftValue}
-                        </strong>
-                      </div>
-
-
-                      ${
-                        String(
-                          row.sport ||
-                          ""
-                        )
-                          .toLowerCase() ===
-                        "mlb"
-                          ? ""
-                          : `
-                              <div>
-                                <small
-                                  style="
-                                    display:block;
-                                    color:#71839f;
-                                    font-size:7px;
-                                  "
-                                >
-                                  ${projection.bottomRightLabel}
-                                </small>
-
-                                <strong
-                                  style="
-                                    color:#fff;
-                                    font-size:12px;
-                                  "
-                                >
-                                  ${projection.bottomRightValue}
-                                </strong>
-                              </div>
-                            `
-                      }
-
-                    </div>
-
-                  </div>
-
-                </div>
+                ${historyFinalHTML}
 
               </div>
 
 
-              <!-- RIGHT -->
+              ${premiumRadarTeamLogoHTML(
+                row.home_team,
+                row.home_team_logo
+              )}
+
+            </div>
+
+
+            <!-- PICK + CONFIDENCE -->
+
+            <div
+              style="
+                display:flex;
+                align-items:center;
+                flex-wrap:wrap;
+                gap:7px;
+              "
+            >
+
+              <div
+                style="
+                  color:#00ffe7;
+                  font-size:17px;
+                  font-weight:900;
+                  line-height:1.15;
+                "
+              >
+                ${radarEscape(
+                  row.current_pick ||
+                  "—"
+                )}
+              </div>
+
+
+              <div
+                style="
+                  padding:4px 8px;
+
+                  border-radius:999px;
+
+                  background:#0a1322;
+
+                  border:
+                    1px solid
+                    #17304b;
+
+                  color:#ff9f43;
+
+                  font-size:9px;
+                  font-weight:900;
+
+                  white-space:nowrap;
+                "
+              >
+                ${formatNumber(
+                  row.current_confidence
+                )}%
+              </div>
+
+            </div>
+
+
+            ${marketLineHTML}
+
+
+            <!-- PROJECTION -->
+
+            <div
+              style="
+                display:flex;
+                flex-wrap:wrap;
+                gap:12px;
+
+                margin-top:9px;
+
+                padding:8px 10px;
+
+                background:#0a1322;
+
+                border:
+                  1px solid
+                  #14243d;
+
+                border-radius:9px;
+              "
+            >
+
+              <div>
+
+                <span
+                  style="
+                    display:block;
+                    color:#526983;
+                    font-size:6px;
+                    font-weight:900;
+                  "
+                >
+                  AWAY
+                </span>
+
+                <strong
+                  style="
+                    color:#fff;
+                    font-size:10px;
+                  "
+                >
+                  ${projection.awayValue}
+                </strong>
+
+              </div>
+
+
+              <div>
+
+                <span
+                  style="
+                    display:block;
+                    color:#526983;
+                    font-size:6px;
+                    font-weight:900;
+                  "
+                >
+                  HOME
+                </span>
+
+                <strong
+                  style="
+                    color:#fff;
+                    font-size:10px;
+                  "
+                >
+                  ${projection.homeValue}
+                </strong>
+
+              </div>
+
+
+              <div>
+
+                <span
+                  style="
+                    display:block;
+                    color:#526983;
+                    font-size:6px;
+                    font-weight:900;
+                  "
+                >
+                  ${projection.bottomLeftLabel}
+                </span>
+
+                <strong
+                  style="
+                    color:#ffd166;
+                    font-size:10px;
+                  "
+                >
+                  ${projection.bottomLeftValue}
+                </strong>
+
+              </div>
+
 
               ${
-                opportunityHTML ||
-                `
-                  <div
-                    style="
-                      display:flex;
-                      align-items:center;
-                      justify-content:center;
+                String(
+                  row.sport ||
+                  ""
+                )
+                  .toLowerCase() ===
+                "mlb"
+                  ? ""
+                  : `
+                      <div>
 
-                      min-height:145px;
+                        <span
+                          style="
+                            display:block;
+                            color:#526983;
+                            font-size:6px;
+                            font-weight:900;
+                          "
+                        >
+                          ${projection.bottomRightLabel}
+                        </span>
 
-                      border:
-                        1px solid
-                        #14243d;
+                        <strong
+                          style="
+                            color:#fff;
+                            font-size:10px;
+                          "
+                        >
+                          ${projection.bottomRightValue}
+                        </strong>
 
-                      border-radius:14px;
-
-                      background:#08101c;
-
-                      color:#71839f;
-
-                      font-size:10px;
-                      font-weight:800;
-                    "
-                  >
-                    MARKET INTELLIGENCE
-                  </div>
-                `
+                      </div>
+                    `
               }
 
             </div>
 
+
+            ${opportunityHTML}
 
             ${marketSummaryHTML}
 
@@ -14897,7 +14613,6 @@ if (
       }
     )
     .join("");
-
 
                     return `
                       <div
