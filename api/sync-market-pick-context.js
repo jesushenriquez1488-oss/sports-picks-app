@@ -573,22 +573,24 @@ module.exports =
       // No query-string secrets.
       // ======================================================
 
-      const expectedSecret =
-        process.env
-          .CRON_SECRET;
+    const allowedSecrets =
+  [
+    process.env.CRON_SECRET,
+    process.env.MARKET_INGEST_SECRET
+  ]
+    .filter(Boolean);
 
 
-      if (!expectedSecret) {
+if (!allowedSecrets.length) {
 
-        return res
-          .status(500)
-          .json({
-            ok: false,
-            error:
-              "CRON_SECRET is not configured"
-          });
-      }
-
+  return res
+    .status(500)
+    .json({
+      ok: false,
+      error:
+        "No Market Intelligence server secret is configured"
+    });
+}
 
       const authHeader =
         String(
@@ -607,12 +609,17 @@ module.exports =
           : "";
 
 
-      if (
-        !secureEqual(
-          bearer,
-          expectedSecret
-        )
-      ) {
+    const authorized =
+  allowedSecrets.some(
+    secret =>
+      secureEqual(
+        bearer,
+        secret
+      )
+  );
+
+
+if (!authorized) {
 
         return res
           .status(401)
@@ -783,7 +790,124 @@ module.exports =
         details:
           []
       };
+// ============================================================
+// RECONCILE TRACKING WINDOW
+//
+// Daily sports:
+//   today only
+//
+// Football:
+//   today + next 6 days
+//
+// Any context still marked Premium but no longer inside the
+// canonical tracking window must be deactivated.
+// ============================================================
 
+const trackingWindowGameIds =
+  new Set(
+    rows
+      .map(
+        row =>
+          String(
+            row.game_id || ""
+          )
+      )
+      .filter(Boolean)
+  );
+
+
+const {
+  data: activeContexts,
+  error: activeContextsError
+} =
+  await supabaseAdmin
+    .from(
+      "market_pick_context"
+    )
+    .select(`
+      id,
+      sport,
+      cashedge_game_id
+    `)
+    .in(
+      "sport",
+      [
+        "mlb",
+        "nba",
+        "wnba",
+        "ncaab",
+        "nfl",
+        "ncaaf"
+      ]
+    )
+    .eq(
+      "current_is_premium",
+      true
+    );
+
+
+if (activeContextsError) {
+  throw activeContextsError;
+}
+
+
+const staleContextIds =
+  (activeContexts || [])
+    .filter(
+      context =>
+        !trackingWindowGameIds.has(
+          String(
+            context
+              .cashedge_game_id ||
+            ""
+          )
+        )
+    )
+    .map(
+      context =>
+        context.id
+    )
+    .filter(Boolean);
+
+
+if (staleContextIds.length) {
+
+  const cleanupNow =
+    new Date()
+      .toISOString();
+
+
+  const {
+    error: staleContextError
+  } =
+    await supabaseAdmin
+      .from(
+        "market_pick_context"
+      )
+      .update({
+        current_is_premium:
+          false,
+
+        last_synced_at:
+          cleanupNow,
+
+        updated_at:
+          cleanupNow
+      })
+      .in(
+        "id",
+        staleContextIds
+      );
+
+
+  if (staleContextError) {
+    throw staleContextError;
+  }
+
+
+  report.deactivated +=
+    staleContextIds.length;
+}
 
       // ======================================================
       // SYNC
