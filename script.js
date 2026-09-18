@@ -13659,16 +13659,26 @@ const marketPulseHTML =
         const bestAvailable =
           intelligence.bestAvailable ||
           {};
-const ticketsPctNumber =
-  premiumRadarNum(
-    intelligence.ticketsPct
-  );
+const bettingSplits =
+  intelligence.bettingSplits ||
+  {};
 
 
-const moneyPctNumber =
-  premiumRadarNum(
-    intelligence.moneyPct
-  );
+const bettingSplitSources =
+  Array.isArray(
+    bettingSplits.sources
+  )
+    ? bettingSplits.sources
+    : [];
+
+
+const bettingSplitStatus =
+  String(
+    bettingSplits.status ||
+    "NO_DATA"
+  )
+    .toUpperCase()
+    .trim();
 
 
 const splitPickLabel =
@@ -13679,28 +13689,144 @@ const splitPickLabel =
   );
 
 
-const oppositeTicketsPct =
-  ticketsPctNumber !== null
-    ? Math.max(
-        0,
-        Math.min(
-          100,
-          100 - ticketsPctNumber
-        )
-      )
-    : null;
+const bettingSplitStatusText =
+  bettingSplitStatus ===
+    "MIXED"
+      ? "MIXED SOURCES"
+      : bettingSplitStatus ===
+          "CONSISTENT"
+        ? "SOURCES AGREE"
+        : bettingSplitStatus ===
+            "SINGLE_SOURCE"
+          ? "1 SOURCE"
+          : "";
 
 
-const oppositeMoneyPct =
-  moneyPctNumber !== null
-    ? Math.max(
-        0,
-        Math.min(
-          100,
-          100 - moneyPctNumber
-        )
-      )
-    : null;
+const bettingSplitStatusColor =
+  bettingSplitStatus ===
+    "MIXED"
+      ? "#ffd166"
+      : bettingSplitStatus ===
+          "CONSISTENT"
+        ? "#00e676"
+        : "#71839f";
+
+
+const bettingSplitRowsHTML =
+  bettingSplitSources
+    .slice(
+      0,
+      4
+    )
+    .map(
+      source => {
+
+        const sourceTickets =
+          premiumRadarNum(
+            source.ticketsPct
+          );
+
+        const sourceMoney =
+          premiumRadarNum(
+            source.moneyPct
+          );
+
+
+        return `
+          <div
+            style="
+              display:flex;
+              align-items:center;
+              justify-content:space-between;
+              gap:6px;
+
+              padding:3px 0;
+
+              border-top:
+                1px solid
+                rgba(82,105,131,.18);
+            "
+          >
+
+            <span
+              style="
+                min-width:0;
+                overflow:hidden;
+                text-overflow:ellipsis;
+                white-space:nowrap;
+
+                color:#9fb0c5;
+                font-size:5.5px;
+                font-weight:800;
+              "
+            >
+              ${radarEscape(
+                source.sportsbook ||
+                source.sportsbookKey ||
+                "Sportsbook"
+              )}
+            </span>
+
+
+            <span
+              style="
+                flex-shrink:0;
+                white-space:nowrap;
+                font-size:5.5px;
+              "
+            >
+
+              <span
+                style="
+                  color:#71839f;
+                "
+              >
+                T
+              </span>
+
+              <strong
+                style="
+                  color:#fff;
+                  margin-left:2px;
+                "
+              >
+                ${radarEscape(
+                  premiumRadarPercent(
+                    sourceTickets
+                  )
+                )}
+              </strong>
+
+
+              <span
+                style="
+                  color:#71839f;
+                  margin-left:5px;
+                "
+              >
+                M
+              </span>
+
+              <strong
+                style="
+                  color:#00ffe7;
+                  margin-left:2px;
+                "
+              >
+                ${radarEscape(
+                  premiumRadarPercent(
+                    sourceMoney
+                  )
+                )}
+              </strong>
+
+            </span>
+
+          </div>
+        `;
+      }
+    )
+    .join("");
 
         // ====================================================
         // CURRENT MARKET
@@ -14133,16 +14259,17 @@ const oppositeMoneyPct =
         // MARKET SUMMARY — COMPACT
         // ====================================================
 
-     const marketSummaryHTML =
+   const marketSummaryHTML =
   hasMarketIntelligence
     ? `
         <div
           style="
             display:grid;
+
             grid-template-columns:
               minmax(0,.9fr)
-              minmax(0,1.15fr)
-              minmax(0,.95fr);
+              minmax(0,1.25fr)
+              minmax(0,.85fr);
 
             margin-top:9px;
 
@@ -14252,20 +14379,53 @@ const oppositeMoneyPct =
 
             <div
               style="
-                color:#526983;
-                font-size:6px;
-                font-weight:900;
-                letter-spacing:.7px;
-                margin-bottom:4px;
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+                gap:4px;
+
+                margin-bottom:3px;
               "
             >
-              BETTING SPLITS
+
+              <span
+                style="
+                  color:#526983;
+                  font-size:6px;
+                  font-weight:900;
+                  letter-spacing:.7px;
+                "
+              >
+                BETTING SPLITS
+              </span>
+
+
+              ${
+                bettingSplitStatusText
+                  ? `
+                      <span
+                        style="
+                          color:
+                            ${bettingSplitStatusColor};
+
+                          font-size:5px;
+                          font-weight:900;
+                          white-space:nowrap;
+                        "
+                      >
+                        ${radarEscape(
+                          bettingSplitStatusText
+                        )}
+                      </span>
+                    `
+                  : ""
+              }
+
             </div>
 
 
             ${
-              ticketsPctNumber !== null &&
-              moneyPctNumber !== null
+              bettingSplitSources.length
                 ? `
 
                     <div
@@ -14273,7 +14433,6 @@ const oppositeMoneyPct =
                         color:#71839f;
                         font-size:5px;
                         font-weight:800;
-                        letter-spacing:.4px;
                         margin-bottom:2px;
                       "
                     >
@@ -14284,15 +14443,14 @@ const oppositeMoneyPct =
                     <div
                       style="
                         color:#dce6f4;
-                        font-size:6.5px;
-                        font-weight:800;
-                        line-height:1.1;
+                        font-size:6px;
+                        font-weight:900;
 
                         white-space:nowrap;
                         overflow:hidden;
                         text-overflow:ellipsis;
 
-                        margin-bottom:5px;
+                        margin-bottom:2px;
                       "
                     >
                       ${radarEscape(
@@ -14301,76 +14459,7 @@ const oppositeMoneyPct =
                     </div>
 
 
-                    <div
-                      style="
-                        display:flex;
-                        align-items:flex-start;
-                        gap:10px;
-                      "
-                    >
-
-                      <div>
-
-                        <span
-                          style="
-                            display:block;
-                            color:#71839f;
-                            font-size:5px;
-                            margin-bottom:1px;
-                          "
-                        >
-                          TICKETS
-                        </span>
-
-                        <strong
-                          style="
-                            display:block;
-                            color:#fff;
-                            font-size:8px;
-                            line-height:1;
-                          "
-                        >
-                          ${radarEscape(
-                            premiumRadarPercent(
-                              ticketsPctNumber
-                            )
-                          )}
-                        </strong>
-
-                      </div>
-
-
-                      <div>
-
-                        <span
-                          style="
-                            display:block;
-                            color:#71839f;
-                            font-size:5px;
-                            margin-bottom:1px;
-                          "
-                        >
-                          MONEY
-                        </span>
-
-                        <strong
-                          style="
-                            display:block;
-                            color:#00ffe7;
-                            font-size:8px;
-                            line-height:1;
-                          "
-                        >
-                          ${radarEscape(
-                            premiumRadarPercent(
-                              moneyPctNumber
-                            )
-                          )}
-                        </strong>
-
-                      </div>
-
-                    </div>
+                    ${bettingSplitRowsHTML}
 
                   `
                 : `
@@ -14421,7 +14510,6 @@ const oppositeMoneyPct =
                 font-size:7px;
                 line-height:1.2;
 
-                word-break:normal;
                 overflow-wrap:anywhere;
               "
             >
@@ -14439,7 +14527,6 @@ const oppositeMoneyPct =
         </div>
       `
     : "";
-
         // ====================================================
         // RECENT ACTIVITY — COMPACT
         // ====================================================
