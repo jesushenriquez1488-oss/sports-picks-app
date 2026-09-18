@@ -2426,13 +2426,46 @@ const marketPulse = {
         })
       )
 };
-      const latestMovement =
-       currentMarketEvents.find(
-          event =>
-            event.event_family ===
-            "movement"
-        ) ||
-        null;
+    const recentMovementCutoff =
+  Date.now() -
+  (
+    30 *
+    60 *
+    1000
+  );
+
+
+const latestMovement =
+  currentMarketEvents.find(
+    event => {
+
+      if (
+        event.event_family !==
+        "movement"
+      ) {
+        return false;
+      }
+
+
+      const eventTime =
+        new Date(
+          event.last_detected_at ||
+          event.first_detected_at ||
+          0
+        )
+          .getTime();
+
+
+      return (
+        Number.isFinite(
+          eventTime
+        ) &&
+        eventTime >=
+          recentMovementCutoff
+      );
+    }
+  ) ||
+  null;
 
 
       const activeOpportunityEvent =
@@ -2462,13 +2495,22 @@ const marketPulse = {
         null;
 
 
-  const activity =
+ const activity =
   currentMarketEvents
     .filter(
       event => {
 
+        const family =
+          String(
+            event.event_family ||
+            ""
+          )
+            .toLowerCase()
+            .trim();
+
+
         if (
-          event.event_family ===
+          family ===
           "signal"
         ) {
           return (
@@ -2477,12 +2519,43 @@ const marketPulse = {
           );
         }
 
-        return (
-          event.event_family ===
-            "movement" ||
-          event.event_family ===
-            "opportunity"
-        );
+
+        if (
+          family ===
+          "opportunity"
+        ) {
+          return (
+            event.is_active ===
+            true
+          );
+        }
+
+
+        if (
+          family ===
+          "movement"
+        ) {
+
+          const eventTime =
+            new Date(
+              event.last_detected_at ||
+              event.first_detected_at ||
+              0
+            )
+              .getTime();
+
+
+          return (
+            Number.isFinite(
+              eventTime
+            ) &&
+            eventTime >=
+              recentMovementCutoff
+          );
+        }
+
+
+        return false;
       }
     )
     .slice(
