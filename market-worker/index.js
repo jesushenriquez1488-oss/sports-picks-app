@@ -173,8 +173,7 @@ let firstIngestSummaryLogged =
 const lastSentSignatures =
   new Map();
 const QUOTE_REVALIDATE_MS =
-  60 * 1000;
-
+  45 * 1000;
 // ============================================================
 // NORMALIZATION
 // ============================================================
