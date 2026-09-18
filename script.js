@@ -12185,6 +12185,96 @@ function premiumRadarOpportunityMeta(
     show: false
   };
 }
+let premiumRadarImportantIndex =
+  -1;
+
+
+function getPremiumRadarImportantCards() {
+
+  return Array.from(
+    document.querySelectorAll(
+      '[data-radar-important="1"]'
+    )
+  ).filter(
+    card =>
+      card.offsetParent !==
+      null
+  );
+}
+
+
+function updatePremiumRadarImportantButton() {
+
+  const button =
+    document.getElementById(
+      "premiumRadarImportantMovesButton"
+    );
+
+  const countEl =
+    document.getElementById(
+      "premiumRadarImportantMovesCount"
+    );
+
+  if (!button) {
+    return;
+  }
+
+
+  const cards =
+    getPremiumRadarImportantCards();
+
+
+  button.style.display =
+    cards.length > 0
+      ? "inline-flex"
+      : "none";
+
+
+  if (countEl) {
+
+    countEl.textContent =
+      String(
+        cards.length
+      );
+  }
+}
+
+
+function nextPremiumRadarImportantMove() {
+
+  const cards =
+    getPremiumRadarImportantCards();
+
+
+  if (!cards.length) {
+    return false;
+  }
+
+
+  premiumRadarImportantIndex =
+    (
+      premiumRadarImportantIndex + 1
+    ) %
+    cards.length;
+
+
+  cards[
+    premiumRadarImportantIndex
+  ].scrollIntoView({
+    behavior:
+      "smooth",
+
+    block:
+      "center"
+  });
+
+
+  return true;
+}
+
+
+window.nextPremiumRadarImportantMove =
+  nextPremiumRadarImportantMove;
 // ============================================================
 // PREMIUM RADAR
 // ============================================================
@@ -14882,9 +14972,32 @@ ${
                 gap:7px;
               "
             >
-
+<button
+  id="premiumRadarImportantMovesButton"
+  type="button"
+  onclick="nextPremiumRadarImportantMove()"
+  style="
+    display:none;
+    align-items:center;
+    gap:5px;
+    border:1px solid rgba(255,209,102,.42);
+    background:rgba(255,209,102,.08);
+    color:#ffd166;
+    border-radius:9px;
+    padding:9px 12px;
+    font-size:9px;
+    font-weight:900;
+    cursor:pointer;
+  "
+>
+  ⚡ IMPORTANT MOVES
+  <span id="premiumRadarImportantMovesCount">
+    0
+  </span>
+</button>
               <button
   type="button"
+  
   onclick="openPremiumRadar('today')"
   style="
     border:
@@ -15109,7 +15222,7 @@ ${
 
       </div>
     `;
-
+updatePremiumRadarImportantButton();
 
   } catch (error) {
 
