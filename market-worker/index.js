@@ -65,6 +65,8 @@ const BOOKS = [
 
 const REFRESH_INTERVAL_MS =
   60 * 1000;
+const PICK_CONTEXT_SYNC_INTERVAL_MS =
+  5 * 60 * 1000;
 const SPLIT_REFRESH_INTERVAL_MS =
   15 * 1000;
 const OWLS_WATCHDOG_INTERVAL_MS =
@@ -114,6 +116,11 @@ let socket =
 
 let refreshTimer =
   null;
+let syncTimer =
+  null;
+
+let pickContextSyncRunning =
+  false;
 let splitTimer =
   null;
 
@@ -393,9 +400,40 @@ async function syncPickContext() {
 
 async function refreshCashEdgeState() {
 
-  await syncPickContext();
-
   await refreshTrackedGames();
+}
+
+
+async function syncPickContextSafe() {
+
+  if (
+    pickContextSyncRunning
+  ) {
+    return;
+  }
+
+
+  pickContextSyncRunning =
+    true;
+
+
+  try {
+
+    await syncPickContext();
+
+    await refreshTrackedGames();
+
+  } catch (error) {
+
+    console.error(
+      `[${WORKER_NAME}] pick-context sync error: ${error.message}`
+    );
+
+  } finally {
+
+    pickContextSyncRunning =
+      false;
+  }
 }
 async function refreshTrackedGames() {
 
@@ -2383,10 +2421,6 @@ function startOwlsWatchdog() {
     );
 }
 
-// ============================================================
-// START
-// ============================================================
-
 async function start() {
 
   console.log(
@@ -2400,14 +2434,17 @@ async function start() {
 
 
   /*
-   * Load CashEdge IDs BEFORE opening Owls,
-   * so the first live board can already be matched.
+   * Load the current tracked board first.
+   *
+   * Do NOT block the live worker waiting for
+   * pick-context synchronization.
    */
   while (true) {
 
     try {
 
-     await refreshCashEdgeState();
+      await refreshTrackedGames();
+
       break;
 
     } catch (error) {
@@ -2428,13 +2465,17 @@ async function start() {
   }
 
 
+  /*
+   * Tracked games refresh every minute.
+   */
   refreshTimer =
     setInterval(
       async () => {
 
         try {
 
-         await refreshCashEdgeState();
+          await refreshTrackedGames();
+
         } catch (error) {
 
           console.error(
@@ -2442,34 +2483,61 @@ async function start() {
           );
         }
       },
+
       REFRESH_INTERVAL_MS
     );
 
 
+  /*
+   * Pick context sync runs independently.
+   *
+   * A Vercel timeout here must NEVER stop:
+   * - Owls connection
+   * - quote ingestion
+   * - betting splits
+   */
+  void syncPickContextSafe();
+
+
+  syncTimer =
+    setInterval(
+      () => {
+        void syncPickContextSafe();
+      },
+
+      PICK_CONTEXT_SYNC_INTERVAL_MS
+    );
+
+
+  /*
+   * Start live Owls feed.
+   */
   connectOwls();
-startOwlsWatchdog();
+
+  startOwlsWatchdog();
 
 
-try {
+  /*
+   * Start Betting Splits immediately.
+   */
+  try {
 
-  await refreshBettingSplits();
+    await refreshBettingSplits();
 
-} catch (error) {
+  } catch (error) {
 
-  console.error(
-    `[${WORKER_NAME}] initial splits error: ${error.message}`
-  );
+    console.error(
+      `[${WORKER_NAME}] initial splits error: ${error.message}`
+    );
+  }
+
+
+  splitTimer =
+    setInterval(
+      refreshBettingSplits,
+      SPLIT_REFRESH_INTERVAL_MS
+    );
 }
-
-
-splitTimer =
-  setInterval(
-    refreshBettingSplits,
-    SPLIT_REFRESH_INTERVAL_MS
-  );
-  
-}
-
 
 // ============================================================
 // SHUTDOWN
@@ -2491,6 +2559,14 @@ function shutdown(
       refreshTimer
     );
   }
+  if (
+  syncTimer
+) {
+
+  clearInterval(
+    syncTimer
+  );
+}
 if (
   watchdogTimer
 ) {
