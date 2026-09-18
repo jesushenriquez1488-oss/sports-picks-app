@@ -11434,6 +11434,758 @@ return true;
 window.openPremiumRadarFullAnalysis =
   openPremiumRadarFullAnalysis;
 // ============================================================
+// PREMIUM RADAR — MARKET UI HELPERS
+// ============================================================
+
+function premiumRadarNum(value) {
+
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
+  const number =
+    Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : null;
+}
+
+
+function premiumRadarAmerican(value) {
+
+  const number =
+    premiumRadarNum(value);
+
+  if (number === null) {
+    return "—";
+  }
+
+  const clean =
+    Math.round(number);
+
+  return clean > 0
+    ? `+${clean}`
+    : `${clean}`;
+}
+
+
+function premiumRadarLine(
+  value,
+  marketType = ""
+) {
+
+  const number =
+    premiumRadarNum(value);
+
+  if (number === null) {
+    return "—";
+  }
+
+  const clean =
+    Number(
+      number.toFixed(2)
+    );
+
+  const type =
+    String(
+      marketType || ""
+    )
+      .toLowerCase()
+      .trim();
+
+
+  if (
+    type === "spread" &&
+    clean > 0
+  ) {
+    return `+${clean}`;
+  }
+
+
+  return `${clean}`;
+}
+
+
+function premiumRadarQuote(
+  marketType,
+  line,
+  price
+) {
+
+  const type =
+    String(
+      marketType || ""
+    )
+      .toLowerCase()
+      .trim();
+
+
+  const priceText =
+    premiumRadarAmerican(
+      price
+    );
+
+
+  if (
+    type === "moneyline"
+  ) {
+    return priceText;
+  }
+
+
+  const lineText =
+    premiumRadarLine(
+      line,
+      type
+    );
+
+
+  if (
+    lineText !== "—" &&
+    priceText !== "—"
+  ) {
+    return `${lineText} (${priceText})`;
+  }
+
+
+  return lineText !== "—"
+    ? lineText
+    : priceText;
+}
+
+
+function premiumRadarPercent(value) {
+
+  const number =
+    premiumRadarNum(value);
+
+  return number === null
+    ? "—"
+    : `${Number(
+        number.toFixed(1)
+      )}%`;
+}
+
+
+function premiumRadarInitials(
+  name
+) {
+
+  const words =
+    String(
+      name || ""
+    )
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+
+  if (!words.length) {
+    return "?";
+  }
+
+
+  return words
+    .slice(0, 2)
+    .map(
+      word =>
+        String(
+          word[0] || ""
+        )
+          .toUpperCase()
+    )
+    .join("");
+}
+
+
+function premiumRadarTeamLogoHTML(
+  teamName,
+  logoUrl
+) {
+
+  const initials =
+    premiumRadarInitials(
+      teamName
+    );
+
+
+  return `
+    <div
+      style="
+        position:relative;
+        width:42px;
+        height:42px;
+        flex:0 0 42px;
+
+        display:flex;
+        align-items:center;
+        justify-content:center;
+
+        border-radius:50%;
+
+        background:#0a1322;
+        border:1px solid #1a2b43;
+
+        overflow:hidden;
+      "
+    >
+
+      <span
+        style="
+          color:#71839f;
+          font-size:10px;
+          font-weight:900;
+        "
+      >
+        ${sanitize(initials)}
+      </span>
+
+
+      ${
+        logoUrl
+          ? `
+              <img
+                src="${sanitize(
+                  logoUrl
+                )}"
+                alt="${sanitize(
+                  teamName ||
+                  "Team"
+                )}"
+                loading="lazy"
+
+                onerror="
+                  this.style.display='none'
+                "
+
+                style="
+                  position:absolute;
+                  inset:4px;
+
+                  width:34px;
+                  height:34px;
+
+                  object-fit:contain;
+                "
+              >
+            `
+          : ""
+      }
+
+    </div>
+  `;
+}
+
+
+function premiumRadarAgo(
+  value
+) {
+
+  if (!value) {
+    return "";
+  }
+
+
+  const time =
+    new Date(
+      value
+    ).getTime();
+
+
+  if (
+    !Number.isFinite(
+      time
+    )
+  ) {
+    return "";
+  }
+
+
+  const minutes =
+    Math.max(
+      0,
+      Math.floor(
+        (
+          Date.now() -
+          time
+        ) /
+        60000
+      )
+    );
+
+
+  if (minutes < 1) {
+    return "now";
+  }
+
+
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+
+  const hours =
+    Math.floor(
+      minutes / 60
+    );
+
+
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+
+  return `${
+    Math.floor(
+      hours / 24
+    )
+  }d ago`;
+}
+
+
+function premiumRadarAlignmentMeta(
+  value
+) {
+
+  const state =
+    String(
+      value || ""
+    )
+      .toUpperCase()
+      .trim();
+
+
+  if (
+    state === "ALIGNED"
+  ) {
+
+    return {
+      label:
+        "MARKET MOVING WITH CASHEDGE",
+
+      color:
+        "#00e676"
+    };
+  }
+
+
+  if (
+    state === "AGAINST"
+  ) {
+
+    return {
+      label:
+        "MARKET MOVING AGAINST CASHEDGE",
+
+      color:
+        "#ff5c5c"
+    };
+  }
+
+
+  if (
+    state === "SPLIT"
+  ) {
+
+    return {
+      label:
+        "MARKET SPLIT",
+
+      color:
+        "#ffd166"
+    };
+  }
+
+
+  if (
+    state === "NEUTRAL"
+  ) {
+
+    return {
+      label:
+        "MARKET NEUTRAL",
+
+      color:
+        "#8ca0b8"
+    };
+  }
+
+
+  return {
+    label:
+      "LIVE MARKET",
+
+    color:
+      "#00ffe7"
+  };
+}
+
+
+// ============================================================
+// MARKET OPPORTUNITY
+// ============================================================
+
+function premiumRadarOpportunityMeta(
+  row
+) {
+
+  const intelligence =
+    row
+      ?.market_intelligence ||
+    {};
+
+
+  const opportunity =
+    intelligence
+      .opportunity ||
+    {};
+
+
+  const staleLine =
+    intelligence
+      .staleLine ||
+    null;
+
+
+  const consensus =
+    intelligence
+      .consensus ||
+    {};
+
+
+  const best =
+    intelligence
+      .bestAvailable ||
+    {};
+
+
+  const marketType =
+    intelligence
+      .marketType ||
+    row.market_type ||
+    "";
+
+
+  const state =
+    String(
+      opportunity.state ||
+      ""
+    )
+      .toUpperCase()
+      .trim();
+
+
+  const sportsbook =
+    opportunity
+      .sportsbook ||
+    staleLine
+      ?.sportsbook ||
+    best
+      .sportsbook ||
+    "Sportsbook";
+
+
+  const bestQuote =
+    premiumRadarQuote(
+      marketType,
+
+      opportunity.line ??
+      staleLine?.bestLine ??
+      best.line,
+
+      opportunity.price ??
+      staleLine?.bestPrice ??
+      best.price
+    );
+
+
+  const marketQuote =
+    premiumRadarQuote(
+      marketType,
+
+      staleLine
+        ?.marketLine ??
+      consensus.line,
+
+      staleLine
+        ?.marketPrice ??
+      consensus.price
+    );
+
+
+  const lineValue =
+    premiumRadarNum(
+      opportunity
+        .lineValue
+    ) || 0;
+
+
+  const priceValue =
+    premiumRadarNum(
+      opportunity
+        .priceValueCents
+    ) || 0;
+
+
+  if (
+    staleLine
+      ?.detected === true
+  ) {
+
+    return {
+
+      show: true,
+
+      title:
+        "STALE LINE DETECTED",
+
+      subtitle:
+        `${sportsbook} is still offering a better number while the market has moved`,
+
+      bestText:
+        `${sportsbook}: ${bestQuote}`,
+
+      marketText:
+        `Market consensus: ${marketQuote}`,
+
+      valueText:
+        lineValue > 0
+          ? `${Number(
+              lineValue.toFixed(2)
+            )} PTS BETTER`
+          : priceValue > 0
+            ? `${Math.round(
+                priceValue
+              )}¢ BETTER`
+            : "BETTER NUMBER",
+
+      color:
+        "#00ffe7",
+
+      border:
+        "rgba(0,255,231,.48)",
+
+      background:
+        "linear-gradient(135deg,rgba(0,255,231,.12),rgba(0,140,255,.05))"
+    };
+  }
+
+
+  if (
+    state ===
+    "VALUE_AVAILABLE"
+  ) {
+
+    const betterLine =
+      String(
+        opportunity.type ||
+        ""
+      )
+        .toLowerCase() ===
+      "better_line";
+
+
+    return {
+
+      show: true,
+
+      title:
+        betterLine
+          ? "BETTER LINE AVAILABLE"
+          : "BETTER PRICE AVAILABLE",
+
+      subtitle:
+        `${sportsbook} currently has the best available number`,
+
+      bestText:
+        `${sportsbook}: ${bestQuote}`,
+
+      marketText:
+        `Market consensus: ${marketQuote}`,
+
+      valueText:
+        lineValue > 0
+          ? `${Number(
+              lineValue.toFixed(2)
+            )} PTS BETTER`
+          : priceValue > 0
+            ? `${Math.round(
+                priceValue
+              )}¢ BETTER`
+            : "VALUE AVAILABLE",
+
+      color:
+        "#00e676",
+
+      border:
+        "rgba(0,230,118,.42)",
+
+      background:
+        "linear-gradient(135deg,rgba(0,230,118,.11),rgba(0,255,231,.04))"
+    };
+  }
+
+
+  if (
+    state ===
+    "WINDOW_CLOSING"
+  ) {
+
+    return {
+
+      show: true,
+
+      title:
+        "VALUE WINDOW CLOSING",
+
+      subtitle:
+        "The better number is still available, but the advantage is shrinking",
+
+      bestText:
+        `${sportsbook}: ${bestQuote}`,
+
+      marketText:
+        `Market consensus: ${marketQuote}`,
+
+      valueText:
+        "CLOSING",
+
+      color:
+        "#ffb347",
+
+      border:
+        "rgba(255,179,71,.44)",
+
+      background:
+        "linear-gradient(135deg,rgba(255,179,71,.12),rgba(255,209,102,.04))"
+    };
+  }
+
+
+  if (
+    state ===
+    "MARKET_CONFLICT"
+  ) {
+
+    return {
+
+      show: true,
+
+      title:
+        "MARKET CONFLICT",
+
+      subtitle:
+        "The market is moving materially against the CashEdge Premium selection",
+
+      bestText:
+        bestQuote !== "—"
+          ? `Best available: ${bestQuote}`
+          : "No clear market advantage right now",
+
+      marketText:
+        marketQuote !== "—"
+          ? `Market consensus: ${marketQuote}`
+          : "",
+
+      valueText:
+        "WATCH CLOSELY",
+
+      color:
+        "#ff5c5c",
+
+      border:
+        "rgba(255,92,92,.42)",
+
+      background:
+        "linear-gradient(135deg,rgba(255,92,92,.11),rgba(255,120,70,.04))"
+    };
+  }
+
+
+  if (
+    state ===
+    "MARKET_SPLIT"
+  ) {
+
+    return {
+
+      show: true,
+
+      title:
+        "MARKET SPLIT",
+
+      subtitle:
+        "Sportsbooks have not reached a clear consensus yet",
+
+      bestText:
+        "No unique consensus number",
+
+      marketText:
+        "CashEdge is waiting for the market to settle",
+
+      valueText:
+        "NO CLEAR ENTRY",
+
+      color:
+        "#ffd166",
+
+      border:
+        "rgba(255,209,102,.34)",
+
+      background:
+        "rgba(255,209,102,.06)"
+    };
+  }
+
+
+  if (
+    state ===
+    "OPPORTUNITY_CLOSED"
+  ) {
+
+    return {
+
+      show: true,
+
+      title:
+        "OPPORTUNITY CLOSED",
+
+      subtitle:
+        "The extra market advantage is no longer materially available",
+
+      bestText:
+        marketQuote !== "—"
+          ? `Market now: ${marketQuote}`
+          : "The market caught up",
+
+      marketText:
+        "The CashEdge Premium pick itself has not changed",
+
+      valueText:
+        "CLOSED",
+
+      color:
+        "#8ca0b8",
+
+      border:
+        "rgba(140,160,184,.28)",
+
+      background:
+        "rgba(140,160,184,.05)"
+    };
+  }
+
+
+  return {
+    show: false
+  };
+}
+// ============================================================
 // PREMIUM RADAR
 // ============================================================
 
@@ -12199,617 +12951,1948 @@ if (
                         : [];
 
 
-                    const cards =
-                      rows
-                        .map(
-                          row => {
+                   const cards =
+  rows
+    .map(
+      row => {
 
-                            const stillPremium =
-                              row.current_is_premium ===
-                              true;
+        // ====================================================
+        // RESULT / STATE
+        // ====================================================
 
-
-                            const normalizedResult =
-  String(
-    row.result || ""
-  )
-    .toLowerCase()
-    .trim();
-
-
-let historyResultText =
-  "PENDING";
-
-let historyResultColor =
-  "#71839f";
+        const normalizedResult =
+          String(
+            row.result || ""
+          )
+            .toLowerCase()
+            .trim();
 
 
-if (
-  normalizedResult === "win" ||
-  normalizedResult === "won"
-) {
+        let historyResultText =
+          "PENDING";
 
-  historyResultText =
-    "WON";
-
-  historyResultColor =
-    "#00e676";
-
-} else if (
-  normalizedResult === "loss" ||
-  normalizedResult === "lost"
-) {
-
-  historyResultText =
-    "LOST";
-
-  historyResultColor =
-    "#ff5c5c";
-
-} else if (
-  normalizedResult === "push"
-) {
-
-  historyResultText =
-    "PUSH";
-
-  historyResultColor =
-    "#ffd000";
-}
+        let historyResultColor =
+          "#71839f";
 
 
-const stateText =
-  isHistoryView
-    ? historyResultText
-    : (
-        stillPremium
-          ? "PREMIUM"
-          : "NO LONGER PREMIUM"
-      );
+        if (
+          normalizedResult === "win" ||
+          normalizedResult === "won"
+        ) {
+
+          historyResultText =
+            "WON";
+
+          historyResultColor =
+            "#00e676";
+
+        } else if (
+          normalizedResult === "loss" ||
+          normalizedResult === "lost"
+        ) {
+
+          historyResultText =
+            "LOST";
+
+          historyResultColor =
+            "#ff5c5c";
+
+        } else if (
+          normalizedResult === "push"
+        ) {
+
+          historyResultText =
+            "PUSH";
+
+          historyResultColor =
+            "#ffd000";
+        }
 
 
-const stateColor =
-  isHistoryView
-    ? historyResultColor
-    : (
-        stillPremium
-          ? "#00ffe7"
-          : "#ffb347"
-      );
+        const stateText =
+          isHistoryView
+            ? historyResultText
+            : "PREMIUM";
 
 
-                            const marketLine =
-                              row.current_market_line ??
-                              "—";
+        const stateColor =
+          isHistoryView
+            ? historyResultColor
+            : "#00ffe7";
 
 
-                            const openingLine =
-                              row.opening_market_line ??
-                              "—";
-                           const gameTimeMs =
-  parsePremiumRadarGameTime(
-    row.game_time
-  );
+        // ====================================================
+        // GAME STATUS
+        // ====================================================
+
+        const gameTimeMs =
+          parsePremiumRadarGameTime(
+            row.game_time
+          );
 
 
-const gameStarted =
-  !Number.isFinite(
-    gameTimeMs
-  ) ||
-  Date.now() >=
-    gameTimeMs;
+        const gameStarted =
+          !Number.isFinite(
+            gameTimeMs
+          ) ||
+          Date.now() >=
+            gameTimeMs;
 
 
-                        return `
-  <div
-    data-radar-game-id="${radarEscape(row.game_id || "")}"
-    style="
-      background:
-        #070d17;
-                                  border:
-                                    1px solid
-                                    #14243d;
+        // ====================================================
+        // PROJECTION
+        // ====================================================
 
-                                  border-radius:
-                                    16px;
+        const projection =
+          getProjectionData(
+            row
+          );
 
-                                  padding:
-                                    18px;
 
-                                  min-width:
-                                    0;
+        // ====================================================
+        // MARKET INTELLIGENCE
+        // ====================================================
+
+        const intelligence =
+          row.market_intelligence ||
+          {};
+
+
+        const marketFeatureEnabled =
+          !isHistoryView &&
+          data
+            .marketIntelligenceEnabled ===
+            true;
+
+
+        const hasMarketIntelligence =
+          marketFeatureEnabled &&
+          intelligence.available ===
+          true;
+
+
+        const marketType =
+          String(
+            intelligence.marketType ||
+            row.market_type ||
+            ""
+          )
+            .toLowerCase()
+            .trim();
+
+
+        const isMoneyline =
+          marketType ===
+          "moneyline";
+
+
+        const alignmentMeta =
+          premiumRadarAlignmentMeta(
+            intelligence.alignment
+          );
+
+
+        const opportunityMeta =
+          premiumRadarOpportunityMeta(
+            row
+          );
+
+
+        const consensus =
+          intelligence.consensus ||
+          {};
+
+
+        const bestAvailable =
+          intelligence.bestAvailable ||
+          {};
+
+
+        // ====================================================
+        // CURRENT CASHEDGE MARKET
+        // ====================================================
+
+        const currentMarketText =
+          isMoneyline
+            ? premiumRadarAmerican(
+                row
+                  .current_market_price_american
+              )
+            : premiumRadarLine(
+                row.current_market_line,
+                marketType
+              );
+
+
+        const openingMarketText =
+          isMoneyline
+            ? premiumRadarAmerican(
+                row
+                  .first_premium_price_american
+              )
+            : premiumRadarLine(
+                row.opening_market_line,
+                marketType
+              );
+
+
+        const currentMarketLabel =
+          isMoneyline
+            ? "CURRENT ODDS"
+            : "CURRENT LINE";
+
+
+        const openingMarketLabel =
+          isMoneyline
+            ? "PREMIUM PRICE"
+            : "OPEN";
+
+
+        const topMarketHTML =
+          (
+            openingMarketText !== "—" &&
+            currentMarketText !== "—" &&
+            openingMarketText !==
+              currentMarketText
+          )
+            ? `
+                <div
+                  style="
+                    margin-top:8px;
+                    color:#71839f;
+                    font-size:9px;
+                    font-weight:800;
+                  "
+                >
+                  ${openingMarketLabel}
+
+                  <strong
+                    style="
+                      color:#cbd7e8;
+                      margin-left:4px;
+                    "
+                  >
+                    ${radarEscape(
+                      openingMarketText
+                    )}
+                  </strong>
+
+                  <span
+                    style="
+                      color:#526983;
+                      margin:0 6px;
+                    "
+                  >
+                    →
+                  </span>
+
+                  NOW
+
+                  <strong
+                    style="
+                      color:#00ffe7;
+                      margin-left:4px;
+                    "
+                  >
+                    ${radarEscape(
+                      currentMarketText
+                    )}
+                  </strong>
+                </div>
+              `
+            : `
+                <div
+                  style="
+                    margin-top:8px;
+                    color:#71839f;
+                    font-size:9px;
+                    font-weight:800;
+                  "
+                >
+                  ${currentMarketLabel}
+
+                  <strong
+                    style="
+                      color:#00ffe7;
+                      margin-left:4px;
+                    "
+                  >
+                    ${radarEscape(
+                      currentMarketText
+                    )}
+                  </strong>
+                </div>
+              `;
+
+
+        // ====================================================
+        // BEST AVAILABLE / CONSENSUS
+        // ====================================================
+
+        const consensusQuote =
+          premiumRadarQuote(
+            marketType,
+            consensus.line,
+            consensus.price
+          );
+
+
+        const bestAvailableQuote =
+          premiumRadarQuote(
+            marketType,
+            bestAvailable.line,
+            bestAvailable.price
+          );
+
+
+        const bestSportsbook =
+          bestAvailable
+            .sportsbook ||
+          "—";
+
+
+        // ====================================================
+        // MOVEMENT
+        // ====================================================
+
+        const movement =
+          intelligence.movement ||
+          null;
+
+
+        const movementData =
+          movement?.data ||
+          {};
+
+
+        const movementMarketType =
+          String(
+            intelligence
+              .movementReferenceMarketType ||
+            marketType ||
+            ""
+          )
+            .toLowerCase()
+            .trim();
+
+
+        const movementUsesPrice =
+          movementMarketType ===
+            "moneyline" ||
+          movementData.metricType ===
+            "price_probability";
+
+
+        const movementBaseline =
+          movementUsesPrice
+            ? premiumRadarAmerican(
+                movementData
+                  .baselinePrice
+              )
+            : premiumRadarLine(
+                movementData
+                  .baselineLine,
+                movementMarketType
+              );
+
+
+        const movementNow =
+          movementUsesPrice
+            ? premiumRadarAmerican(
+                movementData
+                  .marketPrice
+              )
+            : premiumRadarLine(
+                movementData
+                  .marketLine,
+                movementMarketType
+              );
+
+
+        const movementTitle =
+          movementUsesPrice
+            ? "MONEYLINE MOVEMENT"
+            : "LINE MOVEMENT";
+
+
+        const movementHTML =
+          movement &&
+          (
+            movementBaseline !== "—" ||
+            movementNow !== "—"
+          )
+            ? `
+                <div>
+
+                  <div
+                    style="
+                      color:#526983;
+                      font-size:8px;
+                      font-weight:900;
+                      letter-spacing:.9px;
+                      margin-bottom:7px;
+                    "
+                  >
+                    ${movementTitle}
+                  </div>
+
+                  <div
+                    style="
+                      color:#fff;
+                      font-size:14px;
+                      font-weight:900;
+                    "
+                  >
+                    ${radarEscape(
+                      movementBaseline
+                    )}
+
+                    <span
+                      style="
+                        color:#526983;
+                        margin:0 5px;
+                      "
+                    >
+                      →
+                    </span>
+
+                    <span
+                      style="
+                        color:#00ffe7;
+                      "
+                    >
+                      ${radarEscape(
+                        movementNow
+                      )}
+                    </span>
+                  </div>
+
+                </div>
+              `
+            : `
+                <div>
+
+                  <div
+                    style="
+                      color:#526983;
+                      font-size:8px;
+                      font-weight:900;
+                      letter-spacing:.9px;
+                      margin-bottom:7px;
+                    "
+                  >
+                    MARKET MOVEMENT
+                  </div>
+
+                  <div
+                    style="
+                      color:#8ca0b8;
+                      font-size:11px;
+                      font-weight:800;
+                    "
+                  >
+                    No material move yet
+                  </div>
+
+                </div>
+              `;
+
+
+        // ====================================================
+        // OPPORTUNITY PANEL
+        // ====================================================
+
+        let opportunityHTML =
+          "";
+
+
+        if (
+          hasMarketIntelligence &&
+          opportunityMeta.show
+        ) {
+
+          opportunityHTML = `
+            <div
+              style="
+                height:100%;
+
+                padding:16px;
+
+                border:
+                  1px solid
+                  ${opportunityMeta.border};
+
+                border-radius:14px;
+
+                background:
+                  ${opportunityMeta.background};
+
+                box-shadow:
+                  0 0 24px
+                  rgba(0,255,231,.04);
+              "
+            >
+
+              <div
+                style="
+                  display:flex;
+                  justify-content:space-between;
+                  gap:10px;
+                  align-items:flex-start;
+                  margin-bottom:10px;
+                "
+              >
+
+                <div>
+
+                  <div
+                    style="
+                      color:${opportunityMeta.color};
+                      font-size:9px;
+                      font-weight:900;
+                      letter-spacing:1.2px;
+                      margin-bottom:5px;
+                    "
+                  >
+                    MARKET OPPORTUNITY
+                  </div>
+
+                  <div
+                    style="
+                      color:#fff;
+                      font-size:17px;
+                      font-weight:900;
+                      line-height:1.15;
+                    "
+                  >
+                    ${radarEscape(
+                      opportunityMeta.title
+                    )}
+                  </div>
+
+                </div>
+
+
+                <div
+                  style="
+                    color:${opportunityMeta.color};
+                    font-size:10px;
+                    font-weight:900;
+                    text-align:right;
+                    white-space:nowrap;
+                  "
+                >
+                  ${radarEscape(
+                    opportunityMeta.valueText ||
+                    ""
+                  )}
+                </div>
+
+              </div>
+
+
+              <div
+                style="
+                  color:#9eb0c7;
+                  font-size:10px;
+                  line-height:1.45;
+                  margin-bottom:14px;
+                "
+              >
+                ${radarEscape(
+                  opportunityMeta.subtitle ||
+                  ""
+                )}
+              </div>
+
+
+              <div
+                style="
+                  display:grid;
+                  grid-template-columns:
+                    repeat(
+                      2,
+                      minmax(0,1fr)
+                    );
+                  gap:8px;
+                "
+              >
+
+                <div
+                  style="
+                    background:
+                      rgba(0,0,0,.18);
+                    border-radius:9px;
+                    padding:10px;
+                  "
+                >
+
+                  <div
+                    style="
+                      color:#526983;
+                      font-size:7px;
+                      font-weight:900;
+                      letter-spacing:.8px;
+                      margin-bottom:4px;
+                    "
+                  >
+                    BEST AVAILABLE
+                  </div>
+
+                  <strong
+                    style="
+                      color:#fff;
+                      font-size:11px;
+                      line-height:1.3;
+                    "
+                  >
+                    ${radarEscape(
+                      opportunityMeta.bestText ||
+                      "—"
+                    )}
+                  </strong>
+
+                </div>
+
+
+                <div
+                  style="
+                    background:
+                      rgba(0,0,0,.18);
+                    border-radius:9px;
+                    padding:10px;
+                  "
+                >
+
+                  <div
+                    style="
+                      color:#526983;
+                      font-size:7px;
+                      font-weight:900;
+                      letter-spacing:.8px;
+                      margin-bottom:4px;
+                    "
+                  >
+                    CONSENSUS
+                  </div>
+
+                  <strong
+                    style="
+                      color:#cbd7e8;
+                      font-size:11px;
+                      line-height:1.3;
+                    "
+                  >
+                    ${radarEscape(
+                      opportunityMeta.marketText ||
+                      "—"
+                    )}
+                  </strong>
+
+                </div>
+
+              </div>
+
+            </div>
+          `;
+
+        } else if (
+          hasMarketIntelligence
+        ) {
+
+          opportunityHTML = `
+            <div
+              style="
+                height:100%;
+                padding:16px;
+
+                border:
+                  1px solid
+                  #1a2b43;
+
+                border-radius:14px;
+
+                background:
+                  #09111e;
+              "
+            >
+
+              <div
+                style="
+                  color:#71839f;
+                  font-size:9px;
+                  font-weight:900;
+                  letter-spacing:1px;
+                  margin-bottom:7px;
+                "
+              >
+                LIVE MARKET
+              </div>
+
+
+              <div
+                style="
+                  color:#fff;
+                  font-size:15px;
+                  font-weight:900;
+                  margin-bottom:13px;
+                "
+              >
+                No active market opportunity
+              </div>
+
+
+              <div
+                style="
+                  display:grid;
+                  grid-template-columns:
+                    repeat(
+                      2,
+                      minmax(0,1fr)
+                    );
+                  gap:8px;
+                "
+              >
+
+                <div
+                  style="
+                    background:#070d17;
+                    border-radius:9px;
+                    padding:10px;
+                  "
+                >
+
+                  <div
+                    style="
+                      color:#526983;
+                      font-size:7px;
+                      font-weight:900;
+                      margin-bottom:4px;
+                    "
+                  >
+                    BEST AVAILABLE
+                  </div>
+
+                  <strong
+                    style="
+                      color:#fff;
+                      font-size:11px;
+                    "
+                  >
+                    ${radarEscape(
+                      bestSportsbook
+                    )}
+
+                    ${
+                      bestAvailableQuote !==
+                      "—"
+                        ? ` · ${radarEscape(
+                            bestAvailableQuote
+                          )}`
+                        : ""
+                    }
+                  </strong>
+
+                </div>
+
+
+                <div
+                  style="
+                    background:#070d17;
+                    border-radius:9px;
+                    padding:10px;
+                  "
+                >
+
+                  <div
+                    style="
+                      color:#526983;
+                      font-size:7px;
+                      font-weight:900;
+                      margin-bottom:4px;
+                    "
+                  >
+                    MARKET CONSENSUS
+                  </div>
+
+                  <strong
+                    style="
+                      color:#00ffe7;
+                      font-size:11px;
+                    "
+                  >
+                    ${radarEscape(
+                      consensusQuote
+                    )}
+                  </strong>
+
+                </div>
+
+              </div>
+
+            </div>
+          `;
+
+        } else if (
+          marketFeatureEnabled
+        ) {
+
+          opportunityHTML = `
+            <div
+              style="
+                height:100%;
+                padding:16px;
+
+                border:
+                  1px solid
+                  #16243a;
+
+                border-radius:14px;
+
+                background:#09111e;
+              "
+            >
+
+              <div
+                style="
+                  color:#71839f;
+                  font-size:9px;
+                  font-weight:900;
+                  letter-spacing:1px;
+                  margin-bottom:6px;
+                "
+              >
+                LIVE MARKET
+              </div>
+
+              <div
+                style="
+                  color:#8ca0b8;
+                  font-size:11px;
+                  line-height:1.45;
+                "
+              >
+                Waiting for enough live sportsbook data.
+              </div>
+
+            </div>
+          `;
+        }
+
+
+        // ====================================================
+        // MARKET SUMMARY
+        // ====================================================
+
+        const marketSummaryHTML =
+          hasMarketIntelligence
+            ? `
+                <div
+                  style="
+                    display:grid;
+
+                    grid-template-columns:
+                      repeat(
+                        auto-fit,
+                        minmax(
+                          180px,
+                          1fr
+                        )
+                      );
+
+                    gap:0;
+
+                    margin-top:14px;
+
+                    border:
+                      1px solid
+                      #15243a;
+
+                    border-radius:12px;
+
+                    overflow:hidden;
+
+                    background:#08101c;
+                  "
+                >
+
+                  <div
+                    style="
+                      padding:13px;
+                      border-right:
+                        1px solid
+                        #15243a;
+                    "
+                  >
+                    ${movementHTML}
+                  </div>
+
+
+                  <div
+                    style="
+                      padding:13px;
+                      border-right:
+                        1px solid
+                        #15243a;
+                    "
+                  >
+
+                    <div
+                      style="
+                        color:#526983;
+                        font-size:8px;
+                        font-weight:900;
+                        letter-spacing:.9px;
+                        margin-bottom:7px;
+                      "
+                    >
+                      BETTING SPLITS
+                    </div>
+
+                    <div
+                      style="
+                        display:flex;
+                        gap:18px;
+                        align-items:center;
+                      "
+                    >
+
+                      <div>
+
+                        <div
+                          style="
+                            color:#71839f;
+                            font-size:7px;
+                            font-weight:800;
+                          "
+                        >
+                          TICKETS
+                        </div>
+
+                        <strong
+                          style="
+                            color:#fff;
+                            font-size:14px;
+                          "
+                        >
+                          ${radarEscape(
+                            premiumRadarPercent(
+                              intelligence
+                                .ticketsPct
+                            )
+                          )}
+                        </strong>
+
+                      </div>
+
+
+                      <div>
+
+                        <div
+                          style="
+                            color:#71839f;
+                            font-size:7px;
+                            font-weight:800;
+                          "
+                        >
+                          MONEY
+                        </div>
+
+                        <strong
+                          style="
+                            color:#00ffe7;
+                            font-size:14px;
+                          "
+                        >
+                          ${radarEscape(
+                            premiumRadarPercent(
+                              intelligence
+                                .moneyPct
+                            )
+                          )}
+                        </strong>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+
+                  <div
+                    style="
+                      padding:13px;
+                    "
+                  >
+
+                    <div
+                      style="
+                        color:#526983;
+                        font-size:8px;
+                        font-weight:900;
+                        letter-spacing:.9px;
+                        margin-bottom:7px;
+                      "
+                    >
+                      MARKET ALIGNMENT
+                    </div>
+
+                    <strong
+                      style="
+                        color:
+                          ${alignmentMeta.color};
+
+                        font-size:11px;
+                        line-height:1.3;
+                      "
+                    >
+                      ${radarEscape(
+                        alignmentMeta.label
+                      )}
+                    </strong>
+
+                  </div>
+
+                </div>
+              `
+            : "";
+
+
+        // ====================================================
+        // RECENT MARKET ACTIVITY
+        // ====================================================
+
+        const activity =
+          Array.isArray(
+            intelligence.activity
+          )
+            ? intelligence.activity
+            : [];
+
+
+        const renderActivityItem =
+          event => {
+
+            const family =
+              String(
+                event.family ||
+                ""
+              )
+                .toLowerCase()
+                .trim();
+
+
+            const dotColor =
+              family === "opportunity"
+                ? "#00e676"
+                : family === "signal"
+                  ? "#ffd166"
+                  : "#00a8ff";
+
+
+            const headline =
+              event.headline ||
+              event.explanation ||
+              String(
+                event.type ||
+                "Market update"
+              )
+                .replaceAll(
+                  "_",
+                  " "
+                );
+
+
+            const explanation =
+              event.explanation &&
+              event.explanation !==
+                headline
+                ? event.explanation
+                : "";
+
+
+            const timeText =
+              premiumRadarAgo(
+                event.detectedAt ||
+                event.lastDetectedAt
+              );
+
+
+            return `
+              <div
+                style="
+                  position:relative;
+                  padding:
+                    1px 0 14px
+                    23px;
+                "
+              >
+
+                <span
+                  style="
+                    position:absolute;
+                    left:2px;
+                    top:5px;
+
+                    width:8px;
+                    height:8px;
+
+                    border-radius:50%;
+
+                    background:
+                      ${dotColor};
+
+                    box-shadow:
+                      0 0 9px
+                      ${dotColor};
+                  "
+                ></span>
+
+
+                <div
+                  style="
+                    color:#71839f;
+                    font-size:8px;
+                    font-weight:800;
+                    margin-bottom:3px;
+                  "
+                >
+                  ${radarEscape(
+                    timeText ||
+                    "Market update"
+                  )}
+                </div>
+
+
+                <div
+                  style="
+                    color:#e3ebf7;
+                    font-size:11px;
+                    font-weight:800;
+                    line-height:1.35;
+                  "
+                >
+                  ${radarEscape(
+                    headline
+                  )}
+                </div>
+
+
+                ${
+                  explanation
+                    ? `
+                        <div
+                          style="
+                            color:#71839f;
+                            font-size:9px;
+                            line-height:1.4;
+                            margin-top:3px;
+                          "
+                        >
+                          ${radarEscape(
+                            explanation
+                          )}
+                        </div>
+                      `
+                    : ""
+                }
+
+              </div>
+            `;
+          };
+
+
+        const visibleActivity =
+          activity
+            .slice(
+              0,
+              3
+            )
+            .map(
+              renderActivityItem
+            )
+            .join("");
+
+
+        const hiddenActivity =
+          activity
+            .slice(
+              3
+            )
+            .map(
+              renderActivityItem
+            )
+            .join("");
+
+
+        const marketActivityHTML =
+          hasMarketIntelligence &&
+          activity.length
+            ? `
+                <div
+                  style="
+                    margin-top:16px;
+                    padding-top:15px;
+
+                    border-top:
+                      1px solid
+                      #14243d;
+                  "
+                >
+
+                  <div
+                    style="
+                      display:flex;
+                      justify-content:
+                        space-between;
+                      align-items:center;
+                      gap:10px;
+                      margin-bottom:12px;
+                    "
+                  >
+
+                    <div
+                      style="
+                        color:#fff;
+                        font-size:10px;
+                        font-weight:900;
+                        letter-spacing:1px;
+                      "
+                    >
+                      RECENT MARKET ACTIVITY
+                    </div>
+
+                    <div
+                      style="
+                        color:#526983;
+                        font-size:8px;
+                        font-weight:800;
+                      "
+                    >
+                      ${activity.length}
+                      EVENTS
+                    </div>
+
+                  </div>
+
+
+                  <div
+                    style="
+                      position:relative;
+                    "
+                  >
+
+                    <div
+                      style="
+                        position:absolute;
+                        left:5px;
+                        top:8px;
+                        bottom:8px;
+
+                        width:1px;
+
+                        background:
+                          #1b3049;
+                      "
+                    ></div>
+
+                    ${visibleActivity}
+
+                  </div>
+
+
+                  ${
+                    hiddenActivity
+                      ? `
+                          <details
+                            style="
+                              margin-top:-4px;
+                            "
+                          >
+
+                            <summary
+                              style="
+                                color:#00ffe7;
+                                font-size:9px;
+                                font-weight:900;
+                                letter-spacing:.7px;
+                                cursor:pointer;
+                                list-style:none;
+                                padding:6px 0;
+                              "
+                            >
+                              VIEW ALL MOVEMENTS
+                            </summary>
+
+
+                            <div
+                              style="
+                                position:relative;
+                                margin-top:10px;
+                              "
+                            >
+
+                              <div
+                                style="
+                                  position:absolute;
+                                  left:5px;
+                                  top:8px;
+                                  bottom:8px;
+
+                                  width:1px;
+
+                                  background:
+                                    #1b3049;
                                 "
-                              >
+                              ></div>
 
-                                <div
+                              ${hiddenActivity}
+
+                            </div>
+
+                          </details>
+                        `
+                      : ""
+                  }
+
+                </div>
+              `
+            : "";
+
+
+        // ====================================================
+        // FINAL SCORE
+        // ====================================================
+
+        const historyFinalHTML =
+          isHistoryView &&
+          row.final_score
+            ? `
+                <div
+                  style="
+                    margin-top:10px;
+
+                    color:#8ca0b8;
+                    font-size:10px;
+                    font-weight:800;
+                  "
+                >
+                  FINAL
+
+                  <span
+                    style="
+                      color:#d7e1ef;
+                      margin-left:5px;
+                    "
+                  >
+                    ${radarEscape(
+                      row.final_score
+                    )}
+                  </span>
+                </div>
+              `
+            : "";
+
+
+        // ====================================================
+        // FULL ANALYSIS BUTTON
+        // ====================================================
+
+        const analysisButtonHTML =
+          gameStarted
+            ? `
+                <button
+                  type="button"
+                  disabled
+
+                  style="
+                    width:100%;
+                    margin-top:16px;
+                    padding:12px 14px;
+
+                    border:
+                      1px solid
+                      #1a2638;
+
+                    border-radius:9px;
+
+                    background:#0a1019;
+
+                    color:#526983;
+
+                    font-size:10px;
+                    font-weight:900;
+                    letter-spacing:.8px;
+
+                    cursor:not-allowed;
+                    opacity:.75;
+                  "
+                >
+                  GAME STARTED
+                </button>
+              `
+            : `
+                <button
+                  type="button"
+
+                  data-game-id="${radarEscape(
+                    row.game_id || ""
+                  )}"
+
+                  data-sport="${radarEscape(
+                    row.sport || ""
+                  )}"
+
+                  data-game-time="${radarEscape(
+                    row.game_time || ""
+                  )}"
+
+                  data-source-event-id="${radarEscape(
+                    row.source_event_id ||
+                    ""
+                  )}"
+
+                  onclick="
+                    openPremiumRadarFullAnalysis(
+                      this.dataset.gameId,
+                      this.dataset.sport,
+                      this.dataset.gameTime,
+                      this.dataset.sourceEventId
+                    )
+                  "
+
+                  style="
+                    width:100%;
+                    margin-top:16px;
+                    padding:12px 14px;
+
+                    border:
+                      1px solid
+                      rgba(0,255,231,.40);
+
+                    border-radius:9px;
+
+                    background:
+                      rgba(0,255,231,.07);
+
+                    color:#00ffe7;
+
+                    font-size:10px;
+                    font-weight:900;
+                    letter-spacing:.8px;
+
+                    cursor:pointer;
+
+                    box-shadow:
+                      0 0 18px
+                      rgba(0,255,231,.04);
+                  "
+                >
+                  VIEW FULL ANALYSIS →
+                </button>
+              `;
+
+
+        // ====================================================
+        // CARD
+        // ====================================================
+
+        return `
+          <div
+            data-radar-game-id="${radarEscape(
+              row.game_id ||
+              ""
+            )}"
+
+            data-radar-important="${
+              intelligence.importantNow ===
+              true
+                ? "1"
+                : "0"
+            }"
+
+            style="
+              grid-column:
+                1 / -1;
+
+              background:
+                linear-gradient(
+                  145deg,
+                  #070d17,
+                  #08101c
+                );
+
+              border:
+                1px solid
+                ${
+                  intelligence
+                    .importantNow === true
+                    ? "rgba(0,255,231,.34)"
+                    : "#14243d"
+                };
+
+              border-radius:16px;
+
+              padding:18px;
+
+              min-width:0;
+
+              box-shadow:
+                ${
+                  intelligence
+                    .importantNow === true
+                    ? "0 0 25px rgba(0,255,231,.05)"
+                    : "none"
+                };
+            "
+          >
+
+            <!-- =============================================
+                 HEADER
+            ============================================== -->
+
+            <div
+              style="
+                display:flex;
+                justify-content:
+                  space-between;
+                align-items:center;
+                gap:12px;
+                margin-bottom:15px;
+              "
+            >
+
+              <div
+                style="
+                  display:flex;
+                  align-items:center;
+                  gap:8px;
+                "
+              >
+
+                <span
+                  style="
+                    color:${stateColor};
+                    font-size:9px;
+                    font-weight:900;
+                    letter-spacing:1.2px;
+                  "
+                >
+                  ${radarEscape(
+                    stateText
+                  )}
+                </span>
+
+
+                ${
+                  hasMarketIntelligence
+                    ? `
+                        <span
+                          style="
+                            width:5px;
+                            height:5px;
+                            border-radius:50%;
+                            background:#00e676;
+                            box-shadow:
+                              0 0 8px
+                              rgba(0,230,118,.8);
+                          "
+                        ></span>
+
+                        <span
+                          style="
+                            color:#71839f;
+                            font-size:8px;
+                            font-weight:900;
+                            letter-spacing:.8px;
+                          "
+                        >
+                          LIVE MARKET
+                        </span>
+                      `
+                    : ""
+                }
+
+              </div>
+
+
+              <div
+                style="
+                  color:#526983;
+                  font-size:9px;
+                  font-weight:800;
+                  letter-spacing:.8px;
+                "
+              >
+                ${radarEscape(
+                  String(
+                    sport
+                  )
+                    .toUpperCase()
+                )}
+              </div>
+
+            </div>
+
+
+            <!-- =============================================
+                 MATCHUP + MARKET OPPORTUNITY
+            ============================================== -->
+
+            <div
+              style="
+                display:grid;
+
+                grid-template-columns:
+                  repeat(
+                    auto-fit,
+                    minmax(
+                      280px,
+                      1fr
+                    )
+                  );
+
+                gap:14px;
+                align-items:stretch;
+              "
+            >
+
+              <!-- LEFT -->
+
+              <div>
+
+                <div
+                  style="
+                    display:grid;
+
+                    grid-template-columns:
+                      auto
+                      minmax(0,1fr)
+                      auto;
+
+                    align-items:center;
+                    gap:11px;
+
+                    margin-bottom:15px;
+                  "
+                >
+
+                  ${premiumRadarTeamLogoHTML(
+                    row.away_team,
+                    row.away_team_logo
+                  )}
+
+
+                  <div
+                    style="
+                      min-width:0;
+                      text-align:center;
+                    "
+                  >
+
+                    <div
+                      style="
+                        color:#fff;
+                        font-size:16px;
+                        font-weight:900;
+                        line-height:1.35;
+                      "
+                    >
+                      ${radarEscape(
+                        row.away_team ||
+                        "Away"
+                      )}
+
+                      <span
+                        style="
+                          color:#526983;
+                          font-weight:500;
+                          margin:0 5px;
+                        "
+                      >
+                        @
+                      </span>
+
+                      ${radarEscape(
+                        row.home_team ||
+                        "Home"
+                      )}
+                    </div>
+
+                    ${historyFinalHTML}
+
+                  </div>
+
+
+                  ${premiumRadarTeamLogoHTML(
+                    row.home_team,
+                    row.home_team_logo
+                  )}
+
+                </div>
+
+
+                <div
+                  style="
+                    color:#00ffe7;
+                    font-size:20px;
+                    font-weight:900;
+                    line-height:1.2;
+                  "
+                >
+                  ${radarEscape(
+                    row.current_pick ||
+                    "—"
+                  )}
+                </div>
+
+
+                ${topMarketHTML}
+
+
+                <div
+                  style="
+                    display:flex;
+                    flex-wrap:wrap;
+                    gap:8px;
+                    margin-top:13px;
+                  "
+                >
+
+                  <div
+                    style="
+                      min-width:130px;
+                      padding:10px 13px;
+
+                      background:#0a1322;
+
+                      border:
+                        1px solid
+                        #14243d;
+
+                      border-radius:10px;
+                    "
+                  >
+
+                    <div
+                      style="
+                        color:#526983;
+                        font-size:7px;
+                        font-weight:900;
+                        letter-spacing:.9px;
+                      "
+                    >
+                      CONFIDENCE
+                    </div>
+
+                    <strong
+                      style="
+                        display:block;
+                        margin-top:4px;
+
+                        color:#ff9f43;
+                        font-size:19px;
+                      "
+                    >
+                      ${formatNumber(
+                        row.current_confidence
+                      )}%
+                    </strong>
+
+                  </div>
+
+
+                  <div
+                    style="
+                      flex:1;
+                      min-width:190px;
+
+                      padding:10px 13px;
+
+                      background:#0a1322;
+
+                      border:
+                        1px solid
+                        #14243d;
+
+                      border-radius:10px;
+                    "
+                  >
+
+                    <div
+                      style="
+                        color:#526983;
+                        font-size:7px;
+                        font-weight:900;
+                        letter-spacing:.9px;
+                        margin-bottom:7px;
+                      "
+                    >
+                      CASHEDGE PROJECTION
+                    </div>
+
+
+                    <div
+                      style="
+                        display:flex;
+                        flex-wrap:wrap;
+                        gap:14px;
+                      "
+                    >
+
+                      <div>
+                        <small
+                          style="
+                            display:block;
+                            color:#71839f;
+                            font-size:7px;
+                          "
+                        >
+                          AWAY
+                        </small>
+
+                        <strong
+                          style="
+                            color:#fff;
+                            font-size:12px;
+                          "
+                        >
+                          ${projection.awayValue}
+                        </strong>
+                      </div>
+
+
+                      <div>
+                        <small
+                          style="
+                            display:block;
+                            color:#71839f;
+                            font-size:7px;
+                          "
+                        >
+                          HOME
+                        </small>
+
+                        <strong
+                          style="
+                            color:#fff;
+                            font-size:12px;
+                          "
+                        >
+                          ${projection.homeValue}
+                        </strong>
+                      </div>
+
+
+                      <div>
+                        <small
+                          style="
+                            display:block;
+                            color:#71839f;
+                            font-size:7px;
+                          "
+                        >
+                          ${projection.bottomLeftLabel}
+                        </small>
+
+                        <strong
+                          style="
+                            color:#ffd166;
+                            font-size:12px;
+                          "
+                        >
+                          ${projection.bottomLeftValue}
+                        </strong>
+                      </div>
+
+
+                      ${
+                        String(
+                          row.sport ||
+                          ""
+                        )
+                          .toLowerCase() ===
+                        "mlb"
+                          ? ""
+                          : `
+                              <div>
+                                <small
                                   style="
-                                    display:flex;
-                                    justify-content:
-                                      space-between;
-                                    gap:12px;
-                                    align-items:center;
-                                    margin-bottom:14px;
+                                    display:block;
+                                    color:#71839f;
+                                    font-size:7px;
                                   "
                                 >
+                                  ${projection.bottomRightLabel}
+                                </small>
 
-                                  <div
-                                    style="
-                                      font-size:9px;
-                                      font-weight:900;
-                                      letter-spacing:1.2px;
-                                      color:${stateColor};
-                                    "
-                                  >
-                                    ${stateText}
-                                  </div>
-
-                                  <div
-                                    style="
-                                      font-size:9px;
-                                      font-weight:700;
-                                      color:#526983;
-                                    "
-                                  >
-                                    ${radarEscape(
-                                      String(
-                                        sport
-                                      )
-                                        .toUpperCase()
-                                    )}
-                                  </div>
-
-                                </div>
-
-
-                                <div
+                                <strong
                                   style="
                                     color:#fff;
-                                    font-size:15px;
-                                    font-weight:800;
-                                    line-height:1.35;
-                                    margin-bottom:14px;
+                                    font-size:12px;
                                   "
                                 >
-                                  ${radarEscape(
-                                    row.away_team
-                                  )}
-                                  <span
-                                    style="
-                                      color:#526983;
-                                      font-weight:500;
-                                    "
-                                  >
-                                    @
-                                  </span>
-                                  ${radarEscape(
-                                    row.home_team
-                                  )}
-                                </div>
-${
-  isHistoryView &&
-  row.final_score
-    ? `
-        <div
-          style="
-            margin-top:-7px;
-            margin-bottom:13px;
-            color:#8ca0b8;
-            font-size:10px;
-            font-weight:800;
-            letter-spacing:.4px;
-          "
-        >
-          FINAL&nbsp;
-          <span
-            style="
-              color:#d7e1ef;
-            "
-          >
-            ${radarEscape(
-              row.final_score
-            )}
-          </span>
-        </div>
-      `
-    : ""
-}
-
-                                <div
-                                  style="
-                                    color:#00ffe7;
-                                    font-size:17px;
-                                    font-weight:900;
-                                    margin-bottom:16px;
-                                  "
-                                >
-                                  ${radarEscape(
-                                    row.current_pick ||
-                                    "—"
-                                  )}
-                                </div>
-
-
-                                <div
-                                  style="
-                                    display:grid;
-                                    grid-template-columns:
-                                      1fr 1fr;
-                                    gap:8px;
-                                    margin-bottom:14px;
-                                  "
-                                >
-
-                                  <div
-                                    style="
-                                      background:#0a1322;
-                                      border-radius:10px;
-                                      padding:11px;
-                                    "
-                                  >
-                                    <div
-                                      style="
-                                        color:#526983;
-                                        font-size:8px;
-                                        font-weight:800;
-                                        letter-spacing:1px;
-                                        margin-bottom:5px;
-                                      "
-                                    >
-                                      CONFIDENCE
-                                    </div>
-
-                                    <div
-                                      style="
-                                        color:#ff9f43;
-                                        font-size:18px;
-                                        font-weight:900;
-                                      "
-                                    >
-                                      ${
-                                        formatNumber(
-                                          row.current_confidence
-                                        )
-                                      }%
-                                    </div>
-                                  </div>
-
-
-                                  <div
-                                    style="
-                                      background:#0a1322;
-                                      border-radius:10px;
-                                      padding:11px;
-                                    "
-                                  >
-                                    <div
-                                      style="
-                                        color:#526983;
-                                        font-size:8px;
-                                        font-weight:800;
-                                        letter-spacing:1px;
-                                        margin-bottom:5px;
-                                      "
-                                    >
-                                      EDGE
-                                    </div>
-
-                                    <div
-                                      style="
-                                        color:#fff;
-                                        font-size:18px;
-                                        font-weight:900;
-                                      "
-                                    >
-                                      ${
-                                        formatNumber(
-                                          row.current_edge
-                                        )
-                                      }
-                                    </div>
-                                  </div>
-
-                                </div>
-
-
-                                <div 
-  style=" 
-    border-top: 
-      1px solid 
-      #14243d; 
-    padding-top:12px; 
-    color:#71839f; 
-    font-size:11px; 
-    line-height:1.8; 
-  " 
-> 
-
-  ${
-    row.opening_market_line !== null &&
-    row.opening_market_line !== undefined
-      ? `
-        <div>
-          OPEN
-          <strong
-            style="
-              color:#cbd7e8;
-            "
-          >
-            ${radarEscape(
-              openingLine
-            )}
-          </strong>
-
-          &nbsp;→&nbsp;
-
-          NOW
-          <strong
-            style="
-              color:#00ffe7;
-            "
-          >
-            ${radarEscape(
-              marketLine
-            )}
-          </strong>
-        </div>
-      `
-      : `
-        <div>
-          CURRENT LINE
-          <strong
-            style="
-              color:#00ffe7;
-            "
-          >
-            ${radarEscape(
-              marketLine
-            )}
-          </strong>
-        </div>
-      `
-  }
-
-</div>
-
-
-                                ${(() => {
-  const projection =
-    getProjectionData(row);
-
-  return `
-    <div
-      style="
-        margin-top:8px;
-        background:#0a1322;
-        border-radius:9px;
-        padding:8px;
-      "
-    >
-      <div
-        style="
-          color:#ffd000;
-          font-size:8px;
-          font-weight:900;
-          letter-spacing:.8px;
-          margin-bottom:6px;
-        "
-      >
-        PROJECTION
-      </div>
-
-      <div
-        style="
-          display:grid;
-          grid-template-columns:1fr 1fr;
-          gap:5px;
-        "
-      >
-
-        <div
-          style="
-            background:#08101c;
-            border:1px solid #112034;
-            border-radius:7px;
-            padding:6px 8px;
-          "
-        >
-          <div
-            style="
-              color:#5fb7ff;
-              font-size:7px;
-              font-weight:900;
-              letter-spacing:.8px;
-              margin-bottom:2px;
-            "
-          >
-            ${projection.awayLabel}
-          </div>
-
-          <div
-            style="
-              color:#dff1ff;
-              font-size:14px;
-              font-weight:900;
-              line-height:1.1;
-            "
-          >
-            ${projection.awayValue}
-          </div>
-        </div>
-
-
-        <div
-          style="
-            background:#08101c;
-            border:1px solid #112034;
-            border-radius:7px;
-            padding:6px 8px;
-          "
-        >
-          <div
-            style="
-              color:#5fb7ff;
-              font-size:7px;
-              font-weight:900;
-              letter-spacing:.8px;
-              margin-bottom:2px;
-            "
-          >
-            ${projection.homeLabel}
-          </div>
-
-          <div
-            style="
-              color:#dff1ff;
-              font-size:14px;
-              font-weight:900;
-              line-height:1.1;
-            "
-          >
-            ${projection.homeValue}
-          </div>
-        </div>
-
-
-        <div
-          style="
-            background:#08101c;
-            border:1px solid #112034;
-            border-radius:7px;
-            padding:6px 8px;
-          "
-        >
-          <div
-            style="
-              color:#7ce9ff;
-              font-size:7px;
-              font-weight:900;
-              letter-spacing:.8px;
-              margin-bottom:2px;
-            "
-          >
-            ${projection.bottomLeftLabel}
-          </div>
-
-          <div
-            style="
-              color:#ffffff;
-              font-size:13px;
-              font-weight:900;
-              line-height:1.1;
-            "
-          >
-            ${projection.bottomLeftValue}
-          </div>
-        </div>
-
-
-       ${
-  String(row.sport || "").toLowerCase() === "mlb"
-    ? ""
-    : `
-      <div
-        style="
-          background:#08101c;
-          border:1px solid #112034;
-          border-radius:7px;
-          padding:6px 8px;
-        "
-      >
-        <div
-          style="
-            color:#7ce9ff;
-            font-size:7px;
-            font-weight:900;
-            letter-spacing:.8px;
-            margin-bottom:2px;
-          "
-        >
-          ${projection.bottomRightLabel}
-        </div>
-
-        <div
-          style="
-            color:#ffffff;
-            font-size:13px;
-            font-weight:900;
-            line-height:1.1;
-          "
-        >
-          ${projection.bottomRightValue}
-        </div>
-      </div>
-    `
-}
-      </div>
-    </div>
-  `;
-})()}
-${gameStarted
-  ? `
-    <button
-      type="button"
-      disabled
-      style="
-        width:100%;
-        margin-top:12px;
-        padding:11px 14px;
-        border:1px solid #1a2638;
-        border-radius:9px;
-        background:#0a1019;
-        color:#526983;
-        font-size:10px;
-        font-weight:900;
-        letter-spacing:.8px;
-        cursor:not-allowed;
-        opacity:.75;
-      "
-    >
-      GAME STARTED
-    </button>
-  `
-  : `
-    <button
-      type="button"
-      data-game-id="${radarEscape(row.game_id || "")}"
-data-sport="${radarEscape(row.sport || "")}"
-data-game-time="${radarEscape(row.game_time || "")}"
-data-source-event-id="${radarEscape(row.source_event_id || "")}"
-
-onclick="
-  openPremiumRadarFullAnalysis(
-    this.dataset.gameId,
-    this.dataset.sport,
-    this.dataset.gameTime,
-    this.dataset.sourceEventId
-  )
-"
-      style="
-        width:100%;
-        margin-top:12px;
-        padding:11px 14px;
-        border:1px solid rgba(0,255,231,.35);
-        border-radius:9px;
-        background:rgba(0,255,231,.07);
-        color:#00ffe7;
-        font-size:10px;
-        font-weight:900;
-        letter-spacing:.8px;
-        cursor:pointer;
-      "
-    >
-      VIEW FULL ANALYSIS →
-    </button>
-  `
-}
-
-                                </div>
-
+                                  ${projection.bottomRightValue}
+                                </strong>
                               </div>
-                            `;
-                          }
-                        )
-                        .join("");
+                            `
+                      }
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+
+              <!-- RIGHT -->
+
+              ${
+                opportunityHTML ||
+                `
+                  <div
+                    style="
+                      display:flex;
+                      align-items:center;
+                      justify-content:center;
+
+                      min-height:145px;
+
+                      border:
+                        1px solid
+                        #14243d;
+
+                      border-radius:14px;
+
+                      background:#08101c;
+
+                      color:#71839f;
+
+                      font-size:10px;
+                      font-weight:800;
+                    "
+                  >
+                    MARKET INTELLIGENCE
+                  </div>
+                `
+              }
+
+            </div>
+
+
+            ${marketSummaryHTML}
+
+            ${marketActivityHTML}
+
+            ${analysisButtonHTML}
+
+          </div>
+        `;
+      }
+    )
+    .join("");
 
 
                     return `
