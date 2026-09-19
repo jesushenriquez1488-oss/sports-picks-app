@@ -15548,7 +15548,83 @@ const currentHasDirection =
     "with" ||
   currentProfile.direction ===
     "against";
+// ==========================================================
+// HISTORICAL DIRECTIONAL PEAK
+//
+// The latest directional event may already be a weaker
+// MARKET_SUPPORT / MARKET_CONFLICT state.
+//
+// We also need to know whether this same direction previously
+// reached a stronger Sharp level.
+// ==========================================================
 
+const sameDirectionHistory =
+  currentHasDirection
+    ? story.filter(
+        event =>
+          event._storyDirection ===
+          currentProfile.direction
+      )
+    : [];
+
+
+const historicalPeakLevel =
+  sameDirectionHistory.reduce(
+    (
+      maxLevel,
+      event
+    ) => {
+
+      return Math.max(
+        maxLevel,
+        Number(
+          event._storyStage ||
+          0
+        )
+      );
+    },
+    0
+  );
+
+
+const historicalSharpEvents =
+  sameDirectionHistory.filter(
+    event => {
+
+      const type =
+        String(
+          event.type ||
+          ""
+        )
+          .toUpperCase()
+          .trim();
+
+
+      return (
+        type.includes(
+          "SHARP"
+        ) ||
+        eventHasMoneyEvidence(
+          event
+        )
+      );
+    }
+  );
+
+
+const historicalHadSharpEvidence =
+  historicalSharpEvents.length >
+  0;
+
+
+const historicalHadConfirmedSharp =
+  historicalSharpEvents.some(
+    event =>
+      Number(
+        event._storyStage ||
+        0
+      ) >= 2
+  );
 
 const sameDirection =
   currentHasDirection &&
@@ -15809,12 +15885,12 @@ else if (
 else if (
   sameDirection &&
   (
-    latestLevel >
+    historicalPeakLevel >
       currentLevel ||
     (
       currentProfile.family ===
         "market" &&
-      latestWasSharpEvidence
+      historicalHadSharpEvidence
     )
   )
 ) {
@@ -15838,17 +15914,23 @@ else if (
   // SHARP → MARKET ONLY
   // ========================================================
 
-  if (
-    currentProfile.family ===
-      "market" &&
-    latestWasSharpEvidence
-  ) {
-
-    downgradeHeadline =
-      withCashEdge
-        ? "Sharp Confirmation Faded — Market Support Remains"
-        : "Sharp Evidence Faded — Market Pressure Remains";
-
+if (
+  currentProfile.family ===
+    "market" &&
+  historicalHadSharpEvidence
+) {
+   downgradeHeadline =
+  withCashEdge
+    ? (
+        historicalHadConfirmedSharp
+          ? "Sharp Confirmation Faded — Market Support Remains"
+          : "Sharp Evidence Faded — Market Support Remains"
+      )
+    : (
+        historicalHadConfirmedSharp
+          ? "Sharp Confirmation Faded — Market Pressure Remains"
+          : "Sharp Evidence Faded — Market Pressure Remains"
+      );
 
     downgradeExplanation =
       withCashEdge
