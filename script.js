@@ -12646,17 +12646,18 @@ if (marketReadValue) {
           margin-top:4px;
         "
       >
-        ${premiumRadarPulseEscape(
+      ${premiumRadarPulseEscape(
   marketRead.explanation ||
   pulse.explanation ||
   "Monitoring current market activity."
 )}
       </div>
 
+    </div>
+  `;
+}
 
-     
 function stopPremiumRadarAutoRefresh() {
-
   if (
     premiumRadarAutoRefreshTimer
   ) {
