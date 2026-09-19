@@ -14658,7 +14658,7 @@ const bettingSplitRowsHTML =
                   : "#00a8ff";
 
 
-            const eventType =
+        const eventType =
   String(
     event.type ||
     ""
@@ -14667,9 +14667,281 @@ const bettingSplitRowsHTML =
     .trim();
 
 
+const eventDirection =
+  String(
+    event.direction ||
+    ""
+  )
+    .toLowerCase()
+    .trim();
+
+
+const activityData =
+  event.data &&
+  typeof event.data ===
+    "object"
+      ? event.data
+      : {};
+
+
+const moneyPct =
+  premiumRadarNum(
+    activityData.moneyPct
+  );
+
+
+const ticketsPct =
+  premiumRadarNum(
+    activityData.ticketsPct
+  );
+
+
+const divergence =
+  premiumRadarNum(
+    activityData.divergence
+  );
+
+
+const referenceAligned =
+  Number(
+    activityData.referenceAligned ||
+    0
+  );
+
+
+const referenceAgainst =
+  Number(
+    activityData.referenceAgainst ||
+    0
+  );
+
+
+const retailAligned =
+  Number(
+    activityData.retailAligned ||
+    0
+  );
+
+
+const retailAgainst =
+  Number(
+    activityData.retailAgainst ||
+    0
+  );
+
+
+const alignedBooks =
+  referenceAligned +
+  retailAligned;
+
+
+const againstBooks =
+  referenceAgainst +
+  retailAgainst;
+
+
+const totalTrackedBooks =
+  alignedBooks +
+  againstBooks;
+
+
+const moneySignal =
+  String(
+    activityData.moneySignal ||
+    ""
+  )
+    .toUpperCase()
+    .trim();
+
+
+const sharpStrength =
+  Number(
+    activityData.sharpStrength ||
+    event.signalStrength ||
+    0
+  );
+
+
+const importanceLevel =
+  Number(
+    event.importanceLevel ||
+    0
+  );
+
+
+const severity =
+  String(
+    event.severity ||
+    ""
+  )
+    .toUpperCase()
+    .trim();
+
+
+const movementLevel =
+  Math.abs(
+    premiumRadarNum(
+      activityData.movementLevel ??
+      activityData.rawMovement
+    ) || 0
+  );
+
+
+const metricType =
+  String(
+    activityData.metricType ||
+    ""
+  )
+    .toLowerCase()
+    .trim();
+
+
+const sportsbook =
+  activityData.sportsbook ||
+  activityData
+    ?.staleLine
+    ?.sportsbook ||
+  "Sportsbook";
+
+
+const moneyText =
+  (
+    moneyPct !== null &&
+    ticketsPct !== null
+  )
+    ? `${Math.round(
+        moneyPct
+      )}% Money vs ${Math.round(
+        ticketsPct
+      )}% Tickets`
+    : null;
+
+
+const divergenceText =
+  divergence !== null
+    ? `${
+        divergence > 0
+          ? "+"
+          : ""
+      }${Number(
+        divergence.toFixed(1)
+      )} pts`
+    : null;
+
+
+const bookSupportText =
+  alignedBooks > 0
+    ? `${alignedBooks} sportsbook${
+        alignedBooks === 1
+          ? ""
+          : "s"
+      } supporting CashEdge`
+    : null;
+
+
+const bookPressureText =
+  againstBooks > 0
+    ? `${againstBooks} sportsbook${
+        againstBooks === 1
+          ? ""
+          : "s"
+      } moving against CashEdge`
+    : null;
+
+
+const moneyStrongWith =
+  moneySignal ===
+    "STRONG_MONEY_DIVERGENCE";
+
+
+const moneyWith =
+  moneyStrongWith ||
+  moneySignal ===
+    "POTENTIAL_SHARP_MONEY";
+
+
+const moneyStrongAgainst =
+  moneySignal ===
+    "STRONG_MONEY_AGAINST";
+
+
+const moneyAgainst =
+  moneyStrongAgainst ||
+  moneySignal ===
+    "POTENTIAL_SHARP_AGAINST";
+
+
+const keyNumber =
+  premiumRadarNum(
+    activityData
+      ?.importance
+      ?.keyNumber
+  );
+
+
+const staleLine =
+  activityData
+    ?.staleLine
+    ?.detected ===
+  true;
+
+
+const marketNow =
+  (
+    activityData.marketNow &&
+    typeof activityData.marketNow ===
+      "object"
+  )
+    ? activityData.marketNow
+    : {};
+
+
+const bestLine =
+  premiumRadarNum(
+    activityData.bestLine
+  );
+
+
+const bestPrice =
+  premiumRadarNum(
+    activityData.bestPrice
+  );
+
+
+const marketNowLine =
+  premiumRadarNum(
+    marketNow.line
+  );
+
+
+const marketNowPrice =
+  premiumRadarNum(
+    marketNow.price
+  );
+
+
+const bestQuote =
+  premiumRadarQuote(
+    marketType,
+
+    bestLine,
+
+    bestPrice
+  );
+
+
+const marketQuote =
+  premiumRadarQuote(
+    marketType,
+
+    marketNowLine,
+
+    marketNowPrice
+  );
+
+
 let headline =
   event.headline ||
-  event.explanation ||
   String(
     event.type ||
     "Market update"
@@ -14684,35 +14956,751 @@ let explanation =
   event.explanation &&
   event.explanation !==
     headline
-    ? event.explanation
-    : "";
+      ? event.explanation
+      : "";
 
+
+// ==========================================================
+// STALE LINE
+//
+// Highest priority because this is directly actionable.
+// ==========================================================
 
 if (
-  eventType ===
-  "POTENTIAL_SHARP_AGAINST"
+  staleLine
 ) {
 
   headline =
-    "Larger Bets Leaning Against CashEdge";
+    `Stale Line Still Available at ${sportsbook}`;
+
 
   explanation =
-    "More money than ticket volume is appearing on the opposite side. This may indicate larger average wagers, but sharp action is not confirmed.";
+    `${
+      bestQuote !== "—"
+        ? `${sportsbook} is still offering ${bestQuote}. `
+        : ""
+    }${
+      marketQuote !== "—"
+        ? `The broader market is around ${marketQuote}. `
+        : ""
+    }CashEdge has detected a sportsbook that has not fully caught up with the current market move.`;
 }
 
 
-if (
+// ==========================================================
+// POTENTIAL SHARP MONEY — WITH CASHEDGE
+// ==========================================================
+
+else if (
   eventType ===
   "POTENTIAL_SHARP_MONEY"
 ) {
 
-  headline =
-    "Larger Bets Leaning With CashEdge";
+  if (
+    moneyStrongWith
+  ) {
+
+    headline =
+      "Strong Money Imbalance Building With CashEdge";
+
+  } else {
+
+    headline =
+      "Possible Sharp Money Building With CashEdge";
+  }
+
 
   explanation =
-    "More money than ticket volume is appearing on the CashEdge side. This may indicate larger average wagers, but sharp action is not confirmed.";
+    `${
+      moneyText
+        ? `${moneyText}${
+            divergenceText
+              ? ` (${divergenceText})`
+              : ""
+          }. `
+        : ""
+    }${
+      alignedBooks >= 3
+        ? `${alignedBooks} sportsbooks are also leaning with CashEdge. `
+        : alignedBooks > 0
+          ? `${alignedBooks} sportsbook${
+              alignedBooks === 1
+                ? " is"
+                : "s are"
+            } currently supporting the move. `
+          : ""
+    }Money/Tickets evidence is developing on the CashEdge side, but the full market has not confirmed a stronger Sharp signal yet.`;
 }
 
+
+// ==========================================================
+// POTENTIAL SHARP MONEY — AGAINST CASHEDGE
+// ==========================================================
+
+else if (
+  eventType ===
+  "POTENTIAL_SHARP_AGAINST"
+) {
+
+  if (
+    moneyStrongAgainst
+  ) {
+
+    headline =
+      "Strong Money Imbalance Building Against CashEdge";
+
+  } else {
+
+    headline =
+      "Possible Sharp Money Building Against CashEdge";
+  }
+
+
+  explanation =
+    `${
+      moneyText
+        ? `${moneyText}${
+            divergenceText
+              ? ` (${divergenceText})`
+              : ""
+          }. `
+        : ""
+    }${
+      againstBooks >= 3
+        ? `${againstBooks} sportsbooks are also moving against CashEdge. `
+        : againstBooks > 0
+          ? `${againstBooks} sportsbook${
+              againstBooks === 1
+                ? " is"
+                : "s are"
+            } currently pressuring the opposite side. `
+          : ""
+    }Money/Tickets evidence is developing against the CashEdge selection, but stronger market confirmation is still needed.`;
+}
+
+
+// ==========================================================
+// SHARP SUPPORT
+// ==========================================================
+
+else if (
+  eventType ===
+  "SHARP_SUPPORT"
+) {
+
+  if (
+    moneyStrongWith &&
+    alignedBooks >= 3
+  ) {
+
+    headline =
+      "Sharp Money Strengthening With CashEdge";
+
+  } else if (
+    moneyWith
+  ) {
+
+    headline =
+      "Sharp Money Support With CashEdge";
+
+  } else {
+
+    headline =
+      "Sharp Support Building With CashEdge";
+  }
+
+
+  explanation =
+    `${
+      moneyText
+        ? `${moneyText}. `
+        : ""
+    }${
+      bookSupportText
+        ? `${bookSupportText}. `
+        : ""
+    }Money/Tickets evidence and sportsbook movement are now confirming the same direction in support of the CashEdge selection.`;
+}
+
+
+// ==========================================================
+// STRONG SHARP SIGNAL
+// ==========================================================
+
+else if (
+  eventType ===
+  "STRONG_SHARP_SIGNAL"
+) {
+
+  if (
+    moneyStrongWith &&
+    alignedBooks >= 4
+  ) {
+
+    headline =
+      "Strong Sharp Money Signal With CashEdge";
+
+  } else if (
+    moneyWith
+  ) {
+
+    headline =
+      "Strong Sharp Money Building With CashEdge";
+
+  } else {
+
+    headline =
+      "Strong Sharp Signal With CashEdge";
+  }
+
+
+  explanation =
+    `${
+      moneyText
+        ? `${moneyText}. `
+        : ""
+    }${
+      alignedBooks > 0
+        ? `${alignedBooks} sportsbooks are aligned with CashEdge. `
+        : ""
+    }Multiple independent market signals are now strongly supporting the CashEdge Premium selection.`;
+}
+
+
+// ==========================================================
+// SHARP PRESSURE AGAINST
+// ==========================================================
+
+else if (
+  eventType ===
+  "SHARP_CONFLICT"
+) {
+
+  if (
+    moneyStrongAgainst &&
+    againstBooks >= 3
+  ) {
+
+    headline =
+      "Sharp Money Pressure Growing Against CashEdge";
+
+  } else if (
+    moneyAgainst
+  ) {
+
+    headline =
+      "Sharp Money Pressure Against CashEdge";
+
+  } else {
+
+    headline =
+      "Sharp Pressure Building Against CashEdge";
+  }
+
+
+  explanation =
+    `${
+      moneyText
+        ? `${moneyText}. `
+        : ""
+    }${
+      bookPressureText
+        ? `${bookPressureText}. `
+        : ""
+    }Money/Tickets evidence and sportsbook movement are now confirming pressure against the CashEdge selection.`;
+}
+
+
+// ==========================================================
+// STRONG SHARP PRESSURE AGAINST
+// ==========================================================
+
+else if (
+  eventType ===
+  "STRONG_SHARP_CONFLICT"
+) {
+
+  if (
+    moneyStrongAgainst &&
+    againstBooks >= 4
+  ) {
+
+    headline =
+      "Strong Sharp Money Signal Against CashEdge";
+
+  } else if (
+    moneyAgainst
+  ) {
+
+    headline =
+      "Strong Sharp Money Against CashEdge";
+
+  } else {
+
+    headline =
+      "Strong Sharp Pressure Against CashEdge";
+  }
+
+
+  explanation =
+    `${
+      moneyText
+        ? `${moneyText}. `
+        : ""
+    }${
+      againstBooks > 0
+        ? `${againstBooks} sportsbooks are moving against CashEdge. `
+        : ""
+    }Multiple independent market signals are strongly pointing away from the CashEdge Premium selection.`;
+}
+
+
+// ==========================================================
+// MARKET SUPPORT — NO SHARP CLAIM
+// ==========================================================
+
+else if (
+  eventType ===
+  "MARKET_SUPPORT"
+) {
+
+  if (
+    alignedBooks >= 5
+  ) {
+
+    headline =
+      `${alignedBooks} Sportsbooks Showing Broad Support for CashEdge`;
+
+  } else if (
+    alignedBooks >= 3
+  ) {
+
+    headline =
+      `${alignedBooks} Sportsbooks Moving With CashEdge`;
+
+  } else {
+
+    headline =
+      "Sportsbook Market Moving With CashEdge";
+  }
+
+
+  explanation =
+    `${
+      alignedBooks > 0
+        ? `${alignedBooks} of ${Math.max(
+            totalTrackedBooks,
+            alignedBooks
+          )} tracked sportsbooks are supporting the CashEdge side. `
+        : ""
+    }The sportsbook market is moving with CashEdge, but there is not enough Money/Tickets or other Sharp evidence to label the move as Sharp.`;
+}
+
+
+// ==========================================================
+// MARKET PRESSURE — NO SHARP CLAIM
+// ==========================================================
+
+else if (
+  eventType ===
+  "MARKET_CONFLICT" &&
+  family ===
+  "signal"
+) {
+
+  if (
+    againstBooks >= 5
+  ) {
+
+    headline =
+      `${againstBooks} Sportsbooks Showing Broad Pressure Against CashEdge`;
+
+  } else if (
+    againstBooks >= 3
+  ) {
+
+    headline =
+      `${againstBooks} Sportsbooks Moving Against CashEdge`;
+
+  } else {
+
+    headline =
+      "Sportsbook Pressure Against CashEdge";
+  }
+
+
+  explanation =
+    `${
+      againstBooks > 0
+        ? `${againstBooks} of ${Math.max(
+            totalTrackedBooks,
+            againstBooks
+          )} tracked sportsbooks are moving against the CashEdge side. `
+        : ""
+    }The move is material, but there is not enough meaningful Sharp evidence to classify it as Sharp money.`;
+}
+
+
+// ==========================================================
+// MIXED SIGNAL
+// ==========================================================
+
+else if (
+  eventType ===
+  "MIXED_SIGNAL"
+) {
+
+  if (
+    alignedBooks > 0 &&
+    againstBooks > 0
+  ) {
+
+    headline =
+      `${alignedBooks} Books With CashEdge · ${againstBooks} Against`;
+
+  } else {
+
+    headline =
+      "Mixed Sharp & Market Signals";
+  }
+
+
+  explanation =
+    `${
+      moneyText
+        ? `${moneyText}. `
+        : ""
+    }Meaningful market evidence is currently pulling in different directions, so there is no clean directional read yet.`;
+}
+
+
+// ==========================================================
+// MOVEMENT — LINE
+// ==========================================================
+
+else if (
+  family ===
+    "movement" &&
+  metricType ===
+    "line"
+) {
+
+  const baselineLine =
+    premiumRadarNum(
+      activityData.baselineLine
+    );
+
+
+  const newLine =
+    premiumRadarNum(
+      activityData.marketLine
+    );
+
+
+  const lineMoveText =
+    (
+      baselineLine !== null &&
+      newLine !== null
+    )
+      ? `${premiumRadarLine(
+          baselineLine,
+          marketType
+        )} → ${premiumRadarLine(
+          newLine,
+          marketType
+        )}`
+      : null;
+
+
+  if (
+    keyNumber !== null
+  ) {
+
+    headline =
+      eventDirection ===
+        "aligned"
+        ? `Key Number ${keyNumber} Reached With CashEdge`
+        : `Key Number ${keyNumber} Reached Against CashEdge`;
+
+  } else if (
+    movementLevel >= 2
+  ) {
+
+    headline =
+      eventDirection ===
+        "aligned"
+        ? "Strong Line Move With CashEdge"
+        : "Strong Line Move Against CashEdge";
+
+  } else if (
+    movementLevel >= 1
+  ) {
+
+    headline =
+      eventDirection ===
+        "aligned"
+        ? "Material Line Move With CashEdge"
+        : "Material Line Move Against CashEdge";
+
+  } else {
+
+    headline =
+      eventDirection ===
+        "aligned"
+        ? "Line Moving With CashEdge"
+        : "Line Moving Against CashEdge";
+  }
+
+
+  explanation =
+    `${
+      lineMoveText
+        ? `The market moved ${lineMoveText}. `
+        : ""
+    }${
+      keyNumber !== null
+        ? `The move reached or crossed the key number ${keyNumber}. `
+        : ""
+    }This movement is ${
+      eventDirection ===
+        "aligned"
+        ? "supporting"
+        : "pressuring"
+    } the CashEdge Premium selection.`;
+}
+
+
+// ==========================================================
+// MOVEMENT — PRICE / IMPLIED PROBABILITY
+// ==========================================================
+
+else if (
+  family ===
+    "movement" &&
+  metricType ===
+    "price_probability"
+) {
+
+  const baselinePrice =
+    premiumRadarNum(
+      activityData.baselinePrice
+    );
+
+
+  const currentPrice =
+    premiumRadarNum(
+      activityData.marketPrice
+    );
+
+
+  const priceMoveText =
+    (
+      baselinePrice !== null &&
+      currentPrice !== null
+    )
+      ? `${premiumRadarAmerican(
+          baselinePrice
+        )} → ${premiumRadarAmerican(
+          currentPrice
+        )}`
+      : null;
+
+
+  if (
+    movementLevel >= 4.5
+  ) {
+
+    headline =
+      eventDirection ===
+        "aligned"
+        ? "Strong Odds Move With CashEdge"
+        : "Strong Odds Move Against CashEdge";
+
+  } else {
+
+    headline =
+      eventDirection ===
+        "aligned"
+        ? "Odds Strengthening With CashEdge"
+        : "Odds Moving Against CashEdge";
+  }
+
+
+  explanation =
+    `${
+      priceMoveText
+        ? `The price moved ${priceMoveText}. `
+        : ""
+    }Implied probability shifted by approximately ${Number(
+      movementLevel.toFixed(1)
+    )} percentage points ${
+      eventDirection ===
+        "aligned"
+        ? "in support of"
+        : "against"
+    } the CashEdge selection.`;
+}
+
+
+// ==========================================================
+// VALUE AVAILABLE
+// ==========================================================
+
+else if (
+  family ===
+    "opportunity" &&
+  eventType ===
+    "VALUE_AVAILABLE"
+) {
+
+  const lineValue =
+    premiumRadarNum(
+      activityData.lineValue
+    ) || 0;
+
+
+  const priceValue =
+    premiumRadarNum(
+      activityData.priceValueCents
+    ) || 0;
+
+
+  if (
+    lineValue > 0
+  ) {
+
+    headline =
+      `Better Line Available at ${sportsbook}`;
+
+
+    explanation =
+      `${sportsbook} is offering ${bestQuote}${
+        marketQuote !== "—"
+          ? ` while market consensus is around ${marketQuote}`
+          : ""
+      }. That is ${Number(
+        lineValue.toFixed(2)
+      )} points better for the CashEdge selection.`;
+
+  } else if (
+    priceValue > 0
+  ) {
+
+    headline =
+      `Better Price Available at ${sportsbook}`;
+
+
+    explanation =
+      `${sportsbook} currently offers ${bestQuote}. CashEdge measures the price advantage at approximately ${Math.round(
+        priceValue
+      )}¢ versus the broader market.`;
+
+  } else {
+
+    headline =
+      `Market Value Available at ${sportsbook}`;
+
+
+    explanation =
+      "A materially better market number is currently available for the CashEdge Premium selection.";
+  }
+}
+
+
+// ==========================================================
+// WINDOW CLOSING
+// ==========================================================
+
+else if (
+  family ===
+    "opportunity" &&
+  eventType ===
+    "WINDOW_CLOSING"
+) {
+
+  headline =
+    `Value Window Closing at ${sportsbook}`;
+
+
+  explanation =
+    `${
+      bestQuote !== "—"
+        ? `${sportsbook} still offers ${bestQuote}. `
+        : ""
+    }The extra market advantage is shrinking as other sportsbooks move closer to the available number.`;
+}
+
+
+// ==========================================================
+// OPPORTUNITY CLOSED
+// ==========================================================
+
+else if (
+  family ===
+    "opportunity" &&
+  eventType ===
+    "OPPORTUNITY_CLOSED"
+) {
+
+  headline =
+    "Market Caught Up — Extra Value Closed";
+
+
+  explanation =
+    `${
+      marketQuote !== "—"
+        ? `The broader market is now around ${marketQuote}. `
+        : ""
+    }The additional line or price advantage that was previously available is no longer materially present.`;
+}
+
+
+// ==========================================================
+// OPPORTUNITY MARKET CONFLICT
+// ==========================================================
+
+else if (
+  family ===
+    "opportunity" &&
+  eventType ===
+    "MARKET_CONFLICT"
+) {
+
+  headline =
+    "Market Opportunity Turned Against CashEdge";
+
+
+  explanation =
+    `${
+      marketQuote !== "—"
+        ? `The current market is around ${marketQuote}. `
+        : ""
+    }The actionable market state has moved materially against the CashEdge Premium selection.`;
+}
+
+
+// ==========================================================
+// GENERIC FALLBACK
+// ==========================================================
+
+else {
+
+  headline =
+    event.headline ||
+    String(
+      event.type ||
+      "Market Update"
+    )
+      .replaceAll(
+        "_",
+        " "
+      );
+
+
+  explanation =
+    event.explanation ||
+    "A material market update was detected.";
+}
             const timeText =
               premiumRadarAgo(
                 event.detectedAt ||
@@ -14808,7 +15796,7 @@ if (
           activity
             .slice(
               0,
-              3
+              5
             )
             .map(
               renderActivityItem
