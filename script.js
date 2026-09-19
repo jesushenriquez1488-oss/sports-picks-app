@@ -12083,10 +12083,9 @@ function premiumRadarOpportunityMeta(
         "The market is moving materially against the CashEdge Premium selection",
 
       bestText:
-        bestQuote !== "—"
-          ? `Best available: ${bestQuote}`
-          : "No clear market advantage right now",
-
+  bestQuote !== "—"
+    ? `${sportsbook}: ${bestQuote}`
+    : "No clear market advantage right now",
       marketText:
         marketQuote !== "—"
           ? `Market consensus: ${marketQuote}`
@@ -13873,12 +13872,14 @@ const bettingSplitRowsHTML =
             >
 
               <span
-                style="
-                  color:#71839f;
-                "
-              >
-                T
-              </span>
+  style="
+    color:#71839f;
+    font-size:5px;
+    font-weight:800;
+  "
+>
+  TICKETS
+</span>
 
               <strong
                 style="
@@ -13895,13 +13896,15 @@ const bettingSplitRowsHTML =
 
 
               <span
-                style="
-                  color:#71839f;
-                  margin-left:5px;
-                "
-              >
-                M
-              </span>
+  style="
+    color:#71839f;
+    margin-left:5px;
+    font-size:5px;
+    font-weight:800;
+  "
+>
+  MONEY
+</span>
 
               <strong
                 style="
