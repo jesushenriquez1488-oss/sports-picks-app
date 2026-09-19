@@ -14,7 +14,7 @@ function getCashEdgePrivacyPreferences() {
         analytics: false,
         advertising: false
       };
-    }
+    } 
 
     const parsed = JSON.parse(saved);
 
