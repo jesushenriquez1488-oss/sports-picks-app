@@ -12322,7 +12322,32 @@ function premiumRadarRenderPulse(
   const pulse =
     intelligence?.pulse ||
     {};
+const marketRead =
+  intelligence?.marketRead ||
+  {};
 
+
+const sharp =
+  intelligence?.sharp ||
+  {};
+
+
+const marketReadValue =
+  String(
+    marketRead.read ||
+    ""
+  )
+    .toUpperCase()
+    .trim();
+
+
+const marketReadDirection =
+  String(
+    marketRead.direction ||
+    ""
+  )
+    .toLowerCase()
+    .trim();
 
   const status =
     String(
@@ -12380,7 +12405,74 @@ function premiumRadarRenderPulse(
     border =
       "rgba(255,209,102,.30)";
   }
+// ==========================================================
+// MARKET READ — FINAL INTERPRETATION
+// ==========================================================
 
+if (marketReadValue) {
+
+  title =
+    marketReadValue
+      .replaceAll(
+        "_",
+        " "
+      );
+
+
+  if (
+    marketReadDirection ===
+    "with_cashedge"
+  ) {
+
+    color =
+      "#00e676";
+
+    background =
+      "rgba(0,230,118,.06)";
+
+    border =
+      "rgba(0,230,118,.25)";
+
+  } else if (
+    marketReadDirection ===
+    "against_cashedge"
+  ) {
+
+    color =
+      "#ff5c5c";
+
+    background =
+      "rgba(255,92,92,.06)";
+
+    border =
+      "rgba(255,92,92,.25)";
+
+  } else if (
+    marketReadDirection ===
+      "mixed"
+  ) {
+
+    color =
+      "#ffd166";
+
+    background =
+      "rgba(255,209,102,.06)";
+
+    border =
+      "rgba(255,209,102,.25)";
+
+  } else {
+
+    color =
+      "#8ca0b8";
+
+    background =
+      "rgba(140,160,184,.05)";
+
+    border =
+      "rgba(140,160,184,.22)";
+  }
+}
 
   const updates =
     Array.isArray(
@@ -12561,7 +12653,7 @@ function premiumRadarRenderPulse(
             letter-spacing:.8px;
           "
         >
-          MARKET PULSE
+          MARKET READ
         </div>
 
 
@@ -12589,9 +12681,10 @@ function premiumRadarRenderPulse(
         "
       >
         ${premiumRadarPulseEscape(
-          pulse.explanation ||
-          "Monitoring current market activity."
-        )}
+  marketRead.explanation ||
+  pulse.explanation ||
+  "Monitoring current market activity."
+)}
       </div>
 
 
