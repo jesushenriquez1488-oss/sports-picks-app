@@ -245,15 +245,11 @@ async function getEspnWnbaGames() {
   const year =
     new Date().getFullYear();
 
-  const start =
-    `${year}0501`;
+ const year =
+  new Date().getFullYear();
 
-  const end =
-    `${year}1231`;
-
-  const url =
-    `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${start}-${end}&limit=1000`;
-
+const url =
+  `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?limit=1000&dates=${year}`;
   const response =
     await fetch(url);
 
