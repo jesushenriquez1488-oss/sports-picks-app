@@ -14648,9 +14648,9 @@ const bettingSplitRowsHTML =
 
 const buildPremiumRadarStory = (
   rawActivity = [],
-  currentIntelligence = {}
+  currentIntelligence = {},
+  hasGameStarted = false
 ) => {
-
   const source =
     Array.isArray(
       rawActivity
@@ -15320,68 +15320,259 @@ const buildPremiumRadarStory = (
   // faded instead of appearing to contradict the current read.
   // ==========================================================
 
-  const currentRead =
-    String(
-      currentIntelligence
-        ?.marketRead
-        ?.read ||
-      ""
-    )
-      .toUpperCase()
-      .trim();
+ // ==========================================================
+// CURRENT MARKET STATE
+//
+// This closes the historical story using the current
+// Market Read.
+//
+// Important:
+// LIMITED DATA is NOT neutral.
+// LIMITED DATA does NOT mean support/pressure faded.
+// ==========================================================
 
-
-  const currentDirection =
-    String(
-      currentIntelligence
-        ?.marketRead
-        ?.direction ||
-      ""
-    )
-      .toLowerCase()
-      .trim();
-
-
-  const currentExplanation =
+const currentRead =
+  String(
     currentIntelligence
       ?.marketRead
-      ?.explanation ||
-    "";
+      ?.read ||
+    ""
+  )
+    .toUpperCase()
+    .trim();
 
 
-  const currentUpdatedAt =
+const currentFamily =
+  String(
     currentIntelligence
       ?.marketRead
-      ?.updatedAt ||
-    null;
+      ?.family ||
+    ""
+  )
+    .toLowerCase()
+    .trim();
 
 
-  const latestStoryEvent =
-    story[
-      story.length - 1
-    ];
+const rawCurrentDirection =
+  String(
+    currentIntelligence
+      ?.marketRead
+      ?.direction ||
+    ""
+  )
+    .toLowerCase()
+    .trim();
 
 
-  const latestDirectionalStory =
-    [...story]
-      .reverse()
-      .find(
-        event =>
-          event._storyDirection ===
-            "with" ||
-          event._storyDirection ===
-            "against"
-      );
+const currentDirection =
+  (
+    rawCurrentDirection === "aligned" ||
+    rawCurrentDirection === "with" ||
+    rawCurrentDirection ===
+      "with_cashedge"
+  )
+    ? "with"
+    : (
+        rawCurrentDirection ===
+          "against" ||
+        rawCurrentDirection ===
+          "against_cashedge"
+      )
+      ? "against"
+      : rawCurrentDirection;
 
 
-  const currentIsMixed =
-    currentRead ===
-      "MIXED_MARKET" ||
-    currentDirection ===
-      "mixed";
+const currentExplanation =
+  currentIntelligence
+    ?.marketRead
+    ?.explanation ||
+  "";
 
 
-  const currentIsNeutral =
+const currentUpdatedAt =
+  currentIntelligence
+    ?.marketRead
+    ?.updatedAt ||
+  null;
+
+
+// ==========================================================
+// NORMALIZED CURRENT READ PROFILE
+//
+// 3.0 = Strong Sharp
+// 2.0 = Sharp Support / Pressure
+// 1.5 = Sharp Lean
+// 1.25 = Strong market-only move
+// 1.0 = Market-only Support / Pressure
+// ==========================================================
+
+const currentReadProfiles = {
+
+  STRONG_SHARP_SUPPORT: {
+    direction: "with",
+    family: "sharp",
+    level: 3
+  },
+
+  SHARP_SUPPORT: {
+    direction: "with",
+    family: "sharp",
+    level: 2
+  },
+
+  SHARP_LEAN_WITH_CASHEDGE: {
+    direction: "with",
+    family: "sharp",
+    level: 1.5
+  },
+
+  STRONG_MARKET_SUPPORT: {
+    direction: "with",
+    family: "market",
+    level: 1.25
+  },
+
+  MARKET_SUPPORT: {
+    direction: "with",
+    family: "market",
+    level: 1
+  },
+
+
+  STRONG_SHARP_PRESSURE_AGAINST: {
+    direction: "against",
+    family: "sharp",
+    level: 3
+  },
+
+  SHARP_PRESSURE_AGAINST: {
+    direction: "against",
+    family: "sharp",
+    level: 2
+  },
+
+  SHARP_LEAN_AGAINST: {
+    direction: "against",
+    family: "sharp",
+    level: 1.5
+  },
+
+  STRONG_MARKET_PRESSURE_AGAINST: {
+    direction: "against",
+    family: "market",
+    level: 1.25
+  },
+
+  MARKET_PRESSURE_AGAINST: {
+    direction: "against",
+    family: "market",
+    level: 1
+  }
+};
+
+
+const currentProfile =
+  currentReadProfiles[
+    currentRead
+  ] || {
+
+    direction:
+      currentDirection,
+
+    family:
+      currentFamily,
+
+    level: 0
+  };
+
+
+const latestStoryEvent =
+  story[
+    story.length - 1
+  ];
+
+
+const latestDirectionalStory =
+  [...story]
+    .reverse()
+    .find(
+      event =>
+        event._storyDirection ===
+          "with" ||
+        event._storyDirection ===
+          "against"
+    );
+
+
+const latestDirectionalType =
+  String(
+    latestDirectionalStory
+      ?.type ||
+    ""
+  )
+    .toUpperCase()
+    .trim();
+
+
+const latestLevel =
+  Number(
+    latestDirectionalStory
+      ?._storyStage ||
+    0
+  );
+
+
+const currentLevel =
+  Number(
+    currentProfile.level ||
+    0
+  );
+
+
+const latestWasSharpEvidence =
+  latestDirectionalType
+    .includes(
+      "SHARP"
+    ) ||
+  (
+    latestDirectionalStory
+      ? eventHasMoneyEvidence(
+          latestDirectionalStory
+        )
+      : false
+  );
+
+
+const currentHasDirection =
+  currentProfile.direction ===
+    "with" ||
+  currentProfile.direction ===
+    "against";
+
+
+const sameDirection =
+  currentHasDirection &&
+  latestDirectionalStory &&
+  latestDirectionalStory
+    ._storyDirection ===
+    currentProfile.direction;
+
+
+const currentIsLimited =
+  currentRead ===
+  "LIMITED_MARKET_DATA";
+
+
+const currentIsMixed =
+  currentRead ===
+    "MIXED_MARKET" ||
+  currentDirection ===
+    "mixed";
+
+
+const currentIsNeutral =
+  !currentIsLimited &&
+  (
     [
       "NO_CLEAR_SHARP_EDGE",
       "NO_CLEAR_MARKET_EDGE",
@@ -15390,191 +15581,498 @@ const buildPremiumRadarStory = (
       currentRead
     ) ||
     currentDirection ===
-      "neutral";
+      "neutral"
+  );
 
 
-  const latestAlreadyMixed =
-    String(
-      latestStoryEvent
-        ?.type ||
-      ""
-    )
-      .toUpperCase() ===
-    "MIXED_SIGNAL";
-
-
-  const latestAlreadyNeutral =
+const latestAlreadyMixed =
+  String(
     latestStoryEvent
-      ?.storySyntheticNeutral ===
-    true;
+      ?.type ||
+    ""
+  )
+    .toUpperCase() ===
+  "MIXED_SIGNAL";
 
 
-  // ==========================================================
-  // DIRECTIONAL SIGNAL → CURRENT MIXED
-  // ==========================================================
+const latestAlreadyNeutral =
+  latestStoryEvent
+    ?.storySyntheticNeutral ===
+  true;
+
+
+// ==========================================================
+// HELPER — CURRENT STORY CHAPTER
+// ==========================================================
+
+const pushCurrentStory =
+  ({
+    type,
+    direction = "neutral",
+    tone = "neutral",
+    headline,
+    explanation,
+    timeLabel = "NOW"
+  }) => {
+
+    story.push({
+
+      family:
+        "story",
+
+      type,
+
+      direction,
+
+      storyNow:
+        true,
+
+      storyTone:
+        tone,
+
+      storyTimeLabel:
+        timeLabel,
+
+      _storyDirection:
+        direction,
+
+      _storyStage:
+        currentLevel,
+
+      _storyTime:
+        currentUpdatedAt
+          ? new Date(
+              currentUpdatedAt
+            ).getTime()
+          : Date.now(),
+
+      storyHeadline:
+        headline,
+
+      storyExplanation:
+        explanation
+    });
+  };
+
+
+// ==========================================================
+// 1. LIMITED MARKET DATA
+//
+// NEVER call this:
+// pressure faded
+// support faded
+// neutral market
+//
+// We simply do not have enough fresh information.
+// ==========================================================
+
+if (
+  currentIsLimited &&
+  story.length
+) {
+
+  const previousDirection =
+    latestDirectionalStory
+      ?._storyDirection;
+
 
   if (
-    currentIsMixed &&
-    latestDirectionalStory &&
-    !latestAlreadyMixed
+    hasGameStarted
   ) {
 
-    const wasWith =
-      latestDirectionalStory
-        ._storyDirection ===
-      "with";
-
-
-    const wasSharp =
-      String(
-        latestDirectionalStory
-          .type ||
-        ""
-      )
-        .toUpperCase()
-        .includes(
-          "SHARP"
-        );
-
-
-    story.push({
-
-      family:
-        "story",
+    pushCurrentStory({
 
       type:
-        "CURRENT_MARKET_MIXED",
+        "CURRENT_MARKET_LIMITED",
 
       direction:
-        "mixed",
+        "neutral",
 
-      storyNow:
-        true,
+      tone:
+        "neutral",
 
-      storyTone:
-        "warning",
+      timeLabel:
+        "PREGAME CLOSED",
 
-      _storyDirection:
-        "mixed",
+      headline:
+        "Pregame Market Monitoring Ended",
 
-      _storyTime:
-        currentUpdatedAt
-          ? new Date(
-              currentUpdatedAt
-            ).getTime()
-          : Date.now(),
-
-      storyHeadline:
-        wasWith
-          ? (
-              wasSharp
-                ? "Sharp Support Faded — Market Now Mixed"
-                : "Market Support Faded — Market Now Mixed"
-            )
-          : (
-              wasSharp
-                ? "Sharp Pressure Faded — Market Now Mixed"
-                : "Market Pressure Faded — Market Now Mixed"
-            ),
-
-      storyExplanation:
-        currentExplanation ||
-        (
-          wasWith
-            ? "Earlier support for CashEdge has weakened as sportsbooks and market signals moved in different directions. The current market is now mixed."
-            : "Earlier pressure against CashEdge has weakened as sportsbooks and market signals moved in different directions. The current market is now mixed."
-        )
+      explanation:
+        "The game has started, so CashEdge is no longer updating the live pregame market read. The activity below preserves the market story that developed before kickoff."
     });
+
+  } else {
+
+    pushCurrentStory({
+
+      type:
+        "CURRENT_MARKET_LIMITED",
+
+      direction:
+        "neutral",
+
+      tone:
+        "neutral",
+
+      headline:
+        "Fresh Market Data Limited",
+
+      explanation:
+        previousDirection ===
+          "with"
+          ? "Earlier market support was detected, but there is not enough fresh information right now to confirm whether that support is still active."
+          : previousDirection ===
+              "against"
+            ? "Earlier market pressure was detected, but there is not enough fresh information right now to confirm whether that pressure is still active."
+            : "There is not enough fresh market information right now to determine a reliable current direction."
+    });
+  }
+}
+
+
+// ==========================================================
+// 2. CURRENT MARKET HAS REVERSED DIRECTION
+//
+// Historical timeline may end one way while the newest
+// Market Read is already pointing the other way.
+// ==========================================================
+
+else if (
+  currentHasDirection &&
+  latestDirectionalStory &&
+  latestDirectionalStory
+    ._storyDirection !==
+    currentProfile.direction
+) {
+
+  const nowWith =
+    currentProfile.direction ===
+    "with";
+
+
+  const sharpNow =
+    currentProfile.family ===
+    "sharp";
+
+
+  pushCurrentStory({
+
+    type:
+      "CURRENT_DIRECTION_REVERSAL",
+
+    direction:
+      currentProfile.direction,
+
+    tone:
+      nowWith
+        ? "positive"
+        : "negative",
+
+    headline:
+      sharpNow
+        ? (
+            nowWith
+              ? "Current Sharp Read Reversed Toward CashEdge"
+              : "Current Sharp Read Reversed Against CashEdge"
+          )
+        : (
+            nowWith
+              ? "Current Market Direction Reversed Toward CashEdge"
+              : "Current Market Direction Reversed Against CashEdge"
+          ),
+
+    explanation:
+      nowWith
+        ? "Earlier market pressure pointed against CashEdge, but the latest market evidence has reversed and is now supporting the CashEdge side."
+        : "Earlier market support pointed toward CashEdge, but the latest market evidence has reversed and is now applying pressure against the CashEdge selection."
+  });
+}
+
+
+// ==========================================================
+// 3. SAME DIRECTION — SIGNAL LOST STRENGTH
+//
+// Example:
+//
+// Strong Sharp
+// → Sharp Support
+//
+// Sharp Support
+// → Sharp Lean
+//
+// Sharp evidence
+// → Market-only support
+//
+// This is NOT a reversal.
+// ==========================================================
+
+else if (
+  sameDirection &&
+  (
+    latestLevel >
+      currentLevel ||
+    (
+      currentProfile.family ===
+        "market" &&
+      latestWasSharpEvidence
+    )
+  )
+) {
+
+  const withCashEdge =
+    currentProfile.direction ===
+    "with";
+
+
+  let downgradeHeadline =
+    withCashEdge
+      ? "Market Support Has Eased"
+      : "Market Pressure Has Eased";
+
+
+  let downgradeExplanation =
+    currentExplanation;
+
+
+  // ========================================================
+  // SHARP → MARKET ONLY
+  // ========================================================
+
+  if (
+    currentProfile.family ===
+      "market" &&
+    latestWasSharpEvidence
+  ) {
+
+    downgradeHeadline =
+      withCashEdge
+        ? "Sharp Confirmation Faded — Market Support Remains"
+        : "Sharp Evidence Faded — Market Pressure Remains";
+
+
+    downgradeExplanation =
+      withCashEdge
+        ? "Earlier Sharp evidence has weakened, but sportsbook movement is still supporting the CashEdge selection. The direction remains favorable even though the Sharp confirmation is no longer strong enough."
+        : "Earlier Sharp evidence has weakened, but sportsbook movement is still applying pressure against the CashEdge selection. The direction remains unfavorable even though the Sharp confirmation is no longer strong enough.";
   }
 
 
-  // ==========================================================
-  // DIRECTIONAL SIGNAL → CURRENT NEUTRAL / NO CLEAR EDGE
-  // ==========================================================
+  // ========================================================
+  // STRONG SHARP → SHARP SUPPORT / PRESSURE
+  // ========================================================
 
   else if (
-    currentIsNeutral &&
-    latestDirectionalStory &&
-    !latestAlreadyNeutral
+    currentRead ===
+      "SHARP_SUPPORT"
   ) {
 
-    const wasWith =
-      latestDirectionalStory
-        ._storyDirection ===
-      "with";
+    downgradeHeadline =
+      "Strong Sharp Signal Eased — Sharp Support Remains";
 
 
-    const wasSharp =
-      String(
-        latestDirectionalStory
-          .type ||
-        ""
-      )
-        .toUpperCase()
-        .includes(
-          "SHARP"
-        );
-
-
-    story.push({
-
-      family:
-        "story",
-
-      type:
-        "CURRENT_MARKET_NEUTRAL",
-
-      direction:
-        "neutral",
-
-      storyNow:
-        true,
-
-      storyTone:
-        "neutral",
-
-      storySyntheticNeutral:
-        true,
-
-      _storyDirection:
-        "neutral",
-
-      _storyTime:
-        currentUpdatedAt
-          ? new Date(
-              currentUpdatedAt
-            ).getTime()
-          : Date.now(),
-
-      storyHeadline:
-        wasWith
-          ? (
-              wasSharp
-                ? "Sharp Support Faded — No Clear Direction Now"
-                : "Market Support Faded — No Clear Direction Now"
-            )
-          : (
-              wasSharp
-                ? "Sharp Pressure Faded — No Clear Direction Now"
-                : "Market Pressure Faded — No Clear Direction Now"
-            ),
-
-      storyExplanation:
-        currentExplanation ||
-        (
-          wasWith
-            ? "Earlier support for CashEdge is no longer being confirmed strongly enough by the current market. There is no clear directional edge right now."
-            : "Earlier pressure against CashEdge is no longer being confirmed strongly enough by the current market. There is no clear directional edge right now."
-        )
-    });
+    downgradeExplanation =
+      "The market previously reached a stronger Sharp level. That intensity has cooled, but meaningful Sharp support for the CashEdge selection is still present.";
   }
 
+
+  else if (
+    currentRead ===
+      "SHARP_PRESSURE_AGAINST"
+  ) {
+
+    downgradeHeadline =
+      "Strong Sharp Signal Eased — Sharp Pressure Remains";
+
+
+    downgradeExplanation =
+      "The market previously reached a stronger Sharp level against CashEdge. That intensity has cooled, but meaningful Sharp pressure against the selection is still present.";
+  }
+
+
+  // ========================================================
+  // SHARP SUPPORT / PRESSURE → SHARP LEAN
+  // ========================================================
+
+  else if (
+    currentRead ===
+      "SHARP_LEAN_WITH_CASHEDGE"
+  ) {
+
+    downgradeHeadline =
+      "Sharp Support Eased — Lean With CashEdge Remains";
+
+
+    downgradeExplanation =
+      "Earlier Sharp support was stronger. It has eased, but the remaining Money/Tickets and market evidence still leans toward the CashEdge selection.";
+  }
+
+
+  else if (
+    currentRead ===
+      "SHARP_LEAN_AGAINST"
+  ) {
+
+    downgradeHeadline =
+      "Sharp Pressure Eased — Lean Against Remains";
+
+
+    downgradeExplanation =
+      "Earlier Sharp pressure was stronger. It has eased, but the remaining Money/Tickets and market evidence still leans against the CashEdge selection.";
+  }
+
+
+  pushCurrentStory({
+
+    type:
+      "CURRENT_MARKET_DOWNGRADE",
+
+    direction:
+      currentProfile.direction,
+
+    tone:
+      withCashEdge
+        ? "positive"
+        : "negative",
+
+    headline:
+      downgradeHeadline,
+
+    explanation:
+      downgradeExplanation ||
+      (
+        withCashEdge
+          ? "The market is still leaning with CashEdge, but the earlier signal has lost some strength."
+          : "The market is still leaning against CashEdge, but the earlier signal has lost some strength."
+      )
+  });
+}
+
+
+// ==========================================================
+// 4. DIRECTIONAL MARKET → CURRENT MIXED
+// ==========================================================
+
+else if (
+  currentIsMixed &&
+  latestDirectionalStory &&
+  !latestAlreadyMixed
+) {
+
+  const wasWith =
+    latestDirectionalStory
+      ._storyDirection ===
+    "with";
+
+
+  const wasSharp =
+    latestWasSharpEvidence;
+
+
+  pushCurrentStory({
+
+    type:
+      "CURRENT_MARKET_MIXED",
+
+    direction:
+      "mixed",
+
+    tone:
+      "warning",
+
+    headline:
+      wasWith
+        ? (
+            wasSharp
+              ? "Sharp Support Faded — Market Now Mixed"
+              : "Market Support Faded — Market Now Mixed"
+          )
+        : (
+            wasSharp
+              ? "Sharp Pressure Faded — Market Now Mixed"
+              : "Market Pressure Faded — Market Now Mixed"
+          ),
+
+    explanation:
+      currentExplanation ||
+      (
+        wasWith
+          ? "Earlier support for CashEdge has weakened as sportsbooks and market signals moved in different directions. The current market is now mixed."
+          : "Earlier pressure against CashEdge has weakened as sportsbooks and market signals moved in different directions. The current market is now mixed."
+      )
+  });
+}
+
+
+// ==========================================================
+// 5. DIRECTIONAL MARKET → CURRENT NEUTRAL
+// ==========================================================
+
+else if (
+  currentIsNeutral &&
+  latestDirectionalStory &&
+  !latestAlreadyNeutral
+) {
+
+  const wasWith =
+    latestDirectionalStory
+      ._storyDirection ===
+    "with";
+
+
+  const wasSharp =
+    latestWasSharpEvidence;
+
+
+  pushCurrentStory({
+
+    type:
+      "CURRENT_MARKET_NEUTRAL",
+
+    direction:
+      "neutral",
+
+    tone:
+      "neutral",
+
+    headline:
+      wasWith
+        ? (
+            wasSharp
+              ? "Sharp Support Faded — No Clear Direction Now"
+              : "Market Support Faded — No Clear Direction Now"
+          )
+        : (
+            wasSharp
+              ? "Sharp Pressure Faded — No Clear Direction Now"
+              : "Market Pressure Faded — No Clear Direction Now"
+          ),
+
+    explanation:
+      currentExplanation ||
+      (
+        wasWith
+          ? "Earlier support for CashEdge is no longer being confirmed strongly enough by the current market. There is no clear directional edge right now."
+          : "Earlier pressure against CashEdge is no longer being confirmed strongly enough by the current market. There is no clear directional edge right now."
+      )
+  });
+
+
+  story[
+    story.length - 1
+  ].storySyntheticNeutral =
+    true;
+}
 
   // ==========================================================
   // RETURN NEWEST → OLDEST FOR THE UI
   // ==========================================================
 
-  return story
+  // ==========================================================
+// ORDER STORY — NEWEST FIRST
+// ==========================================================
+
+const orderedStory =
+  story
     .sort(
       (a, b) => {
 
@@ -15606,13 +16104,302 @@ const buildPremiumRadarStory = (
         );
       }
     );
+
+
+// ==========================================================
+// SEMANTIC DEDUPLICATION
+//
+// We are building a story, not displaying a database log.
+//
+// Same signal + same direction + same meaningful facts
+// should not consume another chapter.
+// ==========================================================
+
+const cleanedStory = [];
+
+const seenSemanticEvents =
+  new Set();
+
+
+let suppressedCurrentBreadth =
+  false;
+
+
+const currentDowngradeToMarket =
+  orderedStory.some(
+    event =>
+      event.storyNow ===
+        true &&
+      event.type ===
+        "CURRENT_MARKET_DOWNGRADE"
+  ) &&
+  currentProfile.family ===
+    "market";
+
+
+for (
+  const event
+  of orderedStory
+) {
+
+  // Never remove a synthetic CURRENT chapter.
+  if (
+    event.storyNow ===
+    true
+  ) {
+
+    cleanedStory.push(
+      event
+    );
+
+    continue;
+  }
+
+
+  const family =
+    String(
+      event.family ||
+      ""
+    )
+      .toLowerCase()
+      .trim();
+
+
+  const type =
+    String(
+      event.type ||
+      ""
+    )
+      .toUpperCase()
+      .trim();
+
+
+  const direction =
+    event._storyDirection ||
+    storyDirection(
+      event
+    );
+
+
+  const data =
+    event.data &&
+    typeof event.data ===
+      "object"
+      ? event.data
+      : {};
+
+
+  // ========================================================
+  // If the synthetic current chapter already says:
+  //
+  // "Sharp Evidence Faded — Market Pressure Remains"
+  //
+  // we do NOT need the newest raw:
+  //
+  // "3 sportsbooks moving against CashEdge"
+  //
+  // immediately below it.
+  //
+  // We keep an older breadth event so the user can see
+  // when sportsbook participation originally developed.
+  // ========================================================
+
+  if (
+    currentDowngradeToMarket &&
+    !suppressedCurrentBreadth &&
+    family ===
+      "signal" &&
+    (
+      (
+        currentProfile.direction ===
+          "with" &&
+        type ===
+          "MARKET_SUPPORT"
+      ) ||
+      (
+        currentProfile.direction ===
+          "against" &&
+        type ===
+          "MARKET_CONFLICT"
+      )
+    )
+  ) {
+
+    suppressedCurrentBreadth =
+      true;
+
+    continue;
+  }
+
+
+  let semanticKey =
+    null;
+
+
+  // ========================================================
+  // SPORTSBOOK BREADTH
+  // ========================================================
+
+  if (
+    family ===
+      "signal" &&
+    (
+      type ===
+        "MARKET_SUPPORT" ||
+      type ===
+        "MARKET_CONFLICT"
+    )
+  ) {
+
+    const aligned =
+      Number(
+        data.referenceAligned ||
+        0
+      ) +
+      Number(
+        data.retailAligned ||
+        0
+      );
+
+
+    const against =
+      Number(
+        data.referenceAgainst ||
+        0
+      ) +
+      Number(
+        data.retailAgainst ||
+        0
+      );
+
+
+    const bookCount =
+      direction ===
+        "with"
+        ? aligned
+        : against;
+
+
+    semanticKey =
+      [
+        "breadth",
+        direction,
+        bookCount
+      ].join(
+        ":"
+      );
+  }
+
+
+  // ========================================================
+  // POTENTIAL SHARP MONEY
+  //
+  // Small percentage changes should not create another
+  // chapter saying essentially the same thing.
+  //
+  // Group divergence in ~5-point buckets.
+  // ========================================================
+
+  else if (
+    family ===
+      "signal" &&
+    (
+      type ===
+        "POTENTIAL_SHARP_MONEY" ||
+      type ===
+        "POTENTIAL_SHARP_AGAINST"
+    )
+  ) {
+
+    const divergence =
+      Math.abs(
+        premiumRadarNum(
+          data.divergence
+        ) ||
+        0
+      );
+
+
+    const divergenceBucket =
+      Math.round(
+        divergence /
+        5
+      ) *
+      5;
+
+
+    semanticKey =
+      [
+        "potential-sharp",
+        direction,
+        divergenceBucket
+      ].join(
+        ":"
+      );
+  }
+
+
+  // ========================================================
+  // REPEATED RETURN OF MARKET CONFLICT
+  //
+  // Keep one "pressure returned" chapter.
+  // Do not print it three times.
+  // ========================================================
+
+  else if (
+    family ===
+      "opportunity" &&
+    type ===
+      "MARKET_CONFLICT" &&
+    event.storyHeadline ===
+      "Market Pressure Returned Against CashEdge"
+  ) {
+
+    semanticKey =
+      "opportunity:pressure-returned";
+  }
+
+
+  // ========================================================
+  // REMOVE REPEATED SEMANTIC CHAPTER
+  // ========================================================
+
+  if (
+    semanticKey &&
+    seenSemanticEvents.has(
+      semanticKey
+    )
+  ) {
+
+    continue;
+  }
+
+
+  if (
+    semanticKey
+  ) {
+
+    seenSemanticEvents.add(
+      semanticKey
+    );
+  }
+
+
+  cleanedStory.push(
+    event
+  );
+}
+
+
+return cleanedStory;
 };
 
 
 const storyActivity =
   buildPremiumRadarStory(
     activity,
-    intelligence
+    intelligence,
+    gameStarted
   );
 
         const renderActivityItem =
@@ -16728,13 +17515,16 @@ if (
   explanation =
     event.storyExplanation;
 }
-            const timeText =
-  event.storyNow === true
-    ? "NOW"
-    : premiumRadarAgo(
-        event.detectedAt ||
-        event.lastDetectedAt
-      );
+           const timeText =
+  event.storyTimeLabel ||
+  (
+    event.storyNow === true
+      ? "NOW"
+      : premiumRadarAgo(
+          event.detectedAt ||
+          event.lastDetectedAt
+        )
+  );
 
 
             return `
