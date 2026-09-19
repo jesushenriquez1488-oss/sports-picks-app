@@ -236,8 +236,7 @@ module.exports = async function handler(req, res) {
 async function getEspnWnbaGames() {
   if (
     cache.data &&
-    Date.now() - cache.time <
-      CACHE_TIME
+    Date.now() - cache.time < CACHE_TIME
   ) {
     return cache.data;
   }
@@ -245,17 +244,18 @@ async function getEspnWnbaGames() {
   const year =
     new Date().getFullYear();
 
- const year =
-  new Date().getFullYear();
+  const url =
+    `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?limit=1000&dates=${year}`;
 
-const url =
-  `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?limit=1000&dates=${year}`;
   const response =
     await fetch(url);
 
   if (!response.ok) {
+    const body =
+      await response.text();
+
     throw new Error(
-      `ESPN error ${response.status}`
+      `ESPN error ${response.status}: ${body.slice(0, 300)}`
     );
   }
 
@@ -309,7 +309,6 @@ const url =
 
   return games;
 }
-
 
 // =========================
 // HELPERS
