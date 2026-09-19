@@ -14135,8 +14135,8 @@ font-weight:900;
               : "LINE MOVEMENT";
 const movementEmptyText =
   movementUsesPrice
-    ? "No recent material odds move"
-    : "No recent material line move";
+    ? "No recent odds move"
+    : "No recent line move";
 
         // ====================================================
         // OPPORTUNITY — COMPACT
@@ -14407,10 +14407,10 @@ const movementEmptyText =
           style="
             display:grid;
 
-            grid-template-columns:
-              minmax(0,.9fr)
-              minmax(0,1.25fr)
-              minmax(0,.85fr);
+           grid-template-columns:
+  minmax(0,.7fr)
+  minmax(0,1.45fr)
+  minmax(0,.85fr);
 
             margin-top:9px;
 
@@ -14429,7 +14429,7 @@ const movementEmptyText =
           <!-- LINE MOVEMENT -->
           <div
             style="
-              padding:8px 9px;
+              padding:7px 6px;
               min-width:0;
 
               border-right:
@@ -14491,12 +14491,12 @@ const movementEmptyText =
                   `
                 : `
                     <div
-                      style="
-                        color:#71839f;
-                        font-size:7px;
-                        font-weight:800;
-                        line-height:1.2;
-                      "
+style="
+  color:#71839f;
+  font-size:6.3px;
+  font-weight:800;
+  line-height:1.2;
+"
                     >
                     ${radarEscape(
   movementEmptyText
