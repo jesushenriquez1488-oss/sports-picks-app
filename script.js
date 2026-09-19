@@ -13955,13 +13955,12 @@ const splitGapText =
       ) < 5
       ? "BALANCED"
       : splitGap > 0
-        ? `MONEY +${Math.abs(
+        ? `M +${Math.abs(
             splitGap
           )} PTS`
-        : `TICKETS +${Math.abs(
+        : `T +${Math.abs(
             splitGap
           )} PTS`;
-
 
 const splitGapColor =
   splitGap === null ||
