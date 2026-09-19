@@ -13865,9 +13865,9 @@ const splitGapColor =
                 text-overflow:ellipsis;
                 white-space:nowrap;
 
-                color:#9fb0c5;
-                font-size:5.5px;
-                font-weight:800;
+               color:#9fb0c5;
+font-size:5.8px;
+font-weight:800;
               "
             >
               ${radarEscape(
@@ -13880,14 +13880,14 @@ const splitGapColor =
               style="
                 flex-shrink:0;
                 white-space:nowrap;
-                font-size:5.5px;
+                font-size:5.8px;
               "
             >
 
               <span
   style="
     color:#71839f;
-    font-size:5px;
+    font-size:5.25px;
     font-weight:800;
   "
 >
@@ -13912,7 +13912,7 @@ const splitGapColor =
   style="
     color:#71839f;
     margin-left:5px;
-    font-size:5px;
+   font-size:5.25px;
     font-weight:800;
   "
 >
@@ -13939,9 +13939,9 @@ ${splitGapText
         style="
           flex-shrink:0;
           white-space:nowrap;
-          color:${splitGapColor};
-          font-size:5px;
-          font-weight:900;
+         color:${splitGapColor};
+font-size:5.25px;
+font-weight:900;
         "
       >
         ${radarEscape(
@@ -17726,7 +17726,7 @@ if (
                         <div
                           style="
                             color:#71839f;
-                            font-size:7px;
+                            font-size:7.7px;
                             line-height:1.25;
                             margin-top:2px;
                           "
