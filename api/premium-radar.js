@@ -1391,27 +1391,47 @@ first_premium_line,
           "market_evaluation_games"
         )
         .select(`
-          cashedge_game_id,
-          latest_alignment_state,
-          latest_market_line,
-          latest_market_price_american,
-          latest_best_sportsbook_key,
-          latest_best_sportsbook_name,
-          latest_best_line,
-          latest_best_price_american,
-          latest_money_pct,
-          latest_tickets_pct,
-          latest_opportunity_state,
-          latest_opportunity_type,
-          latest_opportunity_line_value,
-          latest_opportunity_price_value_cents,
-          latest_opportunity_book_key,
-          latest_opportunity_book_name,
-          latest_opportunity_best_line,
-          latest_opportunity_best_price,
-          opportunity_state_started_at,
-          updated_at
-        `)
+  cashedge_game_id,
+
+  latest_alignment_state,
+
+  latest_market_line,
+  latest_market_price_american,
+
+  latest_best_sportsbook_key,
+  latest_best_sportsbook_name,
+  latest_best_line,
+  latest_best_price_american,
+
+  latest_money_pct,
+  latest_tickets_pct,
+  latest_money_signal,
+
+  latest_sharp_score,
+  latest_sharp_read,
+  latest_sharp_signal,
+  latest_sharp_strength,
+  latest_sharp_components,
+
+  latest_market_read,
+  latest_market_read_family,
+  latest_market_read_direction,
+  latest_market_read_explanation,
+  latest_market_read_components,
+  latest_market_read_updated_at,
+
+  latest_opportunity_state,
+  latest_opportunity_type,
+  latest_opportunity_line_value,
+  latest_opportunity_price_value_cents,
+  latest_opportunity_book_key,
+  latest_opportunity_book_name,
+  latest_opportunity_best_line,
+  latest_opportunity_best_price,
+
+  opportunity_state_started_at,
+  updated_at
+`)
         .in(
           "cashedge_game_id",
           radarGameIds
@@ -2690,7 +2710,86 @@ available:
     activeOpportunityEvent ||
     recentRawMovements.length
   ),
+marketRead: {
 
+  read:
+    marketEvaluation
+      ?.latest_market_read ||
+    null,
+
+  family:
+    marketEvaluation
+      ?.latest_market_read_family ||
+    null,
+
+  direction:
+    marketEvaluation
+      ?.latest_market_read_direction ||
+    null,
+
+  explanation:
+    marketEvaluation
+      ?.latest_market_read_explanation ||
+    null,
+
+  updatedAt:
+    marketEvaluation
+      ?.latest_market_read_updated_at ||
+    null,
+
+  components:
+    marketEvaluation
+      ?.latest_market_read_components ||
+    null
+},
+
+
+sharp: {
+
+  score:
+    marketEvaluation
+      ?.latest_sharp_score ??
+    null,
+
+  read:
+    marketEvaluation
+      ?.latest_sharp_read ||
+    null,
+
+  signal:
+    marketEvaluation
+      ?.latest_sharp_signal ||
+    null,
+
+  strength:
+    marketEvaluation
+      ?.latest_sharp_strength ??
+    null,
+
+  moneySignal:
+    marketEvaluation
+      ?.latest_money_signal ||
+    null,
+
+  hasSharpEvidence:
+    marketEvaluation
+      ?.latest_market_read_components
+      ?.sharp
+      ?.hasSharpEvidence ===
+    true,
+
+  evidenceFamily:
+    marketEvaluation
+      ?.latest_market_read_components
+      ?.sharp
+      ?.evidenceFamily ||
+    null,
+
+  components:
+    marketEvaluation
+      ?.latest_sharp_components ||
+    null
+},
 pulse:
   marketPulse,
           marketType:
