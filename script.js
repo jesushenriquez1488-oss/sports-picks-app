@@ -11932,6 +11932,12 @@ function premiumRadarOpportunityMeta(
     ) || 0;
 
 
+  // ==========================================================
+  // STALE LINE
+  //
+  // Actionable opportunity.
+  // ==========================================================
+
   if (
     staleLine
       ?.detected === true
@@ -11941,14 +11947,23 @@ function premiumRadarOpportunityMeta(
 
       show: true,
 
+      sectionLabel:
+        "MARKET OPPORTUNITY",
+
       title:
-        "STALE LINE DETECTED",
+        "STALE LINE STILL AVAILABLE",
 
       subtitle:
-        `${sportsbook} is still offering a better number while the market has moved`,
+        `${sportsbook} has not fully caught up with the broader market`,
+
+      leftLabel:
+        "BEST AVAILABLE",
 
       bestText:
         `${sportsbook}: ${bestQuote}`,
+
+      rightLabel:
+        "MARKET CONSENSUS",
 
       marketText:
         `Market consensus: ${marketQuote}`,
@@ -11962,7 +11977,7 @@ function premiumRadarOpportunityMeta(
             ? `${Math.round(
                 priceValue
               )}¢ BETTER`
-            : "BETTER NUMBER",
+            : "VALUE AVAILABLE",
 
       color:
         "#00ffe7",
@@ -11975,6 +11990,10 @@ function premiumRadarOpportunityMeta(
     };
   }
 
+
+  // ==========================================================
+  // VALUE AVAILABLE
+  // ==========================================================
 
   if (
     state ===
@@ -11994,16 +12013,25 @@ function premiumRadarOpportunityMeta(
 
       show: true,
 
+      sectionLabel:
+        "MARKET OPPORTUNITY",
+
       title:
         betterLine
           ? "BETTER LINE AVAILABLE"
           : "BETTER PRICE AVAILABLE",
 
       subtitle:
-        `${sportsbook} currently has the best available number`,
+        `${sportsbook} currently has a better available number than the broader market`,
+
+      leftLabel:
+        "BEST AVAILABLE",
 
       bestText:
         `${sportsbook}: ${bestQuote}`,
+
+      rightLabel:
+        "MARKET CONSENSUS",
 
       marketText:
         `Market consensus: ${marketQuote}`,
@@ -12031,6 +12059,10 @@ function premiumRadarOpportunityMeta(
   }
 
 
+  // ==========================================================
+  // VALUE WINDOW CLOSING
+  // ==========================================================
+
   if (
     state ===
     "WINDOW_CLOSING"
@@ -12040,14 +12072,23 @@ function premiumRadarOpportunityMeta(
 
       show: true,
 
+      sectionLabel:
+        "MARKET OPPORTUNITY",
+
       title:
         "VALUE WINDOW CLOSING",
 
       subtitle:
-        "The better number is still available, but the advantage is shrinking",
+        "The better number is still available, but the advantage is shrinking as the market catches up",
+
+      leftLabel:
+        "BEST AVAILABLE",
 
       bestText:
         `${sportsbook}: ${bestQuote}`,
+
+      rightLabel:
+        "MARKET CONSENSUS",
 
       marketText:
         `Market consensus: ${marketQuote}`,
@@ -12067,6 +12108,17 @@ function premiumRadarOpportunityMeta(
   }
 
 
+  // ==========================================================
+  // MARKET CONFLICT
+  //
+  // NOT an opportunity.
+  //
+  // This box now tells the customer:
+  // current market conditions require attention.
+  //
+  // Market Read below explains WHY.
+  // ==========================================================
+
   if (
     state ===
     "MARKET_CONFLICT"
@@ -12076,20 +12128,30 @@ function premiumRadarOpportunityMeta(
 
       show: true,
 
+      sectionLabel:
+        "MARKET WARNING",
+
       title:
-        "MARKET CONFLICT",
+        "PRESSURE AGAINST THE PICK",
 
       subtitle:
-        "The market is moving materially against the CashEdge Premium selection",
+        "The broader market has moved materially against the CashEdge Premium selection",
+
+      leftLabel:
+        "BEST AVAILABLE",
 
       bestText:
-  bestQuote !== "—"
-    ? `${sportsbook}: ${bestQuote}`
-    : "No clear market advantage right now",
+        bestQuote !== "—"
+          ? `${sportsbook}: ${bestQuote}`
+          : "No clear market advantage right now",
+
+      rightLabel:
+        "MARKET CONSENSUS",
+
       marketText:
         marketQuote !== "—"
           ? `Market consensus: ${marketQuote}`
-          : "",
+          : "No reliable consensus available",
 
       valueText:
         "WATCH CLOSELY",
@@ -12106,6 +12168,15 @@ function premiumRadarOpportunityMeta(
   }
 
 
+  // ==========================================================
+  // MARKET SPLIT
+  //
+  // NOT an opportunity and NOT necessarily negative.
+  //
+  // It simply means the books have not settled on one
+  // reliable market number.
+  // ==========================================================
+
   if (
     state ===
     "MARKET_SPLIT"
@@ -12115,17 +12186,26 @@ function premiumRadarOpportunityMeta(
 
       show: true,
 
+      sectionLabel:
+        "MARKET STATUS",
+
       title:
-        "MARKET SPLIT",
+        "NO CONSENSUS YET",
 
       subtitle:
-        "Sportsbooks have not reached a clear consensus yet",
+        "Sportsbooks are currently split, so there is no single reliable market number yet",
+
+      leftLabel:
+        "MARKET STATE",
 
       bestText:
         "No unique consensus number",
 
+      rightLabel:
+        "CURRENT STATUS",
+
       marketText:
-        "CashEdge is waiting for the market to settle",
+        "Waiting for the market to settle",
 
       valueText:
         "NO CLEAR ENTRY",
@@ -12142,6 +12222,13 @@ function premiumRadarOpportunityMeta(
   }
 
 
+  // ==========================================================
+  // OPPORTUNITY CLOSED
+  //
+  // Historical value disappeared.
+  // This does NOT mean the CashEdge pick changed.
+  // ==========================================================
+
   if (
     state ===
     "OPPORTUNITY_CLOSED"
@@ -12151,19 +12238,28 @@ function premiumRadarOpportunityMeta(
 
       show: true,
 
+      sectionLabel:
+        "VALUE UPDATE",
+
       title:
-        "OPPORTUNITY CLOSED",
+        "EXTRA VALUE CLOSED",
 
       subtitle:
-        "The extra market advantage is no longer materially available",
+        "The additional line or price advantage that was available earlier is no longer materially present",
+
+      leftLabel:
+        "MARKET NOW",
 
       bestText:
         marketQuote !== "—"
-          ? `Market now: ${marketQuote}`
+          ? marketQuote
           : "The market caught up",
 
+      rightLabel:
+        "PICK STATUS",
+
       marketText:
-        "The CashEdge Premium pick itself has not changed",
+        "CashEdge Premium pick unchanged",
 
       valueText:
         "CLOSED",
@@ -14159,8 +14255,11 @@ const bettingSplitRowsHTML =
                       margin-bottom:3px;
                     "
                   >
-                    MARKET OPPORTUNITY
-                  </div>
+  ${radarEscape(
+    opportunityMeta.sectionLabel ||
+    "MARKET STATUS"
+  )}
+</div>
 
 
                   <div
@@ -14242,16 +14341,19 @@ const bettingSplitRowsHTML =
                 >
 
                   <div
-                    style="
-                      color:#526983;
-                      font-size:6px;
-                      font-weight:900;
-                      letter-spacing:.7px;
-                      margin-bottom:3px;
-                    "
-                  >
-                    BEST AVAILABLE
-                  </div>
+  style="
+    color:#526983;
+    font-size:6px;
+    font-weight:900;
+    letter-spacing:.7px;
+    margin-bottom:3px;
+  "
+>
+  ${radarEscape(
+    opportunityMeta.leftLabel ||
+    "BEST AVAILABLE"
+  )}
+</div>
 
                   <strong
                     style="
@@ -14279,17 +14381,20 @@ const bettingSplitRowsHTML =
                   "
                 >
 
-                  <div
-                    style="
-                      color:#526983;
-                      font-size:6px;
-                      font-weight:900;
-                      letter-spacing:.7px;
-                      margin-bottom:3px;
-                    "
-                  >
-                    CONSENSUS
-                  </div>
+                 <div
+  style="
+    color:#526983;
+    font-size:6px;
+    font-weight:900;
+    letter-spacing:.7px;
+    margin-bottom:3px;
+  "
+>
+  ${radarEscape(
+    opportunityMeta.rightLabel ||
+    "MARKET CONSENSUS"
+  )}
+</div>
 
                   <strong
                     style="
