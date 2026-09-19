@@ -13776,6 +13776,34 @@ const bettingSplitRowsHTML =
           premiumRadarNum(
             source.moneyPct
           );
+          const splitSourceLabel = (() => {
+  const raw =
+    String(
+      source.sportsbook ||
+      source.sportsbookKey ||
+      "Book"
+    )
+      .toLowerCase()
+      .trim();
+
+  if (
+    raw.includes("circa")
+  ) {
+    return "CIRCA";
+  }
+
+  if (
+    raw.includes("draftkings")
+  ) {
+    return "DK";
+  }
+
+  return (
+    source.sportsbook ||
+    source.sportsbookKey ||
+    "BOOK"
+  );
+})();
 const splitGap =
   sourceTickets !== null &&
   sourceMoney !== null
@@ -13842,10 +13870,8 @@ const splitGapColor =
               "
             >
               ${radarEscape(
-                source.sportsbook ||
-                source.sportsbookKey ||
-                "Sportsbook"
-              )}
+  splitSourceLabel
+)}
             </span>
 
 
