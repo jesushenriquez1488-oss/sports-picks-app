@@ -2570,39 +2570,128 @@ const activity =
     .filter(
       event => {
 
+        const family =
+          String(
+            event?.event_family ||
+            ""
+          )
+            .toLowerCase()
+            .trim();
+
+
+        const type =
+          String(
+            event?.event_type ||
+            ""
+          )
+            .toUpperCase()
+            .trim();
+
+
+        // ====================================================
+        // SIGNAL HISTORY
+        //
+        // Keep both current and resolved signal states so
+        // Recent Activity can show the real progression:
+        //
+        // Potential Sharp
+        // → Sharp Support
+        // → Strong Sharp Signal
+        // ====================================================
+
         if (
-          event.event_family ===
+          family ===
+          "signal"
+        ) {
+
+          return [
+            "POTENTIAL_SHARP_MONEY",
+            "POTENTIAL_SHARP_AGAINST",
+
+            "SHARP_SUPPORT",
+            "SHARP_CONFLICT",
+
+            "STRONG_SHARP_SIGNAL",
+            "STRONG_SHARP_CONFLICT",
+
+            "MARKET_SUPPORT",
+            "MARKET_CONFLICT",
+
+            "MIXED_SIGNAL"
+          ].includes(
+            type
+          );
+        }
+
+
+        // ====================================================
+        // OPPORTUNITY HISTORY
+        // ====================================================
+
+        if (
+          family ===
+          "opportunity"
+        ) {
+
+          return [
+            "VALUE_AVAILABLE",
+            "WINDOW_CLOSING",
+            "OPPORTUNITY_CLOSED",
+            "MARKET_CONFLICT"
+          ].includes(
+            type
+          );
+        }
+
+
+        // ====================================================
+        // MOVEMENT MILESTONES
+        //
+        // market_events already stores material movement
+        // milestones. Keep them for the timeline even after
+        // the 30-minute live pulse window has passed.
+        // ====================================================
+
+        if (
+          family ===
           "movement"
         ) {
-          return isRecentRadarMovement(
-            event
-          );
-        }
 
-
-        if (
-          event.event_family ===
-            "signal"
-        ) {
-          return (
-            event.is_active ===
-            true
-          );
-        }
-
-
-        if (
-          event.event_family ===
-            "opportunity"
-        ) {
-          return (
-            event.is_active ===
-            true
+          return [
+            "MARKET_MOVE_ALIGNED",
+            "MARKET_MOVE_AGAINST"
+          ].includes(
+            type
           );
         }
 
 
         return false;
+      }
+    )
+    .sort(
+      (a, b) => {
+
+        const aTime =
+          new Date(
+            a.first_detected_at ||
+            a.last_detected_at ||
+            0
+          ).getTime();
+
+
+        const bTime =
+          new Date(
+            b.first_detected_at ||
+            b.last_detected_at ||
+            0
+          ).getTime();
+
+
+        return (
+          bTime -
+          aTime
+        );
       }
     )
     .slice(
