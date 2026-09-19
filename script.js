@@ -11766,7 +11766,10 @@ function premiumRadarAlignmentMeta(
 
     return {
       label:
-        "MARKET MOVING WITH CASHEDGE",
+        "WITH CASHEDGE",
+
+      detail:
+        "Sportsbook movement favors the CashEdge side",
 
       color:
         "#00e676"
@@ -11780,7 +11783,10 @@ function premiumRadarAlignmentMeta(
 
     return {
       label:
-        "MARKET MOVING AGAINST CASHEDGE",
+        "AGAINST CASHEDGE",
+
+      detail:
+        "Sportsbook movement favors the opposite side",
 
       color:
         "#ff5c5c"
@@ -11794,7 +11800,10 @@ function premiumRadarAlignmentMeta(
 
     return {
       label:
-        "MARKET SPLIT",
+        "SPLIT",
+
+      detail:
+        "Sportsbooks are moving in different directions",
 
       color:
         "#ffd166"
@@ -11808,7 +11817,10 @@ function premiumRadarAlignmentMeta(
 
     return {
       label:
-        "MARKET NEUTRAL",
+        "NEUTRAL",
+
+      detail:
+        "No clear directional move right now",
 
       color:
         "#8ca0b8"
@@ -11818,13 +11830,15 @@ function premiumRadarAlignmentMeta(
 
   return {
     label:
-      "LIVE MARKET",
+      "MONITORING",
+
+    detail:
+      "Waiting for a clear directional move",
 
     color:
-      "#00ffe7"
+      "#71839f"
   };
 }
-
 
 // ============================================================
 // MARKET OPPORTUNITY
@@ -13883,13 +13897,13 @@ const splitPickLabel =
 const bettingSplitStatusText =
   bettingSplitStatus ===
     "MIXED"
-      ? "MIXED SOURCES"
+      ? "SPLITS DISAGREE"
       : bettingSplitStatus ===
           "CONSISTENT"
-        ? "SOURCES AGREE"
+        ? "SPLITS AGREE"
         : bettingSplitStatus ===
             "SINGLE_SOURCE"
-          ? "1 SOURCE"
+          ? "1 SPLIT SOURCE"
           : "";
 
 
@@ -13921,7 +13935,43 @@ const bettingSplitRowsHTML =
           premiumRadarNum(
             source.moneyPct
           );
+const splitGap =
+  sourceTickets !== null &&
+  sourceMoney !== null
+    ? Number(
+        (
+          sourceMoney -
+          sourceTickets
+        ).toFixed(1)
+      )
+    : null;
 
+
+const splitGapText =
+  splitGap === null
+    ? ""
+    : Math.abs(
+        splitGap
+      ) < 5
+      ? "BALANCED"
+      : splitGap > 0
+        ? `MONEY +${Math.abs(
+            splitGap
+          )} PTS`
+        : `TICKETS +${Math.abs(
+            splitGap
+          )} PTS`;
+
+
+const splitGapColor =
+  splitGap === null ||
+  Math.abs(
+    splitGap
+  ) < 5
+    ? "#71839f"
+    : splitGap > 0
+      ? "#00e676"
+      : "#ffb347";
 
         return `
           <div
@@ -14016,7 +14066,24 @@ const bettingSplitRowsHTML =
               </strong>
 
             </span>
-
+${splitGapText
+  ? `
+      <span
+        style="
+          flex-shrink:0;
+          white-space:nowrap;
+          color:${splitGapColor};
+          font-size:5px;
+          font-weight:900;
+        "
+      >
+        ${radarEscape(
+          splitGapText
+        )}
+      </span>
+    `
+  : ""
+}
           </div>
         `;
       }
@@ -14199,7 +14266,10 @@ const bettingSplitRowsHTML =
                 "price_probability"
               ? "PRICE MOVEMENT"
               : "LINE MOVEMENT";
-
+const movementEmptyText =
+  movementUsesPrice
+    ? "No recent material odds move"
+    : "No recent material line move";
 
         // ====================================================
         // OPPORTUNITY — COMPACT
@@ -14561,7 +14631,9 @@ const bettingSplitRowsHTML =
                         line-height:1.2;
                       "
                     >
-                      No strong market signal
+                    ${radarEscape(
+  movementEmptyText
+)}
                     </div>
                   `
             }
@@ -14700,7 +14772,7 @@ const bettingSplitRowsHTML =
                 margin-bottom:4px;
               "
             >
-              ALIGNMENT
+              MARKET DIRECTION
             </div>
 
 
@@ -14717,15 +14789,22 @@ const bettingSplitRowsHTML =
                 overflow-wrap:anywhere;
               "
             >
-              ${radarEscape(
-                alignmentMeta.label
-                  .replace(
-                    "MARKET MOVING ",
-                    ""
-                  )
-              )}
+         ${radarEscape(
+  alignmentMeta.label
+)}
             </strong>
-
+<div
+  style="
+    color:#71839f;
+    font-size:5.5px;
+    line-height:1.3;
+    margin-top:4px;
+  "
+>
+  ${radarEscape(
+    alignmentMeta.detail
+  )}
+</div>
           </div>
 
         </div>
