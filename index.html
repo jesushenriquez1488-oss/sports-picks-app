@@ -664,7 +664,16 @@ window.gtag("js", new Date());
   .ce-new-mobile-menu {
     display: none;
   }
+.ce-mobile-nav-dropdown {
+  position: relative;
+}
 
+/* ...todo el resto... */
+
+.ce-mobile-nav-panel button {
+  color: #00ffe7;
+  border-bottom: 0;
+}
   .ce-new-hero {
     text-align: center;
     padding: 64px 0 20px;
@@ -758,18 +767,21 @@ window.gtag("js", new Date());
   }
 
   .ce-google-play {
-    min-height: 52px;
-    border: 1px solid #26364f;
-    background: #080d17;
-    border-radius: 11px;
-    padding: 0 18px;
-    color: #fff;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 11px;
-    text-align: left;
-  }
+  width: 225px;
+  min-height: 58px;
+  border: 1px solid #263247;
+  background: #05080e;
+  border-radius: 10px;
+  padding: 0 16px;
+  color: #fff;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  text-align: left;
+  box-sizing: border-box;
+}
 
   .ce-google-play-icon {
     width: 25px;
@@ -865,12 +877,17 @@ window.gtag("js", new Date());
       max-width: 360px;
     }
 
-    .ce-start-free-main,
-    .ce-google-play {
-      width: 100%;
-      justify-content: center;
-    }
+   .ce-start-free-main {
+  width: 100%;
+}
 
+.ce-google-play {
+  width: 225px;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  justify-content: center;
+}
     .ce-new-quick-proof {
       grid-template-columns: 1fr 1fr;
     }
@@ -946,26 +963,65 @@ window.gtag("js", new Date());
 
     </div>
 
-    <div class="ce-new-mobile-menu">
+  <div class="ce-new-mobile-menu">
+
+  <button
+    type="button"
+    class="ce-new-nav-start"
+    onclick="ceShowAuth()"
+  >
+    START FREE
+  </button>
+
+
+  <details class="ce-mobile-nav-dropdown">
+
+    <summary aria-label="Open navigation menu">
+      ☰
+    </summary>
+
+    <div class="ce-mobile-nav-panel">
+
+      <a
+        href="#ceMarketIntelligence"
+        onclick="this.closest('details').removeAttribute('open')"
+      >
+        Market Intelligence
+      </a>
+
+      <a
+        href="#cePlayerProps"
+        onclick="this.closest('details').removeAttribute('open')"
+      >
+        Player Props
+      </a>
+
+      <a
+        href="#cePlans"
+        onclick="this.closest('details').removeAttribute('open')"
+      >
+        Free vs Premium
+      </a>
+
+      <a
+        href="#ceResults"
+        onclick="this.closest('details').removeAttribute('open')"
+      >
+        Results
+      </a>
 
       <button
         type="button"
-        class="ce-new-login"
-        onclick="ceShowAuth()"
+        onclick="ceShowAuth();this.closest('details').removeAttribute('open')"
       >
         Log In
       </button>
 
-      <button
-        type="button"
-        class="ce-new-nav-start"
-        onclick="ceShowAuth()"
-      >
-        START FREE
-      </button>
-
     </div>
 
+  </details>
+
+</div>
   </div>
 
 </nav>
@@ -2944,20 +3000,99 @@ shown with its recorded outcome.
     color: #fff;
   }
 
-  @media (max-width: 720px) {
-    .ce-plans-section {
-      padding: 43px 15px;
-      border-radius: 18px;
-    }
+ @media (max-width: 720px) {
 
-    .ce-plans-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .ce-plans-title {
-      font-size: 33px;
-    }
+  .ce-plans-section {
+    padding: 38px 8px;
+    border-radius: 18px;
   }
+
+  .ce-plans-title {
+    font-size: 31px;
+  }
+
+  .ce-plans-intro {
+    font-size: 11px;
+    padding: 0 8px;
+  }
+
+  .ce-plans-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .ce-plan-card {
+    padding: 18px 10px;
+    border-radius: 14px;
+  }
+
+  .ce-plan-popular {
+    position: static;
+    display: inline-flex;
+    margin-bottom: 10px;
+    padding: 5px 7px;
+    font-size: 7px;
+  }
+
+  .ce-plan-name {
+    font-size: 18px;
+  }
+
+  .ce-plan-desc {
+    font-size: 9px;
+    line-height: 1.4;
+    min-height: 52px;
+  }
+
+  .ce-plan-price {
+    margin-top: 15px;
+    font-size: 28px;
+  }
+
+  .ce-plan-price span {
+    display: block;
+    margin-top: 5px;
+    font-size: 9px;
+  }
+
+  .ce-plan-note {
+    font-size: 8px;
+  }
+
+  .ce-plan-divider {
+    margin: 17px 0 5px;
+  }
+
+  .ce-plan-feature {
+    gap: 5px;
+    padding: 9px 0;
+  }
+
+  .ce-plan-feature-text {
+    font-size: 9px;
+    line-height: 1.35;
+  }
+
+  .ce-plan-check {
+    font-size: 10px;
+  }
+
+  .ce-plan-lock {
+    font-size: 9px;
+  }
+
+  .ce-plan-btn {
+    min-height: 43px;
+    padding: 0 5px;
+    font-size: 9px;
+    margin-top: 15px;
+  }
+
+  .ce-plans-bottom {
+    font-size: 9px;
+  }
+}
 </style>
 
 
@@ -3772,11 +3907,17 @@ shown with its recorded outcome.
       margin-right: auto;
     }
 
-    .ce-final-start,
-    .ce-final-actions .ce-google-play {
-      width: 100%;
-      justify-content: center;
-    }
+   .ce-final-start {
+  width: 100%;
+}
+
+.ce-final-actions .ce-google-play {
+  width: 225px;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  justify-content: center;
+}
   }
 </style>
 
