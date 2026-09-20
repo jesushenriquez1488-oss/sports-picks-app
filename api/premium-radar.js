@@ -861,19 +861,23 @@ if (radarViewMode === "history") {
       : dates[0];
 
 
-  const {
-    data: historyRows,
-    error: historyError
-  } =
-    await supabaseAdmin
-      .from("premium_radar")
-      .select(
-        RADAR_SELECT
-      )
-      .eq(
-        "game_date",
-        selectedDate
-      );
+const {
+  data: historyRows,
+  error: historyError
+} =
+  await supabaseAdmin
+    .from("premium_radar")
+    .select(
+      RADAR_SELECT
+    )
+    .eq(
+      "game_date",
+      selectedDate
+    )
+    .eq(
+      "current_is_premium",
+      true
+    );
 
 
   if (historyError) {
