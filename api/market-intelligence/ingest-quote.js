@@ -11,7 +11,7 @@ const {
   require("../../lib/marketPipeline");
 const {
   buildCanonicalMarketQuote,
-  validateCanonicalMarketQuote
+  validateCanonicalMarketQuote 
 } =
   require("./marketProviderAdapter");
 
