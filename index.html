@@ -542,7 +542,7 @@ window.gtag("js", new Date());
    <div id="bg-glow"></div> 
 <div id="splashScreen">
   <div class="splash-brand">CASHEDGE</div>
-  <div class="splash-sub">AI SPORTS ANALYTICS</div>
+  <div class="splash-sub">MARKET INTELLIGENCE</div>
   <div class="splash-brain-wrap">
     <div class="splash-ring1"></div>
     <div class="splash-ring2"></div>
@@ -1776,117 +1776,841 @@ window.gtag("js", new Date());
 
 </section>
 
-<!-- ===== 3. EL NÚMERO ===== -->
+<!-- =========================================================
+     3. ADVANCED PLAYER PROPS
+========================================================= -->
 
-<div style="margin:44px 0 0;text-align:center;">
+<style>
+  .ce-props-section {
+    scroll-margin-top: 90px;
+    margin-top: 62px;
+    padding: 58px 22px;
+    border-radius: 24px;
+    border: 1px solid rgba(124, 92, 255, .18);
+    background:
+      radial-gradient(
+        circle at 20% 10%,
+        rgba(124, 92, 255, .10),
+        transparent 38%
+      ),
+      radial-gradient(
+        circle at 85% 30%,
+        rgba(0,255,231,.06),
+        transparent 36%
+      ),
+      #050b15;
+    overflow: hidden;
+  }
 
-  <div style="font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:18px;">SO DOES IT WORK? — PREMIUM PICK RESULTS ARE PUBLIC</div>
+  .ce-props-kicker {
+    text-align: center;
+    color: #00ffe7;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1.7px;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
 
-  <div style="background:#0a0f1e;border:1px solid rgba(0,255,231,0.25);border-radius:14px;padding:30px 20px;">
+  .ce-props-title {
+    max-width: 760px;
+    margin: 0 auto;
+    text-align: center;
+    color: #fff;
+    font-size: clamp(30px,5vw,49px);
+    line-height: 1.08;
+    letter-spacing: -1.4px;
+    font-weight: 950;
+  }
 
-    <div style="font-size:52px;font-weight:900;color:#00ffe7;line-height:1;">
-      <span id="ceHeroAccuracy" style="font-size:52px;font-weight:900;color:#00ffe7;">0%</span>
+  .ce-props-title span {
+    display: block;
+    color: #00ffe7;
+    margin-top: 8px;
+  }
+
+  .ce-props-intro {
+    max-width: 680px;
+    margin: 21px auto 0;
+    text-align: center;
+    color: #91a4bf;
+    font-size: 14px;
+    line-height: 1.8;
+  }
+
+  .ce-props-pill-row {
+    margin: 28px auto 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    max-width: 700px;
+  }
+
+  .ce-props-pill {
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: #09111f;
+    border: 1px solid #1a2b45;
+    color: #9cafc7;
+    font-size: 10px;
+    font-weight: 800;
+  }
+
+  .ce-props-pill strong {
+    color: #00ffe7;
+  }
+
+  .ce-props-layout {
+    margin-top: 38px;
+    display: grid;
+    grid-template-columns: minmax(0,1.05fr) minmax(280px,.95fr);
+    gap: 34px;
+    align-items: center;
+  }
+
+  .ce-props-shot-wrap {
+    position: relative;
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
+  .ce-props-shot-wrap::before {
+    content: "";
+    position: absolute;
+    inset: 5% -5%;
+    background: rgba(0,255,231,.07);
+    filter: blur(42px);
+    border-radius: 30px;
+    pointer-events: none;
+  }
+
+  .ce-props-shot {
+    position: relative;
+    overflow: hidden;
+    border-radius: 18px;
+    border: 1px solid rgba(0,255,231,.24);
+    background: #040914;
+    box-shadow: 0 28px 90px rgba(0,0,0,.45);
+  }
+
+  .ce-props-shot img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .ce-props-explainer {
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+  }
+
+  .ce-props-card {
+    padding: 17px 18px;
+    border-radius: 14px;
+    background: rgba(9,17,31,.88);
+    border: 1px solid #17263d;
+  }
+
+  .ce-props-card-top {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 6px;
+  }
+
+  .ce-props-card-icon {
+    width: 25px;
+    height: 25px;
+    border-radius: 7px;
+    background: rgba(0,255,231,.08);
+    border: 1px solid rgba(0,255,231,.16);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #00ffe7;
+    font-size: 11px;
+    font-weight: 950;
+    flex: 0 0 25px;
+  }
+
+  .ce-props-card-title {
+    color: #fff;
+    font-size: 13px;
+    font-weight: 900;
+  }
+
+  .ce-props-card-copy {
+    color: #7f92ad;
+    font-size: 11px;
+    line-height: 1.65;
+  }
+
+  .ce-props-value-box {
+    margin-top: 38px;
+    padding: 27px 22px;
+    border-radius: 17px;
+    text-align: center;
+    border: 1px solid rgba(0,255,231,.21);
+    background:
+      linear-gradient(
+        135deg,
+        rgba(0,255,231,.075),
+        rgba(124,92,255,.06)
+      );
+  }
+
+  .ce-props-value-kicker {
+    color: #00ffe7;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    font-weight: 900;
+    margin-bottom: 9px;
+  }
+
+  .ce-props-value-box h3 {
+    margin: 0;
+    color: #fff;
+    font-size: 25px;
+    line-height: 1.25;
+    font-weight: 950;
+  }
+
+  .ce-props-value-box h3 span {
+    color: #00ffe7;
+  }
+
+  .ce-props-value-box p {
+    max-width: 620px;
+    margin: 13px auto 0;
+    color: #8fa2ba;
+    font-size: 13px;
+    line-height: 1.75;
+  }
+
+  .ce-props-windows {
+    max-width: 620px;
+    margin: 26px auto 0;
+    display: grid;
+    grid-template-columns: repeat(4,1fr);
+    gap: 8px;
+  }
+
+  .ce-props-window {
+    padding: 13px 8px;
+    text-align: center;
+    border-radius: 11px;
+    background: #08101c;
+    border: 1px solid #172840;
+  }
+
+  .ce-props-window strong {
+    display: block;
+    color: #fff;
+    font-size: 13px;
+    margin-bottom: 3px;
+  }
+
+  .ce-props-window span {
+    color: #667b98;
+    font-size: 9px;
+  }
+
+  .ce-props-cta-area {
+    margin-top: 32px;
+    text-align: center;
+  }
+
+  .ce-props-cta {
+    border: 0;
+    border-radius: 11px;
+    padding: 15px 25px;
+    background: #00ffe7;
+    color: #021014;
+    font-size: 12px;
+    font-weight: 950;
+    cursor: pointer;
+  }
+
+  .ce-props-cta-note {
+    margin-top: 10px;
+    color: #607490;
+    font-size: 10px;
+  }
+
+  @media (max-width: 760px) {
+    .ce-props-section {
+      padding: 43px 15px;
+      border-radius: 18px;
+    }
+
+    .ce-props-layout {
+      grid-template-columns: 1fr;
+      gap: 25px;
+    }
+
+    .ce-props-title {
+      font-size: 33px;
+    }
+
+    .ce-props-shot-wrap {
+      max-width: 450px;
+    }
+
+    .ce-props-windows {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+</style>
+
+
+<section
+  id="cePlayerProps"
+  class="ce-props-section"
+>
+
+  <div class="ce-props-kicker">
+    ADVANCED PLAYER PROPS
+  </div>
+
+
+  <h2 class="ce-props-title">
+
+    DON'T JUST BET A PROP.
+
+    <span>
+      UNDERSTAND THE PLAYER BEHIND THE LINE.
+    </span>
+
+  </h2>
+
+
+  <p class="ce-props-intro">
+
+    CashEdge goes far beyond showing you one player prop.
+
+    Explore the available markets for each player,
+    see how often today's line has actually been covered,
+    compare different performance windows,
+    and see whether the current sportsbook number
+    offers value.
+
+  </p>
+
+
+  <div class="ce-props-pill-row">
+
+    <div class="ce-props-pill">
+      <strong>LAST 3</strong> performance
     </div>
 
-    <div style="font-size:11px;color:#5a7a9a;letter-spacing:1.5px;font-weight:700;margin-top:10px;">
-      PREMIUM PICKS ACCURACY
+    <div class="ce-props-pill">
+      <strong>LAST 5</strong> performance
     </div>
 
-    <div style="height:1px;background:#16243d;margin:20px auto;max-width:280px;"></div>
+    <div class="ce-props-pill">
+      <strong>LAST 10</strong> performance
+    </div>
 
-    <p id="ceHeroRecord" style="font-size:14px;color:#d0dcec;margin:0;">Loading...</p>
+    <div class="ce-props-pill">
+      <strong>SEASON</strong> performance
+    </div>
+
+    <div class="ce-props-pill">
+      Current line
+    </div>
+
+    <div class="ce-props-pill">
+      Value detection
+    </div>
 
   </div>
 
-  <div style="font-size:11px;color:#5a7a9a;margin-top:14px;line-height:1.7;max-width:560px;margin-left:auto;margin-right:auto;">
-    Based exclusively on Premium Pick results recorded in our public performance
-tracking — the same Premium Picks subscribers receive. Every Premium Pick is
-graded against the line recorded when it was released, including losses.
+
+  <div class="ce-props-layout">
+
+
+    <!-- ===== SCREENSHOT ===== -->
+
+    <div class="ce-props-shot-wrap">
+
+      <div class="ce-props-shot">
+
+        <img
+          src="/playerprops.png"
+          alt="CashEdge Advanced Player Props showing value, recent hit rate and player performance"
+          loading="lazy"
+        >
+
+      </div>
+
+    </div>
+
+
+    <!-- ===== EXPLANATION ===== -->
+
+    <div class="ce-props-explainer">
+
+
+      <div class="ce-props-card">
+
+        <div class="ce-props-card-top">
+
+          <div class="ce-props-card-icon">
+            1
+          </div>
+
+          <div class="ce-props-card-title">
+            Multiple markets for each player
+          </div>
+
+        </div>
+
+        <div class="ce-props-card-copy">
+          Explore the available prop markets for a player
+          instead of being locked into one recommendation.
+        </div>
+
+      </div>
+
+
+      <div class="ce-props-card">
+
+        <div class="ce-props-card-top">
+
+          <div class="ce-props-card-icon">
+            2
+          </div>
+
+          <div class="ce-props-card-title">
+            How often has today's line actually been covered?
+          </div>
+
+        </div>
+
+        <div class="ce-props-card-copy">
+          See the historical hit rate against today's line
+          across Last 3, Last 5, Last 10 and the season.
+        </div>
+
+      </div>
+
+
+      <div class="ce-props-card">
+
+        <div class="ce-props-card-top">
+
+          <div class="ce-props-card-icon">
+            3
+          </div>
+
+          <div class="ce-props-card-title">
+            Current performance and context
+          </div>
+
+        </div>
+
+        <div class="ce-props-card-copy">
+          See recent production, Home/Away performance,
+          opponent history and relevant player conditions
+          in the same analysis.
+        </div>
+
+      </div>
+
+
+      <div class="ce-props-card">
+
+        <div class="ce-props-card-top">
+
+          <div class="ce-props-card-icon">
+            4
+          </div>
+
+          <div class="ce-props-card-title">
+            Is there actually value at today's number?
+          </div>
+
+        </div>
+
+        <div class="ce-props-card-copy">
+          A player can cover a prop repeatedly and still
+          have a bad number today. CashEdge compares the
+          current sportsbook probability with its projection
+          to help identify value.
+        </div>
+
+      </div>
+
+
+    </div>
+
   </div>
 
-  <div style="font-size:10px;color:#4a5f7f;margin-top:8px;">
-    Historical performance does not guarantee future results.
-  </div>
 
-</div>
+  <!-- ===== CORE MESSAGE ===== -->
 
+  <div class="ce-props-value-box">
 
-<!-- ===== 4. RENDIMIENTO POR DEPORTE ===== -->
-
-<div class="ce-sports-section" style="margin:34px 0 0;">
-  <p style="text-align:center;font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:16px;">BROKEN DOWN BY SPORT</p>
-  <div id="ceSportsGrid" class="ce-sports-grid"></div>
-</div>
-
-
-<!-- ===== 5. LA DEMO DEL FILTRO ===== -->
-
-<div style="margin:44px 0 0;">
-
-  <div style="text-align:center;font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:6px;">WHAT THE FILTER DOES</div>
-  <div style="text-align:center;font-size:12px;color:#5a7a9a;margin-bottom:18px;">A typical day on the board</div>
-
-  <div style="background:#0a0f1e;border:1px solid #1a2240;border-radius:14px;padding:6px 18px;">
-
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid #16243d;opacity:0.45;">
-      <div style="font-size:12px;color:#8899bb;">Dodgers vs Padres</div>
-      <div style="display:flex;align-items:center;gap:14px;">
-        <span style="font-size:12px;color:#5a7a9a;">54%</span>
-        <span style="font-size:10px;color:#5a7a9a;letter-spacing:0.5px;min-width:88px;text-align:right;">FILTERED OUT</span>
-      </div>
+    <div class="ce-props-value-kicker">
+      HIT RATE IS NOT THE WHOLE STORY
     </div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid #16243d;opacity:0.45;">
-      <div style="font-size:12px;color:#8899bb;">Astros vs Mariners</div>
-      <div style="display:flex;align-items:center;gap:14px;">
-        <span style="font-size:12px;color:#5a7a9a;">58%</span>
-        <span style="font-size:10px;color:#5a7a9a;letter-spacing:0.5px;min-width:88px;text-align:right;">FILTERED OUT</span>
-      </div>
-    </div>
+    <h3>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid #16243d;">
-      <div style="font-size:12px;color:#fff;font-weight:700;">Yankees vs Red Sox</div>
-      <div style="display:flex;align-items:center;gap:14px;">
-        <span style="font-size:13px;color:#00ffe7;font-weight:700;">91%</span>
-        <span style="font-size:10px;color:#00ffe7;letter-spacing:0.5px;min-width:88px;text-align:right;">FLAGGED</span>
-      </div>
-    </div>
+      Hitting the line before is one thing.
 
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid #16243d;opacity:0.45;">
-      <div style="font-size:12px;color:#8899bb;">Cubs vs Cardinals</div>
-      <div style="display:flex;align-items:center;gap:14px;">
-        <span style="font-size:12px;color:#5a7a9a;">61%</span>
-        <span style="font-size:10px;color:#5a7a9a;letter-spacing:0.5px;min-width:88px;text-align:right;">FILTERED OUT</span>
-      </div>
-    </div>
+      <br>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid #16243d;">
-      <div style="font-size:12px;color:#fff;font-weight:700;">Braves vs Mets</div>
-      <div style="display:flex;align-items:center;gap:14px;">
-        <span style="font-size:13px;color:#00ffe7;font-weight:700;">88%</span>
-        <span style="font-size:10px;color:#00ffe7;letter-spacing:0.5px;min-width:88px;text-align:right;">FLAGGED</span>
-      </div>
-    </div>
+      <span>
+        Getting value at today's number is another.
+      </span>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 0;opacity:0.45;">
-      <div style="font-size:12px;color:#8899bb;">Rangers vs Angels</div>
-      <div style="display:flex;align-items:center;gap:14px;">
-        <span style="font-size:12px;color:#5a7a9a;">49%</span>
-        <span style="font-size:10px;color:#5a7a9a;letter-spacing:0.5px;min-width:88px;text-align:right;">FILTERED OUT</span>
+    </h3>
+
+    <p>
+
+      A 70% historical hit rate does not automatically make
+      today's prop a good play.
+
+      CashEdge gives you the recent history,
+      current sportsbook line, projection and value context
+      together — so you can understand what the number
+      actually means today.
+
+    </p>
+
+
+    <div class="ce-props-windows">
+
+      <div class="ce-props-window">
+        <strong>LAST 3</strong>
+        <span>RECENT FORM</span>
       </div>
+
+      <div class="ce-props-window">
+        <strong>LAST 5</strong>
+        <span>SHORT TREND</span>
+      </div>
+
+      <div class="ce-props-window">
+        <strong>LAST 10</strong>
+        <span>LARGER SAMPLE</span>
+      </div>
+
+      <div class="ce-props-window">
+        <strong>SEASON</strong>
+        <span>FULL CONTEXT</span>
+      </div>
+
     </div>
 
   </div>
 
-  <div style="text-align:center;font-size:12px;color:#8899bb;line-height:1.7;margin-top:14px;">
-    Four of these never reach you. That's not the model failing — that's the model working.
+
+  <div class="ce-props-cta-area">
+
+    <button
+      type="button"
+      class="ce-props-cta"
+      onclick="ceShowAuth()"
+    >
+      START FREE
+    </button>
+
+    <div class="ce-props-cta-note">
+      3 free analyses daily · No card required
+    </div>
+
   </div>
 
-  <div style="text-align:center;font-size:10px;color:#4a5f7f;margin-top:8px;">
-    Illustrative example of how the confidence filter works.
+</section>
+
+
+<!-- =========================================================
+     4. PREMIUM PLAYS
+========================================================= -->
+
+<style>
+  .ce-premium-plays {
+    scroll-margin-top: 90px;
+    margin-top: 62px;
+    padding: 54px 22px;
+    border-radius: 24px;
+    background:
+      radial-gradient(
+        circle at 50% 0%,
+        rgba(0,255,231,.075),
+        transparent 40%
+      ),
+      #060c17;
+    border: 1px solid rgba(0,255,231,.15);
+  }
+
+  .ce-premium-kicker {
+    text-align: center;
+    color: #00ffe7;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1.7px;
+    margin-bottom: 14px;
+  }
+
+  .ce-premium-title {
+    max-width: 720px;
+    margin: 0 auto;
+    text-align: center;
+    color: #fff;
+    font-size: clamp(30px,5vw,48px);
+    line-height: 1.08;
+    font-weight: 950;
+    letter-spacing: -1.3px;
+  }
+
+  .ce-premium-title span {
+    display: block;
+    color: #00ffe7;
+    margin-top: 7px;
+  }
+
+  .ce-premium-intro {
+    max-width: 650px;
+    margin: 20px auto 0;
+    text-align: center;
+    color: #91a4bf;
+    font-size: 14px;
+    line-height: 1.8;
+  }
+
+  .ce-premium-flow {
+    max-width: 720px;
+    margin: 32px auto 0;
+    display: grid;
+    grid-template-columns: repeat(3,1fr);
+    gap: 12px;
+  }
+
+  .ce-premium-flow-card {
+    background: #08101c;
+    border: 1px solid #172840;
+    border-radius: 14px;
+    padding: 20px 17px;
+    text-align: center;
+  }
+
+  .ce-premium-flow-number {
+    width: 29px;
+    height: 29px;
+    margin: 0 auto 11px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,255,231,.08);
+    border: 1px solid rgba(0,255,231,.22);
+    color: #00ffe7;
+    font-size: 11px;
+    font-weight: 950;
+  }
+
+  .ce-premium-flow-card strong {
+    display: block;
+    color: #fff;
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+
+  .ce-premium-flow-card p {
+    margin: 0;
+    color: #7488a4;
+    font-size: 11px;
+    line-height: 1.6;
+  }
+
+  .ce-premium-bridge {
+    max-width: 700px;
+    margin: 34px auto 0;
+    padding: 24px 20px;
+    border-radius: 15px;
+    text-align: center;
+    background:
+      linear-gradient(
+        135deg,
+        rgba(0,255,231,.06),
+        rgba(124,92,255,.05)
+      );
+    border: 1px solid rgba(0,255,231,.16);
+  }
+
+  .ce-premium-bridge small {
+    display: block;
+    color: #00ffe7;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 1.4px;
+    margin-bottom: 9px;
+  }
+
+  .ce-premium-bridge h3 {
+    margin: 0;
+    color: #fff;
+    font-size: 22px;
+    line-height: 1.3;
+    font-weight: 950;
+  }
+
+  .ce-premium-bridge p {
+    max-width: 580px;
+    margin: 11px auto 0;
+    color: #8da0ba;
+    font-size: 12px;
+    line-height: 1.7;
+  }
+
+  .ce-premium-bridge strong {
+    color: #fff;
+  }
+
+  @media (max-width: 720px) {
+    .ce-premium-plays {
+      padding: 42px 15px;
+      border-radius: 18px;
+    }
+
+    .ce-premium-flow {
+      grid-template-columns: 1fr;
+    }
+
+    .ce-premium-title {
+      font-size: 33px;
+    }
+  }
+</style>
+
+
+<section
+  id="cePremiumPlays"
+  class="ce-premium-plays"
+>
+
+  <div class="ce-premium-kicker">
+    PREMIUM PLAYS
   </div>
 
-</div>
+
+  <h2 class="ce-premium-title">
+
+    START WITH THE PLAY.
+
+    <span>
+      THEN SEE THE FULL PICTURE.
+    </span>
+
+  </h2>
+
+
+  <p class="ce-premium-intro">
+
+    When CashEdge identifies a Premium opportunity,
+    you don't just get a side and a number.
+
+    You get the recommendation, confidence,
+    projection and supporting analysis —
+    then Premium Radar keeps following
+    what the market does around that play.
+
+  </p>
+
+
+  <div class="ce-premium-flow">
+
+
+    <div class="ce-premium-flow-card">
+
+      <div class="ce-premium-flow-number">
+        1
+      </div>
+
+      <strong>
+        Get the Premium Play
+      </strong>
+
+      <p>
+        See the CashEdge selection,
+        current line, confidence
+        and projection.
+      </p>
+
+    </div>
+
+
+    <div class="ce-premium-flow-card">
+
+      <div class="ce-premium-flow-number">
+        2
+      </div>
+
+      <strong>
+        Understand why
+      </strong>
+
+      <p>
+        Review the matchup context,
+        underlying numbers and
+        supporting analysis.
+      </p>
+
+    </div>
+
+
+    <div class="ce-premium-flow-card">
+
+      <div class="ce-premium-flow-number">
+        3
+      </div>
+
+      <strong>
+        Follow the market
+      </strong>
+
+      <p>
+        Premium Radar keeps tracking
+        market movement around the play
+        before kickoff.
+      </p>
+
+    </div>
+
+
+  </div>
+
+
+  <div class="ce-premium-bridge">
+
+    <small>
+      THE DIFFERENCE
+    </small>
+
+    <h3>
+      Most services stop when they give you the pick.
+    </h3>
+
+    <p>
+      CashEdge doesn't.
+
+      <br><br>
+
+      <strong>
+        The Premium Play is where the story begins.
+      </strong>
+
+      Market Intelligence shows you what happens next.
+    </p>
+
+  </div>
+
+</section>
  <!-- ===== 6. REAL PREMIUM PICK ===== -->
 
 <div
@@ -1902,7 +2626,7 @@ graded against the line recorded when it was released, including losses.
     font-weight:800;
     margin-bottom:7px;
   ">
-    REAL PREMIUM PICK · PREVIOUSLY RELEASED
+    REAL PREMIUM PLAY · PREVIOUSLY RELEASED
   </div>
 
   <div style="
@@ -1913,7 +2637,7 @@ graded against the line recorded when it was released, including losses.
     font-weight:900;
     margin-bottom:8px;
   ">
-    See what CashEdge Premium looks like.
+    See a real CashEdge Premium Play.
   </div>
 
   <div style="
@@ -1924,8 +2648,8 @@ graded against the line recorded when it was released, including losses.
     max-width:500px;
     margin:0 auto 20px;
   ">
-    One real Premium Pick from yesterday's tracked results,
-    shown with its final outcome.
+    A real Premium Play previously released by CashEdge,
+shown with its recorded outcome.
   </div>
 
   <div id="ceFeaturedPremiumWrap">
@@ -2069,305 +2793,1179 @@ graded against the line recorded when it was released, including losses.
 </div>
 
 
-<!-- ===== 8. CAPTURAS REALES ===== -->
+<!-- =========================================================
+     8. FREE VS PREMIUM
+========================================================= -->
 
-<div style="margin:44px 0 0;">
+<style>
+  .ce-plans-section {
+    scroll-margin-top: 90px;
+    margin-top: 64px;
+    padding: 58px 22px;
+    border-radius: 24px;
+    background:
+      radial-gradient(
+        circle at 75% 12%,
+        rgba(0,255,231,.075),
+        transparent 35%
+      ),
+      #050b15;
+    border: 1px solid #17243a;
+  }
 
-  <div style="text-align:center;font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:6px;">WHAT CHANGES WHEN YOU UPGRADE</div>
- <div style="text-align:center;font-size:12px;color:#5a7a9a;margin-bottom:20px;">Start free. Upgrade only when you want Premium recommendations.</div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;" class="ce-shots-grid">
+  .ce-plans-kicker {
+    text-align: center;
+    color: #00ffe7;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1.7px;
+    margin-bottom: 13px;
+  }
 
-    <div>
-      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;">
-        <span style="font-size:10px;color:#8899bb;letter-spacing:1.5px;font-weight:700;">FREE</span>
-        <span style="font-size:11px;color:#5a7a9a;">· included, three a day</span>
+  .ce-plans-title {
+    margin: 0 auto;
+    max-width: 720px;
+    text-align: center;
+    color: #fff;
+    font-size: clamp(30px,5vw,46px);
+    line-height: 1.08;
+    letter-spacing: -1.3px;
+    font-weight: 950;
+  }
+
+  .ce-plans-title span {
+    display: block;
+    color: #00ffe7;
+    margin-top: 8px;
+  }
+
+  .ce-plans-intro {
+    max-width: 630px;
+    margin: 20px auto 0;
+    text-align: center;
+    color: #879ab4;
+    font-size: 13px;
+    line-height: 1.75;
+  }
+
+  .ce-plans-grid {
+    margin-top: 36px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .ce-plan-card {
+    position: relative;
+    padding: 28px 23px;
+    border-radius: 18px;
+    background: #08101c;
+    border: 1px solid #1a2941;
+    overflow: hidden;
+  }
+
+  .ce-plan-card-premium {
+    border-color: rgba(0,255,231,.35);
+    background:
+      radial-gradient(
+        circle at 100% 0%,
+        rgba(0,255,231,.10),
+        transparent 38%
+      ),
+      #08101c;
+    box-shadow: 0 20px 70px rgba(0,255,231,.045);
+  }
+
+  .ce-plan-popular {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    padding: 6px 9px;
+    border-radius: 999px;
+    color: #021014;
+    background: #00ffe7;
+    font-size: 8px;
+    font-weight: 950;
+    letter-spacing: .8px;
+  }
+
+  .ce-plan-name {
+    color: #fff;
+    font-size: 21px;
+    font-weight: 950;
+    margin-bottom: 5px;
+  }
+
+  .ce-plan-desc {
+    color: #70839f;
+    font-size: 11px;
+    line-height: 1.55;
+    min-height: 34px;
+  }
+
+  .ce-plan-price {
+    margin-top: 22px;
+    color: #fff;
+    font-size: 38px;
+    line-height: 1;
+    font-weight: 950;
+  }
+
+  .ce-plan-price span {
+    color: #6d809b;
+    font-size: 11px;
+    font-weight: 650;
+  }
+
+  .ce-plan-free-price {
+    color: #fff;
+  }
+
+  .ce-plan-premium-price {
+    color: #00ffe7;
+  }
+
+  .ce-plan-note {
+    margin-top: 8px;
+    color: #647793;
+    font-size: 10px;
+  }
+
+  .ce-plan-divider {
+    height: 1px;
+    background: #17243a;
+    margin: 23px 0 8px;
+  }
+
+  .ce-plan-feature {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 11px 0;
+    border-bottom: 1px solid rgba(23,36,58,.72);
+  }
+
+  .ce-plan-feature:last-child {
+    border-bottom: 0;
+  }
+
+  .ce-plan-check {
+    color: #00ffe7;
+    font-size: 12px;
+    line-height: 1.4;
+    flex: 0 0 auto;
+    font-weight: 950;
+  }
+
+  .ce-plan-lock {
+    color: #53657e;
+    font-size: 11px;
+    line-height: 1.4;
+    flex: 0 0 auto;
+  }
+
+  .ce-plan-feature-text {
+    color: #c3cfdf;
+    font-size: 11px;
+    line-height: 1.55;
+  }
+
+  .ce-plan-feature-text strong {
+    color: #fff;
+  }
+
+  .ce-plan-feature-disabled {
+    color: #586a83;
+  }
+
+  .ce-plan-btn {
+    width: 100%;
+    margin-top: 22px;
+    min-height: 48px;
+    border-radius: 11px;
+    font-size: 12px;
+    font-weight: 950;
+    cursor: pointer;
+  }
+
+  .ce-plan-btn-free {
+    border: 1px solid rgba(0,255,231,.35);
+    background: rgba(0,255,231,.04);
+    color: #00ffe7;
+  }
+
+  .ce-plan-btn-premium {
+    border: 0;
+    background: #00ffe7;
+    color: #021014;
+  }
+
+  .ce-plans-bottom {
+    margin: 24px auto 0;
+    max-width: 650px;
+    text-align: center;
+    color: #71849f;
+    font-size: 11px;
+    line-height: 1.7;
+  }
+
+  .ce-plans-bottom strong {
+    color: #fff;
+  }
+
+  @media (max-width: 720px) {
+    .ce-plans-section {
+      padding: 43px 15px;
+      border-radius: 18px;
+    }
+
+    .ce-plans-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .ce-plans-title {
+      font-size: 33px;
+    }
+  }
+</style>
+
+
+<section
+  id="cePlans"
+  class="ce-plans-section"
+>
+
+  <div class="ce-plans-kicker">
+    FREE VS PREMIUM
+  </div>
+
+
+  <h2 class="ce-plans-title">
+
+    START FREE.
+
+    <span>
+      UPGRADE WHEN YOU WANT MORE.
+    </span>
+
+  </h2>
+
+
+  <p class="ce-plans-intro">
+
+    You don't need a credit card to try CashEdge.
+
+    Start with 3 free analyses every day,
+    learn how the platform works,
+    and upgrade only when you want full access.
+
+  </p>
+
+
+  <div class="ce-plans-grid">
+
+
+    <!-- =====================================================
+         FREE
+    ====================================================== -->
+
+    <div class="ce-plan-card">
+
+      <div class="ce-plan-name">
+        Free
       </div>
-      <div style="border:1px solid #1a2240;border-radius:12px;overflow:hidden;background:#0a0f1e;">
-       <picture>
-              <source srcset="/screen-free.webp" type="image/webp">
-              <img src="/screen-free.jpg" alt="Free view: a matchup the model did not flag, showing the model's lean, run projections and game conditions" width="900" height="513" loading="lazy" style="width:100%;height:auto;display:block;">
-            </picture>
+
+      <div class="ce-plan-desc">
+        Explore CashEdge and run real matchup analyses every day.
       </div>
-   <div style="font-size:11px;color:#5a7a9a;line-height:1.7;margin-top:10px;text-align:center;">
-          Projections, park, weather, bullpen and the model's lean.
+
+      <div class="ce-plan-price ce-plan-free-price">
+        $0
+      </div>
+
+      <div class="ce-plan-note">
+        No card required
+      </div>
+
+
+      <div class="ce-plan-divider"></div>
+
+
+      <div class="ce-plan-feature">
+
+        <div class="ce-plan-check">
+          ✓
         </div>
+
+        <div class="ce-plan-feature-text">
+          Browse today's sports board
+        </div>
+
+      </div>
+
+
+      <div class="ce-plan-feature">
+
+        <div class="ce-plan-check">
+          ✓
+        </div>
+
+        <div class="ce-plan-feature-text">
+          <strong>3 free analyses every day</strong>
+        </div>
+
+      </div>
+
+
+      <div class="ce-plan-feature">
+
+        <div class="ce-plan-check">
+          ✓
+        </div>
+
+        <div class="ce-plan-feature-text">
+          Game projections and matchup context
+        </div>
+
+      </div>
+
+
+      <div class="ce-plan-feature">
+
+        <div class="ce-plan-check">
+          ✓
+        </div>
+
+        <div class="ce-plan-feature-text">
+          View CashEdge's regular analysis experience
+        </div>
+
+      </div>
+
+
+      <div class="ce-plan-feature">
+
+        <div class="ce-plan-lock">
+          🔒
+        </div>
+
+        <div class="ce-plan-feature-text ce-plan-feature-disabled">
+          Premium Plays
+        </div>
+
+      </div>
+
+
+      <div class="ce-plan-feature">
+
+        <div class="ce-plan-lock">
+          🔒
+        </div>
+
+        <div class="ce-plan-feature-text ce-plan-feature-disabled">
+          Market Intelligence & Premium Radar
+        </div>
+
+      </div>
+
+
+      <div class="ce-plan-feature">
+
+        <div class="ce-plan-lock">
+          🔒
+        </div>
+
+        <div class="ce-plan-feature-text ce-plan-feature-disabled">
+          Advanced Player Props
+        </div>
+
+      </div>
+
+
+      <div class="ce-plan-feature">
+
+        <div class="ce-plan-lock">
+          🔒
+        </div>
+
+        <div class="ce-plan-feature-text ce-plan-feature-disabled">
+          Premium market alerts
+        </div>
+
+      </div>
+
+
+      <button
+        type="button"
+        class="ce-plan-btn ce-plan-btn-free"
+        onclick="ceShowAuth()"
+      >
+        START FREE
+      </button>
+
     </div>
 
-    <div>
-      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;">
-        <span style="font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;">PREMIUM</span>
-        <span style="font-size:11px;color:#5a7a9a;">· when the model flags one</span>
+
+
+    <!-- =====================================================
+         PREMIUM
+    ====================================================== -->
+
+    <div class="ce-plan-card ce-plan-card-premium">
+
+      <div class="ce-plan-popular">
+        FULL ACCESS
       </div>
-      <div style="border:1px solid rgba(0,255,231,0.25);border-radius:12px;overflow:hidden;background:#0a0f1e;">
-       <picture>
-              <source srcset="/screen-premium.webp" type="image/webp">
-              <img src="/screen-premium.jpg" alt="Premium view: a flagged matchup fully unlocked, with the selection, player props and the full model breakdown" width="900" height="769" loading="lazy" style="width:100%;height:auto;display:block;">
-            </picture>
+
+      <div class="ce-plan-name">
+        Premium
       </div>
-      
-      <div style="font-size:11px;color:#5a7a9a;line-height:1.7;margin-top:10px;text-align:center;">
-       The model's recommendation, player props, full reasoning,
-        and every Premium signal.
+
+      <div class="ce-plan-desc">
+        Unlock the complete CashEdge experience.
       </div>
+
+      <div class="ce-plan-price ce-plan-premium-price">
+        $19.99
+        <span>/ month</span>
+      </div>
+
+      <div class="ce-plan-note">
+        Cancel anytime
+      </div>
+
+
+      <div class="ce-plan-divider"></div>
+
+
+      <div class="ce-plan-feature">
+
+        <div class="ce-plan-check">
+          ✓
+        </div>
+
+        <div class="ce-plan-feature-text">
+          <strong>Unlimited analyses</strong>
+        </div>
+
+      </div>
+
+
+      <div class="ce-plan-feature">
+
+        <div class="ce-plan-check">
+          ✓
+        </div>
+
+        <div class="ce-plan-feature-text">
+          <strong>Premium Plays</strong> across supported sports
+        </div>
+
+      </div>
+
+
+      <div class="ce-plan-feature">
+
+        <div class="ce-plan-check">
+          ✓
+        </div>
+
+        <div class="ce-plan-feature-text">
+          Full confidence, projections and Premium breakdown
+        </div>
+
+      </div>
+
+
+      <div class="ce-plan-feature">
+
+        <div class="ce-plan-check">
+          ✓
+        </div>
+
+        <div class="ce-plan-feature-text">
+          <strong>Market Intelligence</strong>
+          with live market context
+        </div>
+
+      </div>
+
+
+      <div class="ce-plan-feature">
+
+        <div class="ce-plan-check">
+          ✓
+        </div>
+
+        <div class="ce-plan-feature-text">
+          Betting Splits, Market Direction and Sharp Signals
+        </div>
+
+      </div>
+
+
+      <div class="ce-plan-feature">
+
+        <div class="ce-plan-check">
+          ✓
+        </div>
+
+        <div class="ce-plan-feature-text">
+          Better-line and market opportunity detection
+        </div>
+
+      </div>
+
+
+      <div class="ce-plan-feature">
+
+        <div class="ce-plan-check">
+          ✓
+        </div>
+
+        <div class="ce-plan-feature-text">
+          <strong>Advanced Player Props</strong>
+          with Last 3 / 5 / 10 / Season and Value
+        </div>
+
+      </div>
+
+
+      <div class="ce-plan-feature">
+
+        <div class="ce-plan-check">
+          ✓
+        </div>
+
+        <div class="ce-plan-feature-text">
+          Premium market alerts when important changes develop
+        </div>
+
+      </div>
+
+
+      <button
+        type="button"
+        class="ce-plan-btn ce-plan-btn-premium"
+        onclick="ceShowAuth()"
+      >
+        UNLOCK PREMIUM
+      </button>
+
     </div>
 
   </div>
 
-<div style="border:1px solid #1a2240;border-radius:14px;overflow:hidden;margin-top:22px;max-width:620px;margin-left:auto;margin-right:auto;">
 
-      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0f1628;">
-        <div style="padding:12px 14px;"></div>
-        <div style="padding:12px 8px;font-size:10px;color:#8899bb;letter-spacing:1px;font-weight:700;text-align:center;border-left:1px solid #1a2240;">FREE</div>
-        <div style="padding:12px 8px;font-size:10px;color:#00ffe7;letter-spacing:1px;font-weight:700;text-align:center;border-left:1px solid #1a2240;">PREMIUM</div>
-      </div>
+  <div class="ce-plans-bottom">
 
-      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0a0f1e;border-top:1px solid #1a2240;">
-        <div style="padding:12px 14px;font-size:12px;color:#d0dcec;">Browse today's board</div>
-        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
-        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
-      </div>
+    <strong>
+      Not sure yet?
+    </strong>
 
-      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0a0f1e;border-top:1px solid #1a2240;">
-        <div style="padding:12px 14px;font-size:12px;color:#d0dcec;">Edge vs. market line</div>
-        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
-        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
-      </div>
+    Start free first.
 
-      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0a0f1e;border-top:1px solid #1a2240;">
-        <div style="padding:12px 14px;font-size:12px;color:#d0dcec;">Projections, park, weather, bullpen</div>
-        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
-        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
-      </div>
+    <br>
 
-      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0a0f1e;border-top:1px solid #1a2240;">
-        <div style="padding:12px 14px;font-size:12px;color:#d0dcec;">Analyses per day</div>
-        <div style="padding:12px 8px;font-size:12px;color:#8899bb;text-align:center;border-left:1px solid #1a2240;">3</div>
-        <div style="padding:12px 8px;font-size:12px;color:#00ffe7;font-weight:700;text-align:center;border-left:1px solid #1a2240;">Unlimited</div>
-      </div>
-<div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0a0f1e;border-top:1px solid #1a2240;">
-        <div style="padding:12px 14px;font-size:12px;color:#d0dcec;">Confidence score</div>
-        <div style="padding:12px 8px;font-size:12px;text-align:center;border-left:1px solid #1a2240;">🔒</div>
-        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
-      </div>
-      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0a0f1e;border-top:1px solid #1a2240;">
-       <div style="padding:12px 14px;font-size:12px;color:#d0dcec;">Premium recommendations</div>
-        <div style="padding:12px 8px;font-size:12px;text-align:center;border-left:1px solid #1a2240;">🔒</div>
-        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0a0f1e;border-top:1px solid #1a2240;">
-        <div style="padding:12px 14px;font-size:12px;color:#d0dcec;">Player props</div>
-        <div style="padding:12px 8px;font-size:12px;text-align:center;border-left:1px solid #1a2240;">🔒</div>
-        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0a0f1e;border-top:1px solid #1a2240;">
-        <div style="padding:12px 14px;font-size:12px;color:#d0dcec;">Daily AI parlay</div>
-        <div style="padding:12px 8px;font-size:12px;text-align:center;border-left:1px solid #1a2240;">🔒</div>
-        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0a0f1e;border-top:1px solid #1a2240;">
-        <div style="padding:12px 14px;font-size:12px;color:#d0dcec;">Full model breakdown</div>
-        <div style="padding:12px 8px;font-size:12px;text-align:center;border-left:1px solid #1a2240;">🔒</div>
-        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
-      </div>
-<div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;background:#0a0f1e;border-top:1px solid #1a2240;">
-        <div style="padding:12px 14px;font-size:12px;color:#d0dcec;">Premium alerts</div>
-        <div style="padding:12px 8px;font-size:12px;text-align:center;border-left:1px solid #1a2240;">🔒</div>
-        <div style="padding:12px 8px;font-size:13px;color:#00ffe7;text-align:center;border-left:1px solid #1a2240;">✓</div>
-      </div>
-    </div>
-
-    <div style="text-align:center;font-size:15px;color:#d0dcec;line-height:1.7;margin-top:20px;max-width:560px;margin-left:auto;margin-right:auto;">
-      The app works without paying.<br>
-      <span style="color:#00ffe7;font-weight:700;">Premium unlocks what the model actually recommends.</span>
-    </div>
-
-<!-- ===== 9. SIN / CON ===== -->
-
-<div style="text-align:center;font-size:15px;color:#a0b4cc;line-height:1.7;max-width:520px;margin:44px auto 18px;">
-  If your game-day routine looks like the left column, CashEdge was built for you.
-</div>
-
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-
-  <div style="background:#0a0f1e;border:1px solid #1a2240;border-radius:14px;padding:20px 18px;">
-    <div style="font-size:10px;color:#5a7a9a;letter-spacing:1.5px;font-weight:700;margin-bottom:14px;">YOUR ROUTINE WITHOUT CASHEDGE</div>
-    <div style="font-size:12px;color:#8899bb;line-height:1.6;padding:9px 0;border-bottom:1px solid #16243d;">Three hours cross-checking stats</div>
-    <div style="font-size:12px;color:#8899bb;line-height:1.6;padding:9px 0;border-bottom:1px solid #16243d;">Five tabs, five opinions, no agreement</div>
-    <div style="font-size:12px;color:#8899bb;line-height:1.6;padding:9px 0;border-bottom:1px solid #16243d;">No way to tell a strong spot from a coin flip</div>
-    <div style="font-size:12px;color:#8899bb;line-height:1.6;padding:9px 0 0;">Second-guessing yourself right up to kickoff</div>
-  </div>
-
-  <div style="background:#0a0f1e;border:1px solid rgba(0,255,231,0.25);border-radius:14px;padding:20px 18px;">
-    <div style="font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:14px;">YOUR ROUTINE WITH IT</div>
-    <div style="font-size:12px;color:#d0dcec;line-height:1.6;padding:9px 0;border-bottom:1px solid #16243d;">The board was filtered before you opened the app</div>
-    <div style="font-size:12px;color:#d0dcec;line-height:1.6;padding:9px 0;border-bottom:1px solid #16243d;">One number: how far the model sits from the line</div>
-    <div style="font-size:12px;color:#d0dcec;line-height:1.6;padding:9px 0;border-bottom:1px solid #16243d;">Weak matchups never reach you</div>
-    <div style="font-size:12px;color:#d0dcec;line-height:1.6;padding:9px 0 0;">Ten minutes instead of three hours</div>
-  </div>
-
-</div>
-  <!-- ===== 10. QUÉ PASA DESPUÉS DE REGISTRARTE ===== -->
-
-<div style="margin:44px 0 0;">
-
-  <div style="text-align:center;font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:20px;">WHAT HAPPENS AFTER YOU JOIN</div>
-
-  <div style="background:#0a0f1e;border:1px solid #1a2240;border-radius:14px;padding:6px 22px;">
-
-    <div style="display:flex;gap:16px;padding:16px 0;border-bottom:1px solid #16243d;">
-      <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,255,231,0.3);color:#00ffe7;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</div>
-      <div>
-        <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:3px;">Create your account</div>
-        <div style="font-size:12px;color:#8899bb;line-height:1.6;">Free. No card. Under a minute.</div>
-      </div>
-    </div>
-
-    <div style="display:flex;gap:16px;padding:16px 0;border-bottom:1px solid #16243d;">
-      <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,255,231,0.3);color:#00ffe7;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">2</div>
-      <div>
-        <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:3px;">Run your 3 free analyses</div>
-        <div style="font-size:12px;color:#8899bb;line-height:1.6;">Any sport, any matchup on today's board. Resets every day.</div>
-      </div>
-    </div>
-
-    <div style="display:flex;gap:16px;padding:16px 0;border-bottom:1px solid #16243d;">
-      <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,255,231,0.3);color:#00ffe7;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">3</div>
-      <div>
-        <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:3px;">Hit a flagged matchup</div>
-        <div style="font-size:12px;color:#8899bb;line-height:1.6;">You'll see the confidence and the edge. The selection stays locked — and it doesn't spend one of your free analyses.</div>
-      </div>
-    </div>
-
-    <div style="display:flex;gap:16px;padding:16px 0;border-bottom:1px solid #16243d;">
-      <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,255,231,0.3);color:#00ffe7;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">4</div>
-      <div>
-        <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:3px;">Unlock everything</div>
-        <div style="font-size:12px;color:#8899bb;line-height:1.6;">Every flagged matchup, player props, the daily parlay, the full breakdown.</div>
-      </div>
-    </div>
-
-    <div style="display:flex;gap:16px;padding:16px 0;">
-      <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,255,231,0.3);color:#00ffe7;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;">5</div>
-      <div>
-        <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:3px;">Watch every Premium Pick result get graded</div>
-        <div style="font-size:12px;color:#8899bb;line-height:1.6;">Win, lose, or push, each Premium Pick result is added to the public performance record.</div>
-      </div>
-    </div>
+    3 analyses every day · No card required ·
+    Upgrade only when you're ready.
 
   </div>
 
-</div>
+</section>
+<!-- =========================================================
+     9. RESULTS / TRACK RECORD
+========================================================= -->
+
+<style>
+  .ce-results-section {
+    scroll-margin-top: 90px;
+    margin-top: 64px;
+    padding: 58px 22px;
+    border-radius: 24px;
+    background:
+      radial-gradient(
+        circle at 50% 0%,
+        rgba(0,255,231,.07),
+        transparent 38%
+      ),
+      #050b15;
+    border: 1px solid #17243a;
+  }
+
+  .ce-results-kicker {
+    text-align: center;
+    color: #00ffe7;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1.7px;
+    margin-bottom: 13px;
+  }
+
+  .ce-results-title {
+    max-width: 720px;
+    margin: 0 auto;
+    text-align: center;
+    color: #fff;
+    font-size: clamp(30px,5vw,46px);
+    line-height: 1.08;
+    font-weight: 950;
+    letter-spacing: -1.3px;
+  }
+
+  .ce-results-title span {
+    display: block;
+    color: #00ffe7;
+    margin-top: 8px;
+  }
+
+  .ce-results-intro {
+    max-width: 650px;
+    margin: 20px auto 0;
+    text-align: center;
+    color: #879ab4;
+    font-size: 13px;
+    line-height: 1.75;
+  }
+
+  .ce-results-main {
+    max-width: 680px;
+    margin: 34px auto 0;
+    padding: 32px 24px;
+    border-radius: 18px;
+    text-align: center;
+    border: 1px solid rgba(0,255,231,.25);
+    background:
+      linear-gradient(
+        135deg,
+        rgba(0,255,231,.065),
+        rgba(124,92,255,.045)
+      ),
+      #08101c;
+  }
+
+  .ce-results-label {
+    color: #71849f;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 1.4px;
+    margin-bottom: 10px;
+  }
+
+  .ce-results-accuracy {
+    color: #00ffe7;
+    font-size: clamp(48px,8vw,72px);
+    font-weight: 950;
+    line-height: 1;
+    letter-spacing: -2px;
+  }
+
+  .ce-results-record {
+    margin-top: 13px;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 800;
+  }
+
+  .ce-results-explain {
+    max-width: 570px;
+    margin: 18px auto 0;
+    color: #7589a5;
+    font-size: 11px;
+    line-height: 1.7;
+  }
+
+  .ce-results-proof-grid {
+    margin-top: 25px;
+    display: grid;
+    grid-template-columns: repeat(3,1fr);
+    gap: 10px;
+  }
+
+  .ce-results-proof {
+    padding: 17px 13px;
+    border-radius: 12px;
+    background: #08101c;
+    border: 1px solid #172840;
+  }
+
+  .ce-results-proof strong {
+    display: block;
+    color: #fff;
+    font-size: 12px;
+    margin-bottom: 5px;
+  }
+
+  .ce-results-proof span {
+    color: #6f829e;
+    font-size: 10px;
+    line-height: 1.5;
+  }
+
+  .ce-results-sports {
+    margin-top: 40px;
+  }
+
+  .ce-results-sports-title {
+    text-align: center;
+    color: #00ffe7;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    margin-bottom: 17px;
+  }
+
+  .ce-results-disclaimer {
+    margin-top: 21px;
+    text-align: center;
+    color: #526681;
+    font-size: 10px;
+    line-height: 1.65;
+  }
+
+  .ce-results-cta-wrap {
+    margin-top: 30px;
+    text-align: center;
+  }
+
+  .ce-results-cta {
+    border: 0;
+    border-radius: 11px;
+    padding: 15px 26px;
+    background: #00ffe7;
+    color: #021014;
+    font-size: 12px;
+    font-weight: 950;
+    cursor: pointer;
+  }
+
+  .ce-results-cta-note {
+    margin-top: 10px;
+    color: #607490;
+    font-size: 10px;
+  }
+
+  @media (max-width: 720px) {
+    .ce-results-section {
+      padding: 43px 15px;
+      border-radius: 18px;
+    }
+
+    .ce-results-title {
+      font-size: 33px;
+    }
+
+    .ce-results-proof-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
 
 
-<!-- ===== 11. PREMIUM ===== -->
+<section
+  id="ceResults"
+  class="ce-results-section"
+>
 
-<div style="margin:44px 0 0;">
+  <div class="ce-results-kicker">
+    TRACKED RESULTS
+  </div>
 
-  <div style="text-align:center;font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:18px;">WHAT PREMIUM ACTUALLY CHANGES</div>
 
-  <div style="background:#0a0f1e;border:1px solid rgba(0,255,231,0.25);border-radius:14px;padding:28px 24px;">
+  <h2 class="ce-results-title">
 
-    <div style="font-size:19px;line-height:1.5;color:#fff;font-weight:900;margin-bottom:16px;">
-      Premium is seeing what the model is actually confident about.
+    WE DON'T JUST SHOW THE PLAYS.
+
+    <span>
+      WE TRACK WHAT HAPPENS TO THEM.
+    </span>
+
+  </h2>
+
+
+  <p class="ce-results-intro">
+
+    Premium Plays are recorded and graded against
+    the line captured when they were released.
+
+    Wins stay.
+    Losses stay.
+    Pushes stay.
+
+    The record is part of the product.
+
+  </p>
+
+
+  <!-- ===== LIVE RESULT DATA ===== -->
+
+  <div class="ce-results-main">
+
+    <div class="ce-results-label">
+      PREMIUM PLAY ACCURACY
     </div>
 
-    <div style="font-size:14px;line-height:2;color:#a0b4cc;margin-bottom:22px;">
-      No more guessing which spot is real.<br>
-      No more checking five sites to confirm one number.<br>
-      No more wondering whether the edge was ever there.
+    <div
+      id="ceHeroAccuracy"
+      class="ce-results-accuracy"
+    >
+      0%
     </div>
 
-    <div style="border-top:1px solid #16243d;padding-top:18px;">
-      <div style="font-size:11px;color:#5a7a9a;letter-spacing:1px;font-weight:700;margin-bottom:12px;">EVERY DAY, ACROSS EVERY SPORT</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;">
-        <div style="font-size:12px;color:#d0dcec;line-height:1.6;">Every flagged matchup</div>
-        <div style="font-size:12px;color:#d0dcec;line-height:1.6;">Every player prop</div>
-        <div style="font-size:12px;color:#d0dcec;line-height:1.6;">Every projection and breakdown</div>
-        <div style="font-size:12px;color:#d0dcec;line-height:1.6;">The daily parlay</div>
-        <div style="font-size:12px;color:#d0dcec;line-height:1.6;">Alerts on the strongest signals</div>
-        <div style="font-size:12px;color:#d0dcec;line-height:1.6;">No daily cap on analyses</div>
-      </div>
+
+    <div
+      id="ceHeroRecord"
+      class="ce-results-record"
+    >
+      Loading...
+    </div>
+
+
+    <div class="ce-results-explain">
+
+      Based on Premium Plays recorded in CashEdge's
+      public performance tracking.
+
+      Each result is graded using the line recorded
+      when the play was released.
+
     </div>
 
   </div>
 
-</div>
 
+  <!-- ===== WHY THIS MATTERS ===== -->
 
-<!-- ===== 12. OBJECIONES ===== -->
+  <div class="ce-results-proof-grid">
 
-<div style="margin:44px 0 0;">
+    <div class="ce-results-proof">
 
-  <div style="text-align:center;font-size:10px;color:#00ffe7;letter-spacing:1.5px;font-weight:700;margin-bottom:18px;">STRAIGHT ANSWERS</div>
+      <strong>
+        Recorded at release
+      </strong>
 
-  <div style="background:#0a0f1e;border:1px solid #1a2240;border-radius:14px;padding:6px 22px;">
+      <span>
+        The market line attached to the play is stored
+        when CashEdge releases it.
+      </span>
 
-    <div style="padding:16px 0;border-bottom:1px solid #16243d;">
-      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:6px;">Is this just ChatGPT with a skin on it?</div>
-      <div style="font-size:12px;color:#8899bb;line-height:1.7;">No. Each sport runs its own statistical model with its own inputs — park factors and bullpen fatigue for baseball, schedule strength and positional injury weighting for football, rest and back-to-backs for basketball. No language model writes the projection.</div>
     </div>
 
-    <div style="padding:16px 0;border-bottom:1px solid #16243d;">
-      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:6px;">Why do some days have almost no flagged games?</div>
-      <div style="font-size:12px;color:#8899bb;line-height:1.7;">Because the model didn't find enough separation from the line. A day with two flagged matchups is the system working, not failing.</div>
+
+    <div class="ce-results-proof">
+
+      <strong>
+        Automatically graded
+      </strong>
+
+      <span>
+        Completed games are tracked as wins,
+        losses or pushes.
+      </span>
+
     </div>
 
-    <div style="padding:16px 0;border-bottom:1px solid #16243d;">
-      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:6px;">The lines move. Does that change anything?</div>
-      <div style="font-size:12px;color:#8899bb;line-height:1.7;">Yes. Every edge is measured against the line at the time of the analysis, and that line is recorded with the result. If the market moves, the edge you'd get later isn't the one the model measured.</div>
-    </div>
 
-    <div style="padding:16px 0;border-bottom:1px solid #16243d;">
-      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:6px;">Do you delete the losses?</div>
-      <div style="font-size:12px;color:#8899bb;line-height:1.7;">No. Every published result is graded automatically and stays on the record with the line it was recorded at.</div>
-    </div>
+    <div class="ce-results-proof">
 
-    <div style="padding:16px 0;border-bottom:1px solid #16243d;">
-      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:6px;">Can I cancel?</div>
-      <div style="font-size:12px;color:#8899bb;line-height:1.7;">Any time, from your account. No call, no email, no retention script.</div>
-    </div>
+      <strong>
+        No hiding losses
+      </strong>
 
-    <div style="padding:16px 0;">
-      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:6px;">Is this betting advice?</div>
-      <div style="font-size:12px;color:#8899bb;line-height:1.7;">No. CashEdge is a statistical analysis tool. What you do with the output is your call.</div>
+      <span>
+        Losing Premium Plays remain part of the
+        performance record.
+      </span>
+
     </div>
 
   </div>
 
 
-</div>
+  <!-- ===== SPORT BREAKDOWN ===== -->
 
+  <div class="ce-results-sports">
 
-<!-- ===== 13. CTA FINAL ===== -->
+    <div class="ce-results-sports-title">
+      RESULTS BY SPORT
+    </div>
 
-<div style="text-align:center;margin:44px 0 0;padding:32px 20px;background:#0a0f1e;border:1px solid rgba(0,255,231,0.25);border-radius:14px;">
+    <div
+      id="ceSportsGrid"
+      class="ce-sports-grid"
+    ></div>
 
-  <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:8px;">Today's board is already filtered.</div>
-  <div style="font-size:13px;color:#8899bb;line-height:1.7;max-width:440px;margin:0 auto 22px;">
-    Three analyses, free, every day. See what the model does with a real slate before you decide anything.
   </div>
 
-  <button type="button" onclick="ceShowAuth()" style="display:block;width:100%;max-width:420px;margin:0 auto;padding:17px;border:none;border-radius:12px;background:linear-gradient(135deg,#00ffe7,#7c3cff);color:#020814;font-size:15px;font-weight:900;letter-spacing:0.5px;cursor:pointer;text-transform:uppercase;">
-    See today's board — free →
-  </button>
 
-  <div style="font-size:11px;color:#8899bb;margin-top:12px;">
-    Join free. Upgrade only if you want to unlock Premium.
+  <div class="ce-results-disclaimer">
+
+    Historical performance does not guarantee future results.
+
+    CashEdge provides statistical analysis and
+    informational content.
+
   </div>
 
-  <div style="font-size:11px;color:#5a7a9a;margin-top:10px;">
-    Already know what you want?
-    <a href="#" onclick="ceShowAuth();return false;" style="color:#00ffe7;text-decoration:underline;">Go straight to Premium — $19.99/mo</a>
+
+  <div class="ce-results-cta-wrap">
+
+    <button
+      type="button"
+      class="ce-results-cta"
+      onclick="ceShowAuth()"
+    >
+      START FREE
+    </button>
+
+    <div class="ce-results-cta-note">
+      3 free analyses daily · No card required
+    </div>
+
   </div>
 
-  <div class="ce-login-line" style="margin-top:10px;">
-    <button type="button" onclick="ceShowAuth()" style="background:none;border:none;font-size:11px;color:#5a7a9a;text-decoration:underline;cursor:pointer;">Already have an account? Log in</button>
+</section>
+
+<!-- =========================================================
+     13. FINAL CTA
+========================================================= -->
+
+<style>
+  .ce-final-cta {
+    margin-top: 68px;
+    padding: 62px 24px;
+    text-align: center;
+    border-radius: 24px;
+    border: 1px solid rgba(0,255,231,.22);
+    background:
+      radial-gradient(
+        circle at 50% 0%,
+        rgba(0,255,231,.10),
+        transparent 42%
+      ),
+      radial-gradient(
+        circle at 85% 85%,
+        rgba(124,92,255,.09),
+        transparent 38%
+      ),
+      #060c17;
+    overflow: hidden;
+  }
+
+  .ce-final-kicker {
+    color: #00ffe7;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 1.7px;
+    margin-bottom: 14px;
+  }
+
+  .ce-final-title {
+    max-width: 720px;
+    margin: 0 auto;
+    color: #fff;
+    font-size: clamp(34px,6vw,56px);
+    line-height: 1.02;
+    letter-spacing: -1.7px;
+    font-weight: 950;
+  }
+
+  .ce-final-title span {
+    display: block;
+    color: #00ffe7;
+    margin-top: 7px;
+  }
+
+  .ce-final-copy {
+    max-width: 600px;
+    margin: 21px auto 0;
+    color: #8ea1bb;
+    font-size: 14px;
+    line-height: 1.75;
+  }
+
+  .ce-final-actions {
+    margin-top: 28px;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 11px;
+  }
+
+  .ce-final-start {
+    min-width: 190px;
+    min-height: 52px;
+    padding: 0 25px;
+    border: 0;
+    border-radius: 11px;
+    background: #00ffe7;
+    color: #021014;
+    font-size: 13px;
+    font-weight: 950;
+    cursor: pointer;
+  }
+
+  .ce-final-note {
+    margin-top: 13px;
+    color: #60738e;
+    font-size: 10px;
+  }
+
+  .ce-final-login {
+    margin-top: 16px;
+  }
+
+  .ce-final-login button {
+    border: 0;
+    background: transparent;
+    color: #8da0b9;
+    font-size: 11px;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  @media (max-width: 620px) {
+    .ce-final-cta {
+      padding: 48px 16px;
+      border-radius: 18px;
+    }
+
+    .ce-final-title {
+      font-size: 37px;
+    }
+
+    .ce-final-actions {
+      flex-direction: column;
+      max-width: 360px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .ce-final-start,
+    .ce-final-actions .ce-google-play {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+</style>
+
+
+<section class="ce-final-cta">
+
+  <div class="ce-final-kicker">
+    YOUR EDGE STARTS HERE
   </div>
 
-</div>
+
+  <h2 class="ce-final-title">
+
+    SEE THE PLAY.
+
+    <br>
+
+    UNDERSTAND THE MARKET.
+
+    <span>
+      FIND YOUR EDGE.
+    </span>
+
+  </h2>
+
+
+  <p class="ce-final-copy">
+
+    Market Intelligence.
+    Advanced Player Props.
+    Premium Plays.
+    Better available lines.
+    Betting Splits.
+    Market movement.
+
+    <br><br>
+
+    Start exploring CashEdge with
+    3 free analyses every day.
+
+  </p>
+
+
+  <div class="ce-final-actions">
+
+    <button
+      type="button"
+      class="ce-final-start"
+      onclick="ceShowAuth()"
+    >
+      START FREE
+    </button>
+
+
+    <a
+      class="ce-google-play"
+      href="https://play.google.com/store/apps/details?id=com.cashedge.app"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Get CashEdge on Google Play"
+    >
+
+      <svg
+        class="ce-google-play-icon"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
+        <path
+          fill="#34A853"
+          d="M3.4 2.7c-.3.4-.4.9-.4 1.5v15.6c0 .6.1 1.1.4 1.5L12.2 12 3.4 2.7z"
+        />
+        <path
+          fill="#4285F4"
+          d="M15.1 9 5.1 3.2c-.5-.3-1-.4-1.4-.2L12.4 12l2.7-3z"
+        />
+        <path
+          fill="#FBBC04"
+          d="M15.1 15 12.4 12l-8.7 9c.4.2.9.1 1.4-.2L15.1 15z"
+        />
+        <path
+          fill="#EA4335"
+          d="M20.3 10.9 15.1 8 12.4 12l2.7 3 5.2-2.9c.9-.5.9-.8 0-1.2z"
+        />
+      </svg>
+
+      <span>
+
+        <span class="ce-google-play-small">
+          GET IT ON
+        </span>
+
+        <span class="ce-google-play-large">
+          Google Play
+        </span>
+
+      </span>
+
+    </a>
+
+  </div>
+
+
+  <div class="ce-final-note">
+    3 free analyses daily · No card required
+  </div>
+
+
+  <div class="ce-final-login">
+
+    <button
+      type="button"
+      onclick="ceShowAuth()"
+    >
+      Already have an account? Log In
+    </button>
+
+  </div>
+
+</section>
 
 
 <!-- ===== 14. AVISO LEGAL ===== -->
@@ -2426,7 +4024,7 @@ problem-gambling resource in your jurisdiction.
 </p>
     <div class="login-trust-compact" id="loginOverallCard">
   <div class="ltc-left">
-    <div class="ltc-label">AI ACCURACY</div>
+    <div class="ltc-label">PREMIUM ACCURACY</div>
     <div class="ltc-pct" id="loginOverallAccuracy">--%</div>
   </div>
   <div class="ltc-divider"></div>
@@ -2480,13 +4078,13 @@ problem-gambling resource in your jurisdiction.
       <span style="font-size:18px">🧠</span>
       <div>
         <div style="font-size:10px;font-weight:700;color:#fff">AI Analysis</div>
-        <div style="font-size:9px;color:rgba(255,255,255,.4)">Data-driven picks</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.4)">Live market context</div>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:rgba(0,255,231,.05);border:1px solid rgba(0,255,231,.14)">
       <span style="font-size:18px">⚡</span>
       <div>
-        <div style="font-size:10px;font-weight:700;color:#fff">Parlay AI</div>
+        <div style="font-size:10px;font-weight:700;color:#fff">Daily Parlay</div>
         <div style="font-size:9px;color:rgba(255,255,255,.4)">Smart combinations</div>
       </div>
     </div>
@@ -2578,12 +4176,13 @@ problem-gambling resource in your jurisdiction.
   </div>
 
   <h2>
-    Premium AI Sports Analysis
+    Premium Market Intelligence
   </h2>
 
   <p>
-    CashEdge analyzes market lines, team momentum, injuries, weather,
-    matchup data and advanced projections to help users find stronger picks.
+   CashEdge combines market intelligence, advanced projections,
+Premium Plays and Player Props to give you deeper context
+before the game starts.
   </p>
 
  <div class="auth-feature-grid premium-animated-grid">
@@ -2598,7 +4197,7 @@ problem-gambling resource in your jurisdiction.
       </svg>
     </div>
 
-    <strong>AI Model</strong>
+    <strong>Advanced Analysis</strong>
 
     <div class="rotating-text">
       <span>Data-driven projections</span>
@@ -2689,7 +4288,7 @@ problem-gambling resource in your jurisdiction.
   <div class="hero-left">
     <div class="hero-eyebrow">
       <div class="hero-live-dot"></div>
-      AI SPORTS PICKS · LIVE
+     LIVE MARKET INTELLIGENCE
     </div>
     <h1 id="appTitle" class="hero-title">
       <span id="heroLine1">CASH</span><span id="heroLine2" class="hero-line2-grad">EDGE</span>
@@ -2717,7 +4316,7 @@ problem-gambling resource in your jurisdiction.
       </div>
       <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #14243d;">
         <span style="font-size:15px;">⚡</span>
-        <span style="font-size:12px;color:#d0dcec;">Daily AI Parlay — pays 5-7x when it hits</span>
+        <span style="font-size:12px;color:#d0dcec;">Daily Parlay — smart combinations</span>
       </div>
       <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #14243d;">
         <span style="font-size:15px;">🎯</span>
@@ -3020,7 +4619,7 @@ problem-gambling resource in your jurisdiction.
   Find NBA games
 </button>
 <button class="parlay-premium-btn" onclick="loadParlayToday()">
-  ⚡ Today's AI Parlay
+  ⚡Today's Parlay
 </button>
 
 <div id="parlayTodayBox"></div>
@@ -3039,8 +4638,8 @@ problem-gambling resource in your jurisdiction.
     <h3>CashEdge Sports Picks</h3>
 
     <p class="footer-description">
-      AI-powered sports analytics, statistical projections,
-      and premium picks for informational purposes only.
+     Market intelligence, statistical projections,
+Player Props and Premium Plays for informational purposes only.
     </p>
 
     <div class="footer-links">
