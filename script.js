@@ -13898,24 +13898,7 @@ font-weight:800;
               </strong>
 
             </span>
-${splitGapText
-  ? `
-      <span
-        style="
-          flex-shrink:0;
-          white-space:nowrap;
-         color:${splitGapColor};
-font-size:5.25px;
-font-weight:900;
-        "
-      >
-        ${radarEscape(
-          splitGapText
-        )}
-      </span>
-    `
-  : ""
-}
+
           </div>
         `;
       }
