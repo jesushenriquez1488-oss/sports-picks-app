@@ -664,16 +664,7 @@ window.gtag("js", new Date());
   .ce-new-mobile-menu {
     display: none;
   }
-.ce-mobile-nav-dropdown {
-  position: relative;
-}
 
-/* ...todo el resto... */
-
-.ce-mobile-nav-panel button {
-  color: #00ffe7;
-  border-bottom: 0;
-}
   .ce-new-hero {
     text-align: center;
     padding: 64px 0 20px;
@@ -962,8 +953,14 @@ window.gtag("js", new Date());
       </button>
 
     </div>
-
-  <div class="ce-new-mobile-menu">
+<div
+  class="ce-new-mobile-menu"
+  style="
+    position:relative;
+    align-items:center;
+    gap:10px;
+  "
+>
 
   <button
     type="button"
@@ -974,53 +971,145 @@ window.gtag("js", new Date());
   </button>
 
 
-  <details class="ce-mobile-nav-dropdown">
+  <button
+    type="button"
+    onclick="
+      const menu = document.getElementById('ceMobileNavPanel');
+      menu.style.display =
+        menu.style.display === 'block'
+          ? 'none'
+          : 'block';
+    "
+    style="
+      width:44px;
+      height:44px;
+      border-radius:10px;
+      border:1px solid #1b2b42;
+      background:#07101c;
+      color:#ffffff;
+      font-size:22px;
+      font-weight:900;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:0;
+    "
+    aria-label="Open menu"
+  >
+    ☰
+  </button>
 
-    <summary aria-label="Open navigation menu">
-      ☰
-    </summary>
 
-    <div class="ce-mobile-nav-panel">
+  <div
+    id="ceMobileNavPanel"
+    style="
+      display:none;
+      position:absolute;
+      right:0;
+      top:54px;
+      width:235px;
+      padding:10px;
+      border-radius:14px;
+      background:#080f1c;
+      border:1px solid #1d3049;
+      box-shadow:0 20px 60px rgba(0,0,0,.65);
+      z-index:99999;
+    "
+  >
 
-      <a
-        href="#ceMarketIntelligence"
-        onclick="this.closest('details').removeAttribute('open')"
-      >
-        Market Intelligence
-      </a>
+    <a
+      href="#ceMarketIntelligence"
+      onclick="document.getElementById('ceMobileNavPanel').style.display='none'"
+      style="
+        display:block;
+        padding:13px 12px;
+        color:#d9e3ef;
+        text-decoration:none;
+        font-size:12px;
+        font-weight:750;
+        border-bottom:1px solid #142237;
+      "
+    >
+      Market Intelligence
+    </a>
 
-      <a
-        href="#cePlayerProps"
-        onclick="this.closest('details').removeAttribute('open')"
-      >
-        Player Props
-      </a>
 
-      <a
-        href="#cePlans"
-        onclick="this.closest('details').removeAttribute('open')"
-      >
-        Free vs Premium
-      </a>
+    <a
+      href="#cePlayerProps"
+      onclick="document.getElementById('ceMobileNavPanel').style.display='none'"
+      style="
+        display:block;
+        padding:13px 12px;
+        color:#d9e3ef;
+        text-decoration:none;
+        font-size:12px;
+        font-weight:750;
+        border-bottom:1px solid #142237;
+      "
+    >
+      Player Props
+    </a>
 
-      <a
-        href="#ceResults"
-        onclick="this.closest('details').removeAttribute('open')"
-      >
-        Results
-      </a>
 
-      <button
-        type="button"
-        onclick="ceShowAuth();this.closest('details').removeAttribute('open')"
-      >
-        Log In
-      </button>
+    <a
+      href="#cePlans"
+      onclick="document.getElementById('ceMobileNavPanel').style.display='none'"
+      style="
+        display:block;
+        padding:13px 12px;
+        color:#d9e3ef;
+        text-decoration:none;
+        font-size:12px;
+        font-weight:750;
+        border-bottom:1px solid #142237;
+      "
+    >
+      Free vs Premium
+    </a>
 
-    </div>
 
-  </details>
+    <a
+      href="#ceResults"
+      onclick="document.getElementById('ceMobileNavPanel').style.display='none'"
+      style="
+        display:block;
+        padding:13px 12px;
+        color:#d9e3ef;
+        text-decoration:none;
+        font-size:12px;
+        font-weight:750;
+        border-bottom:1px solid #142237;
+      "
+    >
+      Results
+    </a>
 
+
+    <button
+      type="button"
+      onclick="
+        document.getElementById('ceMobileNavPanel').style.display='none';
+        ceShowAuth();
+      "
+      style="
+        width:100%;
+        padding:13px 12px;
+        color:#00ffe7;
+        background:transparent;
+        border:0;
+        text-align:left;
+        font-size:12px;
+        font-weight:850;
+        cursor:pointer;
+      "
+    >
+      Log In
+    </button>
+
+  </div>
+
+</div>
 </div>
   </div>
 
