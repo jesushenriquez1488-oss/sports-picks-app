@@ -13805,42 +13805,7 @@ const bettingSplitRowsHTML =
     "BOOK"
   );
 })();
-const splitGap =
-  sourceTickets !== null &&
-  sourceMoney !== null
-    ? Number(
-        (
-          sourceMoney -
-          sourceTickets
-        ).toFixed(1)
-      )
-    : null;
 
-
-const splitGapText =
-  splitGap === null
-    ? ""
-    : Math.abs(
-        splitGap
-      ) < 5
-      ? "BALANCED"
-      : splitGap > 0
-        ? `M +${Math.abs(
-            splitGap
-          )} PTS`
-        : `T +${Math.abs(
-            splitGap
-          )} PTS`;
-
-const splitGapColor =
-  splitGap === null ||
-  Math.abs(
-    splitGap
-  ) < 5
-    ? "#71839f"
-    : splitGap > 0
-      ? "#00e676"
-      : "#ffb347";
 
         return `
           <div
