@@ -509,7 +509,7 @@ const ttclid =
     : "";
 
 try {
-    const res = await fetch("/api/create-checkout-session", {
+    const res = await fetch("https://www.cashedgeapp.com/api/create-checkout-session", {
       method: "POST",
       headers: {
   "Content-Type": "application/json",
@@ -937,7 +937,7 @@ async function getInjuryAdjustment(teamAbbr) {
   try {
  
 const { data: sessionData } = await supabaseClient.auth.getSession();
-const res = await fetch(`/api/injuries?team=${teamAbbr}`, {
+const res = await fetch(`https://www.cashedgeapp.com/api/injuries?team=${teamAbbr}`, {
   headers: {
     "Authorization": `Bearer ${sessionData?.session?.access_token || ""}`
   }
@@ -1093,7 +1093,7 @@ if (
   `;
   return;
 }
-    const response = await fetch("/api/analyze-nba", {
+    const response = await fetch("https://www.cashedgeapp.com/api/analyze-nba", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -1538,7 +1538,7 @@ async function loadLoginOverallAccuracy() {
   if (!accuracyEl || !recordEl) return;
 
   try {
-    const res = await fetch("/api/analyze-nba?mode=performance");
+    const res = await fetch("https://www.cashedgeapp.com/api/analyze-nba?mode=performance");
     const data = await res.json();
 
     if (!res.ok || !data?.overall) {
@@ -1869,7 +1869,7 @@ await trackUserEvent("view_sport", {
       status.innerHTML = `Using recent data ${selectedSportName}`;
     } else {
 const session = sessionData?.session;
-const res = await fetch(`/api/odds?sport=${encodeURIComponent(sport)}`, {
+const res = await fetch(`https://www.cashedgeapp.com/api/odds?sport=${encodeURIComponent(sport)}`, {
   headers: session?.access_token
     ? { "Authorization": `Bearer ${session.access_token}` }
     : {}
@@ -2761,7 +2761,7 @@ async function analyzeMLB(
       return;
     }
 
-   const response = await fetch("/api/analyze-mlb", {
+   const response = await fetch("https://www.cashedgeapp.com/api/analyze-mlb", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -3412,7 +3412,7 @@ async function analyzeFootball(
     }
  
     const res = await fetch(
-      `/api/football-data?type=${type}&teamA=${encodeURIComponent(awayTeam)}&teamB=${encodeURIComponent(homeTeam)}`,
+      `https://www.cashedgeapp.com/api/football-data?type=${type}&teamA=${encodeURIComponent(awayTeam)}&teamB=${encodeURIComponent(homeTeam)}`,
       {
         headers: {
           "Authorization": `Bearer ${sessionData.session.access_token}`
@@ -6049,7 +6049,7 @@ async function loadNFLPlayerStatsForProps(
 
   const response =
     await fetch(
-      `/api/football-data?${params.toString()}`,
+      `https://www.cashedgeapp.com/api/football-data?${params.toString()}`,
       {
         headers: {
           Authorization:
@@ -7988,7 +7988,7 @@ async function openNFLPlayerPropsCareer(
 
       const response =
         await fetch(
-          `/api/football-data?${params.toString()}`,
+          `https://www.cashedgeapp.com/api/football-data?${params.toString()}`,
           {
             headers: {
               Authorization:
@@ -8093,7 +8093,7 @@ async function getNFLPlayerPropsShared(
   }
 
 const response = await fetch(
-`/api/football-data?mode=nfl-player-props&eventId=${encodeURIComponent(key)}`,
+`https://www.cashedgeapp.com/api/football-data?mode=nfl-player-props&eventId=${encodeURIComponent(key)}`,
   {
     headers: {
         Authorization:
@@ -10516,7 +10516,7 @@ requestAnimationFrame(() => {
     });
 
     const response = await fetch(
-      `/api/football-data?${params.toString()}`,
+      `https://www.cashedgeapp.com/api/football-data?${params.toString()}`,
       {
         headers: {
           Authorization:
@@ -12148,7 +12148,7 @@ function generateBasketHighlight(premium, awayTeam, homeTeam) {
 }
 async function loadStats() {
   try {
-    const res = await fetch("/api/analyze-nba?mode=performance");
+    const res = await fetch("https://www.cashedgeapp.com/api/analyze-nba?mode=performance");
     const data = await res.json();
 
     if (!res.ok) {
@@ -12171,7 +12171,7 @@ if (data.sports) {
     let parlayData = null;
 
     try {
-      const parlayRes = await fetch("/api/analyze-nba?mode=parlay-performance");
+      const parlayRes = await fetch("https://www.cashedgeapp.com/api/analyze-nba?mode=parlay-performance");
       const parlayJson = await parlayRes.json();
       if (parlayRes.ok && parlayJson?.ok) {
         parlayData = parlayJson;
@@ -12335,7 +12335,7 @@ async function isAdmin() {
   const { data } = await supabaseClient.auth.getUser();
   if (!data?.user) return false;
 
-  const res = await fetch("/api/check-premium", {
+  const res = await fetch("https://www.cashedgeapp.com/api/check-premium", {
     headers: {
       "Authorization": `Bearer ${(await supabaseClient.auth.getSession()).data.session?.access_token || ""}`
     }
@@ -12364,7 +12364,7 @@ if (
       return;
     }
 
-    const response = await fetch("/api/create-checkout-session", {
+    const response = await fetch("https://www.cashedgeapp.com/api/create-checkout-session", {
       method: "POST",
      headers: {
   "Content-Type": "application/json",
@@ -12504,7 +12504,7 @@ if (status) status.innerHTML = "";
       return;
     }
 
-    const response = await fetch("/api/analyze-nba?mode=parlay-today", {
+    const response = await fetch("https://www.cashedgeapp.com/api/analyze-nba?mode=parlay-today", {
       method: "GET",
       headers: {
         "Authorization": `Bearer ${sessionData.session.access_token}`
@@ -15202,7 +15202,7 @@ if (!silentRefresh) {
 const radarUrl =
   isHistoryRequest
     ? (
-        "/api/premium-radar?view=history" +
+        "https://www.cashedgeapp.com/api/premium-radar?view=history" +
         (
           historyDate
             ? `&date=${encodeURIComponent(
@@ -15211,7 +15211,7 @@ const radarUrl =
             : ""
         )
       )
-    : "/api/premium-radar";
+    : "https://www.cashedgeapp.com/api/premium-radar";
 
 
 const response =
@@ -22178,7 +22178,7 @@ async function loadMLBPlayerPropsStats(index) {
 
   try {
     const response = await fetch(
-      "/api/analyze-mlb?mode=player-stats",
+      "https://www.cashedgeapp.com/api/analyze-mlb?mode=player-stats",
       {
         method: "POST",
 
@@ -22257,7 +22257,7 @@ if (!IS_ADMIN && !isPremiumUser) {
 }
   try {
     const response = await fetch(
-      "/api/analyze-mlb?mode=player-props",
+      "https://www.cashedgeapp.com/api/analyze-mlb?mode=player-props",
       {
         method: "POST",
 
@@ -24351,7 +24351,7 @@ async function openMLBPropCareer(
 
       const response =
         await fetch(
-          `/api/analyze-mlb?${params.toString()}`,
+          `https://www.cashedgeapp.com/api/analyze-mlb?${params.toString()}`,
           {
             headers: {
               Authorization:
@@ -27404,7 +27404,7 @@ async function openMLBPlayerStats(
 
   try {
     const response = await fetch(
-      "/api/analyze-mlb?mode=player-stats",
+      "https://www.cashedgeapp.com/api/analyze-mlb?mode=player-stats",
       {
         method: "POST",
 
@@ -29101,7 +29101,7 @@ async function togglePlayerEdgeProps(index, eventId) {
   box.innerHTML = `<div class="loading-analysis">Loading player props...</div>`;
 
   try {
-    const response = await fetch("/api/analyze-mlb?mode=player-props", {
+    const response = await fetch("https://www.cashedgeapp.com/api/analyze-mlb?mode=player-props", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -29206,7 +29206,7 @@ async function toggleNBAPlayerProps(index, awayTeam, homeTeam, btn) {
 
   try {
     // Buscar el eventId del juego
-    const oddsRes = await fetch(`/api/odds?sport=${encodeURIComponent(selectedSport)}`, {
+    const oddsRes = await fetch(`https://www.cashedgeapp.com/api/odds?sport=${encodeURIComponent(selectedSport)}`, {
       headers: { "Authorization": `Bearer ${sessionData.session.access_token}` }
     });
     const games = await oddsRes.json();
@@ -29217,7 +29217,7 @@ async function toggleNBAPlayerProps(index, awayTeam, homeTeam, btn) {
     const eventId = game?.id || null;
 
     const res = await fetch(
-      `/api/analyze-nba?mode=nba-player-props${eventId ? `&eventId=${eventId}` : ""}`,
+      `https://www.cashedgeapp.com/api/analyze-nba?mode=nba-player-props${eventId ? `&eventId=${eventId}` : ""}`,
       { headers: { "Authorization": `Bearer ${sessionData.session.access_token}` } }
     );
     const data = await res.json();
@@ -31289,7 +31289,7 @@ async function ceLoadFeaturedPremiumPick() {
 
     const response =
       await fetch(
-        "/api/featured-premium-pick"
+        "https://www.cashedgeapp.com/api/featured-premium-pick"
       );
 
     const data =
