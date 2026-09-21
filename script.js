@@ -12168,11 +12168,27 @@ if (data.sports) {
     }
 
     renderPerformancePanel(data, parlayData);
-const pbRecord = document.getElementById("premiumBoxRecord");
-    if (pbRecord && data.overall) {
-      const acc = Number(data.overall.accuracy || 0).toFixed(1);
-      pbRecord.innerHTML = `Model accuracy: <strong style="color:#00ffe7;">${acc}%</strong> (${data.overall.wins}W-${data.overall.losses}L) — every pick tracked publicly`;
-    }
+const pbRecord =
+  document.getElementById(
+    "premiumBoxRecord"
+  );
+
+if (
+  pbRecord &&
+  data.overall
+) {
+
+  const acc =
+    Number(
+      data.overall.accuracy || 0
+    ).toFixed(1);
+
+  pbRecord.innerHTML =
+    `Tracked performance: ` +
+    `<strong style="color:#00ffe7;">${acc}%</strong> ` +
+    `(${data.overall.wins}W-${data.overall.losses}L) · ` +
+    `Premium results tracked publicly`;
+}
   } catch (error) {
     console.log("Error cargando performance:", error);
   }
