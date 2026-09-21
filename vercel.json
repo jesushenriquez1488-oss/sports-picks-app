@@ -35,12 +35,6 @@
     { "path": "/api/analyze-nba?mode=grade-pending", "schedule": "50 19 * * *" },
     { "path": "/api/analyze-mlb?mode=grade-pending", "schedule": "0 23 * * *" },
     { "path": "/api/analyze-nba?mode=grade-pending", "schedule": "10 23 * * *" },
-    { "path": "/api/analyze-nba?mode=send-premium-alerts", "schedule": "45 13 * * *" },
-    { "path": "/api/analyze-nba?mode=send-parlay-alert", "schedule": "0 15 * * *" },
-    { "path": "/api/twitter-bot?type=morning", "schedule": "0 14 * * *" },
-{ "path": "/api/twitter-bot?type=pick", "schedule": "0 17 * * *" },
-{ "path": "/api/twitter-bot?type=teaser", "schedule": "0 23 * * *" },
-{ "path": "/api/twitter-bot?type=results", "schedule": "0 3 * * *" },
    {
   "path": "/api/select-featured-pick",
   "schedule": "15 13 * * *"
