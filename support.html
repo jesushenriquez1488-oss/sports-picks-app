@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>Support - CashEdge</title>
+
+  <style>
+    *{
+      box-sizing:border-box;
+    }
+
+    html{
+      background:#030812;
+    }
+
+    body{
+      margin:0;
+
+      background:
+        radial-gradient(
+          circle at 50% 0%,
+          rgba(0,255,231,.055),
+          transparent 34%
+        ),
+        #030812;
+
+      color:#c8d5e5;
+
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Helvetica,
+        Arial,
+        sans-serif;
+
+      font-size:13px;
+      line-height:1.6;
+    }
+
+    .support-shell{
+      width:100%;
+      max-width:760px;
+
+      margin:0 auto;
+
+      padding:
+        22px 16px 50px;
+    }
+
+    .support-back{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+
+      border:
+        1px solid #1a3148;
+
+      border-radius:9px;
+
+      padding:
+        7px 11px;
+
+      background:#07111e;
+
+      color:#9bb0c7;
+
+      font-size:11px;
+      font-weight:700;
+
+      cursor:pointer;
+
+      margin-bottom:14px;
+    }
+
+    .support-back:hover{
+      border-color:#00ffe7;
+      color:#00ffe7;
+    }
+
+    .support-card{
+      background:
+        linear-gradient(
+          180deg,
+          rgba(9,19,33,.97),
+          rgba(5,12,23,.98)
+        );
+
+      border:
+        1px solid #14263d;
+
+      border-radius:16px;
+
+      padding:24px;
+
+      box-shadow:
+        0 18px 55px
+        rgba(0,0,0,.32);
+    }
+
+    .support-kicker{
+      color:#00ffe7;
+
+      font-size:9px;
+      font-weight:900;
+
+      letter-spacing:1.6px;
+
+      text-transform:uppercase;
+
+      margin-bottom:7px;
+    }
+
+    h1{
+      margin:0;
+
+      color:#fff;
+
+      font-size:26px;
+
+      line-height:1.15;
+
+      letter-spacing:-.5px;
+    }
+
+    .support-intro{
+      color:#8195ad;
+
+      margin:
+        8px 0 22px;
+
+      max-width:600px;
+    }
+
+    .support-section{
+      margin-top:12px;
+
+      padding:16px;
+
+      border:
+        1px solid #14263d;
+
+      border-radius:13px;
+
+      background:#07111e;
+    }
+
+    .support-section h2{
+      margin:0 0 6px;
+
+      color:#f3f8ff;
+
+      font-size:14px;
+
+      line-height:1.3;
+    }
+
+    .support-section p{
+      margin:
+        4px 0 10px;
+
+      color:#8195ad;
+
+      font-size:12px;
+    }
+
+    .support-action{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+
+      min-height:34px;
+
+      padding:
+        8px 12px;
+
+      border:
+        1px solid #1d4451;
+
+      border-radius:8px;
+
+      background:
+        rgba(0,255,231,.055);
+
+      color:#00e9d5;
+
+      font-size:11px;
+      font-weight:800;
+
+      text-decoration:none;
+
+      cursor:pointer;
+    }
+
+    .support-action:hover{
+      border-color:#00ffe7;
+      background:
+        rgba(0,255,231,.09);
+    }
+
+    .support-action-secondary{
+      background:transparent;
+      color:#a8bad0;
+      border-color:#24364d;
+    }
+
+    .support-action-danger{
+      color:#ff8e9a;
+
+      border-color:
+        rgba(255,92,110,.28);
+
+      background:
+        rgba(255,92,110,.04);
+    }
+
+    .support-row{
+      display:flex;
+
+      gap:8px;
+
+      flex-wrap:wrap;
+
+      margin-top:10px;
+    }
+
+    .support-email{
+      color:#00e9d5;
+      text-decoration:none;
+      font-weight:700;
+    }
+
+    .support-email:hover{
+      text-decoration:underline;
+    }
+
+    .support-note{
+      margin-top:20px;
+
+      padding:
+        12px 13px;
+
+      border-left:
+        3px solid #00ffe7;
+
+      border-radius:
+        0 9px 9px 0;
+
+      background:
+        rgba(0,255,231,.035);
+
+      color:#7890a8;
+
+      font-size:11px;
+    }
+
+    .support-footer{
+      margin-top:28px;
+
+      padding-top:18px;
+
+      border-top:
+        1px solid #14263d;
+
+      color:#53677f;
+
+      font-size:10px;
+
+      text-align:center;
+    }
+
+    @media (max-width:600px){
+
+      .support-shell{
+        padding:
+          14px 10px 36px;
+      }
+
+      .support-card{
+        padding:
+          19px 16px;
+
+        border-radius:14px;
+      }
+
+      h1{
+        font-size:23px;
+      }
+
+      body{
+        font-size:12.5px;
+      }
+
+      .support-action{
+        width:100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <main class="support-shell">
+
+    <button
+      class="support-back"
+      onclick="history.back()"
+      type="button"
+    >
+      ← Back to CashEdge
+    </button>
+
+
+    <section class="support-card">
+
+      <div class="support-kicker">
+        CASHEDGE SUPPORT
+      </div>
+
+      <h1>
+        How can we help?
+      </h1>
+
+      <p class="support-intro">
+        Get help with your CashEdge account, Premium subscription,
+        billing, privacy, or other platform questions.
+      </p>
+
+
+      <div class="support-section">
+
+        <h2>
+          Account Support
+        </h2>
+
+        <p>
+          Having trouble signing in, accessing your account,
+          or using CashEdge?
+        </p>
+
+        <a
+          class="support-action"
+          href="mailto:supportcashedge@gmail.com?subject=CashEdge%20Account%20Support"
+        >
+          CONTACT SUPPORT
+        </a>
+
+      </div>
+
+
+      <div class="support-section">
+
+        <h2>
+          Premium Subscription
+        </h2>
+
+        <p>
+          To view or manage your active Premium subscription,
+          return to CashEdge and use
+          <strong>Manage subscription</strong>
+          from your account.
+        </p>
+
+        <div class="support-row">
+
+          <a
+            class="support-action"
+            href="/"
+          >
+            RETURN TO CASHEDGE
+          </a>
+
+          <a
+            class="support-action support-action-secondary"
+            href="mailto:supportcashedge@gmail.com?subject=CashEdge%20Subscription%20Support"
+          >
+            SUBSCRIPTION HELP
+          </a>
+
+        </div>
+
+      </div>
+
+
+      <div class="support-section">
+
+        <h2>
+          Billing or Payment Issue
+        </h2>
+
+        <p>
+          Contact CashEdge Support if you have a question about
+          a charge, failed payment, renewal, or billing issue.
+        </p>
+
+        <a
+          class="support-action"
+          href="mailto:supportcashedge@gmail.com?subject=CashEdge%20Billing%20Support"
+        >
+          BILLING SUPPORT
+        </a>
+
+      </div>
+
+
+      <div class="support-section">
+
+        <h2>
+          Account & Data Deletion
+        </h2>
+
+        <p>
+          You can request deletion of your CashEdge account and
+          associated personal information.
+        </p>
+
+        <a
+          class="support-action support-action-danger"
+          href="mailto:supportcashedge@gmail.com?subject=Delete%20Account%20Request%20-%20CashEdge&body=Hello%20CashEdge%20Support%2C%0A%0AI%20would%20like%20to%20request%20deletion%20of%20my%20CashEdge%20account%20and%20associated%20personal%20data.%0A%0AAccount%20Email%3A%0A%0AThank%20you."
+        >
+          REQUEST ACCOUNT DELETION
+        </a>
+
+      </div>
+
+
+      <div class="support-section">
+
+        <h2>
+          Privacy & Legal
+        </h2>
+
+        <p>
+          Review CashEdge's privacy practices, legal terms,
+          or update your cookie preferences.
+        </p>
+
+        <div class="support-row">
+
+          <a
+            class="support-action support-action-secondary"
+            href="/privacy.html"
+          >
+            PRIVACY POLICY
+          </a>
+
+          <a
+            class="support-action support-action-secondary"
+            href="/terms.html"
+          >
+            TERMS OF SERVICE
+          </a>
+
+          <a
+            class="support-action support-action-secondary"
+            href="/#cookie-preferences"
+            onclick="
+              if (window.opener && window.opener.ceOpenPrivacyPreferences) {
+                window.opener.ceOpenPrivacyPreferences();
+              }
+            "
+          >
+            COOKIE PREFERENCES
+          </a>
+
+        </div>
+
+      </div>
+
+
+      <div class="support-section">
+
+        <h2>
+          General Support
+        </h2>
+
+        <p>
+          For any other question, contact:
+        </p>
+
+        <a
+          class="support-email"
+          href="mailto:supportcashedge@gmail.com"
+        >
+          supportcashedge@gmail.com
+        </a>
+
+      </div>
+
+
+      <div class="support-note">
+        CashEdge provides sports analytics and market information.
+        CashEdge does not operate as a sportsbook and does not accept
+        or place wagers.
+      </div>
+
+
+      <div class="support-footer">
+        © 2026 CashEdge · Support Center
+      </div>
+
+    </section>
+
+  </main>
+
+</body>
+</html>
