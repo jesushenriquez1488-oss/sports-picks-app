@@ -12258,7 +12258,7 @@ function renderPerformancePanel(data, parlayData) {
           <div class="performance-sport-icon">${formatSportIcon(record.sport)}</div>
           <div>
             <strong>${record.display_name}</strong>
-            <small>AI tracked</small>
+            <small>Tracked results</small>
           </div>
         </div>
         <div class="performance-right">
@@ -12290,9 +12290,9 @@ const parlayCardHTML = parlayData ? `
         <div>
           <p class="premium-label">
   <span class="live-dot"></span>
-  LIVE AI TRACKING
+LIVE RESULT TRACKING
 </p>
-          <h2>Premium AI Performance</h2>
+          <h2>Premium Performance</h2>
         <span>Live Premium Pick results tracking, updated automatically by sport.</span>
         </div>
 
