@@ -21199,7 +21199,7 @@ if (enableBtn) {
 function startHeroTypewriter() {
   const el = document.getElementById("heroTypewriter");
   if (!el) return;
-const text = "AI-powered sports analytics. Premium Pick results tracked publicly.";
+const text = "Premium Plays. Live Market Intelligence. Advanced Player Props.";
   let i = 0;
   el.innerText = "";
   const interval = setInterval(() => {
