@@ -95,7 +95,9 @@ async function trackUserEvent(eventType, options = {}) {
 
 const IS_ADMIN = false;
 
-const MONTHLY_PRICE = 19.99;
+const MONTHLY_PRICE = 49.99;
+const FIRST_MONTH_PRICE = 34.99;
+const FIRST_MONTH_DISCOUNT_PERCENT = 30;
 
 const PREMIUM_WIN_RATE = 88;
 const NORMAL_WIN_RATE = 65;
@@ -245,7 +247,7 @@ if (advertisingAllowed && !conversionAlreadySent) {
 
     window.gtag("event", "conversion", {
       send_to: "AW-18266545354/le8_CMnWsMQcEMq5IYZE",
-      value: Number(verification.value || 19.99),
+      value: Number(verification.value),
       currency: String(
         verification.currency || "USD"
       ).toUpperCase(),
@@ -310,8 +312,8 @@ if (
       "Purchase",
       {
         value: Number(
-          verification.value || 19.99
-        ),
+  verification.value
+),
         currency: String(
           verification.currency || "USD"
         ).toUpperCase(),
@@ -1519,7 +1521,7 @@ function renderAnalysisResult({
         shouldLockPremium
           ? `
             <button class="unlock-btn premium-unlock" onclick="openPromoModal('premium_pick')">
-              🔓 UNLOCK PREMIUM $${MONTHLY_PRICE}/MO
+             🔓 UNLOCK PREMIUM · $${FIRST_MONTH_PRICE} FIRST MONTH
             </button>
           `
           : ""
@@ -5256,7 +5258,7 @@ function cePlayerPropsLockedHTML() {
             opacity:.80;
           "
         >
-          $${MONTHLY_PRICE} / MONTH →
+         ${FIRST_MONTH_DISCOUNT_PERCENT}% OFF · $${FIRST_MONTH_PRICE} FIRST MONTH →
         </div>
 
       </button>
@@ -5271,7 +5273,7 @@ function cePlayerPropsLockedHTML() {
           font-size:9px;
         "
       >
-        Full Premium access · Cancel anytime
+       Then $${MONTHLY_PRICE}/month · Cancel anytime
       </div>
 
 
@@ -5869,7 +5871,7 @@ function cePremiumPickLockedHTML(
             opacity:.80;
           "
         >
-          FULL CASHEDGE · $${MONTHLY_PRICE} / MONTH →
+          ${FIRST_MONTH_DISCOUNT_PERCENT}% OFF · $${FIRST_MONTH_PRICE} FIRST MONTH · THEN $${MONTHLY_PRICE}/MO →
         </div>
 
       </button>
@@ -11637,7 +11639,7 @@ function ceLimitScreenHTML(
               opacity:.80;
             "
           >
-            $19.99 / MONTH →
+            $${FIRST_MONTH_PRICE} FIRST MONTH · THEN $${MONTHLY_PRICE}/MO →
           </span>
         </button>
 
@@ -12950,7 +12952,7 @@ if (status) status.innerHTML = "";
             text-align:center;
           "
         >
-          Full CashEdge · $19.99 / month · Cancel anytime.
+          Full CashEdge · $${FIRST_MONTH_PRICE} first month · then $${MONTHLY_PRICE}/month · Cancel anytime.
         </div>
 
       </div>
@@ -15708,7 +15710,7 @@ if (data.locked === true) {
               opacity:.75;
             "
           >
-            FULL CASHEDGE · $19.99 / MONTH →
+          FULL CASHEDGE · $${FIRST_MONTH_PRICE} FIRST MONTH · THEN $${MONTHLY_PRICE}/MONTH →
           </div>
 
         </button>
@@ -30069,7 +30071,7 @@ function openPromoModal(context = "general") {
               opacity:.82;
             "
           >
-            $${MONTHLY_PRICE} / MONTH →
+            ${FIRST_MONTH_DISCOUNT_PERCENT}% OFF · $${FIRST_MONTH_PRICE} FIRST MONTH →
           </div>
 
         </button>
@@ -30092,9 +30094,9 @@ function openPromoModal(context = "general") {
             font-size:10px;
           "
         >
-          <span>Full Premium access</span>
-          <span>·</span>
-          <span>Cancel anytime</span>
+         <span>Then $${MONTHLY_PRICE}/month</span>
+<span>·</span>
+<span>Cancel anytime</span>
         </div>
 
 
