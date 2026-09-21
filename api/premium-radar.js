@@ -706,101 +706,161 @@ res.setHeader(
 
       if (!isPremiumUser) {
 
-        const [
-          dailyCountResult,
-          footballCountResult
-        ] =
-          await Promise.all([
+  const [
+    dailyCountResult,
+    footballCountResult,
+    todayCountResult
+  ] =
+    await Promise.all([
 
-            supabaseAdmin
-              .from("premium_radar")
-              .select(
-                "id",
-                {
-                  count: "exact",
-                  head: true
-                }
-              )
-              .in(
-                "sport",
-                [
-                  "mlb",
-                  "nba",
-                  "wnba",
-                  "ncaab"
-                ]
-              )
-              .eq(
-                "game_date",
-                today
-              )
-              .eq(
-                "current_is_premium",
-                true
-              ),
-
-
-            supabaseAdmin
-              .from("premium_radar")
-              .select(
-                "id",
-                {
-                  count: "exact",
-                  head: true
-                }
-              )
-              .in(
-                "sport",
-                [
-                  "ncaaf",
-                  "nfl"
-                ]
-              )
-              .gte(
-                "game_date",
-                today
-              )
-              .lte(
-                "game_date",
-                footballEndDate
-              )
-              .eq(
-                "current_is_premium",
-                true
-              )
-
-          ]);
+      // ==================================================
+      // MLB / NBA / WNBA / NCAAB — HOY
+      // ==================================================
+      supabaseAdmin
+        .from("premium_radar")
+        .select(
+          "id",
+          {
+            count: "exact",
+            head: true
+          }
+        )
+        .in(
+          "sport",
+          [
+            "mlb",
+            "nba",
+            "wnba",
+            "ncaab"
+          ]
+        )
+        .eq(
+          "game_date",
+          today
+        )
+        .eq(
+          "current_is_premium",
+          true
+        ),
 
 
-        if (dailyCountResult.error) {
-          throw dailyCountResult.error;
-        }
+      // ==================================================
+      // NFL / NCAAF — VENTANA ACTUAL DEL RADAR
+      // ==================================================
+      supabaseAdmin
+        .from("premium_radar")
+        .select(
+          "id",
+          {
+            count: "exact",
+            head: true
+          }
+        )
+        .in(
+          "sport",
+          [
+            "ncaaf",
+            "nfl"
+          ]
+        )
+        .gte(
+          "game_date",
+          today
+        )
+        .lte(
+          "game_date",
+          footballEndDate
+        )
+        .eq(
+          "current_is_premium",
+          true
+        ),
 
 
-        if (footballCountResult.error) {
-          throw footballCountResult.error;
-        }
+      // ==================================================
+      // TODOS LOS PREMIUM QUE EXISTEN EXACTAMENTE HOY
+      // Este es el contador para el mensaje de conversión.
+      // ==================================================
+      supabaseAdmin
+        .from("premium_radar")
+        .select(
+          "id",
+          {
+            count: "exact",
+            head: true
+          }
+        )
+        .in(
+          "sport",
+          [
+            "mlb",
+            "nba",
+            "wnba",
+            "ncaab",
+            "ncaaf",
+            "nfl"
+          ]
+        )
+        .eq(
+          "game_date",
+          today
+        )
+        .eq(
+          "current_is_premium",
+          true
+        )
+
+    ]);
 
 
-        const premiumCount =
-          Number(
-            dailyCountResult.count ||
-            0
-          ) +
-          Number(
-            footballCountResult.count ||
-            0
-          );
+  if (dailyCountResult.error) {
+    throw dailyCountResult.error;
+  }
 
 
-        return res
-          .status(200)
-          .json({
-            ok: true,
-            locked: true,
-            premiumCount
-          });
-      }
+  if (footballCountResult.error) {
+    throw footballCountResult.error;
+  }
+
+
+  if (todayCountResult.error) {
+    throw todayCountResult.error;
+  }
+
+
+  // Este mantiene el contador ACTUAL de Premium Radar.
+  // No cambiamos su comportamiento.
+  const premiumCount =
+    Number(
+      dailyCountResult.count ||
+      0
+    ) +
+    Number(
+      footballCountResult.count ||
+      0
+    );
+
+
+  // Este es NUEVO.
+  // Solo cuenta Premium activos con game_date = hoy.
+  const premiumCountToday =
+    Number(
+      todayCountResult.count ||
+      0
+    );
+
+
+  return res
+    .status(200)
+    .json({
+      ok: true,
+      locked: true,
+
+      premiumCount,
+
+      premiumCountToday
+    });
+}
 
 // ======================================================
 // PREMIUM USER — HISTORY
