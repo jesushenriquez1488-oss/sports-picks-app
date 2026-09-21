@@ -21045,22 +21045,21 @@ async function handleCashEdgeNotificationDeepLink() {
         "0 0 0 2px rgba(0,255,231,.22), 0 0 30px rgba(0,255,231,.20)";
 
 
-      setTimeout(
-        () => {
+     setTimeout(
+  () => {
 
-          targetCard.style.transition =
-            previousTransition;
+    targetCard.style.transition =
+      previousTransition;
 
-          targetCard.style.borderColor =
-            previousBorderColor;
+    targetCard.style.borderColor =
+      previousBorderColor;
 
-          targetCard.style.boxShadow =
-            previousBoxShadow;
+    targetCard.style.boxShadow =
+      previousBoxShadow;
 
-        },
-        2200
-      );
-
+  },
+  6500
+);
     } else {
 
       console.warn(
