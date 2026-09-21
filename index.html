@@ -5982,25 +5982,72 @@ Player Props and Premium Plays for informational purposes only.
   }
 
 
-  document.addEventListener(
-    "DOMContentLoaded",
-    function () {
+ document.addEventListener(
+  "DOMContentLoaded",
+  function () {
 
-      const preferences =
-        window.ceGetPrivacyPreferences();
+    const preferences =
+      window.ceGetPrivacyPreferences();
 
 
-      if (!preferences.decided) {
+    const params =
+      new URLSearchParams(
+        window.location.search
+      );
 
-        document.getElementById(
-          "cePrivacyBanner"
-        ).style.display =
-          "block";
 
-      }
+    const openPrivacyPreferences =
+      params.get(
+        "privacy_preferences"
+      ) === "1";
+
+
+    if (openPrivacyPreferences) {
+
+      ceOpenPrivacyPreferences();
+
+
+      params.delete(
+        "privacy_preferences"
+      );
+
+
+      const cleanQuery =
+        params.toString();
+
+
+      const cleanUrl =
+        window.location.pathname +
+        (
+          cleanQuery
+            ? `?${cleanQuery}`
+            : ""
+        ) +
+        window.location.hash;
+
+
+      window.history.replaceState(
+        {},
+        "",
+        cleanUrl
+      );
+
+
+      return;
+    }
+
+
+    if (!preferences.decided) {
+
+      document.getElementById(
+        "cePrivacyBanner"
+      ).style.display =
+        "block";
 
     }
-  );
+
+  }
+);
 
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
