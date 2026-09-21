@@ -1432,7 +1432,7 @@ function renderAnalysisResult({
 
       <div class="premium-header">
         <div>
-          <p class="premium-label">AI PREDICTIVE REPORT</p>
+          <p class="premium-label">CASHEDGE ANALYSIS</p>
           <h3>🔥 PICK PRINCIPAL</h3>
           <p class="premium-game-pick">
             ${shouldLockPremium ? "Pick Premium bloqueado" : pick}
@@ -2188,27 +2188,35 @@ const h2hOutcomes =
     : "Not available"
 }</p>
           ${
+
   useBasketballFormula
+
     ? `<button onclick="analyzeAuto('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index}, '${game.commence_time}')">
-        View AI Prediction
+        VIEW CASHEDGE ANALYSIS
       </button>`
+
     : useMLBFormula
-   ? `<button onclick='analyzeMLB("${escapeText(game.away_team)}","${escapeText(game.home_team)}",${awaySpread},${homeSpread},${index},${JSON.stringify(h2hOutcomes).replace(/"/g, '&quot;')},${total},"${game.commence_time || ""}","${game.id || ""}")'>
-        View AI Prediction
-   </button>`
+
+    ? `<button onclick='analyzeMLB("${escapeText(game.away_team)}","${escapeText(game.home_team)}",${awaySpread},${homeSpread},${index},${JSON.stringify(h2hOutcomes).replace(/"/g, '&quot;')},${total},"${game.commence_time || ""}","${game.id || ""}")'>
+        VIEW CASHEDGE ANALYSIS
+      </button>`
+
     : useFootballFormula
-   ? `<button onclick="analyzeFootball(
+
+    ? `<button onclick="analyzeFootball(
   '${escapeText(game.away_team)}',
   '${escapeText(game.home_team)}',
   ${index},
   '${game.id || ""}',
   '${game.commence_time || ""}'
 )">
-    View ${selectedSportName} Prediction
-  </button>`
-    : `<button onclick="analyzeOtherLeague('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index})">
-       View AI Prediction
+        VIEW ${selectedSportName} ANALYSIS
       </button>`
+
+    : `<button onclick="analyzeOtherLeague('${escapeText(game.away_team)}', '${escapeText(game.home_team)}', ${awaySpread}, ${homeSpread}, ${total}, ${index})">
+        VIEW CASHEDGE ANALYSIS
+      </button>`
+
 }
           <div id="result${index}"></div>
         </div>
@@ -2843,7 +2851,7 @@ const bestOdds = displayedPick
     ? `
               <div class="mlb-premium-title">
                 <div>
-                  <span class="mlb-report-label">AI PREDICTIVE REPORT</span>
+                  <span class="mlb-report-label">CASHEDGE ANALYSIS</span>
                   <h2>⚾ ${awayTeam} vs ${homeTeam}</h2>
                 </div>
 
@@ -3053,7 +3061,7 @@ ${premium.recommendedCards?.[1] ? `
 </div>
 
               <div class="mlb-complete-bar">
-               FULL AI ANALYSIS
+              FULL CASHEDGE ANALYSIS
               </div>
               <div style="text-align:center;margin-top:10px;">
                 <button onclick='toggleGameHighlight(${index}, "${encodeURIComponent(JSON.stringify(premium || {})).replace(/'/g, "%27")}", "${escapeText(awayTeam)}", "${escapeText(homeTeam)}")' style="background:transparent;border:1px solid rgba(255,140,26,0.35);border-radius:16px;padding:5px 14px;color:#ff8c1a;font-size:10px;font-weight:700;letter-spacing:0.06em;cursor:pointer;text-transform:uppercase;">
@@ -12430,7 +12438,9 @@ function setAnalysisButtonLoading(index, isLoading, text = "Analyzing...") {
     button.style.opacity = "0.6";
     button.style.cursor = "not-allowed";
   } else {
-    button.innerText = button.dataset.originalText || "View AI Prediction";
+   button.innerText =
+  button.dataset.originalText ||
+  "VIEW CASHEDGE ANALYSIS";
     button.disabled = false;
     button.style.opacity = "1";
     button.style.cursor = "pointer";
@@ -12512,68 +12522,441 @@ if (status) status.innerHTML = "";
       return;
     }
 
-    if (data.locked) {
-      box.innerHTML = `
-        <div class="premium-result mlb-premium-dashboard">
-          <div style="max-width:560px;margin:0 auto;padding:6px 0;">
+  if (data.locked) {
 
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-              <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,255,231,0.08);border:1px solid rgba(0,255,231,0.25);border-radius:20px;padding:4px 12px;font-size:10px;color:#00ffe7;font-weight:600;letter-spacing:1px;">
-                <span style="width:6px;height:6px;border-radius:50%;background:#00ffe7;animation:nfl-pulse 1.5s infinite;display:inline-block;"></span>
-                TODAY'S AI PARLAY
-              </div>
-              <div style="font-size:10px;color:#7c3cff;font-weight:700;letter-spacing:1px;">⚡ READY NOW</div>
-            </div>
+  box.innerHTML = `
+    <div class="premium-result mlb-premium-dashboard">
 
-            <div style="background:linear-gradient(135deg,rgba(0,255,231,0.06),rgba(124,60,255,0.08));border:1px solid rgba(124,60,255,0.3);border-radius:14px;padding:20px;margin-bottom:12px;">
-              <div style="font-size:11px;color:#8899bb;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Potential payout</div>
-              <div style="font-size:34px;font-weight:900;color:#fff;line-height:1;">$100 <span style="color:#5a7a9a;font-size:20px;font-weight:600;">→</span> <span style="background:linear-gradient(90deg,#00ffe7,#7c3cff);-webkit-background-clip:text;background-clip:text;color:transparent;">$500–$700</span></div>
-              <div style="font-size:11px;color:#8899bb;margin-top:8px;">Every leg flagged at <strong style="color:#00ffe7;">85%+ model confidence</strong></div>
-            </div>
+      <div
+        style="
+          max-width:560px;
+          margin:0 auto;
+          padding:8px 0;
+        "
+      >
 
-            <div style="background:#0a1220;border:1px solid #14243d;border-radius:14px;padding:16px 20px;margin-bottom:12px;text-align:left;">
-              <div style="display:flex;align-items:center;gap:12px;padding-bottom:12px;border-bottom:1px solid #14243d;">
-                <span style="width:28px;height:28px;border-radius:50%;background:rgba(0,255,231,0.1);border:1px solid rgba(0,255,231,0.35);color:#00ffe7;font-size:12px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">1</span>
-                <div style="flex:1;">
-                  <div style="font-size:15px;font-weight:800;color:#fff;letter-spacing:3px;">••••••••• 🔒</div>
-                  <div style="font-size:10px;color:#5a7a9a;margin-top:2px;">Leg locked — premium only</div>
-                </div>
-                <span style="font-size:13px;font-weight:800;color:#00ffe7;">85%+</span>
-              </div>
-              <div style="display:flex;align-items:center;gap:12px;padding-top:12px;">
-                <span style="width:28px;height:28px;border-radius:50%;background:rgba(124,60,255,0.12);border:1px solid rgba(124,60,255,0.4);color:#a07cff;font-size:12px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">2</span>
-                <div style="flex:1;">
-                  <div style="font-size:15px;font-weight:800;color:#fff;letter-spacing:3px;">••••••••• 🔒</div>
-                  <div style="font-size:10px;color:#5a7a9a;margin-top:2px;">Leg locked — premium only</div>
-                </div>
-                <span style="font-size:13px;font-weight:800;color:#a07cff;">85%+</span>
-              </div>
-              <div style="display:flex;align-items:center;gap:12px;padding-top:12px;border-top:1px solid #14243d;margin-top:12px;">
-                <span style="width:28px;height:28px;border-radius:50%;background:rgba(0,255,231,0.1);border:1px solid rgba(0,255,231,0.35);color:#00ffe7;font-size:12px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">3</span>
-                <div style="flex:1;">
-                  <div style="font-size:15px;font-weight:800;color:#fff;letter-spacing:3px;">••••••••• 🔒</div>
-                  <div style="font-size:10px;color:#5a7a9a;margin-top:2px;">Leg locked — premium only</div>
-                </div>
-                <span style="font-size:13px;font-weight:800;color:#00ffe7;">85%+</span>
-              </div>
-            </div>
+        <div
+          style="
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:12px;
+            margin-bottom:14px;
+          "
+        >
 
-            <div style="display:flex;align-items:center;gap:8px;background:rgba(124,60,255,0.06);border-left:3px solid #7c3cff;border-radius:0 10px 10px 0;padding:10px 14px;margin-bottom:14px;text-align:left;">
-              <span style="font-size:15px;">👀</span>
-              <span style="font-size:12px;color:#c4b0ee;line-height:1.5;">Premium members are already on this parlay. It disappears when the first game starts.</span>
-            </div>
+          <div
+            style="
+              display:inline-flex;
+              align-items:center;
+              gap:6px;
 
-            <button onclick="openPromoModal('premium_pick')" style="display:block;width:100%;padding:16px;border:none;border-radius:12px;background:linear-gradient(135deg,#00ffe7,#7c3cff);color:#020814;font-size:14px;font-weight:900;letter-spacing:0.5px;cursor:pointer;text-transform:uppercase;box-shadow:0 0 25px rgba(0,255,231,0.35),0 0 50px rgba(124,60,255,0.2);">
-              🔓 REVEAL TODAY'S PARLAY — $19.99/MO
-            </button>
-            <div style="font-size:10px;color:#5a7a9a;margin-top:8px;">One hit covers 2+ years of premium. Cancel anytime.</div>
+              background:
+                rgba(0,255,231,.07);
+
+              border:
+                1px solid
+                rgba(0,255,231,.24);
+
+              border-radius:20px;
+
+              padding:4px 12px;
+
+              font-size:9px;
+              color:#00ffe7;
+              font-weight:900;
+              letter-spacing:1.2px;
+            "
+          >
+
+            <span
+              style="
+                width:6px;
+                height:6px;
+                border-radius:50%;
+                background:#00ffe7;
+                box-shadow:
+                  0 0 8px
+                  rgba(0,255,231,.8);
+              "
+            ></span>
+
+            TODAY'S PREMIUM PARLAY
 
           </div>
-        </div>
-      `;
-      return;
-    }
 
+
+          <div
+            style="
+              font-size:9px;
+              color:#7c3cff;
+              font-weight:900;
+              letter-spacing:1px;
+            "
+          >
+            READY NOW
+          </div>
+
+        </div>
+
+
+        <div
+          style="
+            background:
+              linear-gradient(
+                135deg,
+                rgba(0,255,231,.05),
+                rgba(124,60,255,.07)
+              );
+
+            border:
+              1px solid
+              rgba(124,60,255,.26);
+
+            border-radius:14px;
+
+            padding:18px;
+
+            margin-bottom:12px;
+
+            text-align:center;
+          "
+        >
+
+          <div
+            style="
+              color:#fff;
+              font-size:18px;
+              font-weight:900;
+              margin-bottom:5px;
+            "
+          >
+            Built from today's strongest Premium Plays
+          </div>
+
+          <div
+            style="
+              font-size:11px;
+              color:#7f92aa;
+              line-height:1.55;
+            "
+          >
+            CashEdge combines qualifying Premium Plays
+            into one daily parlay when enough opportunities
+            meet the required threshold.
+          </div>
+
+        </div>
+
+
+        <div
+          style="
+            background:#0a1220;
+            border:1px solid #14243d;
+            border-radius:14px;
+
+            padding:15px 18px;
+
+            margin-bottom:13px;
+
+            text-align:left;
+          "
+        >
+
+          <div
+            style="
+              display:flex;
+              align-items:center;
+              gap:12px;
+
+              padding-bottom:11px;
+
+              border-bottom:
+                1px solid #14243d;
+            "
+          >
+
+            <span
+              style="
+                width:28px;
+                height:28px;
+                border-radius:50%;
+
+                background:
+                  rgba(0,255,231,.1);
+
+                border:
+                  1px solid
+                  rgba(0,255,231,.35);
+
+                color:#00ffe7;
+
+                font-size:12px;
+                font-weight:800;
+
+                display:inline-flex;
+                align-items:center;
+                justify-content:center;
+
+                flex-shrink:0;
+              "
+            >
+              1
+            </span>
+
+            <div style="flex:1;">
+              <div
+                style="
+                  font-size:15px;
+                  font-weight:800;
+                  color:#fff;
+                  letter-spacing:3px;
+                "
+              >
+                ••••••••• 🔒
+              </div>
+
+              <div
+                style="
+                  font-size:10px;
+                  color:#5a7a9a;
+                  margin-top:2px;
+                "
+              >
+                Premium leg locked
+              </div>
+            </div>
+
+          </div>
+
+
+          <div
+            style="
+              display:flex;
+              align-items:center;
+              gap:12px;
+              padding:11px 0;
+
+              border-bottom:
+                1px solid #14243d;
+            "
+          >
+
+            <span
+              style="
+                width:28px;
+                height:28px;
+                border-radius:50%;
+
+                background:
+                  rgba(124,60,255,.12);
+
+                border:
+                  1px solid
+                  rgba(124,60,255,.4);
+
+                color:#a07cff;
+
+                font-size:12px;
+                font-weight:800;
+
+                display:inline-flex;
+                align-items:center;
+                justify-content:center;
+
+                flex-shrink:0;
+              "
+            >
+              2
+            </span>
+
+            <div style="flex:1;">
+              <div
+                style="
+                  font-size:15px;
+                  font-weight:800;
+                  color:#fff;
+                  letter-spacing:3px;
+                "
+              >
+                ••••••••• 🔒
+              </div>
+
+              <div
+                style="
+                  font-size:10px;
+                  color:#5a7a9a;
+                  margin-top:2px;
+                "
+              >
+                Premium leg locked
+              </div>
+            </div>
+
+          </div>
+
+
+          <div
+            style="
+              display:flex;
+              align-items:center;
+              gap:12px;
+              padding-top:11px;
+            "
+          >
+
+            <span
+              style="
+                width:28px;
+                height:28px;
+                border-radius:50%;
+
+                background:
+                  rgba(0,255,231,.1);
+
+                border:
+                  1px solid
+                  rgba(0,255,231,.35);
+
+                color:#00ffe7;
+
+                font-size:12px;
+                font-weight:800;
+
+                display:inline-flex;
+                align-items:center;
+                justify-content:center;
+
+                flex-shrink:0;
+              "
+            >
+              3
+            </span>
+
+            <div style="flex:1;">
+              <div
+                style="
+                  font-size:15px;
+                  font-weight:800;
+                  color:#fff;
+                  letter-spacing:3px;
+                "
+              >
+                ••••••••• 🔒
+              </div>
+
+              <div
+                style="
+                  font-size:10px;
+                  color:#5a7a9a;
+                  margin-top:2px;
+                "
+              >
+                Premium leg locked
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <div
+          style="
+            display:flex;
+            align-items:flex-start;
+            gap:8px;
+
+            background:
+              rgba(124,60,255,.05);
+
+            border-left:
+              3px solid #7c3cff;
+
+            border-radius:
+              0 10px 10px 0;
+
+            padding:
+              10px 13px;
+
+            margin-bottom:14px;
+
+            text-align:left;
+          "
+        >
+
+          <span style="font-size:14px;">
+            ⚡
+          </span>
+
+          <span
+            style="
+              font-size:11px;
+              color:#b7a9dd;
+              line-height:1.5;
+            "
+          >
+            The full parlay is available to Premium members
+            while today's qualifying plays remain active.
+          </span>
+
+        </div>
+
+
+        <button
+          onclick="openPromoModal('premium_pick')"
+          style="
+            display:block;
+            width:100%;
+
+            padding:14px;
+
+            border:none;
+            border-radius:12px;
+
+            background:
+              linear-gradient(
+                135deg,
+                #00ffe7,
+                #40a8ff,
+                #7c3cff
+              );
+
+            color:#020814;
+
+            font-size:13px;
+            font-weight:950;
+            letter-spacing:.5px;
+
+            cursor:pointer;
+
+            box-shadow:
+              0 0 25px
+              rgba(0,255,231,.28);
+          "
+        >
+          UNLOCK TODAY'S PREMIUM PARLAY
+        </button>
+
+
+        <div
+          style="
+            font-size:9px;
+            color:#53657d;
+            margin-top:7px;
+            text-align:center;
+          "
+        >
+          Full CashEdge · $19.99 / month · Cancel anytime.
+        </div>
+
+      </div>
+
+    </div>
+  `;
+
+  return;
+}
     const picksHTML = data.picks.map((pick, index) => `
   <div class="parlay-pick-card">
     <div class="parlay-leg-number">${index + 1}</div>
@@ -30136,7 +30519,7 @@ function ceRenderFeaturedMLB(featured) {
 
             <div>
               <span class="mlb-report-label">
-                AI PREDICTIVE REPORT
+               CASHEDGE ANALYSIS
               </span>
 
               <h2>
