@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>Delete Account - CashEdge</title>
+
+  <style>
+    *{
+      box-sizing:border-box;
+    }
+
+    html{
+      background:#030812;
+    }
+
+    body{
+      margin:0;
+
+      background:
+        radial-gradient(
+          circle at 50% 0%,
+          rgba(0,255,231,.055),
+          transparent 34%
+        ),
+        #030812;
+
+      color:#c8d5e5;
+
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Helvetica,
+        Arial,
+        sans-serif;
+
+      font-size:13px;
+      line-height:1.65;
+    }
+
+    .page-shell{
+      width:100%;
+      max-width:720px;
+
+      margin:0 auto;
+
+      padding:22px 16px 50px;
+    }
+
+    .back-btn{
+      display:inline-flex;
+      align-items:center;
+
+      border:1px solid #1a3148;
+      border-radius:9px;
+
+      padding:7px 11px;
+
+      background:#07111e;
+      color:#9bb0c7;
+
+      font-size:11px;
+      font-weight:700;
+
+      cursor:pointer;
+
+      margin-bottom:14px;
+    }
+
+    .back-btn:hover{
+      border-color:#00ffe7;
+      color:#00ffe7;
+    }
+
+    .card{
+      background:
+        linear-gradient(
+          180deg,
+          rgba(9,19,33,.97),
+          rgba(5,12,23,.98)
+        );
+
+      border:1px solid #14263d;
+      border-radius:16px;
+
+      padding:24px;
+
+      box-shadow:
+        0 18px 55px rgba(0,0,0,.32);
+    }
+
+    .kicker{
+      color:#00ffe7;
+
+      font-size:9px;
+      font-weight:900;
+
+      letter-spacing:1.6px;
+
+      text-transform:uppercase;
+
+      margin-bottom:7px;
+    }
+
+    h1{
+      margin:0 0 8px;
+
+      color:#fff;
+
+      font-size:26px;
+      line-height:1.15;
+
+      letter-spacing:-.5px;
+    }
+
+    .intro{
+      color:#8195ad;
+
+      margin:0 0 22px;
+    }
+
+    h2{
+      margin:24px 0 8px;
+
+      color:#edf6ff;
+
+      font-size:15px;
+      line-height:1.3;
+
+      padding-bottom:7px;
+
+      border-bottom:
+        1px solid rgba(255,255,255,.055);
+    }
+
+    p{
+      margin:8px 0 12px;
+    }
+
+    ul{
+      padding-left:20px;
+      margin:8px 0 14px;
+    }
+
+    li{
+      margin:5px 0;
+    }
+
+    strong{
+      color:#eef7ff;
+    }
+
+    .notice{
+      margin:14px 0;
+
+      padding:12px 13px;
+
+      border-left:
+        3px solid #ffb347;
+
+      border-radius:
+        0 10px 10px 0;
+
+      background:
+        rgba(255,179,71,.05);
+
+      color:#b8c8d8;
+
+      font-size:11.5px;
+    }
+
+    .delete-box{
+      margin-top:18px;
+
+      padding:16px;
+
+      background:#07111e;
+
+      border:
+        1px solid rgba(255,92,110,.22);
+
+      border-radius:12px;
+    }
+
+    .delete-box h2{
+      margin:0 0 6px;
+      padding:0;
+      border:0;
+
+      color:#fff;
+
+      font-size:14px;
+    }
+
+    .delete-box p{
+      color:#8195ad;
+
+      font-size:11.5px;
+    }
+
+    .delete-btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+
+      min-height:35px;
+
+      padding:9px 13px;
+
+      border:
+        1px solid rgba(255,92,110,.34);
+
+      border-radius:8px;
+
+      background:
+        rgba(255,92,110,.07);
+
+      color:#ff8b98;
+
+      font-size:10.5px;
+      font-weight:900;
+
+      text-decoration:none;
+    }
+
+    .delete-btn:hover{
+      border-color:#ff6f7f;
+      background:
+        rgba(255,92,110,.11);
+    }
+
+    .support-link{
+      color:#00e9d5;
+      text-decoration:none;
+      font-weight:700;
+    }
+
+    .support-link:hover{
+      text-decoration:underline;
+    }
+
+    .footer{
+      margin-top:28px;
+
+      padding-top:18px;
+
+      border-top:
+        1px solid #14263d;
+
+      color:#53677f;
+
+      font-size:10px;
+
+      text-align:center;
+    }
+
+    .footer a{
+      color:#00e9d5;
+      text-decoration:none;
+    }
+
+    @media(max-width:600px){
+
+      .page-shell{
+        padding:
+          14px 10px 36px;
+      }
+
+      .card{
+        padding:
+          19px 16px;
+
+        border-radius:14px;
+      }
+
+      h1{
+        font-size:23px;
+      }
+
+      body{
+        font-size:12.5px;
+      }
+
+      .delete-btn{
+        width:100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <main class="page-shell">
+
+    <button
+      class="back-btn"
+      type="button"
+      onclick="history.back()"
+    >
+      ← Back to CashEdge
+    </button>
+
+
+    <section class="card">
+
+      <div class="kicker">
+        CASHEDGE ACCOUNT
+      </div>
+
+      <h1>
+        Delete Your CashEdge Account
+      </h1>
+
+      <p class="intro">
+        You may request deletion of your CashEdge account
+        and associated personal information at any time.
+      </p>
+
+
+      <h2>
+        How to Request Account Deletion
+      </h2>
+
+      <p>
+        Send a deletion request to CashEdge Support using
+        the email address associated with your CashEdge account.
+      </p>
+
+      <p>
+        The email should include the email address used for
+        your CashEdge account so we can identify and verify
+        the account.
+      </p>
+
+
+      <div class="delete-box">
+
+        <h2>
+          Request Account Deletion
+        </h2>
+
+        <p>
+          Tap the button below to create a pre-filled account
+          deletion request to CashEdge Support.
+        </p>
+
+        <a
+          class="delete-btn"
+          href="mailto:supportcashedge@gmail.com?subject=Delete%20Account%20Request%20-%20CashEdge&body=Hello%20CashEdge%20Support%2C%0A%0AI%20would%20like%20to%20request%20deletion%20of%20my%20CashEdge%20account%20and%20associated%20personal%20data.%0A%0AAccount%20Email%3A%0A%0AThank%20you."
+        >
+          REQUEST ACCOUNT DELETION
+        </a>
+
+      </div>
+
+
+      <h2>
+        What Will Be Deleted
+      </h2>
+
+      <p>
+        Once the request has been verified and processed,
+        CashEdge may delete or anonymize information associated
+        with the account, including:
+      </p>
+
+      <ul>
+        <li>
+          CashEdge account information
+        </li>
+
+        <li>
+          Account authentication records associated with
+          the deleted account
+        </li>
+
+        <li>
+          User-specific platform information that is no longer
+          required to operate the service
+        </li>
+
+        <li>
+          Personal information that CashEdge is not required
+          to retain
+        </li>
+      </ul>
+
+
+      <h2>
+        Information We May Retain
+      </h2>
+
+      <p>
+        Certain information may be retained when reasonably
+        necessary for legal, financial, tax, fraud-prevention,
+        security, dispute-resolution, or regulatory purposes.
+      </p>
+
+      <p>
+        Information retained for these purposes will not be
+        kept longer than reasonably necessary for the applicable
+        purpose.
+      </p>
+
+
+      <h2>
+        Premium Subscriptions
+      </h2>
+
+      <div class="notice">
+        If you have an active Premium subscription, please
+        manage or cancel future renewals through
+        <strong>Manage subscription</strong> in CashEdge,
+        or tell CashEdge Support in your deletion request
+        that you also need assistance with your subscription.
+      </div>
+
+      <p>
+        Account deletion and subscription billing are separate
+        processes. Deleting an account does not automatically
+        create a refund for previous subscription charges.
+      </p>
+
+
+      <h2>
+        Verification
+      </h2>
+
+      <p>
+        CashEdge may ask you to verify ownership of the account
+        before processing the deletion request.
+      </p>
+
+      <p>
+        This helps prevent unauthorized users from requesting
+        deletion of another person's account.
+      </p>
+
+
+      <h2>
+        Need Help?
+      </h2>
+
+      <p>
+        For questions about account deletion or privacy,
+        contact:
+      </p>
+
+      <p>
+        <a
+          class="support-link"
+          href="mailto:supportcashedge@gmail.com"
+        >
+          supportcashedge@gmail.com
+        </a>
+      </p>
+
+      <p>
+        You can also visit the
+        <a
+          class="support-link"
+          href="/support.html"
+        >
+          CashEdge Support Center
+        </a>.
+      </p>
+
+
+      <div class="footer">
+
+        © 2026 CashEdge ·
+
+        <a href="/privacy.html">
+          Privacy
+        </a>
+
+        ·
+
+        <a href="/terms.html">
+          Terms
+        </a>
+
+        ·
+
+        <a href="/support.html">
+          Support
+        </a>
+
+      </div>
+
+    </section>
+
+  </main>
+
+</body>
+</html>
