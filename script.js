@@ -95,9 +95,7 @@ async function trackUserEvent(eventType, options = {}) {
 
 const IS_ADMIN = false;
 
-const MONTHLY_PRICE = 49.99;
-const FIRST_MONTH_PRICE = 34.99;
-const FIRST_MONTH_DISCOUNT_PERCENT = 30;
+const MONTHLY_PRICE = 19.99;
 
 const PREMIUM_WIN_RATE = 88;
 const NORMAL_WIN_RATE = 65;
