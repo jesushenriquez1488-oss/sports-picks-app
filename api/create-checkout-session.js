@@ -379,15 +379,22 @@ const email =
         client_reference_id:
           userId,
 
-        line_items: [
-          {
-            price:
-              "price_1TS20hJxhhhzBuV9O74jwDkT",
-            quantity: 1
-          }
-        ],
+      line_items: [
+  {
+    price:
+      "price_1UIEGZJxhhhzBuV9nUIRlBdE",
+    quantity: 1
+  }
+],
 
-        success_url:
+discounts: [
+  {
+    coupon:
+      "pLxcYNG7"
+  }
+],
+
+success_url:
           `${APP_URL}?success=true` +
           `&session_id={CHECKOUT_SESSION_ID}` +
 
