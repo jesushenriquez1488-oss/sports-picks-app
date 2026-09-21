@@ -1247,18 +1247,16 @@ button:active { transform: scale(.97); }
  
 .auth-brand { font-size: 22px; font-weight: 900; margin-bottom: 6px; color: var(--cyan); letter-spacing: 2px; }
  
-.auth-landing-info h2::before {
-  content: "Data. AI. Edge.";
-  display: block;
+.auth-landing-info h2 {
+  margin: 0 0 10px;
   font-size: 28px;
   font-weight: 900;
+  line-height: 1.1;
   background: linear-gradient(90deg, #fff, var(--cyan), #9b7cff, #ff4dff);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
-  margin-bottom: 10px;
 }
- 
-.auth-landing-info h2 { font-size: 0; }
 .auth-landing-info p  { max-width: 680px; margin: 0 auto 18px; color: rgba(255,255,255,.70); font-size: 14px; line-height: 1.5; }
  
 /* ─── AUTH FEATURE CARDS ─────────────────────── */
