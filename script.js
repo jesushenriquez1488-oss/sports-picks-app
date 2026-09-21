@@ -12484,7 +12484,7 @@ if (gamesDiv) gamesDiv.innerHTML = "";
 if (status) status.innerHTML = "";
   if (!box) return;
 
-  box.innerHTML = `<div class="loading-analysis">Generating today's Premium AI Parlay...</div>`;
+  box.innerHTML = `<div class="loading-analysis">Loading today's Premium Parlay...</div>`;
 
   try {
     const { data: sessionData } = await supabaseClient.auth.getSession();
@@ -12492,7 +12492,7 @@ if (status) status.innerHTML = "";
     if (!sessionData.session) {
       box.innerHTML = `
         <div class="premium-result mlb-premium-dashboard">
-          <h3>🔥 CashEdge AI Parlay of the Day</h3>
+          <h3>🔥 CashEdge Premium Parlay</h3>
           <p>Sign in to unlock this Premium feature.</p>
         </div>
       `;
@@ -12515,7 +12515,7 @@ if (status) status.innerHTML = "";
     if (!data.available) {
       box.innerHTML = `
         <div class="normal-result">
-          <h3>🔥 CashEdge AI Parlay of the Day</h3>
+          <h3>🔥 CashEdge Premium Parlay</h3>
           <p>${data.message}</p>
         </div>
       `;
@@ -12983,13 +12983,13 @@ box.innerHTML = `
   <div class="parlay-premium-card">
 <div class="parlay-premium-header">
       <div class="parlay-pill">
-        ⚡ CASHEDGE AI PARLAY OF THE DAY
+       ⚡ CASHEDGE PREMIUM PARLAY
       </div>
 
-      <h2 style="background:linear-gradient(90deg,#00ffe7,#7c3cff);-webkit-background-clip:text;background-clip:text;color:transparent;">${data.picks.length}-Leg AI Parlay</h2>
+      <h2 style="background:linear-gradient(90deg,#00ffe7,#7c3cff);-webkit-background-clip:text;background-clip:text;color:transparent;">${data.picks.length}-Leg Premium Parlay</h2>
 
       <p>
-        Auto-built with today's highest-confidence premium picks.
+      Built from today's qualifying Premium Plays.
       </p>
     </div>
 
