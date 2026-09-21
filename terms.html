@@ -2,72 +2,777 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
   <title>Terms of Service - CashEdge</title>
 
   <style>
-    body{
-      background:#081120;
-      color:white;
-      font-family:Arial,sans-serif;
-      max-width:900px;
-      margin:auto;
-      padding:30px 20px;
-      line-height:1.7;
+    *{
+      box-sizing:border-box;
     }
 
-    h1,h2{
-      color:#ffd166;
+    html{
+      background:#030812;
+    }
+
+    body{
+      margin:0;
+      background:
+        radial-gradient(
+          circle at 50% 0%,
+          rgba(0,255,231,.055),
+          transparent 34%
+        ),
+        #030812;
+
+      color:#c8d5e5;
+
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Helvetica,
+        Arial,
+        sans-serif;
+
+      font-size:13px;
+      line-height:1.65;
+    }
+
+    .legal-shell{
+      width:100%;
+      max-width:760px;
+      margin:0 auto;
+      padding:22px 16px 50px;
+    }
+
+    .legal-back{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+
+      border:1px solid #1a3148;
+      border-radius:9px;
+
+      padding:7px 11px;
+
+      background:#07111e;
+      color:#9bb0c7;
+
+      font-size:11px;
+      font-weight:700;
+
+      cursor:pointer;
+
+      margin-bottom:14px;
+    }
+
+    .legal-back:hover{
+      border-color:#00ffe7;
+      color:#00ffe7;
+    }
+
+    .legal-card{
+      background:
+        linear-gradient(
+          180deg,
+          rgba(9,19,33,.97),
+          rgba(5,12,23,.98)
+        );
+
+      border:1px solid #14263d;
+      border-radius:16px;
+
+      padding:24px;
+
+      box-shadow:
+        0 18px 55px rgba(0,0,0,.32);
+    }
+
+    .legal-kicker{
+      color:#00ffe7;
+      font-size:9px;
+      font-weight:900;
+      letter-spacing:1.6px;
+      text-transform:uppercase;
+      margin-bottom:7px;
+    }
+
+    h1{
+      margin:0;
+      color:#fff;
+      font-size:26px;
+      line-height:1.15;
+      letter-spacing:-.5px;
+    }
+
+    .legal-updated{
+      margin:7px 0 22px;
+      color:#62758d;
+      font-size:10px;
+    }
+
+    h2{
+      margin:26px 0 8px;
+
+      color:#e8f3ff;
+
+      font-size:15px;
+      line-height:1.3;
+      font-weight:800;
+
+      padding-bottom:7px;
+
+      border-bottom:
+        1px solid rgba(255,255,255,.055);
+    }
+
+    p{
+      margin:8px 0 12px;
+    }
+
+    ul{
+      margin:8px 0 14px;
+      padding-left:20px;
+    }
+
+    li{
+      margin:5px 0;
+    }
+
+    strong{
+      color:#eaf4ff;
     }
 
     a{
-      color:#ffd166;
+      color:#00e9d5;
+      text-decoration:none;
+      font-weight:700;
     }
 
-    .box{
-      background:rgba(255,255,255,0.05);
-      border:1px solid rgba(255,209,102,0.2);
-      padding:24px;
-      border-radius:20px;
+    a:hover{
+      text-decoration:underline;
+    }
+
+    .legal-highlight{
+      margin:14px 0;
+      padding:13px 14px;
+
+      border-left:3px solid #00ffe7;
+
+      border-radius:
+        0 10px 10px 0;
+
+      background:
+        rgba(0,255,231,.045);
+
+      color:#b9cada;
+    }
+
+    .legal-footer{
+      margin-top:28px;
+      padding-top:18px;
+
+      border-top:
+        1px solid #14263d;
+
+      color:#53677f;
+      font-size:10px;
+      text-align:center;
+    }
+
+    @media (max-width:600px){
+
+      .legal-shell{
+        padding:
+          14px 10px 36px;
+      }
+
+      .legal-card{
+        padding:
+          19px 16px;
+
+        border-radius:14px;
+      }
+
+      h1{
+        font-size:23px;
+      }
+
+      h2{
+        font-size:14px;
+      }
+
+      body{
+        font-size:12.5px;
+      }
     }
   </style>
 </head>
 
 <body>
 
-<div style="padding: 0 0 16px 0;">
-  <button onclick="history.back()" style="
-    background: linear-gradient(135deg, #00ffe7, #7c3cff);
-    color: #020814;
-    border: none;
-    border-radius: 10px;
-    padding: 10px 20px;
-    font-weight: 900;
-    font-size: 14px;
-    cursor: pointer;
-    letter-spacing: 1px;
-  ">
-    ← Volver a CashEdge
-  </button>
-</div>
+  <main class="legal-shell">
 
-<div class="box">
+    <button
+      class="legal-back"
+      onclick="history.back()"
+      type="button"
+    >
+      ← Back to CashEdge
+    </button>
 
-<h1>Terms of Service</h1>
+    <article class="legal-card">
 
-<p>Last updated: August 7, 2026</p>
-<p>
-By using CashEdge AI Sports Picks ("CashEdge"), you agree to these Terms of Service.
-If you do not agree with these Terms, you should not use the platform.
-</p>
+      <div class="legal-kicker">
+        CASHEDGE LEGAL
+      </div>
 
-<h2>Informational Use Only</h2>
+      <h1>
+        Terms of Service
+      </h1>
 
-<p>
-CashEdge provides sports analytics, statistical projections, player props,
-premium picks, and informational content only.
-</p>
+      <div class="legal-updated">
+        Last updated: September 21, 2026
+      </div>
 
+
+      <p>
+        These Terms of Service govern your access to and use of
+        CashEdge ("CashEdge", "we", "our", or "us").
+        By creating an account, purchasing a subscription,
+        or using CashEdge, you agree to these Terms.
+      </p>
+
+      <p>
+        If you do not agree with these Terms, you should not
+        use the platform.
+      </p>
+
+
+      <h2>
+        Informational Use Only
+      </h2>
+
+      <p>
+        CashEdge provides sports analytics, statistical projections,
+        Premium Plays, player prop analysis, market intelligence,
+        and other sports-related informational content.
+      </p>
+
+      <p>
+        CashEdge does not operate as a sportsbook, does not accept
+        wagers, does not place bets on behalf of users, and does not
+        directly facilitate sports wagering transactions.
+      </p>
+
+      <p>
+        Nothing provided through CashEdge constitutes financial,
+        investment, legal, or professional gambling advice.
+      </p>
+
+
+      <h2>
+        No Guarantee of Results
+      </h2>
+
+      <p>
+        CashEdge does not guarantee winnings, profits, prediction
+        accuracy, successful betting outcomes, or future performance.
+      </p>
+
+      <p>
+        Sports wagering involves risk. Users acknowledge that losses
+        may occur and remain solely responsible for decisions made
+        using information provided through CashEdge.
+      </p>
+
+
+      <h2>
+        Premium Play Performance Tracking
+      </h2>
+
+      <p>
+        CashEdge may maintain and publicly display performance records
+        for qualifying Premium Plays.
+      </p>
+
+      <p>
+        Public performance tracking may include recorded wins,
+        losses, pushes, accuracy percentages, and related historical
+        performance information.
+      </p>
+
+      <p>
+        Player Props, free analyses, regular analyses, parlays, or
+        other features may use separate tracking methodologies and
+        are not necessarily included in the Premium Play public
+        performance record.
+      </p>
+
+      <p>
+        Public performance tracking does not mean that every
+        historical Premium Play will remain individually available
+        or viewable after an event has concluded.
+      </p>
+
+      <p>
+        Historical performance does not guarantee future results.
+      </p>
+
+
+      <h2>
+        User Responsibility
+      </h2>
+
+      <p>
+        Users are solely responsible for:
+      </p>
+
+      <ul>
+        <li>
+          Complying with applicable laws and regulations.
+        </li>
+
+        <li>
+          Meeting applicable age requirements.
+        </li>
+
+        <li>
+          Determining whether sports wagering is legal in
+          their jurisdiction.
+        </li>
+
+        <li>
+          Managing their own financial and wagering decisions.
+        </li>
+
+        <li>
+          Using CashEdge responsibly.
+        </li>
+      </ul>
+
+
+      <h2>
+        Eligibility
+      </h2>
+
+      <p>
+        Users must be at least 18 years old and must also meet any
+        higher minimum age required by applicable law in their
+        jurisdiction.
+      </p>
+
+      <p>
+        CashEdge does not determine whether sports wagering is legal
+        or permitted for a particular user or location.
+      </p>
+
+
+      <h2>
+        Premium Subscriptions
+      </h2>
+
+      <p>
+        Certain CashEdge features require a paid Premium subscription.
+      </p>
+
+      <div class="legal-highlight">
+        For new subscriptions, the current promotional offer is
+        <strong>$34.99 for the first month</strong>, followed by
+        <strong>$49.99 per month</strong>, unless a different price,
+        promotion, or existing subscription rate is displayed to the
+        user before checkout.
+      </div>
+
+      <p>
+        The exact price, discount, currency, and billing interval
+        applicable to a purchase are displayed before payment is
+        completed.
+      </p>
+
+      <p>
+        Existing subscriptions may continue at a previously applicable
+        subscription rate while that subscription remains active.
+      </p>
+
+
+      <h2>
+        Automatic Renewal
+      </h2>
+
+      <p>
+        Premium subscriptions automatically renew at the applicable
+        recurring subscription rate unless canceled before the next
+        billing date.
+      </p>
+
+      <p>
+        Users may manage or cancel future renewals through the
+        subscription management tools available from their CashEdge
+        account.
+      </p>
+
+      <p>
+        Cancellation prevents future recurring charges. Unless
+        otherwise required by law or affected by payment failure,
+        access already paid for generally remains available through
+        the applicable paid billing period.
+      </p>
+
+
+      <h2>
+        Failed Payments
+      </h2>
+
+      <p>
+        If a subscription payment fails, Premium access may be
+        suspended or removed while the payment remains unpaid.
+      </p>
+
+      <p>
+        Our payment provider may attempt to process the payment again
+        according to its billing and retry procedures.
+      </p>
+
+      <p>
+        If payment is successfully recovered and the subscription
+        remains valid, Premium access may be restored.
+      </p>
+
+
+      <h2>
+        Promotional Offers
+      </h2>
+
+      <p>
+        CashEdge may offer introductory pricing, coupons, discounts,
+        trials, or other promotional offers.
+      </p>
+
+      <p>
+        Promotions may apply only to certain purchases, subscription
+        periods, users, or checkout sessions and may be modified or
+        discontinued for future purchases.
+      </p>
+
+      <p>
+        Any applicable promotional terms will be displayed before
+        checkout.
+      </p>
+
+
+      <h2>
+        Refund Policy
+      </h2>
+
+      <p>
+        Except where required by applicable law, subscription fees
+        are non-refundable once charged.
+      </p>
+
+      <p>
+        Canceling a subscription prevents future renewals but does
+        not automatically generate a refund for previous charges.
+      </p>
+
+      <p>
+        If you believe a charge was made in error, contact CashEdge
+        Support so the issue can be reviewed.
+      </p>
+
+
+      <h2>
+        Payments
+      </h2>
+
+      <p>
+        Payments and subscription billing may be processed through
+        third-party payment providers such as Stripe.
+      </p>
+
+      <p>
+        CashEdge does not store full payment card numbers.
+      </p>
+
+      <p>
+        Payment providers may apply their own terms, security
+        procedures, fraud-prevention processes, and billing rules.
+      </p>
+
+
+      <h2>
+        Account Security
+      </h2>
+
+      <p>
+        Users are responsible for maintaining the confidentiality
+        of their account credentials and for activity performed
+        through their account.
+      </p>
+
+      <p>
+        Users should contact CashEdge Support if they believe their
+        account has been accessed without authorization.
+      </p>
+
+
+      <h2>
+        Intellectual Property
+      </h2>
+
+      <p>
+        CashEdge software, algorithms, models, analytics,
+        projections, designs, graphics, branding, text, platform
+        functionality, and other proprietary materials are protected
+        by applicable intellectual property laws.
+      </p>
+
+      <p>
+        CashEdge content may not be copied, reproduced, redistributed,
+        republished, resold, reverse engineered, scraped at scale,
+        or commercially exploited without authorization.
+      </p>
+
+
+      <h2>
+        Acceptable Use
+      </h2>
+
+      <p>
+        Users may not:
+      </p>
+
+      <ul>
+        <li>
+          Attempt unauthorized access to CashEdge systems.
+        </li>
+
+        <li>
+          Interfere with platform security or operation.
+        </li>
+
+        <li>
+          Use automated systems to abuse, overload, or improperly
+          extract CashEdge content.
+        </li>
+
+        <li>
+          Use CashEdge for fraudulent or unlawful activity.
+        </li>
+
+        <li>
+          Resell or redistribute Premium content without permission.
+        </li>
+      </ul>
+
+
+      <h2>
+        Account Suspension and Termination
+      </h2>
+
+      <p>
+        CashEdge may suspend, restrict, or terminate access when an
+        account violates these Terms, engages in fraudulent activity,
+        attempts unauthorized access, abuses platform functionality,
+        or interferes with CashEdge operations.
+      </p>
+
+
+      <h2>
+        Third-Party Data and Services
+      </h2>
+
+      <p>
+        CashEdge relies on third-party providers for services that
+        may include sports data, sportsbook market information,
+        payments, authentication, hosting, analytics, advertising
+        measurement, and notifications.
+      </p>
+
+      <p>
+        Third-party information may be delayed, unavailable,
+        incomplete, changed, or inaccurate.
+      </p>
+
+      <p>
+        CashEdge is not responsible for interruptions, errors,
+        inaccuracies, or failures caused by independent third-party
+        services.
+      </p>
+
+
+      <h2>
+        Market Information
+      </h2>
+
+      <p>
+        Odds, lines, betting splits, sportsbook information, market
+        movement, player availability, and related sports information
+        may change at any time.
+      </p>
+
+      <p>
+        CashEdge does not guarantee that a displayed line, price,
+        market, sportsbook offer, or other data point will remain
+        available after it is shown.
+      </p>
+
+
+      <h2>
+        Privacy and Tracking Technologies
+      </h2>
+
+      <p>
+        Use of CashEdge is also subject to our
+        <a href="/privacy.html">
+          Privacy Policy
+        </a>.
+      </p>
+
+      <p>
+        Necessary technologies may be used for authentication,
+        security, subscriptions, privacy preferences, and core
+        platform operation.
+      </p>
+
+      <p>
+        Optional analytics and advertising technologies may be
+        controlled through CashEdge's Cookie Preferences.
+      </p>
+
+
+      <h2>
+        No Warranties
+      </h2>
+
+      <p>
+        CashEdge is provided on an "as is" and "as available" basis.
+      </p>
+
+      <p>
+        To the maximum extent permitted by law, CashEdge makes no
+        warranty that the platform will always be available,
+        uninterrupted, error-free, or that sports data, projections,
+        market information, odds, statistics, or third-party
+        information will always be complete or accurate.
+      </p>
+
+
+      <h2>
+        Limitation of Liability
+      </h2>
+
+      <p>
+        To the maximum extent permitted by applicable law, CashEdge
+        and its operators shall not be liable for betting losses,
+        financial losses, lost profits, indirect damages, incidental
+        damages, consequential damages, or other losses resulting
+        from use of the platform or reliance on its information.
+      </p>
+
+      <p>
+        Nothing in these Terms excludes rights or liabilities that
+        cannot legally be excluded or limited.
+      </p>
+
+
+      <h2>
+        Changes to CashEdge
+      </h2>
+
+      <p>
+        CashEdge may modify, add, suspend, or discontinue features,
+        data sources, sports, analytics, subscription offerings, or
+        other portions of the platform.
+      </p>
+
+
+      <h2>
+        Changes to These Terms
+      </h2>
+
+      <p>
+        We may update these Terms periodically.
+      </p>
+
+      <p>
+        The "Last updated" date on this page identifies the most
+        recent revision.
+      </p>
+
+      <p>
+        Continued use of CashEdge after updated Terms become
+        effective constitutes acceptance of the revised Terms to
+        the extent permitted by applicable law.
+      </p>
+
+
+      <h2>
+        Severability
+      </h2>
+
+      <p>
+        If any provision of these Terms is found invalid or
+        unenforceable, the remaining provisions will remain in
+        effect to the fullest extent permitted by law.
+      </p>
+
+
+      <h2>
+        Entire Agreement
+      </h2>
+
+      <p>
+        These Terms, together with the Privacy Policy and any terms
+        displayed during subscription or checkout, constitute the
+        agreement between the user and CashEdge concerning use of
+        the platform.
+      </p>
+
+
+      <h2>
+        Governing Law
+      </h2>
+
+      <p>
+        These Terms are governed by and interpreted under the laws
+        of the State of Kansas, United States, without regard to
+        conflict-of-law principles.
+      </p>
+
+
+      <h2>
+        Contact
+      </h2>
+
+      <p>
+        For support, subscription questions, account issues,
+        billing questions, or legal inquiries:
+      </p>
+
+      <p>
+        <a href="mailto:supportcashedge@gmail.com">
+          supportcashedge@gmail.com
+        </a>
+      </p>
+
+
+      <div class="legal-footer">
+        © 2026 CashEdge · Sports analytics and market intelligence
+        for informational purposes.
+      </div>
+
+    </article>
+
+  </main>
+
+</body>
+</html>
 <p>
 Nothing on this platform constitutes financial advice, gambling advice,
 investment advice, legal advice, or guaranteed outcomes.
