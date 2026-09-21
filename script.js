@@ -1286,9 +1286,9 @@ function analyzeOtherLeague(awayTeam, homeTeam, awaySpread, homeSpread, total, i
       index,
       extraHTML: `
         <br>
-        <p><strong>Modelo BETA (${selectedSportName})</strong></p>
-        <p>Basado en líneas de mercado y proyección automática.</p>
-        <p>Estadísticas avanzadas próximamente.</p>
+        <p><strong>CASHEDGE BETA · ${selectedSportName}</strong></p>
+        <p>Built from market lines and CashEdge projections.</p>
+        <p>Advanced statistics coming soon.</p>
       `
     });
   }, 700);
@@ -1422,7 +1422,7 @@ function renderAnalysisResult({
         ? `
           <div class="premium-top-line">
             <span class="premium-crown">👑</span>
-            <span>🔥 HOT PICK PREMIUM</span>
+            <span>🔥 PREMIUM PLAY</span>
           </div>
         `
         : ""
@@ -1433,14 +1433,14 @@ function renderAnalysisResult({
       <div class="premium-header">
         <div>
           <p class="premium-label">CASHEDGE ANALYSIS</p>
-          <h3>🔥 PICK PRINCIPAL</h3>
+          <h3>🔥 PRIMARY PLAY</h3>
           <p class="premium-game-pick">
-            ${shouldLockPremium ? "Pick Premium bloqueado" : pick}
+            ${shouldLockPremium ? "Premium Play locked" : pick}
           </p>
         </div>
 
         <div class="premium-score-box">
-          <small>CONFIANZA</small>
+          <small>CONFIDENCE</small>
           <strong>${confidence}%</strong>
           <span>${risk}</span>
         </div>
@@ -1449,41 +1449,41 @@ function renderAnalysisResult({
       ${
         shouldLockPremium ? `
           <div class="premium-lock-box">
-            <p>🔒 Desbloquea para ver el pick completo y el análisis exacto.</p>
+            <p>🔒 Unlock the full play and complete analysis.</p>
 
             <div class="premium-factor-grid">
-              <span>✔ Descanso evaluado</span>
-              <span>✔ Lesiones consideradas</span>
-              <span>✔ Ritmo reciente</span>
-              <span>✔ Edge vs mercado</span>
+              <span>✔ Rest evaluated</span>
+              <span>✔ Injuries considered</span>
+              <span>✔ Recent form</span>
+              <span>✔Edge vs market</span>
             </div>
           </div>
         ` : ""
       }
 
       <div class="premium-verdict-box">
-        <strong>VEREDICTO DEL MODELO</strong>
+        <strong>CASHEDGE VERDICT</strong>
         <span>${verdict}</span>
       </div>
 
       <div class="premium-metrics-grid">
 
         <div class="premium-metric">
-          <small>EDGE DEL MODELO</small>
+          <small>CASHEDGE EDGE</small>
           <strong>${mainEdge.toFixed(1)}</strong>
-          <span>Ventaja detectada</span>
+          <span>Edge detected</span>
         </div>
 
         <div class="premium-metric">
           <small>EDGE CONFIDENCE</small>
           <strong>${mainEdgeConfidence}%</strong>
-          <span>Lectura estadística</span>
+          <span>Statistical read</span>
         </div>
 
         <div class="premium-metric">
-          <small>RIESGO</small>
+          <small>RISK</small>
           <strong>${risk}</strong>
-          <span>Perfil de jugada</span>
+          <span>Play profile</span>
         </div>
 
       </div>
@@ -1493,10 +1493,10 @@ function renderAnalysisResult({
           <div class="premium-analysis-grid">
 
             <div class="premium-main-analysis">
-              <p><strong>Diferencial proyectado:</strong> ${spreadDiff.toFixed(1)}</p>
-              <p><strong>Proyección ${awayTeam}:</strong> ${projA.toFixed(1)}</p>
-              <p><strong>Proyección ${homeTeam}:</strong> ${projB.toFixed(1)}</p>
-              <p><strong>Total proyectado:</strong> ${totalProj.toFixed(1)}</p>
+              <p><strong>Projected differential:</strong> ${spreadDiff.toFixed(1)}</p>
+              <p><strong>Projection ${awayTeam}:</strong> ${projA.toFixed(1)}</p>
+              <p><strong>Projection ${homeTeam}:</strong> ${projB.toFixed(1)}</p>
+              <p><strong>Projected total:</strong> ${totalProj.toFixed(1)}</p>
             </div>
 
             <div class="premium-extra-analysis">
