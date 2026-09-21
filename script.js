@@ -550,7 +550,10 @@ function refreshResultsAfterUnlock() {
   const results = document.querySelectorAll("[id^='result']");
 
   results.forEach(div => {
-    if (div.innerHTML.includes("Pick Premium bloqueado")) {
+  if (
+  div.innerHTML.includes("Premium Play locked") ||
+  div.innerHTML.includes("Pick Premium bloqueado")
+) {
       const card = div.closest(".card");
       const analyzeButton = card ? card.querySelector("button") : null;
 
