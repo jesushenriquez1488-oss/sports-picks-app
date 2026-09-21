@@ -464,10 +464,10 @@ window.gtag("js", new Date());
       }
     }
 
-    if (preferences.advertising) {
-      loadMetaPixel();
-    }
-
+   if (preferences.advertising) {
+  loadMetaPixel();
+  loadTikTokPixel();
+}
     const banner =
       document.getElementById(
         "cePrivacyBanner"
@@ -5114,306 +5114,894 @@ Player Props and Premium Plays for informational purposes only.
 </main>
 
 </div>
-<!-- CASHEDGE PRIVACY BANNER -->
-<div id="cePrivacyBanner" style="
-  display:none;
-  position:fixed;
-  left:16px;
-  right:16px;
-  bottom:16px;
-  max-width:760px;
-  margin:auto;
-  background:#081120;
-  border:1px solid #1a3655;
-  border-radius:16px;
-  padding:20px;
-  z-index:999999;
-  box-shadow:0 15px 50px rgba(0,0,0,.65);
-  font-family:Arial,sans-serif;
-">
+<!-- ===================================================== -->
+<!-- CASHEDGE PRIVACY / COOKIE PREFERENCES -->
+<!-- ===================================================== -->
 
-  <div style="
+<style>
+
+  #cePrivacyBanner,
+  #cePrivacyModal{
+    font-family:
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      Roboto,
+      Helvetica,
+      Arial,
+      sans-serif;
+  }
+
+
+  /* ===================================================== */
+  /* PRIVACY BANNER */
+  /* ===================================================== */
+
+  #cePrivacyBanner{
+    display:none;
+
+    position:fixed;
+
+    left:12px;
+    right:12px;
+    bottom:12px;
+
+    width:auto;
+    max-width:620px;
+
+    margin:auto;
+
+    padding:16px;
+
+    background:
+      linear-gradient(
+        180deg,
+        rgba(8,18,32,.98),
+        rgba(4,11,21,.99)
+      );
+
+    border:
+      1px solid #17304a;
+
+    border-radius:14px;
+
+    box-shadow:
+      0 18px 55px
+      rgba(0,0,0,.62);
+
+    z-index:999999;
+  }
+
+
+  .ce-privacy-kicker{
+    color:#00ffe7;
+
+    font-size:8px;
+    font-weight:900;
+
+    letter-spacing:1.5px;
+
+    text-transform:uppercase;
+
+    margin-bottom:5px;
+  }
+
+
+  .ce-privacy-title{
+    margin:0 0 5px;
+
     color:#fff;
-    font-size:17px;
+
+    font-size:16px;
     font-weight:800;
-    margin-bottom:8px;
-  ">
+
+    line-height:1.2;
+  }
+
+
+  .ce-privacy-text{
+    margin:0;
+
+    color:#8297ae;
+
+    font-size:11px;
+    line-height:1.5;
+  }
+
+
+  .ce-privacy-actions{
+    display:flex;
+
+    align-items:center;
+
+    flex-wrap:wrap;
+
+    gap:7px;
+
+    margin-top:13px;
+  }
+
+
+  .ce-privacy-btn{
+    appearance:none;
+
+    border:
+      1px solid #1d3b50;
+
+    border-radius:8px;
+
+    padding:
+      8px 11px;
+
+    min-height:32px;
+
+    background:#091521;
+
+    color:#b7c8da;
+
+    font-size:10px;
+    font-weight:800;
+
+    line-height:1;
+
+    cursor:pointer;
+  }
+
+
+  .ce-privacy-btn-primary{
+    background:
+      rgba(0,255,231,.10);
+
+    border-color:
+      rgba(0,255,231,.34);
+
+    color:#00ffe7;
+  }
+
+
+  .ce-privacy-btn:hover{
+    border-color:#00ffe7;
+  }
+
+
+  .ce-privacy-link{
+    display:inline-block;
+
+    margin-top:10px;
+
+    color:#627a94;
+
+    font-size:9px;
+
+    text-decoration:none;
+  }
+
+
+  .ce-privacy-link:hover{
+    color:#00ffe7;
+  }
+
+
+  /* ===================================================== */
+  /* PRIVACY MODAL */
+  /* ===================================================== */
+
+  #cePrivacyModal{
+    display:none;
+
+    position:fixed;
+
+    inset:0;
+
+    z-index:1000000;
+
+    align-items:center;
+    justify-content:center;
+
+    padding:16px;
+
+    background:
+      rgba(1,5,12,.86);
+
+    backdrop-filter:
+      blur(8px);
+
+    -webkit-backdrop-filter:
+      blur(8px);
+  }
+
+
+  .ce-privacy-modal-card{
+    width:100%;
+    max-width:430px;
+
+    max-height:90vh;
+
+    overflow-y:auto;
+
+    padding:20px;
+
+    background:
+      linear-gradient(
+        180deg,
+        #091523,
+        #050d18
+      );
+
+    border:
+      1px solid #17304a;
+
+    border-radius:15px;
+
+    box-shadow:
+      0 22px 65px
+      rgba(0,0,0,.65);
+  }
+
+
+  .ce-privacy-modal-top{
+    display:flex;
+
+    align-items:flex-start;
+    justify-content:space-between;
+
+    gap:12px;
+
+    margin-bottom:16px;
+  }
+
+
+  .ce-privacy-modal-title{
+    margin:0 0 4px;
+
+    color:#fff;
+
+    font-size:18px;
+    font-weight:850;
+
+    line-height:1.2;
+  }
+
+
+  .ce-privacy-modal-subtitle{
+    margin:0;
+
+    color:#71869f;
+
+    font-size:10.5px;
+    line-height:1.45;
+  }
+
+
+  .ce-privacy-close{
+    flex-shrink:0;
+
+    width:29px;
+    height:29px;
+
+    border:
+      1px solid #1c334b;
+
+    border-radius:8px;
+
+    background:#07111e;
+
+    color:#8095ad;
+
+    font-size:16px;
+
+    cursor:pointer;
+  }
+
+
+  .ce-privacy-option{
+    display:flex;
+
+    align-items:flex-start;
+    justify-content:space-between;
+
+    gap:14px;
+
+    padding:
+      13px 0;
+
+    border-bottom:
+      1px solid
+      rgba(255,255,255,.055);
+  }
+
+
+  .ce-privacy-option:last-of-type{
+    border-bottom:none;
+  }
+
+
+  .ce-privacy-option-copy{
+    min-width:0;
+  }
+
+
+  .ce-privacy-option-title{
+    color:#ecf5ff;
+
+    font-size:12px;
+    font-weight:800;
+
+    line-height:1.2;
+
+    margin-bottom:4px;
+  }
+
+
+  .ce-privacy-option-desc{
+    color:#667c95;
+
+    font-size:10px;
+    line-height:1.45;
+  }
+
+
+  /* ===================================================== */
+  /* SWITCH */
+  /* ===================================================== */
+
+  .ce-switch{
+    position:relative;
+
+    width:36px;
+    height:20px;
+
+    flex-shrink:0;
+
+    margin-top:2px;
+  }
+
+
+  .ce-switch input{
+    opacity:0;
+
+    width:0;
+    height:0;
+  }
+
+
+  .ce-switch-slider{
+    position:absolute;
+
+    inset:0;
+
+    border:
+      1px solid #2a3d55;
+
+    border-radius:999px;
+
+    background:#101a29;
+
+    cursor:pointer;
+
+    transition:.2s;
+  }
+
+
+  .ce-switch-slider::before{
+    content:"";
+
+    position:absolute;
+
+    width:14px;
+    height:14px;
+
+    left:2px;
+    top:2px;
+
+    border-radius:50%;
+
+    background:#71849a;
+
+    transition:.2s;
+  }
+
+
+  .ce-switch input:checked +
+  .ce-switch-slider{
+    background:
+      rgba(0,255,231,.13);
+
+    border-color:
+      rgba(0,255,231,.42);
+  }
+
+
+  .ce-switch input:checked +
+  .ce-switch-slider::before{
+    transform:
+      translateX(16px);
+
+    background:#00ffe7;
+  }
+
+
+  .ce-switch input:disabled +
+  .ce-switch-slider{
+    cursor:not-allowed;
+
+    opacity:.72;
+  }
+
+
+  /* ===================================================== */
+  /* MODAL ACTIONS */
+  /* ===================================================== */
+
+  .ce-privacy-modal-actions{
+    display:flex;
+
+    gap:7px;
+
+    margin-top:17px;
+
+    flex-wrap:wrap;
+  }
+
+
+  .ce-privacy-save{
+    flex:1;
+
+    min-width:145px;
+
+    border:
+      1px solid
+      rgba(0,255,231,.38);
+
+    border-radius:8px;
+
+    padding:
+      9px 12px;
+
+    background:
+      rgba(0,255,231,.10);
+
+    color:#00ffe7;
+
+    font-size:10px;
+    font-weight:900;
+
+    cursor:pointer;
+  }
+
+
+  .ce-privacy-cancel{
+    border:
+      1px solid #20354b;
+
+    border-radius:8px;
+
+    padding:
+      9px 12px;
+
+    background:#07111e;
+
+    color:#879ab0;
+
+    font-size:10px;
+    font-weight:800;
+
+    cursor:pointer;
+  }
+
+
+  .ce-privacy-policy-link{
+    display:block;
+
+    margin-top:14px;
+
+    color:#617890;
+
+    font-size:9px;
+
+    text-align:center;
+
+    text-decoration:none;
+  }
+
+
+  .ce-privacy-policy-link:hover{
+    color:#00ffe7;
+  }
+
+
+  @media(max-width:520px){
+
+    #cePrivacyBanner{
+      left:8px;
+      right:8px;
+      bottom:8px;
+
+      padding:14px;
+    }
+
+
+    .ce-privacy-title{
+      font-size:15px;
+    }
+
+
+    .ce-privacy-actions{
+      gap:6px;
+    }
+
+
+    .ce-privacy-btn{
+      flex:1;
+
+      min-width:
+        calc(50% - 4px);
+    }
+
+
+    .ce-privacy-btn:last-child{
+      width:100%;
+      flex-basis:100%;
+    }
+
+
+    .ce-privacy-modal-card{
+      padding:17px 15px;
+    }
+  }
+
+</style>
+
+
+<!-- ===================================================== -->
+<!-- COOKIE BANNER -->
+<!-- ===================================================== -->
+
+<div id="cePrivacyBanner">
+
+  <div class="ce-privacy-kicker">
+    PRIVACY CONTROLS
+  </div>
+
+  <div class="ce-privacy-title">
     Your Privacy Choices
   </div>
 
-  <div style="
-    color:#a0b4cc;
-    font-size:12px;
-    line-height:1.6;
-    margin-bottom:16px;
-  ">
-    We use cookies and similar technologies to operate CashEdge,
-    understand usage, measure advertising performance, and improve
-    our services. You can accept all cookies, reject non-essential
-    cookies, or manage your preferences.
-  </div>
+  <p class="ce-privacy-text">
+    CashEdge uses necessary technologies to operate the
+    platform. Optional analytics and advertising technologies
+    help us understand usage and measure advertising performance.
+  </p>
 
-  <div style="
-    display:flex;
-    gap:8px;
-    flex-wrap:wrap;
-  ">
+
+  <div class="ce-privacy-actions">
 
     <button
+      type="button"
+      class="
+        ce-privacy-btn
+        ce-privacy-btn-primary
+      "
       onclick="ceAcceptAllPrivacy()"
-      style="
-        flex:1;
-        min-width:150px;
-        padding:12px;
-        border:0;
-        border-radius:9px;
-        background:#00ffe7;
-        color:#020814;
-        font-weight:800;
-        cursor:pointer;
-      ">
-      Accept All
+    >
+      ACCEPT ALL
     </button>
 
+
     <button
+      type="button"
+      class="ce-privacy-btn"
       onclick="ceRejectPrivacy()"
-      style="
-        flex:1;
-        min-width:150px;
-        padding:12px;
-        border:1px solid #42516b;
-        border-radius:9px;
-        background:#10192b;
-        color:#fff;
-        font-weight:700;
-        cursor:pointer;
-      ">
-      Reject Non-Essential
+    >
+      REJECT OPTIONAL
     </button>
 
+
     <button
+      type="button"
+      class="ce-privacy-btn"
       onclick="ceOpenPrivacyPreferences()"
-      style="
-        flex:1;
-        min-width:150px;
-        padding:12px;
-        border:1px solid #42516b;
-        border-radius:9px;
-        background:transparent;
-        color:#d0dcec;
-        font-weight:700;
-        cursor:pointer;
-      ">
-      Manage Preferences
+    >
+      MANAGE
     </button>
 
   </div>
+
+
+  <a
+    class="ce-privacy-link"
+    href="/privacy.html"
+  >
+    Read Privacy Policy
+  </a>
+
 </div>
 
 
+<!-- ===================================================== -->
 <!-- PRIVACY PREFERENCES MODAL -->
-<div id="cePrivacyModal" style="
-  display:none;
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,.75);
-  z-index:1000000;
-  align-items:center;
-  justify-content:center;
-  padding:20px;
-">
+<!-- ===================================================== -->
 
-  <div style="
-    width:100%;
-    max-width:460px;
-    background:#081120;
-    border:1px solid #1a3655;
-    border-radius:16px;
-    padding:24px;
-    font-family:Arial,sans-serif;
-  ">
+<div
+  id="cePrivacyModal"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="cePrivacyModalTitle"
+>
 
-    <h2 style="
-      margin:0 0 8px;
-      color:#fff;
-      font-size:20px;
-    ">
-      Privacy Preferences
-    </h2>
+  <div class="ce-privacy-modal-card">
 
-    <p style="
-      color:#8899bb;
-      font-size:12px;
-      line-height:1.6;
-    ">
-      Choose which optional technologies CashEdge may use.
-    </p>
+    <div class="ce-privacy-modal-top">
 
-    <div style="
-      padding:14px 0;
-      border-bottom:1px solid #1a2240;
-    ">
-      <label style="color:#fff;font-weight:700;">
-        <input type="checkbox" checked disabled>
-        Necessary
-      </label>
+      <div>
 
-      <div style="
-        color:#667b98;
-        font-size:11px;
-        margin-top:5px;
-      ">
-        Required for login, security, subscriptions and core platform functions.
+        <div class="ce-privacy-kicker">
+          CASHEDGE PRIVACY
+        </div>
+
+        <h2
+          class="ce-privacy-modal-title"
+          id="cePrivacyModalTitle"
+        >
+          Privacy Preferences
+        </h2>
+
+        <p class="ce-privacy-modal-subtitle">
+          Choose which optional technologies CashEdge
+          may use. Necessary technologies remain enabled.
+        </p>
+
       </div>
+
+
+      <button
+        type="button"
+        class="ce-privacy-close"
+        onclick="ceClosePrivacyPreferences()"
+        aria-label="Close privacy preferences"
+      >
+        ×
+      </button>
+
     </div>
 
-    <div style="
-      padding:14px 0;
-      border-bottom:1px solid #1a2240;
-    ">
-      <label style="color:#fff;font-weight:700;">
+
+    <!-- NECESSARY -->
+
+    <div class="ce-privacy-option">
+
+      <div class="ce-privacy-option-copy">
+
+        <div class="ce-privacy-option-title">
+          Necessary
+        </div>
+
+        <div class="ce-privacy-option-desc">
+          Required for login, security, subscriptions,
+          privacy preferences and core CashEdge functions.
+        </div>
+
+      </div>
+
+
+      <label class="ce-switch">
+
+        <input
+          type="checkbox"
+          checked
+          disabled
+        >
+
+        <span class="ce-switch-slider"></span>
+
+      </label>
+
+    </div>
+
+
+    <!-- ANALYTICS -->
+
+    <div class="ce-privacy-option">
+
+      <div class="ce-privacy-option-copy">
+
+        <div class="ce-privacy-option-title">
+          Analytics
+        </div>
+
+        <div class="ce-privacy-option-desc">
+          Helps CashEdge understand platform usage and
+          improve the experience. Includes Google Analytics
+          and optional internal usage analytics.
+        </div>
+
+      </div>
+
+
+      <label class="ce-switch">
+
         <input
           id="ceAnalyticsPreference"
-          type="checkbox">
-        Analytics
+          type="checkbox"
+        >
+
+        <span class="ce-switch-slider"></span>
+
       </label>
 
-      <div style="
-        color:#667b98;
-        font-size:11px;
-        margin-top:5px;
-      ">
-        Helps us understand platform usage and improve CashEdge.
-      </div>
     </div>
 
-    <div style="
-      padding:14px 0;
-    ">
-      <label style="color:#fff;font-weight:700;">
+
+    <!-- ADVERTISING -->
+
+    <div class="ce-privacy-option">
+
+      <div class="ce-privacy-option-copy">
+
+        <div class="ce-privacy-option-title">
+          Advertising
+        </div>
+
+        <div class="ce-privacy-option-desc">
+          Allows advertising and conversion measurement
+          through services such as Meta, Google and TikTok.
+        </div>
+
+      </div>
+
+
+      <label class="ce-switch">
+
         <input
           id="ceAdvertisingPreference"
-          type="checkbox">
-        Advertising
+          type="checkbox"
+        >
+
+        <span class="ce-switch-slider"></span>
+
       </label>
 
-      <div style="
-        color:#667b98;
-        font-size:11px;
-        margin-top:5px;
-      ">
-        Allows advertising measurement through services such as Meta and Google.
-      </div>
     </div>
 
-    <button
-      onclick="ceSavePrivacyPreferences()"
-      style="
-        width:100%;
-        padding:13px;
-        border:0;
-        border-radius:9px;
-        background:linear-gradient(135deg,#00ffe7,#7c3cff);
-        color:#020814;
-        font-weight:900;
-        cursor:pointer;
-        margin-top:10px;
-      ">
-      Save Preferences
-    </button>
 
-    <button
-      onclick="ceClosePrivacyPreferences()"
-      style="
-        width:100%;
-        padding:11px;
-        border:0;
-        background:transparent;
-        color:#8899bb;
-        cursor:pointer;
-        margin-top:5px;
-      ">
-      Cancel
-    </button>
+    <div class="ce-privacy-modal-actions">
+
+      <button
+        type="button"
+        class="ce-privacy-save"
+        onclick="ceSavePrivacyPreferences()"
+      >
+        SAVE PREFERENCES
+      </button>
+
+
+      <button
+        type="button"
+        class="ce-privacy-cancel"
+        onclick="ceClosePrivacyPreferences()"
+      >
+        CANCEL
+      </button>
+
+    </div>
+
+
+    <a
+      class="ce-privacy-policy-link"
+      href="/privacy.html"
+    >
+      View full Privacy Policy
+    </a>
 
   </div>
+
 </div>
 
 
+<!-- ===================================================== -->
+<!-- PRIVACY UI FUNCTIONS -->
+<!-- ===================================================== -->
+
 <script>
-function ceAcceptAllPrivacy() {
-  window.ceSetPrivacyPreferences({
-    analytics: true,
-    advertising: true
-  });
-}
 
-function ceRejectPrivacy() {
-  window.ceSetPrivacyPreferences({
-    analytics: false,
-    advertising: false
-  });
-}
+  function ceAcceptAllPrivacy() {
 
-function ceOpenPrivacyPreferences() {
+    window.ceSetPrivacyPreferences({
+      analytics:true,
+      advertising:true
+    });
 
-  const preferences =
-    window.ceGetPrivacyPreferences();
+  }
 
-  document.getElementById(
-    "ceAnalyticsPreference"
-  ).checked =
-    preferences.analytics === true;
 
-  document.getElementById(
-    "ceAdvertisingPreference"
-  ).checked =
-    preferences.advertising === true;
+  function ceRejectPrivacy() {
 
-  document.getElementById(
-    "cePrivacyModal"
-  ).style.display = "flex";
-}
+    window.ceSetPrivacyPreferences({
+      analytics:false,
+      advertising:false
+    });
 
-function ceClosePrivacyPreferences() {
-  document.getElementById(
-    "cePrivacyModal"
-  ).style.display = "none";
-}
+  }
 
-function ceSavePrivacyPreferences() {
 
-  const analytics =
-    document.getElementById(
-      "ceAnalyticsPreference"
-    ).checked;
-
-  const advertising =
-    document.getElementById(
-      "ceAdvertisingPreference"
-    ).checked;
-
-  window.ceSetPrivacyPreferences({
-    analytics,
-    advertising
-  });
-}
-
-document.addEventListener(
-  "DOMContentLoaded",
-  function () {
+  function ceOpenPrivacyPreferences() {
 
     const preferences =
       window.ceGetPrivacyPreferences();
 
-    if (!preferences.decided) {
-      document.getElementById(
-        "cePrivacyBanner"
-      ).style.display = "block";
-    }
+
+    document.getElementById(
+      "ceAnalyticsPreference"
+    ).checked =
+      preferences.analytics === true;
+
+
+    document.getElementById(
+      "ceAdvertisingPreference"
+    ).checked =
+      preferences.advertising === true;
+
+
+    document.getElementById(
+      "cePrivacyModal"
+    ).style.display =
+      "flex";
 
   }
-);
+
+
+  function ceClosePrivacyPreferences() {
+
+    document.getElementById(
+      "cePrivacyModal"
+    ).style.display =
+      "none";
+
+  }
+
+
+  function ceSavePrivacyPreferences() {
+
+    const analytics =
+      document.getElementById(
+        "ceAnalyticsPreference"
+      ).checked;
+
+
+    const advertising =
+      document.getElementById(
+        "ceAdvertisingPreference"
+      ).checked;
+
+
+    window.ceSetPrivacyPreferences({
+      analytics,
+      advertising
+    });
+
+  }
+
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+      const preferences =
+        window.ceGetPrivacyPreferences();
+
+
+      if (!preferences.decided) {
+
+        document.getElementById(
+          "cePrivacyBanner"
+        ).style.display =
+          "block";
+
+      }
+
+    }
+  );
+
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="script.js"></script>
