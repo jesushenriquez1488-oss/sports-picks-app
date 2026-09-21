@@ -543,7 +543,7 @@ try {
     
 
 async function unlockPick() {
-  openPromoModal();
+ openPromoModal("premium_pick");
 }
 
 function refreshResultsAfterUnlock() {
@@ -1164,31 +1164,12 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
         return `<strong>${proj.toFixed(1)}<span style="color:#4a5f7f;font-size:11px;"> / ${ln}</span></strong><div style="font-size:10px;font-weight:700;color:${d >= 0 ? "#ff8c1a" : "#4da3ff"};margin-top:2px;">${d >= 0 ? "▲ +" : "▼ "}${d.toFixed(1)} pts</div>`;
       })()}</div>
     </div>
-    ${locked ? `
-      <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,255,231,0.05);border:1px solid rgba(0,255,231,0.15);border-radius:10px;padding:10px 16px;margin-bottom:12px;">
-        <span style="font-size:12px;color:#8899bb;">Model's all-time ${league.toUpperCase()} record</span>
-        <span style="font-size:14px;font-weight:800;color:#00ffe7;">${ceRecordPlain(league)}</span>
-      </div>
-
-      <div class="ce-basket-info-section">
-        <div class="ce-basket-info-box">
-          <h4>🔒 PREMIUM ANALYSIS</h4>
-          <p>Significant edge detected. Unlock to see the full pick.</p>
-        </div>
-        <div class="ce-basket-info-box">
-          <h4>FACTORS</h4>
-          <p>Recent form · Rest · Injuries · Matchup · Edge vs market</p>
-        </div>
-      </div>
-
-      <div style="font-size:12px;color:#a0b4cc;line-height:1.6;text-align:left;padding:0 4px;margin:12px 0 2px;">
-        The model only flags a pick as premium when it finds a real mathematical edge against the sportsbooks. Betting without that edge is guessing.
-      </div>
-
-      <button class="unlock-btn" style="margin-top:12px" onclick="openPromoModal()">
-        🔓 UNLOCK PREMIUM PICK — $${MONTHLY_PRICE}/MO
-      </button>
-    ` : `
+   ${locked
+  ? cePremiumPickLockedHTML({
+      sportLabel: league,
+      recordText: ceRecordPlain(league)
+    })
+  : `
     <div class="ce-basket-info-section">
         <div class="ce-basket-info-box">
           <h4>😴 REST</h4>
@@ -1534,7 +1515,7 @@ function renderAnalysisResult({
       ${
         shouldLockPremium
           ? `
-            <button class="unlock-btn premium-unlock" onclick="openPromoModal()">
+            <button class="unlock-btn premium-unlock" onclick="openPromoModal('premium_pick')">
               🔓 UNLOCK PREMIUM $${MONTHLY_PRICE}/MO
             </button>
           `
@@ -2853,64 +2834,13 @@ const bestOdds = displayedPick
 
     <div class="result-content mlb-premium-content">
 
-      ${
-        locked
-          ? `
-           <div style="max-width:560px;margin:0 auto;">
-
-              <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,255,231,0.08);border:1px solid rgba(0,255,231,0.25);border-radius:20px;padding:4px 12px;font-size:10px;color:#00ffe7;font-weight:600;letter-spacing:1px;margin-bottom:14px;">
-                <span style="width:6px;height:6px;border-radius:50%;background:#00ffe7;animation:nfl-pulse 1.5s infinite;display:inline-block;"></span>
-                PREMIUM PICK DETECTED · MLB
-              </div>
-
-              <div style="font-size:15px;color:#8899bb;margin-bottom:16px;">⚾ ${awayTeam} vs ${homeTeam}</div>
-
-              <div style="display:flex;align-items:center;gap:18px;background:#0a1220;border:1px solid #14243d;border-radius:14px;padding:18px 20px;margin-bottom:12px;">
-                <div style="position:relative;width:84px;height:84px;flex-shrink:0;">
-                  <svg width="84" height="84" viewBox="0 0 84 84" style="position:absolute;top:0;left:0;">
-                    <circle cx="42" cy="42" r="36" fill="none" stroke="#14243d" stroke-width="5"/>
-                    <circle cx="42" cy="42" r="36" fill="none" stroke="#00ffe7" stroke-width="5"
-                      stroke-dasharray="${Math.round(((Number(data.public?.confidence) || 85) / 100) * 226)} 226"
-                      stroke-linecap="round" transform="rotate(-90 42 42)"/>
-                  </svg>
-                  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-                    <span style="font-size:19px;font-weight:800;color:#00ffe7;">${data.public?.confidence ? Number(data.public.confidence).toFixed(0) : "85"}%</span>
-                    <small style="font-size:8px;color:#5a7a9a;letter-spacing:1px;">CONFIDENCE</small>
-                  </div>
-                </div>
-                <div style="text-align:left;">
-                  <div style="font-size:11px;color:#5a7a9a;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">Model's pick</div>
-                  <div style="display:flex;align-items:center;gap:8px;margin:2px 0 0;">
-                    <span style="display:block;height:19px;width:96px;border-radius:5px;background:#16283f;"></span>
-                    <span style="display:block;height:19px;width:46px;border-radius:5px;background:#16283f;"></span>
-                    <span style="font-size:14px;">🔒</span>
-                  </div>
-                  <div style="font-size:12px;color:#00ffe7;margin-top:6px;">Real edge detected vs the sportsbook line</div>
-                </div>
-              </div>
-
-              <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,255,231,0.05);border:1px solid rgba(0,255,231,0.15);border-radius:10px;padding:10px 16px;margin-bottom:12px;">
-                <span style="font-size:12px;color:#8899bb;">Model's all-time MLB record</span>
-                <span style="font-size:14px;font-weight:800;color:#00ffe7;">${(ceRecordLine("mlb") || "").replace(/<[^>]*>/g, "").replace(/📊.*record: /, "") || "72% (155-61)"}</span>
-              </div>
-
-             <div style="font-size:12px;color:#a0b4cc;line-height:1.6;text-align:left;padding:0 4px;margin-bottom:14px;">
-                The model only flags a pick as premium when it finds a real mathematical edge against the sportsbooks. Betting without that edge is guessing.
-              </div>
-
-              <div style="background:#0a1220;border:1px solid #14243d;border-radius:12px;padding:4px 16px;margin-bottom:14px;text-align:left;">
-                <div style="font-size:10px;color:#5a7a9a;letter-spacing:1px;padding:12px 0 6px;">PREMIUM ALSO UNLOCKS</div>
-                <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #10203a;font-size:12px;color:#d0dcec;"><span style="font-size:14px;">🎯</span>Player props — MLB, NBA and NFL</div>
-               
-                <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #10203a;font-size:12px;color:#d0dcec;"><span style="font-size:14px;">💎</span>Value plays — every 75%+ edge on the board</div>
-                <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #10203a;font-size:12px;color:#d0dcec;"><span style="font-size:14px;">🔥</span>Daily AI parlay — pays 5-7x when it hits</div>
-                <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #10203a;font-size:12px;color:#d0dcec;"><span style="font-size:14px;">🔔</span>Instant alerts on 95%+ plays</div>
-                <div style="display:flex;align-items:center;gap:10px;padding:9px 0 12px;border-top:1px solid #10203a;font-size:12px;color:#d0dcec;"><span style="font-size:14px;">∞</span>Unlimited analyses, every sport</div>
-              </div>
-            </div>
-          `
-          : premium
-            ? `
+     ${locked
+  ? cePremiumPickLockedHTML({
+      sportLabel: "MLB",
+      recordText: ceRecordPlain("mlb")
+    })
+  : premium
+    ? `
               <div class="mlb-premium-title">
                 <div>
                   <span class="mlb-report-label">AI PREDICTIVE REPORT</span>
@@ -3177,19 +3107,7 @@ ${
 }
     </div>
 
-       ${
-      locked
-        ? `
-          <button
-            class="unlock-btn ce-premium-btn"
-            onclick="openPromoModal()"
-          >
-            🔓 UNLOCK PREMIUM PICK — $${MONTHLY_PRICE}/MO
-          </button>
-        `
-        : ""
-    }
-
+      
   </div>
 
  <div
@@ -4490,21 +4408,12 @@ const statsButtonHTML =
 </div>
  
  
-    ${locked ? `
-    <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,255,231,0.05);border:1px solid rgba(0,255,231,0.15);border-radius:10px;padding:10px 16px;margin-bottom:12px;">
-      <span style="font-size:12px;color:#8899bb;">Model's all-time ${type.toUpperCase()} record</span>
-      <span style="font-size:14px;font-weight:800;color:#00ffe7;">${ceRecordPlain(type)}</span>
-    </div>
-
-    <div style="font-size:12px;color:#a0b4cc;line-height:1.6;text-align:left;padding:0 4px;margin-bottom:14px;">
-      The model only flags a pick as premium when it finds a real mathematical edge against the sportsbooks. Betting without that edge is guessing.
-    </div>
-
-    <button onclick="openPromoModal()" style="display:block;width:100%;padding:15px;border:none;border-radius:12px;background:linear-gradient(135deg,#00ffe7,#7c3cff);color:#020814;font-size:14px;font-weight:800;letter-spacing:0.5px;cursor:pointer;text-transform:uppercase;box-shadow:0 0 20px rgba(0,255,231,0.3);">
-      🔓 UNLOCK PREMIUM PICK — $19.99/MO
-    </button>
-
-  ` : `
+   ${locked
+  ? cePremiumPickLockedHTML({
+      sportLabel: type,
+      recordText: ceRecordPlain(type)
+    })
+  : `
 ${premiumGameIntelligenceHTML}
     <div style="background:#0a1628;border:1px solid rgba(0,255,231,0.15);border-left:3px solid ${circleColor};border-radius:8px;padding:12px 14px;margin-bottom:10px;">
       <div style="font-size:10px;color:${circleColor};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;font-weight:600;">⚡ Model analysis</div>
@@ -4873,6 +4782,1105 @@ loadNFLPlayerPropsData(
 
 window.openNFLPlayerProps =
   openNFLPlayerProps;
+function cePlayerPropsLockedHTML() {
+
+  return `
+
+    <div
+      style="
+        position:relative;
+        overflow:hidden;
+
+        margin-top:10px;
+
+        padding:
+          22px 16px 16px;
+
+        border-radius:18px;
+
+        border:
+          1px solid
+          rgba(124,60,255,.30);
+
+        background:
+          radial-gradient(
+            circle at 15% 0%,
+            rgba(124,60,255,.16),
+            transparent 38%
+          ),
+          radial-gradient(
+            circle at 90% 20%,
+            rgba(0,255,231,.08),
+            transparent 34%
+          ),
+          #070d18;
+
+        box-shadow:
+          0 18px 45px
+          rgba(0,0,0,.30);
+
+        text-align:center;
+      "
+    >
+
+
+      <div
+        style="
+          display:inline-flex;
+          align-items:center;
+          gap:6px;
+
+          padding:
+            5px 11px;
+
+          margin-bottom:14px;
+
+          border-radius:999px;
+
+          background:
+            rgba(124,60,255,.10);
+
+          border:
+            1px solid
+            rgba(124,60,255,.28);
+
+          color:#c8b4ff;
+
+          font-size:9px;
+          font-weight:900;
+
+          letter-spacing:1.3px;
+        "
+      >
+        🎯 PREMIUM PLAYER PROPS
+      </div>
+
+
+      <div
+        style="
+          max-width:440px;
+
+          margin:
+            0 auto 9px;
+
+          color:#ffffff;
+
+          font-size:
+            clamp(
+              19px,
+              5vw,
+              25px
+            );
+
+          font-weight:950;
+
+          line-height:1.15;
+
+          letter-spacing:-.4px;
+        "
+      >
+        THE LINE IS ONLY
+        HALF THE STORY.
+      </div>
+
+
+      <div
+        style="
+          max-width:430px;
+
+          margin:
+            0 auto 18px;
+
+          color:#8fa3bb;
+
+          font-size:12px;
+
+          line-height:1.65;
+        "
+      >
+        A player can beat a prop repeatedly
+        and still have a bad number today.
+
+        <strong
+          style="
+            color:#dce8f5;
+          "
+        >
+          CashEdge compares its probability
+          against the sportsbook before
+          showing you the VALUE.
+        </strong>
+      </div>
+
+
+      <div
+        style="
+          display:grid;
+
+          grid-template-columns:
+            repeat(
+              3,
+              minmax(0,1fr)
+            );
+
+          gap:7px;
+
+          margin-bottom:14px;
+        "
+      >
+
+
+        <div
+          style="
+            padding:
+              11px 6px;
+
+            border-radius:11px;
+
+            background:#0b1423;
+
+            border:
+              1px solid
+              #172943;
+          "
+        >
+
+          <div
+            style="
+              color:#00ffe7;
+              font-size:16px;
+              font-weight:950;
+              margin-bottom:3px;
+            "
+          >
+            %
+          </div>
+
+          <div
+            style="
+              color:#ffffff;
+              font-size:9px;
+              font-weight:900;
+              line-height:1.3;
+            "
+          >
+            CASHEDGE
+            <br>
+            PROBABILITY
+          </div>
+
+        </div>
+
+
+        <div
+          style="
+            padding:
+              11px 6px;
+
+            border-radius:11px;
+
+            background:#0b1423;
+
+            border:
+              1px solid
+              #172943;
+          "
+        >
+
+          <div
+            style="
+              color:#c8b4ff;
+              font-size:16px;
+              font-weight:950;
+              margin-bottom:3px;
+            "
+          >
+            VS
+          </div>
+
+          <div
+            style="
+              color:#ffffff;
+              font-size:9px;
+              font-weight:900;
+              line-height:1.3;
+            "
+          >
+            SPORTSBOOK
+            <br>
+            PROBABILITY
+          </div>
+
+        </div>
+
+
+        <div
+          style="
+            padding:
+              11px 6px;
+
+            border-radius:11px;
+
+            background:
+              rgba(0,255,231,.055);
+
+            border:
+              1px solid
+              rgba(0,255,231,.17);
+          "
+        >
+
+          <div
+            style="
+              color:#00ffe7;
+              font-size:16px;
+              font-weight:950;
+              margin-bottom:3px;
+            "
+          >
+            VALUE
+          </div>
+
+          <div
+            style="
+              color:#ffffff;
+              font-size:9px;
+              font-weight:900;
+              line-height:1.3;
+            "
+          >
+            TODAY'S
+            <br>
+            EDGE
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div
+        style="
+          display:grid;
+
+          grid-template-columns:
+            1fr 1fr;
+
+          gap:7px;
+
+          margin-bottom:17px;
+
+          text-align:left;
+        "
+      >
+
+        <div
+          style="
+            padding:
+              10px 11px;
+
+            border-radius:10px;
+
+            background:
+              rgba(255,255,255,.025);
+
+            border:
+              1px solid
+              #14243b;
+
+            color:#a8b9cc;
+
+            font-size:10px;
+
+            line-height:1.45;
+          "
+        >
+          <strong
+            style="
+              color:#ffffff;
+            "
+          >
+            Recent performance
+          </strong>
+
+          <br>
+
+          Last 3 · 5 · 10 · Season
+        </div>
+
+
+        <div
+          style="
+            padding:
+              10px 11px;
+
+            border-radius:10px;
+
+            background:
+              rgba(255,255,255,.025);
+
+            border:
+              1px solid
+              #14243b;
+
+            color:#a8b9cc;
+
+            font-size:10px;
+
+            line-height:1.45;
+          "
+        >
+          <strong
+            style="
+              color:#ffffff;
+            "
+          >
+            Game context
+          </strong>
+
+          <br>
+
+          Home/Away · Matchup · Trends
+        </div>
+
+      </div>
+
+
+      <div
+        style="
+          padding:
+            12px;
+
+          margin-bottom:13px;
+
+          border-radius:11px;
+
+          background:
+            rgba(124,60,255,.055);
+
+          border:
+            1px solid
+            rgba(124,60,255,.15);
+
+          color:#aebdd0;
+
+          font-size:11px;
+
+          line-height:1.55;
+        "
+      >
+        Don't choose a prop because the player
+        covered it before.
+
+        <strong
+          style="
+            color:#cdbdff;
+          "
+        >
+          Know whether today's number
+          is actually worth taking.
+        </strong>
+      </div>
+
+
+      <button
+        type="button"
+
+        onclick="
+          openPromoModal(
+            'player_props'
+          )
+        "
+
+        style="
+          display:block;
+
+          width:100%;
+
+          min-height:66px;
+
+          padding:
+            16px 12px;
+
+          border:0;
+
+          border-radius:14px;
+
+          background:
+            linear-gradient(
+              135deg,
+              #00ffe7 0%,
+              #27e3d4 35%,
+              #7c3cff 100%
+            );
+
+          color:#020814;
+
+          cursor:pointer;
+
+          box-shadow:
+            0 0 30px
+            rgba(0,255,231,.27);
+
+          font-size:14px;
+
+          font-weight:950;
+
+          letter-spacing:.45px;
+
+          text-transform:uppercase;
+        "
+      >
+
+        UNLOCK ADVANCED PLAYER PROPS
+
+        <div
+          style="
+            font-size:11px;
+
+            font-weight:900;
+
+            margin-top:4px;
+
+            opacity:.80;
+          "
+        >
+          $${MONTHLY_PRICE} / MONTH →
+        </div>
+
+      </button>
+
+
+      <div
+        style="
+          margin-top:9px;
+
+          color:#60758f;
+
+          font-size:9px;
+        "
+      >
+        Full Premium access · Cancel anytime
+      </div>
+
+
+    </div>
+
+  `;
+}
+function cePremiumPickLockedHTML(
+  {
+    sportLabel = "SPORTS",
+    recordText = ""
+  } = {}
+) {
+
+  const cleanSport =
+    String(
+      sportLabel ||
+      "SPORTS"
+    )
+      .toUpperCase()
+      .trim();
+
+
+  const cleanRecord =
+    String(
+      recordText ||
+      ""
+    )
+      .trim();
+
+
+  return `
+
+    <div
+      style="
+        position:relative;
+        overflow:hidden;
+
+        margin-top:12px;
+
+        padding:
+          22px 16px 16px;
+
+        border-radius:18px;
+
+        border:
+          1px solid
+          rgba(0,255,231,.30);
+
+        background:
+          radial-gradient(
+            circle at 15% 0%,
+            rgba(0,255,231,.14),
+            transparent 38%
+          ),
+          radial-gradient(
+            circle at 90% 30%,
+            rgba(124,60,255,.11),
+            transparent 38%
+          ),
+          #060c17;
+
+        box-shadow:
+          0 18px 45px
+          rgba(0,0,0,.32);
+
+        text-align:center;
+      "
+    >
+
+
+      <!-- LIVE BADGE -->
+
+      <div
+        style="
+          display:inline-flex;
+          align-items:center;
+          gap:7px;
+
+          padding:
+            5px 12px;
+
+          margin-bottom:15px;
+
+          border-radius:999px;
+
+          background:
+            rgba(0,255,231,.075);
+
+          border:
+            1px solid
+            rgba(0,255,231,.24);
+
+          color:#00ffe7;
+
+          font-size:9px;
+          font-weight:950;
+
+          letter-spacing:1.3px;
+        "
+      >
+
+        <span
+          style="
+            width:7px;
+            height:7px;
+
+            border-radius:50%;
+
+            background:#00ffe7;
+
+            box-shadow:
+              0 0 10px
+              rgba(0,255,231,.8);
+          "
+        ></span>
+
+        PREMIUM PLAY DETECTED · ${cleanSport}
+
+      </div>
+
+
+      <!-- HEADLINE -->
+
+      <div
+        style="
+          max-width:450px;
+
+          margin:
+            0 auto 8px;
+
+          color:#ffffff;
+
+          font-size:
+            clamp(
+              20px,
+              5vw,
+              27px
+            );
+
+          line-height:1.12;
+
+          font-weight:950;
+
+          letter-spacing:-.5px;
+        "
+      >
+        CASHEDGE FOUND AN EDGE
+        IN THIS GAME.
+      </div>
+
+
+      <div
+        style="
+          max-width:430px;
+
+          margin:
+            0 auto 18px;
+
+          color:#8fa3bb;
+
+          font-size:12px;
+
+          line-height:1.65;
+        "
+      >
+        The analysis is already complete.
+
+        <strong
+          style="
+            color:#dce8f5;
+          "
+        >
+          Premium reveals the exact play,
+          projection and market edge
+          while the current number is still available.
+        </strong>
+      </div>
+
+
+      <!-- LOCKED SIGNAL -->
+
+      <div
+        style="
+          padding:
+            16px 14px;
+
+          margin-bottom:10px;
+
+          border-radius:14px;
+
+          background:
+            linear-gradient(
+              135deg,
+              rgba(0,255,231,.075),
+              rgba(124,60,255,.055)
+            );
+
+          border:
+            1px solid
+            rgba(0,255,231,.18);
+        "
+      >
+
+        <div
+          style="
+            color:#637b97;
+
+            font-size:9px;
+            font-weight:900;
+
+            letter-spacing:1.2px;
+
+            margin-bottom:8px;
+          "
+        >
+          CASHEDGE PREMIUM PLAY
+        </div>
+
+
+        <div
+          style="
+            display:flex;
+            align-items:center;
+            justify-content:center;
+
+            gap:8px;
+
+            margin-bottom:7px;
+          "
+        >
+
+          <span
+            style="
+              display:block;
+
+              width:100px;
+              height:21px;
+
+              border-radius:6px;
+
+              background:#15283e;
+            "
+          ></span>
+
+          <span
+            style="
+              display:block;
+
+              width:52px;
+              height:21px;
+
+              border-radius:6px;
+
+              background:#15283e;
+            "
+          ></span>
+
+          <span
+            style="
+              font-size:18px;
+            "
+          >
+            🔒
+          </span>
+
+        </div>
+
+
+        <div
+          style="
+            color:#00ffe7;
+
+            font-size:11px;
+            font-weight:800;
+          "
+        >
+          Pick · Line · Projection · Edge
+        </div>
+
+      </div>
+
+
+      ${
+        cleanRecord &&
+        cleanRecord !== "—"
+          ? `
+
+            <div
+              style="
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+
+                gap:12px;
+
+                padding:
+                  10px 13px;
+
+                margin-bottom:10px;
+
+                border-radius:11px;
+
+                background:
+                  rgba(255,255,255,.025);
+
+                border:
+                  1px solid
+                  #14253d;
+
+                text-align:left;
+              "
+            >
+
+              <span
+                style="
+                  color:#7188a3;
+
+                  font-size:10px;
+                "
+              >
+                ${cleanSport} model record
+              </span>
+
+
+              <strong
+                style="
+                  color:#00ffe7;
+
+                  font-size:12px;
+                "
+              >
+                ${cleanRecord}
+              </strong>
+
+            </div>
+
+          `
+          : ""
+      }
+
+
+      <!-- WHAT PREMIUM REVEALS -->
+
+      <div
+        style="
+          display:grid;
+
+          grid-template-columns:
+            repeat(
+              3,
+              minmax(0,1fr)
+            );
+
+          gap:7px;
+
+          margin-bottom:14px;
+        "
+      >
+
+
+        <div
+          style="
+            padding:
+              11px 6px;
+
+            border-radius:11px;
+
+            background:#0a1423;
+
+            border:
+              1px solid
+              #162943;
+          "
+        >
+
+          <div
+            style="
+              font-size:17px;
+              margin-bottom:4px;
+            "
+          >
+            🎯
+          </div>
+
+          <div
+            style="
+              color:#ffffff;
+
+              font-size:9px;
+              font-weight:900;
+
+              line-height:1.3;
+            "
+          >
+            EXACT
+            <br>
+            PLAY
+          </div>
+
+        </div>
+
+
+        <div
+          style="
+            padding:
+              11px 6px;
+
+            border-radius:11px;
+
+            background:#0a1423;
+
+            border:
+              1px solid
+              #162943;
+          "
+        >
+
+          <div
+            style="
+              font-size:17px;
+              margin-bottom:4px;
+            "
+          >
+            📊
+          </div>
+
+          <div
+            style="
+              color:#ffffff;
+
+              font-size:9px;
+              font-weight:900;
+
+              line-height:1.3;
+            "
+          >
+            PROJECTION
+            <br>
+            + EDGE
+          </div>
+
+        </div>
+
+
+        <div
+          style="
+            padding:
+              11px 6px;
+
+            border-radius:11px;
+
+            background:
+              rgba(124,60,255,.06);
+
+            border:
+              1px solid
+              rgba(124,60,255,.20);
+          "
+        >
+
+          <div
+            style="
+              font-size:17px;
+              margin-bottom:4px;
+            "
+          >
+            📈
+          </div>
+
+          <div
+            style="
+              color:#ffffff;
+
+              font-size:9px;
+              font-weight:900;
+
+              line-height:1.3;
+            "
+          >
+            MARKET
+            <br>
+            INTELLIGENCE
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <!-- URGENCY -->
+
+      <div
+        style="
+          padding:
+            13px 12px;
+
+          margin-bottom:13px;
+
+          border-radius:11px;
+
+          background:
+            rgba(255,140,26,.055);
+
+          border:
+            1px solid
+            rgba(255,140,26,.17);
+
+          color:#aebed0;
+
+          font-size:11px;
+
+          line-height:1.55;
+        "
+      >
+        Lines move and prices change.
+
+        <strong
+          style="
+            color:#ffad55;
+          "
+        >
+          A Premium edge can still exist
+          while the number that created it disappears.
+        </strong>
+      </div>
+
+
+      <!-- HUGE CTA -->
+
+      <button
+        type="button"
+
+        onclick="
+          openPromoModal(
+            'premium_pick'
+          )
+        "
+
+        style="
+          display:block;
+
+          width:100%;
+
+          min-height:70px;
+
+          padding:
+            17px 13px;
+
+          border:0;
+
+          border-radius:15px;
+
+          background:
+            linear-gradient(
+              135deg,
+              #00ffe7 0%,
+              #25e4d5 38%,
+              #7c3cff 100%
+            );
+
+          color:#020814;
+
+          cursor:pointer;
+
+          box-shadow:
+            0 0 34px
+            rgba(0,255,231,.32);
+
+          font-size:
+            clamp(
+              14px,
+              4vw,
+              17px
+            );
+
+          font-weight:950;
+
+          letter-spacing:.45px;
+
+          text-transform:uppercase;
+        "
+      >
+
+        REVEAL THIS PREMIUM PLAY
+
+        <div
+          style="
+            font-size:12px;
+
+            font-weight:900;
+
+            margin-top:5px;
+
+            opacity:.80;
+          "
+        >
+          FULL CASHEDGE · $${MONTHLY_PRICE} / MONTH →
+        </div>
+
+      </button>
+
+
+      <div
+        style="
+          margin-top:9px;
+
+          color:#60758f;
+
+          font-size:9px;
+        "
+      >
+        All Premium Plays · Market Intelligence · Player Props · Unlimited analyses
+      </div>
+
+
+    </div>
+
+  `;
+}
 async function loadNFLPlayerPropsData(index) {
   const state =
     nflPlayerPropsState[index] || {};
@@ -4913,27 +5921,15 @@ async function loadNFLPlayerPropsData(index) {
   }
 
 
-  if (
-    !IS_ADMIN &&
-    !isPremiumUser
-  ) {
-    container.innerHTML = `
-      <div class="player-edge-locked">
-        <p>
-          🔒 Player Props are available with Premium.
-        </p>
+ if (
+  !IS_ADMIN &&
+  !isPremiumUser
+) {
+  container.innerHTML =
+    cePlayerPropsLockedHTML();
 
-        <button
-          class="unlock-btn"
-          onclick="openPromoModal()"
-        >
-          🔓 UNLOCK PREMIUM
-        </button>
-      </div>
-    `;
-
-    return null;
-  }
+  return null;
+}
 
 
   if (!state.eventId) {
@@ -9658,19 +10654,15 @@ async function toggleNFLPlayerProps(
     return;
   }
  
-  if (!IS_ADMIN && !isPremiumUser) {
-    box.innerHTML = `
-      <div style="background:#0f1628;border:1px solid #1a2240;border-radius:8px;padding:14px;margin-top:10px;text-align:center;">
-        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;">Premium Content</div>
-        <div style="font-size:11px;color:#556688;margin-bottom:12px;line-height:1.5;">Unlock the best NFL props selected by the AI model</div>
-        <button onclick="openPromoModal()" style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:12px;font-weight:700;cursor:pointer;">
-          GET PREMIUM · $${MONTHLY_PRICE}/MO
-        </button>
-      </div>
-    `;
-    box.dataset.loaded = "true";
-    return;
-  }
+ if (!IS_ADMIN && !isPremiumUser) {
+  box.innerHTML =
+    cePlayerPropsLockedHTML();
+
+  box.dataset.loaded =
+    "true";
+
+  return;
+}
  
   box.innerHTML = `<div class="loading-analysis" style="margin-top:8px;">Loading NFL player props...</div>`;
 if (!eventId) {
@@ -9801,49 +10793,871 @@ function ceRecordLine(sportKey) {
   const pct = ((w / (w + l)) * 100).toFixed(0);
   return `${pct}% (${w}-${l})`;
 }
-function ceLimitScreenHTML(sportKey) {
-  const records = window.ceSportRecords || {};
-  const toRec = r => {
-    if (!r) return null;
-    const w = Number(r.total_wins || 0), l = Number(r.total_losses || 0);
-    return w + l >= 20 ? { name: r.display_name, pct: (w / (w + l)) * 100, w, l } : null;
-  };
-  const best = toRec(records[sportKey]) || Object.values(records).map(toRec).filter(Boolean).sort((a, b) => b.pct - a.pct)[0] || null;
+// ============================================================
+// FREE LIMIT — LIVE PREMIUM COUNT
+// ============================================================
+
+let ceLimitPremiumCountCache = null;
+let ceLimitPremiumCountLoading = false;
+
+
+async function ceLoadLimitPremiumCount() {
+
+  if (ceLimitPremiumCountCache !== null) {
+    ceUpdateLimitPremiumCount(
+      ceLimitPremiumCountCache
+    );
+
+    return;
+  }
+
+
+  if (ceLimitPremiumCountLoading) {
+    return;
+  }
+
+
+  ceLimitPremiumCountLoading = true;
+
+
+  try {
+
+    const {
+      data: sessionData
+    } =
+      await supabaseClient
+        .auth
+        .getSession();
+
+
+    const session =
+      sessionData?.session;
+
+
+    if (!session?.access_token) {
+      return;
+    }
+
+
+    const response =
+      await fetch(
+        "https://www.cashedgeapp.com/api/premium-radar",
+        {
+          headers: {
+            Authorization:
+              `Bearer ${session.access_token}`
+          },
+
+          cache:
+            "no-store"
+        }
+      );
+
+
+    const data =
+      await response.json();
+
+
+    if (
+      !response.ok ||
+      !data
+    ) {
+      return;
+    }
+
+
+    const count =
+      Number(
+        data.premiumCountToday
+      );
+
+
+    if (
+      !Number.isFinite(count)
+    ) {
+      return;
+    }
+
+
+    ceLimitPremiumCountCache =
+      count;
+
+
+    ceUpdateLimitPremiumCount(
+      count
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "FREE LIMIT PREMIUM COUNT ERROR:",
+      error
+    );
+
+  } finally {
+
+    ceLimitPremiumCountLoading =
+      false;
+  }
+}
+
+
+function ceUpdateLimitPremiumCount(
+  count
+) {
+
+  const numberEls =
+    document.querySelectorAll(
+      ".ce-limit-premium-count"
+    );
+
+
+  const labelEls =
+    document.querySelectorAll(
+      ".ce-limit-premium-label"
+    );
+
+
+  const introEls =
+    document.querySelectorAll(
+      ".ce-limit-premium-intro"
+    );
+
+
+  numberEls.forEach(
+    element => {
+
+      element.textContent =
+        String(count);
+    }
+  );
+
+
+  labelEls.forEach(
+    element => {
+
+      if (count === 1) {
+
+        element.textContent =
+          "PREMIUM OPPORTUNITY LIVE TODAY";
+
+      } else if (count > 1) {
+
+        element.textContent =
+          "PREMIUM OPPORTUNITIES LIVE TODAY";
+
+      } else {
+
+        element.textContent =
+          "CASHEDGE IS STILL WATCHING THE MARKET";
+      }
+    }
+  );
+
+
+  introEls.forEach(
+    element => {
+
+      if (count === 1) {
+
+        element.innerHTML =
+          `There is <strong>1 Premium opportunity active today</strong> while CashEdge continues tracking the market.`;
+
+      } else if (count > 1) {
+
+        element.innerHTML =
+          `There are <strong>${count} Premium opportunities active today</strong> while CashEdge continues tracking the market.`;
+
+      } else {
+
+        element.innerHTML =
+          `No Premium Play is being forced right now. <strong>CashEdge is still monitoring the market as conditions change.</strong>`;
+      }
+    }
+  );
+}
+
+
+// ============================================================
+// FREE LIMIT — CONVERSION SCREEN
+// ============================================================
+
+function ceLimitScreenHTML(
+  sportKey
+) {
+
+  setTimeout(
+    () => {
+      ceLoadLimitPremiumCount();
+    },
+    0
+  );
+
 
   return `
-    <div class="normal-result" style="border:1px solid rgba(0,255,231,0.25);border-radius:14px;overflow:hidden;">
-      <div style="padding:22px 18px;text-align:center;max-width:520px;margin:0 auto;">
 
-        <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,140,26,0.08);border:1px solid rgba(255,140,26,0.3);border-radius:20px;padding:4px 12px;font-size:10px;color:#ff8c1a;font-weight:700;letter-spacing:1px;margin-bottom:14px;">
-          ⏳ DAILY FREE LIMIT REACHED
+    <div
+      class="normal-result"
+      style="
+        position:relative;
+        overflow:hidden;
+
+        border:
+          1px solid
+          rgba(0,255,231,.28);
+
+        border-radius:18px;
+
+        background:
+          radial-gradient(
+            circle at 50% 0%,
+            rgba(0,255,231,.12),
+            transparent 38%
+          ),
+          radial-gradient(
+            circle at 90% 30%,
+            rgba(124,60,255,.10),
+            transparent 35%
+          ),
+          #050a14;
+
+        box-shadow:
+          0 18px 50px
+          rgba(0,0,0,.35);
+      "
+    >
+
+      <div
+        style="
+          padding:
+            28px 18px 22px;
+
+          text-align:center;
+
+          max-width:560px;
+
+          margin:
+            0 auto;
+        "
+      >
+
+
+        <!-- FREE LIMIT -->
+
+        <div
+          style="
+            display:inline-flex;
+            align-items:center;
+            gap:7px;
+
+            padding:
+              6px 13px;
+
+            border-radius:999px;
+
+            background:
+              rgba(255,140,26,.08);
+
+            border:
+              1px solid
+              rgba(255,140,26,.30);
+
+            color:#ff9d36;
+
+            font-size:10px;
+            font-weight:900;
+
+            letter-spacing:1.2px;
+
+            margin-bottom:18px;
+          "
+        >
+          3 / 3 FREE ANALYSES USED TODAY
         </div>
 
-        <div style="font-size:20px;font-weight:900;color:#fff;margin-bottom:6px;">You clearly like the picks.</div>
-        <div style="font-size:12px;color:#8899bb;line-height:1.6;margin-bottom:16px;">You've used today's 3 free analyses. More free analyses unlock <strong style="color:#00ffe7;">tomorrow</strong> — or you can stop waiting.</div>
-        ${best ? `
-        <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,255,231,0.05);border:1px solid rgba(0,255,231,0.15);border-radius:10px;padding:10px 16px;margin-bottom:10px;">
-          <span style="font-size:12px;color:#8899bb;">Model's ${best.name} record</span>
-          <span style="font-size:14px;font-weight:800;color:#00ffe7;">${best.pct.toFixed(0)}% (${best.w}-${best.l})</span>
-        </div>` : ""}
 
-        <div style="background:#0a1220;border:1px solid #14243d;border-radius:10px;padding:4px 16px;margin-bottom:14px;text-align:left;">
-          <div style="font-size:10px;color:#5a7a9a;letter-spacing:1px;font-weight:700;padding:12px 0 6px;">PREMIUM UNLOCKS</div>
-          <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #14243d;"><span style="font-size:14px;">♾️</span><span style="font-size:12px;color:#d0dcec;">Unlimited analyses — no more waiting</span></div>
-          <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #14243d;"><span style="font-size:14px;">🔓</span><span style="font-size:12px;color:#d0dcec;">Every premium pick, all sports</span></div>
-          <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #14243d;"><span style="font-size:14px;">🎯</span><span style="font-size:12px;color:#d0dcec;">Player props — MLB, NBA and NFL</span></div>
-          <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #14243d;"><span style="font-size:14px;">⚡</span><span style="font-size:12px;color:#d0dcec;">Full game highlight — why the model picked it</span></div>
-          <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #14243d;"><span style="font-size:14px;">💎</span><span style="font-size:12px;color:#d0dcec;">Value plays — every 75%+ edge on the board</span></div>
-          <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #14243d;"><span style="font-size:14px;">🔥</span><span style="font-size:12px;color:#d0dcec;">Daily AI Parlay — pays 5-7x when it hits</span></div>
-          <div style="display:flex;align-items:center;gap:10px;padding:9px 0 12px;border-top:1px solid #14243d;"><span style="font-size:14px;">🔔</span><span style="font-size:12px;color:#d0dcec;">Instant alerts on 95%+ plays</span></div>
+        <!-- HEADLINE -->
+
+        <div
+          style="
+            color:#ffffff;
+
+            font-size:
+              clamp(
+                22px,
+                5vw,
+                30px
+              );
+
+            line-height:1.12;
+
+            font-weight:950;
+
+            letter-spacing:-.5px;
+
+            margin-bottom:9px;
+          "
+        >
+          YOUR FREE ACCESS STOPS HERE.
         </div>
 
-        <button onclick="openPromoModal()" style="display:block;width:100%;padding:15px;border:none;border-radius:12px;background:linear-gradient(135deg,#00ffe7,#7c3cff);color:#020814;font-size:13px;font-weight:900;letter-spacing:0.5px;cursor:pointer;text-transform:uppercase;box-shadow:0 0 20px rgba(0,255,231,0.3);">
-          🔓 GO UNLIMITED — $19.99/MO
+
+        <div
+          style="
+            color:#00ffe7;
+
+            font-size:
+              clamp(
+                19px,
+                4.5vw,
+                27px
+              );
+
+            line-height:1.15;
+
+            font-weight:950;
+
+            margin-bottom:12px;
+          "
+        >
+          THE MARKET DOESN'T.
+        </div>
+
+
+        <div
+          style="
+            color:#91a5bd;
+
+            font-size:13px;
+
+            line-height:1.7;
+
+            max-width:440px;
+
+            margin:
+              0 auto 24px;
+          "
+        >
+          Your 3 free analyses are finished for today,
+          but CashEdge is still finding and tracking
+          opportunities across the board.
+        </div>
+
+
+        <!-- REAL PREMIUM COUNT -->
+
+        <div
+          style="
+            position:relative;
+
+            padding:
+              22px 14px 20px;
+
+            margin-bottom:20px;
+
+            border-radius:16px;
+
+            border:
+              1px solid
+              rgba(0,255,231,.30);
+
+            background:
+              linear-gradient(
+                145deg,
+                rgba(0,255,231,.08),
+                rgba(124,60,255,.05)
+              );
+
+            box-shadow:
+              inset 0 0 28px
+              rgba(0,255,231,.025);
+          "
+        >
+
+          <div
+            class="ce-limit-premium-count"
+            style="
+              color:#00ffe7;
+
+              font-size:
+                clamp(
+                  54px,
+                  14vw,
+                  78px
+                );
+
+              line-height:.95;
+
+              font-weight:950;
+
+              letter-spacing:-3px;
+
+              text-shadow:
+                0 0 28px
+                rgba(0,255,231,.25);
+
+              margin-bottom:8px;
+            "
+          >
+            —
+          </div>
+
+
+          <div
+            class="ce-limit-premium-label"
+            style="
+              color:#ffffff;
+
+              font-size:12px;
+
+              font-weight:950;
+
+              letter-spacing:1.5px;
+
+              line-height:1.4;
+
+              margin-bottom:9px;
+            "
+          >
+            CHECKING TODAY'S PREMIUM OPPORTUNITIES
+          </div>
+
+
+          <div
+            class="ce-limit-premium-intro"
+            style="
+              color:#8fa3bb;
+
+              font-size:12px;
+
+              line-height:1.65;
+
+              max-width:410px;
+
+              margin:
+                0 auto;
+            "
+          >
+            Checking what CashEdge has active today...
+          </div>
+
+        </div>
+
+
+        <!-- WHAT CONTINUES -->
+
+        <div
+          style="
+            color:#657d99;
+
+            font-size:10px;
+
+            font-weight:900;
+
+            letter-spacing:1.4px;
+
+            text-align:left;
+
+            margin:
+              0 0 9px 3px;
+          "
+        >
+          CASHEDGE KEEPS WORKING AFTER YOUR FREE ANALYSES
+        </div>
+
+
+        <div
+          style="
+            display:grid;
+
+            grid-template-columns:
+              1fr;
+
+            gap:8px;
+
+            text-align:left;
+
+            margin-bottom:21px;
+          "
+        >
+
+
+          <!-- PREMIUM -->
+
+          <div
+            style="
+              display:flex;
+              gap:12px;
+
+              padding:
+                13px 14px;
+
+              border-radius:12px;
+
+              background:#091321;
+
+              border:
+                1px solid
+                #14263e;
+            "
+          >
+
+            <div
+              style="
+                font-size:19px;
+                line-height:1;
+              "
+            >
+              ⚡
+            </div>
+
+
+            <div>
+
+              <div
+                style="
+                  color:#ffffff;
+                  font-size:12px;
+                  font-weight:900;
+                  margin-bottom:3px;
+                "
+              >
+                PREMIUM PLAYS
+              </div>
+
+              <div
+                style="
+                  color:#8096ae;
+                  font-size:11px;
+                  line-height:1.5;
+                "
+              >
+                See CashEdge's strongest
+                opportunities currently available.
+              </div>
+
+            </div>
+
+          </div>
+
+
+          <!-- MARKET INTELLIGENCE -->
+
+          <div
+            style="
+              display:flex;
+              gap:12px;
+
+              padding:
+                13px 14px;
+
+              border-radius:12px;
+
+              background:#091321;
+
+              border:
+                1px solid
+                #14263e;
+            "
+          >
+
+            <div
+              style="
+                font-size:19px;
+                line-height:1;
+              "
+            >
+              📈
+            </div>
+
+
+            <div>
+
+              <div
+                style="
+                  color:#ffffff;
+                  font-size:12px;
+                  font-weight:900;
+                  margin-bottom:3px;
+                "
+              >
+                LIVE MARKET INTELLIGENCE
+              </div>
+
+              <div
+                style="
+                  color:#8096ae;
+                  font-size:11px;
+                  line-height:1.5;
+                "
+              >
+                Follow line movement,
+                Betting Splits, Sharp Signals,
+                market direction and better numbers.
+              </div>
+
+            </div>
+
+          </div>
+
+
+          <!-- PLAYER PROPS -->
+
+          <div
+            style="
+              display:flex;
+              gap:12px;
+
+              padding:
+                13px 14px;
+
+              border-radius:12px;
+
+              background:#091321;
+
+              border:
+                1px solid
+                #14263e;
+            "
+          >
+
+            <div
+              style="
+                font-size:19px;
+                line-height:1;
+              "
+            >
+              🎯
+            </div>
+
+
+            <div>
+
+              <div
+                style="
+                  color:#ffffff;
+                  font-size:12px;
+                  font-weight:900;
+                  margin-bottom:3px;
+                "
+              >
+                ADVANCED PLAYER PROPS
+              </div>
+
+              <div
+                style="
+                  color:#8096ae;
+                  font-size:11px;
+                  line-height:1.5;
+                "
+              >
+                Compare CashEdge probability,
+                sportsbook probability, VALUE,
+                trends and matchup context.
+              </div>
+
+            </div>
+
+          </div>
+
+
+          <!-- UNLIMITED -->
+
+          <div
+            style="
+              display:flex;
+              gap:12px;
+
+              padding:
+                13px 14px;
+
+              border-radius:12px;
+
+              background:#091321;
+
+              border:
+                1px solid
+                #14263e;
+            "
+          >
+
+            <div
+              style="
+                font-size:19px;
+                line-height:1;
+              "
+            >
+              ∞
+            </div>
+
+
+            <div>
+
+              <div
+                style="
+                  color:#ffffff;
+                  font-size:12px;
+                  font-weight:900;
+                  margin-bottom:3px;
+                "
+              >
+                UNLIMITED ANALYSES
+              </div>
+
+              <div
+                style="
+                  color:#8096ae;
+                  font-size:11px;
+                  line-height:1.5;
+                "
+              >
+                Keep analyzing today's board
+                without waiting for tomorrow.
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- URGENCY -->
+
+        <div
+          style="
+            padding:
+              15px 14px;
+
+            margin-bottom:14px;
+
+            border-radius:12px;
+
+            background:
+              rgba(0,255,231,.055);
+
+            border:
+              1px solid
+              rgba(0,255,231,.16);
+
+            color:#dce8f5;
+
+            font-size:12px;
+
+            line-height:1.6;
+          "
+        >
+
+          Lines move.
+          Prices change.
+          Opportunities can disappear.
+
+          <br>
+
+          <strong
+            style="
+              color:#00ffe7;
+            "
+          >
+            Tomorrow's free analyses
+            won't recover today's number.
+          </strong>
+
+        </div>
+
+
+        <!-- HUGE CTA -->
+
+        <button
+          type="button"
+          onclick="openPromoModal('free_limit')"
+          style="
+            display:block;
+
+            width:100%;
+
+            min-height:68px;
+
+            padding:
+              18px 16px;
+
+            border:0;
+
+            border-radius:15px;
+
+            background:
+              linear-gradient(
+                135deg,
+                #00ffe7 0%,
+                #27e8d7 35%,
+                #7c3cff 100%
+              );
+
+            color:#020814;
+
+            font-size:
+              clamp(
+                14px,
+                4vw,
+                17px
+              );
+
+            font-weight:950;
+
+            letter-spacing:.4px;
+
+            cursor:pointer;
+
+            box-shadow:
+              0 0 34px
+              rgba(0,255,231,.32);
+
+            text-transform:uppercase;
+          "
+        >
+          UNLOCK TODAY'S FULL CASHEDGE
+          <br>
+
+          <span
+            style="
+              font-size:12px;
+              font-weight:800;
+              opacity:.80;
+            "
+          >
+            $19.99 / MONTH →
+          </span>
         </button>
-        <div style="font-size:10px;color:#5a7a9a;margin-top:8px;">Less than one losing bet. Cancel anytime.</div>
+
+
+        <div
+          style="
+            display:flex;
+
+            justify-content:center;
+
+            gap:8px;
+
+            flex-wrap:wrap;
+
+            color:#617892;
+
+            font-size:10px;
+
+            margin-top:11px;
+          "
+        >
+          <span>✓ Full Premium access</span>
+          <span>·</span>
+          <span>✓ Cancel anytime</span>
+        </div>
+
 
       </div>
+
     </div>
+
   `;
 }
 function ceWindIcon(direction, speed) {
@@ -10733,7 +12547,7 @@ if (status) status.innerHTML = "";
               <span style="font-size:12px;color:#c4b0ee;line-height:1.5;">Premium members are already on this parlay. It disappears when the first game starts.</span>
             </div>
 
-            <button onclick="openPromoModal()" style="display:block;width:100%;padding:16px;border:none;border-radius:12px;background:linear-gradient(135deg,#00ffe7,#7c3cff);color:#020814;font-size:14px;font-weight:900;letter-spacing:0.5px;cursor:pointer;text-transform:uppercase;box-shadow:0 0 25px rgba(0,255,231,0.35),0 0 50px rgba(124,60,255,0.2);">
+            <button onclick="openPromoModal('premium_pick')" style="display:block;width:100%;padding:16px;border:none;border-radius:12px;background:linear-gradient(135deg,#00ffe7,#7c3cff);color:#020814;font-size:14px;font-weight:900;letter-spacing:0.5px;cursor:pointer;text-transform:uppercase;box-shadow:0 0 25px rgba(0,255,231,0.35),0 0 50px rgba(124,60,255,0.2);">
               🔓 REVEAL TODAY'S PARLAY — $19.99/MO
             </button>
             <div style="font-size:10px;color:#5a7a9a;margin-top:8px;">One hit covers 2+ years of premium. Cancel anytime.</div>
@@ -13223,7 +15037,7 @@ const response =
 
 
             <button
-              onclick="openPromoModal()"
+              onclick="openPromoModal('radar')"
               style="
                 width:100%;
                 max-width:420px;
@@ -19435,7 +21249,7 @@ function toggleGameHighlight(index, premiumJson, awayTeam, homeTeam) {
       <div style="background:#0f1628;border:1px solid #1a2240;border-radius:8px;padding:14px;margin-top:8px;text-align:center;">
         <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;">🔒 Premium Content</div>
         <div style="font-size:11px;color:#556688;margin-bottom:12px;">The full game story — why the model made this call, factor by factor.</div>
-        <button onclick="openPromoModal()" style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:12px;font-weight:700;cursor:pointer;">
+        <button onclick="openPromoModal('premium_pick')" style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:12px;font-weight:700;cursor:pointer;">
           GET PREMIUM · $${MONTHLY_PRICE}/mo
         </button>
       </div>
@@ -19779,22 +21593,12 @@ async function loadMLBPlayerPropsRecommendations(index) {
     return;
   }
 
-  if (!IS_ADMIN && !isPremiumUser) {
-    container.innerHTML = `
-      <div class="player-edge-locked">
-        <p>🔒 Player Props are available with Premium.</p>
+if (!IS_ADMIN && !isPremiumUser) {
+  container.innerHTML =
+    cePlayerPropsLockedHTML();
 
-        <button
-          class="unlock-btn"
-          onclick="openPromoModal()"
-        >
-          🔓 UNLOCK PREMIUM
-        </button>
-      </div>
-    `;
-    return;
-  }
-
+  return;
+}
   try {
     const response = await fetch(
       "/api/analyze-mlb?mode=player-props",
@@ -26623,19 +28427,15 @@ async function togglePlayerEdgeProps(index, eventId) {
     return;
   }
 
-  if (!IS_ADMIN && !isPremiumUser) {
-    box.innerHTML = `
-      <div class="player-edge-locked">
-        <p>🔒 Player Props are for Premium members only.</p>
-        <button class="unlock-btn" onclick="openPromoModal()">
-          🔓 Desbloquear Premium $${MONTHLY_PRICE}/mes
-        </button>
-      </div>
-    `;
-    box.dataset.loaded = "true";
-    return;
-  }
+ if (!IS_ADMIN && !isPremiumUser) {
+  box.innerHTML =
+    cePlayerPropsLockedHTML();
 
+  box.dataset.loaded =
+    "true";
+
+  return;
+}
   if (!eventId) {
     box.innerHTML = `<p class="player-edge-empty">Not available for this game.</p>`;
     box.dataset.loaded = "true";
@@ -26738,19 +28538,14 @@ async function toggleNBAPlayerProps(index, awayTeam, homeTeam, btn) {
   if (!sessionData.session) { alert("Debes iniciar sesión."); return; }
 
   if (!IS_ADMIN && !isPremiumUser) {
-    box.innerHTML = `
-      <div style="background:#0f1628;border:1px solid #1a2240;border-radius:8px;padding:14px;text-align:center;">
-       <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;">Premium Content</div>
-        <div style="font-size:11px;color:#556688;margin-bottom:12px;">Unlock the best NBA props selected by the AI model</div>
-        <button onclick="openPromoModal()" style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:12px;font-weight:700;cursor:pointer;">
-          GET PREMIUM · $${MONTHLY_PRICE}/MO
-        </button>
-      </div>
-    `;
-    box.dataset.loaded = "true";
-    return;
-  }
+  box.innerHTML =
+    cePlayerPropsLockedHTML();
 
+  box.dataset.loaded =
+    "true";
+
+  return;
+}
   box.innerHTML = `<div class="loading-analysis" style="margin-top:8px;">Loading player props...</div>`;
 
   try {
@@ -26948,46 +28743,786 @@ Thank you.`
 
   }
 }
-function openPromoModal() {
-  let modal = document.getElementById("promoModal");
+function openPromoModal(context = "general") {
+
+  const validContexts = [
+    "general",
+    "free_limit",
+    "premium_pick",
+    "radar",
+    "player_props"
+  ];
+
+
+  const safeContext =
+    validContexts.includes(context)
+      ? context
+      : "general";
+
+
+  const premiumToday =
+    Number.isFinite(
+      Number(ceLimitPremiumCountCache)
+    )
+      ? Number(ceLimitPremiumCountCache)
+      : null;
+
+
+  const contextCopy = {
+
+    free_limit: {
+
+      kicker:
+        "YOUR FREE ACCESS ENDED. CASHEDGE DIDN'T.",
+
+      title:
+        "TODAY'S MARKET IS STILL MOVING.",
+
+      body:
+        premiumToday !== null &&
+        premiumToday > 0
+          ? `You used all 3 free analyses, but <strong>${premiumToday} Premium ${premiumToday === 1 ? "opportunity is" : "opportunities are"} still active today.</strong> Premium keeps the rest of CashEdge open while today's numbers are still available.`
+          : `You used all 3 free analyses, but <strong>CashEdge is still monitoring today's board.</strong> Premium keeps the full platform open while the market continues to change.`,
+
+      cta:
+        "KEEP CASHEDGE OPEN TODAY"
+    },
+
+
+    premium_pick: {
+
+      kicker:
+        "CASHEDGE FOUND SOMETHING HERE",
+
+      title:
+        "THE PLAY IS ALREADY CALCULATED.",
+
+      body:
+        `CashEdge detected enough edge to classify this game as Premium. <strong>Unlock the pick, projection and the market information surrounding it before the number changes.</strong>`,
+
+      cta:
+        "REVEAL THE PREMIUM PLAY"
+    },
+
+
+    radar: {
+
+      kicker:
+        "THE PICK IS ONLY THE BEGINNING",
+
+      title:
+        "SEE WHAT THE MARKET DOES NEXT.",
+
+      body:
+        `Premium Radar follows the market around CashEdge's Premium Plays — <strong>line movement, better available numbers, Betting Splits, Sharp Signals, consensus and market direction.</strong>`,
+
+      cta:
+        "OPEN THE FULL PREMIUM RADAR"
+    },
+
+
+    player_props: {
+
+      kicker:
+        "THE SPORTSBOOK LINE IS ONLY HALF THE STORY",
+
+      title:
+        "KNOW IF TODAY'S NUMBER HAS VALUE.",
+
+      body:
+        `Premium Player Props compares <strong>CashEdge probability against sportsbook probability</strong> and adds recent performance, VALUE, trends and matchup context.`,
+
+      cta:
+        "UNLOCK ADVANCED PLAYER PROPS"
+    },
+
+
+    general: {
+
+      kicker:
+        "MORE THAN A PICK",
+
+      title:
+        "SEE THE EDGE. THEN WATCH THE MARKET.",
+
+      body:
+        `Premium gives you the complete CashEdge experience — <strong>Premium Plays, Market Intelligence, Advanced Player Props and unlimited analyses.</strong>`,
+
+      cta:
+        "UNLOCK FULL CASHEDGE"
+    }
+
+  };
+
+
+  const copy =
+    contextCopy[safeContext];
+
+
+  let modal =
+    document.getElementById(
+      "promoModal"
+    );
+
 
   if (!modal) {
-    modal = document.createElement("div");
-    modal.id = "promoModal";
-modal.innerHTML = `
-  <div class="promo-modal-backdrop" onclick="closePromoModal()">
-    <div class="promo-modal-box" onclick="event.stopPropagation()">
 
-      <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-        <button onclick="closePromoModal()" style="background:transparent;border:none;color:#5a7a9a;font-size:20px;cursor:pointer;padding:0;">✕</button>
-      </div>
+    modal =
+      document.createElement(
+        "div"
+      );
 
-      <div style="font-size:22px;margin-bottom:6px;">⚡</div>
-      <h2 style="font-size:18px;font-weight:700;color:#fff;margin-bottom:6px;">Get Premium</h2>
-      <p style="font-size:13px;color:#a0b4cc;margin-bottom:16px;">¿Have a promo code?</p>
+    modal.id =
+      "promoModal";
 
-      <input
-        id="promoCodeInput"
-        type="text"
-        placeholder="Promo code (optional)"
-        style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid #0e2a4a;background:#030c18;color:#e8f4ff;font-size:13px;box-sizing:border-box;outline:none;margin-bottom:12px;"
-      />
-
-      <button onclick="goPremiumMonthly()" style="width:100%;padding:13px;border:none;border-radius:10px;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.5px;margin-bottom:8px;">
-        CONTINUE →
-      </button>
-
-      <button onclick="skipPromoCode()" style="width:100%;padding:12px;border:1px solid #0e2a4a;border-radius:10px;background:transparent;color:#a0b4cc;font-size:12px;font-weight:500;cursor:pointer;">
-        I don't have a code
-      </button>
-
-    </div>
-  </div>
-`;
-    document.body.appendChild(modal);
+    document.body
+      .appendChild(modal);
   }
 
-  modal.style.display = "block";
+
+  modal.innerHTML = `
+
+    <div
+      class="promo-modal-backdrop"
+      onclick="closePromoModal()"
+
+      style="
+        position:fixed;
+        inset:0;
+        z-index:999999;
+
+        display:flex;
+        align-items:center;
+        justify-content:center;
+
+        padding:18px;
+
+        background:
+          rgba(1,5,12,.88);
+
+        backdrop-filter:
+          blur(10px);
+        -webkit-backdrop-filter:
+          blur(10px);
+      "
+    >
+
+      <div
+        class="promo-modal-box"
+        onclick="event.stopPropagation()"
+
+        style="
+          position:relative;
+
+          width:100%;
+          max-width:520px;
+          max-height:90vh;
+
+          overflow-y:auto;
+
+          box-sizing:border-box;
+
+          border-radius:22px;
+
+          padding:
+            20px 18px 18px;
+
+          border:
+            1px solid
+            rgba(0,255,231,.30);
+
+          background:
+            radial-gradient(
+              circle at 50% 0%,
+              rgba(0,255,231,.15),
+              transparent 32%
+            ),
+            radial-gradient(
+              circle at 90% 35%,
+              rgba(124,60,255,.12),
+              transparent 34%
+            ),
+            #050a14;
+
+          box-shadow:
+            0 30px 90px
+            rgba(0,0,0,.70),
+            0 0 45px
+            rgba(0,255,231,.10);
+        "
+      >
+
+
+        <!-- CLOSE -->
+
+        <div
+          style="
+            display:flex;
+            justify-content:flex-end;
+            margin-bottom:3px;
+          "
+        >
+
+          <button
+            type="button"
+            onclick="closePromoModal()"
+
+            style="
+              width:34px;
+              height:34px;
+
+              display:flex;
+              align-items:center;
+              justify-content:center;
+
+              border-radius:50%;
+
+              border:
+                1px solid
+                #18304d;
+
+              background:
+                #091321;
+
+              color:#7890aa;
+
+              font-size:17px;
+
+              cursor:pointer;
+            "
+          >
+            ✕
+          </button>
+
+        </div>
+
+
+        <!-- CONTEXT -->
+
+        <div
+          style="
+            text-align:center;
+
+            color:#00ffe7;
+
+            font-size:10px;
+            font-weight:950;
+
+            letter-spacing:1.5px;
+
+            margin-bottom:10px;
+          "
+        >
+          ${copy.kicker}
+        </div>
+
+
+        <!-- TITLE -->
+
+        <h2
+          style="
+            max-width:450px;
+
+            margin:
+              0 auto 12px;
+
+            color:#ffffff;
+
+            text-align:center;
+
+            font-size:
+              clamp(
+                24px,
+                6vw,
+                34px
+              );
+
+            line-height:1.08;
+
+            font-weight:950;
+
+            letter-spacing:-.8px;
+          "
+        >
+          ${copy.title}
+        </h2>
+
+
+        <!-- BODY -->
+
+        <div
+          style="
+            max-width:435px;
+
+            margin:
+              0 auto 20px;
+
+            color:#91a5bd;
+
+            text-align:center;
+
+            font-size:13px;
+
+            line-height:1.7;
+          "
+        >
+          ${copy.body}
+        </div>
+
+
+        <!-- VALUE GRID -->
+
+        <div
+          style="
+            display:grid;
+
+            grid-template-columns:
+              repeat(
+                2,
+                minmax(0,1fr)
+              );
+
+            gap:8px;
+
+            margin-bottom:18px;
+          "
+        >
+
+
+          <div
+            style="
+              min-height:92px;
+
+              padding:13px 12px;
+
+              box-sizing:border-box;
+
+              border-radius:13px;
+
+              text-align:left;
+
+              background:
+                rgba(0,255,231,.055);
+
+              border:
+                1px solid
+                rgba(0,255,231,.15);
+            "
+          >
+
+            <div
+              style="
+                font-size:18px;
+                margin-bottom:7px;
+              "
+            >
+              ⚡
+            </div>
+
+            <div
+              style="
+                color:#ffffff;
+                font-size:11px;
+                font-weight:900;
+                margin-bottom:4px;
+              "
+            >
+              PREMIUM PLAYS
+            </div>
+
+            <div
+              style="
+                color:#7188a3;
+                font-size:10px;
+                line-height:1.45;
+              "
+            >
+              CashEdge's strongest
+              opportunities.
+            </div>
+
+          </div>
+
+
+          <div
+            style="
+              min-height:92px;
+
+              padding:13px 12px;
+
+              box-sizing:border-box;
+
+              border-radius:13px;
+
+              text-align:left;
+
+              background:
+                rgba(0,255,231,.055);
+
+              border:
+                1px solid
+                rgba(0,255,231,.15);
+            "
+          >
+
+            <div
+              style="
+                font-size:18px;
+                margin-bottom:7px;
+              "
+            >
+              📈
+            </div>
+
+            <div
+              style="
+                color:#ffffff;
+                font-size:11px;
+                font-weight:900;
+                margin-bottom:4px;
+              "
+            >
+              MARKET INTELLIGENCE
+            </div>
+
+            <div
+              style="
+                color:#7188a3;
+                font-size:10px;
+                line-height:1.45;
+              "
+            >
+              Movement, splits,
+              Sharp Signals & value.
+            </div>
+
+          </div>
+
+
+          <div
+            style="
+              min-height:92px;
+
+              padding:13px 12px;
+
+              box-sizing:border-box;
+
+              border-radius:13px;
+
+              text-align:left;
+
+              background:
+                rgba(124,60,255,.055);
+
+              border:
+                1px solid
+                rgba(124,60,255,.18);
+            "
+          >
+
+            <div
+              style="
+                font-size:18px;
+                margin-bottom:7px;
+              "
+            >
+              🎯
+            </div>
+
+            <div
+              style="
+                color:#ffffff;
+                font-size:11px;
+                font-weight:900;
+                margin-bottom:4px;
+              "
+            >
+              PLAYER PROPS
+            </div>
+
+            <div
+              style="
+                color:#7188a3;
+                font-size:10px;
+                line-height:1.45;
+              "
+            >
+              Probability, VALUE,
+              trends & matchup data.
+            </div>
+
+          </div>
+
+
+          <div
+            style="
+              min-height:92px;
+
+              padding:13px 12px;
+
+              box-sizing:border-box;
+
+              border-radius:13px;
+
+              text-align:left;
+
+              background:
+                rgba(124,60,255,.055);
+
+              border:
+                1px solid
+                rgba(124,60,255,.18);
+            "
+          >
+
+            <div
+              style="
+                font-size:20px;
+                margin-bottom:5px;
+              "
+            >
+              ∞
+            </div>
+
+            <div
+              style="
+                color:#ffffff;
+                font-size:11px;
+                font-weight:900;
+                margin-bottom:4px;
+              "
+            >
+              UNLIMITED ANALYSES
+            </div>
+
+            <div
+              style="
+                color:#7188a3;
+                font-size:10px;
+                line-height:1.45;
+              "
+            >
+              Analyze the board
+              without the daily limit.
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- URGENCY -->
+
+        <div
+          style="
+            padding:
+              13px 12px;
+
+            margin-bottom:14px;
+
+            text-align:center;
+
+            border-radius:12px;
+
+            background:
+              rgba(255,140,26,.055);
+
+            border:
+              1px solid
+              rgba(255,140,26,.17);
+
+            color:#d9e5f2;
+
+            font-size:11px;
+
+            line-height:1.55;
+          "
+        >
+          Lines move and prices change.
+
+          <strong
+            style="
+              color:#ffad55;
+            "
+          >
+            The number you see later may not be
+            the number available now.
+          </strong>
+        </div>
+
+
+        <!-- MAIN CTA -->
+
+        <button
+          type="button"
+          onclick="goPremiumMonthly()"
+
+          style="
+            display:block;
+
+            width:100%;
+
+            min-height:76px;
+
+            padding:
+              17px 14px;
+
+            border:0;
+
+            border-radius:16px;
+
+            background:
+              linear-gradient(
+                135deg,
+                #00ffe7 0%,
+                #23e5d5 38%,
+                #7c3cff 100%
+              );
+
+            color:#020814;
+
+            cursor:pointer;
+
+            box-shadow:
+              0 0 38px
+              rgba(0,255,231,.35);
+
+            font-size:
+              clamp(
+                14px,
+                4vw,
+                17px
+              );
+
+            font-weight:950;
+
+            letter-spacing:.4px;
+
+            text-transform:uppercase;
+          "
+        >
+
+          ${copy.cta}
+
+          <div
+            style="
+              font-size:13px;
+
+              font-weight:900;
+
+              margin-top:5px;
+
+              opacity:.82;
+            "
+          >
+            $${MONTHLY_PRICE} / MONTH →
+          </div>
+
+        </button>
+
+
+        <div
+          style="
+            display:flex;
+
+            justify-content:center;
+
+            gap:7px;
+
+            flex-wrap:wrap;
+
+            margin-top:10px;
+
+            color:#637a94;
+
+            font-size:10px;
+          "
+        >
+          <span>Full Premium access</span>
+          <span>·</span>
+          <span>Cancel anytime</span>
+        </div>
+
+
+        <!-- PROMO CODE -->
+
+        <div
+          style="
+            width:100%;
+
+            height:1px;
+
+            background:#13243b;
+
+            margin:
+              18px 0 14px;
+          "
+        ></div>
+
+
+        <div
+          style="
+            color:#637a94;
+
+            font-size:10px;
+
+            text-align:center;
+
+            margin-bottom:8px;
+          "
+        >
+          Have a promo code?
+        </div>
+
+
+        <input
+          id="promoCodeInput"
+
+          type="text"
+
+          placeholder="Promo code (optional)"
+
+          autocomplete="off"
+
+          style="
+            display:block;
+
+            width:100%;
+
+            box-sizing:border-box;
+
+            padding:
+              11px 13px;
+
+            border-radius:10px;
+
+            border:
+              1px solid
+              #142a45;
+
+            background:
+              #030914;
+
+            color:#e8f4ff;
+
+            font-size:12px;
+
+            text-align:center;
+
+            outline:none;
+          "
+        />
+
+
+      </div>
+
+    </div>
+
+  `;
+
+
+  modal.style.display =
+    "block";
 }
 
 function closePromoModal() {
