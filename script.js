@@ -1506,7 +1506,7 @@ function renderAnalysisResult({
           </div>
 
           <div class="premium-model-text">
-            <strong>ANÁLISIS IA COMPLETO</strong>
+            <strong>FULL CASHEDGE ANALYSIS</strong>
             <p>${modelAnalysis}</p>
           </div>
         ` : ""
@@ -4450,7 +4450,7 @@ ${propsPanelHTML}
 
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
     <div style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,255,231,0.06);border:1px solid rgba(0,255,231,0.15);border-radius:20px;padding:3px 10px;font-size:10px;color:#00ffe7;font-weight:600;">
-      📊 AI ANALYSIS · ${type.toUpperCase()}
+     📊 CASHEDGE ANALYSIS · ${type.toUpperCase()}
     </div>
     <div style="position:relative;width:58px;height:58px;flex-shrink:0;">
       <svg width="58" height="58" viewBox="0 0 58 58" style="position:absolute;top:0;left:0;">
