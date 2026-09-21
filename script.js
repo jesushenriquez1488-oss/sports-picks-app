@@ -14868,216 +14868,469 @@ const response =
     // FREE USER
     // ========================================================
 
-    if (data.locked === true) {
+if (data.locked === true) {
 
-      const premiumCount =
-        Number(
-          data.premiumCount ||
-          0
-        );
+  const premiumCount =
+    Number(
+      data.premiumCount ||
+      0
+    );
 
 
-      radarView.innerHTML = `
+  const opportunityLabel =
+    premiumCount === 1
+      ? "PREMIUM OPPORTUNITY LIVE"
+      : "PREMIUM OPPORTUNITIES LIVE";
+
+
+  radarView.innerHTML = `
+    <div
+      style="
+        max-width:760px;
+        margin:30px auto 55px;
+        padding:0 16px;
+      "
+    >
+
+      <button
+        onclick="closePremiumRadar()"
+        style="
+          background:transparent;
+          border:0;
+          color:#71839f;
+          font-size:12px;
+          font-weight:700;
+          cursor:pointer;
+          padding:8px 0;
+          margin-bottom:20px;
+        "
+      >
+        ← BACK TO SPORTS
+      </button>
+
+
+      <div
+        style="
+          position:relative;
+          overflow:hidden;
+
+          background:
+            radial-gradient(
+              circle at 50% 0%,
+              rgba(0,255,231,.10),
+              transparent 38%
+            ),
+            linear-gradient(
+              145deg,
+              rgba(5,15,25,.99),
+              rgba(8,5,24,.99)
+            );
+
+          border:
+            1px solid
+            rgba(0,255,231,.32);
+
+          border-radius:24px;
+
+          padding:
+            40px 26px 30px;
+
+          text-align:center;
+
+          box-shadow:
+            0 0 42px
+            rgba(0,255,231,.08);
+        "
+      >
+
+
         <div
           style="
-            max-width:720px;
-            margin:30px auto 50px;
-            padding:0 16px;
+            display:inline-flex;
+            align-items:center;
+            gap:7px;
+
+            padding:7px 11px;
+
+            border-radius:999px;
+
+            border:
+              1px solid
+              rgba(0,255,231,.22);
+
+            background:
+              rgba(0,255,231,.05);
+
+            color:#00ffe7;
+
+            font-size:9px;
+            font-weight:900;
+            letter-spacing:1.7px;
+
+            margin-bottom:22px;
+          "
+        >
+          <span
+            style="
+              width:6px;
+              height:6px;
+              border-radius:50%;
+              background:#00ffe7;
+              box-shadow:
+                0 0 10px
+                rgba(0,255,231,.85);
+            "
+          ></span>
+
+          LIVE MARKET WATCH
+        </div>
+
+
+        <div
+          style="
+            font-size:64px;
+            line-height:.95;
+            font-weight:950;
+            color:#fff;
+            letter-spacing:-2px;
+          "
+        >
+          ${premiumCount}
+        </div>
+
+
+        <div
+          style="
+            margin-top:9px;
+            font-size:15px;
+            line-height:1.35;
+            font-weight:900;
+            color:#00ffe7;
+            letter-spacing:.7px;
+          "
+        >
+          ${opportunityLabel}
+        </div>
+
+
+        <div
+          style="
+            max-width:510px;
+            margin:18px auto 28px;
+
+            color:#8ca0b8;
+
+            font-size:13px;
+            line-height:1.75;
+          "
+        >
+          CashEdge is already tracking these opportunities
+          as the market changes.
+          <strong style="color:#dbe7f5;">
+            Premium Radar shows what happens after the pick is found.
+          </strong>
+        </div>
+
+
+        <div
+          style="
+            display:grid;
+
+            grid-template-columns:
+              repeat(
+                auto-fit,
+                minmax(145px,1fr)
+              );
+
+            gap:9px;
+
+            margin:
+              0 auto 28px;
+
+            max-width:620px;
           "
         >
 
-          <button
-            onclick="closePremiumRadar()"
+          <div
             style="
-              background:transparent;
-              border:0;
-              color:#71839f;
-              font-size:12px;
-              font-weight:700;
-              cursor:pointer;
-              padding:8px 0;
-              margin-bottom:22px;
+              padding:14px 10px;
+              border-radius:13px;
+              border:
+                1px solid
+                rgba(255,255,255,.07);
+              background:
+                rgba(255,255,255,.025);
             "
           >
-            ← BACK TO SPORTS
-          </button>
+            <div
+              style="
+                color:#00ffe7;
+                font-size:17px;
+                margin-bottom:6px;
+              "
+            >
+              ◈
+            </div>
+
+            <div
+              style="
+                color:#e8f1fb;
+                font-size:10px;
+                font-weight:900;
+                letter-spacing:.7px;
+              "
+            >
+              BEST AVAILABLE LINE
+            </div>
+          </div>
 
 
           <div
             style="
-              background:
-                linear-gradient(
-                  145deg,
-                  rgba(5,15,25,0.98),
-                  rgba(8,5,24,0.98)
-                );
-
+              padding:14px 10px;
+              border-radius:13px;
               border:
                 1px solid
-                rgba(0,255,231,0.30);
-
-              border-radius:22px;
-
-              padding:
-                42px 28px;
-
-              text-align:center;
-
-              box-shadow:
-                0 0 40px
-                rgba(0,255,231,0.08);
+                rgba(255,255,255,.07);
+              background:
+                rgba(255,255,255,.025);
             "
           >
-
             <div
               style="
-                width:64px;
-                height:64px;
-                margin:0 auto 20px;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                border-radius:18px;
-                border:
-                  1px solid
-                  rgba(0,255,231,0.35);
-                background:
-                  rgba(0,255,231,0.06);
-                font-size:30px;
-              "
-            >
-              📡
-            </div>
-
-
-            <div
-              style="
-                font-size:11px;
-                font-weight:800;
-                letter-spacing:2px;
                 color:#00ffe7;
-                margin-bottom:10px;
+                font-size:17px;
+                margin-bottom:6px;
               "
             >
-              PREMIUM RADAR
+              ◉
             </div>
-
 
             <div
               style="
-                font-size:42px;
-                line-height:1;
+                color:#e8f1fb;
+                font-size:10px;
                 font-weight:900;
-                color:#fff;
-                margin-bottom:7px;
+                letter-spacing:.7px;
               "
             >
-              ${premiumCount}
+              CONSENSUS
             </div>
+          </div>
 
+
+          <div
+            style="
+              padding:14px 10px;
+              border-radius:13px;
+              border:
+                1px solid
+                rgba(255,255,255,.07);
+              background:
+                rgba(255,255,255,.025);
+            "
+          >
+            <div
+              style="
+                color:#00ffe7;
+                font-size:17px;
+                margin-bottom:6px;
+              "
+            >
+              %
+            </div>
 
             <div
               style="
-                font-size:14px;
-                font-weight:800;
-                color:#cbd7e8;
-                letter-spacing:.5px;
-                margin-bottom:24px;
-              "
-            >
-              PREMIUM OPPORTUNITIES DETECTED
-            </div>
-
-
-            <div
-              style="
-                width:100%;
-                height:1px;
-                background:
-                  #14243d;
-                margin:
-                  0 0 24px;
-              "
-            ></div>
-
-
-            <div
-              style="
-                color:#8ca0b8;
-                font-size:13px;
-                line-height:1.8;
-                margin-bottom:25px;
-              "
-            >
-              CashEdge has already identified
-              ${premiumCount}
-              Premium opportunities.
-              Unlock Premium to see the complete Radar.
-            </div>
-
-
-            <div
-              style="
-                text-align:left;
-                max-width:360px;
-                margin:
-                  0 auto 28px;
-                color:#d7e1ef;
-                font-size:13px;
-                line-height:2.15;
-              "
-            >
-              ✓ Premium Picks<br>
-              ✓ Confidence<br>
-              ✓ Edge<br>
-              ✓ CashEdge Projections<br>
-              ✓ Market Movement<br>
-              ✓ Premium History
-            </div>
-
-
-            <button
-              onclick="openPromoModal('radar')"
-              style="
-                width:100%;
-                max-width:420px;
-                padding:15px 20px;
-
-                border:0;
-                border-radius:12px;
-
-                background:
-                  linear-gradient(
-                    135deg,
-                    #00ffe7,
-                    #7c3cff
-                  );
-
-                color:#020814;
-
-                font-size:13px;
+                color:#e8f1fb;
+                font-size:10px;
                 font-weight:900;
-                letter-spacing:.8px;
-
-                cursor:pointer;
-
-                box-shadow:
-                  0 0 28px
-                  rgba(0,255,231,.25);
+                letter-spacing:.7px;
               "
             >
-              🔓 UNLOCK PREMIUM
-            </button>
+              BETTING SPLITS
+            </div>
+          </div>
 
+
+          <div
+            style="
+              padding:14px 10px;
+              border-radius:13px;
+              border:
+                1px solid
+                rgba(255,255,255,.07);
+              background:
+                rgba(255,255,255,.025);
+            "
+          >
+            <div
+              style="
+                color:#00ffe7;
+                font-size:17px;
+                margin-bottom:6px;
+              "
+            >
+              ⚡
+            </div>
+
+            <div
+              style="
+                color:#e8f1fb;
+                font-size:10px;
+                font-weight:900;
+                letter-spacing:.7px;
+              "
+            >
+              SHARP SIGNALS
+            </div>
+          </div>
+
+
+          <div
+            style="
+              padding:14px 10px;
+              border-radius:13px;
+              border:
+                1px solid
+                rgba(255,255,255,.07);
+              background:
+                rgba(255,255,255,.025);
+            "
+          >
+            <div
+              style="
+                color:#00ffe7;
+                font-size:17px;
+                margin-bottom:6px;
+              "
+            >
+              ↗
+            </div>
+
+            <div
+              style="
+                color:#e8f1fb;
+                font-size:10px;
+                font-weight:900;
+                letter-spacing:.7px;
+              "
+            >
+              MARKET DIRECTION
+            </div>
+          </div>
+
+
+          <div
+            style="
+              padding:14px 10px;
+              border-radius:13px;
+              border:
+                1px solid
+                rgba(255,255,255,.07);
+              background:
+                rgba(255,255,255,.025);
+            "
+          >
+            <div
+              style="
+                color:#00ffe7;
+                font-size:17px;
+                margin-bottom:6px;
+              "
+            >
+              ⇄
+            </div>
+
+            <div
+              style="
+                color:#e8f1fb;
+                font-size:10px;
+                font-weight:900;
+                letter-spacing:.7px;
+              "
+            >
+              MOVEMENT + REVERSALS
+            </div>
           </div>
 
         </div>
-      `;
 
 
-      return;
-    }
+        <button
+          onclick="openPromoModal('radar')"
+          style="
+            width:100%;
+            max-width:500px;
 
+            padding:
+              15px 18px 13px;
+
+            border:0;
+            border-radius:14px;
+
+            background:
+              linear-gradient(
+                135deg,
+                #00ffe7,
+                #40a8ff,
+                #7c3cff
+              );
+
+            color:#020814;
+
+            cursor:pointer;
+
+            box-shadow:
+              0 0 30px
+              rgba(0,255,231,.24);
+          "
+        >
+
+          <div
+            style="
+              font-size:13px;
+              font-weight:950;
+              letter-spacing:.6px;
+            "
+          >
+            OPEN FULL PREMIUM RADAR
+          </div>
+
+          <div
+            style="
+              margin-top:4px;
+              font-size:9px;
+              font-weight:900;
+              letter-spacing:1px;
+              opacity:.75;
+            "
+          >
+            FULL CASHEDGE · $19.99 / MONTH →
+          </div>
+
+        </button>
+
+
+        <div
+          style="
+            margin-top:13px;
+            color:#53657d;
+            font-size:10px;
+            line-height:1.5;
+          "
+        >
+          Live market information can change as sportsbooks update their numbers.
+        </div>
+
+      </div>
+
+    </div>
+  `;
+
+
+  return;
+}
 
     // ========================================================
     // PREMIUM USER
