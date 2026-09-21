@@ -540,42 +540,7 @@ window.gtag("js", new Date());
 
 <body>
    <div id="bg-glow"></div> 
-<div id="splashScreen">
-  <div class="splash-brand">CASHEDGE</div>
-  <div class="splash-sub">MARKET INTELLIGENCE</div>
-  <div class="splash-brain-wrap">
-    <div class="splash-ring1"></div>
-    <div class="splash-ring2"></div>
-    <div class="splash-ring3"></div>
-    <div class="splash-glow"></div>
-    <img src="https://cashedgeapp.com/brain.png" class="splash-brain">
-  </div>
-  <div class="splash-typewriter-wrap">
-    <div id="splashTypewriter"></div>
-    <div class="splash-cursor"></div>
-  </div>
-  <div class="splash-dots">
-    <div class="splash-dot"></div>
-    <div class="splash-dot"></div>
-    <div class="splash-dot"></div>
-  </div>
-</div>
 
-<script>
-(function(){
-  const text="Find your edge.";
-  let i=0;
-  const el=document.getElementById("splashTypewriter");
-  function type(){if(i<=text.length){el.textContent=text.substring(0,i);i++;setTimeout(type,80);}}
-  setTimeout(type,600);
-  setTimeout(function(){
-    const splash=document.getElementById("splashScreen");
-    splash.style.transition="opacity .8s ease";
-    splash.style.opacity="0";
-    setTimeout(function(){splash.style.display="none";},800);
-  },3800);
-})();
-</script>
 <section id="ceLanding" class="ce-landing" style="display:none;">
 
 <div style="max-width:920px;margin:0 auto;padding:0 16px 40px;font-family:Arial,sans-serif;">
