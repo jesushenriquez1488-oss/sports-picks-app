@@ -156,20 +156,29 @@ function getBearerToken(req) {
 
 function authorizeRequest(req) {
 
-  const expectedSecret =
+  const pipelineSecret =
     cleanString(
       process.env
         .MARKET_PIPELINE_SECRET
     );
 
+  const cronSecret =
+    cleanString(
+      process.env
+        .CRON_SECRET
+    );
 
-  if (!expectedSecret) {
+
+  if (
+    !pipelineSecret &&
+    !cronSecret
+  ) {
 
     return {
       ok: false,
       status: 500,
       error:
-        "MARKET_PIPELINE_SECRET_NOT_CONFIGURED"
+        "NOTIFICATION_WORKER_SECRET_NOT_CONFIGURED"
     };
   }
 
@@ -178,11 +187,24 @@ function authorizeRequest(req) {
     getBearerToken(req);
 
 
-  if (
-    !safeSecretEqual(
+  const matchesPipelineSecret =
+    pipelineSecret &&
+    safeSecretEqual(
       providedSecret,
-      expectedSecret
-    )
+      pipelineSecret
+    );
+
+  const matchesCronSecret =
+    cronSecret &&
+    safeSecretEqual(
+      providedSecret,
+      cronSecret
+    );
+
+
+  if (
+    !matchesPipelineSecret &&
+    !matchesCronSecret
   ) {
 
     return {
