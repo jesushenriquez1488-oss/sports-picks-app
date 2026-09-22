@@ -401,24 +401,25 @@ module.exports =
     // METHOD
     // ========================================================
 
-    if (
-      req.method !== "POST"
-    ) {
+   if (
+  req.method !== "GET" &&
+  req.method !== "POST"
+) {
 
-      res.setHeader(
-        "Allow",
-        "POST"
-      );
+  res.setHeader(
+    "Allow",
+    "GET, POST"
+  );
 
 
-      return res
-        .status(405)
-        .json({
-          ok: false,
-          error:
-            "METHOD_NOT_ALLOWED"
-        });
-    }
+  return res
+    .status(405)
+    .json({
+      ok: false,
+      error:
+        "METHOD_NOT_ALLOWED"
+    });
+}
 
 
     // ========================================================
