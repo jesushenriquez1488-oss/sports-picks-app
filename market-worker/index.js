@@ -396,11 +396,6 @@ function resolveTrackedGame({
   }
 
 
-  if (games.length === 1) {
-    return games[0];
-  }
-
-
   const commenceMs =
     Date.parse(
       commenceTime
@@ -464,6 +459,16 @@ function resolveTrackedGame({
   }
 
 
+  // ==========================================================
+  // STRICT EVENT MATCH
+  //
+  // Even if CashEdge has only ONE tracked game for these teams,
+  // Owls may contain multiple games on the same date.
+  //
+  // Never attach an Owls event unless its start time is close
+  // to the actual CashEdge game time.
+  // ==========================================================
+
   const MAX_MATCH_DIFFERENCE_MS =
     90 * 60 * 1000;
 
@@ -473,6 +478,7 @@ function resolveTrackedGame({
     bestDifferenceMs >
       MAX_MATCH_DIFFERENCE_MS
   ) {
+
     return null;
   }
 
