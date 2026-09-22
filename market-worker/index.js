@@ -343,7 +343,142 @@ function makeGameKey({
     gameDate
   ].join("|");
 }
+function parseCashEdgeGameTime(
+  value
+) {
 
+  if (!value) {
+    return NaN;
+  }
+
+
+  const raw =
+    String(value)
+      .trim()
+      .replace(
+        " ",
+        "T"
+      );
+
+
+  const hasTimezone =
+    /(?:Z|[+-]\d{2}:\d{2})$/i
+      .test(raw);
+
+
+  const normalized =
+    hasTimezone
+      ? raw
+      : `${raw}Z`;
+
+
+  return Date.parse(
+    normalized
+  );
+}
+
+
+function resolveTrackedGame({
+  candidates,
+  commenceTime
+}) {
+
+  const games =
+    Array.isArray(
+      candidates
+    )
+      ? candidates
+      : [];
+
+
+  if (!games.length) {
+    return null;
+  }
+
+
+  if (games.length === 1) {
+    return games[0];
+  }
+
+
+  const commenceMs =
+    Date.parse(
+      commenceTime
+    );
+
+
+  if (
+    !Number.isFinite(
+      commenceMs
+    )
+  ) {
+    return null;
+  }
+
+
+  let bestGame =
+    null;
+
+  let bestDifferenceMs =
+    Number.POSITIVE_INFINITY;
+
+
+  for (
+    const game
+    of games
+  ) {
+
+    const gameTimeMs =
+      parseCashEdgeGameTime(
+        game.game_time
+      );
+
+
+    if (
+      !Number.isFinite(
+        gameTimeMs
+      )
+    ) {
+      continue;
+    }
+
+
+    const differenceMs =
+      Math.abs(
+        gameTimeMs -
+        commenceMs
+      );
+
+
+    if (
+      differenceMs <
+      bestDifferenceMs
+    ) {
+
+      bestDifferenceMs =
+        differenceMs;
+
+      bestGame =
+        game;
+    }
+  }
+
+
+  const MAX_MATCH_DIFFERENCE_MS =
+    90 * 60 * 1000;
+
+
+  if (
+    !bestGame ||
+    bestDifferenceMs >
+      MAX_MATCH_DIFFERENCE_MS
+  ) {
+    return null;
+  }
+
+
+  return bestGame;
+}
 
 // ============================================================
 // TRACKED CASHEDGE GAMES
@@ -720,11 +855,22 @@ async function refreshTrackedGames() {
           game.game_date
       });
 
+if (
+  !nextMap.has(
+    key
+  )
+) {
 
-    nextMap.set(
-      key,
-      game
-    );
+  nextMap.set(
+    key,
+    []
+  );
+}
+
+
+nextMap
+  .get(key)
+  .push(game);
   }
 
 
@@ -1814,10 +1960,21 @@ const premiumQuoteCounts =
         });
 
 
-      const tracked =
-        trackedGameMap.get(
-          gameKey
-        );
+      const trackedCandidates =
+  trackedGameMap.get(
+    gameKey
+  ) ||
+  [];
+
+
+const tracked =
+  resolveTrackedGame({
+
+    candidates:
+      trackedCandidates,
+
+    commenceTime
+  });
 
 
       if (
