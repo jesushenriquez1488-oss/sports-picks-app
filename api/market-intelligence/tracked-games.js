@@ -227,12 +227,13 @@ module.exports =
             "daily_picks"
           )
           .select(`
-            game_id,
-            sport,
-            game_date,
-            away_team,
-            home_team
-          `)
+  game_id,
+  sport,
+  game_date,
+  game_time,
+  away_team,
+  home_team
+`)
           .in(
             "sport",
             [
@@ -267,13 +268,14 @@ module.exports =
           .from(
             "daily_picks"
           )
-          .select(`
-            game_id,
-            sport,
-            game_date,
-            away_team,
-            home_team
-          `)
+         .select(`
+  game_id,
+  sport,
+  game_date,
+  game_time,
+  away_team,
+  home_team
+`)
           .in(
             "sport",
             [
@@ -418,6 +420,9 @@ module.exports =
                 game_date:
                   game.game_date ||
                   null,
+                game_time:
+  game.game_time ||
+  null,
 
                 away_team:
                   game.away_team ||
