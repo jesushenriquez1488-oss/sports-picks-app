@@ -485,7 +485,21 @@ function resolveTrackedGame({
 
   return bestGame;
 }
+function getAllTrackedGames() {
 
+  return Array
+    .from(
+      trackedGameMap.values()
+    )
+    .flatMap(
+      value =>
+        Array.isArray(value)
+          ? value
+          : value
+            ? [value]
+            : []
+    );
+}
 // ============================================================
 // TRACKED CASHEDGE GAMES
 // ============================================================
@@ -559,36 +573,32 @@ async function refreshCashEdgeState() {
 
 async function refreshOwlsCurrentBoard() {
 
-  const activeSports =
-    Array.from(
-      new Set(
-        Array
-          .from(
-            trackedGameMap.values()
-          )
-          .filter(
-            game =>
-              game
-                ?.current_is_premium ===
-              true
-          )
-          .map(
-            game =>
-              String(
-                game?.sport || ""
-              )
-                .trim()
-                .toLowerCase()
-          )
-          .filter(
-            sport =>
-              SPORTS.includes(
-                sport
-              )
-          )
-      )
-    );
-
+ const activeSports =
+  Array.from(
+    new Set(
+      getAllTrackedGames()
+        .filter(
+          game =>
+            game
+              ?.current_is_premium ===
+            true
+        )
+        .map(
+          game =>
+            String(
+              game?.sport || ""
+            )
+              .trim()
+              .toLowerCase()
+        )
+        .filter(
+          sport =>
+            SPORTS.includes(
+              sport
+            )
+        )
+    )
+  );
 
   if (
     !activeSports.length
@@ -1198,11 +1208,10 @@ function findTrackedSplitGame({
       homeTeam
     );
 
-
-  for (
-    const tracked
-    of trackedGameMap.values()
-  ) {
+for (
+  const tracked
+  of getAllTrackedGames()
+) {
 
     if (
       tracked.current_is_premium !== true ||
@@ -1564,30 +1573,27 @@ async function refreshBettingSplits() {
 
   try {
 
-    const activeSports =
-      [
-        ...new Set(
-          Array.from(
-            trackedGameMap.values()
-          )
-            .filter(
-              game =>
-                game.current_is_premium ===
-                true
-            )
-            .map(
-              game =>
-                game.sport
-            )
-            .filter(
-              sport =>
-                SPORTS.includes(
-                  sport
-                )
+   const activeSports =
+  [
+    ...new Set(
+      getAllTrackedGames()
+        .filter(
+          game =>
+            game.current_is_premium ===
+            true
+        )
+        .map(
+          game =>
+            game.sport
+        )
+        .filter(
+          sport =>
+            SPORTS.includes(
+              sport
             )
         )
-      ];
-
+    )
+  ];
 
     for (
       const sport
@@ -2469,9 +2475,9 @@ premiumQuoteCounts.set(
     console.log(
       `[${WORKER_NAME}] quotes sent: ${result.sent}, errors: ${result.errors}`
     );
-    for (
+   for (
   const tracked
-  of trackedGameMap.values()
+  of getAllTrackedGames()
 ) {
 
   if (
