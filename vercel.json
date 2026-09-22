@@ -58,6 +58,14 @@
 {
   "path": "/api/nfl-cron",
   "schedule": "30-45 9 * * *"
+},
+{
+  "path": "/api/process-market-notification-parents",
+  "schedule": "* * * * *"
+},
+{
+  "path": "/api/process-market-notification-deliveries",
+  "schedule": "* * * * *"
 }
   ]
 }
