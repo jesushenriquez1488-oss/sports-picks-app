@@ -1812,7 +1812,116 @@ if (radarGameIds.length) {
       .push(update);
   }
 }
+// ============================================================
+// LIVE MARKET FRESHNESS — FINAL RADAR SAFETY
+//
+// A current sportsbook market is trusted only if Owls has
+// confirmed at least one quote for that exact market/selection
+// during the last 3 minutes.
+//
+// Historical data stays stored.
+// Old data is simply not presented as LIVE.
+// ============================================================
 
+const LIVE_MARKET_QUOTE_MAX_AGE_MS =
+  3 * 60 * 1000;
+
+
+const freshMarketQuoteKeys =
+  new Set();
+
+
+if (radarGameIds.length) {
+
+  const {
+    data: currentQuoteRows,
+    error: currentQuoteRowsError
+  } =
+    await supabaseAdmin
+      .from(
+        "market_current_quotes"
+      )
+      .select(`
+        cashedge_game_id,
+        market_type,
+        selection_key,
+        observed_at,
+        updated_at
+      `)
+      .eq(
+        "provider",
+        "owls"
+      )
+      .in(
+        "cashedge_game_id",
+        radarGameIds
+      );
+
+
+  if (currentQuoteRowsError) {
+    throw currentQuoteRowsError;
+  }
+
+
+  const freshCutoffMs =
+    Date.now() -
+    LIVE_MARKET_QUOTE_MAX_AGE_MS;
+
+
+  for (
+    const quote of
+    currentQuoteRows || []
+  ) {
+
+    const lastConfirmedMs =
+      new Date(
+        quote.updated_at ||
+        quote.observed_at ||
+        0
+      )
+        .getTime();
+
+
+    if (
+      !Number.isFinite(
+        lastConfirmedMs
+      ) ||
+      lastConfirmedMs <
+        freshCutoffMs
+    ) {
+      continue;
+    }
+
+
+    const quoteKey =
+      [
+        String(
+          quote.cashedge_game_id ||
+          ""
+        ),
+
+        String(
+          quote.market_type ||
+          ""
+        )
+          .toLowerCase()
+          .trim(),
+
+        String(
+          quote.selection_key ||
+          ""
+        )
+          .toLowerCase()
+          .trim()
+
+      ].join("|");
+
+
+    freshMarketQuoteKeys.add(
+      quoteKey
+    );
+  }
+}
 
 let gameTimeByDailyPickId =
   new Map();
@@ -2237,7 +2346,61 @@ const actualSelectionKey =
   )
     .toLowerCase()
     .trim();
+const buildFreshQuoteKey = (
+  gameId,
+  marketType,
+  selectionKey
+) =>
+  [
+    String(
+      gameId || ""
+    ),
 
+    String(
+      marketType || ""
+    )
+      .toLowerCase()
+      .trim(),
+
+    String(
+      selectionKey || ""
+    )
+      .toLowerCase()
+      .trim()
+
+  ].join("|");
+
+
+const actualMarketFresh =
+  freshMarketQuoteKeys.has(
+    buildFreshQuoteKey(
+      gameKey,
+      actualMarketType,
+      actualSelectionKey
+    )
+  );
+
+
+const movementMarketFresh =
+  freshMarketQuoteKeys.has(
+    buildFreshQuoteKey(
+      gameKey,
+      movementReferenceMarketType,
+      movementReferenceSelectionKey
+    )
+  );
+
+
+const marketEvaluationForOpportunity =
+  actualMarketFresh
+    ? marketEvaluation
+    : null;
+
+
+const marketEvaluationForMovement =
+  movementMarketFresh
+    ? marketEvaluation
+    : null;
 
 function eventMatchesMarket(
   event,
@@ -2318,74 +2481,77 @@ const currentMarketEvents =
   );
 
 const recentRawMovements =
-  rawMarketUpdates
-    .filter(
-      update => {
+  movementMarketFresh
+    ? rawMarketUpdates
+        .filter(
+          update => {
 
-        const updateMarket =
-          String(
-            update.market_type ||
-            ""
-          )
-            .toLowerCase()
-            .trim();
-
-
-        const updateSelection =
-          String(
-            update.selection_key ||
-            ""
-          )
-            .toLowerCase()
-            .trim();
+            const updateMarket =
+              String(
+                update.market_type ||
+                ""
+              )
+                .toLowerCase()
+                .trim();
 
 
-        if (
-          movementReferenceMarketType &&
-          updateMarket !==
-            movementReferenceMarketType
-        ) {
-          return false;
-        }
+            const updateSelection =
+              String(
+                update.selection_key ||
+                ""
+              )
+                .toLowerCase()
+                .trim();
 
 
-        if (
-          movementReferenceSelectionKey &&
-          updateSelection !==
-            movementReferenceSelectionKey
-        ) {
-          return false;
-        }
+            if (
+              movementReferenceMarketType &&
+              updateMarket !==
+                movementReferenceMarketType
+            ) {
+              return false;
+            }
 
 
-        const movementTime =
-          new Date(
-            update.observed_at ||
-            update.provider_timestamp ||
-            0
-          ).getTime();
+            if (
+              movementReferenceSelectionKey &&
+              updateSelection !==
+                movementReferenceSelectionKey
+            ) {
+              return false;
+            }
 
 
-        if (
-          !Number.isFinite(
-            movementTime
-          )
-        ) {
-          return false;
-        }
+            const movementTime =
+              new Date(
+                update.observed_at ||
+                update.provider_timestamp ||
+                0
+              )
+                .getTime();
 
 
-        return (
-          Date.now() -
-          movementTime
-        ) <=
-          30 * 60 * 1000;
-      }
-    )
-    .slice(
-      0,
-      12
-    );
+            if (
+              !Number.isFinite(
+                movementTime
+              )
+            ) {
+              return false;
+            }
+
+
+            return (
+              Date.now() -
+              movementTime
+            ) <=
+              30 * 60 * 1000;
+          }
+        )
+        .slice(
+          0,
+          12
+        )
+    : [];
 
 
 const recentMovementBooks =
@@ -2468,21 +2634,38 @@ const hasImportantNow =
         event.event_family ===
         "movement"
       ) {
-        return isRecentRadarMovement(
-          event
+
+        return (
+          movementMarketFresh &&
+          isRecentRadarMovement(
+            event
+          )
         );
       }
 
 
       if (
         event.event_family ===
-          "signal" ||
-        event.event_family ===
-          "opportunity"
+        "signal"
       ) {
+
         return (
+          movementMarketFresh &&
           event.is_active ===
-          true
+            true
+        );
+      }
+
+
+      if (
+        event.event_family ===
+        "opportunity"
+      ) {
+
+        return (
+          actualMarketFresh &&
+          event.is_active ===
+            true
         );
       }
 
@@ -2490,7 +2673,6 @@ const hasImportantNow =
       return false;
     }
   );
-
 
 const marketPulse = {
 
@@ -2577,24 +2759,33 @@ const marketPulse = {
 
 
 const latestMovement =
-  visibleMarketEvents.find(
-    event =>
-      isRecentRadarMovement(
-        event
+  movementMarketFresh
+    ? (
+        visibleMarketEvents.find(
+          event =>
+            isRecentRadarMovement(
+              event
+            )
+        ) ||
+        null
       )
-  ) ||
-  null;
+    : null;
 
 
 const activeOpportunityEvent =
-  visibleMarketEvents.find(
-    event =>
-      event.event_family ===
-        "opportunity" &&
-      event.is_active ===
-        true
-  ) ||
-  null;
+  actualMarketFresh
+    ? (
+        visibleMarketEvents.find(
+          event =>
+            event.event_family ===
+              "opportunity" &&
+            event.is_active ===
+              true
+        ) ||
+        null
+      )
+    : null;
+
 
 const liveOpportunityData =
   activeOpportunityEvent
@@ -2613,21 +2804,26 @@ const liveOpportunityMarket =
     ? liveOpportunityData
         .marketNow
     : null;
-const staleLineEvent =
-  visibleMarketEvents.find(
-    event =>
-      event.event_family ===
-        "opportunity" &&
-      event.is_active ===
-        true &&
-      event
-        ?.event_data
-        ?.staleLine
-        ?.detected ===
-        true
-  ) ||
-  null;
 
+
+const staleLineEvent =
+  actualMarketFresh
+    ? (
+        visibleMarketEvents.find(
+          event =>
+            event.event_family ===
+              "opportunity" &&
+            event.is_active ===
+              true &&
+            event
+              ?.event_data
+              ?.staleLine
+              ?.detected ===
+              true
+        ) ||
+        null
+      )
+    : null;
 
 const activity =
   visibleMarketEvents
@@ -2853,374 +3049,406 @@ home_team_logo:
             : null,
 
 
-        market_intelligence: {
+      market_intelligence: {
 
-available:
-  Boolean(
-    marketContext ||
-    marketEvaluation ||
-    latestMovement ||
-    activeOpportunityEvent ||
-    recentRawMovements.length
-  ),
-marketRead: {
+  fresh:
+    actualMarketFresh ||
+    movementMarketFresh,
 
-  read:
-    marketEvaluation
-      ?.latest_market_read ||
+  actualMarketFresh,
+
+  movementMarketFresh,
+
+
+  available:
+    Boolean(
+      actualMarketFresh ||
+      movementMarketFresh
+    ),
+
+
+  marketRead: {
+
+    read:
+      marketEvaluationForMovement
+        ?.latest_market_read ||
+      null,
+
+    family:
+      marketEvaluationForMovement
+        ?.latest_market_read_family ||
+      null,
+
+    direction:
+      marketEvaluationForMovement
+        ?.latest_market_read_direction ||
+      null,
+
+    explanation:
+      marketEvaluationForMovement
+        ?.latest_market_read_explanation ||
+      null,
+
+    updatedAt:
+      marketEvaluationForMovement
+        ?.latest_market_read_updated_at ||
+      null,
+
+    components:
+      marketEvaluationForMovement
+        ?.latest_market_read_components ||
+      null
+  },
+
+
+  sharp: {
+
+    score:
+      marketEvaluationForMovement
+        ?.latest_sharp_score ??
+      null,
+
+    read:
+      marketEvaluationForMovement
+        ?.latest_sharp_read ||
+      null,
+
+    signal:
+      marketEvaluationForMovement
+        ?.latest_sharp_signal ||
+      null,
+
+    strength:
+      marketEvaluationForMovement
+        ?.latest_sharp_strength ??
+      null,
+
+    moneySignal:
+      marketEvaluationForMovement
+        ?.latest_money_signal ||
+      null,
+
+    hasSharpEvidence:
+      marketEvaluationForMovement
+        ?.latest_market_read_components
+        ?.sharp
+        ?.hasSharpEvidence ===
+      true,
+
+    evidenceFamily:
+      marketEvaluationForMovement
+        ?.latest_market_read_components
+        ?.sharp
+        ?.evidenceFamily ||
+      null,
+
+    components:
+      marketEvaluationForMovement
+        ?.latest_sharp_components ||
+      null
+  },
+
+
+  pulse:
+    movementMarketFresh
+      ? marketPulse
+      : null,
+
+
+  marketType:
+    marketContext
+      ?.market_type ||
     null,
 
-  family:
-    marketEvaluation
-      ?.latest_market_read_family ||
+
+  selectionKey:
+    marketContext
+      ?.selection_key ||
     null,
 
-  direction:
-    marketEvaluation
-      ?.latest_market_read_direction ||
+
+  movementReferenceSelectionKey:
+    marketContext
+      ?.movement_reference_selection_key ||
+    marketContext
+      ?.selection_key ||
     null,
 
-  explanation:
-    marketEvaluation
-      ?.latest_market_read_explanation ||
+
+  movementReferenceMarketType:
+    marketContext
+      ?.movement_reference_market_type ||
     null,
 
-  updatedAt:
-    marketEvaluation
-      ?.latest_market_read_updated_at ||
+
+  alignment:
+    marketEvaluationForMovement
+      ?.latest_alignment_state ||
     null,
 
-  components:
-    marketEvaluation
-      ?.latest_market_read_components ||
-    null
-},
+
+  consensus: {
+
+    line:
+      liveOpportunityMarket
+        ?.line ??
+      marketEvaluationForOpportunity
+        ?.latest_market_line ??
+      null,
+
+    price:
+      liveOpportunityMarket
+        ?.price ??
+      marketEvaluationForOpportunity
+        ?.latest_market_price_american ??
+      null,
+
+    books:
+      liveOpportunityMarket
+        ?.books ??
+      liveOpportunityMarket
+        ?.totalBooks ??
+      null,
+
+    booksAtLine:
+      liveOpportunityMarket
+        ?.booksAtLine ??
+      null
+  },
 
 
-sharp: {
+  bestAvailable: {
 
-  score:
-    marketEvaluation
-      ?.latest_sharp_score ??
-    null,
+    sportsbookKey:
+      marketEvaluationForOpportunity
+        ?.latest_opportunity_book_key ||
+      liveOpportunityData
+        ?.sportsbookKey ||
+      marketEvaluationForOpportunity
+        ?.latest_best_sportsbook_key ||
+      null,
 
-  read:
-    marketEvaluation
-      ?.latest_sharp_read ||
-    null,
+    sportsbook:
+      marketEvaluationForOpportunity
+        ?.latest_opportunity_book_name ||
+      liveOpportunityData
+        ?.sportsbook ||
+      marketEvaluationForOpportunity
+        ?.latest_best_sportsbook_name ||
+      null,
 
-  signal:
-    marketEvaluation
-      ?.latest_sharp_signal ||
-    null,
+    line:
+      marketEvaluationForOpportunity
+        ?.latest_opportunity_best_line ??
+      liveOpportunityData
+        ?.bestLine ??
+      marketEvaluationForOpportunity
+        ?.latest_best_line ??
+      null,
 
-  strength:
-    marketEvaluation
-      ?.latest_sharp_strength ??
-    null,
-
-  moneySignal:
-    marketEvaluation
-      ?.latest_money_signal ||
-    null,
-
-  hasSharpEvidence:
-    marketEvaluation
-      ?.latest_market_read_components
-      ?.sharp
-      ?.hasSharpEvidence ===
-    true,
-
-  evidenceFamily:
-    marketEvaluation
-      ?.latest_market_read_components
-      ?.sharp
-      ?.evidenceFamily ||
-    null,
-
-  components:
-    marketEvaluation
-      ?.latest_sharp_components ||
-    null
-},
-pulse:
-  marketPulse,
-          marketType:
-            marketContext
-              ?.market_type ||
-            null,
-selectionKey:
-  marketContext
-    ?.selection_key ||
-  null,
+    price:
+      marketEvaluationForOpportunity
+        ?.latest_opportunity_best_price ??
+      liveOpportunityData
+        ?.bestPrice ??
+      marketEvaluationForOpportunity
+        ?.latest_best_price_american ??
+      null
+  },
 
 
-movementReferenceSelectionKey:
-  marketContext
-    ?.movement_reference_selection_key ||
-  marketContext
-    ?.selection_key ||
-  null,
+  bettingSplits: {
 
-          movementReferenceMarketType:
-            marketContext
-              ?.movement_reference_market_type ||
-            null,
+    status:
+      bettingSplitStatus,
+
+    sources:
+      bettingSplitSources
+  },
 
 
-          alignment:
-            marketEvaluation
-              ?.latest_alignment_state ||
-            null,
+  ticketsPct:
+    bettingSplitSources.length === 1
+      ? bettingSplitSources[0]
+          .ticketsPct
+      : null,
 
 
-          consensus: {
-
-  line:
-    liveOpportunityMarket
-      ?.line ??
-    marketEvaluation
-      ?.latest_market_line ??
-    null,
-
-  price:
-    liveOpportunityMarket
-      ?.price ??
-    marketEvaluation
-      ?.latest_market_price_american ??
-    null,
-
-  books:
-    liveOpportunityMarket
-      ?.books ??
-    liveOpportunityMarket
-      ?.totalBooks ??
-    null,
-
-  booksAtLine:
-    liveOpportunityMarket
-      ?.booksAtLine ??
-    null
-},
-
-          bestAvailable: {
-
-  sportsbookKey:
-    marketEvaluation
-      ?.latest_opportunity_book_key ||
-    liveOpportunityData
-      ?.sportsbookKey ||
-    marketEvaluation
-      ?.latest_best_sportsbook_key ||
-    null,
-
-  sportsbook:
-    marketEvaluation
-      ?.latest_opportunity_book_name ||
-    liveOpportunityData
-      ?.sportsbook ||
-    marketEvaluation
-      ?.latest_best_sportsbook_name ||
-    null,
-
-  line:
-    marketEvaluation
-      ?.latest_opportunity_best_line ??
-    liveOpportunityData
-      ?.bestLine ??
-    marketEvaluation
-      ?.latest_best_line ??
-    null,
-
-  price:
-    marketEvaluation
-      ?.latest_opportunity_best_price ??
-    liveOpportunityData
-      ?.bestPrice ??
-    marketEvaluation
-      ?.latest_best_price_american ??
-    null
-},
+  moneyPct:
+    bettingSplitSources.length === 1
+      ? bettingSplitSources[0]
+          .moneyPct
+      : null,
 
 
-         bettingSplits: {
+  opportunity: {
 
-  status:
-    bettingSplitStatus,
+    state:
+      marketEvaluationForOpportunity
+        ?.latest_opportunity_state ||
+      null,
 
-  sources:
-    bettingSplitSources
-},
+    type:
+      marketEvaluationForOpportunity
+        ?.latest_opportunity_type ||
+      null,
 
+    lineValue:
+      marketEvaluationForOpportunity
+        ?.latest_opportunity_line_value ??
+      null,
 
-ticketsPct:
-  bettingSplitSources.length === 1
-    ? bettingSplitSources[0]
-        .ticketsPct
-    : null,
+    priceValueCents:
+      marketEvaluationForOpportunity
+        ?.latest_opportunity_price_value_cents ??
+      null,
 
+    sportsbookKey:
+      marketEvaluationForOpportunity
+        ?.latest_opportunity_book_key ||
+      null,
 
-moneyPct:
-  bettingSplitSources.length === 1
-    ? bettingSplitSources[0]
-        .moneyPct
-    : null,
+    sportsbook:
+      marketEvaluationForOpportunity
+        ?.latest_opportunity_book_name ||
+      null,
 
-          opportunity: {
+    line:
+      marketEvaluationForOpportunity
+        ?.latest_opportunity_best_line ??
+      null,
 
-            state:
-              marketEvaluation
-                ?.latest_opportunity_state ||
-              null,
+    price:
+      marketEvaluationForOpportunity
+        ?.latest_opportunity_best_price ??
+      null,
 
-            type:
-              marketEvaluation
-                ?.latest_opportunity_type ||
-              null,
+    startedAt:
+      marketEvaluationForOpportunity
+        ?.opportunity_state_started_at ||
+      null,
 
-            lineValue:
-              marketEvaluation
-                ?.latest_opportunity_line_value ??
-              null,
+    headline:
+      activeOpportunityEvent
+        ?.headline ||
+      null,
 
-            priceValueCents:
-              marketEvaluation
-                ?.latest_opportunity_price_value_cents ??
-              null,
-
-            sportsbookKey:
-              marketEvaluation
-                ?.latest_opportunity_book_key ||
-              null,
-
-            sportsbook:
-              marketEvaluation
-                ?.latest_opportunity_book_name ||
-              null,
-
-            line:
-              marketEvaluation
-                ?.latest_opportunity_best_line ??
-              null,
-
-            price:
-              marketEvaluation
-                ?.latest_opportunity_best_price ??
-              null,
-
-            startedAt:
-              marketEvaluation
-                ?.opportunity_state_started_at ||
-              null,
-
-            headline:
-              activeOpportunityEvent
-                ?.headline ||
-              null,
-
-            explanation:
-              activeOpportunityEvent
-                ?.explanation ||
-              null
-          },
+    explanation:
+      activeOpportunityEvent
+        ?.explanation ||
+      null
+  },
 
 
-          staleLine:
-            staleLineEvent
-              ?.event_data
-              ?.staleLine ||
-            null,
+  staleLine:
+    actualMarketFresh
+      ? (
+          staleLineEvent
+            ?.event_data
+            ?.staleLine ||
+          null
+        )
+      : null,
 
 
-          movement:
+  movement:
+    movementMarketFresh &&
+    latestMovement
+      ? {
+
+          eventType:
             latestMovement
-              ? {
+              .event_type,
 
-                  eventType:
-                    latestMovement
-                      .event_type,
+          direction:
+            latestMovement
+              .direction,
 
-                  direction:
-                    latestMovement
-                      .direction,
+          headline:
+            latestMovement
+              .headline,
 
-                  headline:
-                    latestMovement
-                      .headline,
+          explanation:
+            latestMovement
+              .explanation,
 
-                  explanation:
-                    latestMovement
-                      .explanation,
+          detectedAt:
+            latestMovement
+              .first_detected_at,
 
-                  detectedAt:
-                    latestMovement
-                      .first_detected_at,
+          data:
+            latestMovement
+              .event_data ||
+            {}
 
-                  data:
-                    latestMovement
-                      .event_data ||
-                    {}
-
-                }
-              : null,
-
-
-importantNow:
-  hasImportantNow,
-
-
-          activity:
-            activity.map(
-              event => ({
-
-                id:
-                  event.id,
-
-                family:
-                  event.event_family,
-
-                type:
-                  event.event_type,
-
-                direction:
-                  event.direction,
-
-                severity:
-                  event.severity,
-
-                headline:
-                  event.headline,
-
-                explanation:
-                  event.explanation,
-
-                importanceLevel:
-                  event.importance_level,
-
-                importantNow:
-                  event.is_important_now ===
-                  true,
-
-                active:
-                  event.is_active ===
-                  true,
-
-                detectedAt:
-                  event.first_detected_at,
-
-                lastDetectedAt:
-                  event.last_detected_at,
-
-                data:
-                  event.event_data ||
-                  {}
-
-              })
-            )
         }
-      };
-    }
-  );
+      : null,
+
+
+  importantNow:
+    hasImportantNow,
+
+
+  activity:
+    activity.map(
+      event => {
+
+        const eventFresh =
+          event.event_family ===
+          "opportunity"
+            ? actualMarketFresh
+            : movementMarketFresh;
+
+
+        return {
+
+          id:
+            event.id,
+
+          family:
+            event.event_family,
+
+          type:
+            event.event_type,
+
+          direction:
+            event.direction,
+
+          severity:
+            event.severity,
+
+          headline:
+            event.headline,
+
+          explanation:
+            event.explanation,
+
+          importanceLevel:
+            event.importance_level,
+
+          importantNow:
+            eventFresh &&
+            event.is_important_now ===
+              true,
+
+          active:
+            eventFresh &&
+            event.is_active ===
+              true,
+
+          detectedAt:
+            event.first_detected_at,
+
+          lastDetectedAt:
+            event.last_detected_at,
+
+          data:
+            event.event_data ||
+            {}
+        };
+      }
+    )
+}
 
       // ======================================================
       // CURRENT PREMIUM COUNT
