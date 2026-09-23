@@ -5,7 +5,7 @@
 
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1.0"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
   />
 
   <title>Support - CashEdge</title>
@@ -280,7 +280,10 @@
 
       .support-shell{
         padding:
-          14px 10px 36px;
+          calc(14px + env(safe-area-inset-top, 0px))
+          calc(10px + env(safe-area-inset-right, 0px))
+          calc(36px + env(safe-area-inset-bottom, 0px))
+          calc(10px + env(safe-area-inset-left, 0px));
       }
 
       .support-card{
@@ -311,7 +314,13 @@
 
     <button
       class="support-back"
-      onclick="history.back()"
+      onclick="
+        if (history.length > 1) {
+          history.back();
+        } else {
+          window.location.href='/';
+        }
+      "
       type="button"
     >
       ← Back to CashEdge
@@ -458,12 +467,12 @@
             TERMS OF SERVICE
           </a>
 
-      <a
-  class="support-action support-action-secondary"
-  href="/?privacy_preferences=1"
->
-  COOKIE PREFERENCES
-</a>
+          <a
+            class="support-action support-action-secondary"
+            href="/?privacy_preferences=1"
+          >
+            COOKIE PREFERENCES
+          </a>
 
         </div>
 
