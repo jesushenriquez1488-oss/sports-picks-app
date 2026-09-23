@@ -2735,7 +2735,281 @@ async function loginWithGoogle() {
     showAuthMessage("Google login error: " + error.message, "error");
   }
 }
+function isIOSNativeApp() {
+  try {
+    return (
+      window.Capacitor?.isNativePlatform?.() === true &&
+      window.Capacitor?.getPlatform?.() === "ios"
+    );
+  } catch (_) {
+    return false;
+  }
+}
 
+
+function setupAppleLoginButtons() {
+
+  const showApple =
+    isIOSNativeApp() &&
+    window.Capacitor
+      ?.isPluginAvailable
+      ?.("AppleSignIn") === true;
+
+
+  document
+    .querySelectorAll(".apple-login-btn")
+    .forEach(button => {
+
+      button.style.display =
+        showApple
+          ? "flex"
+          : "none";
+    });
+}
+
+
+function generateAppleRawNonce() {
+
+  const bytes =
+    new Uint8Array(32);
+
+
+  crypto.getRandomValues(
+    bytes
+  );
+
+
+  return Array
+    .from(
+      bytes,
+      byte =>
+        byte
+          .toString(16)
+          .padStart(2, "0")
+    )
+    .join("");
+}
+
+
+async function sha256Hex(value) {
+
+  const encoded =
+    new TextEncoder()
+      .encode(value);
+
+
+  const digest =
+    await crypto.subtle.digest(
+      "SHA-256",
+      encoded
+    );
+
+
+  return Array
+    .from(
+      new Uint8Array(digest),
+      byte =>
+        byte
+          .toString(16)
+          .padStart(2, "0")
+    )
+    .join("");
+}
+
+
+async function loginWithApple() {
+
+  try {
+
+    if (!isIOSNativeApp()) {
+
+      showAuthMessage(
+        "Apple Sign-In is available in the iPhone app.",
+        "error"
+      );
+
+      return;
+    }
+
+
+    const AppleSignIn =
+      window.Capacitor
+        ?.Plugins
+        ?.AppleSignIn;
+
+
+    if (!AppleSignIn) {
+
+      showAuthMessage(
+        "Apple Sign-In is not available.",
+        "error"
+      );
+
+      return;
+    }
+
+
+    const rawNonce =
+      generateAppleRawNonce();
+
+
+    const hashedNonce =
+      await sha256Hex(
+        rawNonce
+      );
+
+
+    const result =
+      await AppleSignIn.signIn({
+        scopes: [
+          "EMAIL",
+          "FULL_NAME"
+        ],
+
+        nonce:
+          hashedNonce
+      });
+
+
+    if (!result?.idToken) {
+
+      throw new Error(
+        "Apple did not return an ID token."
+      );
+    }
+
+
+    const {
+      data,
+      error
+    } =
+      await supabaseClient
+        .auth
+        .signInWithIdToken({
+
+          provider:
+            "apple",
+
+          token:
+            result.idToken,
+
+          nonce:
+            rawNonce
+        });
+
+
+    if (error) {
+      throw error;
+    }
+
+
+    const fullName =
+      [
+        result?.givenName,
+        result?.familyName
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+
+
+    if (fullName) {
+
+      const {
+        error: profileError
+      } =
+        await supabaseClient
+          .auth
+          .updateUser({
+            data: {
+
+              full_name:
+                fullName,
+
+              given_name:
+                result?.givenName ||
+                null,
+
+              family_name:
+                result?.familyName ||
+                null
+            }
+          });
+
+
+      if (profileError) {
+
+        console.warn(
+          "Apple profile metadata update warning:",
+          profileError.message
+        );
+      }
+    }
+
+
+    if (data?.user) {
+
+      await handleUserSession(
+        data.user
+      );
+    }
+
+
+  } catch (error) {
+
+    const message =
+      String(
+        error?.message ||
+        error ||
+        ""
+      );
+
+
+    if (
+      message
+        .toLowerCase()
+        .includes("cancel")
+    ) {
+      return;
+    }
+
+
+    console.error(
+      "Apple login error:",
+      error
+    );
+
+
+    showAuthMessage(
+      "Apple login error: " +
+        (
+          error?.message ||
+          "Unable to sign in with Apple."
+        ),
+      "error"
+    );
+  }
+}
+
+
+if (
+  document.readyState ===
+  "loading"
+) {
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    setupAppleLoginButtons,
+    {
+      once:
+        true
+    }
+  );
+
+} else {
+
+  setupAppleLoginButtons();
+}
 async function updateNewPassword() {
   const password = document.getElementById("newPassword").value;
   const confirmPassword = document.getElementById("confirmNewPassword").value;
