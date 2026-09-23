@@ -31,6 +31,33 @@ module.exports = async function handler(req, res) {
 
   const authHeader = req.headers.authorization || "";
   const token = authHeader.replace("Bearer ", "");
+  const forceRequested =
+  req.query.force === "true";
+
+const internalSecret =
+  String(
+    req.headers["x-internal-secret"] ||
+    ""
+  );
+
+const validInternalSecret =
+  process.env.CRON_SECRET ||
+  process.env.GENERATE_DAILY_SECRET ||
+  "";
+
+const internalForce =
+  forceRequested &&
+  validInternalSecret &&
+  internalSecret === validInternalSecret;
+
+if (
+  forceRequested &&
+  !internalForce
+) {
+  return res.status(401).json({
+    error: "Unauthorized force refresh"
+  });
+}
 
   if (token && token !== "null" && token !== "undefined") {
     const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
@@ -58,10 +85,14 @@ module.exports = async function handler(req, res) {
     const isValid = cached &&
       (Date.now() - new Date(cached.updated_at).getTime() < ODDS_CACHE_TIME);
 
-    if (isValid) {
-      return res.status(200).json(cached.data);
-    }
-
+   if (
+  isValid &&
+  !internalForce
+) {
+  return res.status(200).json(
+    cached.data
+  );
+}
     // LLAMAR THE ODDS API
     const isSoccer = sport.startsWith("soccer_");
     const isFootball =
