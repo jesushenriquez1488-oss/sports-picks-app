@@ -140,6 +140,91 @@ const _x7k = (() => {
 function _setPremiumUser(val) {
   _x7k.set(val);
 }
+let marketIntelligencePreviewExpiresAt =
+  null;
+
+let marketIntelligencePreviewTimer =
+  null;
+
+
+function scheduleMarketIntelligencePreviewExpiry() {
+
+  if (marketIntelligencePreviewTimer) {
+
+    clearTimeout(
+      marketIntelligencePreviewTimer
+    );
+  }
+
+
+  marketIntelligencePreviewTimer =
+    null;
+
+
+  if (
+    isPremiumUser ||
+    !marketIntelligencePreviewExpiresAt
+  ) {
+
+    return;
+  }
+
+
+  const remaining =
+    marketIntelligencePreviewExpiresAt -
+    Date.now();
+
+
+  if (remaining <= 0) {
+
+    return;
+  }
+
+
+  marketIntelligencePreviewTimer =
+    setTimeout(
+      () => {
+
+        marketIntelligencePreviewTimer =
+          null;
+
+
+        if (isPremiumUser) {
+
+          return;
+        }
+
+
+        openPremiumRadar(
+          "today"
+        );
+
+      },
+      remaining + 500
+    );
+}
+function updateMarketIntelligencePreviewHint(
+  profile
+) {
+
+  const hint =
+    document.getElementById(
+      "marketIntelligencePreviewHint"
+    );
+
+  if (!hint) {
+    return;
+  }
+
+  const previewAvailable =
+    profile?.is_premium !== true &&
+    !profile?.market_intelligence_preview_started_at;
+
+  hint.style.display =
+    previewAvailable
+      ? "block"
+      : "none";
+}
 function sanitize(str) {
   const d = document.createElement("div");
   d.appendChild(document.createTextNode(String(str)));
@@ -611,12 +696,16 @@ async function handleUserSession(user) {
   
   const { data: profile, error } = await supabaseClient
   .from("users")
-  .select("is_premium, subscription_status")
+  .select(
+  "is_premium, subscription_status, market_intelligence_preview_started_at"
+)
   .eq("id", user.id)
   .maybeSingle();
   if (!error && profile) {
     _setPremiumUser(profile.is_premium);
-
+updateMarketIntelligencePreviewHint(
+  profile
+);
     const premiumBox = document.getElementById("premiumBox");
     if (premiumBox) {
       premiumBox.style.display = isPremiumUser ? "none" : "block";
@@ -2580,7 +2669,9 @@ const user = data.user;
 
 const { data: profile, error: dbError } = await supabaseClient
   .from("users")
-  .select("is_premium, subscription_status")
+ .select(
+  "is_premium, subscription_status, market_intelligence_preview_started_at"
+)
   .eq("id", user.id)
   .maybeSingle();
 
@@ -2589,7 +2680,9 @@ const { data: profile, error: dbError } = await supabaseClient
   }
 
  _setPremiumUser(profile?.is_premium);
-
+updateMarketIntelligencePreviewHint(
+  profile
+);
   const premiumBox = document.getElementById("premiumBox");
 
   if (premiumBox) {
@@ -14977,7 +15070,144 @@ function startPremiumRadarAutoRefresh(
 // ============================================================
 // PREMIUM RADAR
 // ============================================================
+async function startMarketIntelligencePreview(
+  button = null
+) {
 
+  try {
+
+    if (button) {
+
+      button.disabled = true;
+
+      button.textContent =
+        "STARTING PREVIEW...";
+    }
+
+
+    const {
+      data: sessionData
+    } =
+      await supabaseClient
+        .auth
+        .getSession();
+
+
+    const session =
+      sessionData?.session;
+
+
+    if (!session?.access_token) {
+
+      throw new Error(
+        "You must be logged in."
+      );
+    }
+
+
+    const response =
+      await fetch(
+        "/api/market-intelligence/start-preview",
+        {
+          method: "POST",
+
+          headers: {
+            Authorization:
+              `Bearer ${session.access_token}`,
+            "Content-Type":
+              "application/json"
+          },
+
+          cache:
+            "no-store"
+        }
+      );
+
+
+    const data =
+      await response.json();
+
+
+    if (
+      !response.ok ||
+      data.ok !== true
+    ) {
+
+      throw new Error(
+        data?.error ||
+        "Unable to start preview."
+      );
+    }
+
+
+    const hint =
+      document.getElementById(
+        "marketIntelligencePreviewHint"
+      );
+
+
+    if (hint) {
+      hint.style.display =
+        "none";
+    }
+
+
+    if (
+      data.previewExpiresAt
+    ) {
+
+      const expires =
+        new Date(
+          data.previewExpiresAt
+        ).getTime();
+
+
+      if (
+        Number.isFinite(
+          expires
+        )
+      ) {
+
+        marketIntelligencePreviewExpiresAt =
+          expires;
+
+        scheduleMarketIntelligencePreviewExpiry();
+      }
+    }
+
+
+    await openPremiumRadar(
+      "today"
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "MARKET INTELLIGENCE PREVIEW ERROR:",
+      error
+    );
+
+
+    alert(
+      error.message ||
+      "Unable to start Market Intelligence preview."
+    );
+
+
+    if (button) {
+
+      button.disabled = false;
+
+      button.textContent =
+        "START MY FREE 15-MINUTE PREVIEW";
+    }
+  }
+}
+
+
+window.startMarketIntelligencePreview =
+  startMarketIntelligencePreview;
 async function openPremiumRadar(
   viewMode = "today",
   historyDate = null,
@@ -15659,7 +15889,33 @@ if (data.locked === true) {
           </div>
 
         </div>
-
+${
+  data.previewAvailable === true
+    ? `
+        <button
+          type="button"
+          onclick="startMarketIntelligencePreview(this)"
+          style="
+            width:100%;
+            max-width:500px;
+            margin-bottom:10px;
+            padding:15px 18px;
+            border:1px solid rgba(0,255,231,.45);
+            border-radius:14px;
+            background:rgba(0,255,231,.08);
+            color:#00ffe7;
+            font-size:12px;
+            font-weight:900;
+            letter-spacing:.5px;
+            cursor:pointer;
+            box-shadow:none;
+          "
+        >
+          START MY FREE 15-MINUTE PREVIEW
+        </button>
+      `
+    : ""
+}
 
         <button
           onclick="openPromoModal('radar')"
