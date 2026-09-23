@@ -644,7 +644,10 @@ res.setHeader(
       } =
         await supabaseAdmin
           .from("users")
-          .select("is_premium")
+         .select(`
+  is_premium,
+  market_intelligence_preview_started_at
+`)
           .eq(
             "id",
             authData.user.id
@@ -668,8 +671,48 @@ res.setHeader(
       }
 
 
-      const isPremiumUser =
-        profile?.is_premium === true;
+    const isPremiumUser =
+  profile?.is_premium === true;
+
+
+const previewStartedAt =
+  profile
+    ?.market_intelligence_preview_started_at
+    ? new Date(
+        profile
+          .market_intelligence_preview_started_at
+      )
+    : null;
+
+
+const previewExpiresAt =
+  previewStartedAt &&
+  !Number.isNaN(
+    previewStartedAt.getTime()
+  )
+    ? new Date(
+        previewStartedAt.getTime() +
+        (15 * 60 * 1000)
+      )
+    : null;
+
+
+const previewActive =
+  isPremiumUser !== true &&
+  previewExpiresAt !== null &&
+  previewExpiresAt.getTime() >
+    Date.now();
+
+
+const previewAvailable =
+  isPremiumUser !== true &&
+  !profile
+    ?.market_intelligence_preview_started_at;
+
+
+const hasRadarAccess =
+  isPremiumUser === true ||
+  previewActive === true;
 
 
       // ======================================================
@@ -704,7 +747,7 @@ res.setHeader(
       // dates
       // ======================================================
 
-      if (!isPremiumUser) {
+      if (!hasRadarAccess) {
 
   const [
     dailyCountResult,
@@ -850,16 +893,23 @@ res.setHeader(
     );
 
 
-  return res
-    .status(200)
-    .json({
-      ok: true,
-      locked: true,
+return res
+  .status(200)
+  .json({
+    ok: true,
+    locked: true,
 
-      premiumCount,
+    premiumCount,
 
-      premiumCountToday
-    });
+    premiumCountToday,
+
+    previewAvailable,
+
+    previewActive: false,
+
+    previewUsed:
+      !previewAvailable
+  });
 }
 
 // ======================================================
