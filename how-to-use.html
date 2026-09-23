@@ -2,7 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+  />
+
   <title>How to Use CashEdge</title>
 
   <style>
@@ -392,7 +397,10 @@
 
       .guide-shell{
         padding:
-          14px 10px 38px;
+          calc(14px + env(safe-area-inset-top, 0px))
+          calc(10px + env(safe-area-inset-right, 0px))
+          calc(38px + env(safe-area-inset-bottom, 0px))
+          calc(10px + env(safe-area-inset-left, 0px));
       }
 
       .guide-card{
@@ -428,7 +436,13 @@
 
     <button
       class="guide-back"
-      onclick="history.back()"
+      onclick="
+        if (history.length > 1) {
+          history.back();
+        } else {
+          window.location.href='/';
+        }
+      "
       type="button"
     >
       ← Back to CashEdge
@@ -494,6 +508,7 @@
         Getting Started
       </h2>
 
+
       <ol class="steps">
 
         <li>
@@ -544,6 +559,7 @@
         How to Read a CashEdge Play
       </h2>
 
+
       <p>
         A CashEdge play normally identifies the
         <strong>market</strong>,
@@ -558,6 +574,7 @@
       <h3>
         Spread
       </h3>
+
 
       <div class="example">
         <strong>Example: TEAM -3.5</strong>
@@ -577,6 +594,7 @@
         Total
       </h3>
 
+
       <div class="example">
         <strong>Example: OVER 47.5</strong>
         <br>
@@ -594,6 +612,7 @@
         Moneyline
       </h3>
 
+
       <p>
         A Moneyline or <strong>ML</strong> selection is based
         on which team wins the game, without applying a
@@ -604,6 +623,7 @@
       <h3>
         Player Prop
       </h3>
+
 
       <div class="example">
         <strong>
@@ -620,6 +640,7 @@
       <h3>
         Odds / Price
       </h3>
+
 
       <p>
         If American odds are displayed, negative and positive
@@ -727,6 +748,7 @@
       <h2 id="radar">
         Market Intelligence / Premium Radar
       </h2>
+
 
       <p>
         Premium Radar continues monitoring the market around
@@ -894,6 +916,7 @@
         Stale Line / Better Line Available
       </h3>
 
+
       <p>
         If several tracked sportsbooks move but one sportsbook
         still shows a more favorable number, CashEdge may
@@ -909,6 +932,7 @@
         Timeline / Market Events
       </h3>
 
+
       <p>
         Premium Radar highlights meaningful changes rather
         than every small market fluctuation.
@@ -923,6 +947,7 @@
       <h2 id="props">
         Advanced Player Props
       </h2>
+
 
       <p>
         Player Props compare the sportsbook's posted number
@@ -1100,6 +1125,7 @@
         Today's Parlay
       </h2>
 
+
       <p>
         Today's Parlay combines multiple qualifying selections
         into one grouped play.
@@ -1107,6 +1133,7 @@
         Each leg should still be read individually before
         evaluating the full parlay.
       </p>
+
 
       <p>
         Because every leg must satisfy the parlay result,
@@ -1126,6 +1153,7 @@
       <h2 id="performance">
         Premium Performance / History
       </h2>
+
 
       <p>
         CashEdge publicly tracks qualifying Premium Play
@@ -1200,12 +1228,14 @@
         Premium Market Alerts
       </h2>
 
+
       <p>
         Premium notifications are intended to surface
         meaningful market changes around CashEdge Premium
         selections, such as a newly detected opportunity,
         stronger market support or a meaningful reversal.
       </p>
+
 
       <p>
         A notification describes what CashEdge detected at
@@ -1221,6 +1251,7 @@
         Free vs Premium
       </h2>
 
+
       <p>
         Free access allows users to explore CashEdge with
         the daily analysis access shown in the app.
@@ -1235,6 +1266,7 @@
       <h2>
         Important Reading Rules
       </h2>
+
 
       <ul>
 
@@ -1298,11 +1330,13 @@
         Need Help?
       </h2>
 
+
       <p>
         If something in CashEdge is unclear or you need help
         with your account, subscription or billing,
         visit the Support Center.
       </p>
+
 
       <p>
         <a
