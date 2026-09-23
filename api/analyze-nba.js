@@ -746,7 +746,11 @@ if (
 }
 ];
 const onlySport = req.query.sport;
-
+const targetGameId =
+  String(
+    req.query.gameId ||
+    ""
+  ).trim() || null;
 const selectedSports = onlySport
   ? sports.filter(s => s.key === onlySport)
   : sports;
@@ -1055,9 +1059,38 @@ function getTotal(game) {
   let generationSuccessfulIds = [];
 
   try {
-        const oddsRes = await fetch(
-          `${origin}/api/odds?sport=${encodeURIComponent(sport.key)}`
-        );
+      const oddsParams =
+  new URLSearchParams({
+    sport: sport.key
+  });
+
+
+if (
+  targetGameId &&
+  req.query.force === "true"
+) {
+
+  oddsParams.set(
+    "force",
+    "true"
+  );
+}
+
+
+const oddsRes =
+  await fetch(
+    `${origin}/api/odds?${oddsParams.toString()}`,
+    {
+      headers:
+        targetGameId &&
+        req.query.force === "true"
+          ? {
+              "X-Internal-Secret":
+                validSecret
+            }
+          : {}
+    }
+  );
 
         const oddsText = await oddsRes.text();
 
@@ -1160,7 +1193,50 @@ function getGameCentralDate(game) {
   return centralDateFormatter
     .format(parsed);
 }
+function getCashEdgeGameId(
+  game,
+  league
+) {
 
+  const awayTeam =
+    game.away_team ||
+    game.awayTeam;
+
+  const homeTeam =
+    game.home_team ||
+    game.homeTeam;
+
+  const gameDate =
+    getGameCentralDate(
+      game
+    );
+
+
+  if (
+    !awayTeam ||
+    !homeTeam ||
+    !gameDate
+  ) {
+    return null;
+  }
+
+
+  const teamsSorted =
+    [
+      awayTeam,
+      homeTeam
+    ]
+      .map(
+        team =>
+          String(team).trim()
+      )
+      .sort();
+
+
+  return (
+    `${league}-${gameDate}-${teamsSorted.join("-")}`
+  );
+}
 
 // ============================================================
 // DEPORTES DIARIOS
@@ -1457,12 +1533,40 @@ else {
       )
     );
 
-  selectedGames =
-    todayGames.slice(
-      offset,
-      offset +
-        requestedLimit
-    );
+
+  if (targetGameId) {
+
+    const targetPool =
+      sport.league === "nfl" ||
+      sport.league === "ncaaf"
+        ? footballWindowGames
+        : todayGames;
+
+
+    selectedGames =
+      targetPool
+        .filter(
+          game =>
+            getCashEdgeGameId(
+              game,
+              sport.league
+            ) ===
+            targetGameId
+        )
+        .slice(
+          0,
+          1
+        );
+
+  } else {
+
+    selectedGames =
+      todayGames.slice(
+        offset,
+        offset +
+          requestedLimit
+      );
+  }
 }
         for (const game of selectedGames) {
           const awayTeam = game.away_team || game.awayTeam;
