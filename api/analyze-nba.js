@@ -1568,6 +1568,21 @@ else {
       );
   }
 }
+    if (
+  targetGameId &&
+  selectedGames.length === 0
+) {
+
+  return res.status(404).json({
+    ok: false,
+    error:
+      "Target game not found in fresh odds",
+    sport:
+      sport.key,
+    gameId:
+      targetGameId
+  });
+}
         for (const game of selectedGames) {
           const awayTeam = game.away_team || game.awayTeam;
           const homeTeam = game.home_team || game.homeTeam;
