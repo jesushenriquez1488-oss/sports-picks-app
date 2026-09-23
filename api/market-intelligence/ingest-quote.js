@@ -14,6 +14,12 @@ const {
   validateCanonicalMarketQuote 
 } =
   require("./marketProviderAdapter");
+const {
+  calculateConsensus
+} =
+  require(
+    "../../lib/marketEvaluation"
+  );
 
 const supabaseAdmin =
   createClient(
@@ -280,7 +286,496 @@ function makeDedupeKey({
     .digest("hex");
 }
 
+const LIVE_QUOTE_MS =
+  3 * 60 * 1000;
 
+
+function oddsSportKey(
+  sport
+) {
+
+  const clean =
+    String(
+      sport || ""
+    )
+      .toLowerCase()
+      .trim();
+
+
+  const map = {
+
+    nba:
+      "basketball_nba",
+
+    basketball_nba:
+      "basketball_nba",
+
+    wnba:
+      "basketball_wnba",
+
+    basketball_wnba:
+      "basketball_wnba",
+
+    ncaab:
+      "basketball_ncaab",
+
+    basketball_ncaab:
+      "basketball_ncaab",
+
+    mlb:
+      "baseball_mlb",
+
+    baseball_mlb:
+      "baseball_mlb",
+
+    nfl:
+      "americanfootball_nfl",
+
+    americanfootball_nfl:
+      "americanfootball_nfl",
+
+    ncaaf:
+      "americanfootball_ncaaf",
+
+    americanfootball_ncaaf:
+      "americanfootball_ncaaf"
+  };
+
+
+  return map[clean] || null;
+}
+
+
+function requestOrigin(
+  req
+) {
+
+  const configured =
+    String(
+      process.env.CASHEDGE_ORIGIN ||
+      ""
+    )
+      .trim()
+      .replace(/\/$/, "");
+
+
+  if (configured) {
+    return configured;
+  }
+
+
+  const protocol =
+    String(
+      req.headers[
+        "x-forwarded-proto"
+      ] ||
+      "https"
+    )
+      .split(",")[0]
+      .trim();
+
+
+  const host =
+    String(
+      req.headers[
+        "x-forwarded-host"
+      ] ||
+      req.headers.host ||
+      ""
+    )
+      .split(",")[0]
+      .trim();
+
+
+  return host
+    ? `${protocol}://${host}`
+    : "https://www.cashedgeapp.com";
+}
+
+
+async function getCashEdgeConsensus({
+
+  gameId,
+  marketType,
+  selectionKey
+
+}) {
+
+  if (
+    !gameId ||
+    !marketType ||
+    !selectionKey
+  ) {
+    return {
+      status: "no_data"
+    };
+  }
+
+
+  const {
+    data,
+    error
+  } =
+    await supabaseAdmin
+      .from(
+        "market_current_quotes"
+      )
+      .select(`
+        sportsbook_key,
+        sportsbook_name,
+        line,
+        price_american,
+        provider_timestamp,
+        observed_at,
+        updated_at
+      `)
+      .eq(
+        "cashedge_game_id",
+        gameId
+      )
+      .eq(
+        "market_type",
+        marketType
+      )
+      .eq(
+        "selection_key",
+        selectionKey
+      );
+
+
+  if (error) {
+    throw error;
+  }
+
+
+  const now =
+    Date.now();
+
+
+  const quotes =
+    (data || [])
+      .filter(
+        quote => {
+
+          if (
+            safeLine(
+              quote.price_american
+            ) === null
+          ) {
+            return false;
+          }
+
+
+          const lastSeen =
+            new Date(
+              quote.updated_at ||
+              quote.observed_at ||
+              quote.provider_timestamp ||
+              0
+            )
+              .getTime();
+
+
+          return (
+            Number.isFinite(
+              lastSeen
+            ) &&
+            now - lastSeen <=
+              LIVE_QUOTE_MS
+          );
+        }
+      );
+
+
+  return calculateConsensus(
+    quotes,
+    String(
+      marketType
+    )
+      .toLowerCase()
+      .trim()
+  );
+}
+
+
+async function maybeReanalyzeConsensusChange({
+
+  req,
+  gameId,
+  pickContext,
+  beforeConsensus,
+  pipeline
+
+}) {
+
+  try {
+
+    if (
+      pickContext
+        ?.current_is_premium !==
+      true
+    ) {
+      return {
+        triggered: false,
+        reason:
+          "Game is not Premium"
+      };
+    }
+
+
+    /*
+     * Another pipeline worker owns this game.
+     *
+     * That worker will eventually process the
+     * newest state and perform this check.
+     */
+    if (
+      pipeline?.queued ===
+      true
+    ) {
+      return {
+        triggered: false,
+        reason:
+          "Pipeline queued"
+      };
+    }
+
+
+    const afterConsensus =
+      await getCashEdgeConsensus({
+
+        gameId,
+
+        marketType:
+          pickContext.market_type,
+
+        selectionKey:
+          pickContext.selection_key
+      });
+
+
+    const oldLine =
+      beforeConsensus
+        ?.status === "clear"
+        ? safeLine(
+            beforeConsensus.line
+          )
+        : null;
+
+
+    const newLine =
+      afterConsensus
+        ?.status === "clear"
+        ? safeLine(
+            afterConsensus.line
+          )
+        : null;
+
+
+    const cashEdgeLine =
+      safeLine(
+        pickContext
+          .current_cashedge_line
+      );
+
+
+    if (
+      newLine === null
+    ) {
+      return {
+        triggered: false,
+        reason:
+          "No clear consensus"
+      };
+    }
+
+
+    const consensusChanged =
+      oldLine === null ||
+      !sameNumber(
+        oldLine,
+        newLine
+      );
+
+
+    if (
+      !consensusChanged
+    ) {
+      return {
+        triggered: false,
+        reason:
+          "Consensus line unchanged",
+        consensusLine:
+          newLine
+      };
+    }
+
+
+    if (
+      cashEdgeLine !== null &&
+      sameNumber(
+        cashEdgeLine,
+        newLine
+      )
+    ) {
+      return {
+        triggered: false,
+        reason:
+          "CashEdge already uses consensus line",
+        consensusLine:
+          newLine
+      };
+    }
+
+
+    const sportKey =
+      oddsSportKey(
+        pickContext.sport
+      );
+
+
+    if (!sportKey) {
+
+      return {
+        triggered: false,
+        reason:
+          "Unsupported sport"
+      };
+    }
+
+
+    const secret =
+      process.env.CRON_SECRET ||
+      process.env
+        .GENERATE_DAILY_SECRET;
+
+
+    if (!secret) {
+
+      console.error(
+        "CONSENSUS REANALYSIS: internal secret missing"
+      );
+
+      return {
+        triggered: false,
+        reason:
+          "Internal secret missing"
+      };
+    }
+
+
+    const params =
+      new URLSearchParams({
+
+        mode:
+          "generate-daily",
+
+        sport:
+          sportKey,
+
+        gameId:
+          gameId,
+
+        force:
+          "true"
+      });
+
+
+    const response =
+      await fetch(
+        `${requestOrigin(req)}/api/analyze-nba?${params.toString()}`,
+        {
+          method:
+            "GET",
+
+          headers: {
+            Authorization:
+              `Bearer ${secret}`
+          }
+        }
+      );
+
+
+    const data =
+      await response
+        .json()
+        .catch(
+          () => null
+        );
+
+
+    if (!response.ok) {
+
+      console.error(
+        "CONSENSUS REANALYSIS FAILED:",
+        {
+          gameId,
+          sportKey,
+          oldLine,
+          newLine,
+          status:
+            response.status,
+          data
+        }
+      );
+
+
+      return {
+        triggered: true,
+        success: false,
+        oldLine,
+        newLine,
+        status:
+          response.status
+      };
+    }
+
+
+    console.log(
+      "CONSENSUS REANALYSIS:",
+      {
+        gameId,
+        sportKey,
+        oldLine,
+        newLine,
+        cashEdgeLine,
+        analyzed:
+          data?.analyzed ?? null
+      }
+    );
+
+
+    return {
+      triggered: true,
+      success: true,
+      oldLine,
+      newLine,
+      cashEdgeLine
+    };
+
+
+  } catch (error) {
+
+    /*
+     * Reanalysis must NEVER break
+     * OWLS market ingestion.
+     */
+
+    console.error(
+      "CONSENSUS REANALYSIS ERROR:",
+      error
+    );
+
+
+    return {
+      triggered: false,
+      success: false,
+      error:
+        error.message ||
+        String(error)
+    };
+  }
+}
 // ============================================================
 // HANDLER
 // ============================================================
@@ -542,11 +1037,14 @@ const observedAt =
           .from(
             "market_pick_context"
           )
-          .select(`
-            id,
-            sport,
-            current_is_premium
-          `)
+         .select(`
+  id,
+  sport,
+  market_type,
+  selection_key,
+  current_cashedge_line,
+  current_is_premium
+`)
           .eq(
             "cashedge_game_id",
             cashedgeGameId
@@ -575,7 +1073,18 @@ const observedAt =
               "CashEdge game is not being tracked by Market Intelligence"
           });
       }
+const beforeConsensus =
+  await getCashEdgeConsensus({
 
+    gameId:
+      cashedgeGameId,
+
+    marketType:
+      pickContext.market_type,
+
+    selectionKey:
+      pickContext.selection_key
+  });
 
       // ======================================================
       // GET CURRENT QUOTE
@@ -719,7 +1228,20 @@ const observedAt =
               observedAt
           });
 
+const reanalysis =
+  await maybeReanalyzeConsensusChange({
 
+    req,
+
+    gameId:
+      cashedgeGameId,
+
+    pickContext,
+
+    beforeConsensus,
+
+    pipeline
+  });
         return res
           .status(200)
           .json({
@@ -734,13 +1256,14 @@ const observedAt =
             result:
               "baseline",
 
-            changed:
-              false,
+           changed:
+  false,
 
-            pipeline,
+pipeline,
 
-            quote: {
+reanalysis,
 
+quote: {
               sportsbook:
                 created
                   .sportsbook_name ||
@@ -1186,7 +1709,20 @@ const shouldRunPipeline =
           receivedAt:
             observedAt
         });
+const reanalysis =
+  await maybeReanalyzeConsensusChange({
 
+    req,
+
+    gameId:
+      cashedgeGameId,
+
+    pickContext,
+
+    beforeConsensus,
+
+    pipeline
+  });
 
       // ======================================================
       // RESPONSE
@@ -1206,14 +1742,15 @@ const shouldRunPipeline =
           result:
             "changed",
 
-          changed:
-            true,
+         changed:
+  true,
 
-          pipeline,
+pipeline,
 
-          lineChanged,
-          priceChanged,
+reanalysis,
 
+lineChanged,
+priceChanged,
           previous: {
 
             line:
