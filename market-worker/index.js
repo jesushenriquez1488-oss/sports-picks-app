@@ -68,7 +68,7 @@ const REFRESH_INTERVAL_MS =
 const PICK_CONTEXT_SYNC_INTERVAL_MS =
   5 * 60 * 1000;
 const SPLIT_REFRESH_INTERVAL_MS =
-  15 * 1000;
+  30 * 1000;
 const OWLS_WATCHDOG_INTERVAL_MS =
   30 * 1000;
 
@@ -173,7 +173,7 @@ let firstIngestSummaryLogged =
 const lastSentSignatures =
   new Map();
 const QUOTE_REVALIDATE_MS =
-  45 * 1000;
+  60 * 1000;
 // ============================================================
 // NORMALIZATION
 // ============================================================
@@ -2349,12 +2349,14 @@ premiumQuoteCounts.set(
   ) + 1
 );
 
-        jobs.push({
-          signatureKey,
-          signature,
+     jobs.push({
+  signatureKey,
+  signature,
 
-          payload: {
+  isRevalidation:
+    sameQuote === true,
 
+  payload: {
             sport,
 
             cashedge_game_id:
@@ -2444,7 +2446,66 @@ premiumQuoteCounts.set(
       }
     }
   }
+const gamesWithRealChanges =
+  new Set(
+    jobs
+      .filter(
+        job =>
+          job.isRevalidation !== true
+      )
+      .map(
+        job =>
+          String(
+            job?.payload
+              ?.cashedge_game_id ||
+            ""
+          )
+      )
+      .filter(Boolean)
+  );
 
+
+const periodicRefreshAssigned =
+  new Set();
+
+
+for (
+  const job
+  of jobs
+) {
+
+  const gameId =
+    String(
+      job?.payload
+        ?.cashedge_game_id ||
+      ""
+    );
+
+
+  const canOwnPeriodicRefresh =
+    Boolean(gameId) &&
+    job.isRevalidation === true &&
+    !gamesWithRealChanges.has(
+      gameId
+    ) &&
+    !periodicRefreshAssigned.has(
+      gameId
+    );
+
+
+  job.payload.allow_periodic_refresh =
+    canOwnPeriodicRefresh;
+
+
+  if (
+    canOwnPeriodicRefresh
+  ) {
+
+    periodicRefreshAssigned.add(
+      gameId
+    );
+  }
+}
 
   const result =
     await runJobs(
