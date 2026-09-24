@@ -926,6 +926,12 @@ module.exports =
 const body =
   req.body || {};
 
+
+const allowPeriodicRefresh =
+  body.allow_periodic_refresh ===
+  true;
+
+
 const canonicalQuote =
   buildCanonicalMarketQuote({
     sport:
@@ -1073,18 +1079,6 @@ const observedAt =
               "CashEdge game is not being tracked by Market Intelligence"
           });
       }
-const beforeConsensus =
-  await getCashEdgeConsensus({
-
-    gameId:
-      cashedgeGameId,
-
-    marketType:
-      pickContext.market_type,
-
-    selectionKey:
-      pickContext.selection_key
-  });
 
       // ======================================================
       // GET CURRENT QUOTE
@@ -1137,11 +1131,25 @@ const beforeConsensus =
       // ======================================================
 
       if (
-        !existing
-      ) {
+  !existing
+) {
 
-        const {
-          data: created,
+  const beforeConsensus =
+    await getCashEdgeConsensus({
+
+      gameId:
+        cashedgeGameId,
+
+      marketType:
+        pickContext.market_type,
+
+      selectionKey:
+        pickContext.selection_key
+    });
+
+
+  const {
+    data: created,
           error: insertError
         } =
           await supabaseAdmin
@@ -1377,7 +1385,52 @@ if (
   ) {
     throw refreshError;
   }
+  // ====================================================
+  // FAST HEARTBEAT EXIT
+  //
+  // All sportsbooks still refresh their last-seen time,
+  // but only one quote per game is allowed to consider
+  // a periodic Market Intelligence refresh.
+  // ====================================================
 
+  if (
+    allowPeriodicRefresh !==
+    true
+  ) {
+
+    return res
+      .status(200)
+      .json({
+
+        ok: true,
+
+        shadowMode:
+          settings
+            ?.shadow_mode ===
+          true,
+
+        result:
+          "unchanged",
+
+        changed:
+          false,
+
+        lineChanged:
+          false,
+
+        priceChanged:
+          false,
+
+        pipeline: {
+
+          triggered:
+            false,
+
+          reason:
+            "Quote unchanged; heartbeat only"
+        }
+      });
+  }
 
   // ====================================================
   // CHECK WHETHER MARKET INTELLIGENCE NEEDS REBUILD
@@ -1516,12 +1569,25 @@ const shouldRunPipeline =
     });
 }
 
+// ======================================================
+// REAL MARKET CHANGE
+// ======================================================
 
-      // ======================================================
-      // REAL MARKET CHANGE
-      // ======================================================
+const beforeConsensus =
+  await getCashEdgeConsensus({
 
-      const dedupeKey =
+    gameId:
+      cashedgeGameId,
+
+    marketType:
+      pickContext.market_type,
+
+    selectionKey:
+      pickContext.selection_key
+  });
+
+
+const dedupeKey =
         makeDedupeKey({
 
           cashedgeGameId,
