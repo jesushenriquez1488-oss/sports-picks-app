@@ -2902,7 +2902,76 @@ async function loginWithApple() {
       throw error;
     }
 
+if (!result?.authorizationCode) {
 
+  await supabaseClient.auth.signOut();
+
+  throw new Error(
+    "Apple did not return an authorization code."
+  );
+}
+
+
+const accessToken =
+  data?.session?.access_token;
+
+
+if (!accessToken) {
+
+  await supabaseClient.auth.signOut();
+
+  throw new Error(
+    "Unable to create the CashEdge session."
+  );
+}
+
+
+const appleTokenResponse =
+  await fetch(
+    "https://www.cashedgeapp.com/api/apple-auth-token",
+    {
+      method:
+        "POST",
+
+      headers: {
+        "Content-Type":
+          "application/json",
+
+        "Authorization":
+          `Bearer ${accessToken}`
+      },
+
+      body:
+        JSON.stringify({
+          authorizationCode:
+            result.authorizationCode
+        })
+    }
+  );
+
+
+let appleTokenResult = {};
+
+try {
+
+  appleTokenResult =
+    await appleTokenResponse.json();
+
+} catch (_) {}
+
+
+if (
+  !appleTokenResponse.ok ||
+  appleTokenResult?.success !== true
+) {
+
+  await supabaseClient.auth.signOut();
+
+  throw new Error(
+    appleTokenResult?.error ||
+    "Unable to complete Apple Sign-In."
+  );
+}
     const fullName =
       [
         result?.givenName,
