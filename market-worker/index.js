@@ -3,7 +3,29 @@
 const {
   io
 } = require("socket.io-client");
+// ============================================================
+// LEARNING INTELLIGENCE
+// Optional and non-fatal.
+// A Learning failure must NEVER stop Market Intelligence.
+// ============================================================
 
+let learningCapture =
+  null;
+
+try {
+
+  learningCapture =
+    require("./learningCapture");
+
+} catch (error) {
+
+  console.error(
+    `[learning-capture] module unavailable: ${error?.message || error}`
+  );
+
+  learningCapture =
+    null;
+}
 
 // ============================================================
 // CONFIG
