@@ -29894,39 +29894,93 @@ window.addEventListener("load", async () => {
 
 async function requestDeleteAccount() {
   const confirmed = confirm(
-    "To request deletion of your CashEdge account and personal data, an email request will be created. Continue?"
+    "Permanently delete your CashEdge account?\n\n" +
+    "Your account and associated personal data will be deleted. " +
+    "If you have an active Premium subscription, it will also be canceled.\n\n" +
+    "This action cannot be undone."
   );
 
   if (!confirmed) return;
 
   try {
-    const { data: { user } } = await supabaseClient.auth.getUser();
+    const {
+      data: { session },
+      error
+    } = await supabaseClient.auth.getSession();
 
-    const email = user?.email || "";
+    if (
+      error ||
+      !session?.access_token
+    ) {
+      alert(
+        "Your session has expired. Please log in again."
+      );
+      return;
+    }
 
-    const subject = encodeURIComponent(
-      "Delete Account Request - CashEdge"
+    const response = await fetch(
+      "https://www.cashedgeapp.com/api/delete-account",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization":
+            `Bearer ${session.access_token}`
+        }
+      }
     );
 
-    const body = encodeURIComponent(
-`Hello CashEdge Support,
+    let result = {};
 
-I would like to request deletion of my CashEdge account and associated personal data.
+    try {
+      result = await response.json();
+    } catch (_) {}
 
-Account Email:
-${email}
+    if (
+      !response.ok ||
+      result?.success !== true
+    ) {
+      throw new Error(
+        result?.error ||
+        "Unable to delete account."
+      );
+    }
 
-Thank you.`
+    // Clear the local Supabase session.
+    try {
+      await supabaseClient.auth.signOut({
+        scope: "local"
+      });
+    } catch (_) {}
+
+    localStorage.removeItem(
+      "supabaseUser"
     );
 
-    window.location.href =
-      `mailto:supportcashedge@gmail.com?subject=${subject}&body=${body}`;
+    localStorage.removeItem(
+      "isPremiumUser"
+    );
 
-  } catch (err) {
+    localStorage.removeItem(
+      "userId"
+    );
 
-    window.location.href =
-      "mailto:supportcashedge@gmail.com?subject=Delete%20Account%20Request";
+    alert(
+      "Your CashEdge account has been permanently deleted."
+    );
 
+    window.location.reload();
+
+  } catch (error) {
+    console.error(
+      "DELETE ACCOUNT ERROR:",
+      error
+    );
+
+    alert(
+      "We couldn't delete your account. Please try again or contact support."
+    );
   }
 }
 function openPromoModal(context = "general") {
