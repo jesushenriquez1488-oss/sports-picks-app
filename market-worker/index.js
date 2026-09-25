@@ -26,7 +26,56 @@ try {
   learningCapture =
     null;
 }
+async function initializeLearningSafe() {
 
+  if (
+    !learningCapture ||
+    typeof learningCapture.initialize !== "function"
+  ) {
+    return;
+  }
+
+  try {
+
+    const result =
+      await learningCapture.initialize();
+
+
+    if (
+      result?.disabled === true
+    ) {
+
+      console.log(
+        "[learning-capture] disabled"
+      );
+
+      return;
+    }
+
+
+    if (
+      result?.ok === true
+    ) {
+
+      console.log(
+        "[learning-capture] initialized"
+      );
+
+      return;
+    }
+
+
+    console.error(
+      "[learning-capture] initialization not ready"
+    );
+
+  } catch (error) {
+
+    console.error(
+      `[learning-capture] initialization failed: ${error?.message || error}`
+    );
+  }
+}
 // ============================================================
 // CONFIG
 // ============================================================
@@ -2926,7 +2975,7 @@ async function start() {
   console.log(
     `[${WORKER_NAME}] CashEdge origin: ${CASHEDGE_ORIGIN}`
   );
-
+  void initializeLearningSafe();
 
   /*
    * Load the current tracked board first.
