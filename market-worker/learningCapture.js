@@ -16,52 +16,53 @@ const KEY =
   String(process.env.LEARNING_SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
 const TIMEOUT_MS = 5000;
+const HEAD_PAGE_SIZE = 1000;
 
 
 // ============================================================
 // IN-MEMORY STATE
-// Prevents repeated writes while Railway is running.
 // ============================================================
 
 const lastMarket = new Map();
 const lastCashEdge = new Map();
 
+const hydrated = {
+  market: false,
+  cashedge: false
+};
+
+const hydrationPromises = {
+  market: null,
+  cashedge: null
+};
+
 let warnedMissingConfig = false;
 
 
 // ============================================================
-// SMALL NORMALIZATION HELPERS
+// HELPERS
 // ============================================================
 
-const txt = (value) => {
-
-  if (
-    value === null ||
-    value === undefined
-  ) {
+function txt(value) {
+  if (value === null || value === undefined) {
     return null;
   }
 
-  const output =
-    String(value).trim();
-
+  const output = String(value).trim();
   return output || null;
-};
+}
 
 
-const low = (value) => {
-
-  const output =
-    txt(value);
+function low(value) {
+  const output = txt(value);
 
   return output
     ? output.toLowerCase()
     : null;
-};
+}
 
 
-const num = (value) => {
-
+function num(value) {
   if (
     value === null ||
     value === undefined ||
@@ -70,98 +71,168 @@ const num = (value) => {
     return null;
   }
 
-  const output =
-    Number(value);
+  const output = Number(value);
 
   return Number.isFinite(output)
     ? output
     : null;
-};
+}
 
 
-const int = (value) => {
-
-  const output =
-    num(value);
+function int(value) {
+  const output = num(value);
 
   return output === null
     ? null
     : Math.trunc(output);
-};
+}
 
 
-const ts = (value) => {
-
+function ts(value) {
   if (!value) {
     return null;
   }
 
-  const output =
-    new Date(value);
+  const output = new Date(value);
 
-  return Number.isNaN(
-    output.getTime()
-  )
+  return Number.isNaN(output.getTime())
     ? null
     : output.toISOString();
-};
+}
 
 
-const bool = (value) =>
-  value === true ||
-  value === 1 ||
-  value === "1" ||
-  value === "true";
+function bool(value) {
+  return (
+    value === true ||
+    value === 1 ||
+    value === "1" ||
+    String(value).toLowerCase() === "true"
+  );
+}
 
 
-const hash = (...parts) =>
-  crypto
+function hash(...parts) {
+  return crypto
     .createHash("sha256")
     .update(
       parts
-        .map(
-          (value) =>
-            String(
-              value ?? "∅"
-            )
-        )
+        .map(value => String(value ?? "∅"))
         .join("|")
     )
     .digest("hex");
+}
 
 
 // ============================================================
-// FEATURE FLAG / SAFETY
+// SAFETY / FEATURE FLAG
 // ============================================================
 
 function active() {
-
   if (!ENABLED) {
     return false;
   }
 
-  if (
-    URL &&
-    KEY
-  ) {
+  if (URL && KEY) {
     return true;
   }
 
-
-  if (
-    !warnedMissingConfig
-  ) {
-
-    warnedMissingConfig =
-      true;
+  if (!warnedMissingConfig) {
+    warnedMissingConfig = true;
 
     console.warn(
       `${PREFIX} disabled: missing Learning Supabase environment variables`
     );
   }
 
-
   return false;
+}
+
+
+// ============================================================
+// SAFE HTTP
+// ============================================================
+
+async function request(path, options = {}) {
+  const controller =
+    new AbortController();
+
+  const timer =
+    setTimeout(
+      () => controller.abort(),
+      TIMEOUT_MS
+    );
+
+  timer.unref?.();
+
+  try {
+    return await fetch(
+      `${URL}/rest/v1/${path}`,
+      {
+        ...options,
+
+        headers: {
+          apikey: KEY,
+          Authorization: `Bearer ${KEY}`,
+          ...(options.headers || {})
+        },
+
+        signal: controller.signal
+      }
+    );
+
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+
+// ============================================================
+// IDENTITIES / SIGNATURES
+// ============================================================
+
+function marketIdentity(row) {
+  return (
+    `${row.sport}|` +
+    `${row.cashedge_game_id}|` +
+    `${row.provider}|` +
+    `${row.sportsbook_key}|` +
+    `${row.market_type}|` +
+    `${row.selection_key}`
+  );
+}
+
+
+function marketSignature(row) {
+  return hash(
+    row.line,
+    row.price_american
+  );
+}
+
+
+function cashEdgeIdentity(row) {
+  return (
+    `${row.sport}|` +
+    `${row.cashedge_game_id}|` +
+    `${row.market_type}|` +
+    `${row.selection_key || ""}`
+  );
+}
+
+
+function cashEdgeSignature(row) {
+  return hash(
+    row.pick_text,
+    row.line,
+    row.price_american,
+    row.projection,
+    row.edge,
+    row.confidence,
+    row.is_premium,
+    row.is_primary,
+    row.projected_home_score,
+    row.projected_away_score
+  );
 }
 
 
@@ -169,66 +240,41 @@ function active() {
 // MARKET NORMALIZATION
 // ============================================================
 
-function normalizeMarket(
-  input = {}
-) {
-
+function normalizeMarket(input = {}) {
   const row = {
 
     cashedge_game_id:
-      txt(
-        input.cashedge_game_id
-      ),
+      txt(input.cashedge_game_id),
 
     sport:
-      low(
-        input.sport
-      ),
+      low(input.sport),
 
     provider:
-      low(
-        input.provider
-      ),
+      low(input.provider),
 
     provider_event_id:
-      txt(
-        input.provider_event_id
-      ),
+      txt(input.provider_event_id),
 
     sportsbook_key:
-      low(
-        input.sportsbook_key
-      ),
+      low(input.sportsbook_key),
 
     market_type:
-      low(
-        input.market_type
-      ),
+      low(input.market_type),
 
     selection_key:
-      low(
-        input.selection_key
-      ),
+      low(input.selection_key),
 
     line:
-      num(
-        input.line
-      ),
+      num(input.line),
 
     price_american:
-      int(
-        input.price_american
-      ),
+      int(input.price_american),
 
     provider_timestamp:
-      ts(
-        input.provider_timestamp
-      ),
+      ts(input.provider_timestamp),
 
     observed_at:
-      ts(
-        input.observed_at
-      ) ||
+      ts(input.observed_at) ||
       new Date().toISOString()
   };
 
@@ -246,16 +292,18 @@ function normalizeMarket(
   }
 
 
+  const identity =
+    marketIdentity(row);
+
+  const signature =
+    marketSignature(row);
+
+
   row.dedupe_key =
     hash(
-      row.cashedge_game_id,
-      row.provider,
-      row.provider_event_id,
-      row.sportsbook_key,
-      row.market_type,
-      row.selection_key,
-      row.line,
-      row.price_american,
+      "market",
+      identity,
+      signature,
       row.provider_timestamp ||
         row.observed_at
     );
@@ -269,91 +317,56 @@ function normalizeMarket(
 // CASHEDGE NORMALIZATION
 // ============================================================
 
-function normalizeCashEdge(
-  input = {}
-) {
-
+function normalizeCashEdge(input = {}) {
   const row = {
 
     cashedge_game_id:
-      txt(
-        input.cashedge_game_id
-      ),
+      txt(input.cashedge_game_id),
 
     sport:
-      low(
-        input.sport
-      ),
+      low(input.sport),
 
     market_type:
-      low(
-        input.market_type
-      ),
+      low(input.market_type),
 
     selection_key:
-      low(
-        input.selection_key
-      ),
+      low(input.selection_key),
 
     pick_text:
-      txt(
-        input.pick_text
-      ),
+      txt(input.pick_text),
 
     line:
-      num(
-        input.line
-      ),
+      num(input.line),
 
     price_american:
-      int(
-        input.price_american
-      ),
+      int(input.price_american),
 
     projection:
-      num(
-        input.projection
-      ),
+      num(input.projection),
 
     edge:
-      num(
-        input.edge
-      ),
+      num(input.edge),
 
     confidence:
-      num(
-        input.confidence
-      ),
+      num(input.confidence),
 
     is_premium:
-      bool(
-        input.is_premium
-      ),
+      bool(input.is_premium),
 
     is_primary:
-      bool(
-        input.is_primary
-      ),
+      bool(input.is_primary),
 
     projected_home_score:
-      num(
-        input.projected_home_score
-      ),
+      num(input.projected_home_score),
 
     projected_away_score:
-      num(
-        input.projected_away_score
-      ),
+      num(input.projected_away_score),
 
     source_updated_at:
-      ts(
-        input.source_updated_at
-      ),
+      ts(input.source_updated_at),
 
     observed_at:
-      ts(
-        input.observed_at
-      ) ||
+      ts(input.observed_at) ||
       new Date().toISOString()
   };
 
@@ -367,21 +380,18 @@ function normalizeCashEdge(
   }
 
 
+  const identity =
+    cashEdgeIdentity(row);
+
+  const signature =
+    cashEdgeSignature(row);
+
+
   row.dedupe_key =
     hash(
-      row.cashedge_game_id,
-      row.market_type,
-      row.selection_key,
-      row.pick_text,
-      row.line,
-      row.price_american,
-      row.projection,
-      row.edge,
-      row.confidence,
-      row.is_premium,
-      row.is_primary,
-      row.projected_home_score,
-      row.projected_away_score,
+      "cashedge",
+      identity,
+      signature,
       row.source_updated_at ||
         row.observed_at
     );
@@ -392,73 +402,317 @@ function normalizeCashEdge(
 
 
 // ============================================================
-// CHANGE DETECTION
+// DURABLE HEAD CACHE
 // ============================================================
 
-function marketIdentity(
-  row
+async function loadHeads(
+  streamType,
+  cache
 ) {
+  let start = 0;
 
-  return (
-    `${row.cashedge_game_id}|` +
-    `${row.provider}|` +
-    `${row.sportsbook_key}|` +
-    `${row.market_type}|` +
-    `${row.selection_key}`
-  );
-}
+  try {
 
+    while (true) {
 
-function marketSignature(
-  row
-) {
-
-  return hash(
-    row.line,
-    row.price_american
-  );
-}
+      const end =
+        start +
+        HEAD_PAGE_SIZE -
+        1;
 
 
-function cashEdgeIdentity(
-  row
-) {
+      const response =
+        await request(
+          `learning_capture_heads?select=identity_key,signature&stream_type=eq.${encodeURIComponent(streamType)}&order=identity_key.asc`,
+          {
+            method:
+              "GET",
 
-  return (
-    `${row.cashedge_game_id}|` +
-    `${row.market_type}|` +
-    `${row.selection_key || ""}`
-  );
-}
+            headers: {
+              Range:
+                `${start}-${end}`,
+
+              "Range-Unit":
+                "items"
+            }
+          }
+        );
 
 
-function cashEdgeSignature(
-  row
-) {
+      if (!response.ok) {
 
-  return hash(
-    row.pick_text,
-    row.line,
-    row.price_american,
-    row.projection,
-    row.edge,
-    row.confidence,
-    row.is_premium,
-    row.is_primary,
-    row.projected_home_score,
-    row.projected_away_score
-  );
+        const detail =
+          (
+            await response.text()
+          ).slice(
+            0,
+            300
+          );
+
+
+        console.error(
+          `${PREFIX} head load failed (${streamType}) HTTP ${response.status}: ${detail}`
+        );
+
+        return false;
+      }
+
+
+      const rows =
+        await response
+          .json()
+          .catch(
+            () => null
+          );
+
+
+      if (!Array.isArray(rows)) {
+
+        console.error(
+          `${PREFIX} head load failed (${streamType}): invalid response`
+        );
+
+        return false;
+      }
+
+
+      for (
+        const row
+        of rows
+      ) {
+
+        const identityKey =
+          txt(
+            row?.identity_key
+          );
+
+        const signature =
+          txt(
+            row?.signature
+          );
+
+
+        if (
+          identityKey &&
+          signature
+        ) {
+
+          cache.set(
+            identityKey,
+            signature
+          );
+        }
+      }
+
+
+      if (
+        rows.length <
+        HEAD_PAGE_SIZE
+      ) {
+        break;
+      }
+
+
+      start +=
+        HEAD_PAGE_SIZE;
+    }
+
+
+    return true;
+
+  } catch (error) {
+
+    console.error(
+      `${PREFIX} head load failed (${streamType}): ${error?.message || error}`
+    );
+
+    return false;
+  }
 }
 
 
 // ============================================================
-// SUPABASE WRITE
-//
-// IMPORTANT:
-// - Learning only.
-// - Never throws outside this module.
-// - 5 second timeout.
-// - Duplicate dedupe_key values are ignored.
+// SAFE HYDRATION
+// ============================================================
+
+async function ensureHydrated(
+  streamType,
+  cache
+) {
+
+  if (!active()) {
+    return false;
+  }
+
+
+  if (
+    hydrated[streamType] ===
+    true
+  ) {
+    return true;
+  }
+
+
+  if (
+    hydrationPromises[
+      streamType
+    ]
+  ) {
+
+    return hydrationPromises[
+      streamType
+    ];
+  }
+
+
+  hydrationPromises[
+    streamType
+  ] =
+    (async () => {
+
+      const ok =
+        await loadHeads(
+          streamType,
+          cache
+        );
+
+
+      if (ok) {
+        hydrated[
+          streamType
+        ] =
+          true;
+      }
+
+
+      return ok;
+    })();
+
+
+  try {
+
+    return await hydrationPromises[
+      streamType
+    ];
+
+  } finally {
+
+    if (
+      hydrated[
+        streamType
+      ] !== true
+    ) {
+
+      hydrationPromises[
+        streamType
+      ] =
+        null;
+    }
+  }
+}
+
+
+// ============================================================
+// PERSIST LAST STATE
+// ============================================================
+
+async function upsertHeads(
+  streamType,
+  pending
+) {
+
+  if (!pending.size) {
+    return true;
+  }
+
+
+  const now =
+    new Date()
+      .toISOString();
+
+
+  const rows =
+    Array.from(
+      pending,
+      (
+        [
+          identity_key,
+          signature
+        ]
+      ) => ({
+        stream_type:
+          streamType,
+
+        identity_key,
+
+        signature,
+
+        updated_at:
+          now
+      })
+    );
+
+
+  try {
+
+    const response =
+      await request(
+        "learning_capture_heads?on_conflict=stream_type%2Cidentity_key",
+        {
+          method:
+            "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            Prefer:
+              "resolution=merge-duplicates,return=minimal"
+          },
+
+          body:
+            JSON.stringify(
+              rows
+            )
+        }
+      );
+
+
+    if (response.ok) {
+      return true;
+    }
+
+
+    const detail =
+      (
+        await response.text()
+      ).slice(
+        0,
+        300
+      );
+
+
+    console.error(
+      `${PREFIX} head update failed (${streamType}) HTTP ${response.status}: ${detail}`
+    );
+
+
+    return false;
+
+  } catch (error) {
+
+    console.error(
+      `${PREFIX} head update failed (${streamType}): ${error?.message || error}`
+    );
+
+
+    return false;
+  }
+}
+
+
+// ============================================================
+// HISTORY WRITE
 // ============================================================
 
 async function insertRows(
@@ -474,39 +728,16 @@ async function insertRows(
   }
 
 
-  const controller =
-    new AbortController();
-
-
-  const timer =
-    setTimeout(
-      () =>
-        controller.abort(),
-      TIMEOUT_MS
-    );
-
-
-  timer.unref?.();
-
-
   try {
 
     const response =
-      await fetch(
-        `${URL}/rest/v1/${table}?on_conflict=dedupe_key`,
+      await request(
+        `${table}?on_conflict=dedupe_key`,
         {
-
           method:
             "POST",
 
           headers: {
-
-            apikey:
-              KEY,
-
-            Authorization:
-              `Bearer ${KEY}`,
-
             "Content-Type":
               "application/json",
 
@@ -517,17 +748,12 @@ async function insertRows(
           body:
             JSON.stringify(
               rows
-            ),
-
-          signal:
-            controller.signal
+            )
         }
       );
 
 
-    if (
-      response.ok
-    ) {
+    if (response.ok) {
       return true;
     }
 
@@ -535,23 +761,20 @@ async function insertRows(
     const detail =
       (
         await response.text()
-      )
-        .slice(
-          0,
-          300
-        );
+      ).slice(
+        0,
+        300
+      );
 
 
     console.error(
-      `${PREFIX} ${table} write failed (${response.status}): ${detail}`
+      `${PREFIX} ${table} write failed HTTP ${response.status}: ${detail}`
     );
 
 
     return false;
 
-  } catch (
-    error
-  ) {
+  } catch (error) {
 
     console.error(
       `${PREFIX} ${table} write failed: ${error?.message || error}`
@@ -559,12 +782,6 @@ async function insertRows(
 
 
     return false;
-
-  } finally {
-
-    clearTimeout(
-      timer
-    );
   }
 }
 
@@ -575,6 +792,7 @@ async function insertRows(
 
 async function capture({
   inputs,
+  streamType,
   table,
   normalize,
   identity,
@@ -584,9 +802,7 @@ async function capture({
 
   try {
 
-    if (
-      !active()
-    ) {
+    if (!active()) {
 
       return {
         ok: true,
@@ -596,9 +812,26 @@ async function capture({
     }
 
 
+    const ready =
+      await ensureHydrated(
+        streamType,
+        cache
+      );
+
+
+    if (!ready) {
+
+      return {
+        ok: false,
+        written: 0,
+        reason:
+          "head_cache_unavailable"
+      };
+    }
+
+
     const rows =
       [];
-
 
     const pending =
       new Map();
@@ -617,9 +850,7 @@ async function capture({
         );
 
 
-      if (
-        !row
-      ) {
+      if (!row) {
         continue;
       }
 
@@ -629,18 +860,27 @@ async function capture({
           row
         );
 
-
       const sig =
         signature(
           row
         );
 
 
+      const previous =
+        pending.has(
+          id
+        )
+          ? pending.get(
+              id
+            )
+          : cache.get(
+              id
+            );
+
+
       if (
-        (
-          pending.get(id) ??
-          cache.get(id)
-        ) === sig
+        previous ===
+        sig
       ) {
         continue;
       }
@@ -669,47 +909,64 @@ async function capture({
     }
 
 
-    const ok =
+    const historyOk =
       await insertRows(
         table,
         rows
       );
 
 
-    if (
-      ok
-    ) {
+    if (!historyOk) {
 
-      for (
-        const [
-          id,
-          sig
-        ]
-        of pending
-      ) {
-
-        cache.set(
-          id,
-          sig
-        );
-      }
+      return {
+        ok: false,
+        written: 0
+      };
     }
 
 
+    /*
+     * History succeeded.
+     * Update RAM immediately so a temporary
+     * head-write problem cannot create spam
+     * while this worker remains alive.
+     */
+    for (
+      const [
+        id,
+        sig
+      ]
+      of pending
+    ) {
+
+      cache.set(
+        id,
+        sig
+      );
+    }
+
+
+    const headOk =
+      await upsertHeads(
+        streamType,
+        pending
+      );
+
+
     return {
-      ok,
+      ok: true,
+
       written:
-        ok
-          ? rows.length
-          : 0
+        rows.length,
+
+      head_persisted:
+        headOk
     };
 
-  } catch (
-    error
-  ) {
+  } catch (error) {
 
     console.error(
-      `${PREFIX} capture failed: ${error?.message || error}`
+      `${PREFIX} capture failed (${streamType}): ${error?.message || error}`
     );
 
 
@@ -725,6 +982,64 @@ async function capture({
 // PUBLIC API
 // ============================================================
 
+async function initialize() {
+
+  try {
+
+    if (!active()) {
+
+      return {
+        ok: true,
+        disabled: true
+      };
+    }
+
+
+    const [
+      marketReady,
+      cashEdgeReady
+    ] =
+      await Promise.all([
+        ensureHydrated(
+          "market",
+          lastMarket
+        ),
+
+        ensureHydrated(
+          "cashedge",
+          lastCashEdge
+        )
+      ]);
+
+
+    return {
+      ok:
+        marketReady &&
+        cashEdgeReady,
+
+      market_ready:
+        marketReady,
+
+      cashedge_ready:
+        cashEdgeReady
+    };
+
+  } catch (error) {
+
+    console.error(
+      `${PREFIX} initialize failed: ${error?.message || error}`
+    );
+
+
+    return {
+      ok: false,
+      market_ready: false,
+      cashedge_ready: false
+    };
+  }
+}
+
+
 function captureMarketStates(
   inputs
 ) {
@@ -732,6 +1047,9 @@ function captureMarketStates(
   return capture({
 
     inputs,
+
+    streamType:
+      "market",
 
     table:
       "learning_market_states",
@@ -758,6 +1076,9 @@ function captureCashEdgeStates(
   return capture({
 
     inputs,
+
+    streamType:
+      "cashedge",
 
     table:
       "learning_cashedge_states",
@@ -795,7 +1116,13 @@ function getStatus() {
       Boolean(
         URL &&
         KEY
-      )
+      ),
+
+    market_hydrated:
+      hydrated.market,
+
+    cashedge_hydrated:
+      hydrated.cashedge
   };
 }
 
@@ -805,10 +1132,8 @@ function getStatus() {
 // ============================================================
 
 module.exports = {
-
+  initialize,
   captureMarketStates,
-
   captureCashEdgeStates,
-
   getStatus
 };
