@@ -285,16 +285,17 @@ async function readActiveDailyRows() {
    */
   params.set(
     "select",
-    [
-      "game_id",
-      "sport",
-      "away_team",
-      "home_team",
-      "updated_at",
-      "premium:analysis_json->premium",
-      "market_snapshot:analysis_json->marketSnapshot",
-      "is_premium_pick:analysis_json->isPremiumPick"
-    ].join(",")
+   [
+  "game_id",
+  "sport",
+  "away_team",
+  "home_team",
+  "updated_at",
+  "public_data:analysis_json->public",
+  "premium:analysis_json->premium",
+  "market_snapshot:analysis_json->marketSnapshot",
+  "is_premium_pick:analysis_json->isPremiumPick"
+].join(",")
   );
 
   params.set(
@@ -619,23 +620,89 @@ function extractMlbState(row) {
   const premium =
     row?.premium;
 
-  const card =
-    premium?.recommendedCards?.[0];
-
   if (
-    !card ||
-    typeof card !== "object"
+    !premium ||
+    typeof premium !== "object"
   ) {
     return null;
   }
 
-  const type =
-    String(card.type || "")
+  /*
+   * Fuente preferida:
+   * recommendedCards[0] cuando existe.
+   *
+   * Fallback seguro:
+   * public.freePick.play YA guardado por CashEdge.
+   *
+   * Learning NO recalcula ningún pick.
+   */
+  const card =
+    premium?.recommendedCards?.[0] &&
+    typeof premium.recommendedCards[0] === "object"
+      ? premium.recommendedCards[0]
+      : null;
+
+  const freePickText =
+    txt(
+      row?.public_data
+        ?.freePick
+        ?.play
+    );
+
+  const pickText =
+    txt(card?.play) ||
+    freePickText;
+
+  if (!pickText) {
+    return null;
+  }
+
+  let type =
+    String(card?.type || "")
       .trim()
       .toUpperCase();
 
-  const pickText =
-    txt(card.play);
+  /*
+   * freePick solo persiste el texto.
+   *
+   * Únicamente identificamos el tipo de mercado
+   * explícito en ese mismo texto.
+   *
+   * NO reconstruimos:
+   * - confidence
+   * - edge
+   * - odds
+   * - probabilidades
+   */
+  if (!type) {
+    const upperPick =
+      String(pickText)
+        .trim()
+        .toUpperCase();
+
+    if (
+      upperPick === "OVER" ||
+      upperPick.startsWith("OVER ")
+    ) {
+      type = "OVER";
+
+    } else if (
+      upperPick === "UNDER" ||
+      upperPick.startsWith("UNDER ")
+    ) {
+      type = "UNDER";
+
+    } else if (
+      /\bML\b/.test(upperPick)
+    ) {
+      type = "ML";
+
+    } else if (
+      parseSignedLine(pickText) !== null
+    ) {
+      type = "RUNLINE";
+    }
+  }
 
   let marketType = null;
   let selectionKey = null;
@@ -643,33 +710,65 @@ function extractMlbState(row) {
   let projection = null;
   let edge = null;
 
+
+  // ==========================================================
+  // TOTAL
+  // ==========================================================
+
   if (
     type === "OVER" ||
     type === "UNDER"
   ) {
-    marketType = "total";
+    marketType =
+      "total";
 
     selectionKey =
       type.toLowerCase();
 
     line =
-      num(premium?.totalLine);
+      num(
+        premium?.totalLine
+      );
 
+    /*
+     * Estos valores YA están persistidos
+     * en analysis_json.
+     */
     projection =
-      num(card.projectedTotal) ??
-      num(premium?.projectedTotal);
+      card
+        ? (
+            num(card.projectedTotal) ??
+            num(premium?.projectedTotal)
+          )
+        : num(
+            premium?.projectedTotal
+          );
 
     edge =
-      num(card.totalEdge) ??
-      num(premium?.totalEdge);
+      card
+        ? (
+            num(card.totalEdge) ??
+            num(premium?.totalEdge)
+          )
+        : num(
+            premium?.totalEdge
+          );
   }
 
-  if (type === "RUNLINE") {
-    marketType = "spread";
+
+  // ==========================================================
+  // RUNLINE
+  // ==========================================================
+
+  if (
+    type === "RUNLINE"
+  ) {
+    marketType =
+      "spread";
 
     selectionKey =
       normalizeSelection(
-        card.team ||
+        card?.team ||
         (
           pickHasTeam(
             pickText,
@@ -686,23 +785,48 @@ function extractMlbState(row) {
       );
 
     line =
-      num(card.spread) ??
-      parseSignedLine(pickText);
+      num(card?.spread) ??
+      parseSignedLine(
+        pickText
+      );
 
+    /*
+     * Para recommendedCard sí existen
+     * los valores exactos.
+     *
+     * Para freePick NO están persistidos,
+     * así que dejamos null.
+     */
     projection =
-      num(card.projectedMargin);
+      card
+        ? num(
+            card.projectedMargin
+          )
+        : null;
 
     edge =
-      num(card.protectedEdge) ??
-      num(card.edge);
+      card
+        ? (
+            num(card.protectedEdge) ??
+            num(card.edge)
+          )
+        : null;
   }
 
-  if (type === "ML") {
-    marketType = "moneyline";
+
+  // ==========================================================
+  // MONEYLINE
+  // ==========================================================
+
+  if (
+    type === "ML"
+  ) {
+    marketType =
+      "moneyline";
 
     selectionKey =
       normalizeSelection(
-        card.team ||
+        card?.team ||
         (
           pickHasTeam(
             pickText,
@@ -718,18 +842,30 @@ function extractMlbState(row) {
         )
       );
 
-    line = null;
+    line =
+      null;
 
     /*
-     * Moneyline has no line.
-     * Store model probability as projection.
+     * No usamos favoriteProb como sustituto
+     * de la probabilidad exacta del freePick.
+     *
+     * Si no fue persistida, queda null.
      */
     projection =
-      num(card.modelProbability);
+      card
+        ? num(
+            card.modelProbability
+          )
+        : null;
 
     edge =
-      num(card.edge);
+      card
+        ? num(
+            card.edge
+          )
+        : null;
   }
+
 
   if (
     !marketType ||
@@ -738,9 +874,12 @@ function extractMlbState(row) {
     return null;
   }
 
+
   return {
     cashedge_game_id:
-      txt(row.game_id),
+      txt(
+        row.game_id
+      ),
 
     sport:
       "mlb",
@@ -757,20 +896,33 @@ function extractMlbState(row) {
     line,
 
     price_american:
-      american(
-        card.odds_american
-      ),
+      card
+        ? american(
+            card.odds_american
+          )
+        : null,
 
     projection,
 
     edge,
 
     confidence:
-      num(card.percentage),
+      card
+        ? num(
+            card.percentage
+          )
+        : null,
 
+    /*
+     * Esta bandera es la verdad final
+     * de CashEdge guardada en daily_picks.
+     *
+     * No usamos card.isPremium para evitar
+     * reinterpretar una jugada después.
+     */
     is_premium:
-      row.is_premium_pick === true ||
-      card.isPremium === true,
+      row.is_premium_pick ===
+      true,
 
     is_primary:
       true,
@@ -786,10 +938,11 @@ function extractMlbState(row) {
       ),
 
     source_updated_at:
-      txt(row.updated_at)
+      txt(
+        row.updated_at
+      )
   };
 }
-
 
 // ============================================================
 // WNBA
