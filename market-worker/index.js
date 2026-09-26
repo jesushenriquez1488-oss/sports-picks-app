@@ -451,6 +451,8 @@ const PICK_CONTEXT_SYNC_INTERVAL_MS =
   5 * 60 * 1000;
 const LEARNING_CASHEDGE_SYNC_INTERVAL_MS =
   5 * 60 * 1000;
+const LEARNING_MARKET_BASELINE_INTERVAL_MS =
+  30 * 60 * 1000;
 const SPLIT_REFRESH_INTERVAL_MS =
   30 * 1000;
 const OWLS_WATCHDOG_INTERVAL_MS =
@@ -515,6 +517,10 @@ let learningResultsLastHourKey =
 
 let learningResultsCompleteDay =
   null;
+const learningMarketBaselineAt =
+  new Map();
+let owlsCurrentBoardRefreshRunning =
+  false;
 let pickContextSyncRunning =
   false;
 let splitTimer =
@@ -1113,10 +1119,32 @@ async function refreshCashEdgeState() {
 
 async function refreshOwlsCurrentBoard() {
 
- const activeSports =
-  Array.from(
+  if (
+    owlsCurrentBoardRefreshRunning
+  ) {
+    return;
+  }
+
+
+  owlsCurrentBoardRefreshRunning =
+    true;
+
+
+  try {
+
+    const trackedGames =
+      getAllTrackedGames();
+
+  // ==========================================================
+  // PRODUCTION SPORTS
+  //
+  // Keep current Market Intelligence behavior:
+  // Premium sports continue REST revalidation every minute.
+  // ==========================================================
+
+  const productionSports =
     new Set(
-      getAllTrackedGames()
+      trackedGames
         .filter(
           game =>
             game
@@ -1137,8 +1165,108 @@ async function refreshOwlsCurrentBoard() {
               sport
             )
         )
-    )
-  );
+    );
+
+
+  // ==========================================================
+  // LEARNING BASELINE SPORTS
+  //
+  // WebSocket captures live changes.
+  //
+  // REST exists here only so a market that NEVER changes
+  // still receives one observable baseline.
+  //
+  // Non-Premium sports are checked only every 30 minutes.
+  // ==========================================================
+
+  const learningReady =
+    Boolean(
+      learningCapture
+        ?.getStatus?.()
+        ?.active === true &&
+      learningMarketFeed &&
+      typeof learningMarketFeed
+        .queueMarketBoardSafe ===
+        "function"
+    );
+
+
+  const now =
+    Date.now();
+
+
+  const learningDueSports =
+    new Set();
+
+
+  if (
+    learningReady
+  ) {
+
+    for (
+      const game
+      of trackedGames
+    ) {
+
+      const sport =
+        String(
+          game?.sport || ""
+        )
+          .trim()
+          .toLowerCase();
+
+
+      if (
+        !SPORTS.includes(
+          sport
+        )
+      ) {
+        continue;
+      }
+
+
+      const lastBaselineAt =
+        Number(
+          learningMarketBaselineAt
+            .get(
+              sport
+            ) ||
+          0
+        );
+
+
+      if (
+        !lastBaselineAt ||
+        (
+          now -
+          lastBaselineAt
+        ) >=
+        LEARNING_MARKET_BASELINE_INTERVAL_MS
+      ) {
+
+        learningDueSports.add(
+          sport
+        );
+      }
+    }
+  }
+
+
+  // ==========================================================
+  // ONE REST REQUEST PER SPORT
+  //
+  // If Production and Learning both need the sport,
+  // they share the exact same OWLS request.
+  // ==========================================================
+
+  const activeSports =
+    Array.from(
+      new Set([
+        ...productionSports,
+        ...learningDueSports
+      ])
+    );
+
 
   if (
     !activeSports.length
@@ -1147,7 +1275,12 @@ async function refreshOwlsCurrentBoard() {
   }
 
 
-  const sports = {};
+  const sports =
+    {};
+
+
+  const successfulSports =
+    new Set();
 
 
   for (
@@ -1200,6 +1333,11 @@ async function refreshOwlsCurrentBoard() {
 
         continue;
       }
+
+
+      successfulSports.add(
+        sport
+      );
 
 
       const eventsForSport =
@@ -1277,6 +1415,7 @@ async function refreshOwlsCurrentBoard() {
       if (
         eventsForSport.length
       ) {
+
         sports[sport] =
           eventsForSport;
       }
@@ -1290,6 +1429,32 @@ async function refreshOwlsCurrentBoard() {
   }
 
 
+  // ==========================================================
+  // REMEMBER SUCCESSFUL LEARNING BASELINE CHECKS
+  //
+  // Failed sports are NOT marked, so they can retry next minute.
+  // ==========================================================
+
+  for (
+    const sport
+    of learningDueSports
+  ) {
+
+    if (
+      successfulSports.has(
+        sport
+      )
+    ) {
+
+      learningMarketBaselineAt
+        .set(
+          sport,
+          now
+        );
+    }
+  }
+
+
   if (
     !Object.keys(
       sports
@@ -1299,7 +1464,7 @@ async function refreshOwlsCurrentBoard() {
   }
 
 
-  queueOddsUpdate({
+  const payload = {
     sports,
 
     timestamp:
@@ -1308,9 +1473,37 @@ async function refreshOwlsCurrentBoard() {
 
     last_odds_change:
       null
-  });
-}
+  };
 
+
+  // ==========================================================
+  // PRODUCTION
+  //
+  // Existing logic still filters to Premium games internally.
+  // ==========================================================
+
+  queueOddsUpdate(
+    payload
+  );
+
+
+  // ==========================================================
+  // LEARNING
+  //
+  // The capture layer writes the first unseen state,
+  // then writes only real line/price changes.
+  // ==========================================================
+
+  queueLearningMarketBoardSafe(
+    payload
+  );
+
+  } finally {
+
+    owlsCurrentBoardRefreshRunning =
+      false;
+  }
+}
 async function syncPickContextSafe() {
 
   if (
@@ -3850,24 +4043,31 @@ async function start() {
       },
       LEARNING_CASHEDGE_SYNC_INTERVAL_MS
     );
-try {
+/*
+ * Start live Owls feed FIRST.
+ *
+ * Learning / REST baseline must never delay
+ * the production WebSocket.
+ */
+connectOwls();
 
-  await refreshOwlsCurrentBoard();
+startOwlsWatchdog();
 
-} catch (error) {
 
-  console.error(
-    `[${WORKER_NAME}] initial Owls board revalidation error: ${error.message}`
+/*
+ * REST revalidation + Learning baseline
+ * run independently after live production
+ * is already connected.
+ */
+void refreshOwlsCurrentBoard()
+  .catch(
+    error => {
+
+      console.error(
+        `[${WORKER_NAME}] initial Owls board revalidation error: ${error.message}`
+      );
+    }
   );
-}
-
-  /*
-   * Start live Owls feed.
-   */
-  connectOwls();
-
-  startOwlsWatchdog();
-
 
   /*
    * Start Betting Splits immediately.
