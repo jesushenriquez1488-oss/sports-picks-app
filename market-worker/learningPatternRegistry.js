@@ -513,7 +513,7 @@ async function syncGameDatePatterns(
       });
 
 
-  if (
+   if (
     result?.ok !==
     true
   ) {
@@ -521,6 +521,23 @@ async function syncGameDatePatterns(
     throw new Error(
       result?.error ||
       "Learning Engine analysis unsuccessful"
+    );
+  }
+
+
+  /*
+   * Never write an empty Shadow Run simply
+   * because the Learning Engine was already busy.
+   *
+   * The daily pipeline can safely retry later.
+   */
+  if (
+    result?.skippedRun ===
+    true
+  ) {
+
+    throw new Error(
+      `Learning Engine skipped run: ${result?.reason || "already-running"}`
     );
   }
 
