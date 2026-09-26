@@ -147,6 +147,23 @@ try {
   learningFeatureEngine =
     null;
 }
+let learningGameStoryBuilder =
+  null;
+
+try {
+
+  learningGameStoryBuilder =
+    require("./learningGameStoryBuilder");
+
+} catch (error) {
+
+  console.error(
+    `[learning-game-stories] module unavailable: ${error?.message || error}`
+  );
+
+  learningGameStoryBuilder =
+    null;
+}
 async function initializeLearningSafe() {
 
   if (
@@ -328,7 +345,43 @@ async function runLearningPostResultsPipelineSafe(
     console.log(
       `[learning-features] date: ${gameDate}, labeled: ${Number(featureResult.labeledStates || 0)}, market states: ${Number(featureResult.marketStates || 0)}, existing: ${Number(featureResult.existing || 0)}, written: ${Number(featureResult.written || 0)}, splits: ${Number(featureResult.withSplits || 0)}, CashEdge: ${Number(featureResult.withCashEdge || 0)}, movements: ${Number(featureResult.movements || 0)}`
     );
+if (
+  !learningGameStoryBuilder ||
+  typeof learningGameStoryBuilder
+    .buildGameDateStoriesSafe !==
+    "function"
+) {
 
+  console.error(
+    "[learning-pipeline] game story builder unavailable"
+  );
+
+  return false;
+}
+
+
+const storyResult =
+  await learningGameStoryBuilder
+    .buildGameDateStoriesSafe(
+      gameDate
+    );
+
+
+if (
+  storyResult?.ok !== true
+) {
+
+  console.error(
+    `[learning-pipeline] game stories unsuccessful for ${gameDate}`
+  );
+
+  return false;
+}
+
+
+console.log(
+  `[learning-game-stories] date: ${gameDate}, games: ${Number(storyResult.games || 0)}, completed: ${Number(storyResult.completedGames || 0)}, written: ${Number(storyResult.written || 0)}`
+);
 
     console.log(
       `[learning-pipeline] complete: ${gameDate}`
