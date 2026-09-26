@@ -380,6 +380,8 @@ async function supabaseGet(
 
 async function readStories(
   sport =
+    null,
+  gameDate =
     null
 ) {
 
@@ -402,13 +404,22 @@ async function readStories(
           select:
             "cashedge_game_id,sport,game_date,away_team,home_team,moneyline_story,spread_story,total_story,splits_story,cashedge_story,final_result,story_version",
 
-          ...(
+                    ...(
             sport
               ? {
                   sport:
                     `eq.${norm(
                       sport
                     )}`
+                }
+              : {}
+          ),
+
+          ...(
+            gameDate
+              ? {
+                  game_date:
+                    `eq.${gameDate}`
                 }
               : {}
           ),
@@ -1255,11 +1266,12 @@ function addCashEdgeConditions(
   cash
 ) {
 
-  conditions.push(
-    `cashedge_present=${cash.present}`
-  );
-
-
+  /*
+   * Missing CashEdge data is NOT a signal.
+   *
+   * If CashEdge was not observed for this game,
+   * we simply do not add CashEdge conditions.
+   */
   if (
     !cash.present
   ) {
@@ -1325,7 +1337,6 @@ function addCashEdgeConditions(
     );
   }
 }
-
 
 // ============================================================
 // MARKET CONDITIONS
@@ -2017,11 +2028,17 @@ async function analyzeLearning({
   sport =
     null,
 
+  gameDate =
+    null,
+
   minGames =
     1,
 
   maxPatterns =
-    200
+    200,
+
+  returnAllPatterns =
+    false
 } = {}) {
 
   if (
@@ -2035,6 +2052,12 @@ async function analyzeLearning({
       disabled:
         true,
 
+      sport:
+        sport || null,
+
+      gameDate:
+        gameDate || null,
+
       stories:
         0,
 
@@ -2042,6 +2065,12 @@ async function analyzeLearning({
         0,
 
       observations:
+        0,
+
+      patternCount:
+        0,
+
+      returnedPatterns:
         0,
 
       patterns:
@@ -2061,9 +2090,26 @@ async function analyzeLearning({
   }
 
 
+  if (
+    gameDate &&
+    !/^\d{4}-\d{2}-\d{2}$/
+      .test(
+        String(
+          gameDate
+        )
+      )
+  ) {
+
+    throw new Error(
+      `Invalid Learning game date: ${gameDate}`
+    );
+  }
+
+
   const stories =
     await readStories(
-      sport
+      sport,
+      gameDate
     );
 
 
@@ -2079,7 +2125,7 @@ async function analyzeLearning({
     );
 
 
-  const patterns =
+  const allPatterns =
     [
       ...patternMap
         .values()
@@ -2146,17 +2192,23 @@ async function analyzeLearning({
                 .join("&")
             );
         }
-      )
-      .slice(
-        0,
-        Math.max(
-          1,
-          Number(
-            maxPatterns ||
-            200
-          )
-        )
       );
+
+
+  const patterns =
+    returnAllPatterns ===
+      true
+      ? allPatterns
+      : allPatterns.slice(
+          0,
+          Math.max(
+            1,
+            Number(
+              maxPatterns ||
+              200
+            )
+          )
+        );
 
 
   return {
@@ -2170,13 +2222,13 @@ async function analyzeLearning({
           )
         : null,
 
+    gameDate:
+      gameDate ||
+      null,
+
     stories:
       stories.length,
 
-    /*
-     * This is the real number
-     * of unique game histories used.
-     */
     uniqueGames:
       new Set(
         observations.map(
@@ -2186,12 +2238,6 @@ async function analyzeLearning({
       )
         .size,
 
-    /*
-     * Internal analytical observations.
-     *
-     * NOT sample size.
-     * Each pattern still dedupes by gameId.
-     */
     observations:
       observations.length,
 
@@ -2204,7 +2250,6 @@ async function analyzeLearning({
     patterns
   };
 }
-
 
 // ============================================================
 // SAFE PUBLIC ENTRY
