@@ -26,6 +26,23 @@ try {
   learningCapture =
     null;
 }
+let learningCashEdgeSync =
+  null;
+
+try {
+
+  learningCashEdgeSync =
+    require("./learningCashEdgeSync");
+
+} catch (error) {
+
+  console.error(
+    `[learning-cashedge-sync] module unavailable: ${error?.message || error}`
+  );
+
+  learningCashEdgeSync =
+    null;
+}
 async function initializeLearningSafe() {
 
   if (
@@ -73,6 +90,65 @@ async function initializeLearningSafe() {
 
     console.error(
       `[learning-capture] initialization failed: ${error?.message || error}`
+    );
+  }
+}
+async function syncLearningCashEdgeSafe() {
+
+  try {
+
+    if (
+      !learningCapture ||
+      !learningCashEdgeSync ||
+      typeof learningCashEdgeSync.syncCashEdgeStatesSafe !== "function"
+    ) {
+      return;
+    }
+
+
+    const status =
+      learningCapture.getStatus?.();
+
+
+    if (
+      status?.active !== true
+    ) {
+      return;
+    }
+
+
+    const result =
+      await learningCashEdgeSync
+        .syncCashEdgeStatesSafe(
+          learningCapture
+        );
+
+
+    if (
+      result?.ok !== true
+    ) {
+
+      console.error(
+        "[learning-cashedge-sync] sync unsuccessful"
+      );
+
+      return;
+    }
+
+
+    if (
+      Number(result?.written || 0) > 0
+    ) {
+
+      console.log(
+        `[learning-cashedge-sync] checked: ${Number(result.checked || 0)}, states: ${Number(result.states || 0)}, written: ${Number(result.written || 0)}`
+      );
+    }
+
+  } catch (error) {
+
+    console.error(
+      `[learning-cashedge-sync] failed: ${error?.message || error}`
     );
   }
 }
@@ -138,6 +214,8 @@ const REFRESH_INTERVAL_MS =
   60 * 1000;
 const PICK_CONTEXT_SYNC_INTERVAL_MS =
   5 * 60 * 1000;
+const LEARNING_CASHEDGE_SYNC_INTERVAL_MS =
+  5 * 60 * 1000;
 const SPLIT_REFRESH_INTERVAL_MS =
   30 * 1000;
 const OWLS_WATCHDOG_INTERVAL_MS =
@@ -189,7 +267,8 @@ let refreshTimer =
   null;
 let syncTimer =
   null;
-
+let learningCashEdgeTimer =
+  null;
 let pickContextSyncRunning =
   false;
 let splitTimer =
@@ -3063,6 +3142,13 @@ async function start() {
 
       PICK_CONTEXT_SYNC_INTERVAL_MS
     );
+    learningCashEdgeTimer =
+    setInterval(
+      () => {
+        void syncLearningCashEdgeSafe();
+      },
+      LEARNING_CASHEDGE_SYNC_INTERVAL_MS
+    );
 try {
 
   await refreshOwlsCurrentBoard();
@@ -3154,7 +3240,14 @@ if (
     socket.disconnect();
   }
 
+if (
+  learningCashEdgeTimer
+) {
 
+  clearInterval(
+    learningCashEdgeTimer
+  );
+}
   process.exit(0);
 }
 
