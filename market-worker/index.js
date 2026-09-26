@@ -60,6 +60,23 @@ try {
   learningMarketFeed =
     null;
 }
+let learningSplitFeed =
+  null;
+
+try {
+
+  learningSplitFeed =
+    require("./learningSplitFeed");
+
+} catch (error) {
+
+  console.error(
+    `[learning-split-feed] module unavailable: ${error?.message || error}`
+  );
+
+  learningSplitFeed =
+    null;
+}
 async function initializeLearningSafe() {
 
   if (
@@ -1499,7 +1516,196 @@ function getSplitTarget(
     selectionKey
   };
 }
+// ============================================================
+// LEARNING — SPLIT GAME MATCH
+//
+// Splits do not provide kickoff time.
+//
+// Therefore:
+// - date comes from OWLS event_id
+// - teams + date must map to exactly ONE CashEdge game
+// - doubleheaders are never guessed
+// ============================================================
 
+function resolveLearningSplitGame({
+  sport,
+  event,
+  eventDate
+}) {
+
+  if (
+    !sport ||
+    !eventDate ||
+    !event?.away_team ||
+    !event?.home_team
+  ) {
+    return null;
+  }
+
+
+  const gameKey =
+    makeGameKey({
+      sport,
+
+      awayTeam:
+        event.away_team,
+
+      homeTeam:
+        event.home_team,
+
+      gameDate:
+        eventDate
+    });
+
+
+  const candidates =
+    trackedGameMap.get(
+      gameKey
+    ) ||
+    [];
+
+
+  /*
+   * No kickoff time exists in Splits.
+   *
+   * Exactly one candidate is required.
+   * Never guess between doubleheaders.
+   */
+  if (
+    candidates.length !== 1
+  ) {
+    return null;
+  }
+
+
+ const tracked =
+  candidates[0];
+
+
+const gameTimeMs =
+  parseCashEdgeGameTime(
+    tracked?.game_time
+  );
+
+
+/*
+ * LEARNING IS STRICTLY PRE-GAME.
+ *
+ * If kickoff time is missing, invalid,
+ * or the game already started,
+ * never capture the split.
+ */
+if (
+  !Number.isFinite(
+    gameTimeMs
+  ) ||
+  gameTimeMs <=
+    Date.now()
+) {
+  return null;
+}
+
+
+return tracked;
+}
+const learningSplitRunningSports =
+  new Set();
+
+
+function queueLearningSplitBoardSafe({
+  sport,
+  events
+}) {
+
+  try {
+
+    if (
+      !learningCapture ||
+      !learningSplitFeed ||
+      typeof learningSplitFeed
+        .captureSplitBoardSafe !==
+        "function"
+    ) {
+      return;
+    }
+
+
+    const status =
+      learningCapture
+        .getStatus?.();
+
+
+    if (
+      status?.active !== true
+    ) {
+      return;
+    }
+
+
+    /*
+     * Never allow overlapping Learning split captures
+     * for the same sport.
+     */
+    if (
+      learningSplitRunningSports.has(
+        sport
+      )
+    ) {
+      return;
+    }
+
+
+    learningSplitRunningSports.add(
+      sport
+    );
+
+
+    setImmediate(
+      () => {
+
+        void learningSplitFeed
+          .captureSplitBoardSafe({
+            sport,
+            events,
+
+            learningCapture,
+
+            resolveGame:
+              resolveLearningSplitGame,
+
+            normalizeSelectionKey:
+              normalizeText
+          })
+          .catch(
+            error => {
+
+              console.error(
+                `[learning-split-feed] dispatch failed (${sport}): ${error?.message || error}`
+              );
+            }
+          )
+          .finally(
+            () => {
+
+              learningSplitRunningSports.delete(
+                sport
+              );
+            }
+          );
+      }
+    );
+
+  } catch (error) {
+
+    learningSplitRunningSports.delete(
+      sport
+    );
+
+    console.error(
+      `[learning-split-feed] queue failed (${sport}): ${error?.message || error}`
+    );
+  }
+}
 
 function findTrackedSplitGame({
   sport,
@@ -1884,14 +2090,29 @@ async function refreshBettingSplits() {
 
   try {
 
-   const activeSports =
+  const learningSplitsActive =
+  Boolean(
+    learningCapture
+      ?.getStatus?.()
+      ?.active === true &&
+    learningSplitFeed &&
+    typeof learningSplitFeed
+      .captureSplitBoardSafe ===
+      "function"
+  );
+
+
+const activeSports =
   [
     ...new Set(
       getAllTrackedGames()
         .filter(
           game =>
-            game.current_is_premium ===
-            true
+            (
+              learningSplitsActive ||
+              game.current_is_premium ===
+                true
+            )
         )
         .map(
           game =>
@@ -1905,7 +2126,6 @@ async function refreshBettingSplits() {
         )
     )
   ];
-
     for (
       const sport
       of activeSports
@@ -1953,6 +2173,10 @@ async function refreshBettingSplits() {
 console.log(
   `[${WORKER_NAME}] ${sport} splits board — events: ${events.length}, status: ${body?.meta?.status || "unknown"}, reason: ${body?.meta?.partial_reason || "none"}, total: ${body?.meta?.total_games ?? body?.meta?.active_games ?? "unknown"}, books: ${Array.isArray(body?.meta?.books) ? body.meta.books.join(",") : "unknown"}`
 );
+        queueLearningSplitBoardSafe({
+  sport,
+  events
+});
         for (
           const event
           of events
