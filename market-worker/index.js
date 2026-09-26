@@ -94,6 +94,23 @@ try {
   learningGameRegistry =
     null;
 }
+let learningResultsSync =
+  null;
+
+try {
+
+  learningResultsSync =
+    require("./learningResultsSync");
+
+} catch (error) {
+
+  console.error(
+    `[learning-results] module unavailable: ${error?.message || error}`
+  );
+
+  learningResultsSync =
+    null;
+}
 async function initializeLearningSafe() {
 
   if (
@@ -201,6 +218,173 @@ async function syncLearningCashEdgeSafe() {
     console.error(
       `[learning-cashedge-sync] failed: ${error?.message || error}`
     );
+  }
+}
+async function syncLearningResultsIfDueSafe() {
+
+  try {
+
+    if (
+      !learningResultsSync ||
+      typeof learningResultsSync
+        .syncYesterdayResultsSafe !==
+        "function"
+    ) {
+      return;
+    }
+
+
+    const parts =
+      new Intl.DateTimeFormat(
+        "en-US",
+        {
+          timeZone:
+            "America/Chicago",
+
+          year:
+            "numeric",
+
+          month:
+            "2-digit",
+
+          day:
+            "2-digit",
+
+          hour:
+            "2-digit",
+
+          hourCycle:
+            "h23"
+        }
+      )
+        .formatToParts(
+          new Date()
+        );
+
+
+    const map =
+      Object.fromEntries(
+        parts.map(
+          part => [
+            part.type,
+            part.value
+          ]
+        )
+      );
+
+
+    const hour =
+      Number(
+        map.hour
+      );
+
+
+    /*
+     * Learning results only run
+     * from 6 AM through 12 PM Central.
+     */
+    if (
+      !Number.isFinite(hour) ||
+      hour < 6 ||
+      hour > 12
+    ) {
+      return;
+    }
+
+
+    const currentDay =
+      `${map.year}-${map.month}-${map.day}`;
+
+
+    /*
+     * If yesterday is already complete,
+     * stop checking for the rest of today.
+     */
+    if (
+      learningResultsCompleteDay ===
+      currentDay
+    ) {
+      return;
+    }
+
+
+    const hourKey =
+      `${currentDay}|${hour}`;
+
+
+    /*
+     * Only one run per hour.
+     */
+    if (
+      learningResultsLastHourKey ===
+      hourKey ||
+      learningResultsRunning
+    ) {
+      return;
+    }
+
+
+    learningResultsLastHourKey =
+      hourKey;
+
+    learningResultsRunning =
+      true;
+
+
+    const result =
+      await learningResultsSync
+        .syncYesterdayResultsSafe();
+
+
+    if (
+      result?.ok !== true
+    ) {
+
+      console.error(
+        "[learning-results] sync unsuccessful"
+      );
+
+      return;
+    }
+
+
+    if (
+      Number(
+        result?.written || 0
+      ) > 0 ||
+      Number(
+        result?.unresolved || 0
+      ) > 0
+    ) {
+
+      console.log(
+        `[learning-results] date: ${result.gameDate || "unknown"}, checked: ${Number(result.checked || 0)}, pending: ${Number(result.pending || 0)}, written: ${Number(result.written || 0)}, unresolved: ${Number(result.unresolved || 0)}`
+      );
+    }
+
+
+    if (
+      result?.complete === true
+    ) {
+
+      learningResultsCompleteDay =
+        currentDay;
+
+      console.log(
+        `[learning-results] yesterday complete: ${result.gameDate || "unknown"}`
+      );
+    }
+
+  } catch (error) {
+
+    console.error(
+      `[learning-results] scheduler failed: ${error?.message || error}`
+    );
+
+  } finally {
+
+    learningResultsRunning =
+      false;
   }
 }
 // ============================================================
@@ -319,6 +503,17 @@ let refreshTimer =
 let syncTimer =
   null;
 let learningCashEdgeTimer =
+  null;
+let learningResultsTimer =
+  null;
+
+let learningResultsRunning =
+  false;
+
+let learningResultsLastHourKey =
+  null;
+
+let learningResultsCompleteDay =
   null;
 let pickContextSyncRunning =
   false;
@@ -3693,7 +3888,26 @@ try {
     setInterval(
       refreshBettingSplits,
       SPLIT_REFRESH_INTERVAL_MS
-    );
+  );
+  /*
+ * Learning results:
+ * check once per hour between
+ * 6 AM and 12 PM Central.
+ *
+ * The scheduler itself wakes every minute
+ * only to check the clock.
+ * External result APIs are called at most
+ * once per hour and stop once complete.
+ */
+void syncLearningResultsIfDueSafe();
+
+learningResultsTimer =
+  setInterval(
+    () => {
+      void syncLearningResultsIfDueSafe();
+    },
+    60 * 1000
+  );
 }
 
 // ============================================================
@@ -3763,6 +3977,14 @@ if (
 
   clearInterval(
     learningCashEdgeTimer
+  );
+}
+  if (
+  learningResultsTimer
+) {
+
+  clearInterval(
+    learningResultsTimer
   );
 }
   process.exit(0);
