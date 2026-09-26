@@ -164,6 +164,27 @@ try {
   learningGameStoryBuilder =
     null;
 }
+
+
+let learningPatternRegistry =
+  null;
+
+try {
+
+  learningPatternRegistry =
+    require("./learningPatternRegistry");
+
+} catch (error) {
+
+  console.error(
+    `[learning-pattern-registry] module unavailable: ${error?.message || error}`
+  );
+
+  learningPatternRegistry =
+    null;
+}
+
+
 async function initializeLearningSafe() {
 
   if (
@@ -383,13 +404,53 @@ console.log(
   `[learning-game-stories] date: ${gameDate}, games: ${Number(storyResult.games || 0)}, completed: ${Number(storyResult.completedGames || 0)}, written: ${Number(storyResult.written || 0)}`
 );
 
-    console.log(
-      `[learning-pipeline] complete: ${gameDate}`
+
+if (
+  !learningPatternRegistry ||
+  typeof learningPatternRegistry
+    .syncGameDatePatternsSafe !==
+    "function"
+) {
+
+  console.error(
+    "[learning-pipeline] pattern registry unavailable"
+  );
+
+  return false;
+}
+
+
+const patternResult =
+  await learningPatternRegistry
+    .syncGameDatePatternsSafe(
+      gameDate
     );
 
 
-    return true;
+if (
+  patternResult?.ok !==
+  true
+) {
 
+  console.error(
+    `[learning-pipeline] pattern registry unsuccessful for ${gameDate}`
+  );
+
+  return false;
+}
+
+
+console.log(
+  `[learning-pattern-registry] date: ${gameDate}, stories: ${Number(patternResult.stories || 0)}, games: ${Number(patternResult.uniqueGames || 0)}, observations: ${Number(patternResult.observations || 0)}, patterns: ${Number(patternResult.patterns || 0)}, written: ${Number(patternResult.written || 0)}`
+);
+
+
+console.log(
+  `[learning-pipeline] complete: ${gameDate}`
+);
+
+
+return true;
   } catch (error) {
 
     console.error(
