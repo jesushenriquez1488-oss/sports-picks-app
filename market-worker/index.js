@@ -77,6 +77,23 @@ try {
   learningSplitFeed =
     null;
 }
+let learningGameRegistry =
+  null;
+
+try {
+
+  learningGameRegistry =
+    require("./learningGameRegistry");
+
+} catch (error) {
+
+  console.error(
+    `[learning-game-registry] module unavailable: ${error?.message || error}`
+  );
+
+  learningGameRegistry =
+    null;
+}
 async function initializeLearningSafe() {
 
   if (
@@ -1220,7 +1237,26 @@ nextMap
 
   trackedGameMap =
     nextMap;
+/*
+ * Learning game registry.
+ *
+ * Reuse the tracked-games response already downloaded.
+ * No additional Vercel request.
+ * Direct Railway -> Supabase write.
+ */
+try {
 
+  learningGameRegistry
+    ?.queueGamesSafe?.(
+      body.games
+    );
+
+} catch (error) {
+
+  console.error(
+    `[learning-game-registry] dispatch failed: ${error?.message || error}`
+  );
+}
 
   /*
    * Remove dedupe signatures belonging to games
