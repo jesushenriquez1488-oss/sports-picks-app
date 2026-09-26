@@ -75,6 +75,27 @@ function sameText(a, b) {
 }
 
 
+function pickHasTeam(pick, team) {
+  const normalizedPick =
+    normalizeSelection(pick);
+
+  const normalizedTeam =
+    normalizeSelection(team);
+
+  if (
+    !normalizedPick ||
+    !normalizedTeam
+  ) {
+    return false;
+  }
+
+  return (
+    normalizedPick === normalizedTeam ||
+    normalizedPick.startsWith(`${normalizedTeam} `)
+  );
+}
+
+
 function getCentralDate() {
   const parts =
     new Intl.DateTimeFormat(
@@ -113,6 +134,17 @@ function addDays(dateText, days) {
   )
     .toISOString()
     .slice(0, 10);
+}
+
+
+function parseSignedLine(value) {
+  const match =
+    String(value || "")
+      .match(/([+-]\d+(?:\.\d+)?)/);
+
+  return match
+    ? num(match[1])
+    : null;
 }
 
 
@@ -229,6 +261,63 @@ async function readFootballRows() {
 }
 
 
+async function readActiveDailyRows() {
+  if (!URL || !KEY) {
+    throw new Error(
+      "Learning Supabase environment variables are missing"
+    );
+  }
+
+  const today =
+    getCentralDate();
+
+  const params =
+    new URLSearchParams();
+
+  /*
+   * MLB and WNBA use different analysis_json shapes.
+   *
+   * MLB:
+   *   premium.recommendedCards
+   *
+   * WNBA:
+   *   premium + marketSnapshot
+   */
+  params.set(
+    "select",
+    [
+      "game_id",
+      "sport",
+      "away_team",
+      "home_team",
+      "updated_at",
+      "premium:analysis_json->premium",
+      "market_snapshot:analysis_json->marketSnapshot",
+      "is_premium_pick:analysis_json->isPremiumPick"
+    ].join(",")
+  );
+
+  params.set(
+    "sport",
+    "in.(mlb,wnba)"
+  );
+
+  params.set(
+    "game_date",
+    `eq.${today}`
+  );
+
+  params.set(
+    "limit",
+    "1000"
+  );
+
+  return supabaseGet(
+    `daily_picks?${params.toString()}`
+  );
+}
+
+
 function projectedScores(row, premium) {
   const scores =
     premium?.projectedScore &&
@@ -245,6 +334,11 @@ function projectedScores(row, premium) {
   };
 }
 
+
+// ============================================================
+// FOOTBALL — NFL / NCAAF
+// Existing behavior kept unchanged.
+// ============================================================
 
 function extractSpreadState(row) {
   const premium =
@@ -499,7 +593,7 @@ function extractTotalState(row) {
 }
 
 
-function extractStates(row) {
+function extractFootballStates(row) {
   if (
     !row ||
     !row.game_id ||
@@ -514,6 +608,410 @@ function extractStates(row) {
     extractSpreadState(row),
     extractTotalState(row)
   ].filter(Boolean);
+}
+
+
+// ============================================================
+// MLB
+// ============================================================
+
+function extractMlbState(row) {
+  const premium =
+    row?.premium;
+
+  const card =
+    premium?.recommendedCards?.[0];
+
+  if (
+    !card ||
+    typeof card !== "object"
+  ) {
+    return null;
+  }
+
+  const type =
+    String(card.type || "")
+      .trim()
+      .toUpperCase();
+
+  const pickText =
+    txt(card.play);
+
+  let marketType = null;
+  let selectionKey = null;
+  let line = null;
+  let projection = null;
+  let edge = null;
+
+  if (
+    type === "OVER" ||
+    type === "UNDER"
+  ) {
+    marketType = "total";
+
+    selectionKey =
+      type.toLowerCase();
+
+    line =
+      num(premium?.totalLine);
+
+    projection =
+      num(card.projectedTotal) ??
+      num(premium?.projectedTotal);
+
+    edge =
+      num(card.totalEdge) ??
+      num(premium?.totalEdge);
+  }
+
+  if (type === "RUNLINE") {
+    marketType = "spread";
+
+    selectionKey =
+      normalizeSelection(
+        card.team ||
+        (
+          pickHasTeam(
+            pickText,
+            row.away_team
+          )
+            ? row.away_team
+            : pickHasTeam(
+                pickText,
+                row.home_team
+              )
+              ? row.home_team
+              : null
+        )
+      );
+
+    line =
+      num(card.spread) ??
+      parseSignedLine(pickText);
+
+    projection =
+      num(card.projectedMargin);
+
+    edge =
+      num(card.protectedEdge) ??
+      num(card.edge);
+  }
+
+  if (type === "ML") {
+    marketType = "moneyline";
+
+    selectionKey =
+      normalizeSelection(
+        card.team ||
+        (
+          pickHasTeam(
+            pickText,
+            row.away_team
+          )
+            ? row.away_team
+            : pickHasTeam(
+                pickText,
+                row.home_team
+              )
+              ? row.home_team
+              : null
+        )
+      );
+
+    line = null;
+
+    /*
+     * Moneyline has no line.
+     * Store model probability as projection.
+     */
+    projection =
+      num(card.modelProbability);
+
+    edge =
+      num(card.edge);
+  }
+
+  if (
+    !marketType ||
+    !selectionKey
+  ) {
+    return null;
+  }
+
+  return {
+    cashedge_game_id:
+      txt(row.game_id),
+
+    sport:
+      "mlb",
+
+    market_type:
+      marketType,
+
+    selection_key:
+      selectionKey,
+
+    pick_text:
+      pickText,
+
+    line,
+
+    price_american:
+      american(
+        card.odds_american
+      ),
+
+    projection,
+
+    edge,
+
+    confidence:
+      num(card.percentage),
+
+    is_premium:
+      row.is_premium_pick === true ||
+      card.isPremium === true,
+
+    is_primary:
+      true,
+
+    projected_home_score:
+      num(
+        premium?.expectedRunsB
+      ),
+
+    projected_away_score:
+      num(
+        premium?.expectedRunsA
+      ),
+
+    source_updated_at:
+      txt(row.updated_at)
+  };
+}
+
+
+// ============================================================
+// WNBA
+// ============================================================
+
+function extractWnbaState(row) {
+  const premium =
+    row?.premium;
+
+  if (
+    !premium ||
+    typeof premium !== "object"
+  ) {
+    return null;
+  }
+
+  const pickText =
+    txt(premium.pick);
+
+  if (!pickText) {
+    return null;
+  }
+
+  const normalizedPick =
+    String(pickText)
+      .trim()
+      .toLowerCase();
+
+  const market =
+    row?.market_snapshot &&
+    typeof row.market_snapshot === "object"
+      ? row.market_snapshot
+      : {};
+
+  const isOver =
+    normalizedPick === "over" ||
+    normalizedPick.startsWith("over ");
+
+  const isUnder =
+    normalizedPick === "under" ||
+    normalizedPick.startsWith("under ");
+
+  let marketType = null;
+  let selectionKey = null;
+  let line = null;
+  let projection = null;
+
+  if (
+    isOver ||
+    isUnder
+  ) {
+    marketType = "total";
+
+    selectionKey =
+      isOver
+        ? "over"
+        : "under";
+
+    line =
+      num(market.total) ??
+      num(premium.totalLine);
+
+    projection =
+      num(premium.totalProj);
+
+  } else {
+    marketType = "spread";
+
+    const isAway =
+      pickHasTeam(
+        pickText,
+        row.away_team
+      );
+
+    const isHome =
+      pickHasTeam(
+        pickText,
+        row.home_team
+      );
+
+    if (isAway) {
+      selectionKey =
+        normalizeSelection(
+          row.away_team
+        );
+
+      line =
+        num(
+          market.awaySpread
+        );
+
+      projection =
+        num(
+          premium.spreadDiff
+        );
+    }
+
+    if (isHome) {
+      selectionKey =
+        normalizeSelection(
+          row.home_team
+        );
+
+      line =
+        num(
+          market.homeSpread
+        );
+
+      const rawSpreadDiff =
+        num(
+          premium.spreadDiff
+        );
+
+      projection =
+        rawSpreadDiff === null
+          ? null
+          : -rawSpreadDiff;
+    }
+  }
+
+  if (
+    !marketType ||
+    !selectionKey
+  ) {
+    return null;
+  }
+
+  return {
+    cashedge_game_id:
+      txt(row.game_id),
+
+    sport:
+      "wnba",
+
+    market_type:
+      marketType,
+
+    selection_key:
+      selectionKey,
+
+    pick_text:
+      pickText,
+
+    line,
+
+    price_american:
+      american(
+        premium.odds_american
+      ),
+
+    projection,
+
+    edge:
+      num(
+        premium.mainEdge
+      ),
+
+    confidence:
+      num(
+        premium.confidence
+      ),
+
+    is_premium:
+      row.is_premium_pick === true,
+
+    is_primary:
+      true,
+
+    projected_home_score:
+      num(
+        premium.projB
+      ),
+
+    projected_away_score:
+      num(
+        premium.projA
+      ),
+
+    source_updated_at:
+      txt(row.updated_at)
+  };
+}
+
+
+// ============================================================
+// SPORT ROUTER
+// ============================================================
+
+function extractStates(row) {
+  if (
+    !row ||
+    !row.game_id ||
+    !row.sport
+  ) {
+    return [];
+  }
+
+  const sport =
+    String(row.sport)
+      .trim()
+      .toLowerCase();
+
+  if (
+    sport === "nfl" ||
+    sport === "ncaaf"
+  ) {
+    return extractFootballStates(row);
+  }
+
+  if (sport === "mlb") {
+    return [
+      extractMlbState(row)
+    ].filter(Boolean);
+  }
+
+  if (sport === "wnba") {
+    return [
+      extractWnbaState(row)
+    ].filter(Boolean);
+  }
+
+  return [];
 }
 
 
@@ -554,8 +1052,19 @@ async function syncCashEdgeStatesSafe(
 
     syncRunning = true;
 
-    const rows =
-      await readFootballRows();
+    const [
+      footballRows,
+      activeDailyRows
+    ] =
+      await Promise.all([
+        readFootballRows(),
+        readActiveDailyRows()
+      ]);
+
+    const rows = [
+      ...footballRows,
+      ...activeDailyRows
+    ];
 
     const states =
       rows.flatMap(
@@ -581,11 +1090,24 @@ async function syncCashEdgeStatesSafe(
       };
     }
 
+    const bySport = {};
+
+    for (const state of states) {
+      const sport =
+        String(state?.sport || "unknown")
+          .trim()
+          .toLowerCase();
+
+      bySport[sport] =
+        Number(bySport[sport] || 0) + 1;
+    }
+
     return {
       ok: true,
       checked: rows.length,
       states: states.length,
-      written: Number(result?.written || 0)
+      written: Number(result?.written || 0),
+      bySport
     };
 
   } catch (error) {
