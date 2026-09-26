@@ -43,6 +43,23 @@ try {
   learningCashEdgeSync =
     null;
 }
+let learningMarketFeed =
+  null;
+
+try {
+
+  learningMarketFeed =
+    require("./learningMarketFeed");
+
+} catch (error) {
+
+  console.error(
+    `[learning-market-feed] module unavailable: ${error?.message || error}`
+  );
+
+  learningMarketFeed =
+    null;
+}
 async function initializeLearningSafe() {
 
   if (
@@ -650,6 +667,149 @@ function getAllTrackedGames() {
             ? [value]
             : []
     );
+}
+// ============================================================
+// LEARNING — OWLS GAME MATCH
+//
+// Reuses the SAME CashEdge game matching rules already used
+// by Market Intelligence.
+//
+// No separate matching logic.
+// No guessed game IDs.
+// ============================================================
+
+function resolveLearningMarketGame({
+  sport,
+  event
+}) {
+
+  const commenceTime =
+    event?.commence_time;
+
+
+  const gameDate =
+    centralDateFromIso(
+      commenceTime
+    );
+
+
+  if (
+    !gameDate
+  ) {
+    return null;
+  }
+
+
+  const gameKey =
+    makeGameKey({
+      sport,
+
+      awayTeam:
+        event?.away_team,
+
+      homeTeam:
+        event?.home_team,
+
+      gameDate
+    });
+
+
+  const candidates =
+    trackedGameMap.get(
+      gameKey
+    ) ||
+    [];
+
+
+  return resolveTrackedGame({
+    candidates,
+    commenceTime
+  });
+}
+
+
+// ============================================================
+// LEARNING — FULL MARKET BOARD
+//
+// CRITICAL:
+// Market Intelligence never waits for this.
+//
+// queueOddsUpdate() remains completely independent.
+//
+// setImmediate() gives the production Market Intelligence
+// path priority before Learning starts processing the board.
+// ============================================================
+
+function queueLearningMarketBoardSafe(
+  data
+) {
+
+  try {
+
+    if (
+      !learningCapture ||
+      !learningMarketFeed ||
+      typeof learningMarketFeed
+        .queueMarketBoardSafe !==
+        "function"
+    ) {
+      return;
+    }
+
+
+    const status =
+      learningCapture
+        .getStatus?.();
+
+
+    if (
+      status?.active !== true
+    ) {
+      return;
+    }
+
+
+    setImmediate(
+      () => {
+
+        try {
+
+          learningMarketFeed
+            .queueMarketBoardSafe({
+              data,
+
+              learningCapture,
+
+              resolveGame:
+                resolveLearningMarketGame,
+
+              normalizeSportsbookKey,
+
+              normalizeSelectionKey:
+                normalizeText,
+
+              allowedSports:
+                SPORTS,
+
+              allowedBooks:
+                BOOKS
+            });
+
+        } catch (error) {
+
+          console.error(
+            `[learning-market-feed] dispatch failed: ${error?.message || error}`
+          );
+        }
+      }
+    );
+
+  } catch (error) {
+
+    console.error(
+      `[learning-market-feed] queue failed: ${error?.message || error}`
+    );
+  }
 }
 // ============================================================
 // TRACKED CASHEDGE GAMES
@@ -2962,21 +3122,33 @@ if (
   );
 
 
-  socket.on(
-    "odds-update",
-    data => {
+ socket.on(
+  "odds-update",
+  data => {
 
-      markOwlsHeartbeat();
+    markOwlsHeartbeat();
 
-      lastOwlsOddsUpdateAt =
-        Date.now();
+    lastOwlsOddsUpdateAt =
+      Date.now();
 
 
-      queueOddsUpdate(
-        data
-      );
-    }
-  );
+    /*
+     * Production Market Intelligence FIRST.
+     */
+    queueOddsUpdate(
+      data
+    );
+
+
+    /*
+     * Learning runs independently after production
+     * has received the same OWLS board.
+     */
+    queueLearningMarketBoardSafe(
+      data
+    );
+  }
+);
 
 
 socket.on(
