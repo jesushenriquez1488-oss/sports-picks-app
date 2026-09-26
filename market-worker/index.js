@@ -111,6 +111,42 @@ try {
   learningResultsSync =
     null;
 }
+let learningLabelEngine =
+  null;
+
+try {
+
+  learningLabelEngine =
+    require("./learningLabelEngine");
+
+} catch (error) {
+
+  console.error(
+    `[learning-labels] module unavailable: ${error?.message || error}`
+  );
+
+  learningLabelEngine =
+    null;
+}
+
+
+let learningFeatureEngine =
+  null;
+
+try {
+
+  learningFeatureEngine =
+    require("./learningFeatureEngine");
+
+} catch (error) {
+
+  console.error(
+    `[learning-features] module unavailable: ${error?.message || error}`
+  );
+
+  learningFeatureEngine =
+    null;
+}
 async function initializeLearningSafe() {
 
   if (
@@ -218,6 +254,96 @@ async function syncLearningCashEdgeSafe() {
     console.error(
       `[learning-cashedge-sync] failed: ${error?.message || error}`
     );
+  }
+}
+async function runLearningPostResultsPipelineSafe(
+  gameDate
+) {
+
+  try {
+
+    if (
+      !gameDate ||
+      !learningLabelEngine ||
+      typeof learningLabelEngine
+        .labelGameDateSafe !==
+        "function" ||
+      !learningFeatureEngine ||
+      typeof learningFeatureEngine
+        .buildGameDateSafe !==
+        "function"
+    ) {
+
+      console.error(
+        "[learning-pipeline] labels/features unavailable"
+      );
+
+      return false;
+    }
+
+
+    const labelResult =
+      await learningLabelEngine
+        .labelGameDateSafe(
+          gameDate
+        );
+
+
+    if (
+      labelResult?.ok !== true
+    ) {
+
+      console.error(
+        `[learning-pipeline] labels unsuccessful for ${gameDate}`
+      );
+
+      return false;
+    }
+
+
+    console.log(
+      `[learning-labels] date: ${gameDate}, market states: ${Number(labelResult.marketStates || 0)}, existing: ${Number(labelResult.existing || 0)}, written: ${Number(labelResult.written || 0)}, skipped: ${Number(labelResult.skipped || 0)}`
+    );
+
+
+    const featureResult =
+      await learningFeatureEngine
+        .buildGameDateSafe(
+          gameDate
+        );
+
+
+    if (
+      featureResult?.ok !== true
+    ) {
+
+      console.error(
+        `[learning-pipeline] features unsuccessful for ${gameDate}`
+      );
+
+      return false;
+    }
+
+
+    console.log(
+      `[learning-features] date: ${gameDate}, labeled: ${Number(featureResult.labeledStates || 0)}, market states: ${Number(featureResult.marketStates || 0)}, existing: ${Number(featureResult.existing || 0)}, written: ${Number(featureResult.written || 0)}, splits: ${Number(featureResult.withSplits || 0)}, CashEdge: ${Number(featureResult.withCashEdge || 0)}, movements: ${Number(featureResult.movements || 0)}`
+    );
+
+
+    console.log(
+      `[learning-pipeline] complete: ${gameDate}`
+    );
+
+
+    return true;
+
+  } catch (error) {
+
+    console.error(
+      `[learning-pipeline] failed: ${error?.message || error}`
+    );
+
+    return false;
   }
 }
 async function syncLearningResultsIfDueSafe() {
@@ -364,16 +490,37 @@ async function syncLearningResultsIfDueSafe() {
 
 
     if (
-      result?.complete === true
-    ) {
+  result?.complete === true
+) {
 
-      learningResultsCompleteDay =
-        currentDay;
+  console.log(
+    `[learning-results] yesterday complete: ${result.gameDate || "unknown"}`
+  );
 
-      console.log(
-        `[learning-results] yesterday complete: ${result.gameDate || "unknown"}`
-      );
-    }
+
+  const pipelineComplete =
+    await runLearningPostResultsPipelineSafe(
+      result.gameDate
+    );
+
+
+  /*
+   * IMPORTANT:
+   * We only stop the daily scheduler after
+   * Results + Labels + Features all completed.
+   *
+   * If Labels or Features fail, everything
+   * remains non-fatal and the scheduler can
+   * retry on the next eligible hour.
+   */
+  if (
+    pipelineComplete === true
+  ) {
+
+    learningResultsCompleteDay =
+      currentDay;
+  }
+}
 
   } catch (error) {
 
