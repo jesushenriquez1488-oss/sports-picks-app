@@ -25,15 +25,18 @@ const HEAD_PAGE_SIZE = 1000;
 
 const lastMarket = new Map();
 const lastCashEdge = new Map();
+const lastSplit = new Map();
 
 const hydrated = {
   market: false,
-  cashedge: false
+  cashedge: false,
+  split: false
 };
 
 const hydrationPromises = {
   market: null,
-  cashedge: null
+  cashedge: null,
+  split: null
 };
 
 let warnedMissingConfig = false;
@@ -235,7 +238,26 @@ function cashEdgeSignature(row) {
   );
 }
 
+function splitIdentity(row) {
+  return (
+    `${row.sport}|` +
+    `${row.cashedge_game_id}|` +
+    `${row.provider}|` +
+    `${row.split_source_key}|` +
+    `${row.market_type}|` +
+    `${row.selection_key}`
+  );
+}
 
+
+function splitSignature(row) {
+  return hash(
+    row.line,
+    row.price_american,
+    row.money_pct,
+    row.tickets_pct
+  );
+}
 // ============================================================
 // MARKET NORMALIZATION
 // ============================================================
@@ -399,7 +421,100 @@ function normalizeCashEdge(input = {}) {
 
   return row;
 }
+// ============================================================
+// SPLIT NORMALIZATION
+// ============================================================
 
+function normalizeSplit(input = {}) {
+
+  const row = {
+
+    cashedge_game_id:
+      txt(input.cashedge_game_id),
+
+    sport:
+      low(input.sport),
+
+    provider:
+      low(input.provider),
+
+    split_source_key:
+      low(input.split_source_key),
+
+    market_type:
+      low(input.market_type),
+
+    selection_key:
+      low(input.selection_key),
+
+    line:
+      num(input.line),
+
+    price_american:
+      int(input.price_american),
+
+    money_pct:
+      num(input.money_pct),
+
+    tickets_pct:
+      num(input.tickets_pct),
+
+    provider_timestamp:
+      ts(input.provider_timestamp),
+
+    observed_at:
+      ts(input.observed_at) ||
+      new Date().toISOString()
+  };
+
+
+  if (
+    !row.cashedge_game_id ||
+    !row.sport ||
+    !row.provider ||
+    !row.split_source_key ||
+    !row.market_type ||
+    !row.selection_key ||
+    row.money_pct === null ||
+    row.tickets_pct === null
+  ) {
+    return null;
+  }
+
+
+  /*
+   * Invalid provider percentages must never enter
+   * Learning history.
+   */
+  if (
+    row.money_pct < 0 ||
+    row.money_pct > 100 ||
+    row.tickets_pct < 0 ||
+    row.tickets_pct > 100
+  ) {
+    return null;
+  }
+
+
+  const identity =
+    splitIdentity(row);
+
+  const signature =
+    splitSignature(row);
+
+
+  row.dedupe_key =
+    hash(
+      "split",
+      identity,
+      signature,
+      row.provider_timestamp ||
+        row.observed_at
+    );
+
+
+  return row;
+}
 
 // ============================================================
 // DURABLE HEAD CACHE
@@ -994,35 +1109,44 @@ async function initialize() {
       };
     }
 
+const [
+  marketReady,
+  cashEdgeReady,
+  splitReady
+] =
+  await Promise.all([
+    ensureHydrated(
+      "market",
+      lastMarket
+    ),
 
-    const [
-      marketReady,
-      cashEdgeReady
-    ] =
-      await Promise.all([
-        ensureHydrated(
-          "market",
-          lastMarket
-        ),
+    ensureHydrated(
+      "cashedge",
+      lastCashEdge
+    ),
 
-        ensureHydrated(
-          "cashedge",
-          lastCashEdge
-        )
-      ]);
+    ensureHydrated(
+      "split",
+      lastSplit
+    )
+  ]);
 
 
     return {
-      ok:
-        marketReady &&
-        cashEdgeReady,
+  ok:
+    marketReady &&
+    cashEdgeReady &&
+    splitReady,
 
-      market_ready:
-        marketReady,
+  market_ready:
+    marketReady,
 
-      cashedge_ready:
-        cashEdgeReady
-    };
+  cashedge_ready:
+    cashEdgeReady,
+
+  split_ready:
+    splitReady
+};
 
   } catch (error) {
 
@@ -1034,7 +1158,8 @@ async function initialize() {
     return {
       ok: false,
       market_ready: false,
-      cashedge_ready: false
+      cashedge_ready: false,
+      split_ready: false
     };
   }
 }
@@ -1097,7 +1222,33 @@ function captureCashEdgeStates(
   });
 }
 
+function captureSplitStates(
+  inputs
+) {
 
+  return capture({
+
+    inputs,
+
+    streamType:
+      "split",
+
+    table:
+      "learning_split_states",
+
+    normalize:
+      normalizeSplit,
+
+    identity:
+      splitIdentity,
+
+    signature:
+      splitSignature,
+
+    cache:
+      lastSplit
+  });
+}
 function getStatus() {
 
   return {
@@ -1122,7 +1273,10 @@ function getStatus() {
       hydrated.market,
 
     cashedge_hydrated:
-      hydrated.cashedge
+  hydrated.cashedge,
+
+split_hydrated:
+  hydrated.split
   };
 }
 
@@ -1135,5 +1289,6 @@ module.exports = {
   initialize,
   captureMarketStates,
   captureCashEdgeStates,
+  captureSplitStates,
   getStatus
 };
