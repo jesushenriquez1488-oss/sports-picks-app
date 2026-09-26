@@ -1414,14 +1414,14 @@ async function syncYesterdayResults() {
     );
 
 
-  const unresolved =
-    Math.max(
-      0,
+ const unresolved =
+  Math.max(
+    0,
 
-      pendingGames.length -
-      written
-    );
-
+    pendingGames.length -
+    written -
+    ambiguous
+  );
 
   return {
     ok: true,
