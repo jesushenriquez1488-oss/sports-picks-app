@@ -281,7 +281,8 @@ const lastSentSplitSignatures =
   new Map();
 let watchdogTimer =
   null;
-
+let owlsConnectionRetryTimer =
+  null;
 let lastOwlsHeartbeatAt =
   null;
 
@@ -2902,7 +2903,17 @@ function connectOwls() {
     () => {
 
       markOwlsHeartbeat();
+if (
+  owlsConnectionRetryTimer
+) {
 
+  clearTimeout(
+    owlsConnectionRetryTimer
+  );
+
+  owlsConnectionRetryTimer =
+    null;
+}
 
       console.log(
         `[${WORKER_NAME}] connected to Owls Insight`
@@ -2968,15 +2979,78 @@ function connectOwls() {
   );
 
 
-  socket.on(
-    "connect_error",
-    error => {
+socket.on(
+  "connect_error",
+  error => {
 
-      console.error(
-        `[${WORKER_NAME}] Owls connection error: ${error.message}`
-      );
+    console.error(
+      `[${WORKER_NAME}] Owls connection error: ${error.message}`
+    );
+
+
+    /*
+     * Railway may briefly overlap old + new containers
+     * during a deploy.
+     *
+     * OWLS allows only one WebSocket connection, so the
+     * new container can be rejected while the old one
+     * is still shutting down.
+     *
+     * Explicitly retry without affecting REST ingestion,
+     * splits, Learning, or Market Intelligence processing.
+     */
+    if (
+      owlsConnectionRetryTimer
+    ) {
+      return;
     }
-  );
+
+
+    const failedSocket =
+      socket;
+
+
+    owlsConnectionRetryTimer =
+      setTimeout(
+        () => {
+
+          owlsConnectionRetryTimer =
+            null;
+
+
+          if (
+            socket !== failedSocket ||
+            !failedSocket ||
+            failedSocket.connected === true
+          ) {
+            return;
+          }
+
+
+          console.log(
+            `[${WORKER_NAME}] retrying Owls connection`
+          );
+
+
+          try {
+
+            failedSocket.connect();
+
+          } catch (retryError) {
+
+            console.error(
+              `[${WORKER_NAME}] Owls retry error: ${retryError.message}`
+            );
+          }
+
+        },
+        10000
+      );
+
+
+    owlsConnectionRetryTimer.unref?.();
+  }
+);
 
 
   socket.on(
@@ -3233,6 +3307,17 @@ if (
   clearInterval(
     splitTimer
   );
+}
+  if (
+  owlsConnectionRetryTimer
+) {
+
+  clearTimeout(
+    owlsConnectionRetryTimer
+  );
+
+  owlsConnectionRetryTimer =
+    null;
 }
   if (
     socket
