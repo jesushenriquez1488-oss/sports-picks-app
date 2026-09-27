@@ -30,10 +30,7 @@ function getCentralDate() {
 // ADD DAYS TO DATE
 // ============================================================
 
-function addDays(
-  dateString,
-  days
-) {
+
   function addDays(
   dateString,
   days
