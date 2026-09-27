@@ -479,8 +479,6 @@ function buildPerformanceSummary({
 
 
   const complete =
-    pending ===
-      0 &&
     missingOdds ===
       0;
 
@@ -513,8 +511,13 @@ function buildPerformanceSummary({
     complete,
     empty,
 
-    picks:
-      picks.length,
+   picks:
+      wins +
+      losses +
+      pushes,
+
+excludedPending:
+      pending,
 
     settled:
       wins +
