@@ -603,38 +603,82 @@ async function syncLearningResultsIfDueSafe() {
     }
 
 
+       /*
+     * Learning does NOT require 100% result coverage.
+     *
+     * Run the downstream pipeline when:
+     *
+     * 1) this date has not been processed yet,
+     * 2) new results were written since the last run,
+     * 3) or Results finally reached full completion.
+     *
+     * This lets 70 resolved games continue even if
+     * 1 game remains unresolved.
+     */
+    const shouldRunPipeline =
+      Boolean(
+        result?.gameDate
+      ) &&
+      (
+        learningPipelineProcessedDay !==
+          currentDay ||
+        Number(
+          result?.written ||
+          0
+        ) > 0 ||
+        result?.complete ===
+          true
+      );
+
+
+    let pipelineComplete =
+      true;
+
+
     if (
-  result?.complete === true
-) {
+      shouldRunPipeline
+    ) {
 
-  console.log(
-    `[learning-results] yesterday complete: ${result.gameDate || "unknown"}`
-  );
-
-
-  const pipelineComplete =
-    await runLearningPostResultsPipelineSafe(
-      result.gameDate
-    );
+      pipelineComplete =
+        await runLearningPostResultsPipelineSafe(
+          result.gameDate
+        );
 
 
-  /*
-   * IMPORTANT:
-   * We only stop the daily scheduler after
-   * Results + Labels + Features all completed.
-   *
-   * If Labels or Features fail, everything
-   * remains non-fatal and the scheduler can
-   * retry on the next eligible hour.
-   */
-  if (
-    pipelineComplete === true
-  ) {
+      if (
+        pipelineComplete ===
+        true
+      ) {
 
-    learningResultsCompleteDay =
-      currentDay;
-  }
-}
+        learningPipelineProcessedDay =
+          currentDay;
+      }
+    }
+
+
+    /*
+     * Continue checking unresolved games hourly.
+     *
+     * Only stop the Results scheduler when the
+     * result collector itself says the day is
+     * fully complete AND the Learning pipeline
+     * has processed that final state successfully.
+     */
+    if (
+      result?.complete ===
+        true &&
+      pipelineComplete ===
+        true
+    ) {
+
+      console.log(
+        `[learning-results] yesterday complete: ${result.gameDate || "unknown"}`
+      );
+
+
+      learningResultsCompleteDay =
+        currentDay;
+    }
 
   } catch (error) {
 
@@ -778,6 +822,18 @@ let learningResultsLastHourKey =
 
 let learningResultsCompleteDay =
   null;
+
+/*
+ * A day does NOT need 100% of its results
+ * before Learning can process it.
+ *
+ * This remembers that the available results
+ * for today's "yesterday" date were already
+ * processed successfully at least once.
+ */
+let learningPipelineProcessedDay =
+  null;
+
 const learningMarketBaselineAt =
   new Map();
 let owlsCurrentBoardRefreshRunning =
