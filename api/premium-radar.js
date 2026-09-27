@@ -363,11 +363,84 @@ function buildPerformanceSummary({
      * use the LAST canonical CashEdge price
      * stored for this Premium Radar game.
      */
-    const price =
+    const priceData =
       priceByGameId.get(
         String(
           row.game_id
         )
+      ) ||
+      {};
+
+
+    const storedPrice =
+      Number(
+        priceData.price
+      );
+
+
+    const validStoredPrice =
+      Number.isFinite(
+        storedPrice
+      ) &&
+      storedPrice !== 0
+        ? storedPrice
+        : null;
+
+
+    const sport =
+      String(
+        row.sport ||
+        ""
+      )
+        .toLowerCase()
+        .trim();
+
+
+    const marketType =
+      String(
+        priceData.marketType ||
+        ""
+      )
+        .toLowerCase()
+        .trim();
+
+
+    const minus110FallbackAllowed =
+      (
+        marketType ===
+          "spread" &&
+        [
+          "ncaaf",
+          "nfl",
+          "ncaab",
+          "nba",
+          "wnba"
+        ].includes(
+          sport
+        )
+      ) ||
+      (
+        marketType ===
+          "total" &&
+        [
+          "ncaaf",
+          "nfl",
+          "ncaab",
+          "nba",
+          "wnba",
+          "mlb"
+        ].includes(
+          sport
+        )
+      );
+
+
+    const price =
+      validStoredPrice ??
+      (
+        minus110FallbackAllowed
+          ? -110
+          : null
       );
 
 
@@ -623,8 +696,9 @@ async function loadPremiumPerformance(
           .from(
             "market_pick_context"
           )
-          .select(`
+         .select(`
             cashedge_game_id,
+            market_type,
             current_cashedge_price_american
           `)
           .in(
@@ -699,14 +773,21 @@ async function loadPremiumPerformance(
         []
     ) {
 
-      priceByGameId.set(
+     priceByGameId.set(
         String(
           context
             .cashedge_game_id
         ),
 
-        context
-          .current_cashedge_price_american
+        {
+          price:
+            context
+              .current_cashedge_price_american,
+
+          marketType:
+            context
+              .market_type
+        }
       );
     }
   }
