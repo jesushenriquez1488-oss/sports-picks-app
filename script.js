@@ -15049,6 +15049,383 @@ let premiumRadarAutoRefreshToken =
 let premiumRadarRefreshInFlight =
   false;
 
+
+// ============================================================
+// PREMIUM RADAR — PERFORMANCE
+// ============================================================
+
+let premiumRadarPerformanceCache =
+  null;
+
+
+function premiumRadarSignedMetric(
+  value,
+  suffix = ""
+) {
+
+  const number =
+    Number(value);
+
+
+  if (
+    !Number.isFinite(number)
+  ) {
+    return "—";
+  }
+
+
+  const clean =
+    Number(
+      number.toFixed(2)
+    );
+
+
+  return `${
+    clean > 0
+      ? "+"
+      : ""
+  }${clean}${suffix}`;
+}
+
+
+function premiumRadarPerformanceColor(
+  value
+) {
+
+  const number =
+    Number(value);
+
+
+  if (
+    !Number.isFinite(number) ||
+    number === 0
+  ) {
+    return "#c8d4e3";
+  }
+
+
+  return number > 0
+    ? "#00e6b8"
+    : "#ff6b6b";
+}
+
+
+function premiumRadarPerformanceCard(
+  title,
+  summary
+) {
+
+  const settled =
+    Number(
+      summary?.picks ||
+      0
+    );
+
+
+  const pending =
+    Number(
+      summary?.excludedPending ??
+      summary?.pending ??
+      0
+    );
+
+
+  const missingOdds =
+    Number(
+      summary?.missingOdds ||
+      0
+    );
+
+
+  const hasFinalNumbers =
+    summary?.complete === true &&
+    settled > 0 &&
+    Boolean(
+      summary?.record
+    );
+
+
+  let content = "";
+
+
+  if (
+    hasFinalNumbers
+  ) {
+
+    const unitsColor =
+      premiumRadarPerformanceColor(
+        summary.units
+      );
+
+
+    const roiColor =
+      premiumRadarPerformanceColor(
+        summary.roi
+      );
+
+
+    content = `
+      <div
+        style="
+          color:#fff;
+          font-size:22px;
+          font-weight:950;
+          letter-spacing:-.4px;
+          line-height:1;
+          margin-top:7px;
+        "
+      >
+        ${sanitize(
+          summary.record
+        )}
+      </div>
+
+      <div
+        style="
+          display:flex;
+          align-items:center;
+          gap:9px;
+          margin-top:9px;
+          flex-wrap:wrap;
+        "
+      >
+
+        <span
+          style="
+            color:${unitsColor};
+            font-size:12px;
+            font-weight:900;
+          "
+        >
+          ${premiumRadarSignedMetric(
+            summary.units,
+            "u"
+          )}
+        </span>
+
+
+        <span
+          style="
+            width:3px;
+            height:3px;
+            border-radius:50%;
+            background:#3c4f68;
+          "
+        ></span>
+
+
+        <span
+          style="
+            color:${roiColor};
+            font-size:12px;
+            font-weight:900;
+          "
+        >
+          ${premiumRadarSignedMetric(
+            summary.roi,
+            "%"
+          )} ROI
+        </span>
+
+      </div>
+    `;
+
+  } else if (
+    pending > 0
+  ) {
+
+    content = `
+      <div
+        style="
+          color:#cbd7e8;
+          font-size:12px;
+          font-weight:900;
+          margin-top:8px;
+        "
+      >
+        Results updating…
+      </div>
+
+      <div
+        style="
+          color:#60738d;
+          font-size:9px;
+          margin-top:4px;
+        "
+      >
+        Waiting for final results.
+      </div>
+    `;
+
+  } else if (
+    missingOdds > 0
+  ) {
+
+    content = `
+      <div
+        style="
+          color:#cbd7e8;
+          font-size:12px;
+          font-weight:900;
+          margin-top:8px;
+        "
+      >
+        Performance updating…
+      </div>
+    `;
+
+  } else {
+
+    content = `
+      <div
+        style="
+          color:#71839f;
+          font-size:11px;
+          font-weight:800;
+          margin-top:8px;
+        "
+      >
+        No settled results yet.
+      </div>
+    `;
+  }
+
+
+  const pendingMessage =
+    pending > 0 &&
+    hasFinalNumbers
+      ? `
+          <div
+            style="
+              margin-top:8px;
+              color:#71839f;
+              font-size:8px;
+              font-weight:800;
+            "
+          >
+            ${pending}
+            ${
+              pending === 1
+                ? "result"
+                : "results"
+            }
+            still updating
+          </div>
+        `
+      : "";
+
+
+  return `
+    <div
+      style="
+        min-width:0;
+
+        padding:
+          13px 14px;
+
+        border:
+          1px solid
+          rgba(118,145,180,.16);
+
+        border-radius:
+          11px;
+
+        background:
+          rgba(7,14,25,.72);
+      "
+    >
+
+      <div
+        style="
+          color:#71839f;
+          font-size:8px;
+          font-weight:950;
+          letter-spacing:1.4px;
+        "
+      >
+        ${title}
+      </div>
+
+
+      ${content}
+
+      ${pendingMessage}
+
+    </div>
+  `;
+}
+
+
+function premiumRadarRenderPerformance(
+  performance
+) {
+
+  if (
+    !performance ||
+    performance.locked === true
+  ) {
+    return "";
+  }
+
+
+  return `
+    <div
+      style="
+        margin-top:28px;
+
+        padding-top:17px;
+
+        border-top:
+          1px solid
+          rgba(71,94,124,.18);
+      "
+    >
+
+      <div
+        style="
+          color:#71839f;
+          font-size:8px;
+          font-weight:950;
+          letter-spacing:1.5px;
+          margin-bottom:8px;
+        "
+      >
+        PREMIUM PERFORMANCE
+      </div>
+
+
+      <div
+        style="
+          display:grid;
+
+          grid-template-columns:
+            repeat(
+              2,
+              minmax(0,1fr)
+            );
+
+          gap:8px;
+        "
+      >
+
+        ${premiumRadarPerformanceCard(
+          "YESTERDAY",
+          performance.yesterday
+        )}
+
+
+        ${premiumRadarPerformanceCard(
+          "THIS WEEK",
+          performance.week
+        )}
+
+      </div>
+
+    </div>
+  `;
+}
+
+
 function premiumRadarPulseEscape(
   value
 ) {
@@ -16335,9 +16712,120 @@ ${
   return;
 }
 
-    // ========================================================
+       // ========================================================
     // PREMIUM USER
     // ========================================================
+
+    const isHistoryView =
+      String(
+        viewMode
+      )
+        .toLowerCase()
+        .trim() ===
+      "history";
+
+
+    // ========================================================
+    // PREMIUM PERFORMANCE
+    //
+    // Premium-only.
+    // History-only.
+    //
+    // It is intentionally isolated from the normal
+    // Premium Radar / Market Intelligence request.
+    //
+    // If Performance fails, Radar continues normally.
+    // ========================================================
+
+    if (
+      isHistoryView &&
+      isPremiumUser === true &&
+      (
+        historyDate === null ||
+        !premiumRadarPerformanceCache
+      )
+    ) {
+
+      /*
+       * Opening History from scratch should always
+       * request fresh Performance numbers.
+       *
+       * Clicking another historical day can reuse
+       * the same weekly Performance response.
+       */
+      if (
+        historyDate === null
+      ) {
+
+        premiumRadarPerformanceCache =
+          null;
+      }
+
+
+      try {
+
+        const performanceResponse =
+          await fetch(
+            "https://www.cashedgeapp.com/api/premium-radar?view=performance",
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${session.access_token}`
+              },
+
+              cache:
+                "no-store"
+            }
+          );
+
+
+        const performanceData =
+          await performanceResponse
+            .json();
+
+
+        if (
+          performanceResponse.ok &&
+          performanceData?.ok === true &&
+          performanceData?.locked !== true
+        ) {
+
+          premiumRadarPerformanceCache =
+            performanceData;
+        }
+
+
+      } catch (
+        performanceError
+      ) {
+
+        console.warn(
+          "Premium Performance unavailable:",
+          performanceError
+        );
+
+
+        if (
+          historyDate === null
+        ) {
+
+          premiumRadarPerformanceCache =
+            null;
+        }
+      }
+    }
+
+
+    const performanceHTML =
+      (
+        isHistoryView &&
+        isPremiumUser === true
+      )
+        ? premiumRadarRenderPerformance(
+            premiumRadarPerformanceCache
+          )
+        : "";
+
 
     const grouped =
       data.grouped &&
@@ -16345,12 +16833,6 @@ ${
         "object"
         ? data.grouped
         : {};
-
-
-   const isHistoryView =
-  String(viewMode)
-    .toLowerCase()
-    .trim() === "history";
 
 
 const dates =
@@ -21983,7 +22465,7 @@ ${
     : ""
 }
 
-        ${
+                ${
           dateSections ||
           `
             <div
@@ -21997,6 +22479,14 @@ ${
             </div>
           `
         }
+
+
+        ${
+          isHistoryView
+            ? performanceHTML
+            : ""
+        }
+
 
       </div>
     `;
