@@ -34,6 +34,10 @@ function addDays(
   dateString,
   days
 ) {
+  function addDays(
+  dateString,
+  days
+) {
   const [year, month, day] =
     String(dateString)
       .split("-")
@@ -52,6 +56,722 @@ function addDays(
     .toISOString()
     .slice(0, 10);
 }
+
+
+// ============================================================
+// PREMIUM PERFORMANCE
+// ============================================================
+
+function getPerformanceWeekStart(
+  dateString
+) {
+
+  const [
+    year,
+    month,
+    day
+  ] =
+    String(
+      dateString
+    )
+      .split("-")
+      .map(Number);
+
+
+  const date =
+    new Date(
+      Date.UTC(
+        year,
+        month - 1,
+        day,
+        12,
+        0,
+        0
+      )
+    );
+
+
+  const weekday =
+    date.getUTCDay();
+
+
+  const daysSinceMonday =
+    (
+      weekday +
+      6
+    ) %
+    7;
+
+
+  return addDays(
+    dateString,
+    -daysSinceMonday
+  );
+}
+
+
+function performanceKey(
+  sport,
+  gameId,
+  pick
+) {
+
+  return [
+    String(
+      sport ||
+      ""
+    )
+      .toLowerCase()
+      .trim(),
+
+    String(
+      gameId ||
+      ""
+    )
+      .trim(),
+
+    String(
+      pick ||
+      ""
+    )
+      .trim()
+  ]
+    .join("|");
+}
+
+
+function normalizePerformanceResult(
+  value
+) {
+
+  const result =
+    String(
+      value ||
+      ""
+    )
+      .toLowerCase()
+      .trim();
+
+
+  if (
+    result === "win" ||
+    result === "won" ||
+    result === "w"
+  ) {
+    return "win";
+  }
+
+
+  if (
+    result === "loss" ||
+    result === "lost" ||
+    result === "l"
+  ) {
+    return "loss";
+  }
+
+
+  if (
+    result === "push" ||
+    result === "p"
+  ) {
+    return "push";
+  }
+
+
+  return null;
+}
+
+
+function americanWinUnits(
+  price
+) {
+
+  const odds =
+    Number(
+      price
+    );
+
+
+  if (
+    !Number.isFinite(
+      odds
+    ) ||
+    odds === 0
+  ) {
+    return null;
+  }
+
+
+  if (
+    odds > 0
+  ) {
+
+    return (
+      odds /
+      100
+    );
+  }
+
+
+  return (
+    100 /
+    Math.abs(
+      odds
+    )
+  );
+}
+
+
+function performanceRound(
+  value,
+  decimals =
+    2
+) {
+
+  const number =
+    Number(
+      value
+    );
+
+
+  if (
+    !Number.isFinite(
+      number
+    )
+  ) {
+    return null;
+  }
+
+
+  return Number(
+    number.toFixed(
+      decimals
+    )
+  );
+}
+
+
+function buildPerformanceSummary({
+  rows,
+  gradedMap,
+  priceByGameId,
+  startDate,
+  endDate
+}) {
+
+  const picks =
+    Array.isArray(
+      rows
+    )
+      ? rows
+      : [];
+
+
+  let wins =
+    0;
+
+  let losses =
+    0;
+
+  let pushes =
+    0;
+
+  let pending =
+    0;
+
+  let missingOdds =
+    0;
+
+  let units =
+    0;
+
+  let riskedUnits =
+    0;
+
+
+  for (
+    const row of
+    picks
+  ) {
+
+    const key =
+      performanceKey(
+        row.sport,
+        row.game_id,
+        row.current_pick
+      );
+
+
+    const graded =
+      gradedMap.get(
+        key
+      );
+
+
+    const result =
+      normalizePerformanceResult(
+        graded?.result
+      );
+
+
+    if (
+      !result
+    ) {
+
+      pending +=
+        1;
+
+      continue;
+    }
+
+
+    /*
+     * One settled Premium pick =
+     * one unit of risk.
+     */
+    riskedUnits +=
+      1;
+
+
+    if (
+      result ===
+      "loss"
+    ) {
+
+      losses +=
+        1;
+
+      units -=
+        1;
+
+      continue;
+    }
+
+
+    if (
+      result ===
+      "push"
+    ) {
+
+      pushes +=
+        1;
+
+      continue;
+    }
+
+
+    /*
+     * WIN:
+     * use the LAST canonical CashEdge price
+     * stored for this Premium Radar game.
+     */
+    const price =
+      priceByGameId.get(
+        String(
+          row.game_id
+        )
+      );
+
+
+    const winUnits =
+      americanWinUnits(
+        price
+      );
+
+
+    if (
+      winUnits ===
+      null
+    ) {
+
+      /*
+       * Result is known, but units cannot be
+       * finalized without the real saved odds.
+       * Never invent -110 or another fallback.
+       */
+      missingOdds +=
+        1;
+
+      wins +=
+        1;
+
+      continue;
+    }
+
+
+    wins +=
+      1;
+
+    units +=
+      winUnits;
+  }
+
+
+  const complete =
+    pending ===
+      0 &&
+    missingOdds ===
+      0;
+
+
+  const empty =
+    picks.length ===
+    0;
+
+
+  const record =
+    pushes > 0
+      ? `${wins}-${losses}-${pushes}`
+      : `${wins}-${losses}`;
+
+
+  const roi =
+    riskedUnits > 0
+      ? (
+          units /
+          riskedUnits
+        ) *
+        100
+      : 0;
+
+
+  return {
+    startDate,
+    endDate,
+
+    complete,
+    empty,
+
+    picks:
+      picks.length,
+
+    settled:
+      wins +
+      losses +
+      pushes,
+
+    pending,
+
+    missingOdds,
+
+    /*
+     * Do NOT expose partial performance
+     * as if the period were finalized.
+     */
+    wins:
+      complete
+        ? wins
+        : null,
+
+    losses:
+      complete
+        ? losses
+        : null,
+
+    pushes:
+      complete
+        ? pushes
+        : null,
+
+    record:
+      complete
+        ? record
+        : null,
+
+    units:
+      complete
+        ? performanceRound(
+            units,
+            2
+          )
+        : null,
+
+    riskedUnits:
+      complete
+        ? riskedUnits
+        : null,
+
+    roi:
+      complete
+        ? performanceRound(
+            roi,
+            2
+          )
+        : null
+  };
+}
+
+
+async function loadPremiumPerformance(
+  today
+) {
+
+  const yesterday =
+    addDays(
+      today,
+      -1
+    );
+
+
+  const weekStart =
+    getPerformanceWeekStart(
+      today
+    );
+
+
+  /*
+   * Monday is special:
+   * "This Week" contains no completed day yet,
+   * but Yesterday still belongs to last week.
+   */
+  const queryStart =
+    weekStart <=
+      yesterday
+      ? weekStart
+      : yesterday;
+
+
+  const {
+    data: radarRows,
+    error: radarError
+  } =
+    await supabaseAdmin
+      .from(
+        "premium_radar"
+      )
+      .select(`
+        sport,
+        game_id,
+        game_date,
+        current_pick,
+        current_is_premium
+      `)
+      .gte(
+        "game_date",
+        queryStart
+      )
+      .lte(
+        "game_date",
+        yesterday
+      )
+      .eq(
+        "current_is_premium",
+        true
+      );
+
+
+  if (
+    radarError
+  ) {
+    throw radarError;
+  }
+
+
+  const rows =
+    radarRows ||
+    [];
+
+
+  const gameIds =
+    [
+      ...new Set(
+        rows
+          .map(
+            row =>
+              row.game_id
+          )
+          .filter(
+            Boolean
+          )
+      )
+    ];
+
+
+  const gradedMap =
+    new Map();
+
+
+  const priceByGameId =
+    new Map();
+
+
+  if (
+    gameIds.length
+  ) {
+
+    const [
+      gradedResult,
+      contextResult
+    ] =
+      await Promise.all([
+
+        supabaseAdmin
+          .from(
+            "picks_history"
+          )
+          .select(`
+            sport,
+            game_id,
+            pick,
+            result,
+            graded_at
+          `)
+          .in(
+            "game_id",
+            gameIds
+          ),
+
+        supabaseAdmin
+          .from(
+            "market_pick_context"
+          )
+          .select(`
+            cashedge_game_id,
+            current_cashedge_price_american
+          `)
+          .in(
+            "cashedge_game_id",
+            gameIds
+          )
+
+      ]);
+
+
+    if (
+      gradedResult.error
+    ) {
+      throw gradedResult.error;
+    }
+
+
+    if (
+      contextResult.error
+    ) {
+      throw contextResult.error;
+    }
+
+
+    for (
+      const graded of
+        gradedResult.data ||
+        []
+    ) {
+
+      const key =
+        performanceKey(
+          graded.sport,
+          graded.game_id,
+          graded.pick
+        );
+
+
+      const existing =
+        gradedMap.get(
+          key
+        );
+
+
+      if (
+        !existing ||
+        (
+          graded.graded_at &&
+          (
+            !existing.graded_at ||
+            new Date(
+              graded.graded_at
+            ).getTime() >
+            new Date(
+              existing.graded_at
+            ).getTime()
+          )
+        )
+      ) {
+
+        gradedMap.set(
+          key,
+          graded
+        );
+      }
+    }
+
+
+    for (
+      const context of
+        contextResult.data ||
+        []
+    ) {
+
+      priceByGameId.set(
+        String(
+          context
+            .cashedge_game_id
+        ),
+
+        context
+          .current_cashedge_price_american
+      );
+    }
+  }
+
+
+  const yesterdayRows =
+    rows.filter(
+      row =>
+        row.game_date ===
+        yesterday
+    );
+
+
+  const weekRows =
+    weekStart <=
+      yesterday
+      ? rows.filter(
+          row =>
+            row.game_date >=
+              weekStart &&
+            row.game_date <=
+              yesterday
+        )
+      : [];
+
+
+  return {
+    yesterday:
+      buildPerformanceSummary({
+        rows:
+          yesterdayRows,
+
+        gradedMap,
+
+        priceByGameId,
+
+        startDate:
+          yesterday,
+
+        endDate:
+          yesterday
+      }),
+
+    week:
+      buildPerformanceSummary({
+        rows:
+          weekRows,
+
+        gradedMap,
+
+        priceByGameId,
+
+        startDate:
+          weekStart,
+
+        endDate:
+          yesterday
+      })
+  };
+}
+
+
 // ============================================================
 // PREMIUM RADAR TEAM LOGOS
 // ============================================================
@@ -931,8 +1651,68 @@ const radarViewMode =
     .trim();
 
 
-if (radarViewMode === "history") {
+// ======================================================
+// PREMIUM USER — PERFORMANCE
+//
+// Separate read-only branch.
+// Does NOT alter Today / History / Market Intelligence.
+// ======================================================
 
+if (
+  radarViewMode ===
+  "performance"
+) {
+
+  /*
+   * Performance is Premium-only.
+   *
+   * A temporary Market Intelligence preview
+   * does not unlock historical performance.
+   */
+  if (
+    isPremiumUser !==
+    true
+  ) {
+
+    return res
+      .status(200)
+      .json({
+        ok: true,
+        locked: true,
+        view:
+          "performance"
+      });
+  }
+
+
+  const performance =
+    await loadPremiumPerformance(
+      today
+    );
+
+
+  return res
+    .status(200)
+    .json({
+      ok: true,
+
+      locked: false,
+
+      view:
+        "performance",
+
+      today,
+
+      yesterday:
+        performance.yesterday,
+
+      week:
+        performance.week
+    });
+}
+
+
+if (radarViewMode === "history") {
   // ====================================================
   // HISTORY — ONE DAY AT A TIME
   //
