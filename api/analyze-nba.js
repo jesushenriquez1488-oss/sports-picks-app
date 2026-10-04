@@ -3344,8 +3344,13 @@ if (
       getInjuryAdjustment(origin, homeTeam)
     ]);
 
+const useCorrectedBasketballFormula =
+  selectedLeague === "nba" ||
+  selectedLeague === "ncaab";
+
+
 const awayCalc =
-  selectedLeague === "nba"
+  useCorrectedBasketballFormula
     ? calcNBAProjection(
         awayGames,
         homeGames
@@ -3354,9 +3359,10 @@ const awayCalc =
         awayGames,
         homeGames
       );
+
 
 const homeCalc =
-  selectedLeague === "nba"
+  useCorrectedBasketballFormula
     ? calcNBAProjection(
         homeGames,
         awayGames
@@ -3365,7 +3371,64 @@ const homeCalc =
         homeGames,
         awayGames
       );
+// ============================================================
+// NCAAB — BPI ADJUSTMENT
+// ============================================================
+//
+// CashEdge base primero.
+//
+// BPI solamente ajusta esa proyeccion
+// cuando estamos analizando NCAAB.
+// ============================================================
 
+const awayBpi =
+  selectedLeague === "ncaab"
+    ? calcNcaabBpiAdjustment(
+        awayGames,
+        homeGames
+      )
+    : {
+        points: 0
+      };
+
+
+const homeBpi =
+  selectedLeague === "ncaab"
+    ? calcNcaabBpiAdjustment(
+        homeGames,
+        awayGames
+      )
+    : {
+        points: 0
+      };
+
+
+// ============================================================
+// PROYECCION DESPUES DE BPI
+// ============================================================
+
+const awayProjectionAfterBpi =
+  selectedLeague === "ncaab"
+    ? Math.max(
+        NCAAB_BPI_PROJECTION_FLOOR,
+        awayCalc.projection +
+        Number(
+          awayBpi.points || 0
+        )
+      )
+    : awayCalc.projection;
+
+
+const homeProjectionAfterBpi =
+  selectedLeague === "ncaab"
+    ? Math.max(
+        NCAAB_BPI_PROJECTION_FLOOR,
+        homeCalc.projection +
+        Number(
+          homeBpi.points || 0
+        )
+      )
+    : homeCalc.projection;
    const awayRest =
   (
     selectedLeague === "nba" ||
@@ -3393,18 +3456,26 @@ const homeRest =
         homeAll
       );
 
-    const projA =
-      awayCalc.projection +
-      awayRest.points +
-      Number(awayInjuries.offenseImpact || 0) +
-      Number(homeInjuries.defenseImpact || 0);
+const projA =
+  awayProjectionAfterBpi +
+  awayRest.points +
+  Number(
+    awayInjuries.offenseImpact || 0
+  ) +
+  Number(
+    homeInjuries.defenseImpact || 0
+  );
 
-    const projB =
-      homeCalc.projection +
-      homeRest.points +
-      Number(homeInjuries.offenseImpact || 0) +
-      Number(awayInjuries.defenseImpact || 0);
 
+const projB =
+  homeProjectionAfterBpi +
+  homeRest.points +
+  Number(
+    homeInjuries.offenseImpact || 0
+  ) +
+  Number(
+    awayInjuries.defenseImpact || 0
+  );
     const totalProj = projA + projB;
     const projectedMargin = projA - projB;
 
@@ -4681,6 +4752,442 @@ function calcNBAProjection(
   return {
     projection:
       (A + B) / 2
+  };
+}
+// ============================================================
+// NCAAB — BPI RESPONSE
+// ============================================================
+//
+// El BPI NO reemplaza la formula CashEdge.
+//
+// Primero CashEdge calcula su proyeccion normal.
+// Despues aprendemos como cambia el rendimiento
+// del equipo cuando cambia la fuerza BPI del rival.
+//
+// Maximo permitido para la pendiente:
+// 0.90 puntos por cada 1 BPI.
+//
+// NO existe un limite fijo para el ajuste total.
+// ============================================================
+
+const NCAAB_BPI_MAX_SLOPE = 0.90;
+
+const NCAAB_BPI_PROJECTION_FLOOR = 25;
+
+
+// ============================================================
+// OBTENER BPI ACTUAL DEL EQUIPO
+// ============================================================
+
+function getNcaabCurrentTeamBpi(
+  games
+) {
+
+  if (
+    !Array.isArray(games)
+  ) {
+    return null;
+  }
+
+
+  for (
+    const game
+    of games
+  ) {
+
+    const value =
+      getNBAFormulaValue(
+        game?.teamBpi
+      );
+
+
+    if (
+      value !== null
+    ) {
+      return value;
+    }
+  }
+
+
+  return null;
+}
+
+
+// ============================================================
+// CALCULAR TENDENCIA BPI
+//
+// X = BPI del rival historico
+// Y = scored o allowed
+//
+// Ejemplo ofensivo:
+//
+// rival BPI 40 -> 70 pts
+// rival BPI 45 -> 64 pts
+// rival BPI 60 -> 55 pts
+//
+// La regresion aprende cuanto cambia Y
+// por cada punto de BPI.
+// ============================================================
+
+function calcNcaabBpiTrend(
+  games,
+  valueKey
+) {
+
+  const samples =
+    (games || [])
+      .map(game => {
+
+        const opponentBpi =
+          getNBAFormulaValue(
+            game?.opponentBpi
+          );
+
+
+        const performance =
+          getNBAFormulaValue(
+            game?.[valueKey]
+          );
+
+
+        if (
+          opponentBpi === null ||
+          performance === null
+        ) {
+          return null;
+        }
+
+
+        return {
+          bpi:
+            opponentBpi,
+
+          value:
+            performance
+        };
+      })
+      .filter(Boolean);
+
+
+  // Necesitamos minimo 3 juegos
+  // para intentar aprender tendencia.
+  if (
+    samples.length < 3
+  ) {
+    return {
+      usable: false,
+      sampleSize:
+        samples.length,
+      averageOpponentBpi:
+        null,
+      rawSlope:
+        0,
+      slope:
+        0
+    };
+  }
+
+
+  const averageOpponentBpi =
+    samples.reduce(
+      (sum, sample) =>
+        sum + sample.bpi,
+      0
+    ) /
+    samples.length;
+
+
+  const averagePerformance =
+    samples.reduce(
+      (sum, sample) =>
+        sum + sample.value,
+      0
+    ) /
+    samples.length;
+
+
+  let numerator = 0;
+  let denominator = 0;
+
+
+  for (
+    const sample
+    of samples
+  ) {
+
+    const xDiff =
+      sample.bpi -
+      averageOpponentBpi;
+
+
+    const yDiff =
+      sample.value -
+      averagePerformance;
+
+
+    numerator +=
+      xDiff *
+      yDiff;
+
+
+    denominator +=
+      xDiff *
+      xDiff;
+  }
+
+
+  // Si todos los rivales tienen
+  // practicamente el mismo BPI,
+  // no podemos aprender una pendiente.
+  if (
+    !Number.isFinite(denominator) ||
+    denominator <= 0
+  ) {
+    return {
+      usable: false,
+      sampleSize:
+        samples.length,
+      averageOpponentBpi,
+      rawSlope:
+        0,
+      slope:
+        0
+    };
+  }
+
+
+  const rawSlope =
+    numerator /
+    denominator;
+
+
+  if (
+    !Number.isFinite(rawSlope)
+  ) {
+    return {
+      usable: false,
+      sampleSize:
+        samples.length,
+      averageOpponentBpi,
+      rawSlope:
+        0,
+      slope:
+        0
+    };
+  }
+
+
+  // Proteccion contra datos raros.
+  //
+  // Nunca permitimos que 1 punto BPI
+  // cambie mas de 0.90 puntos
+  // en la produccion.
+  const slope =
+    Math.max(
+      -NCAAB_BPI_MAX_SLOPE,
+      Math.min(
+        NCAAB_BPI_MAX_SLOPE,
+        rawSlope
+      )
+    );
+
+
+  return {
+    usable: true,
+    sampleSize:
+      samples.length,
+    averageOpponentBpi,
+    averagePerformance,
+    rawSlope,
+    slope
+  };
+}
+
+
+// ============================================================
+// CALCULAR AJUSTE BPI DEL MATCHUP
+// ============================================================
+//
+// Para proyectar puntos del TEAM:
+//
+// 1. Miramos como cambia su anotacion
+//    segun BPI del rival.
+//
+// 2. Miramos como cambia lo que permite
+//    la defensa rival segun BPI
+//    de los equipos que enfrenta.
+//
+// 3. Promediamos ambas perspectivas.
+//
+// Si una no tiene datos,
+// usamos solamente la disponible.
+// ============================================================
+
+function calcNcaabBpiAdjustment(
+  teamGames,
+  opponentGames
+) {
+
+  const currentTeamBpi =
+    getNcaabCurrentTeamBpi(
+      teamGames
+    );
+
+
+  const currentOpponentBpi =
+    getNcaabCurrentTeamBpi(
+      opponentGames
+    );
+
+
+  // --------------------------------
+  // OFENSIVA DEL EQUIPO
+  // --------------------------------
+
+  const offenseTrend =
+    calcNcaabBpiTrend(
+      teamGames,
+      "scored"
+    );
+
+
+  let offenseAdjustment =
+    null;
+
+
+  if (
+    offenseTrend.usable &&
+    currentOpponentBpi !== null &&
+    Number.isFinite(
+      offenseTrend
+        .averageOpponentBpi
+    )
+  ) {
+
+    const bpiDifference =
+      currentOpponentBpi -
+      offenseTrend
+        .averageOpponentBpi;
+
+
+    offenseAdjustment =
+      bpiDifference *
+      offenseTrend.slope;
+  }
+
+
+  // --------------------------------
+  // DEFENSA DEL RIVAL
+  // --------------------------------
+  //
+  // Aqui miramos:
+  //
+  // BPI de equipos que enfrento el rival
+  // vs
+  // puntos que el rival permitio.
+  //
+  // Luego preguntamos:
+  // ¿que deberia permitir frente
+  // al BPI del equipo de hoy?
+  // --------------------------------
+
+  const opponentDefenseTrend =
+    calcNcaabBpiTrend(
+      opponentGames,
+      "allowed"
+    );
+
+
+  let defenseAdjustment =
+    null;
+
+
+  if (
+    opponentDefenseTrend.usable &&
+    currentTeamBpi !== null &&
+    Number.isFinite(
+      opponentDefenseTrend
+        .averageOpponentBpi
+    )
+  ) {
+
+    const bpiDifference =
+      currentTeamBpi -
+      opponentDefenseTrend
+        .averageOpponentBpi;
+
+
+    defenseAdjustment =
+      bpiDifference *
+      opponentDefenseTrend
+        .slope;
+  }
+
+
+  // ==========================================================
+  // COMBINAR AMBAS PERSPECTIVAS
+  // ==========================================================
+
+  const adjustments =
+    [
+      offenseAdjustment,
+      defenseAdjustment
+    ]
+      .filter(
+        value =>
+          value !== null &&
+          Number.isFinite(value)
+      );
+
+
+  const points =
+    adjustments.length
+      ? adjustments.reduce(
+          (sum, value) =>
+            sum + value,
+          0
+        ) /
+        adjustments.length
+      : 0;
+
+
+  return {
+
+    points,
+
+    currentTeamBpi,
+
+    currentOpponentBpi,
+
+    offenseAdjustment,
+
+    defenseAdjustment,
+
+    offenseSlope:
+      offenseTrend.slope,
+
+    defenseSlope:
+      opponentDefenseTrend.slope,
+
+    offenseRawSlope:
+      offenseTrend.rawSlope,
+
+    defenseRawSlope:
+      opponentDefenseTrend.rawSlope,
+
+    offenseAverageOpponentBpi:
+      offenseTrend
+        .averageOpponentBpi,
+
+    defenseAverageOpponentBpi:
+      opponentDefenseTrend
+        .averageOpponentBpi,
+
+    offenseSampleSize:
+      offenseTrend.sampleSize,
+
+    defenseSampleSize:
+      opponentDefenseTrend.sampleSize
   };
 }
 function getRestAdjustment(allGames) {
