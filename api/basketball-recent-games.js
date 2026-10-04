@@ -36,8 +36,24 @@ global.__NCAAB_ESPN_CACHE__ =
   ncaabCache;
 
 
+// BPI completo por temporada.
+// Se refresca solamente cada 24 horas.
+const ncaabBpiCache =
+  global.__NCAAB_BPI_SEASON_CACHE__ || {};
+
+global.__NCAAB_BPI_SEASON_CACHE__ =
+  ncaabBpiCache;
+
+
 const CACHE_TIME =
   30 * 60 * 1000;
+
+
+// BPI no necesita refrescarse
+// cada 30 minutos.
+const BPI_CACHE_TIME =
+  24 * 60 * 60 * 1000;
+
 
 const ESPN_TIMEOUT =
   10 * 1000;
@@ -469,20 +485,32 @@ async function getEspnNcaabRecentGames(
   }
 
 
-  const currentSeason =
-    getCurrentNcaabSeason();
+ const currentSeason =
+  getCurrentNcaabSeason();
 
-  const previousSeason =
-    currentSeason - 1;
+const previousSeason =
+  currentSeason - 1;
 
 
-  // Temporada actual.
-  const currentGames =
-    await getNcaabTeamGames(
-      team.id,
-      currentSeason
-    );
+// BPI ACTUAL DEL EQUIPO ANALIZADO.
+//
+// Sale del mismo mapa BPI de temporada
+// que ya tenemos cacheado 24 horas.
+// No genera una llamada individual
+// por cada partido.
+const teamBpi =
+  await getNcaabSeasonBpi(
+    team.id,
+    currentSeason
+  );
 
+
+// Temporada actual.
+const currentGames =
+  await getNcaabTeamGames(
+    team.id,
+    currentSeason
+  );
 
   let selectedGames =
     [];
@@ -538,17 +566,17 @@ async function getEspnNcaabRecentGames(
   }
 
 
-  const enriched =
-    await Promise.all(
-      selectedGames.map(
-        game =>
-          enrichNcaabGame(
-            team,
-            game
-          )
-      )
-    );
-
+const enriched =
+  await Promise.all(
+    selectedGames.map(
+      game =>
+        enrichNcaabGame(
+          team,
+          game,
+          teamBpi
+        )
+    )
+  );
 
   return enriched
     .filter(Boolean)
@@ -868,34 +896,34 @@ function mapNcaabScheduleEvent(
 
 async function enrichNcaabGame(
   team,
-  game
+  game,
+  teamBpi
 ) {
-
   const [
-    opponentHistory,
-    pace,
-    opponentBpi
-  ] =
-    await Promise.all([
+  opponentHistory,
+  pace,
+  opponentBpi
+] =
+  await Promise.all([
 
-      getNcaabOpponentAverages(
-        game.opponentId,
-        game.date,
-        game.season
-      ),
+    getNcaabOpponentAverages(
+      game.opponentId,
+      game.date,
+      game.season
+    ),
 
-      getNcaabGamePace(
-        game.eventId,
-        team.id,
-        game.opponentId
-      ),
+    getNcaabGamePace(
+      game.eventId,
+      team.id,
+      game.opponentId
+    ),
 
-      getNcaabEventBpi(
-        game.eventId,
-        game.opponentId
-      )
+    getNcaabSeasonBpi(
+      game.opponentId,
+      game.season
+    )
 
-    ]);
+  ]);
 
 
   return {
@@ -938,7 +966,19 @@ async function enrichNcaabGame(
         ?.opponentAvgAllowed ??
       null,
 
+// BPI ACTUAL DEL EQUIPO
+// que estamos analizando.
+//
+// Es el mismo en todos los registros
+// porque representa su fuerza actual
+// para el matchup de hoy.
 
+teamBpi:
+  Number.isFinite(
+    teamBpi
+  )
+    ? teamBpi
+    : null,
     // BPI DEL RIVAL PARA ESE JUEGO.
     // null si ESPN no lo tiene.
 
@@ -1391,21 +1431,101 @@ function findEspnStat(
 
 
 // ============================================================
-// NCAAB — HISTORICAL EVENT BPI
+// NCAAB — TEAM SEASON BPI
 //
-// ESPN tiene un Power Index asociado
-// al evento/competencia.
+// Usa el Power Index del equipo
+// correspondiente a ESA temporada.
+//
+// Ejemplo:
+// partido season 2027
+// → BPI del rival en season 2027
+//
+// partido usado de season 2026
+// → BPI del rival en season 2026
 // ============================================================
 
-async function getNcaabEventBpi(
-  eventId,
-  teamId
+// ============================================================
+// NCAAB — TEAM SEASON BPI
+//
+// El Power Index completo de la temporada
+// se descarga una vez y se guarda 24 horas.
+//
+// Después cada equipo es solamente
+// un lookup local por ESPN teamId.
+// ============================================================
+
+async function getNcaabSeasonBpi(
+  teamId,
+  season
 ) {
 
-  try {
+  if (
+    !teamId ||
+    !season
+  ) {
+    return null;
+  }
+
+
+  const bpiMap =
+    await getNcaabSeasonBpiMap(
+      season
+    );
+
+
+  const value =
+    bpiMap[
+      String(teamId)
+    ];
+
+
+  return Number.isFinite(
+    value
+  )
+    ? value
+    : null;
+}
+
+
+// ============================================================
+// NCAAB — FULL SEASON BPI MAP
+// ============================================================
+
+async function getNcaabSeasonBpiMap(
+  season
+) {
+
+  const cacheKey =
+    String(season);
+
+
+  const cached =
+    ncaabBpiCache[
+      cacheKey
+    ];
+
+
+  if (
+    cached &&
+    cached.data &&
+    Date.now() -
+      cached.time <
+      BPI_CACHE_TIME
+  ) {
+    return cached.data;
+  }
+
+
+  const teamValues = {};
+
+  let page = 1;
+  let pageCount = 1;
+
+
+  do {
 
     const url =
-      `https://sports.core.api.espn.com/v2/sports/basketball/leagues/mens-college-basketball/events/${eventId}/competitions/${eventId}/powerindex/${teamId}`;
+      `https://sports.core.api.espn.com/v2/sports/basketball/leagues/mens-college-basketball/seasons/${season}/powerindex?limit=100&page=${page}&lang=en&region=us`;
 
 
     const data =
@@ -1414,23 +1534,152 @@ async function getNcaabEventBpi(
       );
 
 
-    return extractBpiValue(
-      data
-    );
+    const items =
+      Array.isArray(
+        data?.items
+      )
+        ? data.items
+        : [];
 
 
-  } catch (error) {
+    pageCount =
+      Math.max(
+        1,
+        Number(
+          data?.pageCount ||
+          1
+        )
+      );
 
-    // Algunos juegos pueden no tener BPI.
-    // Eso NO debe romper el analisis.
 
-    return null;
+    for (
+      const item
+      of items
+    ) {
+
+      const teamRef =
+        item?.team?.$ref ||
+        "";
+
+
+      const match =
+        String(
+          teamRef
+        ).match(
+          /\/teams\/(\d+)/
+        );
+
+
+      if (!match) {
+        continue;
+      }
+
+
+      const teamId =
+        String(
+          match[1]
+        );
+
+
+      const bpi =
+        extractBpiValue(
+          item
+        );
+
+
+      if (
+        !Number.isFinite(
+          bpi
+        )
+      ) {
+        continue;
+      }
+
+
+      const lastUpdated =
+        new Date(
+          item?.lastUpdated ||
+          0
+        ).getTime();
+
+
+      const existing =
+        teamValues[
+          teamId
+        ];
+
+
+      // Si ESPN devuelve más de un
+      // registro del mismo equipo
+      // (regular/postseason),
+      // conservamos el más actualizado.
+      if (
+        !existing ||
+        lastUpdated >=
+          existing.lastUpdated
+      ) {
+
+        teamValues[
+          teamId
+        ] = {
+          value:
+            bpi,
+
+          lastUpdated:
+            Number.isFinite(
+              lastUpdated
+            )
+              ? lastUpdated
+              : 0
+        };
+      }
+    }
+
+
+    page += 1;
+
+  } while (
+    page <= pageCount
+  );
+
+
+  const bpiMap = {};
+
+
+  for (
+    const [
+      teamId,
+      entry
+    ]
+    of Object.entries(
+      teamValues
+    )
+  ) {
+
+    bpiMap[
+      teamId
+    ] =
+      entry.value;
   }
+
+
+  ncaabBpiCache[
+    cacheKey
+  ] = {
+
+    data:
+      bpiMap,
+
+    time:
+      Date.now()
+  };
+
+
+  return bpiMap;
 }
 
-
 // ============================================================
-// EXTRACT BPI
+// EXTRACT BPI RATING
 // ============================================================
 
 function extractBpiValue(
@@ -1449,55 +1698,84 @@ function extractBpiValue(
         : [];
 
 
-  const bpi =
+  if (!stats.length) {
+    return null;
+  }
+
+
+  const preferredNames = [
+    "bpi",
+    "powerindex",
+    "basketballpowerindex",
+    "overallbpi",
+    "bpirating",
+    "rating"
+  ];
+
+
+  const stat =
     stats.find(
-      stat => {
+      item => {
 
-        const name =
-          normalizeNcaabName(
-            stat?.name
-          );
-
-        const abbreviation =
-          normalizeNcaabName(
-            stat?.abbreviation
-          );
-
-        const displayName =
-          normalizeNcaabName(
-            stat?.displayName
-          );
+        const names = [
+          item?.name,
+          item?.displayName,
+          item?.abbreviation,
+          item?.description
+        ]
+          .map(
+            normalizeNcaabName
+          )
+          .filter(Boolean);
 
 
-        return (
-          name === "bpi" ||
-          abbreviation === "bpi" ||
-          displayName ===
-            "basketballpowerindex"
+        return names.some(
+          name =>
+            preferredNames.includes(
+              name
+            )
         );
       }
     );
 
 
-  if (!bpi) {
+  if (!stat) {
     return null;
   }
 
 
-  const value =
+  const rawValue =
+    stat.value ??
+    stat.displayValue ??
+    null;
+
+
+  if (
+    rawValue === null ||
+    rawValue === undefined ||
+    rawValue === ""
+  ) {
+    return null;
+  }
+
+
+  const number =
     Number(
-      bpi.value ??
-      bpi.displayValue
+      String(rawValue)
+        .replace(
+          "%",
+          ""
+        )
+        .trim()
     );
 
 
   return Number.isFinite(
-    value
+    number
   )
-    ? value
+    ? number
     : null;
 }
-
 
 // ============================================================
 // ESPN FETCH + CACHE
