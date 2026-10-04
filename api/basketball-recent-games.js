@@ -1,374 +1,1844 @@
-const { createClient } = require("@supabase/supabase-js");
+const {
+  createClient
+} = require("@supabase/supabase-js");
 
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
-// Cache servidor: 30 minutos
-const cache = global.WNBA_RECENT_GAMES_CACHE || {
-  data: null,
-  time: 0
-};
-
-global.WNBA_RECENT_GAMES_CACHE = cache;
-
-const CACHE_TIME = 30 * 60 * 1000;
-
-module.exports = async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization"
+const supabaseAdmin =
+  createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
-  res.setHeader(
-    "Cache-Control",
-    "private, no-store"
-  );
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
+// ============================================================
+// WNBA CACHE
+// NO CAMBIAMOS SU LOGICA
+// ============================================================
 
-  if (req.method !== "GET") {
-    return res.status(405).json({
-      error: "Method not allowed"
-    });
-  }
+const cache =
+  global.WNBA_RECENT_GAMES_CACHE || {
+    data: null,
+    time: 0
+  };
 
-  try {
-    // =========================
-    // AUTH
-    // =========================
+global.WNBA_RECENT_GAMES_CACHE =
+  cache;
 
-    const authHeader = String(
-      req.headers.authorization || ""
+
+// ============================================================
+// NCAAB CACHE
+// ============================================================
+
+const ncaabCache =
+  global.__NCAAB_ESPN_CACHE__ || {};
+
+global.__NCAAB_ESPN_CACHE__ =
+  ncaabCache;
+
+
+const CACHE_TIME =
+  30 * 60 * 1000;
+
+const ESPN_TIMEOUT =
+  10 * 1000;
+
+
+// ============================================================
+// HANDLER
+// ============================================================
+
+module.exports =
+  async function handler(
+    req,
+    res
+  ) {
+
+    res.setHeader(
+      "Access-Control-Allow-Origin",
+      "*"
     );
 
-    const token = authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7)
-      : null;
+    res.setHeader(
+      "Access-Control-Allow-Methods",
+      "GET, OPTIONS"
+    );
 
-    if (!token) {
-      return res.status(401).json({
-        error: "Unauthorized"
-      });
-    }
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization"
+    );
 
-    const {
-      data: authData,
-      error: authError
-    } = await supabaseAdmin.auth.getUser(token);
+    res.setHeader(
+      "Cache-Control",
+      "private, no-store"
+    );
+
 
     if (
-      authError ||
-      !authData?.user?.id
+      req.method === "OPTIONS"
     ) {
-      return res.status(401).json({
-        error: "Unauthorized"
-      });
+      return res
+        .status(200)
+        .end();
     }
 
-    // =========================
-    // PARAMS
-    // =========================
 
-    const { team, league } = req.query;
-
-    if (!team || !league) {
-      return res.status(400).json({
-        error: "Missing params"
-      });
+    if (
+      req.method !== "GET"
+    ) {
+      return res
+        .status(405)
+        .json({
+          error:
+            "Method not allowed"
+        });
     }
 
-    if (league !== "wnba") {
-      return res.status(400).json({
-        error: "Solo WNBA por ahora en este endpoint."
-      });
-    }
 
-    // =========================
-    // DATA
-    // =========================
+    try {
 
-    const games = await getEspnWnbaGames();
+      // ======================================================
+      // AUTH
+      // ======================================================
 
-    const completedGames = games
-      .filter(g => g.completed)
-      .sort(
-        (a, b) =>
-          new Date(b.date) - new Date(a.date)
-      );
+      const authHeader =
+        String(
+          req.headers.authorization ||
+          ""
+        );
 
-    const teamGames = completedGames
-      .filter(
-        g =>
-          teamMatches(g.homeTeam, team) ||
-          teamMatches(g.awayTeam, team)
-      )
-      .slice(0, 10);
 
-    const finalGames = [];
+      const token =
+        authHeader.startsWith(
+          "Bearer "
+        )
+          ? authHeader.slice(7)
+          : null;
 
-    for (const game of teamGames) {
-      const isHome =
-        teamMatches(game.homeTeam, team);
 
-      const scored = isHome
-        ? game.homeScore
-        : game.awayScore;
+      if (!token) {
+        return res
+          .status(401)
+          .json({
+            error:
+              "Unauthorized"
+          });
+      }
 
-      const allowed = isHome
-        ? game.awayScore
-        : game.homeScore;
 
-      const opponent = isHome
-        ? game.awayTeam
-        : game.homeTeam;
+      const {
+        data: authData,
+        error: authError
+      } =
+        await supabaseAdmin.auth.getUser(
+          token
+        );
 
-      const opponentPrevious =
+
+      if (
+        authError ||
+        !authData?.user?.id
+      ) {
+        return res
+          .status(401)
+          .json({
+            error:
+              "Unauthorized"
+          });
+      }
+
+
+      // ======================================================
+      // PARAMS
+      // ======================================================
+
+      const {
+        team,
+        league
+      } =
+        req.query;
+
+
+      if (
+        !team ||
+        !league
+      ) {
+        return res
+          .status(400)
+          .json({
+            error:
+              "Missing params"
+          });
+      }
+
+
+      // ======================================================
+      // NCAAB
+      // NUEVO
+      // ======================================================
+
+      if (
+        league === "ncaab"
+      ) {
+
+        const games =
+          await getEspnNcaabRecentGames(
+            team
+          );
+
+
+        if (
+          games.length < 3
+        ) {
+          return res
+            .status(404)
+            .json({
+              error:
+                `No hay suficientes juegos reales para ${team}.`
+            });
+        }
+
+
+        return res
+          .status(200)
+          .json(
+            games
+          );
+      }
+
+
+      // ======================================================
+      // SOLO WNBA DESDE AQUI
+      // ======================================================
+
+      if (
+        league !== "wnba"
+      ) {
+        return res
+          .status(400)
+          .json({
+            error:
+              "Liga no soportada."
+          });
+      }
+
+
+      // ======================================================
+      // WNBA
+      // LOGICA ACTUAL
+      // ======================================================
+
+      const games =
+        await getEspnWnbaGames();
+
+
+      const completedGames =
+        games
+          .filter(
+            g =>
+              g.completed
+          )
+          .sort(
+            (a, b) =>
+              new Date(b.date) -
+              new Date(a.date)
+          );
+
+
+      const teamGames =
         completedGames
           .filter(
             g =>
-              new Date(g.date) <
-                new Date(game.date) &&
-              (
-                teamMatches(
-                  g.homeTeam,
-                  opponent
-                ) ||
-                teamMatches(
-                  g.awayTeam,
-                  opponent
-                )
-              )
-          )
-          .slice(0, 3)
-          .map(g => {
-            const oppIsHome =
               teamMatches(
                 g.homeTeam,
-                opponent
-              );
+                team
+              ) ||
+              teamMatches(
+                g.awayTeam,
+                team
+              )
+          )
+          .slice(
+            0,
+            10
+          );
 
-            return {
-              scored: oppIsHome
-                ? g.homeScore
-                : g.awayScore,
 
-              allowed: oppIsHome
-                ? g.awayScore
-                : g.homeScore
-            };
-          });
+      const finalGames =
+        [];
 
-      let opponentAvgScored =
-        allowed;
 
-      let opponentAvgAllowed =
-        scored;
+      for (
+        const game
+        of teamGames
+      ) {
+
+        const isHome =
+          teamMatches(
+            game.homeTeam,
+            team
+          );
+
+
+        const scored =
+          isHome
+            ? game.homeScore
+            : game.awayScore;
+
+
+        const allowed =
+          isHome
+            ? game.awayScore
+            : game.homeScore;
+
+
+        const opponent =
+          isHome
+            ? game.awayTeam
+            : game.homeTeam;
+
+
+        const opponentPrevious =
+          completedGames
+            .filter(
+              g =>
+                new Date(g.date) <
+                  new Date(game.date) &&
+                (
+                  teamMatches(
+                    g.homeTeam,
+                    opponent
+                  ) ||
+                  teamMatches(
+                    g.awayTeam,
+                    opponent
+                  )
+                )
+            )
+            .slice(
+              0,
+              3
+            )
+            .map(
+              g => {
+
+                const oppIsHome =
+                  teamMatches(
+                    g.homeTeam,
+                    opponent
+                  );
+
+
+                return {
+                  scored:
+                    oppIsHome
+                      ? g.homeScore
+                      : g.awayScore,
+
+                  allowed:
+                    oppIsHome
+                      ? g.awayScore
+                      : g.homeScore
+                };
+              }
+            );
+
+
+        let opponentAvgScored =
+          allowed;
+
+        let opponentAvgAllowed =
+          scored;
+
+
+        if (
+          opponentPrevious.length >
+          0
+        ) {
+
+          opponentAvgScored =
+            opponentPrevious.reduce(
+              (
+                sum,
+                g
+              ) =>
+                sum +
+                g.scored,
+              0
+            ) /
+            opponentPrevious.length;
+
+
+          opponentAvgAllowed =
+            opponentPrevious.reduce(
+              (
+                sum,
+                g
+              ) =>
+                sum +
+                g.allowed,
+              0
+            ) /
+            opponentPrevious.length;
+        }
+
+
+        finalGames.push({
+          date:
+            game.date,
+
+          isHome,
+
+          scored,
+
+          allowed,
+
+          opponent,
+
+          opponentAvgScored,
+
+          opponentAvgAllowed
+        });
+
+
+        if (
+          finalGames.length >=
+          3
+        ) {
+          break;
+        }
+      }
+
 
       if (
-        opponentPrevious.length > 0
+        finalGames.length <
+        3
       ) {
-        opponentAvgScored =
-          opponentPrevious.reduce(
-            (sum, g) =>
-              sum + g.scored,
-            0
-          ) /
-          opponentPrevious.length;
-
-        opponentAvgAllowed =
-          opponentPrevious.reduce(
-            (sum, g) =>
-              sum + g.allowed,
-            0
-          ) /
-          opponentPrevious.length;
+        return res
+          .status(404)
+          .json({
+            error:
+              `No hay suficientes juegos reales 2026 para ${team}.`
+          });
       }
 
-      finalGames.push({
-        date: game.date,
-        isHome,
-        scored,
-        allowed,
-        opponent,
-        opponentAvgScored,
-        opponentAvgAllowed
-      });
 
-      if (finalGames.length >= 3) {
-        break;
-      }
+      return res
+        .status(200)
+        .json(
+          finalGames
+        );
+
+
+    } catch (error) {
+
+      console.error(
+        "BASKETBALL RECENT GAMES ERROR:",
+        error
+      );
+
+
+      return res
+        .status(500)
+        .json({
+          error:
+            error.message
+        });
     }
+  };
 
-    if (finalGames.length < 3) {
-      return res.status(404).json({
-        error:
-          `No hay suficientes juegos reales 2026 para ${team}.`
-      });
-    }
 
-    return res.status(200).json(
-      finalGames
+// ============================================================
+// NCAAB — MAIN
+// ============================================================
+
+async function getEspnNcaabRecentGames(
+  teamName
+) {
+
+  const team =
+    await resolveNcaabTeam(
+      teamName
     );
+
+
+  if (!team) {
+    throw new Error(
+      `NCAAB team not found: ${teamName}`
+    );
+  }
+
+
+  const currentSeason =
+    getCurrentNcaabSeason();
+
+  const previousSeason =
+    currentSeason - 1;
+
+
+  // Temporada actual.
+  const currentGames =
+    await getNcaabTeamGames(
+      team.id,
+      currentSeason
+    );
+
+
+  let selectedGames =
+    [];
+
+
+  // ==========================================================
+  // REGLA DE TEMPORADA
+  //
+  // 5+ actuales:
+  // solo temporada actual.
+  //
+  // menos de 5:
+  // completar hasta 7 con temporada anterior.
+  // ==========================================================
+
+  if (
+    currentGames.length >=
+    5
+  ) {
+
+    selectedGames =
+      currentGames.slice(
+        0,
+        7
+      );
+
+  } else {
+
+    const previousGames =
+      await getNcaabTeamGames(
+        team.id,
+        previousSeason
+      );
+
+
+    selectedGames =
+      [
+        ...currentGames,
+        ...previousGames
+      ]
+        .sort(
+          (
+            a,
+            b
+          ) =>
+            new Date(b.date) -
+            new Date(a.date)
+        )
+        .slice(
+          0,
+          7
+        );
+  }
+
+
+  const enriched =
+    await Promise.all(
+      selectedGames.map(
+        game =>
+          enrichNcaabGame(
+            team,
+            game
+          )
+      )
+    );
+
+
+  return enriched
+    .filter(Boolean)
+    .sort(
+      (
+        a,
+        b
+      ) =>
+        new Date(b.date) -
+        new Date(a.date)
+    );
+}
+
+
+// ============================================================
+// NCAAB — CURRENT SEASON
+//
+// ESPN college basketball usa el año
+// en que termina la temporada.
+//
+// Oct 2026 -> temporada 2027.
+// Jan 2027 -> temporada 2027.
+// ============================================================
+
+function getCurrentNcaabSeason() {
+
+  const now =
+    new Date();
+
+  const year =
+    now.getFullYear();
+
+  const month =
+    now.getMonth() + 1;
+
+
+  if (
+    month >= 7
+  ) {
+    return year + 1;
+  }
+
+
+  return year;
+}
+
+
+// ============================================================
+// NCAAB — TEAMS
+// ============================================================
+
+async function getNcaabTeams() {
+
+  const url =
+    "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams?limit=500";
+
+
+  const data =
+    await fetchEspnJson(
+      url
+    );
+
+
+  const wrappers =
+    data?.sports?.[0]
+      ?.leagues?.[0]
+      ?.teams ||
+    data?.teams ||
+    [];
+
+
+  return wrappers
+    .map(
+      item =>
+        item?.team ||
+        item
+    )
+    .filter(
+      team =>
+        team?.id
+    );
+}
+
+
+// ============================================================
+// NCAAB — RESOLVE TEAM
+// ============================================================
+
+async function resolveNcaabTeam(
+  teamName
+) {
+
+  const teams =
+    await getNcaabTeams();
+
+
+  const target =
+    normalizeNcaabName(
+      teamName
+    );
+
+
+  if (!target) {
+    return null;
+  }
+
+
+  const exact =
+    teams.find(
+      team => {
+
+        const names = [
+          team.displayName,
+          team.shortDisplayName,
+          team.name,
+          team.abbreviation,
+          team.location
+        ];
+
+
+        return names
+          .map(
+            normalizeNcaabName
+          )
+          .filter(Boolean)
+          .includes(
+            target
+          );
+      }
+    );
+
+
+  return exact || null;
+}
+
+
+// ============================================================
+// NCAAB — TEAM SCHEDULE
+// ============================================================
+
+async function getNcaabTeamGames(
+  teamId,
+  season
+) {
+
+  const url =
+    `https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams/${teamId}/schedule?season=${season}`;
+
+
+  const data =
+    await fetchEspnJson(
+      url
+    );
+
+
+  const events =
+    Array.isArray(
+      data?.events
+    )
+      ? data.events
+      : [];
+
+
+  const games =
+    events
+      .map(
+        event =>
+          mapNcaabScheduleEvent(
+            event,
+            teamId,
+            season
+          )
+      )
+      .filter(Boolean)
+      .filter(
+        game =>
+          game.completed
+      )
+      .filter(
+        game =>
+          Number.isFinite(
+            game.scored
+          ) &&
+          Number.isFinite(
+            game.allowed
+          )
+      )
+      .sort(
+        (
+          a,
+          b
+        ) =>
+          new Date(b.date) -
+          new Date(a.date)
+      );
+
+
+  return games;
+}
+
+
+// ============================================================
+// NCAAB — MAP SCHEDULE GAME
+// ============================================================
+
+function mapNcaabScheduleEvent(
+  event,
+  teamId,
+  season
+) {
+
+  const competition =
+    event?.competitions?.[0];
+
+
+  if (!competition) {
+    return null;
+  }
+
+
+  const competitors =
+    competition.competitors ||
+    [];
+
+
+  const ourTeam =
+    competitors.find(
+      competitor =>
+        String(
+          competitor?.team?.id
+        ) ===
+        String(
+          teamId
+        )
+    );
+
+
+  const opponent =
+    competitors.find(
+      competitor =>
+        String(
+          competitor?.team?.id
+        ) !==
+        String(
+          teamId
+        )
+    );
+
+
+  if (
+    !ourTeam ||
+    !opponent
+  ) {
+    return null;
+  }
+
+
+  const completed =
+    competition
+      ?.status
+      ?.type
+      ?.completed === true;
+
+
+  const scored =
+    Number(
+      ourTeam.score
+    );
+
+
+  const allowed =
+    Number(
+      opponent.score
+    );
+
+
+  return {
+
+    eventId:
+      String(
+        event.id
+      ),
+
+    date:
+      event.date,
+
+    season,
+
+    completed,
+
+    isHome:
+      ourTeam.homeAway ===
+      "home",
+
+    scored,
+
+    allowed,
+
+    opponentId:
+      String(
+        opponent.team.id
+      ),
+
+    opponent:
+      opponent.team.displayName ||
+      opponent.team.shortDisplayName ||
+      opponent.team.name ||
+      opponent.team.abbreviation ||
+      ""
+  };
+}
+
+
+// ============================================================
+// NCAAB — ENRICH HISTORICAL GAME
+// ============================================================
+
+async function enrichNcaabGame(
+  team,
+  game
+) {
+
+  const [
+    opponentHistory,
+    pace,
+    opponentBpi
+  ] =
+    await Promise.all([
+
+      getNcaabOpponentAverages(
+        game.opponentId,
+        game.date,
+        game.season
+      ),
+
+      getNcaabGamePace(
+        game.eventId,
+        team.id,
+        game.opponentId
+      ),
+
+      getNcaabEventBpi(
+        game.eventId,
+        game.opponentId
+      )
+
+    ]);
+
+
+  return {
+
+    date:
+      game.date,
+
+    eventId:
+      game.eventId,
+
+    season:
+      game.season,
+
+    isHome:
+      game.isHome,
+
+    scored:
+      game.scored,
+
+    allowed:
+      game.allowed,
+
+    opponent:
+      game.opponent,
+
+    opponentId:
+      game.opponentId,
+
+
+    // Lo que el rival venia haciendo
+    // ANTES de este partido.
+
+    opponentAvgScored:
+      opponentHistory
+        ?.opponentAvgScored ??
+      null,
+
+    opponentAvgAllowed:
+      opponentHistory
+        ?.opponentAvgAllowed ??
+      null,
+
+
+    // BPI DEL RIVAL PARA ESE JUEGO.
+    // null si ESPN no lo tiene.
+
+    opponentBpi:
+      Number.isFinite(
+        opponentBpi
+      )
+        ? opponentBpi
+        : null,
+
+
+    // Posesiones estimadas del juego.
+
+    pace:
+      Number.isFinite(
+        pace
+      )
+        ? pace
+        : null
+  };
+}
+
+
+// ============================================================
+// NCAAB — OPPONENT HISTORICAL AVERAGES
+//
+// Miramos hasta 5 juegos del rival
+// ANTERIORES al juego historico.
+// ============================================================
+
+async function getNcaabOpponentAverages(
+  opponentId,
+  beforeDate,
+  season
+) {
+
+  const games =
+    await getNcaabTeamGames(
+      opponentId,
+      season
+    );
+
+
+  const before =
+    new Date(
+      beforeDate
+    );
+
+
+  const previous =
+    games
+      .filter(
+        game =>
+          new Date(
+            game.date
+          ) <
+          before
+      )
+      .sort(
+        (
+          a,
+          b
+        ) =>
+          new Date(b.date) -
+          new Date(a.date)
+      )
+      .slice(
+        0,
+        5
+      );
+
+
+  if (
+    !previous.length
+  ) {
+
+    return {
+      opponentAvgScored:
+        null,
+
+      opponentAvgAllowed:
+        null
+    };
+  }
+
+
+  const opponentAvgScored =
+    previous.reduce(
+      (
+        sum,
+        game
+      ) =>
+        sum +
+        Number(
+          game.scored
+        ),
+      0
+    ) /
+    previous.length;
+
+
+  const opponentAvgAllowed =
+    previous.reduce(
+      (
+        sum,
+        game
+      ) =>
+        sum +
+        Number(
+          game.allowed
+        ),
+      0
+    ) /
+    previous.length;
+
+
+  return {
+    opponentAvgScored,
+    opponentAvgAllowed
+  };
+}
+
+
+// ============================================================
+// NCAAB — PACE
+//
+// Possessions =
+// FGA - OREB + TOV + 0.44 * FTA
+//
+// Calculamos posesiones de ambos equipos
+// y usamos el promedio del juego.
+// ============================================================
+
+async function getNcaabGamePace(
+  eventId,
+  teamId,
+  opponentId
+) {
+
+  try {
+
+    const url =
+      `https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/summary?event=${eventId}`;
+
+
+    const data =
+      await fetchEspnJson(
+        url
+      );
+
+
+    const teams =
+      data?.boxscore?.teams ||
+      [];
+
+
+    const teamBox =
+      teams.find(
+        row =>
+          String(
+            row?.team?.id
+          ) ===
+          String(
+            teamId
+          )
+      );
+
+
+    const opponentBox =
+      teams.find(
+        row =>
+          String(
+            row?.team?.id
+          ) ===
+          String(
+            opponentId
+          )
+      );
+
+
+    if (
+      !teamBox ||
+      !opponentBox
+    ) {
+      return null;
+    }
+
+
+    const teamPossessions =
+      calculatePossessionsFromEspnStats(
+        teamBox.statistics
+      );
+
+
+    const opponentPossessions =
+      calculatePossessionsFromEspnStats(
+        opponentBox.statistics
+      );
+
+
+    if (
+      !Number.isFinite(
+        teamPossessions
+      ) ||
+      !Number.isFinite(
+        opponentPossessions
+      )
+    ) {
+      return null;
+    }
+
+
+    return (
+      teamPossessions +
+      opponentPossessions
+    ) / 2;
+
 
   } catch (error) {
+
     console.error(
-      "BASKETBALL RECENT GAMES ERROR:",
-      error
+      `NCAAB PACE ERROR ${eventId}:`,
+      error.message
     );
 
-    return res.status(500).json({
-      error: error.message
-    });
+    return null;
   }
-};
+}
 
 
-// =========================
+// ============================================================
+// POSSESSIONS FROM ESPN BOX SCORE
+// ============================================================
+
+function calculatePossessionsFromEspnStats(
+  stats
+) {
+
+  if (
+    !Array.isArray(stats)
+  ) {
+    return null;
+  }
+
+
+  const fga =
+    getAttemptStat(
+      stats,
+      [
+        "fieldGoalsMade-fieldGoalsAttempted",
+        "fieldGoalsMadeFieldGoalsAttempted",
+        "fieldGoals"
+      ]
+    );
+
+
+  const fta =
+    getAttemptStat(
+      stats,
+      [
+        "freeThrowsMade-freeThrowsAttempted",
+        "freeThrowsMadeFreeThrowsAttempted",
+        "freeThrows"
+      ]
+    );
+
+
+  const offensiveRebounds =
+    getNumericStat(
+      stats,
+      [
+        "offensiveRebounds",
+        "offRebounds"
+      ]
+    );
+
+
+  const turnovers =
+    getNumericStat(
+      stats,
+      [
+        "turnovers",
+        "totalTurnovers"
+      ]
+    );
+
+
+  if (
+    !Number.isFinite(fga) ||
+    !Number.isFinite(fta) ||
+    !Number.isFinite(
+      offensiveRebounds
+    ) ||
+    !Number.isFinite(
+      turnovers
+    )
+  ) {
+    return null;
+  }
+
+
+  return (
+    fga -
+    offensiveRebounds +
+    turnovers +
+    0.44 * fta
+  );
+}
+
+
+// ============================================================
+// ESPN STAT HELPERS
+// ============================================================
+
+function getAttemptStat(
+  stats,
+  names
+) {
+
+  const stat =
+    findEspnStat(
+      stats,
+      names
+    );
+
+
+  if (!stat) {
+    return null;
+  }
+
+
+  // ESPN suele devolver:
+  // "25-61"
+  //
+  // Queremos el segundo numero.
+
+  const display =
+    String(
+      stat.displayValue ??
+      stat.value ??
+      ""
+    );
+
+
+  if (
+    display.includes("-")
+  ) {
+
+    const parts =
+      display.split("-");
+
+
+    const attempts =
+      Number(
+        parts[
+          parts.length - 1
+        ]
+      );
+
+
+    return Number.isFinite(
+      attempts
+    )
+      ? attempts
+      : null;
+  }
+
+
+  const value =
+    Number(
+      stat.value
+    );
+
+
+  return Number.isFinite(
+    value
+  )
+    ? value
+    : null;
+}
+
+
+function getNumericStat(
+  stats,
+  names
+) {
+
+  const stat =
+    findEspnStat(
+      stats,
+      names
+    );
+
+
+  if (!stat) {
+    return null;
+  }
+
+
+  const value =
+    Number(
+      stat.value ??
+      stat.displayValue
+    );
+
+
+  return Number.isFinite(
+    value
+  )
+    ? value
+    : null;
+}
+
+
+function findEspnStat(
+  stats,
+  names
+) {
+
+  const targets =
+    names.map(
+      normalizeNcaabName
+    );
+
+
+  return stats.find(
+    stat => {
+
+      const possibilities = [
+        stat.name,
+        stat.abbreviation,
+        stat.label,
+        stat.displayName
+      ]
+        .map(
+          normalizeNcaabName
+        )
+        .filter(Boolean);
+
+
+      return possibilities.some(
+        value =>
+          targets.includes(
+            value
+          )
+      );
+    }
+  ) || null;
+}
+
+
+// ============================================================
+// NCAAB — HISTORICAL EVENT BPI
+//
+// ESPN tiene un Power Index asociado
+// al evento/competencia.
+// ============================================================
+
+async function getNcaabEventBpi(
+  eventId,
+  teamId
+) {
+
+  try {
+
+    const url =
+      `https://sports.core.api.espn.com/v2/sports/basketball/leagues/mens-college-basketball/events/${eventId}/competitions/${eventId}/powerindex/${teamId}`;
+
+
+    const data =
+      await fetchEspnJson(
+        url
+      );
+
+
+    return extractBpiValue(
+      data
+    );
+
+
+  } catch (error) {
+
+    // Algunos juegos pueden no tener BPI.
+    // Eso NO debe romper el analisis.
+
+    return null;
+  }
+}
+
+
+// ============================================================
+// EXTRACT BPI
+// ============================================================
+
+function extractBpiValue(
+  data
+) {
+
+  const stats =
+    Array.isArray(
+      data?.stats
+    )
+      ? data.stats
+      : Array.isArray(
+          data?.statistics
+        )
+        ? data.statistics
+        : [];
+
+
+  const bpi =
+    stats.find(
+      stat => {
+
+        const name =
+          normalizeNcaabName(
+            stat?.name
+          );
+
+        const abbreviation =
+          normalizeNcaabName(
+            stat?.abbreviation
+          );
+
+        const displayName =
+          normalizeNcaabName(
+            stat?.displayName
+          );
+
+
+        return (
+          name === "bpi" ||
+          abbreviation === "bpi" ||
+          displayName ===
+            "basketballpowerindex"
+        );
+      }
+    );
+
+
+  if (!bpi) {
+    return null;
+  }
+
+
+  const value =
+    Number(
+      bpi.value ??
+      bpi.displayValue
+    );
+
+
+  return Number.isFinite(
+    value
+  )
+    ? value
+    : null;
+}
+
+
+// ============================================================
+// ESPN FETCH + CACHE
+// ============================================================
+
+async function fetchEspnJson(
+  url
+) {
+
+  const cached =
+    ncaabCache[url];
+
+
+  if (
+    cached &&
+    Date.now() -
+      cached.time <
+      CACHE_TIME
+  ) {
+    return cached.data;
+  }
+
+
+  const controller =
+    new AbortController();
+
+
+  const timeout =
+    setTimeout(
+      () =>
+        controller.abort(),
+      ESPN_TIMEOUT
+    );
+
+
+  try {
+
+    const response =
+      await fetch(
+        url,
+        {
+          signal:
+            controller.signal
+        }
+      );
+
+
+    if (!response.ok) {
+
+      const body =
+        await response.text();
+
+
+      throw new Error(
+        `ESPN ${response.status}: ${body.slice(0, 200)}`
+      );
+    }
+
+
+    const data =
+      await response.json();
+
+
+    ncaabCache[url] = {
+      data,
+      time:
+        Date.now()
+    };
+
+
+    return data;
+
+
+  } finally {
+
+    clearTimeout(
+      timeout
+    );
+  }
+}
+
+
+// ============================================================
 // ESPN WNBA
-// =========================
+// ============================================================
 
 async function getEspnWnbaGames() {
+
   if (
     cache.data &&
-    Date.now() - cache.time < CACHE_TIME
+    Date.now() -
+      cache.time <
+      CACHE_TIME
   ) {
     return cache.data;
   }
 
+
   const year =
-    new Date().getFullYear();
+    new Date()
+      .getFullYear();
+
 
   const url =
     `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?limit=1000&dates=${year}`;
 
+
   const response =
-    await fetch(url);
+    await fetch(
+      url
+    );
+
 
   if (!response.ok) {
+
     const body =
       await response.text();
+
 
     throw new Error(
       `ESPN error ${response.status}: ${body.slice(0, 300)}`
     );
   }
 
+
   const data =
     await response.json();
 
+
   const events =
-    data.events || [];
+    data.events ||
+    [];
+
 
   const games =
-    events.map(event => {
-      const competition =
-        event.competitions?.[0];
+    events.map(
+      event => {
 
-      const competitors =
-        competition?.competitors || [];
+        const competition =
+          event.competitions?.[0];
 
-      const home =
-        competitors.find(
-          c => c.homeAway === "home"
-        );
 
-      const away =
-        competitors.find(
-          c => c.homeAway === "away"
-        );
+        const competitors =
+          competition
+            ?.competitors ||
+          [];
 
-      return {
-        date: event.date,
 
-        completed:
-          competition?.status?.type
-            ?.completed === true,
+        const home =
+          competitors.find(
+            c =>
+              c.homeAway ===
+              "home"
+          );
 
-        homeTeam:
-          getTeamNames(home),
 
-        awayTeam:
-          getTeamNames(away),
+        const away =
+          competitors.find(
+            c =>
+              c.homeAway ===
+              "away"
+          );
 
-        homeScore:
-          Number(home?.score || 0),
 
-        awayScore:
-          Number(away?.score || 0)
-      };
-    });
+        return {
 
-  cache.data = games;
-  cache.time = Date.now();
+          date:
+            event.date,
+
+          completed:
+            competition
+              ?.status
+              ?.type
+              ?.completed ===
+            true,
+
+          homeTeam:
+            getTeamNames(
+              home
+            ),
+
+          awayTeam:
+            getTeamNames(
+              away
+            ),
+
+          homeScore:
+            Number(
+              home?.score ||
+              0
+            ),
+
+          awayScore:
+            Number(
+              away?.score ||
+              0
+            )
+        };
+      }
+    );
+
+
+  cache.data =
+    games;
+
+  cache.time =
+    Date.now();
+
 
   return games;
 }
 
-// =========================
-// HELPERS
-// =========================
 
-function getTeamNames(competitor) {
+// ============================================================
+// WNBA HELPERS
+// ============================================================
+
+function getTeamNames(
+  competitor
+) {
+
   const team =
-    competitor?.team || {};
+    competitor?.team ||
+    {};
+
 
   return {
+
     displayName:
-      team.displayName || "",
+      team.displayName ||
+      "",
 
     shortDisplayName:
-      team.shortDisplayName || "",
+      team.shortDisplayName ||
+      "",
 
     name:
-      team.name || "",
+      team.name ||
+      "",
 
     abbreviation:
-      team.abbreviation || ""
+      team.abbreviation ||
+      ""
   };
 }
 
 
-function normalize(value) {
-  return String(value || "")
+// ============================================================
+// COMMON NORMALIZE
+// ============================================================
+
+function normalize(
+  value
+) {
+
+  return String(
+    value ||
+    ""
+  )
     .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
+    .replace(
+      /[^a-z0-9]/g,
+      ""
+    );
 }
 
+
+// ============================================================
+// NCAAB NORMALIZE
+// ============================================================
+
+function normalizeNcaabName(
+  value
+) {
+
+  return String(
+    value ||
+    ""
+  )
+    .normalize(
+      "NFD"
+    )
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .toLowerCase()
+    .replace(
+      /&/g,
+      "and"
+    )
+    .replace(
+      /[^a-z0-9]/g,
+      ""
+    );
+}
+
+
+// ============================================================
+// WNBA TEAM MATCH
+// ============================================================
 
 function teamMatches(
   teamObj,
   target
 ) {
+
   const targetNames =
-    typeof target === "object"
+    typeof target ===
+    "object"
       ? [
           target.displayName,
           target.shortDisplayName,
           target.name,
           target.abbreviation
         ]
-      : [target];
+      : [
+          target
+        ];
+
 
   const normalizedTargets =
     targetNames
-      .map(normalize)
+      .map(
+        normalize
+      )
       .filter(Boolean);
+
 
   return [
     teamObj?.displayName,
     teamObj?.shortDisplayName,
     teamObj?.name,
     teamObj?.abbreviation
-  ].some(
-    name =>
-      normalizedTargets.includes(
-        normalize(name)
-      )
-  );
+  ]
+    .some(
+      name =>
+        normalizedTargets.includes(
+          normalize(
+            name
+          )
+        )
+    );
 }
