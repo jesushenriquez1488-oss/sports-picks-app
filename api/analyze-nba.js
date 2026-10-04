@@ -3268,31 +3268,66 @@ homeGames = await fetchJson(
     `${origin}/api/nba-data?type=teams`
   );
 
-  const teams = allTeams.data || [];
+  const teams =
+    allTeams.data || [];
 
-  const awayId = findTeamId(teams, awayTeam);
-  const homeId = findTeamId(teams, homeTeam);
+  const awayId =
+    findTeamId(
+      teams,
+      awayTeam
+    );
 
-  if (!awayId || !homeId) {
+  const homeId =
+    findTeamId(
+      teams,
+      homeTeam
+    );
+
+
+  if (
+    !awayId ||
+    !homeId
+  ) {
     return res.status(400).json({
-      error: "Couldn't find one of the teams."
+      error:
+        "Couldn't find one of the teams."
     });
   }
 
-  awayAll = await getRecentGames(origin, awayId);
-  homeAll = await getRecentGames(origin, homeId);
 
-  awayGames = await buildFormulaGames(
-    origin,
-    awayId,
-    awayAll
-  );
+  const [
+    awayNBA,
+    homeNBA
+  ] =
+    await Promise.all([
+      buildNBAFormulaSample(
+        origin,
+        awayId
+      ),
 
-  homeGames = await buildFormulaGames(
-    origin,
-    homeId,
-    homeAll
-  );
+      buildNBAFormulaSample(
+        origin,
+        homeId
+      )
+    ]);
+
+
+  // Juegos utilizados por la fórmula.
+  awayGames =
+    awayNBA.formulaGames;
+
+  homeGames =
+    homeNBA.formulaGames;
+
+
+  // Solo temporada actual.
+  // No mezclamos temporada vieja
+  // para descanso.
+  awayAll =
+    awayNBA.currentSeasonGames;
+
+  homeAll =
+    homeNBA.currentSeasonGames;
 }
     const minGamesRequired = 3;
 
@@ -3309,8 +3344,27 @@ if (
       getInjuryAdjustment(origin, homeTeam)
     ]);
 
-    const awayCalc = calcProjection(awayGames, homeGames);
-    const homeCalc = calcProjection(homeGames, awayGames);
+const awayCalc =
+  selectedLeague === "nba"
+    ? calcNBAProjection(
+        awayGames,
+        homeGames
+      )
+    : calcProjection(
+        awayGames,
+        homeGames
+      );
+
+const homeCalc =
+  selectedLeague === "nba"
+    ? calcNBAProjection(
+        homeGames,
+        awayGames
+      )
+    : calcProjection(
+        homeGames,
+        awayGames
+      );
 
     const awayRest = getRestAdjustment(awayAll);
     const homeRest = getRestAdjustment(homeAll);
@@ -4079,65 +4133,288 @@ function findTeamId(teams, teamName) {
   return team ? team.id : null;
 }
 
-async function getRecentGames(origin, teamId) {
+function getCurrentNBASeason() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+
+  // BallDontLie:
+  // 2026 = temporada NBA 2026-27
+  if (month >= 9) {
+    return year;
+  }
+
+  return year - 1;
+}
+
+
+async function getRecentGames(
+  origin,
+  teamId,
+  season = null
+) {
+  const seasonParam =
+    season !== null &&
+    season !== undefined
+      ? `&season=${encodeURIComponent(season)}`
+      : "";
+
   const data = await fetchJson(
-    `${origin}/api/nba-data?type=games&teamId=${encodeURIComponent(teamId)}`
+    `${origin}/api/nba-data?type=games&teamId=${encodeURIComponent(teamId)}${seasonParam}`
   );
 
   return (data.data || [])
-    .filter(g => g.home_team_score > 0 && g.visitor_team_score > 0)
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
+    .filter(
+      g =>
+        g.home_team_score > 0 &&
+        g.visitor_team_score > 0
+    )
+    .map(g => ({
+      ...g,
+
+      cashEdgeSeason:
+        Number(
+          g.cashEdgeSeason ??
+          data.season ??
+          season ??
+          getCurrentNBASeason()
+        )
+    }))
+    .sort(
+      (a, b) =>
+        new Date(b.date) -
+        new Date(a.date)
+    );
 }
 
+
 function getTeamGameView(g, teamId) {
-  const isHome = g.home_team.id === teamId;
+  const isHome =
+    Number(g.home_team.id) ===
+    Number(teamId);
 
   return {
     date: g.date,
+
     isHome,
-    scored: isHome ? g.home_team_score : g.visitor_team_score,
-    allowed: isHome ? g.visitor_team_score : g.home_team_score,
-    opponentId: isHome ? g.visitor_team.id : g.home_team.id,
-    opponentName: isHome ? g.visitor_team.full_name : g.home_team.full_name
+
+    scored:
+      isHome
+        ? g.home_team_score
+        : g.visitor_team_score,
+
+    allowed:
+      isHome
+        ? g.visitor_team_score
+        : g.home_team_score,
+
+    opponentId:
+      isHome
+        ? g.visitor_team.id
+        : g.home_team.id,
+
+    opponentName:
+      isHome
+        ? g.visitor_team.full_name
+        : g.home_team.full_name,
+
+    season:
+      Number(
+        g.cashEdgeSeason ||
+        getCurrentNBASeason()
+      )
   };
 }
 
-async function buildFormulaGames(origin, teamId, rawGames) {
-  const lastGames = rawGames
-    .slice(0, 10)
-    .map(g => getTeamGameView(g, teamId));
 
-  const completed = [];
+async function getOpponentAveragesForGame(
+  origin,
+  opponentId,
+  beforeDate,
+  season
+) {
+  const opponentRaw =
+    await getRecentGames(
+      origin,
+      opponentId,
+      season
+    );
 
-  for (const game of lastGames) {
-    const opponentRaw = await getRecentGames(origin, game.opponentId);
-    const before = new Date(game.date);
+  const before =
+    new Date(beforeDate);
 
-    const previousGames = opponentRaw
-      .filter(g => new Date(g.date) < before)
+  const previousGames =
+    opponentRaw
+      .filter(
+        g =>
+          new Date(g.date) <
+          before
+      )
       .slice(0, 5)
-      .map(g => getTeamGameView(g, game.opponentId));
+      .map(
+        g =>
+          getTeamGameView(
+            g,
+            opponentId
+          )
+      );
 
-    if (previousGames.length < 5) continue;
-
-    const opponentAvgScored =
-      previousGames.reduce((sum, g) => sum + g.scored, 0) / previousGames.length;
-
-    const opponentAvgAllowed =
-      previousGames.reduce((sum, g) => sum + g.allowed, 0) / previousGames.length;
-
-    completed.push({
-      ...game,
-      opponentAvgScored,
-      opponentAvgAllowed
-    });
-
-    if (completed.length >= 3) break;
+  // Ya NO eliminamos el juego
+  // por no tener 5 partidos previos.
+  if (!previousGames.length) {
+    return {
+      opponentAvgScored: null,
+      opponentAvgAllowed: null
+    };
   }
 
-  return completed;
+  const opponentAvgScored =
+    previousGames.reduce(
+      (sum, g) =>
+        sum + g.scored,
+      0
+    ) /
+    previousGames.length;
+
+  const opponentAvgAllowed =
+    previousGames.reduce(
+      (sum, g) =>
+        sum + g.allowed,
+      0
+    ) /
+    previousGames.length;
+
+  return {
+    opponentAvgScored,
+    opponentAvgAllowed
+  };
 }
 
+
+async function buildNBAFormulaSample(
+  origin,
+  teamId
+) {
+  const currentSeason =
+    getCurrentNBASeason();
+
+  const previousSeason =
+    currentSeason - 1;
+
+
+  // ==============================
+  // TEMPORADA ACTUAL
+  // ==============================
+
+  const currentSeasonGames =
+    await getRecentGames(
+      origin,
+      teamId,
+      currentSeason
+    );
+
+
+  let sampleRaw =
+    [...currentSeasonGames];
+
+
+  // ==============================
+  // REGLA DE 5 JUEGOS
+  // ==============================
+  //
+  // Si ya tiene 5 o más:
+  // NO usamos temporada anterior.
+  //
+  // Si tiene menos de 5:
+  // podemos completar hasta 7
+  // con temporada anterior.
+  // ==============================
+
+  if (
+    currentSeasonGames.length < 5
+  ) {
+    const previousSeasonGames =
+      await getRecentGames(
+        origin,
+        teamId,
+        previousSeason
+      );
+
+    sampleRaw = [
+      ...currentSeasonGames,
+      ...previousSeasonGames
+    ];
+  }
+
+
+  // Ordenamos y tomamos máximo 7.
+  const selectedRaw =
+    sampleRaw
+      .sort(
+        (a, b) =>
+          new Date(b.date) -
+          new Date(a.date)
+      )
+      .slice(0, 7);
+
+
+  const formulaGames = [];
+
+
+  // ==============================
+  // ENRIQUECER LOS 7 JUEGOS
+  // ==============================
+
+  for (
+    const rawGame
+    of selectedRaw
+  ) {
+    const game =
+      getTeamGameView(
+        rawGame,
+        teamId
+      );
+
+    const opponentAverages =
+      await getOpponentAveragesForGame(
+        origin,
+        game.opponentId,
+        game.date,
+        game.season
+      );
+
+
+    formulaGames.push({
+      ...game,
+
+      opponentAvgScored:
+        opponentAverages
+          .opponentAvgScored,
+
+      opponentAvgAllowed:
+        opponentAverages
+          .opponentAvgAllowed
+    });
+  }
+
+
+  return {
+    formulaGames,
+
+    // Estos quedan exclusivamente
+    // como juegos actuales.
+    // Nos sirve para descanso y
+    // otras funciones existentes.
+    currentSeasonGames,
+
+    currentSeason,
+
+    previousSeason,
+
+    usedPreviousSeason:
+      currentSeasonGames.length < 5
+  };
+}
 function calcTeamFormula(teamGames) {
   const offenseAvg =
     teamGames.reduce((sum, g) => sum + g.scored, 0) / teamGames.length;
@@ -4173,7 +4450,215 @@ function calcProjection(teamGames, opponentGames) {
     projection: (A + B) / 2
   };
 }
+function getNBAFormulaValue(value) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
 
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : null;
+}
+
+
+function calcNBATeamFormula(teamGames) {
+  const validGames =
+    (teamGames || []).filter(
+      game =>
+        Number.isFinite(Number(game.scored)) &&
+        Number.isFinite(Number(game.allowed))
+    );
+
+  if (!validGames.length) {
+    return {
+      offenseAvg: 0,
+      defenseAllowedAvg: 0,
+      offensiveEdgeAvg: 0,
+      defensiveEdgeAvg: 0
+    };
+  }
+
+
+  // ==============================
+  // PROMEDIOS NORMALES
+  // ==============================
+
+  const offenseAvg =
+    validGames.reduce(
+      (sum, game) =>
+        sum + Number(game.scored),
+      0
+    ) /
+    validGames.length;
+
+
+  const defenseAllowedAvg =
+    validGames.reduce(
+      (sum, game) =>
+        sum + Number(game.allowed),
+      0
+    ) /
+    validGames.length;
+
+
+  // ==============================
+  // OFFENSIVE EDGE
+  // ==============================
+  //
+  // Puntos anotados
+  // -
+  // lo que ese rival normalmente permitía
+  // ==============================
+
+  const offensiveEdges =
+    validGames
+      .map(game => {
+        const opponentAvgAllowed =
+          getNBAFormulaValue(
+            game.opponentAvgAllowed
+          );
+
+        if (
+          opponentAvgAllowed === null
+        ) {
+          return null;
+        }
+
+        return (
+          Number(game.scored) -
+          opponentAvgAllowed
+        );
+      })
+      .filter(
+        value =>
+          value !== null &&
+          Number.isFinite(value)
+      );
+
+
+  const offensiveEdgeAvg =
+    offensiveEdges.length
+      ? offensiveEdges.reduce(
+          (sum, edge) =>
+            sum + edge,
+          0
+        ) /
+        offensiveEdges.length
+      : 0;
+
+
+  // ==============================
+  // DEFENSIVE EDGE
+  // ==============================
+  //
+  // Puntos permitidos
+  // -
+  // lo que ese rival normalmente anotaba
+  //
+  // Negativo = buena defensa
+  // Positivo = mala defensa
+  // ==============================
+
+  const defensiveEdges =
+    validGames
+      .map(game => {
+        const opponentAvgScored =
+          getNBAFormulaValue(
+            game.opponentAvgScored
+          );
+
+        if (
+          opponentAvgScored === null
+        ) {
+          return null;
+        }
+
+        return (
+          Number(game.allowed) -
+          opponentAvgScored
+        );
+      })
+      .filter(
+        value =>
+          value !== null &&
+          Number.isFinite(value)
+      );
+
+
+  const defensiveEdgeAvg =
+    defensiveEdges.length
+      ? defensiveEdges.reduce(
+          (sum, edge) =>
+            sum + edge,
+          0
+        ) /
+        defensiveEdges.length
+      : 0;
+
+
+  return {
+    offenseAvg,
+    defenseAllowedAvg,
+    offensiveEdgeAvg,
+    defensiveEdgeAvg
+  };
+}
+
+
+function calcNBAProjection(
+  teamGames,
+  opponentGames
+) {
+  const team =
+    calcNBATeamFormula(
+      teamGames
+    );
+
+  const opponent =
+    calcNBATeamFormula(
+      opponentGames
+    );
+
+
+  // ==============================
+  // CAMINO A
+  // ==============================
+  //
+  // Lo que permite el rival
+  // +
+  // nuestro Offensive Edge
+  // ==============================
+
+  const A =
+    opponent.defenseAllowedAvg +
+    team.offensiveEdgeAvg;
+
+
+  // ==============================
+  // CAMINO B
+  // ==============================
+  //
+  // Lo que nosotros anotamos
+  // +
+  // Defensive Edge del rival
+  // ==============================
+
+  const B =
+    team.offenseAvg +
+    opponent.defensiveEdgeAvg;
+
+
+  return {
+    projection:
+      (A + B) / 2
+  };
+}
 function getRestAdjustment(allGames) {
   if (!allGames || allGames.length < 2) {
     return {
