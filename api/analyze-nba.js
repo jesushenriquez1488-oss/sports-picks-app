@@ -3366,8 +3366,32 @@ const homeCalc =
         awayGames
       );
 
-    const awayRest = getRestAdjustment(awayAll);
-    const homeRest = getRestAdjustment(homeAll);
+   const awayRest =
+  (
+    selectedLeague === "nba" ||
+    selectedLeague === "ncaab"
+  )
+    ? getUpcomingGameRestAdjustment(
+        awayAll,
+        gameTime
+      )
+    : getRestAdjustment(
+        awayAll
+      );
+
+
+const homeRest =
+  (
+    selectedLeague === "nba" ||
+    selectedLeague === "ncaab"
+  )
+    ? getUpcomingGameRestAdjustment(
+        homeAll,
+        gameTime
+      )
+    : getRestAdjustment(
+        homeAll
+      );
 
     const projA =
       awayCalc.projection +
@@ -4690,7 +4714,102 @@ function getRestAdjustment(allGames) {
    note: "Normal rest"
   };
 }
+function getUpcomingGameRestAdjustment(
+  allGames,
+  gameTime
+) {
+  if (
+    !Array.isArray(allGames) ||
+    !allGames.length ||
+    !gameTime
+  ) {
+    return {
+      points: 0,
+      note: "Rest data not available"
+    };
+  }
 
+  const upcomingGame =
+    new Date(gameTime);
+
+  if (
+    Number.isNaN(
+      upcomingGame.getTime()
+    )
+  ) {
+    return {
+      points: 0,
+      note: "Rest data not available"
+    };
+  }
+
+  const lastCompletedGame =
+    allGames
+      .filter(game => {
+        const date =
+          new Date(game?.date);
+
+        return (
+          !Number.isNaN(date.getTime()) &&
+          date < upcomingGame
+        );
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.date) -
+          new Date(a.date)
+      )[0];
+
+  if (!lastCompletedGame) {
+    return {
+      points: 0,
+      note: "Rest data not available"
+    };
+  }
+
+  const lastGameDate =
+    new Date(
+      lastCompletedGame.date
+    );
+
+  const diffDays =
+    Math.round(
+      (
+        upcomingGame -
+        lastGameDate
+      ) /
+      (
+        1000 *
+        60 *
+        60 *
+        24
+      )
+    );
+
+
+  if (diffDays <= 1) {
+    return {
+      points: -3,
+      note:
+        "Back-to-back or very short rest."
+    };
+  }
+
+
+  if (diffDays >= 3) {
+    return {
+      points: 2,
+      note:
+        "Well rested before this game."
+    };
+  }
+
+
+  return {
+    points: 0,
+    note: "Normal rest"
+  };
+}
 // ============================================================
 // REEMPLAZAR la función getInjuryAdjustment existente en analyze-nba.js
 // por este bloque completo. NO TOCA calcProjection, calcTeamFormula,
