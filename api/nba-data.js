@@ -10,7 +10,22 @@ global.NBA_DATA_CACHE = cache;
 
 const CACHE_TIME = 30 * 60 * 1000; // 30 min
 const TIMEOUT_MS = 10000;
-const SEASON = 2025;
+function getCurrentNBASeason() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+
+  // NBA 2026-27 = season 2026 en BallDontLie.
+  // Desde septiembre consideramos que comienza el nuevo ciclo NBA.
+  if (month >= 9) {
+    return year;
+  }
+
+  return year - 1;
+}
+
+const CURRENT_SEASON = getCurrentNBASeason();
+const PREVIOUS_SEASON = CURRENT_SEASON - 1;
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -67,8 +82,11 @@ module.exports = async function handler(req, res) {
     // REQUEST
     // =========================
 
-    const { type, teamId } = req.query;
-
+   const {
+  type,
+  teamId,
+  season
+} = req.query;
     if (!process.env.BALLDONTLIE_API_KEY) {
       return res.status(500).json({
         error: "BALLDONTLIE_API_KEY no configurada"
@@ -104,36 +122,74 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      const allGames =
-        await getAllSeasonGames();
+      const requestedSeason =
+  season !== undefined &&
+  season !== null &&
+  season !== ""
+    ? Number(season)
+    : CURRENT_SEASON;
 
-      const filteredGames =
-        allGames
-          .filter(
-            game =>
-              Number(game.home_team?.id) ===
-                Number(teamId) ||
-              Number(game.visitor_team?.id) ===
-                Number(teamId)
-          )
-          .filter(
-            game =>
-              Number(
-                game.home_team_score || 0
-              ) > 0 &&
-              Number(
-                game.visitor_team_score || 0
-              ) > 0
-          )
-          .sort(
-            (a, b) =>
-              new Date(b.date) -
-              new Date(a.date)
-          );
+if (
+  !Number.isInteger(requestedSeason) ||
+  (
+    requestedSeason !== CURRENT_SEASON &&
+    requestedSeason !== PREVIOUS_SEASON
+  )
+) {
+  return res.status(400).json({
+    error: "Temporada NBA inválida"
+  });
+}
 
-      return res.status(200).json({
-        data: filteredGames
-      });
+const allGames =
+  await getAllSeasonGames(
+    requestedSeason
+  );
+
+const filteredGames =
+  allGames
+    .filter(
+      game =>
+        Number(game.home_team?.id) ===
+          Number(teamId) ||
+        Number(game.visitor_team?.id) ===
+          Number(teamId)
+    )
+    .filter(
+      game =>
+        Number(
+          game.home_team_score || 0
+        ) > 0 &&
+        Number(
+          game.visitor_team_score || 0
+        ) > 0
+    )
+    .map(game => ({
+      ...game,
+
+      // CashEdge sabrá exactamente
+      // de qué temporada salió este juego.
+      cashEdgeSeason:
+        requestedSeason
+    }))
+    .sort(
+      (a, b) =>
+        new Date(b.date) -
+        new Date(a.date)
+    );
+
+return res.status(200).json({
+  data: filteredGames,
+
+  season:
+    requestedSeason,
+
+  currentSeason:
+    CURRENT_SEASON,
+
+  previousSeason:
+    PREVIOUS_SEASON
+});
     }
 
     return res.status(400).json({
@@ -192,8 +248,14 @@ async function getTeams() {
 // ALL GAMES
 // =========================
 
-async function getAllSeasonGames() {
-  const key = `games-${SEASON}`;
+async function getAllSeasonGames(
+  season
+) {
+  const seasonNumber =
+    Number(season);
+
+  const key =
+    `games-${seasonNumber}`;
 
   if (isCacheValid(key)) {
     return cache[key].data;
@@ -205,7 +267,7 @@ async function getAllSeasonGames() {
 
   do {
     let url =
-      `https://api.balldontlie.io/v1/games?seasons[]=${SEASON}&per_page=100`;
+      `https://api.balldontlie.io/v1/games?seasons[]=${seasonNumber}&per_page=100`;
 
     if (cursor) {
       url += `&cursor=${cursor}`;
