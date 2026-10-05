@@ -3264,10 +3264,67 @@ homeGames = await fetchJson(
 
 } else {
 
-  const allTeams = await fetchJson(
-    `${origin}/api/nba-data?type=teams`
-  );
+  // ==========================================================
+  // NBA DATA AUTH
+  // ==========================================================
+  //
+  // Si el análisis viene de un usuario:
+  // reenviamos Authorization.
+  //
+  // Si viene del generador interno:
+  // reenviamos X-Internal-Secret.
+  // ==========================================================
 
+  const nbaDataHeaders = {};
+
+
+  const nbaAuthorization =
+    String(
+      req.headers.authorization ||
+      ""
+    );
+
+
+  const nbaInternalSecret =
+    String(
+      req.headers[
+        "x-internal-secret"
+      ] ||
+      ""
+    );
+
+
+  if (
+    nbaAuthorization
+  ) {
+    nbaDataHeaders[
+      "Authorization"
+    ] =
+      nbaAuthorization;
+  }
+
+
+  if (
+    nbaInternalSecret
+  ) {
+    nbaDataHeaders[
+      "X-Internal-Secret"
+    ] =
+      nbaInternalSecret;
+  }
+
+
+  const nbaDataOptions = {
+    headers:
+      nbaDataHeaders
+  };
+
+
+  const allTeams =
+    await fetchJson(
+      `${origin}/api/nba-data?type=teams`,
+      nbaDataOptions
+    );
   const teams =
     allTeams.data || [];
 
@@ -3295,21 +3352,25 @@ homeGames = await fetchJson(
   }
 
 
-  const [
-    awayNBA,
-    homeNBA
-  ] =
-    await Promise.all([
-      buildNBAFormulaSample(
-        origin,
-        awayId
-      ),
+ const [
+  awayNBA,
+  homeNBA
+] =
+  await Promise.all([
 
-      buildNBAFormulaSample(
-        origin,
-        homeId
-      )
-    ]);
+    buildNBAFormulaSample(
+      origin,
+      awayId,
+      nbaDataOptions
+    ),
+
+    buildNBAFormulaSample(
+      origin,
+      homeId,
+      nbaDataOptions
+    )
+
+  ]);
 
 
   // Juegos utilizados por la fórmula.
@@ -4246,7 +4307,8 @@ function getCurrentNBASeason() {
 async function getRecentGames(
   origin,
   teamId,
-  season = null
+  season = null,
+  requestOptions = {}
 ) {
   const seasonParam =
     season !== null &&
@@ -4254,8 +4316,10 @@ async function getRecentGames(
       ? `&season=${encodeURIComponent(season)}`
       : "";
 
-  const data = await fetchJson(
-    `${origin}/api/nba-data?type=games&teamId=${encodeURIComponent(teamId)}${seasonParam}`
+ const data =
+  await fetchJson(
+    `${origin}/api/nba-data?type=games&teamId=${encodeURIComponent(teamId)}${seasonParam}`,
+    requestOptions
   );
 
   return (data.data || [])
@@ -4326,14 +4390,16 @@ async function getOpponentAveragesForGame(
   origin,
   opponentId,
   beforeDate,
-  season
+  season,
+  requestOptions = {}
 ) {
-  const opponentRaw =
-    await getRecentGames(
-      origin,
-      opponentId,
-      season
-    );
+ const opponentRaw =
+  await getRecentGames(
+    origin,
+    opponentId,
+    season,
+    requestOptions
+  );
 
   const before =
     new Date(beforeDate);
@@ -4388,7 +4454,8 @@ async function getOpponentAveragesForGame(
 
 async function buildNBAFormulaSample(
   origin,
-  teamId
+  teamId,
+  requestOptions = {}
 ) {
   const currentSeason =
     getCurrentNBASeason();
@@ -4401,12 +4468,13 @@ async function buildNBAFormulaSample(
   // TEMPORADA ACTUAL
   // ==============================
 
-  const currentSeasonGames =
-    await getRecentGames(
-      origin,
-      teamId,
-      currentSeason
-    );
+const currentSeasonGames =
+  await getRecentGames(
+    origin,
+    teamId,
+    currentSeason,
+    requestOptions
+  );
 
 
   let sampleRaw =
@@ -4428,12 +4496,13 @@ async function buildNBAFormulaSample(
   if (
     currentSeasonGames.length < 5
   ) {
-    const previousSeasonGames =
-      await getRecentGames(
-        origin,
-        teamId,
-        previousSeason
-      );
+  const previousSeasonGames =
+  await getRecentGames(
+    origin,
+    teamId,
+    previousSeason,
+    requestOptions
+  );
 
     sampleRaw = [
       ...currentSeasonGames,
@@ -4470,13 +4539,14 @@ async function buildNBAFormulaSample(
         teamId
       );
 
-    const opponentAverages =
-      await getOpponentAveragesForGame(
-        origin,
-        game.opponentId,
-        game.date,
-        game.season
-      );
+   const opponentAverages =
+  await getOpponentAveragesForGame(
+    origin,
+    game.opponentId,
+    game.date,
+    game.season,
+    requestOptions
+  );
 
 
     formulaGames.push({
