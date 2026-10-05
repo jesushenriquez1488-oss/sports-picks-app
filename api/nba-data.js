@@ -124,13 +124,14 @@ module.exports =
 
     try {
 
-      const {
-        type,
-        teamId,
-        season,
-        full
-      } =
-        req.query;
+     const {
+  type,
+  teamId,
+  season,
+  full,
+  limit
+} =
+  req.query;
 
 
       if (
@@ -269,7 +270,97 @@ module.exports =
             ...result
           });
       }
+// ============================================================
+// SYNC NBA GAME STATS / PACE
+// ============================================================
+//
+// Solo uso interno.
+//
+// Toma partidos que ya existen en nba_games
+// pero todavía no tienen stats.
+//
+// Descarga boxscores una sola vez,
+// calcula posesiones y los guarda en Supabase.
+//
+// NO corre durante un análisis normal.
+// ============================================================
 
+if (
+  type === "sync-stats"
+) {
+
+  if (
+    !isInternal
+  ) {
+    return res
+      .status(401)
+      .json({
+        error:
+          "Unauthorized sync"
+      });
+  }
+
+
+  const requestedSeason =
+    season !== undefined &&
+    season !== null &&
+    season !== ""
+      ? Number(season)
+      : CURRENT_SEASON;
+
+
+  if (
+    !isValidSeason(
+      requestedSeason
+    )
+  ) {
+    return res
+      .status(400)
+      .json({
+        error:
+          "Temporada NBA inválida"
+      });
+  }
+
+
+  const requestedLimit =
+    Number(limit || 5);
+
+
+  const maxDates =
+    Number.isFinite(
+      requestedLimit
+    )
+      ? Math.min(
+          10,
+          Math.max(
+            1,
+            Math.floor(
+              requestedLimit
+            )
+          )
+        )
+      : 5;
+
+
+  const result =
+    await syncNBAStatsToSupabase(
+      requestedSeason,
+      maxDates
+    );
+
+
+  return res
+    .status(200)
+    .json({
+      ok: true,
+      mode:
+        "sync-stats",
+      season:
+        requestedSeason,
+      ...result
+    });
+}
 
       // ======================================================
       // NORMAL AUTH
@@ -1130,7 +1221,1142 @@ function mapGameForSupabase(
   };
 }
 
+// ============================================================
+// NBA CALENDAR DATE
+// ============================================================
+//
+// BallDontLie box_scores trabaja con
+// la fecha NBA del partido.
+//
+// Como game_date puede estar guardada en UTC,
+// convertimos a Eastern Time para evitar que
+// un juego nocturno aparezca como el día siguiente.
+// ============================================================
 
+function getNBACalendarDate(
+  dateValue
+) {
+
+  const parsed =
+    new Date(dateValue);
+
+
+  if (
+    Number.isNaN(
+      parsed.getTime()
+    )
+  ) {
+    return null;
+  }
+
+
+  return new Intl.DateTimeFormat(
+    "en-CA",
+    {
+      timeZone:
+        "America/New_York",
+
+      year:
+        "numeric",
+
+      month:
+        "2-digit",
+
+      day:
+        "2-digit"
+    }
+  ).format(parsed);
+}
+
+
+// ============================================================
+// SAFE NUMBER
+// ============================================================
+
+function nbaStatNumber(
+  value
+) {
+
+  const number =
+    Number(value);
+
+
+  return Number.isFinite(
+    number
+  )
+    ? number
+    : 0;
+}
+
+
+// ============================================================
+// TEAM TOTALS FROM BOXSCORE
+// ============================================================
+
+function getNBABoxscoreTeamTotals(
+  team
+) {
+
+  const players =
+    Array.isArray(
+      team?.players
+    )
+      ? team.players
+      : [];
+
+
+  let fga = 0;
+  let oreb = 0;
+  let tov = 0;
+  let fta = 0;
+
+
+  for (
+    const player
+    of players
+  ) {
+
+    fga +=
+      nbaStatNumber(
+        player?.fga
+      );
+
+
+    oreb +=
+      nbaStatNumber(
+        player?.oreb
+      );
+
+
+    tov +=
+      nbaStatNumber(
+        player?.turnover ??
+        player?.tov
+      );
+
+
+    fta +=
+      nbaStatNumber(
+        player?.fta
+      );
+  }
+
+
+  return {
+    fga,
+    oreb,
+    tov,
+    fta
+  };
+}
+
+
+// ============================================================
+// POSSESSIONS
+// ============================================================
+
+function calculateNBAPossessions({
+  fga,
+  oreb,
+  tov,
+  fta
+}) {
+
+  const possessions =
+    Number(fga) -
+    Number(oreb) +
+    Number(tov) +
+    (
+      0.44 *
+      Number(fta)
+    );
+
+
+  return Number(
+    possessions.toFixed(3)
+  );
+}
+
+
+// ============================================================
+// GAME PACE
+// ============================================================
+//
+// Primero calculamos posesiones estimadas
+// de ambos equipos.
+//
+// Luego promediamos.
+//
+// Si hubo overtime,
+// normalizamos nuevamente a 48 minutos.
+//
+// Ejemplo:
+//
+// 53 minutos = 1 OT
+// pace = raw possessions * 48 / 53
+//
+// Así un OT no infla artificialmente
+// el ritmo del partido.
+// ============================================================
+
+function calculateNBAGamePace(
+  homePossessions,
+  visitorPossessions,
+  period
+) {
+
+  const averagePossessions =
+    (
+      Number(homePossessions) +
+      Number(visitorPossessions)
+    ) / 2;
+
+
+  const completedPeriods =
+    Number.isFinite(
+      Number(period)
+    )
+      ? Number(period)
+      : 4;
+
+
+  const overtimePeriods =
+    Math.max(
+      0,
+      completedPeriods - 4
+    );
+
+
+  const gameMinutes =
+    48 +
+    (
+      overtimePeriods *
+      5
+    );
+
+
+  const pace =
+    averagePossessions *
+    (
+      48 /
+      gameMinutes
+    );
+
+
+  return Number(
+    pace.toFixed(3)
+  );
+}
+
+
+// ============================================================
+// FETCH NBA BOXSCORES BY DATE
+// ============================================================
+
+async function getNBABoxscoresForDate(
+  date
+) {
+
+  const url =
+    "https://api.balldontlie.io/v1/box_scores" +
+    `?date=${encodeURIComponent(date)}`;
+
+
+  const response =
+    await fetchBalldontlie(
+      url
+    );
+
+
+  return Array.isArray(
+    response?.data
+  )
+    ? response.data
+    : [];
+}
+
+
+// ============================================================
+// SYNC MISSING NBA STATS
+// ============================================================
+
+async function syncNBAStatsToSupabase(
+  season,
+  maxDates = 5
+) {
+
+  // ==========================================================
+  // SOLAMENTE PARTIDOS SIN STATS
+  // ==========================================================
+
+  const {
+    data: pendingGames,
+    error: pendingError
+  } =
+    await supabaseAdmin
+      .from("nba_games")
+      .select(
+        `
+          game_id,
+          season,
+          game_date,
+          home_team_id,
+          visitor_team_id,
+          home_team_name,
+          visitor_team_name,
+          home_score,
+          visitor_score
+        `
+      )
+      .eq(
+        "season",
+        Number(season)
+      )
+      .eq(
+        "stats_complete",
+        false
+      )
+      .order(
+        "game_date",
+        {
+          ascending: true
+        }
+      )
+      .limit(500);
+
+
+  if (
+    pendingError
+  ) {
+    throw new Error(
+      `Supabase pending NBA stats: ${pendingError.message}`
+    );
+  }
+
+
+  if (
+    !pendingGames?.length
+  ) {
+
+    const paceResult =
+      await rebuildNBATeamPace(
+        season
+      );
+
+
+    return {
+      selectedDates: [],
+      gamesProcessed: 0,
+      gamesSaved: 0,
+      remaining: 0,
+      paceRebuilt: true,
+      paceTeams:
+        paceResult.teams
+    };
+  }
+
+
+  // ==========================================================
+  // AGRUPAR POR FECHA NBA
+  // ==========================================================
+
+  const gamesByDate =
+    new Map();
+
+
+  for (
+    const game
+    of pendingGames
+  ) {
+
+    const nbaDate =
+      getNBACalendarDate(
+        game.game_date
+      );
+
+
+    if (
+      !nbaDate
+    ) {
+      continue;
+    }
+
+
+    if (
+      !gamesByDate.has(
+        nbaDate
+      )
+    ) {
+      gamesByDate.set(
+        nbaDate,
+        []
+      );
+    }
+
+
+    gamesByDate
+      .get(nbaDate)
+      .push(game);
+  }
+
+
+  const selectedDates =
+    Array.from(
+      gamesByDate.keys()
+    )
+      .sort()
+      .slice(
+        0,
+        maxDates
+      );
+
+
+  let gamesProcessed =
+    0;
+
+  let gamesSaved =
+    0;
+
+  let unmatched =
+    0;
+
+
+  const updateRows =
+    [];
+
+
+  // ==========================================================
+  // DESCARGAR CADA FECHA
+  // ==========================================================
+
+  for (
+    const nbaDate
+    of selectedDates
+  ) {
+
+    const boxscores =
+      await getNBABoxscoresForDate(
+        nbaDate
+      );
+
+
+    const dateGames =
+      gamesByDate.get(
+        nbaDate
+      ) || [];
+
+
+    for (
+      const dbGame
+      of dateGames
+    ) {
+
+      gamesProcessed++;
+
+
+      const boxscore =
+        boxscores.find(
+          box =>
+
+            Number(
+              box?.home_team?.id
+            ) ===
+              Number(
+                dbGame.home_team_id
+              ) &&
+
+            Number(
+              box?.visitor_team?.id
+            ) ===
+              Number(
+                dbGame.visitor_team_id
+              )
+        );
+
+
+      if (
+        !boxscore
+      ) {
+        unmatched++;
+        continue;
+      }
+
+
+      const homeStats =
+        getNBABoxscoreTeamTotals(
+          boxscore.home_team
+        );
+
+
+      const visitorStats =
+        getNBABoxscoreTeamTotals(
+          boxscore.visitor_team
+        );
+
+
+      const homePossessions =
+        calculateNBAPossessions(
+          homeStats
+        );
+
+
+      const visitorPossessions =
+        calculateNBAPossessions(
+          visitorStats
+        );
+
+
+      // Protección contra boxscores
+      // incompletos o vacíos.
+      if (
+        homeStats.fga <= 0 ||
+        visitorStats.fga <= 0 ||
+        homePossessions <= 0 ||
+        visitorPossessions <= 0
+      ) {
+        unmatched++;
+        continue;
+      }
+
+
+      const gamePace =
+        calculateNBAGamePace(
+          homePossessions,
+          visitorPossessions,
+          boxscore.period
+        );
+
+
+      updateRows.push({
+
+        game_id:
+          Number(
+            dbGame.game_id
+          ),
+
+        season:
+          Number(
+            dbGame.season
+          ),
+
+        game_date:
+          dbGame.game_date,
+
+        home_team_id:
+          Number(
+            dbGame.home_team_id
+          ),
+
+        visitor_team_id:
+          Number(
+            dbGame.visitor_team_id
+          ),
+
+        home_team_name:
+          dbGame.home_team_name,
+
+        visitor_team_name:
+          dbGame.visitor_team_name,
+
+        home_score:
+          Number(
+            dbGame.home_score
+          ),
+
+        visitor_score:
+          Number(
+            dbGame.visitor_score
+          ),
+
+
+        home_fga:
+          homeStats.fga,
+
+        home_oreb:
+          homeStats.oreb,
+
+        home_tov:
+          homeStats.tov,
+
+        home_fta:
+          homeStats.fta,
+
+
+        visitor_fga:
+          visitorStats.fga,
+
+        visitor_oreb:
+          visitorStats.oreb,
+
+        visitor_tov:
+          visitorStats.tov,
+
+        visitor_fta:
+          visitorStats.fta,
+
+
+        home_possessions:
+          homePossessions,
+
+        visitor_possessions:
+          visitorPossessions,
+
+        game_pace:
+          gamePace,
+
+        stats_complete:
+          true,
+
+        synced_at:
+          new Date()
+            .toISOString()
+
+      });
+    }
+  }
+
+
+  // ==========================================================
+  // UN SOLO UPSERT A SUPABASE
+  // ==========================================================
+
+  if (
+    updateRows.length
+  ) {
+
+    const {
+      error: updateError
+    } =
+      await supabaseAdmin
+        .from("nba_games")
+        .upsert(
+          updateRows,
+          {
+            onConflict:
+              "game_id"
+          }
+        );
+
+
+    if (
+      updateError
+    ) {
+      throw new Error(
+        `Supabase NBA stats upsert: ${updateError.message}`
+      );
+    }
+
+
+    gamesSaved =
+      updateRows.length;
+  }
+
+
+  // ==========================================================
+  // CUÁNTOS FALTAN
+  // ==========================================================
+
+  const {
+    count: remaining,
+    error: countError
+  } =
+    await supabaseAdmin
+      .from("nba_games")
+      .select(
+        "game_id",
+        {
+          count:
+            "exact",
+
+          head:
+            true
+        }
+      )
+      .eq(
+        "season",
+        Number(season)
+      )
+      .eq(
+        "stats_complete",
+        false
+      );
+
+
+  if (
+    countError
+  ) {
+    throw new Error(
+      `Supabase remaining NBA stats: ${countError.message}`
+    );
+  }
+
+
+  let paceRebuilt =
+    false;
+
+  let paceTeams =
+    0;
+
+
+  // ==========================================================
+  // CUANDO TERMINÓ EL BACKFILL,
+  // CONSTRUIR SEASON PACE + PACE EDGE
+  // ==========================================================
+
+  if (
+    Number(remaining || 0) === 0
+  ) {
+
+    const paceResult =
+      await rebuildNBATeamPace(
+        season
+      );
+
+
+    paceRebuilt =
+      true;
+
+    paceTeams =
+      paceResult.teams;
+  }
+
+
+  return {
+
+    selectedDates,
+
+    gamesProcessed,
+
+    gamesSaved,
+
+    unmatched,
+
+    remaining:
+      Number(
+        remaining || 0
+      ),
+
+    paceRebuilt,
+
+    paceTeams
+
+  };
+}
+
+
+// ============================================================
+// READ ALL COMPLETED PACE GAMES
+// ============================================================
+
+async function getAllNBAPaceGames(
+  season
+) {
+
+  const allGames =
+    [];
+
+
+  const PAGE_SIZE =
+    1000;
+
+
+  let from =
+    0;
+
+
+  while (
+    true
+  ) {
+
+    const {
+      data,
+      error
+    } =
+      await supabaseAdmin
+        .from("nba_games")
+        .select(
+          `
+            game_id,
+            season,
+            game_date,
+            home_team_id,
+            visitor_team_id,
+            home_team_name,
+            visitor_team_name,
+            game_pace
+          `
+        )
+        .eq(
+          "season",
+          Number(season)
+        )
+        .eq(
+          "stats_complete",
+          true
+        )
+        .order(
+          "game_date",
+          {
+            ascending: true
+          }
+        )
+        .range(
+          from,
+          from +
+          PAGE_SIZE -
+          1
+        );
+
+
+    if (
+      error
+    ) {
+      throw new Error(
+        `Supabase NBA pace games: ${error.message}`
+      );
+    }
+
+
+    const rows =
+      data || [];
+
+
+    allGames.push(
+      ...rows
+    );
+
+
+    if (
+      rows.length <
+      PAGE_SIZE
+    ) {
+      break;
+    }
+
+
+    from +=
+      PAGE_SIZE;
+  }
+
+
+  return allGames;
+}
+
+
+// ============================================================
+// AVERAGE
+// ============================================================
+
+function nbaAverage(
+  values
+) {
+
+  const valid =
+    values
+      .map(Number)
+      .filter(
+        Number.isFinite
+      );
+
+
+  if (
+    !valid.length
+  ) {
+    return null;
+  }
+
+
+  return (
+    valid.reduce(
+      (sum, value) =>
+        sum + value,
+      0
+    ) /
+    valid.length
+  );
+}
+
+
+// ============================================================
+// REBUILD SEASON PACE + PACE EDGE
+// ============================================================
+//
+// MUY IMPORTANTE:
+//
+// Para calcular el PACE EDGE de un partido,
+// miramos el PACE que el rival llevaba
+// ANTES de ese partido.
+//
+// Nunca usamos el PACE final de temporada
+// del rival para reconstruir un juego viejo.
+//
+// Ejemplo:
+//
+// rival pregame pace = 102
+// actual game pace   = 98
+//
+// pace edge = -4
+//
+// ============================================================
+
+async function rebuildNBATeamPace(
+  season
+) {
+
+  const games =
+    await getAllNBAPaceGames(
+      season
+    );
+
+
+  const teams =
+    new Map();
+
+
+  function ensureTeam(
+    teamId,
+    teamName
+  ) {
+
+    const id =
+      Number(teamId);
+
+
+    if (
+      !teams.has(id)
+    ) {
+      teams.set(
+        id,
+        {
+          teamId:
+            id,
+
+          teamName:
+            teamName,
+
+          gamePaces:
+            [],
+
+          paceEdges:
+            []
+        }
+      );
+    }
+
+
+    return teams.get(
+      id
+    );
+  }
+
+
+  // ==========================================================
+  // RECORRER CRONOLÓGICAMENTE
+  // ==========================================================
+
+  for (
+    const game
+    of games
+  ) {
+
+    const gamePace =
+      Number(
+        game.game_pace
+      );
+
+
+    if (
+      !Number.isFinite(
+        gamePace
+      )
+    ) {
+      continue;
+    }
+
+
+    const home =
+      ensureTeam(
+        game.home_team_id,
+        game.home_team_name
+      );
+
+
+    const visitor =
+      ensureTeam(
+        game.visitor_team_id,
+        game.visitor_team_name
+      );
+
+
+    // ========================================================
+    // PACE DEL RIVAL ANTES DEL PARTIDO
+    // ========================================================
+
+    const visitorPregamePace =
+      nbaAverage(
+        visitor.gamePaces
+      );
+
+
+    const homePregamePace =
+      nbaAverage(
+        home.gamePaces
+      );
+
+
+    // ========================================================
+    // HOME PACE EDGE
+    // ========================================================
+    //
+    // ¿Cuánto cambió el ritmo normal
+    // que traía el rival?
+    // ========================================================
+
+    if (
+      Number.isFinite(
+        visitorPregamePace
+      )
+    ) {
+      home.paceEdges.push(
+        gamePace -
+        visitorPregamePace
+      );
+    }
+
+
+    // ========================================================
+    // VISITOR PACE EDGE
+    // ========================================================
+
+    if (
+      Number.isFinite(
+        homePregamePace
+      )
+    ) {
+      visitor.paceEdges.push(
+        gamePace -
+        homePregamePace
+      );
+    }
+
+
+    // ========================================================
+    // IMPORTANTE:
+    //
+    // Guardamos el juego actual DESPUÉS
+    // de calcular el edge.
+    //
+    // Así no entra información futura
+    // ni el propio partido dentro del
+    // promedio pregame.
+    // ========================================================
+
+    home.gamePaces.push(
+      gamePace
+    );
+
+
+    visitor.gamePaces.push(
+      gamePace
+    );
+  }
+
+
+  const rows =
+    [];
+
+
+  for (
+    const team
+    of teams.values()
+  ) {
+
+    const seasonPace =
+      nbaAverage(
+        team.gamePaces
+      );
+
+
+    const paceEdge =
+      nbaAverage(
+        team.paceEdges
+      );
+
+
+    rows.push({
+
+      season:
+        Number(season),
+
+      team_id:
+        team.teamId,
+
+      team_name:
+        team.teamName,
+
+      games_count:
+        team.gamePaces.length,
+
+      pace_edge_games:
+        team.paceEdges.length,
+
+      season_pace:
+        seasonPace === null
+          ? null
+          : Number(
+              seasonPace.toFixed(3)
+            ),
+
+      pace_edge:
+        paceEdge === null
+          ? null
+          : Number(
+              paceEdge.toFixed(3)
+            ),
+
+      updated_at:
+        new Date()
+          .toISOString()
+
+    });
+  }
+
+
+  if (
+    rows.length
+  ) {
+
+    const {
+      error
+    } =
+      await supabaseAdmin
+        .from(
+          "nba_team_pace"
+        )
+        .upsert(
+          rows,
+          {
+            onConflict:
+              "season,team_id"
+          }
+        );
+
+
+    if (
+      error
+    ) {
+      throw new Error(
+        `Supabase nba_team_pace: ${error.message}`
+      );
+    }
+  }
+
+
+  return {
+    teams:
+      rows.length
+  };
+}
 // ============================================================
 // BALLDONTLIE FETCH
 // ============================================================
