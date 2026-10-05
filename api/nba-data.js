@@ -1293,15 +1293,15 @@ function nbaStatNumber(
 // TEAM TOTALS FROM BOXSCORE
 // ============================================================
 
-function getNBABoxscoreTeamTotals(
-  team
+function getNBAPlayerStatTotals(
+  playerStats
 ) {
 
-  const players =
+  const rows =
     Array.isArray(
-      team?.players
+      playerStats
     )
-      ? team.players
+      ? playerStats
       : [];
 
 
@@ -1312,32 +1312,32 @@ function getNBABoxscoreTeamTotals(
 
 
   for (
-    const player
-    of players
+    const stat
+    of rows
   ) {
 
     fga +=
       nbaStatNumber(
-        player?.fga
+        stat?.fga
       );
 
 
     oreb +=
       nbaStatNumber(
-        player?.oreb
+        stat?.oreb
       );
 
 
     tov +=
       nbaStatNumber(
-        player?.turnover ??
-        player?.tov
+        stat?.turnover ??
+        stat?.tov
       );
 
 
     fta +=
       nbaStatNumber(
-        player?.fta
+        stat?.fta
       );
   }
 
@@ -1349,7 +1349,6 @@ function getNBABoxscoreTeamTotals(
     fta
   };
 }
-
 
 // ============================================================
 // POSSESSIONS
@@ -1453,26 +1452,106 @@ function calculateNBAGamePace(
 // FETCH NBA BOXSCORES BY DATE
 // ============================================================
 
-async function getNBABoxscoresForDate(
+async function getNBAPlayerStatsForDate(
   date
 ) {
 
-  const url =
-    "https://api.balldontlie.io/v1/box_scores" +
-    `?date=${encodeURIComponent(date)}`;
+  const allStats =
+    [];
 
 
-  const response =
-    await fetchBalldontlie(
-      url
+  let cursor =
+    null;
+
+
+  let pageCount =
+    0;
+
+
+  do {
+
+    const params =
+      new URLSearchParams();
+
+
+    params.append(
+      "dates[]",
+      String(date)
     );
 
 
-  return Array.isArray(
-    response?.data
-  )
-    ? response.data
-    : [];
+    params.set(
+      "per_page",
+      "100"
+    );
+
+
+    // 0 = stats completas del juego.
+    params.set(
+      "period",
+      "0"
+    );
+
+
+    if (
+      cursor
+    ) {
+      params.set(
+        "cursor",
+        String(cursor)
+      );
+    }
+
+
+    const url =
+      "https://api.balldontlie.io/v1/stats?" +
+      params.toString();
+
+
+    const response =
+      await fetchBalldontlie(
+        url
+      );
+
+
+    const rows =
+      Array.isArray(
+        response?.data
+      )
+        ? response.data
+        : [];
+
+
+    allStats.push(
+      ...rows
+    );
+
+
+    cursor =
+      response
+        ?.meta
+        ?.next_cursor ||
+      null;
+
+
+    pageCount++;
+
+
+    if (
+      pageCount > 20
+    ) {
+      throw new Error(
+        `NBA stats pagination exceeded 20 pages for ${date}`
+      );
+    }
+
+
+  } while (
+    cursor
+  );
+
+
+  return allStats;
 }
 
 
@@ -1634,10 +1713,10 @@ async function syncNBAStatsToSupabase(
     of selectedDates
   ) {
 
-    const boxscores =
-      await getNBABoxscoresForDate(
-        nbaDate
-      );
+    const playerStats =
+  await getNBAPlayerStatsForDate(
+    nbaDate
+  );
 
 
     const dateGames =
@@ -1654,44 +1733,77 @@ async function syncNBAStatsToSupabase(
       gamesProcessed++;
 
 
-      const boxscore =
-        boxscores.find(
-          box =>
-
-            Number(
-              box?.home_team?.id
-            ) ===
-              Number(
-                dbGame.home_team_id
-              ) &&
-
-            Number(
-              box?.visitor_team?.id
-            ) ===
-              Number(
-                dbGame.visitor_team_id
-              )
-        );
+   const gameStats =
+  playerStats.filter(
+    stat =>
+      Number(
+        stat?.game?.id
+      ) ===
+      Number(
+        dbGame.game_id
+      )
+  );
 
 
-      if (
-        !boxscore
-      ) {
-        unmatched++;
-        continue;
-      }
+if (
+  !gameStats.length
+) {
+  unmatched++;
+  continue;
+}
 
 
-      const homeStats =
-        getNBABoxscoreTeamTotals(
-          boxscore.home_team
-        );
+// ==========================================================
+// SEPARAR JUGADORES POR EQUIPO
+// ==========================================================
+
+const homePlayerStats =
+  gameStats.filter(
+    stat =>
+
+      Number(
+        stat?.team?.id ??
+        stat?.player?.team_id
+      ) ===
+      Number(
+        dbGame.home_team_id
+      )
+  );
 
 
-      const visitorStats =
-        getNBABoxscoreTeamTotals(
-          boxscore.visitor_team
-        );
+const visitorPlayerStats =
+  gameStats.filter(
+    stat =>
+
+      Number(
+        stat?.team?.id ??
+        stat?.player?.team_id
+      ) ===
+      Number(
+        dbGame.visitor_team_id
+      )
+  );
+
+
+if (
+  !homePlayerStats.length ||
+  !visitorPlayerStats.length
+) {
+  unmatched++;
+  continue;
+}
+
+
+const homeStats =
+  getNBAPlayerStatTotals(
+    homePlayerStats
+  );
+
+
+const visitorStats =
+  getNBAPlayerStatTotals(
+    visitorPlayerStats
+  );
 
 
       const homePossessions =
@@ -1719,13 +1831,21 @@ async function syncNBAStatsToSupabase(
       }
 
 
-      const gamePace =
-        calculateNBAGamePace(
-          homePossessions,
-          visitorPossessions,
-          boxscore.period
-        );
+     const gamePeriod =
+  Number(
+    gameStats?.[0]
+      ?.game
+      ?.period ||
+    4
+  );
 
+
+const gamePace =
+  calculateNBAGamePace(
+    homePossessions,
+    visitorPossessions,
+    gamePeriod
+  );
 
       updateRows.push({
 
