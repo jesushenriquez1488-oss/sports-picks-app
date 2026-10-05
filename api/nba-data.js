@@ -153,28 +153,129 @@ module.exports =
       // Se usa para sincronizaciones automáticas/manuales.
       // ======================================================
 
-      const validSecret =
-        process.env.CRON_SECRET ||
-        process.env.GENERATE_DAILY_SECRET ||
-        "";
+    const validSecret =
+  process.env.CRON_SECRET ||
+  process.env.GENERATE_DAILY_SECRET ||
+  "";
 
 
-      const suppliedSecret =
-        String(
-          req.headers[
-            "x-internal-secret"
-          ] ||
-          req.query.secret ||
-          ""
-        );
+const authorizationHeader =
+  String(
+    req.headers.authorization ||
+    ""
+  );
 
 
-      const isInternal =
-        Boolean(validSecret) &&
-        suppliedSecret ===
-          validSecret;
+const bearerSecret =
+  authorizationHeader.startsWith(
+    "Bearer "
+  )
+    ? authorizationHeader.slice(7)
+    : "";
 
 
+const headerSecret =
+  String(
+    req.headers[
+      "x-internal-secret"
+    ] ||
+    ""
+  );
+
+
+const querySecret =
+  String(
+    req.query.secret ||
+    ""
+  );
+
+
+const isInternal =
+  Boolean(validSecret) &&
+  (
+    bearerSecret === validSecret ||
+    headerSecret === validSecret ||
+    querySecret === validSecret
+  );
+
+// ======================================================
+// NBA DAILY MAINTENANCE
+// ======================================================
+//
+// Flujo automático:
+//
+// 1. Sincroniza juegos NBA terminados recientes.
+// 2. Descarga stats faltantes.
+// 3. Calcula posesiones + game pace.
+// 4. Si no quedan stats pendientes,
+//    reconstruye nba_team_pace.
+//
+// NO corre durante análisis normales.
+// ======================================================
+
+if (
+  type === "maintenance"
+) {
+
+  if (
+    !isInternal
+  ) {
+    return res
+      .status(401)
+      .json({
+        error:
+          "Unauthorized maintenance"
+      });
+  }
+
+
+  if (
+    !process.env
+      .BALLDONTLIE_API_KEY
+  ) {
+    return res
+      .status(500)
+      .json({
+        error:
+          "BALLDONTLIE_API_KEY no configurada"
+      });
+  }
+
+
+  const gameSync =
+    await syncSeasonToSupabase(
+      CURRENT_SEASON,
+      {
+        full: false
+      }
+    );
+
+
+  const statsSync =
+    await syncNBAStatsToSupabase(
+      CURRENT_SEASON,
+      5
+    );
+
+
+  return res
+    .status(200)
+    .json({
+
+      ok: true,
+
+      mode:
+        "maintenance",
+
+      season:
+        CURRENT_SEASON,
+
+      gameSync,
+
+      statsSync
+
+    });
+}
       // ======================================================
       // SYNC
       // ======================================================
