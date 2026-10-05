@@ -66,6 +66,10 @@
 {
   "path": "/api/process-market-notification-deliveries",
   "schedule": "* * * * *"
+},
+{
+  "path": "/api/nba-data?type=maintenance",
+  "schedule": "0 8 * * *"
 }
   ]
 }
