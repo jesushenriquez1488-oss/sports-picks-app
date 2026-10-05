@@ -1205,7 +1205,12 @@ function mapGameForSupabase(
 
     visitor_score:
       visitorScore,
+postseason:
+  game?.postseason === true,
 
+ist_stage:
+  game?.ist_stage ??
+  null,
     // IMPORTANTE:
     // No mandamos FGA/OREB/TOV/FTA
     // ni possessions aquí.
@@ -1587,21 +1592,28 @@ async function syncNBAStatsToSupabase(
           visitor_score
         `
       )
-      .eq(
-        "season",
-        Number(season)
-      )
-      .eq(
-        "stats_complete",
-        false
-      )
-      .order(
-        "game_date",
-        {
-          ascending: true
-        }
-      )
-      .limit(500);
+    .eq(
+  "season",
+  Number(season)
+)
+.eq(
+  "stats_complete",
+  false
+)
+.eq(
+  "postseason",
+  false
+)
+.or(
+  "ist_stage.is.null,ist_stage.neq.Championship"
+)
+.order(
+  "game_date",
+  {
+    ascending: true
+  }
+)
+.limit(500);
 
 
   if (
@@ -1992,14 +2004,21 @@ const gamePace =
             true
         }
       )
-      .eq(
-        "season",
-        Number(season)
-      )
-      .eq(
-        "stats_complete",
-        false
-      );
+    .eq(
+  "season",
+  Number(season)
+)
+.eq(
+  "stats_complete",
+  false
+)
+.eq(
+  "postseason",
+  false
+)
+.or(
+  "ist_stage.is.null,ist_stage.neq.Championship"
+);
 
 
   if (
@@ -2094,18 +2113,20 @@ async function getAllNBAPaceGames(
     } =
       await supabaseAdmin
         .from("nba_games")
-        .select(
-          `
-            game_id,
-            season,
-            game_date,
-            home_team_id,
-            visitor_team_id,
-            home_team_name,
-            visitor_team_name,
-            game_pace
-          `
-        )
+       .select(
+  `
+    game_id,
+    season,
+    game_date,
+    home_team_id,
+    visitor_team_id,
+    home_team_name,
+    visitor_team_name,
+    game_pace,
+    postseason,
+    ist_stage
+  `
+)
         .eq(
           "season",
           Number(season)
@@ -2114,6 +2135,13 @@ async function getAllNBAPaceGames(
           "stats_complete",
           true
         )
+      .eq(
+  "postseason",
+  false
+)
+.or(
+  "ist_stage.is.null,ist_stage.neq.Championship"
+)
         .order(
           "game_date",
           {
