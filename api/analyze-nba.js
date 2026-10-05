@@ -3236,6 +3236,9 @@ let homeGames = [];
 let awayAll = [];
 let homeAll = [];
 
+let awayPaceProfile = null;
+let homePaceProfile = null;
+
 if (
   selectedLeague === "wnba" ||
   selectedLeague === "ncaab"
@@ -3371,6 +3374,19 @@ homeGames = await fetchJson(
     )
 
   ]);
+  const nbaPaceProfiles =
+  await getNBAPaceProfiles(
+    awayId,
+    homeId
+  );
+
+
+awayPaceProfile =
+  nbaPaceProfiles.away;
+
+
+homePaceProfile =
+  nbaPaceProfiles.home;
 
 
   // Juegos utilizados por la fórmula.
@@ -3490,6 +3506,63 @@ const homeProjectionAfterBpi =
         )
       )
     : homeCalc.projection;
+    // ============================================================
+// NBA — SEASON PACE ADJUSTMENT
+// ============================================================
+//
+// NBA solamente.
+//
+// CashEdge base
+// ↓
+// PACE contextual de temporada
+// ↓
+// REST
+// ↓
+// injuries
+// ============================================================
+
+const nbaPaceAdjustment =
+  selectedLeague === "nba"
+    ? applyNBAPaceAdjustment({
+
+        awayProjection:
+          awayProjectionAfterBpi,
+
+        homeProjection:
+          homeProjectionAfterBpi,
+
+        awayPace:
+          awayPaceProfile,
+
+        homePace:
+          homePaceProfile
+
+      })
+    : {
+
+        applied:
+          false,
+
+        awayProjection:
+          awayProjectionAfterBpi,
+
+        homeProjection:
+          homeProjectionAfterBpi,
+
+        expectedPace:
+          null
+
+      };
+
+
+const awayProjectionAfterPace =
+  nbaPaceAdjustment
+    .awayProjection;
+
+
+const homeProjectionAfterPace =
+  nbaPaceAdjustment
+    .homeProjection;
    const awayRest =
   (
     selectedLeague === "nba" ||
@@ -3518,7 +3591,7 @@ const homeRest =
       );
 
 const projA =
-  awayProjectionAfterBpi +
+  awayProjectionAfterPace +
   awayRest.points +
   Number(
     awayInjuries.offenseImpact || 0
@@ -3529,7 +3602,7 @@ const projA =
 
 
 const projB =
-  homeProjectionAfterBpi +
+  homeProjectionAfterPace +
   homeRest.points +
   Number(
     homeInjuries.offenseImpact || 0
@@ -4303,7 +4376,447 @@ function getCurrentNBASeason() {
   return year - 1;
 }
 
+// ============================================================
+// NBA SEASON PACE
+// ============================================================
 
+function getNBAPaceNumber(
+  value
+) {
+
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
+  const number =
+    Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : null;
+}
+
+
+// ============================================================
+// BUILD EFFECTIVE NBA PACE PROFILE
+// ============================================================
+//
+// Primeros 20 juegos:
+//
+// 0  = 100% temporada anterior
+// 1  = 5% actual / 95% anterior
+// 10 = 50% / 50%
+// 20 = 100% actual
+//
+// PACE y PACE EDGE se mezclan
+// independientemente.
+// ============================================================
+
+function buildNBAPaceProfile(
+  currentRow,
+  previousRow
+) {
+
+  const currentPace =
+    getNBAPaceNumber(
+      currentRow?.season_pace
+    );
+
+  const previousPace =
+    getNBAPaceNumber(
+      previousRow?.season_pace
+    );
+
+
+  const currentPaceEdge =
+    getNBAPaceNumber(
+      currentRow?.pace_edge
+    );
+
+  const previousPaceEdge =
+    getNBAPaceNumber(
+      previousRow?.pace_edge
+    );
+
+
+  const gamesCount =
+    Math.max(
+      0,
+      Number(
+        currentRow?.games_count || 0
+      )
+    );
+
+
+  const paceEdgeGames =
+    Math.max(
+      0,
+      Number(
+        currentRow?.pace_edge_games || 0
+      )
+    );
+
+
+  const paceCurrentWeight =
+    Math.min(
+      gamesCount / 20,
+      1
+    );
+
+
+  const paceEdgeCurrentWeight =
+    Math.min(
+      paceEdgeGames / 20,
+      1
+    );
+
+
+  let effectivePace =
+    null;
+
+
+  if (
+    currentPace !== null &&
+    previousPace !== null
+  ) {
+
+    effectivePace =
+      (
+        currentPace *
+        paceCurrentWeight
+      ) +
+      (
+        previousPace *
+        (
+          1 -
+          paceCurrentWeight
+        )
+      );
+
+  } else if (
+    currentPace !== null
+  ) {
+
+    effectivePace =
+      currentPace;
+
+  } else if (
+    previousPace !== null
+  ) {
+
+    effectivePace =
+      previousPace;
+  }
+
+
+  let effectivePaceEdge =
+    null;
+
+
+  if (
+    currentPaceEdge !== null &&
+    previousPaceEdge !== null
+  ) {
+
+    effectivePaceEdge =
+      (
+        currentPaceEdge *
+        paceEdgeCurrentWeight
+      ) +
+      (
+        previousPaceEdge *
+        (
+          1 -
+          paceEdgeCurrentWeight
+        )
+      );
+
+  } else if (
+    currentPaceEdge !== null
+  ) {
+
+    effectivePaceEdge =
+      currentPaceEdge;
+
+  } else if (
+    previousPaceEdge !== null
+  ) {
+
+    effectivePaceEdge =
+      previousPaceEdge;
+  }
+
+
+  return {
+
+    effectivePace,
+
+    effectivePaceEdge,
+
+    gamesCount,
+
+    paceEdgeGames,
+
+    paceCurrentWeight,
+
+    paceEdgeCurrentWeight
+
+  };
+}
+
+
+// ============================================================
+// LOAD NBA PACE FROM SUPABASE
+// ============================================================
+
+async function getNBAPaceProfiles(
+  awayTeamId,
+  homeTeamId
+) {
+
+  const currentSeason =
+    getCurrentNBASeason();
+
+  const previousSeason =
+    currentSeason - 1;
+
+
+  try {
+
+    const {
+      data,
+      error
+    } =
+      await supabaseAdmin
+        .from(
+          "nba_team_pace"
+        )
+        .select(
+          `
+            season,
+            team_id,
+            team_name,
+            games_count,
+            pace_edge_games,
+            season_pace,
+            pace_edge
+          `
+        )
+        .in(
+          "team_id",
+          [
+            Number(awayTeamId),
+            Number(homeTeamId)
+          ]
+        )
+        .in(
+          "season",
+          [
+            currentSeason,
+            previousSeason
+          ]
+        );
+
+
+    if (
+      error
+    ) {
+      throw error;
+    }
+
+
+    const rows =
+      data || [];
+
+
+    const getRow =
+      (
+        teamId,
+        season
+      ) =>
+        rows.find(
+          row =>
+            Number(
+              row.team_id
+            ) ===
+              Number(teamId) &&
+            Number(
+              row.season
+            ) ===
+              Number(season)
+        ) ||
+        null;
+
+
+    return {
+
+      away:
+        buildNBAPaceProfile(
+
+          getRow(
+            awayTeamId,
+            currentSeason
+          ),
+
+          getRow(
+            awayTeamId,
+            previousSeason
+          )
+
+        ),
+
+
+      home:
+        buildNBAPaceProfile(
+
+          getRow(
+            homeTeamId,
+            currentSeason
+          ),
+
+          getRow(
+            homeTeamId,
+            previousSeason
+          )
+
+        )
+
+    };
+
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      "NBA PACE LOAD ERROR:",
+      error.message
+    );
+
+
+    return {
+      away: null,
+      home: null
+    };
+  }
+}
+
+
+// ============================================================
+// APPLY NBA MATCHUP PACE
+// ============================================================
+
+function applyNBAPaceAdjustment({
+
+  awayProjection,
+
+  homeProjection,
+
+  awayPace,
+
+  homePace
+
+}) {
+
+  const awayEffectivePace =
+    getNBAPaceNumber(
+      awayPace?.effectivePace
+    );
+
+  const homeEffectivePace =
+    getNBAPaceNumber(
+      homePace?.effectivePace
+    );
+
+  const awayPaceEdge =
+    getNBAPaceNumber(
+      awayPace?.effectivePaceEdge
+    );
+
+  const homePaceEdge =
+    getNBAPaceNumber(
+      homePace?.effectivePaceEdge
+    );
+
+
+  if (
+    awayEffectivePace === null ||
+    homeEffectivePace === null ||
+    awayPaceEdge === null ||
+    homePaceEdge === null ||
+    awayEffectivePace <= 0 ||
+    homeEffectivePace <= 0
+  ) {
+
+    return {
+      applied: false,
+      awayProjection,
+      homeProjection,
+      expectedPace: null
+    };
+  }
+
+
+  const awayRoute =
+    homeEffectivePace +
+    awayPaceEdge;
+
+
+  const homeRoute =
+    awayEffectivePace +
+    homePaceEdge;
+
+
+  const expectedPace =
+    (
+      awayRoute +
+      homeRoute
+    ) / 2;
+
+
+  if (
+    !Number.isFinite(
+      expectedPace
+    ) ||
+    expectedPace <= 0
+  ) {
+
+    return {
+      applied: false,
+      awayProjection,
+      homeProjection,
+      expectedPace: null
+    };
+  }
+
+
+  return {
+
+    applied:
+      true,
+
+    expectedPace,
+
+    awayProjection:
+      Number(awayProjection) *
+      (
+        expectedPace /
+        awayEffectivePace
+      ),
+
+    homeProjection:
+      Number(homeProjection) *
+      (
+        expectedPace /
+        homeEffectivePace
+      )
+
+  };
+}
 async function getRecentGames(
   origin,
   teamId,
