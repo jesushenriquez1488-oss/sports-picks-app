@@ -3563,32 +3563,89 @@ const awayProjectionAfterPace =
 const homeProjectionAfterPace =
   nbaPaceAdjustment
     .homeProjection;
-   const awayRest =
-  (
-    selectedLeague === "nba" ||
-    selectedLeague === "ncaab"
-  )
-    ? getUpcomingGameRestAdjustment(
-        awayAll,
-        gameTime
-      )
-    : getRestAdjustment(
-        awayAll
-      );
+  let awayRest;
+let homeRest;
 
 
-const homeRest =
-  (
-    selectedLeague === "nba" ||
-    selectedLeague === "ncaab"
-  )
-    ? getUpcomingGameRestAdjustment(
-        homeAll,
-        gameTime
-      )
-    : getRestAdjustment(
-        homeAll
-      );
+// ============================================================
+// NBA — RELATIVE REST
+// ============================================================
+
+if (
+  selectedLeague === "nba"
+) {
+  const awayRestInfo =
+    getNBAUpcomingRestInfo(
+      awayAll,
+      gameTime
+    );
+
+  const homeRestInfo =
+    getNBAUpcomingRestInfo(
+      homeAll,
+      gameTime
+    );
+
+  const relativeRest =
+    getNBARelativeRestAdjustment(
+      awayRestInfo,
+      homeRestInfo
+    );
+
+  awayRest = {
+    points:
+      relativeRest.awayPoints,
+
+    note:
+      relativeRest.awayNote
+  };
+
+  homeRest = {
+    points:
+      relativeRest.homePoints,
+
+    note:
+      relativeRest.homeNote
+  };
+}
+
+
+// ============================================================
+// NCAAB — DEJAR REST ACTUAL
+// ============================================================
+
+else if (
+  selectedLeague === "ncaab"
+) {
+  awayRest =
+    getUpcomingGameRestAdjustment(
+      awayAll,
+      gameTime
+    );
+
+  homeRest =
+    getUpcomingGameRestAdjustment(
+      homeAll,
+      gameTime
+    );
+}
+
+
+// ============================================================
+// WNBA / LEGACY — SIN CAMBIOS
+// ============================================================
+
+else {
+  awayRest =
+    getRestAdjustment(
+      awayAll
+    );
+
+  homeRest =
+    getRestAdjustment(
+      homeAll
+    );
+}
 
 const projA =
   awayProjectionAfterPace +
@@ -3646,12 +3703,18 @@ const totalEdge =
 
 const spreadConfidence =
   hasSpreadMarket
-    ? getConfidence(spreadEdge)
+    ? getConfidence(
+        spreadEdge,
+        selectedLeague
+      )
     : 0;
 
 const totalConfidence =
   hasTotalMarket
-    ? getConfidence(totalEdge)
+    ? getConfidence(
+        totalEdge,
+        selectedLeague
+      )
     : 0;
 
    let pick = "";
@@ -5975,7 +6038,398 @@ function calcDefensiveImpactScore(stats) {
  
   return (minutesRatio * 0.30) + (reboundsRatio * 0.70);
 }
- 
+ // ============================================================
+// NBA RELATIVE REST
+// ============================================================
+// REST NBA solo modifica el margen.
+//
+// B2B vs 1 día libre:
+//   B2B        -1.0
+//   descansado +1.0
+//   cambio de margen = 2.0
+//   cambio de total  = 0
+//
+// B2B vs 2+ días libres:
+//   B2B        -1.5
+//   descansado +1.5
+//   cambio de margen = 3.0
+//   cambio de total  = 0
+//
+// Si ambos son B2B o ninguno es B2B:
+//   no hay ajuste.
+//
+// NCAAB y WNBA NO usan esta función.
+// ============================================================
+
+function getNBAEasternDateKey(value) {
+  if (!value) {
+    return null;
+  }
+
+  const date =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return null;
+  }
+
+  const parts =
+    new Intl.DateTimeFormat(
+      "en-US",
+      {
+        timeZone:
+          "America/New_York",
+
+        year:
+          "numeric",
+
+        month:
+          "2-digit",
+
+        day:
+          "2-digit"
+      }
+    )
+      .formatToParts(date);
+
+  const year =
+    parts.find(
+      part =>
+        part.type === "year"
+    )?.value;
+
+  const month =
+    parts.find(
+      part =>
+        part.type === "month"
+    )?.value;
+
+  const day =
+    parts.find(
+      part =>
+        part.type === "day"
+    )?.value;
+
+  if (
+    !year ||
+    !month ||
+    !day
+  ) {
+    return null;
+  }
+
+  return `${year}-${month}-${day}`;
+}
+
+
+function getNBAStoredGameDateKey(value) {
+  if (!value) {
+    return null;
+  }
+
+  const raw =
+    String(value)
+      .trim();
+
+  // Si excepcionalmente ya viene como
+  // fecha pura YYYY-MM-DD, la respetamos.
+  if (
+    /^\d{4}-\d{2}-\d{2}$/.test(raw)
+  ) {
+    return raw;
+  }
+
+  // Los timestamps reales de nba_games
+  // se convierten siempre al calendario NBA
+  // de New York para evitar errores por UTC.
+  return getNBAEasternDateKey(
+    value
+  );
+}
+
+function getNBADayNumber(dateKey) {
+  if (!dateKey) {
+    return null;
+  }
+
+  const parts =
+    dateKey
+      .split("-")
+      .map(Number);
+
+  if (
+    parts.length !== 3 ||
+    !parts.every(
+      Number.isFinite
+    )
+  ) {
+    return null;
+  }
+
+  const [
+    year,
+    month,
+    day
+  ] = parts;
+
+  return Math.floor(
+    Date.UTC(
+      year,
+      month - 1,
+      day
+    ) /
+    86400000
+  );
+}
+
+
+function getNBAUpcomingRestInfo(
+  allGames,
+  gameTime
+) {
+  if (
+    !Array.isArray(allGames) ||
+    !allGames.length ||
+    !gameTime
+  ) {
+    return {
+      restDays: null,
+      isBackToBack: false,
+      note:
+        "Rest data not available"
+    };
+  }
+
+  const upcomingDateKey =
+    getNBAEasternDateKey(
+      gameTime
+    );
+
+  const upcomingDay =
+    getNBADayNumber(
+      upcomingDateKey
+    );
+
+  if (
+    !upcomingDateKey ||
+    upcomingDay === null
+  ) {
+    return {
+      restDays: null,
+      isBackToBack: false,
+      note:
+        "Rest data not available"
+    };
+  }
+
+  const previousGames =
+    allGames
+      .map(game => ({
+        game,
+        dateKey:
+          getNBAStoredGameDateKey(
+            game?.date
+          )
+      }))
+      .filter(
+        item =>
+          item.dateKey &&
+          item.dateKey <
+            upcomingDateKey
+      )
+      .sort(
+        (a, b) =>
+          b.dateKey.localeCompare(
+            a.dateKey
+          )
+      );
+
+  if (
+    !previousGames.length
+  ) {
+    return {
+      restDays: null,
+      isBackToBack: false,
+      note:
+        "Rest data not available"
+    };
+  }
+
+  const previousDateKey =
+    previousGames[0]
+      .dateKey;
+
+  const previousDay =
+    getNBADayNumber(
+      previousDateKey
+    );
+
+  if (
+    previousDay === null
+  ) {
+    return {
+      restDays: null,
+      isBackToBack: false,
+      note:
+        "Rest data not available"
+    };
+  }
+
+  const calendarDifference =
+    upcomingDay -
+    previousDay;
+
+  const restDays =
+    Math.max(
+      0,
+      calendarDifference - 1
+    );
+
+  return {
+    restDays,
+
+    isBackToBack:
+      restDays === 0,
+
+    note:
+      restDays === 0
+        ? "Back-to-back."
+        : restDays === 1
+          ? "1 full day of rest."
+          : `${restDays} full days of rest.`
+  };
+}
+
+
+function getNBARelativeRestAdjustment(
+  awayRestInfo,
+  homeRestInfo
+) {
+  const awayRestDays =
+    awayRestInfo?.restDays;
+
+  const homeRestDays =
+    homeRestInfo?.restDays;
+
+  if (
+    awayRestDays === null ||
+    awayRestDays === undefined ||
+    homeRestDays === null ||
+    homeRestDays === undefined
+  ) {
+    return {
+      awayPoints: 0,
+      homePoints: 0,
+      awayNote:
+        awayRestInfo?.note ||
+        "Rest data not available",
+      homeNote:
+        homeRestInfo?.note ||
+        "Rest data not available"
+    };
+  }
+
+
+  // ==========================================================
+  // AMBOS B2B
+  // ==========================================================
+
+  if (
+    awayRestDays === 0 &&
+    homeRestDays === 0
+  ) {
+    return {
+      awayPoints: 0,
+      homePoints: 0,
+      awayNote:
+        "Both teams are on a back-to-back. No relative REST edge.",
+      homeNote:
+        "Both teams are on a back-to-back. No relative REST edge."
+    };
+  }
+
+
+  // ==========================================================
+  // AWAY B2B
+  // ==========================================================
+
+  if (
+    awayRestDays === 0 &&
+    homeRestDays >= 1
+  ) {
+    const marginEdge =
+      homeRestDays >= 2
+        ? 3
+        : 2;
+
+    const halfAdjustment =
+      marginEdge / 2;
+
+    return {
+      awayPoints:
+        -halfAdjustment,
+
+      homePoints:
+        halfAdjustment,
+
+      awayNote:
+        `Back-to-back vs ${homeRestDays}+ rest day opponent. REST margin disadvantage: ${marginEdge.toFixed(1)}.`,
+
+      homeNote:
+        `Rest advantage vs back-to-back opponent. REST margin advantage: ${marginEdge.toFixed(1)}.`
+    };
+  }
+
+
+  // ==========================================================
+  // HOME B2B
+  // ==========================================================
+
+  if (
+    homeRestDays === 0 &&
+    awayRestDays >= 1
+  ) {
+    const marginEdge =
+      awayRestDays >= 2
+        ? 3
+        : 2;
+
+    const halfAdjustment =
+      marginEdge / 2;
+
+    return {
+      awayPoints:
+        halfAdjustment,
+
+      homePoints:
+        -halfAdjustment,
+
+      awayNote:
+        `Rest advantage vs back-to-back opponent. REST margin advantage: ${marginEdge.toFixed(1)}.`,
+
+      homeNote:
+        `Back-to-back vs ${awayRestDays}+ rest day opponent. REST margin disadvantage: ${marginEdge.toFixed(1)}.`
+    };
+  }
+
+
+  // ==========================================================
+  // NINGÚN EQUIPO B2B
+  // ==========================================================
+
+  return {
+    awayPoints: 0,
+    homePoints: 0,
+    awayNote:
+      `${awayRestInfo.note} No relative REST adjustment.`,
+    homeNote:
+      `${homeRestInfo.note} No relative REST adjustment.`
+  };
+}
 async function getInjuryAdjustment(origin, teamName) {
   try {
     const data = await fetchJson(
@@ -6039,20 +6493,176 @@ function shouldCountInjury(player) {
   return estimatedGamesMissed <= 5;
 }
 
-function getConfidence(edge) {
-  const safeEdge = Math.abs(Number(edge || 0));
+function getConfidence(
+  edge,
+  league
+) {
+  const safeEdge =
+    Math.abs(
+      Number(edge || 0)
+    );
 
-  if (!Number.isFinite(safeEdge)) return 0;
-
-  if (safeEdge < 13) {
-    return Math.round(Math.min(74, Math.max(50, 50 + safeEdge * 1.5)));
+  if (
+    !Number.isFinite(
+      safeEdge
+    )
+  ) {
+    return 0;
   }
 
-  if (safeEdge >= 25) return 99;
 
-  const confidence = 75 + ((safeEdge - 13) / 12) * 24;
+  // ==========================================================
+  // NBA + NCAAB
+  // ==========================================================
+  //
+  // Edge 13 = 75%
+  // Edge 25 = 83%
+  // Edge 40 = 95%
+  // 95% máximo.
+  //
+  // Después de 13 la subida es exponencial:
+  // cuesta cada vez más llegar a confidences altos.
+  // ==========================================================
 
-  return Number(confidence.toFixed(1));
+  if (
+    league === "nba" ||
+    league === "ncaab"
+  ) {
+
+    // --------------------------------------------------------
+    // EDGE < 13
+    // Conservamos la escala anterior.
+    // --------------------------------------------------------
+
+    if (
+      safeEdge < 13
+    ) {
+      return Math.round(
+        Math.min(
+          74,
+          Math.max(
+            50,
+            50 +
+            safeEdge * 1.5
+          )
+        )
+      );
+    }
+
+
+    // --------------------------------------------------------
+    // EDGE 13 → 25
+    // 75% → 83%
+    // Curva exponencial lenta.
+    // --------------------------------------------------------
+
+    if (
+      safeEdge <= 25
+    ) {
+      const progress =
+        (
+          safeEdge - 13
+        ) / 12;
+
+      const curvedProgress =
+        (
+          Math.exp(
+            2 * progress
+          ) - 1
+        ) /
+        (
+          Math.exp(2) - 1
+        );
+
+      const confidence =
+        75 +
+        curvedProgress * 8;
+
+      return Number(
+        confidence.toFixed(1)
+      );
+    }
+
+
+    // --------------------------------------------------------
+    // EDGE 25 → 40
+    // 83% → 95%
+    // Sigue siendo exponencial.
+    // --------------------------------------------------------
+
+    if (
+      safeEdge < 40
+    ) {
+      const progress =
+        (
+          safeEdge - 25
+        ) / 15;
+
+      const curvedProgress =
+        (
+          Math.exp(
+            2 * progress
+          ) - 1
+        ) /
+        (
+          Math.exp(2) - 1
+        );
+
+      const confidence =
+        83 +
+        curvedProgress * 12;
+
+      return Number(
+        confidence.toFixed(1)
+      );
+    }
+
+
+    // --------------------------------------------------------
+    // TOPE ABSOLUTO NBA / NCAAB
+    // --------------------------------------------------------
+
+    return 95;
+  }
+
+
+  // ==========================================================
+  // WNBA — NO TOCAR SU ESCALA ACTUAL
+  // ==========================================================
+
+  if (
+    safeEdge < 13
+  ) {
+    return Math.round(
+      Math.min(
+        74,
+        Math.max(
+          50,
+          50 +
+          safeEdge * 1.5
+        )
+      )
+    );
+  }
+
+  if (
+    safeEdge >= 25
+  ) {
+    return 99;
+  }
+
+  const confidence =
+    75 +
+    (
+      (
+        safeEdge - 13
+      ) / 12
+    ) *
+    24;
+
+  return Number(
+    confidence.toFixed(1)
+  );
 }
 function getModelAnalysis(verdict) {
   if (verdict === "Premium") {
