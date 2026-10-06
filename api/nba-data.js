@@ -462,7 +462,106 @@ if (
       ...result
     });
 }
+// ======================================================
+// NBA PLAYER HISTORY BACKFILL
+// ======================================================
 
+if (
+  type === "sync-player-stats"
+) {
+
+  if (
+    !isInternal
+  ) {
+    return res
+      .status(401)
+      .json({
+        error:
+          "Unauthorized sync"
+      });
+  }
+
+
+  if (
+    !process.env
+      .BALLDONTLIE_API_KEY
+  ) {
+    return res
+      .status(500)
+      .json({
+        error:
+          "BALLDONTLIE_API_KEY no configurada"
+      });
+  }
+
+
+  const requestedSeason =
+    season !== undefined &&
+    season !== null &&
+    season !== ""
+      ? Number(season)
+      : PREVIOUS_SEASON;
+
+
+  if (
+    !isValidSeason(
+      requestedSeason
+    )
+  ) {
+    return res
+      .status(400)
+      .json({
+        error:
+          "Temporada NBA inválida"
+      });
+  }
+
+
+  const requestedLimit =
+    Number(
+      limit || 3
+    );
+
+
+  const maxDates =
+    Number.isFinite(
+      requestedLimit
+    )
+      ? Math.min(
+          5,
+          Math.max(
+            1,
+            Math.floor(
+              requestedLimit
+            )
+          )
+        )
+      : 3;
+
+
+  const result =
+    await syncNBAPlayerHistoryToSupabase(
+      requestedSeason,
+      maxDates
+    );
+
+
+  return res
+    .status(200)
+    .json({
+
+      ok: true,
+
+      mode:
+        "sync-player-stats",
+
+      season:
+        requestedSeason,
+
+      ...result
+
+    });
+}
       // ======================================================
       // NORMAL AUTH
       // ======================================================
@@ -1659,7 +1758,657 @@ async function getNBAPlayerStatsForDate(
 
   return allStats;
 }
+// ============================================================
+// NBA PLAYER GAME HISTORY
+// ============================================================
 
+function parseNBAPlayerMinutes(value) {
+
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return 0;
+  }
+
+
+  const raw =
+    String(value).trim();
+
+
+  // Ejemplo:
+  // "34:30" = 34.5 minutos
+  if (
+    raw.includes(":")
+  ) {
+
+    const [
+      minutesRaw,
+      secondsRaw
+    ] =
+      raw.split(":");
+
+
+    const minutes =
+      Number(minutesRaw);
+
+    const seconds =
+      Number(secondsRaw);
+
+
+    if (
+      Number.isFinite(minutes) &&
+      Number.isFinite(seconds)
+    ) {
+      return Number(
+        (
+          minutes +
+          seconds / 60
+        ).toFixed(2)
+      );
+    }
+  }
+
+
+  const numeric =
+    Number(raw);
+
+
+  return Number.isFinite(numeric)
+    ? Number(
+        numeric.toFixed(2)
+      )
+    : 0;
+}
+
+
+// ============================================================
+// CONVERTIR PLAYER STATS DE BDL → SUPABASE
+// ============================================================
+
+function buildNBAPlayerGameRows(
+  playerStats,
+  games,
+  season
+) {
+
+  const gameMap =
+    new Map(
+      (games || [])
+        .map(
+          game => [
+            Number(
+              game.game_id
+            ),
+            game
+          ]
+        )
+    );
+
+
+  const rows =
+    new Map();
+
+
+  for (
+    const stat
+    of playerStats || []
+  ) {
+
+    const gameId =
+      Number(
+        stat?.game?.id
+      );
+
+    const playerId =
+      Number(
+        stat?.player?.id
+      );
+
+    const teamId =
+      Number(
+        stat?.team?.id ??
+        stat?.player?.team_id
+      );
+
+
+    if (
+      !Number.isFinite(gameId) ||
+      !Number.isFinite(playerId) ||
+      !Number.isFinite(teamId)
+    ) {
+      continue;
+    }
+
+
+    const game =
+      gameMap.get(
+        gameId
+      );
+
+
+    if (
+      !game
+    ) {
+      continue;
+    }
+
+
+    // Protección:
+    // solamente jugadores de los dos equipos
+    // que pertenecen al partido guardado.
+    if (
+      teamId !==
+        Number(
+          game.home_team_id
+        ) &&
+      teamId !==
+        Number(
+          game.visitor_team_id
+        )
+    ) {
+      continue;
+    }
+
+
+    const minutes =
+      parseNBAPlayerMinutes(
+        stat?.min
+      );
+
+
+    // DNP / jugador que no participó.
+    // La ausencia se representa precisamente
+    // porque NO existe fila para ese juego.
+    if (
+      minutes <= 0
+    ) {
+      continue;
+    }
+
+
+    const firstName =
+      String(
+        stat?.player?.first_name ||
+        ""
+      ).trim();
+
+    const lastName =
+      String(
+        stat?.player?.last_name ||
+        ""
+      ).trim();
+
+    const playerName =
+      `${firstName} ${lastName}`
+        .trim();
+
+
+    if (
+      !playerName
+    ) {
+      continue;
+    }
+
+
+    const row = {
+
+      game_id:
+        gameId,
+
+      season:
+        Number(season),
+
+      game_date:
+        game.game_date,
+
+      team_id:
+        teamId,
+
+      player_id:
+        playerId,
+
+      player_name:
+        playerName,
+
+      minutes:
+        minutes,
+
+      points:
+        Math.round(
+          nbaStatNumber(
+            stat?.pts
+          )
+        ),
+
+      rebounds:
+        Math.round(
+          nbaStatNumber(
+            stat?.reb
+          )
+        ),
+
+      assists:
+        Math.round(
+          nbaStatNumber(
+            stat?.ast
+          )
+        ),
+
+      synced_at:
+        new Date()
+          .toISOString()
+
+    };
+
+
+    rows.set(
+      `${gameId}:${playerId}`,
+      row
+    );
+  }
+
+
+  return Array.from(
+    rows.values()
+  );
+}
+
+
+// ============================================================
+// GUARDAR PLAYER GAME STATS
+// ============================================================
+
+async function saveNBAPlayerGameRows(
+  rows
+) {
+
+  if (
+    !Array.isArray(rows) ||
+    !rows.length
+  ) {
+    return 0;
+  }
+
+
+  let saved =
+    0;
+
+
+  // Evitamos mandar payloads enormes
+  // a Supabase.
+  const chunkSize =
+    500;
+
+
+  for (
+    let index = 0;
+    index < rows.length;
+    index += chunkSize
+  ) {
+
+    const chunk =
+      rows.slice(
+        index,
+        index + chunkSize
+      );
+
+
+    const {
+      error
+    } =
+      await supabaseAdmin
+        .from(
+          "nba_player_game_stats"
+        )
+        .upsert(
+          chunk,
+          {
+            onConflict:
+              "game_id,player_id"
+          }
+        );
+
+
+    if (
+      error
+    ) {
+      throw new Error(
+        `Supabase nba_player_game_stats: ${error.message}`
+      );
+    }
+
+
+    saved +=
+      chunk.length;
+  }
+
+
+  return saved;
+}
+
+
+// ============================================================
+// HISTORICAL PLAYER STATS BACKFILL
+// ============================================================
+// Procesa pocas fechas por llamada.
+// Diseñado principalmente para llenar 2025.
+// También puede usarse para completar 2026 si hiciera falta.
+// ============================================================
+
+async function syncNBAPlayerHistoryToSupabase(
+  season,
+  maxDates = 3
+) {
+
+  const numericSeason =
+    Number(season);
+
+
+  // ==========================================================
+  // ÚLTIMO PARTIDO YA GUARDADO
+  // ==========================================================
+
+  const {
+    data: lastRows,
+    error: lastError
+  } =
+    await supabaseAdmin
+      .from(
+        "nba_player_game_stats"
+      )
+      .select(
+        "game_date"
+      )
+      .eq(
+        "season",
+        numericSeason
+      )
+      .order(
+        "game_date",
+        {
+          ascending: false
+        }
+      )
+      .limit(1);
+
+
+  if (
+    lastError
+  ) {
+    throw new Error(
+      `Supabase player history progress: ${lastError.message}`
+    );
+  }
+
+
+  const lastGameDate =
+    lastRows?.[0]?.game_date ||
+    null;
+
+
+  // ==========================================================
+  // SIGUIENTES JUEGOS
+  // ==========================================================
+
+  let query =
+    supabaseAdmin
+      .from(
+        "nba_games"
+      )
+      .select(
+        `
+          game_id,
+          season,
+          game_date,
+          home_team_id,
+          visitor_team_id,
+          home_team_name,
+          visitor_team_name
+        `
+      )
+      .eq(
+        "season",
+        numericSeason
+      )
+      .eq(
+        "postseason",
+        false
+      )
+      .or(
+        "ist_stage.is.null,ist_stage.neq.Championship"
+      )
+      .order(
+        "game_date",
+        {
+          ascending: true
+        }
+      )
+      .limit(150);
+
+
+  if (
+    lastGameDate
+  ) {
+    query =
+      query.gt(
+        "game_date",
+        lastGameDate
+      );
+  }
+
+
+  const {
+    data: games,
+    error: gamesError
+  } =
+    await query;
+
+
+  if (
+    gamesError
+  ) {
+    throw new Error(
+      `Supabase NBA player history games: ${gamesError.message}`
+    );
+  }
+
+
+  if (
+    !games?.length
+  ) {
+    return {
+      selectedDates: [],
+      gamesProcessed: 0,
+      playerRowsSaved: 0,
+      completed: true,
+      lastGameDate
+    };
+  }
+
+
+  // ==========================================================
+  // AGRUPAR POR FECHA NBA
+  // ==========================================================
+
+  const gamesByDate =
+    new Map();
+
+
+  for (
+    const game
+    of games
+  ) {
+
+    const nbaDate =
+      getNBACalendarDate(
+        game.game_date
+      );
+
+
+    if (
+      !nbaDate
+    ) {
+      continue;
+    }
+
+
+    if (
+      !gamesByDate.has(
+        nbaDate
+      )
+    ) {
+      gamesByDate.set(
+        nbaDate,
+        []
+      );
+    }
+
+
+    gamesByDate
+      .get(nbaDate)
+      .push(game);
+  }
+
+
+  const selectedDates =
+    Array.from(
+      gamesByDate.keys()
+    )
+      .sort()
+      .slice(
+        0,
+        maxDates
+      );
+
+
+  let gamesProcessed =
+    0;
+
+  let playerRowsSaved =
+    0;
+
+
+  // ==========================================================
+  // DESCARGAR + GUARDAR
+  // ==========================================================
+
+  for (
+    const nbaDate
+    of selectedDates
+  ) {
+
+    const dateGames =
+      gamesByDate.get(
+        nbaDate
+      ) || [];
+
+
+    const playerStats =
+      await getNBAPlayerStatsForDate(
+        nbaDate
+      );
+
+
+    // Validamos que BallDontLie realmente
+    // devolvió stats para cada partido.
+    const expectedGameIds =
+      new Set(
+        dateGames.map(
+          game =>
+            Number(
+              game.game_id
+            )
+        )
+      );
+
+
+    const returnedGameIds =
+      new Set(
+        (playerStats || [])
+          .map(
+            stat =>
+              Number(
+                stat?.game?.id
+              )
+          )
+          .filter(
+            gameId =>
+              expectedGameIds.has(
+                gameId
+              )
+          )
+      );
+
+
+    const missingGameIds =
+      Array.from(
+        expectedGameIds
+      )
+        .filter(
+          gameId =>
+            !returnedGameIds.has(
+              gameId
+            )
+        );
+
+
+    if (
+      missingGameIds.length
+    ) {
+      throw new Error(
+        `Missing BallDontLie player stats for ${nbaDate}: ${missingGameIds.join(", ")}`
+      );
+    }
+
+
+    const rows =
+      buildNBAPlayerGameRows(
+        playerStats,
+        dateGames,
+        numericSeason
+      );
+
+
+    if (
+      !rows.length
+    ) {
+      throw new Error(
+        `No NBA player rows generated for ${nbaDate}`
+      );
+    }
+
+
+    playerRowsSaved +=
+      await saveNBAPlayerGameRows(
+        rows
+      );
+
+
+    gamesProcessed +=
+      dateGames.length;
+  }
+
+
+  return {
+
+    selectedDates,
+
+    gamesProcessed,
+
+    playerRowsSaved,
+
+    completed:
+      selectedDates.length === 0,
+
+    lastProcessedDate:
+      selectedDates[
+        selectedDates.length - 1
+      ] || null
+
+  };
+}
 
 // ============================================================
 // SYNC MISSING NBA STATS
@@ -1736,15 +2485,16 @@ async function syncNBAStatsToSupabase(
       );
 
 
-    return {
-      selectedDates: [],
-      gamesProcessed: 0,
-      gamesSaved: 0,
-      remaining: 0,
-      paceRebuilt: true,
-      paceTeams:
-        paceResult.teams
-    };
+   return {
+  selectedDates: [],
+  gamesProcessed: 0,
+  gamesSaved: 0,
+  playerRowsSaved: 0,
+  remaining: 0,
+  paceRebuilt: true,
+  paceTeams:
+    paceResult.teams
+};
   }
 
 
@@ -1803,18 +2553,24 @@ async function syncNBAStatsToSupabase(
       );
 
 
-  let gamesProcessed =
-    0;
+let gamesProcessed =
+  0;
 
-  let gamesSaved =
-    0;
+let gamesSaved =
+  0;
 
-  let unmatched =
-    0;
+let playerRowsSaved =
+  0;
+
+let unmatched =
+  0;
 
 
-  const updateRows =
-    [];
+const updateRows =
+  [];
+
+const playerUpdateRows =
+  [];
 
 
   // ==========================================================
@@ -1943,7 +2699,27 @@ const visitorStats =
         continue;
       }
 
+// ==========================================================
+// PLAYER GAME HISTORY
+// ==========================================================
+// Guardamos solamente jugadores de partidos
+// que ya pasaron las validaciones del boxscore.
+//
+// Reutilizamos gameStats.
+// NO hacemos otra llamada a BallDontLie.
+// ==========================================================
 
+const playerGameRows =
+  buildNBAPlayerGameRows(
+    gameStats,
+    [dbGame],
+    season
+  );
+
+
+playerUpdateRows.push(
+  ...playerGameRows
+);
      const gamePeriod =
   Number(
     gameStats?.[0]
@@ -2050,41 +2826,63 @@ const gamePace =
 
 
   // ==========================================================
-  // UN SOLO UPSERT A SUPABASE
-  // ==========================================================
+// GUARDAR PLAYER GAME HISTORY
+// ==========================================================
+// Primero guardamos los jugadores.
+//
+// Si esto falla, NO marcamos todavía
+// nba_games como stats_complete.
+// Así el maintenance podrá reintentarlo.
+// ==========================================================
+
+if (
+  playerUpdateRows.length
+) {
+  playerRowsSaved =
+    await saveNBAPlayerGameRows(
+      playerUpdateRows
+    );
+}
+
+
+// ==========================================================
+// UN SOLO UPSERT A SUPABASE
+// ==========================================================
+// Solo después de guardar correctamente
+// el historial de jugadores marcamos
+// los juegos como stats_complete.
+// ==========================================================
+
+if (
+  updateRows.length
+) {
+
+  const {
+    error: updateError
+  } =
+    await supabaseAdmin
+      .from("nba_games")
+      .upsert(
+        updateRows,
+        {
+          onConflict:
+            "game_id"
+        }
+      );
+
 
   if (
-    updateRows.length
+    updateError
   ) {
-
-    const {
-      error: updateError
-    } =
-      await supabaseAdmin
-        .from("nba_games")
-        .upsert(
-          updateRows,
-          {
-            onConflict:
-              "game_id"
-          }
-        );
-
-
-    if (
-      updateError
-    ) {
-      throw new Error(
-        `Supabase NBA stats upsert: ${updateError.message}`
-      );
-    }
-
-
-    gamesSaved =
-      updateRows.length;
+    throw new Error(
+      `Supabase NBA stats upsert: ${updateError.message}`
+    );
   }
 
 
+  gamesSaved =
+    updateRows.length;
+}
   // ==========================================================
   // CUÁNTOS FALTAN
   // ==========================================================
@@ -2161,26 +2959,28 @@ const gamePace =
   }
 
 
-  return {
+ return {
 
-    selectedDates,
+  selectedDates,
 
-    gamesProcessed,
+  gamesProcessed,
 
-    gamesSaved,
+  gamesSaved,
 
-    unmatched,
+  playerRowsSaved,
 
-    remaining:
-      Number(
-        remaining || 0
-      ),
+  unmatched,
 
-    paceRebuilt,
+  remaining:
+    Number(
+      remaining || 0
+    ),
 
-    paceTeams
+  paceRebuilt,
 
-  };
+  paceTeams
+
+};
 }
 
 
