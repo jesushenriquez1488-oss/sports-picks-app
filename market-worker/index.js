@@ -4,6 +4,53 @@ const {
   io
 } = require("socket.io-client");
 // ============================================================
+// NBA LIVE WATCHERS
+//
+// OPTIONAL AND NON-FATAL.
+// A failure here must NEVER stop Market Intelligence.
+// ============================================================
+
+let nbaInjuryWatcherModule =
+  null;
+
+try {
+
+  nbaInjuryWatcherModule =
+    require(
+      "./nbaInjuryWatcher"
+    );
+
+} catch (error) {
+
+  console.error(
+    `[nba-injury-watch] module unavailable: ${error?.message || error}`
+  );
+
+  nbaInjuryWatcherModule =
+    null;
+}
+
+
+let nbaMarketSignalWatcherModule =
+  null;
+
+try {
+
+  nbaMarketSignalWatcherModule =
+    require(
+      "./nbaMarketSignalWatcher"
+    );
+
+} catch (error) {
+
+  console.error(
+    `[nba-market-watch] module unavailable: ${error?.message || error}`
+  );
+
+  nbaMarketSignalWatcherModule =
+    null;
+}
+// ============================================================
 // LEARNING INTELLIGENCE
 // Optional and non-fatal.
 // A Learning failure must NEVER stop Market Intelligence.
@@ -711,7 +758,15 @@ const OWLS_API_KEY =
 
 const MARKET_INGEST_SECRET =
   process.env.MARKET_INGEST_SECRET;
-
+/*
+ * OPTIONAL.
+ *
+ * Missing BDL key must NEVER stop the worker.
+ * ESPN can still work independently.
+ */
+const BALLDONTLIE_API_KEY =
+  process.env.BALLDONTLIE_API_KEY ||
+  "";
 
 const TRACKED_GAMES_URL =
   `${CASHEDGE_ORIGIN}/api/market-intelligence/tracked-games`;
@@ -878,7 +933,11 @@ let queuedUpdate =
 
 let firstIngestSummaryLogged =
   false;
+let nbaInjuryWatcher =
+  null;
 
+let nbaMarketSignalWatcher =
+  null;
 
 /*
  * Prevent repeated POSTs when Owls sends the
@@ -1278,7 +1337,239 @@ function resolveLearningMarketGame({
     commenceTime
   });
 }
+// ============================================================
+// NBA LIVE WATCHERS — SAFE INITIALIZATION
+//
+// Absolutely isolated from Market Intelligence.
+// ============================================================
 
+function initializeNBAWatchersSafe() {
+
+  try {
+
+    const createInjuryWatcher =
+      nbaInjuryWatcherModule
+        ?.createNBAInjuryWatcher;
+
+
+    const createMarketWatcher =
+      nbaMarketSignalWatcherModule
+        ?.createNBAMarketSignalWatcher;
+
+
+    if (
+      typeof createInjuryWatcher !==
+        "function" ||
+      typeof createMarketWatcher !==
+        "function"
+    ) {
+
+      console.log(
+        `[${WORKER_NAME}] NBA live watchers disabled`
+      );
+
+      return;
+    }
+
+
+    nbaInjuryWatcher =
+      createInjuryWatcher({
+
+        balldontlieApiKey:
+          BALLDONTLIE_API_KEY,
+
+        getGameStartMs:
+          game =>
+            parseCashEdgeGameTime(
+              game?.game_time
+            ),
+
+        onChange:
+          event => {
+
+            /*
+             * IMPORTANT:
+             *
+             * For now we ONLY prove detection.
+             *
+             * No Vercel reanalysis yet.
+             * No Market Intelligence mutation.
+             */
+            console.log(
+              `[${WORKER_NAME}] NBA STRUCTURAL INJURY CHANGE: ${event.gameId} | ${event.changedProviders.join(", ")}`
+            );
+          }
+      });
+
+
+    nbaMarketSignalWatcher =
+      createMarketWatcher({
+
+        allowedBooks:
+          BOOKS,
+
+        /*
+         * Reuse CashEdge's EXISTING exact game matcher.
+         *
+         * No duplicate team matching.
+         * No guessed game IDs.
+         */
+        resolveGame:
+          ({
+            event
+          }) =>
+            resolveLearningMarketGame({
+              sport:
+                "nba",
+
+              event
+            }),
+
+        /*
+         * First market state for every tracked NBA game
+         * creates an injury baseline independently.
+         */
+        onBaseline:
+          ({
+            game
+          }) => {
+
+            if (
+              !nbaInjuryWatcher ||
+              typeof nbaInjuryWatcher
+                .ensureBaseline !==
+                "function"
+            ) {
+              return;
+            }
+
+
+            return nbaInjuryWatcher
+              .ensureBaseline(
+                game
+              );
+          },
+
+        /*
+         * ANY real spread / total / price change
+         * starts or extends the injury verification window.
+         */
+        onSignal:
+          ({
+            game
+          }) => {
+
+            if (
+              !nbaInjuryWatcher ||
+              typeof nbaInjuryWatcher
+                .trigger !==
+                "function"
+            ) {
+              return;
+            }
+
+
+            nbaInjuryWatcher
+              .trigger(
+                game
+              );
+          }
+      });
+
+
+    console.log(
+      `[${WORKER_NAME}] NBA live watchers ready`
+    );
+
+  } catch (
+    error
+  ) {
+
+    /*
+     * CRITICAL:
+     * initialization failure is NON-FATAL.
+     */
+    console.error(
+      `[${WORKER_NAME}] NBA live watchers unavailable: ${error?.message || error}`
+    );
+
+
+    nbaInjuryWatcher =
+      null;
+
+    nbaMarketSignalWatcher =
+      null;
+  }
+}
+
+
+// ============================================================
+// NBA MARKET WATCH — SAFE DISPATCH
+//
+// Market Intelligence NEVER awaits this.
+// ============================================================
+
+function queueNBAMarketSignalWatchSafe(
+  data
+) {
+
+  try {
+
+    if (
+      !nbaMarketSignalWatcher ||
+      typeof nbaMarketSignalWatcher
+        .processBoard !==
+        "function"
+    ) {
+      return;
+    }
+
+
+    setImmediate(
+      () => {
+
+        try {
+
+          Promise
+            .resolve(
+              nbaMarketSignalWatcher
+                .processBoard(
+                  data
+                )
+            )
+            .catch(
+              error => {
+
+                console.error(
+                  `[nba-market-watch] dispatch failed: ${error?.message || error}`
+                );
+              }
+            );
+
+        } catch (
+          error
+        ) {
+
+          console.error(
+            `[nba-market-watch] dispatch failed: ${error?.message || error}`
+          );
+        }
+      }
+    );
+
+  } catch (
+    error
+  ) {
+
+    /*
+     * Nothing from this feature is allowed
+     * to escape into production.
+     */
+    console.error(
+      `[nba-market-watch] queue failed: ${error?.message || error}`
+    );
+  }
+}
 
 // ============================================================
 // LEARNING — FULL MARKET BOARD
@@ -1483,7 +1774,38 @@ async function refreshOwlsCurrentBoard() {
             )
         )
     );
+  // ==========================================================
+  // NBA LIVE WATCHER SPORTS
+  //
+  // If the isolated NBA market watcher is available and
+  // CashEdge has at least one tracked NBA game, keep ONE
+  // NBA REST board refresh active.
+  //
+  // IMPORTANT:
+  // - does NOT make non-Premium games enter Market Intelligence
+  // - does NOT change quote ingestion
+  // - does NOT change Premium logic
+  // - only gives the side-car a reliable baseline
+  // ==========================================================
 
+  const nbaWatcherSports =
+    new Set(
+      nbaMarketSignalWatcher &&
+      typeof nbaMarketSignalWatcher
+        .processBoard ===
+        "function" &&
+      trackedGames.some(
+        game =>
+          String(
+            game?.sport || ""
+          )
+            .trim()
+            .toLowerCase() ===
+          "nba"
+      )
+        ? ["nba"]
+        : []
+    );
 
   // ==========================================================
   // LEARNING BASELINE SPORTS
@@ -1577,13 +1899,13 @@ async function refreshOwlsCurrentBoard() {
   // ==========================================================
 
   const activeSports =
-    Array.from(
-      new Set([
-        ...productionSports,
-        ...learningDueSports
-      ])
-    );
-
+  Array.from(
+    new Set([
+      ...productionSports,
+      ...learningDueSports,
+      ...nbaWatcherSports
+    ])
+  );
 
   if (
     !activeSports.length
@@ -1814,6 +2136,15 @@ async function refreshOwlsCurrentBoard() {
   queueLearningMarketBoardSafe(
     payload
   );
+    /*
+ * NBA side-car LAST.
+ *
+ * Production and Learning already received
+ * the board first.
+ */
+queueNBAMarketSignalWatchSafe(
+  payload
+);
 
   } finally {
 
@@ -4112,6 +4443,15 @@ if (
     queueLearningMarketBoardSafe(
       data
     );
+    /*
+ * NBA side-car LAST.
+ *
+ * Never awaited.
+ * Never blocks Owls.
+ */
+queueNBAMarketSignalWatchSafe(
+  data
+);
   }
 );
 
@@ -4262,10 +4602,17 @@ async function start() {
   );
 
 
-  console.log(
-    `[${WORKER_NAME}] CashEdge origin: ${CASHEDGE_ORIGIN}`
-  );
-  void initializeLearningSafe();
+ console.log(
+  `[${WORKER_NAME}] CashEdge origin: ${CASHEDGE_ORIGIN}`
+);
+
+void initializeLearningSafe();
+
+/*
+ * No network calls here.
+ * Only creates the isolated watcher objects.
+ */
+initializeNBAWatchersSafe();
 
   /*
    * Load the current tracked board first.
@@ -4502,6 +4849,30 @@ if (
 
   clearInterval(
     learningResultsTimer
+  );
+}
+  try {
+
+  nbaMarketSignalWatcher
+    ?.shutdown?.();
+
+} catch (error) {
+
+  console.error(
+    `[nba-market-watch] shutdown skipped: ${error?.message || error}`
+  );
+}
+
+
+try {
+
+  nbaInjuryWatcher
+    ?.shutdown?.();
+
+} catch (error) {
+
+  console.error(
+    `[nba-injury-watch] shutdown skipped: ${error?.message || error}`
   );
 }
   process.exit(0);
