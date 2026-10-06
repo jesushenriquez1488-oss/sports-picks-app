@@ -563,6 +563,80 @@ if (
     });
 }
       // ======================================================
+// REBUILD NBA PLAYER ABSENCE IMPACT
+// ======================================================
+//
+// Solo uso interno.
+//
+// Usa únicamente históricos ya guardados en Supabase:
+// - nba_games
+// - nba_player_game_stats
+//
+// NO llama BallDontLie.
+// NO cambia proyecciones ni picks.
+// ======================================================
+
+if (
+  type === "rebuild-absence-impact"
+) {
+
+  if (
+    !isInternal
+  ) {
+    return res
+      .status(401)
+      .json({
+        error:
+          "Unauthorized rebuild"
+      });
+  }
+
+
+  const requestedSeason =
+    season !== undefined &&
+    season !== null &&
+    season !== ""
+      ? Number(season)
+      : PREVIOUS_SEASON;
+
+
+  if (
+    !isValidSeason(
+      requestedSeason
+    )
+  ) {
+    return res
+      .status(400)
+      .json({
+        error:
+          "Temporada NBA inválida"
+      });
+  }
+
+
+  const result =
+    await rebuildNBAPlayerAbsenceImpact(
+      requestedSeason
+    );
+
+
+  return res
+    .status(200)
+    .json({
+
+      ok: true,
+
+      mode:
+        "rebuild-absence-impact",
+
+      season:
+        requestedSeason,
+
+      ...result
+
+    });
+}
+      // ======================================================
       // NORMAL AUTH
       // ======================================================
 
@@ -2983,7 +3057,2065 @@ if (
 };
 }
 
+// ============================================================
+// NBA PLAYER ABSENCE IMPACT
+// ============================================================
+//
+// Una fila por:
+// season + team_id + player_id
+//
+// Todos los jugadores aparecen como target.
+//
+// Ausencia:
+// si NO existe fila en nba_player_game_stats
+// para ese jugador en ese partido.
+//
+// Solo contamos juegos entre first_seen y last_seen
+// para no convertir partidos fuera de su etapa
+// con el equipo en falsas ausencias.
+// ============================================================
 
+async function getAllNBAAbsenceGames(
+  season
+) {
+
+  const allGames =
+    [];
+
+
+  const PAGE_SIZE =
+    1000;
+
+
+  let from =
+    0;
+
+
+  while (
+    true
+  ) {
+
+    const {
+      data,
+      error
+    } =
+      await supabaseAdmin
+        .from("nba_games")
+        .select(
+          `
+            game_id,
+            season,
+            game_date,
+            home_team_id,
+            visitor_team_id,
+            home_score,
+            visitor_score,
+            game_pace,
+            postseason,
+            ist_stage
+          `
+        )
+        .eq(
+          "season",
+          Number(season)
+        )
+        .eq(
+          "stats_complete",
+          true
+        )
+        .eq(
+          "postseason",
+          false
+        )
+        .or(
+          "ist_stage.is.null,ist_stage.neq.Championship"
+        )
+        .not(
+          "game_pace",
+          "is",
+          null
+        )
+        .order(
+          "game_date",
+          {
+            ascending: true
+          }
+        )
+        .range(
+          from,
+          from +
+          PAGE_SIZE -
+          1
+        );
+
+
+    if (
+      error
+    ) {
+      throw new Error(
+        `Supabase NBA absence games: ${error.message}`
+      );
+    }
+
+
+    const rows =
+      data || [];
+
+
+    allGames.push(
+      ...rows
+    );
+
+
+    if (
+      rows.length <
+      PAGE_SIZE
+    ) {
+      break;
+    }
+
+
+    from +=
+      PAGE_SIZE;
+  }
+
+
+  return allGames;
+}
+
+
+// ============================================================
+// READ ALL PLAYER HISTORY
+// ============================================================
+
+async function getAllNBAPlayerHistoryRows(
+  season
+) {
+
+  const allRows =
+    [];
+
+
+  const PAGE_SIZE =
+    1000;
+
+
+  let from =
+    0;
+
+
+  while (
+    true
+  ) {
+
+    const {
+      data,
+      error
+    } =
+      await supabaseAdmin
+        .from(
+          "nba_player_game_stats"
+        )
+        .select(
+          `
+            game_id,
+            season,
+            game_date,
+            team_id,
+            player_id,
+            player_name,
+            minutes,
+            points,
+            rebounds,
+            assists
+          `
+        )
+        .eq(
+          "season",
+          Number(season)
+        )
+        .order(
+          "game_date",
+          {
+            ascending: true
+          }
+        )
+        .range(
+          from,
+          from +
+          PAGE_SIZE -
+          1
+        );
+
+
+    if (
+      error
+    ) {
+      throw new Error(
+        `Supabase NBA player history read: ${error.message}`
+      );
+    }
+
+
+    const rows =
+      data || [];
+
+
+    allRows.push(
+      ...rows
+    );
+
+
+    if (
+      rows.length <
+      PAGE_SIZE
+    ) {
+      break;
+    }
+
+
+    from +=
+      PAGE_SIZE;
+  }
+
+
+  return allRows;
+}
+
+
+// ============================================================
+// SAFE ROUND
+// ============================================================
+
+function nbaRoundOrNull(
+  value,
+  digits = 3
+) {
+
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
+
+  const numeric =
+    Number(value);
+
+
+  if (
+    !Number.isFinite(
+      numeric
+    )
+  ) {
+    return null;
+  }
+
+
+  return Number(
+    numeric.toFixed(
+      digits
+    )
+  );
+}
+
+
+// ============================================================
+// NBA DATE DIFFERENCE
+// ============================================================
+
+function nbaDateDifference(
+  currentDate,
+  previousDate
+) {
+
+  if (
+    !currentDate ||
+    !previousDate
+  ) {
+    return null;
+  }
+
+
+  const current =
+    Date.parse(
+      `${currentDate}T00:00:00Z`
+    );
+
+  const previous =
+    Date.parse(
+      `${previousDate}T00:00:00Z`
+    );
+
+
+  if (
+    !Number.isFinite(current) ||
+    !Number.isFinite(previous)
+  ) {
+    return null;
+  }
+
+
+  return Math.round(
+    (
+      current -
+      previous
+    ) /
+    86400000
+  );
+}
+
+
+// ============================================================
+// AVERAGE FIELD
+// ============================================================
+
+function nbaAverageField(
+  rows,
+  field
+) {
+
+  const values =
+    (rows || [])
+      .map(
+        row =>
+          row?.[field]
+      )
+      .filter(
+        value =>
+          value !== null &&
+          value !== undefined &&
+          value !== "" &&
+          Number.isFinite(
+            Number(value)
+          )
+      )
+      .map(Number);
+
+
+  if (
+    !values.length
+  ) {
+    return null;
+  }
+
+
+  return nbaAverage(
+    values
+  );
+}
+
+
+// ============================================================
+// SAMPLE LABEL
+// ============================================================
+//
+// Esto NO modifica el impacto.
+//
+// Solo nos dice cuánto histórico tenemos.
+// ============================================================
+
+function nbaReliabilityLabel(
+  gamesWithout,
+  matchedWeight
+) {
+
+  const absences =
+    Number(
+      gamesWithout || 0
+    );
+
+  const weight =
+    Number(
+      matchedWeight || 0
+    );
+
+
+  if (
+    absences >= 15 &&
+    weight >= 10
+  ) {
+    return "HIGH";
+  }
+
+
+  if (
+    absences >= 8 &&
+    weight >= 6
+  ) {
+    return "MEDIUM";
+  }
+
+
+  if (
+    absences >= 5
+  ) {
+    return "LOW";
+  }
+
+
+  return "VERY LOW";
+}
+
+
+// ============================================================
+// REBUILD PLAYER ABSENCE IMPACT
+// ============================================================
+
+async function rebuildNBAPlayerAbsenceImpact(
+  season
+) {
+
+  const numericSeason =
+    Number(season);
+
+
+  const [
+    games,
+    playerRows
+  ] =
+    await Promise.all([
+
+      getAllNBAAbsenceGames(
+        numericSeason
+      ),
+
+      getAllNBAPlayerHistoryRows(
+        numericSeason
+      )
+
+    ]);
+
+
+  if (
+    !games.length ||
+    !playerRows.length
+  ) {
+    return {
+
+      games:
+        games.length,
+
+      playerHistoryRows:
+        playerRows.length,
+
+      players:
+        0,
+
+      rowsSaved:
+        0
+
+    };
+  }
+
+
+  // ==========================================================
+  // HOME ADVANTAGE REAL DE LA TEMPORADA
+  // ==========================================================
+
+  const homeEdge =
+    nbaAverage(
+      games.map(
+        game =>
+          Number(
+            game.home_score
+          ) -
+          Number(
+            game.visitor_score
+          )
+      )
+    ) || 0;
+
+
+  // ==========================================================
+  // CONTEXTO PRE-GAME
+  // ==========================================================
+  //
+  // Lo hacemos cronológicamente.
+  //
+  // El partido actual nunca entra dentro
+  // de su propio promedio pre-game.
+  // ==========================================================
+
+  const teamState =
+    new Map();
+
+
+  const teamGames =
+    [];
+
+
+  function getTeamState(
+    teamId
+  ) {
+
+    const id =
+      Number(teamId);
+
+
+    if (
+      !teamState.has(id)
+    ) {
+
+      teamState.set(
+        id,
+        {
+
+          ortgValues:
+            [],
+
+          drtgValues:
+            [],
+
+          previousNbaDate:
+            null
+
+        }
+      );
+    }
+
+
+    return teamState.get(id);
+  }
+
+
+  for (
+    const game
+    of games
+  ) {
+
+    const pace =
+      Number(
+        game.game_pace
+      );
+
+
+    const homeScore =
+      Number(
+        game.home_score
+      );
+
+
+    const visitorScore =
+      Number(
+        game.visitor_score
+      );
+
+
+    if (
+      !Number.isFinite(pace) ||
+      pace <= 0 ||
+      !Number.isFinite(homeScore) ||
+      !Number.isFinite(visitorScore)
+    ) {
+      continue;
+    }
+
+
+    const nbaDate =
+      getNBACalendarDate(
+        game.game_date
+      );
+
+
+    if (
+      !nbaDate
+    ) {
+      continue;
+    }
+
+
+    const homeTeamId =
+      Number(
+        game.home_team_id
+      );
+
+
+    const visitorTeamId =
+      Number(
+        game.visitor_team_id
+      );
+
+
+    const homeState =
+      getTeamState(
+        homeTeamId
+      );
+
+
+    const visitorState =
+      getTeamState(
+        visitorTeamId
+      );
+
+
+    const homePreOrtg =
+      nbaAverage(
+        homeState.ortgValues
+      );
+
+
+    const homePreDrtg =
+      nbaAverage(
+        homeState.drtgValues
+      );
+
+
+    const visitorPreOrtg =
+      nbaAverage(
+        visitorState.ortgValues
+      );
+
+
+    const visitorPreDrtg =
+      nbaAverage(
+        visitorState.drtgValues
+      );
+
+
+    // ========================================================
+    // REAL ORTG / DRTG DEL PARTIDO
+    // ========================================================
+
+    const homeOrtg =
+      100 *
+      homeScore /
+      pace;
+
+
+    const homeDrtg =
+      100 *
+      visitorScore /
+      pace;
+
+
+    const visitorOrtg =
+      100 *
+      visitorScore /
+      pace;
+
+
+    const visitorDrtg =
+      100 *
+      homeScore /
+      pace;
+
+
+    // ========================================================
+    // REST
+    // ========================================================
+
+    const homeRestDays =
+      nbaDateDifference(
+        nbaDate,
+        homeState.previousNbaDate
+      );
+
+
+    const visitorRestDays =
+      nbaDateDifference(
+        nbaDate,
+        visitorState.previousNbaDate
+      );
+
+
+    let homeRestMargin =
+      0;
+
+
+    if (
+      homeRestDays === 1 &&
+      visitorRestDays === 2
+    ) {
+
+      homeRestMargin =
+        -2;
+
+    } else if (
+      homeRestDays === 1 &&
+      visitorRestDays !== null &&
+      visitorRestDays >= 3
+    ) {
+
+      homeRestMargin =
+        -3;
+
+    } else if (
+      visitorRestDays === 1 &&
+      homeRestDays === 2
+    ) {
+
+      homeRestMargin =
+        2;
+
+    } else if (
+      visitorRestDays === 1 &&
+      homeRestDays !== null &&
+      homeRestDays >= 3
+    ) {
+
+      homeRestMargin =
+        3;
+    }
+
+
+    const visitorRestMargin =
+      -homeRestMargin;
+
+
+    // ========================================================
+    // NECESITAMOS 5 JUEGOS PREVIOS
+    // PARA EL RESULTADO CONTROLADO
+    // ========================================================
+
+    const matureContext =
+      homeState.ortgValues.length >= 5 &&
+      visitorState.ortgValues.length >= 5 &&
+      Number.isFinite(homePreOrtg) &&
+      Number.isFinite(homePreDrtg) &&
+      Number.isFinite(visitorPreOrtg) &&
+      Number.isFinite(visitorPreDrtg);
+
+
+    // ========================================================
+    // EXPECTED OFFENSE / DEFENSE
+    // ========================================================
+
+    const homeExpectedFor =
+      matureContext
+        ? (
+            (
+              homePreOrtg +
+              visitorPreDrtg
+            ) /
+            2
+          ) *
+          pace /
+          100
+        : null;
+
+
+    const homeExpectedAgainst =
+      matureContext
+        ? (
+            (
+              visitorPreOrtg +
+              homePreDrtg
+            ) /
+            2
+          ) *
+          pace /
+          100
+        : null;
+
+
+    const visitorExpectedFor =
+      matureContext
+        ? homeExpectedAgainst
+        : null;
+
+
+    const visitorExpectedAgainst =
+      matureContext
+        ? homeExpectedFor
+        : null;
+
+
+    // ========================================================
+    // HOME TEAM ROW
+    // ========================================================
+
+    teamGames.push({
+
+      gameId:
+        Number(
+          game.game_id
+        ),
+
+      gameDate:
+        game.game_date,
+
+      nbaDate,
+
+      teamId:
+        homeTeamId,
+
+      opponentId:
+        visitorTeamId,
+
+      isHome:
+        true,
+
+      pointsFor:
+        homeScore,
+
+      pointsAgainst:
+        visitorScore,
+
+      pace,
+
+      ortg:
+        homeOrtg,
+
+      drtg:
+        homeDrtg,
+
+      opponentStrength:
+        matureContext
+          ? visitorPreOrtg -
+            visitorPreDrtg
+          : null,
+
+      offenseResidual:
+        matureContext
+          ? homeScore -
+            homeExpectedFor
+          : null,
+
+      defenseResidual:
+        matureContext
+          ? visitorScore -
+            homeExpectedAgainst
+          : null,
+
+      marginResidual:
+        matureContext
+          ? (
+              homeScore -
+              visitorScore
+            ) -
+            (
+              homeExpectedFor -
+              homeExpectedAgainst +
+              homeEdge +
+              homeRestMargin
+            )
+          : null,
+
+      contextReady:
+        matureContext
+
+    });
+
+
+    // ========================================================
+    // VISITOR TEAM ROW
+    // ========================================================
+
+    teamGames.push({
+
+      gameId:
+        Number(
+          game.game_id
+        ),
+
+      gameDate:
+        game.game_date,
+
+      nbaDate,
+
+      teamId:
+        visitorTeamId,
+
+      opponentId:
+        homeTeamId,
+
+      isHome:
+        false,
+
+      pointsFor:
+        visitorScore,
+
+      pointsAgainst:
+        homeScore,
+
+      pace,
+
+      ortg:
+        visitorOrtg,
+
+      drtg:
+        visitorDrtg,
+
+      opponentStrength:
+        matureContext
+          ? homePreOrtg -
+            homePreDrtg
+          : null,
+
+      offenseResidual:
+        matureContext
+          ? visitorScore -
+            visitorExpectedFor
+          : null,
+
+      defenseResidual:
+        matureContext
+          ? homeScore -
+            visitorExpectedAgainst
+          : null,
+
+      marginResidual:
+        matureContext
+          ? (
+              visitorScore -
+              homeScore
+            ) -
+            (
+              visitorExpectedFor -
+              visitorExpectedAgainst -
+              homeEdge +
+              visitorRestMargin
+            )
+          : null,
+
+      contextReady:
+        matureContext
+
+    });
+
+
+    // ========================================================
+    // ACTUALIZAR HISTÓRICO DESPUÉS DEL JUEGO
+    // ========================================================
+
+    homeState
+      .ortgValues
+      .push(
+        homeOrtg
+      );
+
+
+    homeState
+      .drtgValues
+      .push(
+        homeDrtg
+      );
+
+
+    homeState.previousNbaDate =
+      nbaDate;
+
+
+    visitorState
+      .ortgValues
+      .push(
+        visitorOrtg
+      );
+
+
+    visitorState
+      .drtgValues
+      .push(
+        visitorDrtg
+      );
+
+
+    visitorState.previousNbaDate =
+      nbaDate;
+  }
+
+
+  // ==========================================================
+  // PLAYER PROFILES + PARTICIPATION
+  // ==========================================================
+
+  const profiles =
+    new Map();
+
+
+  const participation =
+    new Set();
+
+
+  for (
+    const row
+    of playerRows
+  ) {
+
+    const teamId =
+      Number(
+        row.team_id
+      );
+
+
+    const playerId =
+      Number(
+        row.player_id
+      );
+
+
+    const gameId =
+      Number(
+        row.game_id
+      );
+
+
+    if (
+      !Number.isFinite(teamId) ||
+      !Number.isFinite(playerId) ||
+      !Number.isFinite(gameId)
+    ) {
+      continue;
+    }
+
+
+    participation.add(
+      `${gameId}:${teamId}:${playerId}`
+    );
+
+
+    const key =
+      `${teamId}:${playerId}`;
+
+
+    if (
+      !profiles.has(key)
+    ) {
+
+      profiles.set(
+        key,
+        {
+
+          teamId,
+
+          playerId,
+
+          playerName:
+            String(
+              row.player_name ||
+              ""
+            ),
+
+          firstSeen:
+            row.game_date,
+
+          lastSeen:
+            row.game_date,
+
+          minutes:
+            [],
+
+          points:
+            [],
+
+          rebounds:
+            [],
+
+          assists:
+            []
+
+        }
+      );
+    }
+
+
+    const profile =
+      profiles.get(key);
+
+
+    if (
+      new Date(row.game_date) <
+      new Date(profile.firstSeen)
+    ) {
+
+      profile.firstSeen =
+        row.game_date;
+    }
+
+
+    if (
+      new Date(row.game_date) >
+      new Date(profile.lastSeen)
+    ) {
+
+      profile.lastSeen =
+        row.game_date;
+    }
+
+
+    profile.minutes.push(
+      Number(
+        row.minutes || 0
+      )
+    );
+
+
+    profile.points.push(
+      Number(
+        row.points || 0
+      )
+    );
+
+
+    profile.rebounds.push(
+      Number(
+        row.rebounds || 0
+      )
+    );
+
+
+    profile.assists.push(
+      Number(
+        row.assists || 0
+      )
+    );
+  }
+
+
+  // ==========================================================
+  // COMPAÑEROS IMPORTANTES
+  // ==========================================================
+  //
+  // IMPORTANTE:
+  //
+  // TODOS los jugadores entran en la tabla final.
+  //
+  // Este filtro SOLO sirve para medir
+  // otras ausencias importantes simultáneas.
+  // ==========================================================
+
+  const importantByTeam =
+    new Map();
+
+
+  for (
+    const profile
+    of profiles.values()
+  ) {
+
+    const gamesPlayed =
+      profile.minutes.length;
+
+
+    const avgMinutes =
+      nbaAverage(
+        profile.minutes
+      ) || 0;
+
+
+    const avgPoints =
+      nbaAverage(
+        profile.points
+      ) || 0;
+
+
+    const avgRebounds =
+      nbaAverage(
+        profile.rebounds
+      ) || 0;
+
+
+    const avgAssists =
+      nbaAverage(
+        profile.assists
+      ) || 0;
+
+
+    profile.gamesPlayed =
+      gamesPlayed;
+
+
+    profile.avgMinutes =
+      avgMinutes;
+
+
+    profile.avgPoints =
+      avgPoints;
+
+
+    profile.avgRebounds =
+      avgRebounds;
+
+
+    profile.avgAssists =
+      avgAssists;
+
+
+    const important =
+      gamesPlayed >= 20 &&
+      avgMinutes >= 25 &&
+      (
+        avgPoints >= 12 ||
+        avgAssists >= 5 ||
+        avgRebounds >= 7
+      );
+
+
+    if (
+      important
+    ) {
+
+      if (
+        !importantByTeam.has(
+          profile.teamId
+        )
+      ) {
+
+        importantByTeam.set(
+          profile.teamId,
+          []
+        );
+      }
+
+
+      importantByTeam
+        .get(
+          profile.teamId
+        )
+        .push(
+          profile
+        );
+    }
+  }
+
+
+  // ==========================================================
+  // TEAM GAMES MAP
+  // ==========================================================
+
+  const gamesByTeam =
+    new Map();
+
+
+  for (
+    const game
+    of teamGames
+  ) {
+
+    if (
+      !gamesByTeam.has(
+        game.teamId
+      )
+    ) {
+
+      gamesByTeam.set(
+        game.teamId,
+        []
+      );
+    }
+
+
+    gamesByTeam
+      .get(
+        game.teamId
+      )
+      .push(
+        game
+      );
+  }
+
+
+  const outputRows =
+    [];
+
+
+  // ==========================================================
+  // CALCULAR PERFIL DE AUSENCIA DE CADA JUGADOR
+  // ==========================================================
+
+  for (
+    const profile
+    of profiles.values()
+  ) {
+
+    const firstTime =
+      new Date(
+        profile.firstSeen
+      ).getTime();
+
+
+    const lastTime =
+      new Date(
+        profile.lastSeen
+      ).getTime();
+
+
+    const relevantGames =
+      (
+        gamesByTeam.get(
+          profile.teamId
+        ) || []
+      )
+        .filter(
+          game => {
+
+            const gameTime =
+              new Date(
+                game.gameDate
+              ).getTime();
+
+
+            return (
+              gameTime >= firstTime &&
+              gameTime <= lastTime
+            );
+          }
+        )
+        .map(
+          game => {
+
+            const played =
+              participation.has(
+                `${game.gameId}:${profile.teamId}:${profile.playerId}`
+              );
+
+
+            const importantTeammates =
+              importantByTeam.get(
+                profile.teamId
+              ) || [];
+
+
+            let otherImportantAbsent =
+              0;
+
+
+            const gameTime =
+              new Date(
+                game.gameDate
+              ).getTime();
+
+
+            for (
+              const teammate
+              of importantTeammates
+            ) {
+
+              if (
+                teammate.playerId ===
+                profile.playerId
+              ) {
+                continue;
+              }
+
+
+              const teammateFirst =
+                new Date(
+                  teammate.firstSeen
+                ).getTime();
+
+
+              const teammateLast =
+                new Date(
+                  teammate.lastSeen
+                ).getTime();
+
+
+              if (
+                gameTime <
+                  teammateFirst ||
+                gameTime >
+                  teammateLast
+              ) {
+                continue;
+              }
+
+
+              const teammatePlayed =
+                participation.has(
+                  `${game.gameId}:${profile.teamId}:${teammate.playerId}`
+                );
+
+
+              if (
+                !teammatePlayed
+              ) {
+
+                otherImportantAbsent++;
+              }
+            }
+
+
+            return {
+
+              ...game,
+
+              played,
+
+              otherImportantAbsent,
+
+              totalPoints:
+                game.pointsFor +
+                game.pointsAgainst,
+
+              margin:
+                game.pointsFor -
+                game.pointsAgainst
+
+            };
+          }
+        );
+
+
+    const withPlayer =
+      relevantGames.filter(
+        game =>
+          game.played
+      );
+
+
+    const withoutPlayer =
+      relevantGames.filter(
+        game =>
+          !game.played
+      );
+
+
+    // ========================================================
+    // RAW CON / SIN
+    // ========================================================
+
+    const paceWith =
+      nbaAverageField(
+        withPlayer,
+        "pace"
+      );
+
+
+    const paceWithout =
+      nbaAverageField(
+        withoutPlayer,
+        "pace"
+      );
+
+
+    const ortgWith =
+      nbaAverageField(
+        withPlayer,
+        "ortg"
+      );
+
+
+    const ortgWithout =
+      nbaAverageField(
+        withoutPlayer,
+        "ortg"
+      );
+
+
+    const drtgWith =
+      nbaAverageField(
+        withPlayer,
+        "drtg"
+      );
+
+
+    const drtgWithout =
+      nbaAverageField(
+        withoutPlayer,
+        "drtg"
+      );
+
+
+    const teamPointsWith =
+      nbaAverageField(
+        withPlayer,
+        "pointsFor"
+      );
+
+
+    const teamPointsWithout =
+      nbaAverageField(
+        withoutPlayer,
+        "pointsFor"
+      );
+
+
+    const opponentPointsWith =
+      nbaAverageField(
+        withPlayer,
+        "pointsAgainst"
+      );
+
+
+    const opponentPointsWithout =
+      nbaAverageField(
+        withoutPlayer,
+        "pointsAgainst"
+      );
+
+
+    const totalWith =
+      nbaAverageField(
+        withPlayer,
+        "totalPoints"
+      );
+
+
+    const totalWithout =
+      nbaAverageField(
+        withoutPlayer,
+        "totalPoints"
+      );
+
+
+    const marginWith =
+      nbaAverageField(
+        withPlayer,
+        "margin"
+      );
+
+
+    const marginWithout =
+      nbaAverageField(
+        withoutPlayer,
+        "margin"
+      );
+
+
+    const opponentStrengthWith =
+      nbaAverageField(
+        withPlayer,
+        "opponentStrength"
+      );
+
+
+    const opponentStrengthWithout =
+      nbaAverageField(
+        withoutPlayer,
+        "opponentStrength"
+      );
+
+
+    const homePctWith =
+      withPlayer.length
+        ? 100 *
+          withPlayer.filter(
+            game =>
+              game.isHome
+          ).length /
+          withPlayer.length
+        : null;
+
+
+    const homePctWithout =
+      withoutPlayer.length
+        ? 100 *
+          withoutPlayer.filter(
+            game =>
+              game.isHome
+          ).length /
+          withoutPlayer.length
+        : null;
+
+
+    const otherAbsentWith =
+      nbaAverageField(
+        withPlayer,
+        "otherImportantAbsent"
+      );
+
+
+    const otherAbsentWithout =
+      nbaAverageField(
+        withoutPlayer,
+        "otherImportantAbsent"
+      );
+
+
+    // ========================================================
+    // CONTROL POR CO-AUSENCIAS
+    // ========================================================
+    //
+    // 0
+    // 1
+    // 2+
+    //
+    // Solo comparamos un bucket si existen:
+    // >=2 juegos CON jugador
+    // >=2 juegos SIN jugador
+    // ========================================================
+
+    const buckets =
+      new Map([
+        ["0", []],
+        ["1", []],
+        ["2+", []]
+      ]);
+
+
+    for (
+      const game
+      of relevantGames
+    ) {
+
+      if (
+        !game.contextReady
+      ) {
+        continue;
+      }
+
+
+      const bucket =
+        game.otherImportantAbsent === 0
+          ? "0"
+          : game.otherImportantAbsent === 1
+            ? "1"
+            : "2+";
+
+
+      buckets
+        .get(bucket)
+        .push(
+          game
+        );
+    }
+
+
+    let matchedWeight =
+      0;
+
+
+    let offenseWeighted =
+      0;
+
+
+    let defenseWeighted =
+      0;
+
+
+    let marginWeighted =
+      0;
+
+
+    for (
+      const bucketRows
+      of buckets.values()
+    ) {
+
+      const bucketWith =
+        bucketRows.filter(
+          game =>
+            game.played
+        );
+
+
+      const bucketWithout =
+        bucketRows.filter(
+          game =>
+            !game.played
+        );
+
+
+      if (
+        bucketWith.length < 2 ||
+        bucketWithout.length < 2
+      ) {
+        continue;
+      }
+
+
+      const weight =
+        Math.min(
+          bucketWith.length,
+          bucketWithout.length
+        );
+
+
+      const offenseChange =
+        nbaAverageField(
+          bucketWithout,
+          "offenseResidual"
+        ) -
+        nbaAverageField(
+          bucketWith,
+          "offenseResidual"
+        );
+
+
+      const defenseChange =
+        nbaAverageField(
+          bucketWithout,
+          "defenseResidual"
+        ) -
+        nbaAverageField(
+          bucketWith,
+          "defenseResidual"
+        );
+
+
+      const marginChange =
+        nbaAverageField(
+          bucketWithout,
+          "marginResidual"
+        ) -
+        nbaAverageField(
+          bucketWith,
+          "marginResidual"
+        );
+
+
+      if (
+        !Number.isFinite(
+          offenseChange
+        ) ||
+        !Number.isFinite(
+          defenseChange
+        ) ||
+        !Number.isFinite(
+          marginChange
+        )
+      ) {
+        continue;
+      }
+
+
+      matchedWeight +=
+        weight;
+
+
+      offenseWeighted +=
+        offenseChange *
+        weight;
+
+
+      defenseWeighted +=
+        defenseChange *
+        weight;
+
+
+      marginWeighted +=
+        marginChange *
+        weight;
+    }
+
+
+    const offenseControlled =
+      matchedWeight > 0
+        ? offenseWeighted /
+          matchedWeight
+        : null;
+
+
+    const defenseControlled =
+      matchedWeight > 0
+        ? defenseWeighted /
+          matchedWeight
+        : null;
+
+
+    const marginControlled =
+      matchedWeight > 0
+        ? marginWeighted /
+          matchedWeight
+        : null;
+
+
+    // ========================================================
+    // FINAL ROW
+    // ========================================================
+
+    outputRows.push({
+
+      season:
+        numericSeason,
+
+      team_id:
+        profile.teamId,
+
+      player_id:
+        profile.playerId,
+
+      player_name:
+        profile.playerName,
+
+      first_seen:
+        profile.firstSeen,
+
+      last_seen:
+        profile.lastSeen,
+
+      games_with:
+        withPlayer.length,
+
+      games_without:
+        withoutPlayer.length,
+
+
+      pace_with:
+        nbaRoundOrNull(
+          paceWith
+        ),
+
+      pace_without:
+        nbaRoundOrNull(
+          paceWithout
+        ),
+
+      pace_change:
+        paceWith !== null &&
+        paceWithout !== null
+          ? nbaRoundOrNull(
+              paceWithout -
+              paceWith
+            )
+          : null,
+
+
+      ortg_with:
+        nbaRoundOrNull(
+          ortgWith
+        ),
+
+      ortg_without:
+        nbaRoundOrNull(
+          ortgWithout
+        ),
+
+      ortg_change:
+        ortgWith !== null &&
+        ortgWithout !== null
+          ? nbaRoundOrNull(
+              ortgWithout -
+              ortgWith
+            )
+          : null,
+
+
+      drtg_with:
+        nbaRoundOrNull(
+          drtgWith
+        ),
+
+      drtg_without:
+        nbaRoundOrNull(
+          drtgWithout
+        ),
+
+      drtg_change:
+        drtgWith !== null &&
+        drtgWithout !== null
+          ? nbaRoundOrNull(
+              drtgWithout -
+              drtgWith
+            )
+          : null,
+
+
+      team_points_with:
+        nbaRoundOrNull(
+          teamPointsWith
+        ),
+
+      team_points_without:
+        nbaRoundOrNull(
+          teamPointsWithout
+        ),
+
+      team_points_change:
+        teamPointsWith !== null &&
+        teamPointsWithout !== null
+          ? nbaRoundOrNull(
+              teamPointsWithout -
+              teamPointsWith
+            )
+          : null,
+
+
+      opponent_points_with:
+        nbaRoundOrNull(
+          opponentPointsWith
+        ),
+
+      opponent_points_without:
+        nbaRoundOrNull(
+          opponentPointsWithout
+        ),
+
+      opponent_points_change:
+        opponentPointsWith !== null &&
+        opponentPointsWithout !== null
+          ? nbaRoundOrNull(
+              opponentPointsWithout -
+              opponentPointsWith
+            )
+          : null,
+
+
+      total_with:
+        nbaRoundOrNull(
+          totalWith
+        ),
+
+      total_without:
+        nbaRoundOrNull(
+          totalWithout
+        ),
+
+      total_change:
+        totalWith !== null &&
+        totalWithout !== null
+          ? nbaRoundOrNull(
+              totalWithout -
+              totalWith
+            )
+          : null,
+
+
+      margin_with:
+        nbaRoundOrNull(
+          marginWith
+        ),
+
+      margin_without:
+        nbaRoundOrNull(
+          marginWithout
+        ),
+
+      margin_change:
+        marginWith !== null &&
+        marginWithout !== null
+          ? nbaRoundOrNull(
+              marginWithout -
+              marginWith
+            )
+          : null,
+
+
+      opponent_strength_with:
+        nbaRoundOrNull(
+          opponentStrengthWith
+        ),
+
+      opponent_strength_without:
+        nbaRoundOrNull(
+          opponentStrengthWithout
+        ),
+
+
+      home_pct_with:
+        nbaRoundOrNull(
+          homePctWith,
+          2
+        ),
+
+      home_pct_without:
+        nbaRoundOrNull(
+          homePctWithout,
+          2
+        ),
+
+
+      other_absent_with:
+        nbaRoundOrNull(
+          otherAbsentWith
+        ),
+
+      other_absent_without:
+        nbaRoundOrNull(
+          otherAbsentWithout
+        ),
+
+
+      offense_change_controlled:
+        nbaRoundOrNull(
+          offenseControlled
+        ),
+
+      defense_change_controlled:
+        nbaRoundOrNull(
+          defenseControlled
+        ),
+
+      margin_change_controlled:
+        nbaRoundOrNull(
+          marginControlled
+        ),
+
+
+      matched_weight:
+        matchedWeight,
+
+
+      reliability:
+        nbaReliabilityLabel(
+          withoutPlayer.length,
+          matchedWeight
+        ),
+
+
+      updated_at:
+        new Date()
+          .toISOString()
+
+    });
+  }
+
+
+  // ==========================================================
+  // SAVE
+  // ==========================================================
+
+  const chunkSize =
+    250;
+
+
+  let rowsSaved =
+    0;
+
+
+  for (
+    let index = 0;
+    index < outputRows.length;
+    index += chunkSize
+  ) {
+
+    const chunk =
+      outputRows.slice(
+        index,
+        index +
+        chunkSize
+      );
+
+
+    const {
+      error
+    } =
+      await supabaseAdmin
+        .from(
+          "nba_player_absence_impact"
+        )
+        .upsert(
+          chunk,
+          {
+            onConflict:
+              "season,team_id,player_id"
+          }
+        );
+
+
+    if (
+      error
+    ) {
+      throw new Error(
+        `Supabase nba_player_absence_impact: ${error.message}`
+      );
+    }
+
+
+    rowsSaved +=
+      chunk.length;
+  }
+
+
+  return {
+
+    games:
+      games.length,
+
+    playerHistoryRows:
+      playerRows.length,
+
+    players:
+      profiles.size,
+
+    rowsSaved
+
+  };
+}
 // ============================================================
 // READ ALL COMPLETED PACE GAMES
 // ============================================================
