@@ -95,13 +95,88 @@ const NBA_LEAGUE_AVG = {
   threesAllowed:    13.2
 };
 
-const NBA_PROP_RULES = {
-  player_points:   { statKey: "avgPoints",                   oppKey: "pointsAllowed",   showEdge: 1.0, premiumEdge: 2.5, eliteEdge: 5.0 },
-  player_rebounds: { statKey: "avgRebounds",                 oppKey: "reboundsAllowed", showEdge: 1.0, premiumEdge: 2.0, eliteEdge: 4.5 },
-  player_assists:  { statKey: "avgAssists",                  oppKey: "assistsAllowed",  showEdge: 0.8, premiumEdge: 1.8, eliteEdge: 4.0 },
-  player_threes:   { statKey: "avgThreePointFieldGoalsMade", oppKey: "threesAllowed",   showEdge: 0.5, premiumEdge: 1.2, eliteEdge: 2.5 }
-};
+const NBA_PLAYER_PROPS_VERSION =
+  3;
 
+
+const NBA_PROP_RULES = {
+
+  player_points: {
+
+    statKey:
+      "avgPoints",
+
+    historyKey:
+      "points",
+
+    oppKey:
+      "pointsAllowed",
+
+    minLine:
+      8,
+
+    volatilityFloor:
+      4.5
+  },
+
+
+  player_rebounds: {
+
+    statKey:
+      "avgRebounds",
+
+    historyKey:
+      "rebounds",
+
+    oppKey:
+      "reboundsAllowed",
+
+    minLine:
+      2,
+
+    volatilityFloor:
+      2.0
+  },
+
+
+  player_assists: {
+
+    statKey:
+      "avgAssists",
+
+    historyKey:
+      "assists",
+
+    oppKey:
+      "assistsAllowed",
+
+    minLine:
+      1,
+
+    volatilityFloor:
+      1.8
+  },
+
+
+  player_threes: {
+
+    statKey:
+      "avgThreePointFieldGoalsMade",
+
+    historyKey:
+      "three_pointers_made",
+
+    oppKey:
+      "threesAllowed",
+
+    minLine:
+      0.5,
+
+    volatilityFloor:
+      1.1
+  }
+
+};
 const NBA_TEAM_IDS = {
   "atlanta hawks": "1", "boston celtics": "2", "brooklyn nets": "17",
   "charlotte hornets": "30", "chicago bulls": "4", "cleveland cavaliers": "5",
@@ -788,8 +863,34 @@ async function getNBAOpponentDefenseStats(rivalTeamName) {
   };
 }
 
-async function getNBAPlayerSeasonStats(athleteId) {
-  const season = new Date().getFullYear();
+async function getNBAPlayerSeasonStats(
+  athleteId,
+  seasonOverride = null
+) {
+
+  const now =
+    new Date();
+
+  const defaultSeason =
+    (
+      now.getMonth() + 1
+    ) >= 9
+      ? now.getFullYear()
+      : now.getFullYear() - 1;
+
+
+  const parsedSeason =
+    Number(
+      seasonOverride
+    );
+
+
+  const season =
+    Number.isFinite(
+      parsedSeason
+    )
+      ? parsedSeason
+      : defaultSeason;
   const url = `https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/${season}/types/2/athletes/${athleteId}/statistics`;
   const res = await fetch(url);
   if (!res.ok) return null;
@@ -865,339 +966,4872 @@ async function getNBAPlayerRecentAvg(athleteId, teamId, statKey, limit = 10) {
   } catch { return null; }
 }
 
-function calculateNBAPropConfidence(market, edge) {
-  const rule = NBA_PROP_RULES[market];
-  if (!rule) return 0;
-  const e = nbaSafeNum(edge);
-  if (e < rule.showEdge) return 0;
-  if (e >= rule.eliteEdge) return 99.0;
-  if (e < rule.premiumEdge) {
-    return Number((55 + ((e - rule.showEdge) / (rule.premiumEdge - rule.showEdge)) * 19).toFixed(1));
-  }
-  return Number((75 + ((e - rule.premiumEdge) / (rule.eliteEdge - rule.premiumEdge)) * 24).toFixed(1));
+// ============================================================
+// NBA PLAYER PROPS V3 — MODEL HELPERS
+// ============================================================
+
+function nbaPropNormalizeName(
+  value
+) {
+
+  return String(
+    value || ""
+  )
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(
+      /\b(jr|sr|ii|iii|iv)\b/g,
+      ""
+    )
+    .replace(
+      /[^a-z0-9]+/g,
+      " "
+    )
+    .replace(
+      /\s+/g,
+      " "
+    )
+    .trim();
 }
 
-function calculateNBAPropProjection({ market, line, side, seasonStats, opponentDefenseStats, recentAvg }) {
-  const rule = NBA_PROP_RULES[market];
-  if (!rule || !seasonStats) return null;
 
-  const seasonAvg = nbaSafeNum(seasonStats[rule.statKey]);
-  if (seasonAvg <= 0) return null;
+function getNBAPropsCurrentSeason() {
 
-  const recent = nbaSafeNum(recentAvg, seasonAvg);
+  const now =
+    new Date();
 
-  const oppAllowed = nbaSafeNum(opponentDefenseStats?.[rule.oppKey], NBA_LEAGUE_AVG[rule.oppKey]);
-  const leagueAvg  = nbaSafeNum(NBA_LEAGUE_AVG[rule.oppKey], 1);
-  const oppFactor  = nbaClamp(oppAllowed / leagueAvg, 0.85, 1.15);
-
-  const matchupAvg = seasonAvg * oppFactor;
-  const projection = Number((
-    seasonAvg * 0.45 +
-    recent    * 0.35 +
-    matchupAvg * 0.20
-  ).toFixed(2));
-
-  const propLine = nbaSafeNum(line);
-  const listedSide = String(side || "").toUpperCase();
-  let edge = listedSide === "OVER" ? projection - propLine
-           : listedSide === "UNDER" ? propLine - projection
-           : null;
-  if (edge === null) return null;
-  edge = Number(edge.toFixed(2));
-
-  const confidence = calculateNBAPropConfidence(market, edge);
-  if (confidence <= 0) return null;
-
-  return {
-    market, side: listedSide, line: propLine,
-    projection, edge, confidence,
-    isPremium: confidence >= 75,
-    opponentFactor: Number(oppFactor.toFixed(3))
-  };
+  return (
+    now.getMonth() + 1
+  ) >= 9
+    ? now.getFullYear()
+    : now.getFullYear() - 1;
 }
 
-async function handleNBAPlayerProps(req, res) {
 
-  // =========================
-  // PREMIUM AUTH
-  // =========================
+function getNBAPropCentralDate(
+  value
+) {
 
-  const authHeader = String(req.headers.authorization || "");
+  const date =
+    new Date(
+      value
+    );
 
-  const token = authHeader.startsWith("Bearer ")
-    ? authHeader.slice(7)
-    : null;
-
-  if (!token) {
-    return res.status(401).json({
-      error: "Unauthorized"
-    });
-  }
-
-  const {
-    data: authData,
-    error: authError
-  } = await supabaseAdmin.auth.getUser(token);
 
   if (
-    authError ||
-    !authData?.user?.id
+    Number.isNaN(
+      date.getTime()
+    )
   ) {
-    return res.status(401).json({
-      error: "Unauthorized"
-    });
+    return null;
   }
 
-  const { data: profile, error: profileError } =
-    await supabaseAdmin
-      .from("users")
-      .select("is_premium")
-      .eq("id", authData.user.id)
-      .maybeSingle();
 
-  if (profileError) {
-    return res.status(500).json({
-      error: "Unable to verify subscription"
-    });
+  return new Intl
+    .DateTimeFormat(
+      "en-CA",
+      {
+        timeZone:
+          "America/Chicago",
+
+        year:
+          "numeric",
+
+        month:
+          "2-digit",
+
+        day:
+          "2-digit"
+      }
+    )
+    .format(
+      date
+    );
+}
+
+
+function nbaPropWeightedAverage(
+  items
+) {
+
+  let numerator =
+    0;
+
+  let denominator =
+    0;
+
+
+  for (
+    const item
+    of items || []
+  ) {
+
+    const value =
+      Number(
+        item?.value
+      );
+
+    const weight =
+      Number(
+        item?.weight
+      );
+
+
+    if (
+      !Number.isFinite(
+        value
+      ) ||
+      !Number.isFinite(
+        weight
+      ) ||
+      weight <= 0
+    ) {
+      continue;
+    }
+
+
+    numerator +=
+      value *
+      weight;
+
+    denominator +=
+      weight;
   }
 
-  const isPremiumUser =
-    profile?.is_premium === true ||
-    authData.user.email === ADMIN_EMAIL;
 
-  if (!isPremiumUser) {
-    return res.status(403).json({
-      error: "Premium required"
-    });
+  return denominator > 0
+    ? numerator /
+      denominator
+    : null;
+}
+
+
+function nbaPropStdDev(
+  values
+) {
+
+  const nums =
+    (
+      values || []
+    )
+      .map(Number)
+      .filter(
+        Number.isFinite
+      );
+
+
+  if (
+    nums.length < 2
+  ) {
+    return null;
   }
 
-  const ODDS_API_KEY = process.env.ODDS_API_KEY;
-  const today = new Date().toISOString().split("T")[0];
-  const force = req.query.force === "true" || req.body?.force === true;
 
-  // 1. Eventos NBA
-  const eventsRes = await fetch(
-    `https://api.the-odds-api.com/v4/sports/basketball_nba/events?apiKey=${ODDS_API_KEY}`
+  const mean =
+    nbaAverage(
+      nums
+    );
+
+
+  const variance =
+    nums.reduce(
+      (
+        sum,
+        value
+      ) =>
+        sum +
+        Math.pow(
+          value -
+          mean,
+          2
+        ),
+      0
+    ) /
+    nums.length;
+
+
+  return Math.sqrt(
+    variance
   );
-  const events = await eventsRes.json();
+}
 
-  if (!events?.length) {
-    return res.status(200).json({ ok: true, noPlay: true, reason: "No hay eventos NBA disponibles" });
+
+function nbaPropStatusFactor(
+  value
+) {
+
+  const status =
+    normalizeNBALiveInjuryStatus(
+      value
+    );
+
+
+  if (
+    status === "out"
+  ) {
+    return 1;
   }
 
-  const selectedEventId = req.query.eventId || req.body?.eventId || null;
-  const selectedEvent = selectedEventId
-    ? events.find(e => e.id === selectedEventId)
-    : events[0];
-
-  if (!selectedEvent?.id) {
-    return res.status(200).json({ ok: true, noPlay: true, reason: "Evento no encontrado" });
+  if (
+    status === "doubtful"
+  ) {
+    return 0.75;
   }
 
-  // 2. Cache
-  if (!force) {
-    const { data: cached } = await supabaseAdmin
-      .from("player_props_cache")
-      .select("analysis_json")
-      .eq("sport", "nba")
-      .eq("event_id", selectedEvent.id)
-      .eq("game_date", today)
-      .maybeSingle();
+  if (
+    status === "questionable"
+  ) {
+    return 0.40;
+  }
 
-    if (cached?.analysis_json) {
-      return res.status(200).json({ ...cached.analysis_json, cached: true });
+  if (
+    status === "day-to-day"
+  ) {
+    return 0.25;
+  }
+
+  if (
+    status === "probable"
+  ) {
+    return 0.10;
+  }
+
+
+  return 0;
+}
+
+
+function nbaPropPositionGroup(
+  value
+) {
+
+  const position =
+    String(
+      value || ""
+    )
+      .trim()
+      .toUpperCase();
+
+
+  if (
+    position === "PG" ||
+    position === "SG" ||
+    position === "G"
+  ) {
+    return "guard";
+  }
+
+
+  if (
+    position === "SF" ||
+    position === "F"
+  ) {
+    return "wing";
+  }
+
+
+  if (
+    position === "PF" ||
+    position === "C" ||
+    position === "FC" ||
+    position === "F-C"
+  ) {
+    return "big";
+  }
+
+
+  return null;
+}
+
+
+function nbaPropStatValue(
+  row,
+  market
+) {
+
+  const rule =
+    NBA_PROP_RULES[
+      market
+    ];
+
+
+  if (!rule) {
+    return null;
+  }
+
+
+  const raw =
+    row?.[
+      rule.historyKey
+    ];
+
+
+  if (
+    raw === null ||
+    raw === undefined ||
+    raw === ""
+  ) {
+    return null;
+  }
+
+
+  const value =
+    Number(
+      raw
+    );
+
+
+  return Number.isFinite(
+    value
+  )
+    ? value
+    : null;
+}
+
+
+function nbaPropStatAverage(
+  rows,
+  market
+) {
+
+  const values =
+    (
+      rows || []
+    )
+      .map(
+        row =>
+          nbaPropStatValue(
+            row,
+            market
+          )
+      )
+      .filter(
+        Number.isFinite
+      );
+
+
+  return values.length
+    ? nbaAverage(
+        values
+      )
+    : null;
+}
+
+
+function nbaPropRate(
+  rows,
+  market
+) {
+
+  let statTotal =
+    0;
+
+  let minuteTotal =
+    0;
+
+
+  for (
+    const row
+    of rows || []
+  ) {
+
+    const minutes =
+      Number(
+        row?.minutes
+      );
+
+    const stat =
+      nbaPropStatValue(
+        row,
+        market
+      );
+
+
+    /*
+     * Tiny garbage-time samples can create
+     * absurd per-minute rates.
+     */
+    if (
+      !Number.isFinite(
+        minutes
+      ) ||
+      minutes < 8 ||
+      !Number.isFinite(
+        stat
+      )
+    ) {
+      continue;
+    }
+
+
+    statTotal +=
+      stat;
+
+    minuteTotal +=
+      minutes;
+  }
+
+
+  return minuteTotal > 0
+    ? statTotal /
+      minuteTotal
+    : null;
+}
+
+
+function nbaPropFindRows(
+  rows,
+  {
+    playerId = null,
+    playerName = null
+  } = {}
+) {
+
+  const id =
+    playerId != null
+      ? String(
+          playerId
+        )
+      : null;
+
+
+  const name =
+    nbaPropNormalizeName(
+      playerName
+    );
+
+
+  return (
+    rows || []
+  )
+    .filter(
+      row => {
+
+        if (
+          id &&
+          String(
+            row?.player_id ||
+            ""
+          ) === id
+        ) {
+          return true;
+        }
+
+
+        return (
+          name &&
+          nbaPropNormalizeName(
+            row?.player_name
+          ) === name
+        );
+      }
+    )
+    .sort(
+      (
+        a,
+        b
+      ) =>
+        new Date(
+          b.game_date
+        ) -
+        new Date(
+          a.game_date
+        )
+    );
+}
+
+
+function nbaPropHitWindow(
+  rows,
+  market,
+  line,
+  side,
+  limit = null
+) {
+
+  const source =
+    (
+      rows || []
+    )
+      .filter(
+        row =>
+          Number.isFinite(
+            nbaPropStatValue(
+              row,
+              market
+            )
+          )
+      );
+
+
+  const selected =
+    Number.isFinite(
+      Number(limit)
+    )
+      ? source.slice(
+          0,
+          Number(limit)
+        )
+      : source;
+
+
+  let hits =
+    0;
+
+  let losses =
+    0;
+
+  let pushes =
+    0;
+
+
+  const values =
+    [];
+
+
+  for (
+    const row
+    of selected
+  ) {
+
+    const value =
+      nbaPropStatValue(
+        row,
+        market
+      );
+
+
+    values.push(
+      value
+    );
+
+
+    if (
+      value ===
+      Number(line)
+    ) {
+
+      pushes +=
+        1;
+
+      continue;
+    }
+
+
+    const hit =
+      side === "OVER"
+        ? value >
+          Number(line)
+        : value <
+          Number(line);
+
+
+    if (hit) {
+      hits += 1;
+    } else {
+      losses += 1;
     }
   }
 
-  // 3. Props de The Odds API
-  const NBA_MIN_LINES = {
-    player_points: 8, player_rebounds: 2,
-    player_assists: 1, player_threes: 0.5
+
+  const decisions =
+    hits +
+    losses;
+
+
+  return {
+
+    hits,
+
+    losses,
+
+    pushes,
+
+    games:
+      decisions,
+
+    pct:
+      decisions > 0
+        ? Number(
+            (
+              (
+                hits /
+                decisions
+              ) *
+              100
+            ).toFixed(1)
+          )
+        : null,
+
+    average:
+      values.length
+        ? Number(
+            nbaAverage(
+              values
+            )
+              .toFixed(2)
+          )
+        : null
+
+  };
+}
+
+
+function nbaPropBayesianHitScore(
+  rows,
+  market,
+  line,
+  side
+) {
+
+  const recent =
+    (
+      rows || []
+    )
+      .filter(
+        row =>
+          Number.isFinite(
+            nbaPropStatValue(
+              row,
+              market
+            )
+          )
+      )
+      .slice(
+        0,
+        10
+      );
+
+
+  /*
+   * Neutral prior:
+   *
+   * 3 equivalent games at 50%.
+   *
+   * This prevents:
+   * 1/1 => 100% confidence.
+   */
+  let weightedSuccess =
+    1.5;
+
+  let weightedTotal =
+    3;
+
+
+  recent.forEach(
+    (
+      row,
+      index
+    ) => {
+
+      const value =
+        nbaPropStatValue(
+          row,
+          market
+        );
+
+
+      const weight =
+        Math.pow(
+          0.88,
+          index
+        );
+
+
+      let result =
+        0.5;
+
+
+      if (
+        value !==
+        Number(line)
+      ) {
+
+        result =
+          side === "OVER"
+            ? (
+                value >
+                Number(line)
+                  ? 1
+                  : 0
+              )
+            : (
+                value <
+                Number(line)
+                  ? 1
+                  : 0
+              );
+      }
+
+
+      weightedSuccess +=
+        result *
+        weight;
+
+      weightedTotal +=
+        weight;
+    }
+  );
+
+
+  return (
+    weightedSuccess /
+    weightedTotal
+  ) * 100;
+}
+
+
+async function loadNBAPropTeamContext(
+  teamId,
+  seasons
+) {
+
+  const numericTeamId =
+    Number(
+      teamId
+    );
+
+
+  if (
+    !Number.isFinite(
+      numericTeamId
+    )
+  ) {
+
+    return {
+      teamId:
+        null,
+
+      playerRows:
+        [],
+
+      games:
+        []
+    };
+  }
+
+
+  const [
+    playerResult,
+    gameResult
+  ] =
+    await Promise.all([
+
+      supabaseAdmin
+        .from(
+          "nba_player_game_stats"
+        )
+        .select(`
+          game_id,
+          season,
+          game_date,
+          team_id,
+          player_id,
+          player_name,
+          minutes,
+          points,
+          rebounds,
+          assists,
+          three_pointers_made
+        `)
+        .eq(
+          "team_id",
+          numericTeamId
+        )
+        .in(
+          "season",
+          seasons
+        )
+        .order(
+          "game_date",
+          {
+            ascending:
+              false
+          }
+        ),
+
+
+      supabaseAdmin
+        .from(
+          "nba_games"
+        )
+        .select(`
+          game_id,
+          season,
+          game_date,
+          home_team_id,
+          visitor_team_id,
+          home_team_name,
+          visitor_team_name
+        `)
+        .in(
+          "season",
+          seasons
+        )
+        .or(
+          `home_team_id.eq.${numericTeamId},visitor_team_id.eq.${numericTeamId}`
+        )
+        .order(
+          "game_date",
+          {
+            ascending:
+              false
+          }
+        )
+
+    ]);
+
+
+  if (
+    playerResult.error
+  ) {
+    throw playerResult.error;
+  }
+
+
+  if (
+    gameResult.error
+  ) {
+    throw gameResult.error;
+  }
+
+
+  return {
+
+    teamId:
+      numericTeamId,
+
+    playerRows:
+      playerResult.data ||
+      [],
+
+    games:
+      gameResult.data ||
+      []
+
+  };
+}
+
+
+async function loadNBAPropPlayerHistory(
+  {
+    playerId = null,
+    playerName,
+    seasons
+  }
+) {
+
+  let query =
+    supabaseAdmin
+      .from(
+        "nba_player_game_stats"
+      )
+      .select(`
+        game_id,
+        season,
+        game_date,
+        team_id,
+        player_id,
+        player_name,
+        minutes,
+        points,
+        rebounds,
+        assists,
+        three_pointers_made
+      `)
+      .in(
+        "season",
+        seasons
+      )
+      .order(
+        "game_date",
+        {
+          ascending:
+            false
+        }
+      );
+
+
+  if (
+    playerId != null
+  ) {
+
+    query =
+      query.eq(
+        "player_id",
+        String(
+          playerId
+        )
+      );
+
+  } else {
+
+    query =
+      query.ilike(
+        "player_name",
+        String(
+          playerName ||
+          ""
+        )
+      );
+  }
+
+
+  const {
+    data,
+    error
+  } =
+    await query;
+
+
+  if (error) {
+    throw error;
+  }
+
+
+  const rows =
+    data ||
+    [];
+
+
+  if (
+    playerId != null ||
+    rows.length
+  ) {
+    return rows;
+  }
+
+
+  /*
+   * Name fallback.
+   * Only accept the last-name search if it resolves
+   * to ONE BDL player id.
+   */
+  const cleanName =
+    nbaPropNormalizeName(
+      playerName
+    );
+
+
+  const lastName =
+    cleanName
+      .split(" ")
+      .slice(-1)[0];
+
+
+  if (
+    !lastName ||
+    lastName.length < 3
+  ) {
+    return [];
+  }
+
+
+  const fallback =
+    await supabaseAdmin
+      .from(
+        "nba_player_game_stats"
+      )
+      .select(`
+        game_id,
+        season,
+        game_date,
+        team_id,
+        player_id,
+        player_name,
+        minutes,
+        points,
+        rebounds,
+        assists,
+        three_pointers_made
+      `)
+      .in(
+        "season",
+        seasons
+      )
+      .ilike(
+        "player_name",
+        `%${lastName}%`
+      )
+      .order(
+        "game_date",
+        {
+          ascending:
+            false
+        }
+      );
+
+
+  if (
+    fallback.error
+  ) {
+    throw fallback.error;
+  }
+
+
+  const candidateRows =
+    (
+      fallback.data ||
+      []
+    )
+      .filter(
+        row => {
+
+          const rowName =
+            nbaPropNormalizeName(
+              row.player_name
+            );
+
+
+          return (
+            rowName ===
+              cleanName ||
+            rowName
+              .split(" ")
+              .slice(-1)[0] ===
+              lastName
+          );
+        }
+      );
+
+
+  const ids =
+    new Set(
+      candidateRows
+        .map(
+          row =>
+            String(
+              row.player_id ||
+              ""
+            )
+        )
+        .filter(Boolean)
+    );
+
+
+  return ids.size === 1
+    ? candidateRows
+    : [];
+}
+
+
+function calculateNBAExpectedMinutes({
+  playerName,
+  playerId,
+  teamId,
+  teamContext,
+  allPlayerRows,
+  liveInjuries,
+  roster
+}) {
+
+  const currentSeason =
+    getNBAPropsCurrentSeason();
+
+
+  const targetTeamRows =
+    nbaPropFindRows(
+      teamContext
+        ?.playerRows ||
+      [],
+      {
+        playerId,
+        playerName
+      }
+    );
+
+
+  const currentTeamRows =
+    targetTeamRows
+      .filter(
+        row =>
+          Number(
+            row.season
+          ) ===
+          currentSeason
+      );
+
+
+  const previousTeamRows =
+    targetTeamRows
+      .filter(
+        row =>
+          Number(
+            row.season
+          ) ===
+          currentSeason - 1
+      );
+
+
+  const fallbackRows =
+    (
+      allPlayerRows ||
+      []
+    )
+      .filter(
+        row =>
+          Number(
+            row?.minutes
+          ) > 0
+      );
+
+
+  const minutePool =
+    currentTeamRows.length
+      ? [
+          ...currentTeamRows,
+          ...previousTeamRows
+        ]
+      : previousTeamRows.length
+        ? previousTeamRows
+        : fallbackRows;
+
+
+  if (
+    !minutePool.length
+  ) {
+    return null;
+  }
+
+
+  const currentAvg =
+    currentTeamRows.length
+      ? nbaAverage(
+          currentTeamRows.map(
+            row =>
+              Number(
+                row.minutes
+              )
+          )
+        )
+      : null;
+
+
+  const previousAvg =
+    previousTeamRows.length
+      ? nbaAverage(
+          previousTeamRows.map(
+            row =>
+              Number(
+                row.minutes
+              )
+          )
+        )
+      : null;
+
+
+  let seasonBaseline =
+    null;
+
+
+  if (
+    currentTeamRows.length >=
+    5
+  ) {
+
+    seasonBaseline =
+      currentAvg;
+
+  } else if (
+    currentTeamRows.length &&
+    previousAvg != null
+  ) {
+
+    const currentWeight =
+      currentTeamRows.length /
+      5;
+
+
+    seasonBaseline =
+      (
+        currentAvg *
+        currentWeight
+      ) +
+      (
+        previousAvg *
+        (
+          1 -
+          currentWeight
+        )
+      );
+
+  } else {
+
+    seasonBaseline =
+      currentAvg ??
+      previousAvg ??
+      nbaAverage(
+        minutePool.map(
+          row =>
+            Number(
+              row.minutes
+            )
+        )
+      );
+  }
+
+
+  const last3 =
+    minutePool
+      .slice(
+        0,
+        3
+      );
+
+
+  const last5 =
+    minutePool
+      .slice(
+        0,
+        5
+      );
+
+
+  const baseMinutes =
+    nbaPropWeightedAverage([
+
+      {
+        value:
+          last3.length
+            ? nbaAverage(
+                last3.map(
+                  row =>
+                    Number(
+                      row.minutes
+                    )
+                )
+              )
+            : null,
+
+        weight:
+          0.50
+      },
+
+      {
+        value:
+          last5.length
+            ? nbaAverage(
+                last5.map(
+                  row =>
+                    Number(
+                      row.minutes
+                    )
+                )
+              )
+            : null,
+
+        weight:
+          0.30
+      },
+
+      {
+        value:
+          seasonBaseline,
+
+        weight:
+          0.20
+      }
+
+    ]);
+
+
+  if (
+    !Number.isFinite(
+      baseMinutes
+    )
+  ) {
+    return null;
+  }
+
+
+  const ownInjury =
+    (
+      liveInjuries ||
+      []
+    )
+      .find(
+        injury => {
+
+          const sameId =
+            playerId != null &&
+            String(
+              injury?.player_id ||
+              ""
+            ) ===
+            String(
+              playerId
+            );
+
+
+          const sameName =
+            nbaPropNormalizeName(
+              injury?.player_name
+            ) ===
+            nbaPropNormalizeName(
+              playerName
+            );
+
+
+          return (
+            sameId ||
+            sameName
+          );
+        }
+      );
+
+
+  const availabilityStatus =
+    ownInjury
+      ? normalizeNBALiveInjuryStatus(
+          ownInjury.status
+        )
+      : "available";
+
+
+  /*
+   * If the book still has a stale line for an OUT
+   * or DOUBTFUL player, do not create a model play.
+   */
+  if (
+    availabilityStatus ===
+      "out" ||
+    availabilityStatus ===
+      "doubtful"
+  ) {
+
+    return {
+      eligible:
+        false,
+
+      availabilityStatus,
+
+      baselineMinutes:
+        Number(
+          baseMinutes.toFixed(
+            1
+          )
+        ),
+
+      expectedMinutes:
+        null,
+
+      roleChange:
+        null,
+
+      roleSource:
+        "player_unavailable",
+
+      roleSample:
+        0,
+
+      roleCertainty:
+        0
+    };
+  }
+
+
+  const cleanTargetName =
+    nbaPropNormalizeName(
+      playerName
+    );
+
+
+  const targetRoster =
+    (
+      roster ||
+      []
+    )
+      .find(
+        player =>
+          nbaPropNormalizeName(
+            player.displayName
+          ) ===
+          cleanTargetName
+      );
+
+
+  const targetPositionGroup =
+    nbaPropPositionGroup(
+      targetRoster
+        ?.position
+    );
+
+
+  const gamePlayers =
+    new Map();
+
+
+  for (
+    const row
+    of teamContext
+      ?.playerRows ||
+    []
+  ) {
+
+    const gameId =
+      String(
+        row.game_id
+      );
+
+
+    if (
+      !gamePlayers.has(
+        gameId
+      )
+    ) {
+
+      gamePlayers.set(
+        gameId,
+        {
+          ids:
+            new Set(),
+
+          names:
+            new Set()
+        }
+      );
+    }
+
+
+    const bucket =
+      gamePlayers.get(
+        gameId
+      );
+
+
+    if (
+      row.player_id != null
+    ) {
+
+      bucket.ids.add(
+        String(
+          row.player_id
+        )
+      );
+    }
+
+
+    bucket.names.add(
+      nbaPropNormalizeName(
+        row.player_name
+      )
+    );
+  }
+
+
+  const activeTeammateInjuries =
+    (
+      liveInjuries ||
+      []
+    )
+      .filter(
+        injury => {
+
+          if (
+            String(
+              injury?.team_id ||
+              ""
+            ) !==
+            String(
+              teamId
+            )
+          ) {
+            return false;
+          }
+
+
+          const samePlayer =
+            (
+              playerId != null &&
+              String(
+                injury?.player_id ||
+                ""
+              ) ===
+              String(
+                playerId
+              )
+            ) ||
+            (
+              nbaPropNormalizeName(
+                injury?.player_name
+              ) ===
+              cleanTargetName
+            );
+
+
+          if (samePlayer) {
+            return false;
+          }
+
+
+          return (
+            nbaPropStatusFactor(
+              injury.status
+            ) > 0
+          );
+        }
+      );
+
+
+  const roleLifts =
+    [];
+
+
+  for (
+    const injury
+    of activeTeammateInjuries
+  ) {
+
+    const factor =
+      nbaPropStatusFactor(
+        injury.status
+      );
+
+
+    const injuryId =
+      injury?.player_id != null
+        ? String(
+            injury.player_id
+          )
+        : null;
+
+
+    const injuryName =
+      nbaPropNormalizeName(
+        injury.player_name
+      );
+
+
+    const withMinutes =
+      [];
+
+    const withoutMinutes =
+      [];
+
+
+    for (
+      const row
+      of targetTeamRows
+    ) {
+
+      const bucket =
+        gamePlayers.get(
+          String(
+            row.game_id
+          )
+        );
+
+
+      if (!bucket) {
+        continue;
+      }
+
+
+      const teammatePlayed =
+        (
+          injuryId &&
+          bucket.ids.has(
+            injuryId
+          )
+        ) ||
+        (
+          injuryName &&
+          bucket.names.has(
+            injuryName
+          )
+        );
+
+
+      if (teammatePlayed) {
+
+        withMinutes.push(
+          Number(
+            row.minutes
+          )
+        );
+
+      } else {
+
+        withoutMinutes.push(
+          Number(
+            row.minutes
+          )
+        );
+      }
+    }
+
+
+    if (
+      withoutMinutes.length >=
+        2 &&
+      withMinutes.length >=
+        3
+    ) {
+
+      const historicalDelta =
+        nbaAverage(
+          withoutMinutes
+        ) -
+        nbaAverage(
+          withMinutes
+        );
+
+
+      const adjustedDelta =
+        nbaClamp(
+          historicalDelta,
+          0,
+          12
+        ) *
+        factor;
+
+
+      if (
+        adjustedDelta > 0.25
+      ) {
+
+        roleLifts.push({
+          minutes:
+            adjustedDelta,
+
+          source:
+            "historical_teammate_absence",
+
+          sample:
+            withoutMinutes.length,
+
+          teammate:
+            injury.player_name ||
+            null
+        });
+      }
+
+
+      continue;
+    }
+
+
+    /*
+     * FALLBACK:
+     *
+     * If there is no direct teammate-absence history,
+     * only allow a conservative positional lift when:
+     * - the injured teammate normally plays real minutes
+     * - he occupies the same broad rotation group
+     */
+    const injuredRoster =
+      (
+        roster ||
+        []
+      )
+        .find(
+          player =>
+            nbaPropNormalizeName(
+              player.displayName
+            ) ===
+            injuryName
+        );
+
+
+    const injuredPositionGroup =
+      nbaPropPositionGroup(
+        injuredRoster
+          ?.position
+      );
+
+
+    if (
+      !targetPositionGroup ||
+      !injuredPositionGroup ||
+      targetPositionGroup !==
+        injuredPositionGroup
+    ) {
+      continue;
+    }
+
+
+    const injuredRows =
+      nbaPropFindRows(
+        teamContext
+          ?.playerRows ||
+        [],
+        {
+          playerId:
+            injuryId,
+
+          playerName:
+            injury.player_name
+        }
+      );
+
+
+    const injuredAvgMinutes =
+      injuredRows.length
+        ? nbaAverage(
+            injuredRows
+              .slice(
+                0,
+                10
+              )
+              .map(
+                row =>
+                  Number(
+                    row.minutes
+                  )
+              )
+          )
+        : 0;
+
+
+    if (
+      injuredAvgMinutes <
+      18
+    ) {
+      continue;
+    }
+
+
+    const highRoleMinutes =
+      nbaAverage(
+        minutePool
+          .slice(
+            0,
+            20
+          )
+          .map(
+            row =>
+              Number(
+                row.minutes
+              )
+          )
+          .sort(
+            (
+              a,
+              b
+            ) =>
+              b -
+              a
+          )
+          .slice(
+            0,
+            5
+          )
+      );
+
+
+    const availableGap =
+      Math.max(
+        0,
+        highRoleMinutes -
+        baseMinutes
+      );
+
+
+    const teammateImportance =
+      nbaClamp(
+        injuredAvgMinutes /
+        30,
+        0.60,
+        1
+      );
+
+
+    const fallbackLift =
+      Math.min(
+        4,
+        availableGap *
+        0.35 *
+        teammateImportance *
+        factor
+      );
+
+
+    if (
+      fallbackLift > 0.25
+    ) {
+
+      roleLifts.push({
+        minutes:
+          fallbackLift,
+
+        source:
+          "position_rotation_fallback",
+
+        sample:
+          0,
+
+        teammate:
+          injury.player_name ||
+          null
+      });
+    }
+  }
+
+
+  roleLifts.sort(
+    (
+      a,
+      b
+    ) =>
+      b.minutes -
+      a.minutes
+  );
+
+
+  let roleLift =
+    0;
+
+
+  roleLifts.forEach(
+    (
+      lift,
+      index
+    ) => {
+
+      roleLift +=
+        index === 0
+          ? lift.minutes
+          : lift.minutes *
+            0.70;
+    }
+  );
+
+
+  const expectedMinutes =
+    nbaClamp(
+      baseMinutes +
+      roleLift,
+      0,
+      42
+    );
+
+
+  const roleChange =
+    expectedMinutes -
+    baseMinutes;
+
+
+  const historicalLift =
+    roleLifts.find(
+      lift =>
+        lift.source ===
+        "historical_teammate_absence"
+    );
+
+
+  const fallbackLift =
+    roleLifts.find(
+      lift =>
+        lift.source ===
+        "position_rotation_fallback"
+    );
+
+
+  let roleSource =
+    "stable_rotation";
+
+
+  let roleSample =
+    currentTeamRows.length;
+
+
+  let roleCertainty =
+    currentTeamRows.length >=
+      5
+      ? 92
+      : currentTeamRows.length >=
+          3
+        ? 84
+        : 72;
+
+
+  if (
+    historicalLift
+  ) {
+
+    roleSource =
+      "historical_teammate_absence";
+
+    roleSample =
+      historicalLift.sample;
+
+    roleCertainty =
+      historicalLift.sample >=
+        4
+        ? 90
+        : 80;
+
+  } else if (
+    fallbackLift
+  ) {
+
+    roleSource =
+      "position_rotation_fallback";
+
+    roleSample =
+      0;
+
+    roleCertainty =
+      62;
+
+  } else if (
+    !currentTeamRows.length
+  ) {
+
+    roleSource =
+      "new_team_fallback";
+
+    roleCertainty =
+      58;
+  }
+
+
+  return {
+
+    eligible:
+      true,
+
+    availabilityStatus,
+
+    baselineMinutes:
+      Number(
+        baseMinutes.toFixed(
+          1
+        )
+      ),
+
+    expectedMinutes:
+      Number(
+        expectedMinutes.toFixed(
+          1
+        )
+      ),
+
+    roleChange:
+      Number(
+        roleChange.toFixed(
+          1
+        )
+      ),
+
+    roleSource,
+
+    roleSample,
+
+    roleCertainty,
+
+    affectedBy:
+      roleLifts
+        .map(
+          lift => ({
+            player:
+              lift.teammate,
+
+            source:
+              lift.source,
+
+            minutes:
+              Number(
+                lift.minutes.toFixed(
+                  1
+                )
+              )
+          })
+        )
+
+  };
+}
+
+
+function calculateNBAPropV3({
+  market,
+  line,
+  expectedRole,
+  allPlayerRows,
+  opponentDefenseStats,
+  currentSeasonStats,
+  previousSeasonStats,
+  currentSeason
+}) {
+
+  const rule =
+    NBA_PROP_RULES[
+      market
+    ];
+
+
+  if (
+    !rule ||
+    !expectedRole ||
+    expectedRole.eligible !==
+      true
+  ) {
+    return null;
+  }
+
+
+  const currentRows =
+    (
+      allPlayerRows ||
+      []
+    )
+      .filter(
+        row =>
+          Number(
+            row.season
+          ) ===
+          currentSeason
+      )
+      .sort(
+        (
+          a,
+          b
+        ) =>
+          new Date(
+            b.game_date
+          ) -
+          new Date(
+            a.game_date
+          )
+      );
+
+
+  const previousRows =
+    (
+      allPlayerRows ||
+      []
+    )
+      .filter(
+        row =>
+          Number(
+            row.season
+          ) ===
+          currentSeason - 1
+      )
+      .sort(
+        (
+          a,
+          b
+        ) =>
+          new Date(
+            b.game_date
+          ) -
+          new Date(
+            a.game_date
+          )
+      );
+
+
+  /*
+   * Projection can use previous season as a stabilizer.
+   * Display hit-rates below remain CURRENT season only.
+   */
+  const projectionPool =
+    [
+      ...currentRows,
+      ...previousRows
+    ];
+
+
+  const last5Rate =
+    nbaPropRate(
+      projectionPool.slice(
+        0,
+        5
+      ),
+      market
+    );
+
+
+  const last10Rate =
+    nbaPropRate(
+      projectionPool.slice(
+        0,
+        10
+      ),
+      market
+    );
+
+
+  const currentSeasonRate =
+    nbaPropRate(
+      currentRows,
+      market
+    );
+
+
+  const previousSeasonRate =
+    nbaPropRate(
+      previousRows,
+      market
+    );
+
+
+  /*
+   * ESPN fallback is especially important for 3PT while
+   * old historical rows do not yet have fg3m populated.
+   */
+  const currentESPNRate =
+    (
+      Number(
+        currentSeasonStats
+          ?.avgMinutes
+      ) > 0 &&
+      Number(
+        currentSeasonStats
+          ?.[rule.statKey]
+      ) >= 0
+    )
+      ? (
+          Number(
+            currentSeasonStats[
+              rule.statKey
+            ]
+          ) /
+          Number(
+            currentSeasonStats
+              .avgMinutes
+          )
+        )
+      : null;
+
+
+  const previousESPNRate =
+    (
+      Number(
+        previousSeasonStats
+          ?.avgMinutes
+      ) > 0 &&
+      Number(
+        previousSeasonStats
+          ?.[rule.statKey]
+      ) >= 0
+    )
+      ? (
+          Number(
+            previousSeasonStats[
+              rule.statKey
+            ]
+          ) /
+          Number(
+            previousSeasonStats
+              .avgMinutes
+          )
+        )
+      : null;
+
+
+  const currentCount =
+    currentRows
+      .filter(
+        row =>
+          Number(
+            row.minutes
+          ) >= 8 &&
+          Number.isFinite(
+            nbaPropStatValue(
+              row,
+              market
+            )
+          )
+      )
+      .length;
+
+
+  let stabilizedSeasonRate =
+    null;
+
+
+  if (
+    currentCount >=
+      5 &&
+    currentSeasonRate != null
+  ) {
+
+    stabilizedSeasonRate =
+      currentSeasonRate;
+
+  } else {
+
+    const currentWeight =
+      nbaClamp(
+        currentCount /
+        5,
+        0,
+        1
+      );
+
+
+    stabilizedSeasonRate =
+      nbaPropWeightedAverage([
+
+        {
+          value:
+            currentSeasonRate ??
+            currentESPNRate,
+
+          weight:
+            currentWeight
+        },
+
+        {
+          value:
+            previousSeasonRate ??
+            previousESPNRate,
+
+          weight:
+            1 -
+            currentWeight
+        }
+
+      ]);
+  }
+
+
+  const baseRate =
+    nbaPropWeightedAverage([
+
+      {
+        value:
+          last5Rate,
+
+        weight:
+          0.50
+      },
+
+      {
+        value:
+          last10Rate,
+
+        weight:
+          0.30
+      },
+
+      {
+        value:
+          stabilizedSeasonRate,
+
+        weight:
+          0.20
+      }
+
+    ]);
+
+
+  if (
+    !Number.isFinite(
+      baseRate
+    ) ||
+    baseRate <= 0
+  ) {
+    return null;
+  }
+
+
+  /*
+   * If expected role is much larger than normal,
+   * compare against games where the player actually
+   * played a similar workload.
+   */
+  const comparableMinimum =
+    Math.max(
+      18,
+      Number(
+        expectedRole
+          .expectedMinutes
+      ) *
+      0.70
+    );
+
+
+  const comparableRows =
+    projectionPool
+      .filter(
+        row =>
+          Number(
+            row.minutes
+          ) >=
+          comparableMinimum
+      )
+      .slice(
+        0,
+        12
+      );
+
+
+  const comparableRate =
+    comparableRows.length >=
+      3
+      ? nbaPropRate(
+          comparableRows,
+          market
+        )
+      : null;
+
+
+  const expectedRate =
+    comparableRate != null &&
+    Math.abs(
+      Number(
+        expectedRole
+          .roleChange
+      )
+    ) >= 3
+      ? (
+          baseRate *
+          0.75
+        ) +
+        (
+          comparableRate *
+          0.25
+        )
+      : baseRate;
+
+
+  const opponentAllowed =
+    Number(
+      opponentDefenseStats
+        ?.[rule.oppKey]
+    );
+
+
+  const leagueAllowed =
+    Number(
+      NBA_LEAGUE_AVG[
+        rule.oppKey
+      ]
+    );
+
+
+  const rawMatchupRatio =
+    (
+      Number.isFinite(
+        opponentAllowed
+      ) &&
+      opponentAllowed > 0 &&
+      Number.isFinite(
+        leagueAllowed
+      ) &&
+      leagueAllowed > 0
+    )
+      ? opponentAllowed /
+        leagueAllowed
+      : 1;
+
+
+  /*
+   * Opponent adjustment is deliberately small.
+   * Team-level allowed stats should never overpower
+   * a player's role and production.
+   */
+  const matchupFactor =
+    nbaClamp(
+      1 +
+      (
+        rawMatchupRatio -
+        1
+      ) *
+      0.35,
+      0.94,
+      1.06
+    );
+
+
+  const projection =
+    Number(
+      (
+        Number(
+          expectedRole
+            .expectedMinutes
+        ) *
+        expectedRate *
+        matchupFactor
+      )
+        .toFixed(
+          2
+        )
+    );
+
+
+  const propLine =
+    Number(
+      line
+    );
+
+
+  if (
+    !Number.isFinite(
+      propLine
+    )
+  ) {
+    return null;
+  }
+
+
+  const side =
+    projection >=
+      propLine
+      ? "OVER"
+      : "UNDER";
+
+
+  const rawEdge =
+    Math.abs(
+      projection -
+      propLine
+    );
+
+
+  const currentStatRows =
+    currentRows
+      .filter(
+        row =>
+          Number.isFinite(
+            nbaPropStatValue(
+              row,
+              market
+            )
+          )
+      );
+
+
+  const varianceRows =
+    (
+      currentStatRows.length >=
+        3
+        ? currentStatRows
+        : projectionPool
+            .filter(
+              row =>
+                Number.isFinite(
+                  nbaPropStatValue(
+                    row,
+                    market
+                  )
+                )
+            )
+    )
+      .slice(
+        0,
+        10
+      );
+
+
+  const varianceValues =
+    varianceRows
+      .map(
+        row =>
+          nbaPropStatValue(
+            row,
+            market
+          )
+      )
+      .filter(
+        Number.isFinite
+      );
+
+
+  const standardDeviation =
+    nbaPropStdDev(
+      varianceValues
+    );
+
+
+  const volatilityScale =
+    Math.max(
+      Number(
+        rule.volatilityFloor
+      ),
+      Number.isFinite(
+        standardDeviation
+      )
+        ? standardDeviation
+        : 0
+    );
+
+
+  /*
+   * THIS is why:
+   *
+   * +4 PTS != +4 REB != +4 AST
+   */
+  const edgeStrength =
+    rawEdge /
+    volatilityScale;
+
+
+  const edgeComponent =
+    50 +
+    (
+      38 *
+      (
+        1 -
+        Math.exp(
+          -1.10 *
+          edgeStrength
+        )
+      )
+    );
+
+
+  const hitComponent =
+    nbaPropBayesianHitScore(
+      currentStatRows,
+      market,
+      propLine,
+      side
+    );
+
+
+  const sampleMean =
+    varianceValues.length
+      ? nbaAverage(
+          varianceValues
+        )
+      : projection;
+
+
+  const relativeVolatility =
+    (
+      Number.isFinite(
+        standardDeviation
+      )
+    )
+      ? (
+          standardDeviation /
+          Math.max(
+            Math.abs(
+              sampleMean
+            ),
+            Number(
+              rule.volatilityFloor
+            )
+          )
+        )
+      : 1;
+
+
+  const stabilityComponent =
+    nbaClamp(
+      100 -
+      (
+        relativeVolatility *
+        55
+      ),
+      45,
+      95
+    );
+
+
+  let confidence =
+    (
+      edgeComponent *
+      0.35
+    ) +
+    (
+      hitComponent *
+      0.40
+    ) +
+    (
+      stabilityComponent *
+      0.15
+    ) +
+    (
+      Number(
+        expectedRole
+          .roleCertainty ||
+        50
+      ) *
+      0.10
+    );
+
+
+  /*
+   * EARLY-SEASON / SMALL-SAMPLE CAPS.
+   *
+   * No more 98% because a bench player barely played.
+   */
+  if (
+    currentStatRows.length ===
+    0
+  ) {
+
+    confidence =
+      Math.min(
+        confidence,
+        68
+      );
+
+  } else if (
+    currentStatRows.length <
+    3
+  ) {
+
+    confidence =
+      Math.min(
+        confidence,
+        74
+      );
+
+  } else if (
+    currentStatRows.length <
+    5
+  ) {
+
+    confidence =
+      Math.min(
+        confidence,
+        84
+      );
+  }
+
+
+  if (
+    expectedRole.roleSource ===
+      "position_rotation_fallback" &&
+    Math.abs(
+      Number(
+        expectedRole
+          .roleChange
+      )
+    ) >= 3
+  ) {
+
+    confidence =
+      Math.min(
+        confidence,
+        72
+      );
+  }
+
+
+  if (
+    expectedRole.roleSource ===
+      "new_team_fallback"
+  ) {
+
+    confidence =
+      Math.min(
+        confidence,
+        70
+      );
+  }
+
+
+  if (
+    expectedRole
+      .availabilityStatus ===
+      "questionable"
+  ) {
+
+    confidence =
+      Math.min(
+        confidence,
+        60
+      );
+
+  } else if (
+    expectedRole
+      .availabilityStatus ===
+      "day-to-day"
+  ) {
+
+    confidence =
+      Math.min(
+        confidence,
+        65
+      );
+
+  } else if (
+    expectedRole
+      .availabilityStatus ===
+      "probable"
+  ) {
+
+    confidence =
+      Math.min(
+        confidence,
+        82
+      );
+  }
+
+
+  if (
+    Number(
+      expectedRole
+        .expectedMinutes
+    ) <
+    10
+  ) {
+
+    confidence =
+      Math.min(
+        confidence,
+        70
+      );
+  }
+
+
+  confidence =
+    Number(
+      nbaClamp(
+        confidence,
+        50,
+        95
+      )
+        .toFixed(
+          1
+        )
+    );
+
+
+  const hitRates = {
+
+    last3:
+      nbaPropHitWindow(
+        currentStatRows,
+        market,
+        propLine,
+        side,
+        3
+      ),
+
+    last5:
+      nbaPropHitWindow(
+        currentStatRows,
+        market,
+        propLine,
+        side,
+        5
+      ),
+
+    last10:
+      nbaPropHitWindow(
+        currentStatRows,
+        market,
+        propLine,
+        side,
+        10
+      ),
+
+    season:
+      nbaPropHitWindow(
+        currentStatRows,
+        market,
+        propLine,
+        side,
+        null
+      )
+
   };
 
-  const propsRes = await fetch(
-    `https://api.the-odds-api.com/v4/sports/basketball_nba/events/${selectedEvent.id}/odds` +
-    `?apiKey=${ODDS_API_KEY}&regions=us` +
-    `&markets=player_points,player_rebounds,player_assists,player_threes` +
-    `&oddsFormat=decimal`
+
+  return {
+
+    market,
+
+    side,
+
+    line:
+      propLine,
+
+    projection,
+
+    /*
+     * INTERNAL ONLY.
+     * Frontend does NOT display it.
+     */
+    edge:
+      Number(
+        rawEdge.toFixed(
+          2
+        )
+      ),
+
+    edgeStrength:
+      Number(
+        edgeStrength.toFixed(
+          3
+        )
+      ),
+
+    confidence,
+
+    isPremium:
+      confidence >=
+      75,
+
+    expectedMinutes:
+      expectedRole
+        .expectedMinutes,
+
+    baselineMinutes:
+      expectedRole
+        .baselineMinutes,
+
+    roleChange:
+      expectedRole
+        .roleChange,
+
+    roleSource:
+      expectedRole
+        .roleSource,
+
+    roleSample:
+      expectedRole
+        .roleSample,
+
+    roleCertainty:
+      expectedRole
+        .roleCertainty,
+
+    availabilityStatus:
+      expectedRole
+        .availabilityStatus,
+
+    affectedBy:
+      expectedRole
+        .affectedBy ||
+      [],
+
+    ratePerMinute:
+      Number(
+        expectedRate.toFixed(
+          4
+        )
+      ),
+
+    comparableRoleGames:
+      comparableRows.length,
+
+    matchupFactor:
+      Number(
+        matchupFactor.toFixed(
+          3
+        )
+      ),
+
+    standardDeviation:
+      Number.isFinite(
+        standardDeviation
+      )
+        ? Number(
+            standardDeviation.toFixed(
+              2
+            )
+          )
+        : null,
+
+    hitRates,
+
+    currentSeasonGames:
+      currentStatRows.length,
+
+    seasonAverage:
+      nbaPropStatAverage(
+        currentStatRows,
+        market
+      ),
+
+    recentAverage:
+      nbaPropStatAverage(
+        currentStatRows.slice(
+          0,
+          5
+        ),
+        market
+      )
+
+  };
+}
+
+
+function nbaPropBookRank(
+  bookmaker,
+  priority
+) {
+
+  const index =
+    (
+      priority ||
+      []
+    )
+      .findIndex(
+        book =>
+          String(
+            book
+          )
+            .toLowerCase() ===
+          String(
+            bookmaker ||
+            ""
+          )
+            .toLowerCase()
+      );
+
+
+  return index === -1
+    ? 999
+    : index;
+}
+
+
+function chooseNBAPropPrice(
+  rows,
+  side,
+  priority
+) {
+
+  const candidates =
+    (
+      rows ||
+      []
+    )
+      .filter(
+        row =>
+          row.side ===
+            side &&
+          Number(
+            row.odds
+          ) > 1
+      )
+      .sort(
+        (
+          a,
+          b
+        ) => {
+
+          const rankDiff =
+            nbaPropBookRank(
+              a.bookmaker,
+              priority
+            ) -
+            nbaPropBookRank(
+              b.bookmaker,
+              priority
+            );
+
+
+          if (
+            rankDiff !== 0
+          ) {
+            return rankDiff;
+          }
+
+
+          return (
+            Number(
+              b.odds
+            ) -
+            Number(
+              a.odds
+            )
+          );
+        }
+      );
+
+
+  return candidates[0] ||
+    null;
+}
+
+
+function getNBAPropNoVigProbability(
+  rows,
+  selected
+) {
+
+  if (
+    !selected ||
+    Number(
+      selected.odds
+    ) <= 1
+  ) {
+    return null;
+  }
+
+
+  const selectedImplied =
+    1 /
+    Number(
+      selected.odds
+    );
+
+
+  const oppositeSide =
+    selected.side ===
+      "OVER"
+      ? "UNDER"
+      : "OVER";
+
+
+  const opposite =
+    (
+      rows ||
+      []
+    )
+      .find(
+        row =>
+          row.side ===
+            oppositeSide &&
+          row.bookmaker ===
+            selected.bookmaker &&
+          Number(
+            row.line
+          ) ===
+            Number(
+              selected.line
+            ) &&
+          Number(
+            row.odds
+          ) > 1
+      );
+
+
+  if (!opposite) {
+
+    return Number(
+      (
+        selectedImplied *
+        100
+      ).toFixed(
+        1
+      )
+    );
+  }
+
+
+  const oppositeImplied =
+    1 /
+    Number(
+      opposite.odds
+    );
+
+
+  return Number(
+    (
+      (
+        selectedImplied /
+        (
+          selectedImplied +
+          oppositeImplied
+        )
+      ) *
+      100
+    ).toFixed(
+      1
+    )
   );
-  const oddsData = await propsRes.json();
+}
 
-  // 4. Deduplicar props OVER
-  const bookPriority = ["DraftKings", "FanDuel", "BetMGM", "Caesars", "BetRivers"];
-  const rawProps = [];
+async function handleNBAPlayerProps(
+  req,
+  res
+) {
 
-  for (const bk of oddsData?.bookmakers || []) {
-    for (const mkt of bk?.markets || []) {
-      if (!NBA_MIN_LINES[mkt.key]) continue;
-      for (const o of mkt?.outcomes || []) {
-        if (String(o.name || "").toUpperCase() !== "OVER") continue;
-        const line = nbaSafeNum(o.point);
-        if (line < NBA_MIN_LINES[mkt.key]) continue;
+  // ==========================================================
+  // PREMIUM AUTH
+  // ==========================================================
+
+  const authHeader =
+    String(
+      req.headers.authorization ||
+      ""
+    );
+
+
+  const token =
+    authHeader.startsWith(
+      "Bearer "
+    )
+      ? authHeader.slice(
+          7
+        )
+      : null;
+
+
+  if (!token) {
+
+    return res
+      .status(401)
+      .json({
+        error:
+          "Unauthorized"
+      });
+  }
+
+
+  const {
+    data:
+      authData,
+
+    error:
+      authError
+  } =
+    await supabaseAdmin
+      .auth
+      .getUser(
+        token
+      );
+
+
+  if (
+    authError ||
+    !authData
+      ?.user
+      ?.id
+  ) {
+
+    return res
+      .status(401)
+      .json({
+        error:
+          "Unauthorized"
+      });
+  }
+
+
+  const {
+    data:
+      profile,
+
+    error:
+      profileError
+  } =
+    await supabaseAdmin
+      .from(
+        "users"
+      )
+      .select(
+        "is_premium"
+      )
+      .eq(
+        "id",
+        authData.user.id
+      )
+      .maybeSingle();
+
+
+  if (
+    profileError
+  ) {
+
+    return res
+      .status(500)
+      .json({
+        error:
+          "Unable to verify subscription"
+      });
+  }
+
+
+  const isPremiumUser =
+    profile
+      ?.is_premium ===
+        true ||
+    authData
+      .user
+      .email ===
+        ADMIN_EMAIL;
+
+
+  if (
+    !isPremiumUser
+  ) {
+
+    return res
+      .status(403)
+      .json({
+        error:
+          "Premium required"
+      });
+  }
+
+
+  // ==========================================================
+  // EVENT
+  // ==========================================================
+
+  const ODDS_API_KEY =
+    process.env
+      .ODDS_API_KEY;
+
+
+  if (
+    !ODDS_API_KEY
+  ) {
+
+    return res
+      .status(500)
+      .json({
+        error:
+          "ODDS_API_KEY not configured"
+      });
+  }
+
+
+  const force =
+    req.query.force ===
+      "true" ||
+    req.body?.force ===
+      true;
+
+
+  const eventsRes =
+    await fetch(
+      `https://api.the-odds-api.com/v4/sports/basketball_nba/events?apiKey=${ODDS_API_KEY}`
+    );
+
+
+  const events =
+    await eventsRes
+      .json()
+      .catch(
+        () => []
+      );
+
+
+  if (
+    !eventsRes.ok ||
+    !Array.isArray(
+      events
+    ) ||
+    !events.length
+  ) {
+
+    return res
+      .status(200)
+      .json({
+        ok:
+          true,
+
+        noPlay:
+          true,
+
+        reason:
+          "No NBA events available."
+      });
+  }
+
+
+  const selectedEventId =
+    req.query.eventId ||
+    req.body?.eventId ||
+    null;
+
+
+  const selectedEvent =
+    selectedEventId
+      ? events.find(
+          event =>
+            String(
+              event.id
+            ) ===
+            String(
+              selectedEventId
+            )
+        )
+      : events[0];
+
+
+  if (
+    !selectedEvent
+      ?.id
+  ) {
+
+    return res
+      .status(200)
+      .json({
+        ok:
+          true,
+
+        noPlay:
+          true,
+
+        reason:
+          "NBA event not found."
+      });
+  }
+
+
+  const gameTime =
+    selectedEvent
+      .commence_time;
+
+
+  const gameDate =
+    getNBAPropCentralDate(
+      gameTime
+    );
+
+
+  if (
+    !gameDate
+  ) {
+
+    return res
+      .status(400)
+      .json({
+        error:
+          "Invalid NBA game time"
+      });
+  }
+
+
+  const teamsSorted =
+    [
+      selectedEvent
+        .away_team,
+
+      selectedEvent
+        .home_team
+    ]
+      .map(
+        team =>
+          String(
+            team
+          ).trim()
+      )
+      .sort();
+
+
+  const cashEdgeGameId =
+    `nba-${gameDate}-${teamsSorted.join("-")}`;
+
+
+  // ==========================================================
+  // LIVE INJURIES
+  // ==========================================================
+
+  let {
+    data:
+      liveInjuryState,
+
+    error:
+      liveInjuryError
+  } =
+    await supabaseAdmin
+      .from(
+        "nba_live_injury_state"
+      )
+      .select(`
+        game_id,
+        away_team_id,
+        home_team_id,
+        injuries,
+        fingerprint,
+        checked_at
+      `)
+      .eq(
+        "game_id",
+        cashEdgeGameId
+      )
+      .maybeSingle();
+
+
+  if (
+    liveInjuryError
+  ) {
+
+    return res
+      .status(503)
+      .json({
+        ok:
+          false,
+
+        retryable:
+          true,
+
+        error:
+          "NBA injury state temporarily unavailable."
+      });
+  }
+
+
+  if (
+    !liveInjuryState
+  ) {
+
+    try {
+
+      liveInjuryState =
+        await bootstrapNBAInjuryState({
+          gameId:
+            cashEdgeGameId,
+
+          awayTeam:
+            selectedEvent
+              .away_team,
+
+          homeTeam:
+            selectedEvent
+              .home_team,
+
+          gameTime
+        });
+
+    } catch (
+      error
+    ) {
+
+      console.error(
+        "NBA PROP INJURY BOOTSTRAP:",
+        error?.message ||
+        error
+      );
+    }
+  }
+
+
+  if (
+    !liveInjuryState ||
+    !Array.isArray(
+      liveInjuryState
+        .injuries
+    )
+  ) {
+
+    return res
+      .status(503)
+      .json({
+        ok:
+          false,
+
+        noPlay:
+          true,
+
+        retryable:
+          true,
+
+        reason:
+          "Waiting for verified NBA injury state."
+      });
+  }
+
+
+  const injuryFingerprint =
+    String(
+      liveInjuryState
+        .fingerprint ||
+      ""
+    );
+
+
+  // ==========================================================
+  // CACHE
+  //
+  // Cache must match current injury fingerprint.
+  // We also shorten Props cache because sportsbook lines move.
+  // ==========================================================
+
+  if (
+    !force
+  ) {
+
+    const {
+      data:
+        cached
+    } =
+      await supabaseAdmin
+        .from(
+          "player_props_cache"
+        )
+        .select(
+          "analysis_json, updated_at"
+        )
+        .eq(
+          "sport",
+          "nba"
+        )
+        .eq(
+          "event_id",
+          selectedEvent.id
+        )
+        .eq(
+          "game_date",
+          gameDate
+        )
+        .maybeSingle();
+
+
+    const cacheAge =
+      cached?.updated_at
+        ? (
+            Date.now() -
+            new Date(
+              cached.updated_at
+            ).getTime()
+          )
+        : Infinity;
+
+
+    if (
+      cached
+        ?.analysis_json
+        ?.version ===
+          NBA_PLAYER_PROPS_VERSION &&
+      cached
+        .analysis_json
+        .injurySnapshotFingerprint ===
+          injuryFingerprint &&
+      cacheAge <
+        15 * 60 * 1000 &&
+      Array.isArray(
+        cached
+          .analysis_json
+          .analyzedPlayerLines
+      )
+    ) {
+
+      return res
+        .status(200)
+        .json({
+          ...cached
+            .analysis_json,
+
+          cached:
+            true
+        });
+    }
+  }
+
+
+  // ==========================================================
+  // REAL SPORTSBOOK BOARD — OVER + UNDER
+  // ==========================================================
+
+  const markets =
+    [
+      "player_points",
+      "player_rebounds",
+      "player_assists",
+      "player_threes"
+    ]
+      .join(",");
+
+
+  const propsRes =
+    await fetch(
+      `https://api.the-odds-api.com/v4/sports/basketball_nba/events/${selectedEvent.id}/odds` +
+      `?apiKey=${ODDS_API_KEY}` +
+      `&regions=us` +
+      `&markets=${markets}` +
+      `&oddsFormat=decimal`
+    );
+
+
+  const oddsData =
+    await propsRes
+      .json()
+      .catch(
+        () => null
+      );
+
+
+  if (
+    !propsRes.ok
+  ) {
+
+    return res
+      .status(
+        propsRes.status
+      )
+      .json({
+        error:
+          oddsData?.message ||
+          oddsData?.error ||
+          "Unable to load NBA player props."
+      });
+  }
+
+
+  const bookPriority =
+    [
+      "DraftKings",
+      "FanDuel",
+      "BetMGM",
+      "Caesars",
+      "BetRivers",
+      "Fanatics",
+      "Hard Rock Bet"
+    ];
+
+
+  const rawProps =
+    [];
+
+
+  for (
+    const bookmaker
+    of oddsData
+      ?.bookmakers ||
+    []
+  ) {
+
+    for (
+      const market
+      of bookmaker
+        ?.markets ||
+      []
+    ) {
+
+      const rule =
+        NBA_PROP_RULES[
+          market.key
+        ];
+
+
+      if (!rule) {
+        continue;
+      }
+
+
+      for (
+        const outcome
+        of market
+          ?.outcomes ||
+        []
+      ) {
+
+        const side =
+          String(
+            outcome
+              ?.name ||
+            ""
+          )
+            .trim()
+            .toUpperCase();
+
+
+        if (
+          side !== "OVER" &&
+          side !== "UNDER"
+        ) {
+          continue;
+        }
+
+
+        const player =
+          String(
+            outcome
+              ?.description ||
+            ""
+          ).trim();
+
+
+        const line =
+          Number(
+            outcome
+              ?.point
+          );
+
+
+        const odds =
+          Number(
+            outcome
+              ?.price
+          );
+
+
+        if (
+          !player ||
+          !Number.isFinite(
+            line
+          ) ||
+          line <
+            rule.minLine ||
+          !Number.isFinite(
+            odds
+          ) ||
+          odds <= 1
+        ) {
+          continue;
+        }
+
+
         rawProps.push({
-          player: o.description, market: mkt.key,
-          side: "OVER", line, odds: o.price, bookmaker: bk.title
+
+          player,
+
+          market:
+            market.key,
+
+          side,
+
+          line,
+
+          odds,
+
+          bookmaker:
+            bookmaker.title ||
+            bookmaker.key
+
         });
       }
     }
   }
 
-  const uniqueMap = new Map();
-  for (const prop of rawProps) {
-    const key = `${prop.player}|${prop.market}|${prop.line}`;
-    const cur = uniqueMap.get(key);
-    if (!cur) { uniqueMap.set(key, prop); continue; }
-    const curR = bookPriority.indexOf(cur.bookmaker);
-    const newR = bookPriority.indexOf(prop.bookmaker);
-    if ((newR === -1 ? 999 : newR) < (curR === -1 ? 999 : curR)) uniqueMap.set(key, prop);
+
+  if (
+    !rawProps.length
+  ) {
+
+    return res
+      .status(200)
+      .json({
+        ok:
+          true,
+
+        noPlay:
+          true,
+
+        reason:
+          "No NBA player prop markets available yet.",
+
+        game:
+          `${selectedEvent.away_team} @ ${selectedEvent.home_team}`
+      });
   }
 
-  const uniqueProps = Array.from(uniqueMap.values()).slice(0, 80);
 
-  if (!uniqueProps.length) {
-    return res.status(200).json({
-      ok: true, noPlay: true,
-      reason: "No hay player props NBA disponibles aún.",
-      game: `${selectedEvent.away_team} @ ${selectedEvent.home_team}`
-    });
+  /*
+   * Group the SAME player / market / line across books.
+   *
+   * Projection decides OVER/UNDER.
+   * Then we select the real sportsbook price for that side.
+   */
+  const propGroups =
+    new Map();
+
+
+  for (
+    const prop
+    of rawProps
+  ) {
+
+    const key =
+      [
+        nbaPropNormalizeName(
+          prop.player
+        ),
+        prop.market,
+        Number(
+          prop.line
+        )
+      ].join("|");
+
+
+    if (
+      !propGroups.has(
+        key
+      )
+    ) {
+
+      propGroups.set(
+        key,
+        []
+      );
+    }
+
+
+    propGroups
+      .get(
+        key
+      )
+      .push(
+        prop
+      );
   }
 
-  // 5. IDs de equipos
-  const awayTeamId = findNBATeamId(selectedEvent.away_team);
-  const homeTeamId = findNBATeamId(selectedEvent.home_team);
 
-  // 6. Defensa rival
-  const [awayDefense, homeDefense] = await Promise.all([
-    getNBAOpponentDefenseStats(selectedEvent.away_team),
-    getNBAOpponentDefenseStats(selectedEvent.home_team)
-  ]);
+  // ==========================================================
+  // TEAM CONTEXT
+  // ==========================================================
 
-  // 7. Roster para mapear jugador → athleteId
-  async function getRoster(teamId) {
-    if (!teamId) return [];
+  const currentSeason =
+    getNBAPropsCurrentSeason();
+
+
+  const seasons =
+    [
+      currentSeason,
+      currentSeason - 1
+    ];
+
+
+  const liveInjuries =
+    liveInjuryState
+      .injuries ||
+    [];
+
+
+  const awayBDLTeamId =
+    Number(
+      liveInjuryState
+        .away_team_id
+    );
+
+
+  const homeBDLTeamId =
+    Number(
+      liveInjuryState
+        .home_team_id
+    );
+
+
+  if (
+    !Number.isFinite(
+      awayBDLTeamId
+    ) ||
+    !Number.isFinite(
+      homeBDLTeamId
+    )
+  ) {
+
+    return res
+      .status(503)
+      .json({
+        ok:
+          false,
+
+        retryable:
+          true,
+
+        reason:
+          "NBA BDL team ids unavailable."
+      });
+  }
+
+
+  const awayESPNTeamId =
+    findNBATeamId(
+      selectedEvent
+        .away_team
+    );
+
+
+  const homeESPNTeamId =
+    findNBATeamId(
+      selectedEvent
+        .home_team
+    );
+
+
+  async function getRoster(
+    teamId
+  ) {
+
+    if (!teamId) {
+      return [];
+    }
+
+
     try {
-      const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamId}/roster`);
-      if (!res.ok) return [];
-      const data = await res.json();
-      return (data.athletes || []).flatMap(g => g.items || []).map(a => ({
-        id: a.id,
-        displayName: String(a.displayName || "").toLowerCase()
-      }));
-    } catch { return []; }
+
+      const response =
+        await fetch(
+          `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamId}/roster`
+        );
+
+
+      if (
+        !response.ok
+      ) {
+        return [];
+      }
+
+
+      const data =
+        await response.json();
+
+
+      return (
+        data
+          ?.athletes ||
+        []
+      )
+        .flatMap(
+          group =>
+            group.items ||
+            []
+        )
+        .map(
+          athlete => ({
+
+            id:
+              athlete.id,
+
+            displayName:
+              String(
+                athlete
+                  .displayName ||
+                ""
+              ),
+
+            position:
+              athlete
+                ?.position
+                ?.abbreviation ||
+              athlete
+                ?.position
+                ?.name ||
+              null
+
+          })
+        );
+
+    } catch {
+
+      return [];
+    }
   }
 
-  const [awayRoster, homeRoster] = await Promise.all([
-    getRoster(awayTeamId),
-    getRoster(homeTeamId)
-  ]);
-  const allRoster = [...awayRoster, ...homeRoster];
 
-  function findAthleteId(playerName) {
-    const clean = String(playerName || "").toLowerCase();
-    const lastName = clean.split(" ").slice(-1)[0];
-    return allRoster.find(a =>
-      a.displayName === clean ||
-      a.displayName.endsWith(lastName) && lastName.length > 3
-    )?.id || null;
+  const [
+    awayContext,
+    homeContext,
+    awayDefense,
+    homeDefense,
+    awayRoster,
+    homeRoster
+  ] =
+    await Promise.all([
+
+      loadNBAPropTeamContext(
+        awayBDLTeamId,
+        seasons
+      ),
+
+      loadNBAPropTeamContext(
+        homeBDLTeamId,
+        seasons
+      ),
+
+      getNBAOpponentDefenseStats(
+        selectedEvent
+          .away_team
+      ),
+
+      getNBAOpponentDefenseStats(
+        selectedEvent
+          .home_team
+      ),
+
+      getRoster(
+        awayESPNTeamId
+      ),
+
+      getRoster(
+        homeESPNTeamId
+      )
+
+    ]);
+
+
+  const playerHistoryCache =
+    new Map();
+
+
+  const seasonStatsCache =
+    new Map();
+
+
+  function findRosterPlayer(
+    playerName
+  ) {
+
+    const clean =
+      nbaPropNormalizeName(
+        playerName
+      );
+
+
+    const all =
+      [
+        ...awayRoster.map(
+          player => ({
+            ...player,
+            side:
+              "away"
+          })
+        ),
+
+        ...homeRoster.map(
+          player => ({
+            ...player,
+            side:
+              "home"
+          })
+        )
+      ];
+
+
+    const exact =
+      all.find(
+        player =>
+          nbaPropNormalizeName(
+            player.displayName
+          ) ===
+          clean
+      );
+
+
+    if (exact) {
+      return exact;
+    }
+
+
+    const lastName =
+      clean
+        .split(" ")
+        .slice(-1)[0];
+
+
+    const candidates =
+      all.filter(
+        player =>
+          nbaPropNormalizeName(
+            player.displayName
+          )
+            .split(" ")
+            .slice(-1)[0] ===
+          lastName
+      );
+
+
+    return candidates.length ===
+      1
+      ? candidates[0]
+      : null;
   }
 
-  // 8. Cache de stats
-  const seasonStatsCache = new Map();
-  const recentAvgCache   = new Map();
 
-  // 9. Analizar props
-  const analyzedProps = [];
+  const modeledLines =
+    [];
 
-  for (const prop of uniqueProps) {
-    const athleteId = findAthleteId(prop.player);
-    if (!athleteId) continue;
 
-    const rule = NBA_PROP_RULES[prop.market];
-    if (!rule) continue;
+  // ==========================================================
+  // MODEL EVERY REAL LINE
+  // ==========================================================
 
-    // Season stats
-    let seasonStats = seasonStatsCache.get(athleteId);
-    if (!seasonStats) {
+  for (
+    const rows
+    of propGroups.values()
+  ) {
+
+    const sample =
+      rows[0];
+
+
+    if (!sample) {
+      continue;
+    }
+
+
+    const rosterPlayer =
+      findRosterPlayer(
+        sample.player
+      );
+
+
+    let playerSide =
+      rosterPlayer?.side ||
+      null;
+
+
+    /*
+     * If ESPN roster matching fails,
+     * use our BDL team history instead.
+     */
+    const awayHistoricalRows =
+      nbaPropFindRows(
+        awayContext
+          .playerRows,
+        {
+          playerName:
+            sample.player
+        }
+      );
+
+
+    const homeHistoricalRows =
+      nbaPropFindRows(
+        homeContext
+          .playerRows,
+        {
+          playerName:
+            sample.player
+        }
+      );
+
+
+    if (
+      !playerSide
+    ) {
+
+      if (
+        awayHistoricalRows.length &&
+        !homeHistoricalRows.length
+      ) {
+
+        playerSide =
+          "away";
+
+      } else if (
+        homeHistoricalRows.length &&
+        !awayHistoricalRows.length
+      ) {
+
+        playerSide =
+          "home";
+      }
+    }
+
+
+    if (
+      !playerSide
+    ) {
+      continue;
+    }
+
+
+    const playerTeamName =
+      playerSide ===
+        "away"
+        ? selectedEvent
+            .away_team
+        : selectedEvent
+            .home_team;
+
+
+    const playerTeamId =
+      playerSide ===
+        "away"
+        ? awayBDLTeamId
+        : homeBDLTeamId;
+
+
+    const teamContext =
+      playerSide ===
+        "away"
+        ? awayContext
+        : homeContext;
+
+
+    const opponentDefense =
+      playerSide ===
+        "away"
+        ? homeDefense
+        : awayDefense;
+
+
+    const roster =
+      playerSide ===
+        "away"
+        ? awayRoster
+        : homeRoster;
+
+
+    const teamRows =
+      playerSide ===
+        "away"
+        ? awayHistoricalRows
+        : homeHistoricalRows;
+
+
+    const bdlPlayerId =
+      teamRows?.[0]
+        ?.player_id ||
+      null;
+
+
+    const historyKey =
+      bdlPlayerId
+        ? `id:${bdlPlayerId}`
+        : `name:${nbaPropNormalizeName(sample.player)}`;
+
+
+    let allPlayerRows =
+      playerHistoryCache
+        .get(
+          historyKey
+        );
+
+
+    if (
+      !allPlayerRows
+    ) {
+
       try {
-        seasonStats = await getNBAPlayerSeasonStats(athleteId);
-        if (seasonStats) seasonStatsCache.set(athleteId, seasonStats);
-      } catch { continue; }
+
+        allPlayerRows =
+          await loadNBAPropPlayerHistory({
+            playerId:
+              bdlPlayerId,
+
+            playerName:
+              sample.player,
+
+            seasons
+          });
+
+      } catch {
+
+        allPlayerRows =
+          teamRows;
+      }
+
+
+      playerHistoryCache.set(
+        historyKey,
+        allPlayerRows
+      );
     }
-    if (!seasonStats) continue;
 
-    // Equipo del jugador
-    const isAwayPlayer = awayRoster.some(a => a.id === athleteId);
-    const playerTeamId = isAwayPlayer ? awayTeamId : homeTeamId;
-    const opponentDefense = isAwayPlayer ? homeDefense : awayDefense;
 
-    // Recent avg
-    const recentCacheKey = `${athleteId}|${prop.market}`;
-    let recentAvg = recentAvgCache.get(recentCacheKey);
-    if (recentAvg === undefined) {
-      recentAvg = await getNBAPlayerRecentAvg(athleteId, playerTeamId, rule.statKey);
-      recentAvgCache.set(recentCacheKey, recentAvg);
+    if (
+      !allPlayerRows
+        ?.length
+    ) {
+      continue;
     }
 
-    const result = calculateNBAPropProjection({
-      market: prop.market,
-      line: prop.line,
-      side: prop.side,
-      seasonStats,
-      opponentDefenseStats: opponentDefense,
-      recentAvg
-    });
 
-    if (!result) continue;
+    const expectedRole =
+      calculateNBAExpectedMinutes({
 
-    analyzedProps.push({
-      player:        prop.player,
-      market:        prop.market,
-      side:          prop.side,
-      line:          prop.line,
-      odds:          prop.odds,
-      bookmaker:     prop.bookmaker,
-      projection:    result.projection,
-      edge:          result.edge,
-      confidence:    result.confidence,
-      isPremium:     result.isPremium,
-      opponentFactor: result.opponentFactor
+        playerName:
+          sample.player,
+
+        playerId:
+          bdlPlayerId,
+
+        teamId:
+          playerTeamId,
+
+        teamContext,
+
+        allPlayerRows,
+
+        liveInjuries,
+
+        roster
+
+      });
+
+
+    if (
+      !expectedRole ||
+      expectedRole.eligible !==
+        true
+    ) {
+      continue;
+    }
+
+
+    const espnAthleteId =
+      rosterPlayer?.id ||
+      null;
+
+
+    let currentSeasonStats =
+      null;
+
+    let previousSeasonStats =
+      null;
+
+
+    if (
+      espnAthleteId
+    ) {
+
+      const cacheKey =
+        String(
+          espnAthleteId
+        );
+
+
+      let cachedStats =
+        seasonStatsCache
+          .get(
+            cacheKey
+          );
+
+
+      if (
+        !cachedStats
+      ) {
+
+        const [
+          currentStats,
+          previousStats
+        ] =
+          await Promise.all([
+
+            getNBAPlayerSeasonStats(
+              espnAthleteId,
+              currentSeason
+            )
+              .catch(
+                () => null
+              ),
+
+            getNBAPlayerSeasonStats(
+              espnAthleteId,
+              currentSeason - 1
+            )
+              .catch(
+                () => null
+              )
+
+          ]);
+
+
+        cachedStats = {
+          current:
+            currentStats,
+
+          previous:
+            previousStats
+        };
+
+
+        seasonStatsCache.set(
+          cacheKey,
+          cachedStats
+        );
+      }
+
+
+      currentSeasonStats =
+        cachedStats.current;
+
+      previousSeasonStats =
+        cachedStats.previous;
+    }
+
+
+    const model =
+      calculateNBAPropV3({
+
+        market:
+          sample.market,
+
+        line:
+          sample.line,
+
+        expectedRole,
+
+        allPlayerRows,
+
+        opponentDefenseStats:
+          opponentDefense,
+
+        currentSeasonStats,
+
+        previousSeasonStats,
+
+        currentSeason
+
+      });
+
+
+    if (!model) {
+      continue;
+    }
+
+
+    const selectedPrice =
+      chooseNBAPropPrice(
+        rows,
+        model.side,
+        bookPriority
+      );
+
+
+    if (
+      !selectedPrice
+    ) {
+      continue;
+    }
+
+
+    const rawImplied =
+      Number(
+        (
+          (
+            1 /
+            Number(
+              selectedPrice.odds
+            )
+          ) *
+          100
+        ).toFixed(
+          1
+        )
+      );
+
+
+    const noVigProbability =
+      getNBAPropNoVigProbability(
+        rows,
+        selectedPrice
+      );
+
+
+    const value =
+      noVigProbability != null
+        ? Number(
+            (
+              model.confidence -
+              noVigProbability
+            ).toFixed(
+              1
+            )
+          )
+        : null;
+
+
+    const riskyAvailability =
+      [
+        "out",
+        "doubtful",
+        "questionable",
+        "day-to-day"
+      ]
+        .includes(
+          model
+            .availabilityStatus
+        );
+
+
+    const recommended =
+      !riskyAvailability &&
+      model.confidence >=
+        60 &&
+      value != null &&
+      value >=
+        10;
+
+
+    modeledLines.push({
+
+      athleteId:
+        espnAthleteId,
+
+      bdlPlayerId,
+
+      player:
+        sample.player,
+
+      team:
+        playerTeamName,
+
+      market:
+        sample.market,
+
+      side:
+        model.side,
+
+      line:
+        Number(
+          sample.line
+        ),
+
+      odds:
+        Number(
+          selectedPrice.odds
+        ),
+
+      bookmaker:
+        selectedPrice.bookmaker,
+
+      projection:
+        model.projection,
+
+      /*
+       * Still sent for internal/debug use.
+       * Frontend V3 never displays it.
+       */
+      edge:
+        model.edge,
+
+      edgeStrength:
+        model.edgeStrength,
+
+      confidence:
+        model.confidence,
+
+      displayConfidence:
+        model.confidence,
+
+      isPremium:
+        model.isPremium,
+
+      recommended,
+
+      finalSignal:
+        recommended
+          ? model.side
+          : null,
+
+      sportsbookImpliedPct:
+        rawImplied,
+
+      sportsbookNoVigPct:
+        noVigProbability,
+
+      value,
+
+      finalValue:
+        value,
+
+      expectedMinutes:
+        model.expectedMinutes,
+
+      baselineMinutes:
+        model.baselineMinutes,
+
+      roleChange:
+        model.roleChange,
+
+      roleSource:
+        model.roleSource,
+
+      roleSample:
+        model.roleSample,
+
+      roleCertainty:
+        model.roleCertainty,
+
+      affectedBy:
+        model.affectedBy,
+
+      availabilityStatus:
+        model.availabilityStatus,
+
+      matchupFactor:
+        model.matchupFactor,
+
+      ratePerMinute:
+        model.ratePerMinute,
+
+      comparableRoleGames:
+        model.comparableRoleGames,
+
+      standardDeviation:
+        model.standardDeviation,
+
+      hitRates:
+        model.hitRates,
+
+      currentSeasonGames:
+        model.currentSeasonGames,
+
+      seasonAverage:
+        model.seasonAverage,
+
+      recentAverage:
+        model.recentAverage
+
     });
   }
 
-  analyzedProps.sort((a, b) => b.confidence - a.confidence);
-if (analyzedProps.length === 0) {
-  return res.status(200).json({
-    ok: true,
-    noPlay: true,
-    reason: "No hay suficientes datos para calcular player props aún.",
-    game: `${selectedEvent.away_team} @ ${selectedEvent.home_team}`
-  });
-}
+
+  if (
+    !modeledLines.length
+  ) {
+
+    return res
+      .status(200)
+      .json({
+        ok:
+          true,
+
+        noPlay:
+          true,
+
+        reason:
+          "Not enough verified NBA player data to model this game.",
+
+        game:
+          `${selectedEvent.away_team} @ ${selectedEvent.home_team}`
+      });
+  }
+
+
+  // ==========================================================
+  // SORT FULL BOARD
+  // ==========================================================
+
+  modeledLines.sort(
+    (
+      a,
+      b
+    ) => {
+
+      if (
+        a.recommended !==
+        b.recommended
+      ) {
+
+        return a.recommended
+          ? -1
+          : 1;
+      }
+
+
+      const valueDiff =
+        Number(
+          b.value ??
+          -999
+        ) -
+        Number(
+          a.value ??
+          -999
+        );
+
+
+      if (
+        valueDiff !== 0
+      ) {
+        return valueDiff;
+      }
+
+
+      return (
+        Number(
+          b.confidence ||
+          0
+        ) -
+        Number(
+          a.confidence ||
+          0
+        )
+      );
+    }
+  );
+
+
+  // ==========================================================
+  // BEST — ONE PROP PER PLAYER
+  // ==========================================================
+
+  const recommendationByPlayer =
+    new Map();
+
+
+  for (
+    const prop
+    of modeledLines
+  ) {
+
+    if (
+      !prop.recommended
+    ) {
+      continue;
+    }
+
+
+    const key =
+      prop.bdlPlayerId
+        ? `id:${prop.bdlPlayerId}`
+        : `name:${nbaPropNormalizeName(prop.player)}`;
+
+
+    const current =
+      recommendationByPlayer
+        .get(
+          key
+        );
+
+
+    if (
+      !current ||
+      Number(
+        prop.value ||
+        0
+      ) >
+      Number(
+        current.value ||
+        0
+      ) ||
+      (
+        Number(
+          prop.value ||
+          0
+        ) ===
+        Number(
+          current.value ||
+          0
+        ) &&
+        prop.confidence >
+        current.confidence
+      )
+    ) {
+
+      recommendationByPlayer.set(
+        key,
+        prop
+      );
+    }
+  }
+
+
+  const recommendations =
+    Array.from(
+      recommendationByPlayer
+        .values()
+    )
+      .sort(
+        (
+          a,
+          b
+        ) =>
+          (
+            Number(
+              b.value ||
+              0
+            ) -
+            Number(
+              a.value ||
+              0
+            )
+          ) ||
+          (
+            Number(
+              b.confidence ||
+              0
+            ) -
+            Number(
+              a.confidence ||
+              0
+            )
+          )
+      );
+
+
   const finalResponse = {
-    ok:                 true,
-    mode:               "nba-player-props",
-    cached:             false,
-    eventId:            selectedEvent.id,
-    game:               `${selectedEvent.away_team} @ ${selectedEvent.home_team}`,
-    gameDate:           today,
-    generatedAt:        new Date().toISOString(),
-    totalRawProps:      rawProps.length,
-    totalAnalyzedProps: analyzedProps.length,
-    props:              analyzedProps.slice(0, 3),
-    lockedProps:        analyzedProps.slice(3, 40)
+
+    ok:
+      true,
+
+    mode:
+      "nba-player-props",
+
+    version:
+      NBA_PLAYER_PROPS_VERSION,
+
+    cached:
+      false,
+
+    eventId:
+      selectedEvent.id,
+
+    cashEdgeGameId,
+
+    game:
+      `${selectedEvent.away_team} @ ${selectedEvent.home_team}`,
+
+    awayTeam:
+      selectedEvent.away_team,
+
+    homeTeam:
+      selectedEvent.home_team,
+
+    gameTime,
+
+    gameDate,
+
+    generatedAt:
+      new Date()
+        .toISOString(),
+
+    injurySnapshotFingerprint:
+      injuryFingerprint,
+
+    injuryCheckedAt:
+      liveInjuryState
+        .checked_at ||
+      null,
+
+    totalRawProps:
+      rawProps.length,
+
+    totalAnalyzedProps:
+      modeledLines.length,
+
+    /*
+     * Same product contract used by the other Props modules.
+     */
+    props:
+      recommendations.slice(
+        0,
+        3
+      ),
+
+    lockedProps:
+      recommendations.slice(
+        3,
+        40
+      ),
+
+    /*
+     * Full board used by Player → Market navigation.
+     */
+    analyzedPlayerLines:
+      modeledLines.slice(
+        0,
+        120
+      )
+
   };
 
-  // Guardar cache
-  await supabaseAdmin.from("player_props_cache").upsert({
-    sport:         "nba",
-    event_id:      selectedEvent.id,
-    game:          finalResponse.game,
-    game_date:     today,
-    analysis_json: finalResponse,
-    updated_at:    new Date().toISOString()
-  }, { onConflict: "sport,event_id,game_date" });
 
-  return res.status(200).json(finalResponse);
+  await supabaseAdmin
+    .from(
+      "player_props_cache"
+    )
+    .upsert(
+      {
+
+        sport:
+          "nba",
+
+        event_id:
+          selectedEvent.id,
+
+        game:
+          finalResponse.game,
+
+        game_date:
+          gameDate,
+
+        analysis_json:
+          finalResponse,
+
+        updated_at:
+          new Date()
+            .toISOString()
+
+      },
+      {
+        onConflict:
+          "sport,event_id,game_date"
+      }
+    );
+
+
+  return res
+    .status(200)
+    .json(
+      finalResponse
+    );
 }
 module.exports = async function handler(req, res) {
  res.setHeader("Access-Control-Allow-Origin", "*");
