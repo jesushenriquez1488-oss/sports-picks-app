@@ -1484,27 +1484,147 @@ if (
 }
 if (req.method === "GET" && req.query.mode === "generate-daily") {
   try {
-   const authHeader = req.headers.authorization || "";
-const cronToken = authHeader.replace("Bearer ", "");
-const manualSecret = req.query.secret;
+  const authHeader =
+  String(
+    req.headers.authorization ||
+    ""
+  );
+
+const cronToken =
+  authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : "";
+
+const manualSecret =
+  String(
+    req.query.secret ||
+    ""
+  );
+
+const internalHeaderSecret =
+  String(
+    req.headers[
+      "x-internal-secret"
+    ] ||
+    ""
+  );
+
+
+// ============================================================
+// STANDARD GENERATE-DAILY SECRET
+// ============================================================
 
 const validSecret =
-  process.env.CRON_SECRET ||
-  process.env.GENERATE_DAILY_SECRET;
+  String(
+    process.env.CRON_SECRET ||
+    process.env.GENERATE_DAILY_SECRET ||
+    ""
+  );
 
-if (!validSecret) {
-  return res.status(500).json({
-    error: "Falta configurar CRON_SECRET en Vercel"
-  });
-}
+
+// ============================================================
+// NBA INJURY REANALYSIS SECRET
+//
+// MARKET_INGEST_SECRET is accepted ONLY for:
+//
+// basketball_nba
+// + exact gameId
+// + force=true
+//
+// It is NOT accepted for normal generate-daily runs,
+// WNBA, NCAAB, MLB, NFL, NCAAF or refresh-all.
+// ============================================================
+
+const marketIngestSecret =
+  String(
+    process.env.MARKET_INGEST_SECRET ||
+    ""
+  );
+
+
+const targetedGameIdForAuth =
+  String(
+    req.query.gameId ||
+    ""
+  ).trim();
+
+
+const isTargetedForcedNBA =
+  req.query.sport ===
+    "basketball_nba" &&
+
+  Boolean(
+    targetedGameIdForAuth
+  ) &&
+
+  req.query.force ===
+    "true";
+
+
+// ============================================================
+// NORMAL AUTH
+// ============================================================
+
+const standardAuthorized =
+  Boolean(
+    validSecret
+  ) &&
+  (
+    cronToken ===
+      validSecret ||
+
+    manualSecret ===
+      validSecret
+  );
+
+
+// ============================================================
+// RAILWAY NBA INJURY REANALYSIS AUTH
+// ============================================================
+
+const nbaInjuryReanalysisAuthorized =
+  isTargetedForcedNBA &&
+
+  Boolean(
+    marketIngestSecret
+  ) &&
+
+  internalHeaderSecret ===
+    marketIngestSecret;
+
+
+// ============================================================
+// GENERATE-DAILY STILL REQUIRES ITS OWN INTERNAL SECRET
+//
+// Even when Railway enters with MARKET_INGEST_SECRET,
+// generate-daily uses validSecret internally for /api/odds
+// and /api/analyze-nba.
+// ============================================================
 
 if (
-  cronToken !== validSecret &&
-  manualSecret !== validSecret
+  !validSecret
 ) {
-  return res.status(401).json({
-    error: "No autorizado"
-  });
+
+  return res
+    .status(500)
+    .json({
+      error:
+        "Falta configurar CRON_SECRET o GENERATE_DAILY_SECRET en Vercel"
+    });
+}
+
+
+if (
+  !standardAuthorized &&
+  !nbaInjuryReanalysisAuthorized
+) {
+
+  return res
+    .status(401)
+    .json({
+      error:
+        "No autorizado"
+    });
 }
 
    
