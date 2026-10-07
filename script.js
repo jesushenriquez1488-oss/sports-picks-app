@@ -1128,7 +1128,2142 @@ function getModelAnalysis(verdict) {
 
   return `El modelo no detecta suficiente ventaja para recomendar entrada fuerte.`;
 }
+// ============================================================
+// NBA MOBILE UI — ANDROID / IPHONE / WEB
+// ============================================================
 
+const NBA_TEAM_CODES = {
+
+  "Atlanta Hawks": "atl",
+  "Boston Celtics": "bos",
+  "Brooklyn Nets": "bkn",
+  "Charlotte Hornets": "cha",
+  "Chicago Bulls": "chi",
+  "Cleveland Cavaliers": "cle",
+  "Dallas Mavericks": "dal",
+  "Denver Nuggets": "den",
+  "Detroit Pistons": "det",
+  "Golden State Warriors": "gs",
+  "Houston Rockets": "hou",
+  "Indiana Pacers": "ind",
+  "LA Clippers": "lac",
+  "Los Angeles Clippers": "lac",
+  "Los Angeles Lakers": "lal",
+  "Memphis Grizzlies": "mem",
+  "Miami Heat": "mia",
+  "Milwaukee Bucks": "mil",
+  "Minnesota Timberwolves": "min",
+  "New Orleans Pelicans": "no",
+  "New York Knicks": "ny",
+  "Oklahoma City Thunder": "okc",
+  "Orlando Magic": "orl",
+  "Philadelphia 76ers": "phi",
+  "Phoenix Suns": "phx",
+  "Portland Trail Blazers": "por",
+  "Sacramento Kings": "sac",
+  "San Antonio Spurs": "sa",
+  "Toronto Raptors": "tor",
+  "Utah Jazz": "utah",
+  "Washington Wizards": "wsh"
+
+};
+
+
+function getNBATeamCode(
+  teamName
+) {
+
+  return (
+    NBA_TEAM_CODES[
+      String(
+        teamName ||
+        ""
+      ).trim()
+    ] ||
+    null
+  );
+}
+
+
+function getNBATeamLogoURL(
+  teamName
+) {
+
+  const code =
+    getNBATeamCode(
+      teamName
+    );
+
+
+  return code
+    ? `https://a.espncdn.com/i/teamlogos/nba/500/${code}.png`
+    : "";
+}
+
+
+function getNBAPlayerPhotoURL(
+  athleteId
+) {
+
+  const id =
+    String(
+      athleteId ||
+      ""
+    ).trim();
+
+
+  return id
+    ? `https://a.espncdn.com/i/headshots/nba/players/full/${id}.png`
+    : "";
+}
+
+
+function nbaCardNumber(
+  value
+) {
+
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
+
+  const number =
+    Number(
+      value
+    );
+
+
+  return Number.isFinite(
+    number
+  )
+    ? number
+    : null;
+}
+
+
+function nbaSigned(
+  number
+) {
+
+  const n =
+    Number(
+      number
+    );
+
+
+  if (
+    !Number.isFinite(
+      n
+    )
+  ) {
+    return "—";
+  }
+
+
+  return `${
+    n > 0
+      ? "+"
+      : ""
+  }${n.toFixed(1)}`;
+}
+
+
+function nbaShortName(
+  teamName
+) {
+
+  const name =
+    String(
+      teamName ||
+      ""
+    );
+
+
+  if (
+    name ===
+    "Portland Trail Blazers"
+  ) {
+    return "Blazers";
+  }
+
+
+  if (
+    name ===
+    "Philadelphia 76ers"
+  ) {
+    return "76ers";
+  }
+
+
+  return (
+    name
+      .split(" ")
+      .pop() ||
+    name
+  );
+}
+
+
+function ensureNBAMobileStyles() {
+
+  if (
+    document.getElementById(
+      "nbaMobileV4Styles"
+    )
+  ) {
+    return;
+  }
+
+
+  const style =
+    document.createElement(
+      "style"
+    );
+
+
+  style.id =
+    "nbaMobileV4Styles";
+
+
+  style.textContent = `
+
+    .ce-nba-v4,
+    .nba-props-shell {
+      box-sizing:border-box;
+      width:100%;
+      max-width:100%;
+      min-width:0;
+      overflow:hidden;
+
+      -webkit-text-size-adjust:100%;
+      -webkit-tap-highlight-color:transparent;
+
+      padding-bottom:
+        max(
+          12px,
+          env(safe-area-inset-bottom)
+        );
+    }
+
+
+    .ce-nba-v4 *,
+    .nba-props-shell * {
+      box-sizing:border-box;
+      min-width:0;
+    }
+
+
+    .ce-nba-v4 button,
+    .nba-props-shell button {
+      touch-action:manipulation;
+    }
+
+
+    .ce-nba-v4 {
+      background:
+        radial-gradient(
+          circle at 50% -10%,
+          rgba(0,255,231,.08),
+          transparent 32%
+        ),
+        #06111d;
+
+      border:
+        1px solid #14304a;
+
+      border-radius:18px;
+
+      padding:14px;
+
+      color:#fff;
+
+      overflow:hidden;
+    }
+
+
+    .ce-nba-matchup {
+      display:grid;
+
+      grid-template-columns:
+        minmax(0,1fr)
+        auto
+        minmax(0,1fr);
+
+      gap:8px;
+
+      align-items:center;
+
+      padding-bottom:12px;
+
+      border-bottom:
+        1px solid #14304a;
+    }
+
+
+    .ce-nba-team {
+      display:flex;
+      align-items:center;
+      gap:8px;
+      min-width:0;
+    }
+
+
+    .ce-nba-team.right {
+      flex-direction:row-reverse;
+      text-align:right;
+    }
+
+
+    .ce-nba-team-logo {
+      width:46px;
+      height:46px;
+      object-fit:contain;
+      flex:0 0 46px;
+    }
+
+
+    .ce-nba-team-name {
+      font-size:12px;
+      line-height:1.15;
+      font-weight:850;
+      color:#fff;
+    }
+
+
+    .ce-nba-vs {
+      color:#8296b0;
+      font-size:10px;
+      font-weight:900;
+    }
+
+
+    .ce-nba-hero {
+      position:relative;
+
+      display:grid;
+
+      grid-template-columns:
+        minmax(0,1fr)
+        76px;
+
+      gap:12px;
+
+      align-items:center;
+
+      margin-top:12px;
+
+      padding:14px;
+
+      border-radius:15px;
+
+      border:
+        1px solid rgba(0,255,231,.48);
+
+      background:
+        radial-gradient(
+          circle at 20% 20%,
+          rgba(0,255,231,.10),
+          transparent 50%
+        ),
+        #071b22;
+    }
+
+
+    .ce-nba-hot {
+      display:inline-flex;
+
+      align-items:center;
+
+      gap:5px;
+
+      width:max-content;
+
+      max-width:100%;
+
+      color:#ffd85a;
+
+      font-size:9px;
+
+      font-weight:950;
+
+      letter-spacing:.04em;
+
+      margin-bottom:5px;
+    }
+
+
+    .ce-nba-pick {
+      font-size:
+        clamp(
+          22px,
+          7vw,
+          30px
+        );
+
+      line-height:1.02;
+
+      font-weight:950;
+
+      color:#fff;
+
+      overflow-wrap:anywhere;
+    }
+
+
+    .ce-nba-pick-type {
+      margin-top:5px;
+
+      color:#8dbaff;
+
+      font-size:10px;
+
+      font-weight:850;
+
+      letter-spacing:.08em;
+    }
+
+
+    .ce-confidence-ring {
+      --ring-angle:180deg;
+
+      width:72px;
+      height:72px;
+
+      border-radius:50%;
+
+      background:
+        conic-gradient(
+          #00ffe7
+          0deg
+          var(--ring-angle),
+
+          rgba(31,61,79,.72)
+          var(--ring-angle)
+          360deg
+        );
+
+      padding:5px;
+    }
+
+
+    .ce-confidence-ring > div {
+      width:100%;
+      height:100%;
+
+      border-radius:50%;
+
+      background:#07121d;
+
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-direction:column;
+    }
+
+
+    .ce-confidence-ring strong {
+      font-size:18px;
+      line-height:1;
+      color:#fff;
+    }
+
+
+    .ce-confidence-ring small {
+      margin-top:3px;
+      font-size:6px;
+      font-weight:900;
+      color:#71839f;
+    }
+
+
+    .ce-nba-score-card {
+      margin-top:10px;
+
+      padding:12px;
+
+      border-radius:13px;
+
+      border:
+        1px solid #193650;
+
+      background:#071624;
+    }
+
+
+    .ce-nba-section-title {
+      color:#00ffe7;
+
+      font-size:9px;
+
+      font-weight:950;
+
+      letter-spacing:.07em;
+
+      text-transform:uppercase;
+    }
+
+
+    .ce-nba-score {
+      display:grid;
+
+      grid-template-columns:
+        minmax(0,1fr)
+        auto
+        minmax(0,1fr);
+
+      gap:7px;
+
+      align-items:center;
+
+      margin-top:10px;
+    }
+
+
+    .ce-nba-score-team {
+      display:flex;
+
+      align-items:center;
+
+      gap:7px;
+    }
+
+
+    .ce-nba-score-team:last-child {
+      flex-direction:row-reverse;
+      text-align:right;
+    }
+
+
+    .ce-nba-score-team img {
+      width:34px;
+      height:34px;
+      object-fit:contain;
+    }
+
+
+    .ce-nba-score-team strong {
+      display:block;
+
+      font-size:
+        clamp(
+          19px,
+          6vw,
+          26px
+        );
+
+      line-height:1;
+
+      color:#fff;
+    }
+
+
+    .ce-nba-score-team small {
+      display:block;
+
+      margin-top:3px;
+
+      color:#8498b5;
+
+      font-size:8px;
+    }
+
+
+    .ce-nba-dash {
+      color:#71839f;
+      font-size:16px;
+    }
+
+
+    .ce-nba-market-grid {
+      display:grid;
+
+      grid-template-columns:
+        repeat(2,minmax(0,1fr));
+
+      gap:8px;
+
+      margin-top:8px;
+    }
+
+
+    .ce-nba-mini-box {
+      background:#071624;
+
+      border:
+        1px solid #193650;
+
+      border-radius:11px;
+
+      padding:10px;
+
+      min-height:66px;
+    }
+
+
+    .ce-nba-mini-box small {
+      display:block;
+
+      color:#71839f;
+
+      font-size:7px;
+
+      font-weight:900;
+
+      text-transform:uppercase;
+    }
+
+
+    .ce-nba-mini-box strong {
+      display:block;
+
+      color:#fff;
+
+      font-size:15px;
+
+      font-weight:950;
+
+      margin-top:4px;
+    }
+
+
+    .ce-nba-reasons {
+      margin-top:9px;
+
+      padding:11px;
+
+      background:#071624;
+
+      border:
+        1px solid #193650;
+
+      border-radius:12px;
+    }
+
+
+    .ce-nba-reason {
+      display:grid;
+
+      grid-template-columns:
+        28px
+        minmax(0,1fr);
+
+      gap:9px;
+
+      align-items:start;
+
+      padding:9px 0;
+
+      border-bottom:
+        1px solid #11283d;
+    }
+
+
+    .ce-nba-reason:last-child {
+      border-bottom:0;
+      padding-bottom:0;
+    }
+
+
+    .ce-nba-reason-icon {
+      width:28px;
+      height:28px;
+
+      border-radius:50%;
+
+      display:flex;
+      align-items:center;
+      justify-content:center;
+
+      background:#0a2031;
+
+      font-size:14px;
+    }
+
+
+    .ce-nba-reason strong {
+      display:block;
+
+      color:#fff;
+
+      font-size:9px;
+
+      font-weight:900;
+    }
+
+
+    .ce-nba-reason p {
+      margin:2px 0 0;
+
+      color:#9eb0c8;
+
+      font-size:9px;
+
+      line-height:1.4;
+    }
+
+
+    .ce-nba-props-button {
+      width:100%;
+
+      min-height:46px;
+
+      margin-top:11px;
+
+      border:
+        1.5px solid #00ffe7;
+
+      border-radius:13px;
+
+      background:
+        rgba(0,255,231,.04);
+
+      color:#00ffe7;
+
+      font-size:11px;
+
+      font-weight:950;
+
+      letter-spacing:.05em;
+
+      cursor:pointer;
+    }
+
+
+    /* ============================================= */
+    /* NBA PLAYER PROPS                             */
+    /* ============================================= */
+
+
+    .nba-props-shell {
+      background:#06111d;
+      border-radius:16px;
+    }
+
+
+    .nba-prop-row-v4 {
+      position:relative;
+
+      display:grid;
+
+      grid-template-columns:
+        54px
+        minmax(0,1fr)
+        54px;
+
+      gap:10px;
+
+      align-items:center;
+
+      width:100%;
+
+      padding:10px;
+
+      margin-bottom:7px;
+
+      border:
+        1px solid #172f46;
+
+      border-radius:13px;
+
+      background:#081724;
+
+      color:#fff;
+    }
+
+
+    .nba-prop-avatar {
+      width:54px;
+      height:54px;
+
+      border-radius:12px;
+
+      overflow:hidden;
+
+      background:#0c2232;
+
+      display:flex;
+      align-items:flex-end;
+      justify-content:center;
+    }
+
+
+    .nba-prop-avatar img {
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      object-position:top center;
+    }
+
+
+    .nba-prop-player-line {
+      display:flex;
+
+      align-items:center;
+
+      gap:5px;
+
+      min-width:0;
+    }
+
+
+    .nba-prop-player-line img {
+      width:17px;
+      height:17px;
+      object-fit:contain;
+      flex:0 0 17px;
+    }
+
+
+    .nba-prop-player-name {
+      color:#fff;
+
+      font-size:12px;
+
+      font-weight:900;
+
+      white-space:nowrap;
+
+      overflow:hidden;
+
+      text-overflow:ellipsis;
+    }
+
+
+    .nba-prop-team {
+      color:#758ba8;
+
+      font-size:8px;
+
+      margin-top:2px;
+    }
+
+
+    .nba-prop-pickline {
+      color:#00ffe7;
+
+      font-size:10px;
+
+      font-weight:900;
+
+      margin-top:5px;
+    }
+
+
+    .nba-prop-circle {
+      width:52px;
+      height:52px;
+
+      border-radius:50%;
+
+      border:
+        3px solid #00d9c7;
+
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-direction:column;
+    }
+
+
+    .nba-prop-circle strong {
+      font-size:13px;
+      line-height:1;
+      color:#fff;
+    }
+
+
+    .nba-prop-circle small {
+      margin-top:2px;
+      font-size:6px;
+      color:#7288a3;
+    }
+
+
+    .nba-prop-detail-header {
+      display:grid;
+
+      grid-template-columns:
+        82px
+        minmax(0,1fr);
+
+      gap:12px;
+
+      align-items:center;
+
+      margin-bottom:12px;
+    }
+
+
+    .nba-prop-detail-photo {
+      width:82px;
+      height:82px;
+
+      overflow:hidden;
+
+      border-radius:15px;
+
+      background:
+        linear-gradient(
+          180deg,
+          #14314a,
+          #07131f
+        );
+    }
+
+
+    .nba-prop-detail-photo img {
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      object-position:top center;
+    }
+
+
+    .nba-prop-main-card {
+      display:grid;
+
+      grid-template-columns:
+        minmax(0,1fr)
+        64px;
+
+      gap:10px;
+
+      align-items:center;
+
+      padding:12px;
+
+      border:
+        1px solid rgba(0,255,231,.45);
+
+      border-radius:13px;
+
+      background:#071a22;
+
+      margin-top:9px;
+    }
+
+
+    .nba-prop-metric-grid {
+      display:grid;
+
+      grid-template-columns:
+        repeat(3,minmax(0,1fr));
+
+      gap:6px;
+
+      margin-top:8px;
+    }
+
+
+    .nba-prop-metric {
+      padding:9px 4px;
+
+      background:#081726;
+
+      border:
+        1px solid #19354e;
+
+      border-radius:9px;
+
+      text-align:center;
+    }
+
+
+    .nba-prop-metric small {
+      display:block;
+
+      color:#71839f;
+
+      font-size:6.5px;
+
+      font-weight:900;
+    }
+
+
+    .nba-prop-metric strong {
+      display:block;
+
+      margin-top:4px;
+
+      color:#fff;
+
+      font-size:13px;
+    }
+
+
+    .nba-prop-summary-grid {
+      display:grid;
+
+      grid-template-columns:
+        repeat(4,minmax(0,1fr));
+
+      gap:5px;
+    }
+
+
+    .nba-prop-summary {
+      padding:8px 3px;
+
+      text-align:center;
+
+      border:
+        1px solid #19354e;
+
+      border-radius:8px;
+
+      background:#081726;
+    }
+
+
+    .nba-prop-summary small {
+      display:block;
+      color:#71839f;
+      font-size:6px;
+      font-weight:900;
+    }
+
+
+    .nba-prop-summary strong {
+      display:block;
+      color:#fff;
+      margin-top:3px;
+      font-size:11px;
+    }
+
+
+    .nba-prop-summary span {
+      display:block;
+      color:#00ffe7;
+      font-size:7px;
+      margin-top:2px;
+      font-weight:900;
+    }
+
+
+    .nba-prop-last10 {
+      display:grid;
+
+      grid-template-columns:
+        repeat(5,minmax(0,1fr));
+
+      gap:5px;
+
+      margin-top:7px;
+    }
+
+
+    .nba-prop-game {
+      min-height:48px;
+
+      padding:6px 2px;
+
+      border-radius:8px;
+
+      text-align:center;
+
+      background:#081726;
+
+      border:
+        1px solid #19354e;
+
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+    }
+
+
+    .nba-prop-game strong {
+      color:#fff;
+      font-size:10px;
+    }
+
+
+    .nba-prop-game span {
+      margin-top:2px;
+      font-size:12px;
+      font-weight:950;
+    }
+
+
+    .nba-prop-game.hit span {
+      color:#00e9b4;
+    }
+
+
+    .nba-prop-game.miss span {
+      color:#ff5c70;
+    }
+
+
+    .nba-prop-game.push span {
+      color:#f5c451;
+    }
+
+
+    .ps-market-tabs {
+      -webkit-overflow-scrolling:touch;
+      scrollbar-width:none;
+    }
+
+
+    .ps-market-tabs::-webkit-scrollbar {
+      display:none;
+    }
+
+
+    .ps-market-tabs button {
+  min-height:44px;
+      white-space:nowrap;
+      flex:0 0 auto;
+    }
+
+
+    @media (
+      max-width:380px
+    ) {
+
+      .ce-nba-v4 {
+        padding:11px;
+        border-radius:15px;
+      }
+
+
+      .ce-nba-team-logo {
+        width:40px;
+        height:40px;
+        flex-basis:40px;
+      }
+
+
+      .ce-nba-team-name {
+        font-size:10px;
+      }
+
+
+      .ce-nba-hero {
+        grid-template-columns:
+          minmax(0,1fr)
+          66px;
+
+        padding:11px;
+      }
+
+
+      .ce-confidence-ring {
+        width:64px;
+        height:64px;
+      }
+
+
+      .ce-confidence-ring strong {
+        font-size:16px;
+      }
+
+
+      .nba-prop-row-v4 {
+        grid-template-columns:
+          48px
+          minmax(0,1fr)
+          48px;
+
+        gap:8px;
+
+        padding:8px;
+      }
+
+
+      .nba-prop-avatar {
+        width:48px;
+        height:48px;
+      }
+
+
+      .nba-prop-circle {
+        width:46px;
+        height:46px;
+      }
+
+
+      .nba-prop-detail-header {
+        grid-template-columns:
+          72px
+          minmax(0,1fr);
+      }
+
+
+      .nba-prop-detail-photo {
+        width:72px;
+        height:72px;
+      }
+
+
+      .nba-prop-metric strong {
+        font-size:11px;
+      }
+
+    }
+
+  `;
+
+
+  document.head.appendChild(
+    style
+  );
+}
+
+
+// ============================================================
+// NBA NORMAL MOBILE CARD
+// ============================================================
+
+function renderNBAMobileCard({
+  data,
+  premium,
+  locked,
+  isPremium,
+  displayPick,
+  awayTeam,
+  homeTeam,
+  awaySpread,
+  homeSpread,
+  total,
+  index,
+  league
+}) {
+
+  ensureNBAMobileStyles();
+
+
+  const card =
+    data?.card ||
+    premium?.card ||
+    {};
+
+
+  const confidence =
+    Math.max(
+      0,
+      Math.min(
+        100,
+        Number(
+          data?.public
+            ?.confidence ||
+          card?.confidence ||
+          0
+        )
+      )
+    );
+
+
+  const ringAngle =
+    confidence *
+    3.6;
+
+
+  const awayLogo =
+    getNBATeamLogoURL(
+      awayTeam
+    );
+
+
+  const homeLogo =
+    getNBATeamLogoURL(
+      homeTeam
+    );
+
+
+  if (locked) {
+
+    return `
+      <div class="ce-nba-v4">
+
+        <div class="ce-nba-matchup">
+
+          <div class="ce-nba-team">
+
+            ${
+              awayLogo
+                ? `
+                  <img
+                    class="ce-nba-team-logo"
+                    src="${awayLogo}"
+                    alt=""
+                    onerror="this.style.display='none'"
+                  >
+                `
+                : ""
+            }
+
+            <div>
+              <div class="ce-nba-team-name">
+                ${sanitize(awayTeam)}
+              </div>
+            </div>
+
+          </div>
+
+
+          <div class="ce-nba-vs">
+            VS
+          </div>
+
+
+          <div class="ce-nba-team right">
+
+            ${
+              homeLogo
+                ? `
+                  <img
+                    class="ce-nba-team-logo"
+                    src="${homeLogo}"
+                    alt=""
+                    onerror="this.style.display='none'"
+                  >
+                `
+                : ""
+            }
+
+            <div>
+              <div class="ce-nba-team-name">
+                ${sanitize(homeTeam)}
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <div class="ce-nba-hero">
+
+          <div>
+
+            <div class="ce-nba-hot">
+              🔥 HOT PICK · NBA
+            </div>
+
+            <div class="ce-nba-pick">
+              •••••••• 🔒
+            </div>
+
+            <div class="ce-nba-pick-type">
+              PREMIUM
+            </div>
+
+          </div>
+
+
+          <div
+            class="ce-confidence-ring"
+            style="
+              --ring-angle:
+              ${ringAngle}deg;
+            "
+          >
+            <div>
+              <strong>
+                ${confidence.toFixed(0)}%
+              </strong>
+
+              <small>
+                CONFIDENCE
+              </small>
+            </div>
+          </div>
+
+        </div>
+
+
+        ${cePremiumPickLockedHTML({
+          sportLabel:
+            league,
+          recordText:
+            ceRecordPlain(
+              league
+            )
+        })}
+
+      </div>
+    `;
+  }
+
+
+  const projection =
+    card?.projection ||
+    {};
+
+
+  const projAway =
+    nbaCardNumber(
+      projection.away ??
+      premium?.projA
+    );
+
+
+  const projHome =
+    nbaCardNumber(
+      projection.home ??
+      premium?.projB
+    );
+
+
+  const projTotal =
+    nbaCardNumber(
+      projection.total ??
+      premium?.totalProj
+    );
+
+
+  const projectedMargin =
+    nbaCardNumber(
+      projection.margin ??
+      (
+        projAway !== null &&
+        projHome !== null
+          ? projAway -
+            projHome
+          : null
+      )
+    );
+
+
+  const market =
+    card?.market ||
+    {};
+
+
+  const currentAwaySpread =
+    nbaCardNumber(
+      market.awaySpread ??
+      awaySpread
+    );
+
+
+  const currentHomeSpread =
+    nbaCardNumber(
+      market.homeSpread ??
+      homeSpread
+    );
+
+
+  const totalLine =
+    nbaCardNumber(
+      market.total ??
+      premium?.totalLine ??
+      total
+    );
+
+
+  let spreadTeam =
+    awayTeam;
+
+
+  let spreadNumber =
+    currentAwaySpread;
+
+
+  if (
+    currentHomeSpread !==
+      null &&
+    (
+      spreadNumber ===
+        null ||
+      currentHomeSpread <
+        spreadNumber
+    )
+  ) {
+
+    spreadTeam =
+      homeTeam;
+
+    spreadNumber =
+      currentHomeSpread;
+  }
+
+
+  const spreadText =
+    spreadNumber !==
+      null
+      ? `${nbaShortName(
+          spreadTeam
+        )} ${
+          spreadNumber > 0
+            ? "+"
+            : ""
+        }${spreadNumber}`
+      : "—";
+
+
+  const marginTeam =
+    projectedMargin !==
+      null &&
+    projectedMargin >= 0
+      ? awayTeam
+      : homeTeam;
+
+
+  const marginText =
+    projectedMargin !==
+      null
+      ? `${
+          nbaShortName(
+            marginTeam
+          )
+        } +${Math.abs(
+          projectedMargin
+        ).toFixed(1)}`
+      : "—";
+
+
+  const pace =
+    nbaCardNumber(
+      card
+        ?.context
+        ?.pace
+        ?.expectedPace
+    );
+
+
+  const awayRest =
+    card
+      ?.context
+      ?.rest
+      ?.away ||
+    premium
+      ?.awayRestNote ||
+    "No rest adjustment";
+
+
+  const homeRest =
+    card
+      ?.context
+      ?.rest
+      ?.home ||
+    premium
+      ?.homeRestNote ||
+    "No rest adjustment";
+
+
+  const awayInjury =
+    premium
+      ?.awayInjuryPublic ||
+    "No major impact detected.";
+
+
+  const homeInjury =
+    premium
+      ?.homeInjuryPublic ||
+    "No major impact detected.";
+
+
+  const awayForm =
+    premium
+      ?.awayRecentForm ||
+    null;
+
+
+  const homeForm =
+    premium
+      ?.homeRecentForm ||
+    null;
+
+
+  const marketType =
+    String(
+      card?.marketType ||
+      (
+        /over|under/i.test(
+          displayPick
+        )
+          ? "total"
+          : "spread"
+      )
+    )
+      .toUpperCase();
+
+
+  return `
+    <div class="ce-nba-v4">
+
+      <div style="
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        margin-bottom:10px;
+      ">
+
+        <strong style="
+          color:#fff;
+          font-size:12px;
+        ">
+          🏀 NBA
+        </strong>
+
+        <span style="
+          color:#71839f;
+          font-size:8px;
+        ">
+          CASHEDGE ANALYSIS
+        </span>
+
+      </div>
+
+
+      <div class="ce-nba-matchup">
+
+        <div class="ce-nba-team">
+
+          ${
+            awayLogo
+              ? `
+                <img
+                  class="ce-nba-team-logo"
+                  src="${awayLogo}"
+                  alt=""
+                  onerror="this.style.display='none'"
+                >
+              `
+              : ""
+          }
+
+          <div>
+
+            <div class="ce-nba-team-name">
+              ${sanitize(awayTeam)}
+            </div>
+
+            ${
+              awayForm
+                ? `
+                  <div style="
+                    margin-top:3px;
+                    color:#71839f;
+                    font-size:8px;
+                  ">
+                    ${sanitize(
+                      awayForm.record
+                    )}
+                  </div>
+                `
+                : ""
+            }
+
+          </div>
+
+        </div>
+
+
+        <div class="ce-nba-vs">
+          VS
+        </div>
+
+
+        <div class="ce-nba-team right">
+
+          ${
+            homeLogo
+              ? `
+                <img
+                  class="ce-nba-team-logo"
+                  src="${homeLogo}"
+                  alt=""
+                  onerror="this.style.display='none'"
+                >
+              `
+              : ""
+          }
+
+          <div>
+
+            <div class="ce-nba-team-name">
+              ${sanitize(homeTeam)}
+            </div>
+
+            ${
+              homeForm
+                ? `
+                  <div style="
+                    margin-top:3px;
+                    color:#71839f;
+                    font-size:8px;
+                  ">
+                    ${sanitize(
+                      homeForm.record
+                    )}
+                  </div>
+                `
+                : ""
+            }
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div class="ce-nba-hero">
+
+        <div>
+
+          <div class="ce-nba-hot">
+            ${
+              isPremium
+                ? "🔥 HOT PICK"
+                : "📊 FEATURED PLAY"
+            }
+          </div>
+
+          <div class="ce-nba-pick">
+            ${sanitize(
+              displayPick
+            )}
+          </div>
+
+          <div class="ce-nba-pick-type">
+            ${sanitize(
+              marketType
+            )}
+          </div>
+
+        </div>
+
+
+        <div
+          class="ce-confidence-ring"
+          style="
+            --ring-angle:
+            ${ringAngle}deg;
+          "
+        >
+
+          <div>
+
+            <strong>
+              ${confidence.toFixed(0)}%
+            </strong>
+
+            <small>
+              CONFIDENCE
+            </small>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div class="ce-nba-score-card">
+
+        <div class="ce-nba-section-title">
+          PROJECTED SCORE
+        </div>
+
+
+        <div class="ce-nba-score">
+
+          <div class="ce-nba-score-team">
+
+            ${
+              awayLogo
+                ? `
+                  <img
+                    src="${awayLogo}"
+                    alt=""
+                    onerror="this.style.display='none'"
+                  >
+                `
+                : ""
+            }
+
+            <div>
+
+              <strong>
+                ${
+                  projAway !== null
+                    ? projAway.toFixed(
+                        1
+                      )
+                    : "—"
+                }
+              </strong>
+
+              <small>
+                ${sanitize(
+                  nbaShortName(
+                    awayTeam
+                  )
+                )}
+              </small>
+
+            </div>
+
+          </div>
+
+
+          <div class="ce-nba-dash">
+            —
+          </div>
+
+
+          <div class="ce-nba-score-team">
+
+            ${
+              homeLogo
+                ? `
+                  <img
+                    src="${homeLogo}"
+                    alt=""
+                    onerror="this.style.display='none'"
+                  >
+                `
+                : ""
+            }
+
+            <div>
+
+              <strong>
+                ${
+                  projHome !== null
+                    ? projHome.toFixed(
+                        1
+                      )
+                    : "—"
+                }
+              </strong>
+
+              <small>
+                ${sanitize(
+                  nbaShortName(
+                    homeTeam
+                  )
+                )}
+              </small>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div class="ce-nba-market-grid">
+
+        <div class="ce-nba-mini-box">
+
+          <small>
+            SPORTSBOOK SPREAD
+          </small>
+
+          <strong>
+            ${sanitize(
+              spreadText
+            )}
+          </strong>
+
+        </div>
+
+
+        <div class="ce-nba-mini-box">
+
+          <small>
+            SPORTSBOOK TOTAL
+          </small>
+
+          <strong>
+            ${
+              totalLine !==
+                null
+                ? totalLine
+                : "—"
+            }
+          </strong>
+
+        </div>
+
+
+        <div class="ce-nba-mini-box">
+
+          <small>
+            MODEL MARGIN
+          </small>
+
+          <strong>
+            ${sanitize(
+              marginText
+            )}
+          </strong>
+
+        </div>
+
+
+        <div class="ce-nba-mini-box">
+
+          <small>
+            PROJECTED TOTAL
+          </small>
+
+          <strong>
+            ${
+              projTotal !==
+                null
+                ? projTotal.toFixed(
+                    1
+                  )
+                : "—"
+            }
+          </strong>
+
+        </div>
+
+      </div>
+
+
+      <div class="ce-nba-reasons">
+
+        <div class="ce-nba-section-title">
+          WHY CASHEDGE LIKES IT
+        </div>
+
+
+        <div class="ce-nba-reason">
+
+          <div class="ce-nba-reason-icon">
+            ⚡
+          </div>
+
+          <div>
+
+            <strong>
+              PACE
+            </strong>
+
+            <p>
+              ${
+                pace !== null
+                  ? `Expected pace: ${pace.toFixed(1)}`
+                  : "No major pace adjustment."
+              }
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div class="ce-nba-reason">
+
+          <div class="ce-nba-reason-icon">
+            🌙
+          </div>
+
+          <div>
+
+            <strong>
+              REST
+            </strong>
+
+            <p>
+              ${sanitize(
+                nbaShortName(
+                  awayTeam
+                )
+              )}:
+              ${sanitize(
+                awayRest
+              )}
+
+              <br>
+
+              ${sanitize(
+                nbaShortName(
+                  homeTeam
+                )
+              )}:
+              ${sanitize(
+                homeRest
+              )}
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div class="ce-nba-reason">
+
+          <div class="ce-nba-reason-icon">
+            ✚
+          </div>
+
+          <div>
+
+            <strong>
+              INJURIES
+            </strong>
+
+            <p>
+              ${sanitize(
+                awayInjury
+              )}
+
+              <br>
+
+              ${sanitize(
+                homeInjury
+              )}
+            </p>
+
+          </div>
+
+        </div>
+
+
+        ${
+          awayForm ||
+          homeForm
+            ? `
+              <div class="ce-nba-reason">
+
+                <div class="ce-nba-reason-icon">
+                  📈
+                </div>
+
+                <div>
+
+                  <strong>
+                    RECENT FORM
+                  </strong>
+
+                  <p>
+
+                    ${
+                      awayForm
+                        ? `
+                          ${sanitize(
+                            nbaShortName(
+                              awayTeam
+                            )
+                          )}:
+                          ${sanitize(
+                            awayForm.record
+                          )}
+                          ·
+                          ${Number(
+                            awayForm.avgPoints
+                          ).toFixed(1)}
+                          PPG
+                        `
+                        : ""
+                    }
+
+                    ${
+                      awayForm &&
+                      homeForm
+                        ? "<br>"
+                        : ""
+                    }
+
+                    ${
+                      homeForm
+                        ? `
+                          ${sanitize(
+                            nbaShortName(
+                              homeTeam
+                            )
+                          )}:
+                          ${sanitize(
+                            homeForm.record
+                          )}
+                          ·
+                          ${Number(
+                            homeForm.avgPoints
+                          ).toFixed(1)}
+                          PPG
+                        `
+                        : ""
+                    }
+
+                  </p>
+
+                </div>
+
+              </div>
+            `
+            : ""
+        }
+
+      </div>
+
+<div style="
+  text-align:center;
+  margin-top:10px;
+">
+
+  <button
+    type="button"
+    onclick='toggleGameHighlight(
+      ${index},
+      "${encodeURIComponent(
+        JSON.stringify(
+          premium || {}
+        )
+      ).replace(/'/g, "%27")}",
+      "${escapeText(awayTeam)}",
+      "${escapeText(homeTeam)}"
+    )'
+    style="
+      min-height:44px;
+      padding:8px 16px;
+      background:transparent;
+      border:1px solid rgba(255,140,26,.35);
+      border-radius:12px;
+      color:#ff9d3d;
+      font-size:10px;
+      font-weight:850;
+      cursor:pointer;
+    "
+  >
+    🎯 GAME HIGHLIGHT
+  </button>
+
+  <div
+    id="gameHighlight${index}"
+  ></div>
+
+</div>
+      <button
+        type="button"
+        class="ce-nba-props-button"
+        onclick="toggleNBAPlayerProps(
+          ${index},
+          '${escapeText(
+            awayTeam
+          )}',
+          '${escapeText(
+            homeTeam
+          )}',
+          this
+        )"
+      >
+        ⚡ VIEW PLAYER PROPS ›
+      </button>
+
+
+      <div
+        id="nbaProps${index}"
+      ></div>
+
+    </div>
+  `;
+}
 async function analyzeAuto( awayTeam, homeTeam, awaySpread, homeSpread, total, index, gameTime) {
   const resultDiv = document.getElementById(`result${index}`);
   if (!startAnalysisLock(index, "Analyzing...")) return;
@@ -1142,15 +3277,12 @@ async function analyzeAuto( awayTeam, homeTeam, awaySpread, homeSpread, total, i
       return;
     }
 
-let league = "nba";
-
-if (window.currentSport === "wnba") {
-  league = "wnba";
-}
-
-if (window.currentSport === "ncaab") {
-  league = "ncaab";
-}
+const league =
+  selectedSport === "basketball_wnba"
+    ? "wnba"
+    : selectedSport === "basketball_ncaab"
+      ? "ncaab"
+      : "nba";
     const validWnbaTeams = [
   "Atlanta Dream",
   "Chicago Sky",
@@ -1168,7 +3300,7 @@ if (window.currentSport === "ncaab") {
 ];
 
 if (
-  window.currentSport === "wnba" &&
+  league === "wnba" &&
   (
     !validWnbaTeams.includes(awayTeam) ||
     !validWnbaTeams.includes(homeTeam)
@@ -1195,7 +3327,7 @@ if (
   homeSpread,
   total,
   gameTime,
-  league: window.currentSport || "nba"
+ league
 })
     });
 
@@ -1229,6 +3361,46 @@ let displayPick = locked
 if (!locked && (displayPick === "Over" || displayPick === "Under")) {
   const lineToShow = Number(premium.totalLine) > 0 ? premium.totalLine : total;
   displayPick = `${displayPick} ${lineToShow}`;
+}
+    if (
+  league === "nba"
+) {
+
+  resultDiv.innerHTML =
+    renderNBAMobileCard({
+
+      data,
+
+      premium,
+
+      locked,
+
+      isPremium,
+
+      displayPick,
+
+      awayTeam,
+
+      homeTeam,
+
+      awaySpread,
+
+      homeSpread,
+
+      total,
+
+      index,
+
+      league
+
+    });
+
+
+  endAnalysisLock(
+    index
+  );
+
+  return;
 }
   resultDiv.innerHTML = `
 <div class="${isPremium ? 'ce-premium-basket-card' : 'ce-normal-basket-card'}">
@@ -30382,22 +32554,43 @@ function formatNBAPropAmericanOdds(
 }
 
 
-function getNBAPropValue(
-  prop
+function nbaPropNumberOrNull(
+  value
 ) {
 
-  const value =
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
+
+  const number =
     Number(
-      prop?.value
+      value
     );
 
 
   return Number.isFinite(
-    value
+    number
   )
-    ? value
+    ? number
     : null;
 }
+
+
+
+function getNBAPropValue(
+  prop
+) {
+
+  return nbaPropNumberOrNull(
+    prop?.value
+  );
+}
+
 
 
 function getNBAPropConfidence(
@@ -30405,53 +32598,38 @@ function getNBAPropConfidence(
 ) {
 
   const confidence =
-    Number(
+    nbaPropNumberOrNull(
       prop?.confidence
     );
 
 
-  return Number.isFinite(
-    confidence
-  )
+  return confidence !== null
     ? confidence
     : 0;
 }
+
 
 
 function getNBAPropProjection(
   prop
 ) {
 
-  const projection =
-    Number(
-      prop?.projection
-    );
-
-
-  return Number.isFinite(
-    projection
-  )
-    ? projection
-    : null;
+  return nbaPropNumberOrNull(
+    prop?.projection
+  );
 }
+
 
 
 function getNBAPropLine(
   prop
 ) {
 
-  const line =
-    Number(
-      prop?.line
-    );
-
-
-  return Number.isFinite(
-    line
-  )
-    ? line
-    : null;
+  return nbaPropNumberOrNull(
+    prop?.line
+  );
 }
+
 
 
 function getNBAPropBookProbability(
@@ -30459,33 +32637,22 @@ function getNBAPropBookProbability(
 ) {
 
   const noVig =
-    Number(
+    nbaPropNumberOrNull(
       prop?.sportsbookNoVigPct
     );
 
 
   if (
-    Number.isFinite(
-      noVig
-    )
+    noVig !== null
   ) {
     return noVig;
   }
 
 
-  const implied =
-    Number(
-      prop?.sportsbookImpliedPct
-    );
-
-
-  return Number.isFinite(
-    implied
-  )
-    ? implied
-    : null;
+  return nbaPropNumberOrNull(
+    prop?.sportsbookImpliedPct
+  );
 }
-
 
 function getNBAPropRoleLabel(
   prop
@@ -30836,26 +33003,17 @@ function renderNBAPlayerPropCard(
   prop
 ) {
 
+  ensureNBAMobileStyles();
+
+
   const confidence =
     getNBAPropConfidence(
       prop
     );
 
 
-  const projection =
-    getNBAPropProjection(
-      prop
-    );
-
-
   const line =
     getNBAPropLine(
-      prop
-    );
-
-
-  const value =
-    getNBAPropValue(
       prop
     );
 
@@ -30881,130 +33039,31 @@ function renderNBAPlayerPropCard(
     );
 
 
-  const confidenceColor =
-    confidence >= 75
-      ? "#00ffe7"
-      : confidence >= 65
-        ? "#ffb347"
-        : "#c9d6e8";
+  const playerPhoto =
+    getNBAPlayerPhotoURL(
+      prop?.athleteId
+    );
+
+
+  const teamLogo =
+    getNBATeamLogoURL(
+      prop?.team
+    );
 
 
   return `
-    <div style="
-      position:relative;
-      background:#081321;
-      border:1px solid #17243a;
-      border-radius:12px;
-      padding:13px 82px 13px 14px;
-      margin-bottom:7px;
-      min-height:74px;
-    ">
+    <div class="nba-prop-row-v4">
 
-      <div style="
-        font-size:13px;
-        font-weight:900;
-        color:#ffffff;
-      ">
-        ${sanitize(
-          prop?.player ||
-          "Player"
-        )}
-      </div>
-
-
-      ${
-        prop?.team
-          ? `
-            <div style="
-              margin-top:2px;
-              font-size:8px;
-              color:#60708d;
-            ">
-              ${sanitize(
-                prop.team
-              )}
-            </div>
-          `
-          : ""
-      }
-
-
-      <div style="
-        margin-top:7px;
-        font-size:11px;
-        color:#00ffe7;
-        font-weight:900;
-      ">
-        ${sanitize(side)}
-        ${
-          Number.isFinite(
-            line
-          )
-            ? line
-            : "—"
-        }
-        ${sanitize(market)}
-        ·
-        ${sanitize(oddsText)}
-      </div>
-
-
-      <div style="
-        display:flex;
-        flex-wrap:wrap;
-        gap:12px;
-        margin-top:6px;
-      ">
-
-        <div>
-          <span style="
-            display:block;
-            font-size:7px;
-            color:#71839f;
-            font-weight:800;
-          ">
-            CASHEDGE
-          </span>
-
-          <strong style="
-            font-size:11px;
-            color:#ffffff;
-          ">
-            ${
-              Number.isFinite(
-                projection
-              )
-                ? projection.toFixed(
-                    1
-                  )
-                : "—"
-            }
-          </strong>
-        </div>
-
+      <div class="nba-prop-avatar">
 
         ${
-          Number.isFinite(
-            value
-          )
+          playerPhoto
             ? `
-              <div>
-                <span style="
-                  display:block;
-                  font-size:7px;
-                  color:#71839f;
-                  font-weight:800;
-                ">
-                  VALUE
-                </span>
-
-                <strong style="
-                  font-size:11px;
-                  color:${value > 0 ? "#00ffe7" : "#71839f"};
-                ">
-                  ${value >= 0 ? "+" : ""}${value.toFixed(1)}%
-                </strong>
-              </div>
+              <img
+                src="${playerPhoto}"
+                alt=""
+                onerror="this.style.display='none'"
+              >
             `
             : ""
         }
@@ -31012,51 +33071,76 @@ function renderNBAPlayerPropCard(
       </div>
 
 
-      ${
-        prop?.bookmaker
-          ? `
-            <div style="
-              margin-top:6px;
-              font-size:8px;
-              color:#60708d;
-            ">
-              ${sanitize(
-                prop.bookmaker
-              )}
-            </div>
-          `
-          : ""
-      }
+      <div>
+
+        <div class="nba-prop-player-line">
+
+          ${
+            teamLogo
+              ? `
+                <img
+                  src="${teamLogo}"
+                  alt=""
+                  onerror="this.style.display='none'"
+                >
+              `
+              : ""
+          }
+
+          <div class="nba-prop-player-name">
+            ${sanitize(
+              prop?.player ||
+              "Player"
+            )}
+          </div>
+
+        </div>
 
 
-      <div style="
-        width:58px;
-        height:58px;
-        position:absolute;
-        right:14px;
-        top:50%;
-        transform:translateY(-50%);
-        border-radius:50%;
-        border:2px solid ${confidenceColor};
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        flex-direction:column;
-      ">
+        <div class="nba-prop-team">
+          ${sanitize(
+            prop?.team ||
+            ""
+          )}
+        </div>
 
-        <strong style="
-          color:${confidenceColor};
-          font-size:14px;
-          line-height:1;
-        ">
+
+        <div class="nba-prop-pickline">
+
+          ${sanitize(
+            side
+          )}
+
+          ${
+            Number.isFinite(
+              line
+            )
+              ? line
+              : "—"
+          }
+
+          ${sanitize(
+            market
+          )}
+
+          ·
+
+          ${sanitize(
+            oddsText
+          )}
+
+        </div>
+
+      </div>
+
+
+      <div class="nba-prop-circle">
+
+        <strong>
           ${confidence.toFixed(0)}%
         </strong>
 
-        <small style="
-          margin-top:3px;
-          font-size:7px;
-          color:#71839f;
-        ">
+        <small>
           CONF.
         </small>
 
@@ -31082,33 +33166,6 @@ function renderNBAPropsPlayerRow(
       item?.props ||
       []
     );
-
-
-  const markets =
-    [
-      ...new Set(
-        playerProps
-          .map(
-            prop =>
-              prop.market
-          )
-          .filter(Boolean)
-      )
-    ];
-
-
-  const marketNames =
-    markets
-      .map(
-        market =>
-          getNBAPropMarketLabel(
-            market,
-            true
-          )
-      )
-      .join(
-        " · "
-      );
 
 
   const preferredProp =
@@ -31152,12 +33209,9 @@ function renderNBAPropsPlayerRow(
     null;
 
 
-  const selectedMarket =
-    String(
-      preferredProp
-        ?.market ||
-      ""
-    );
+  if (!preferredProp) {
+    return "";
+  }
 
 
   return `
@@ -31170,80 +33224,29 @@ function renderNBAPropsPlayerRow(
           ""
         )}',
         '${returnCategory}',
-        '${selectedMarket}'
+        '${String(
+          preferredProp.market ||
+          ""
+        )}'
       )"
       style="
         width:100%;
-        background:#081321;
-        border:1px solid #17243a;
-        border-radius:12px;
-        padding:13px 14px;
-        margin-bottom:7px;
-        display:grid;
-        grid-template-columns:minmax(0,1fr) auto;
-        align-items:center;
-        gap:12px;
+        border:0;
+        padding:0;
+        margin:0;
+        background:transparent;
         text-align:left;
         cursor:pointer;
       "
     >
 
-      <div style="min-width:0;">
-
-        <div style="
-          font-size:13px;
-          font-weight:900;
-          color:#ffffff;
-        ">
-          ${sanitize(
-            item?.player ||
-            "Player"
-          )}
-        </div>
-
-
-        ${
-          item?.team
-            ? `
-              <div style="
-                margin-top:2px;
-                font-size:8px;
-                color:#60708d;
-              ">
-                ${sanitize(
-                  item.team
-                )}
-              </div>
-            `
-            : ""
-        }
-
-
-        <div style="
-          margin-top:5px;
-          font-size:9px;
-          color:#71839f;
-        ">
-          ${sanitize(
-            marketNames ||
-            "Player Props"
-          )}
-        </div>
-
-      </div>
-
-
-      <div style="
-        color:#52647d;
-        font-size:22px;
-      ">
-        ›
-      </div>
+      ${renderNBAPlayerPropCard(
+        preferredProp
+      )}
 
     </button>
   `;
 }
-
 
 // ============================================================
 // SHELL
@@ -31252,7 +33255,7 @@ function renderNBAPropsPlayerRow(
 function renderNBAPlayerPropsShell(
   index
 ) {
-
+ensureNBAMobileStyles();
   const state =
     nbaPlayerPropsState[
       index
@@ -31273,8 +33276,8 @@ function renderNBAPlayerPropsShell(
 
   box.innerHTML = `
 
-    <div
-      class="ps-card"
+   <div
+  class="ps-card nba-props-shell"
       style="
         margin-top:10px;
       "
@@ -31958,6 +33961,9 @@ function showNBAPropPlayer(
   selectedMarket = ""
 ) {
 
+  ensureNBAMobileStyles();
+
+
   const playerName =
     decodeURIComponent(
       encodedPlayer ||
@@ -31990,30 +33996,27 @@ function showNBAPropPlayer(
 
   const allLines =
     Array.isArray(
-      data
-        .analyzedPlayerLines
+      data.analyzedPlayerLines
     )
-      ? data
-          .analyzedPlayerLines
+      ? data.analyzedPlayerLines
       : [];
 
 
   const playerRawLines =
-    allLines
-      .filter(
-        prop =>
-          String(
-            prop?.player ||
-            ""
-          )
-            .trim()
-            .toLowerCase() ===
-          String(
-            playerName
-          )
-            .trim()
-            .toLowerCase()
-      );
+    allLines.filter(
+      prop =>
+        String(
+          prop?.player ||
+          ""
+        )
+          .trim()
+          .toLowerCase() ===
+        String(
+          playerName
+        )
+          .trim()
+          .toLowerCase()
+    );
 
 
   if (
@@ -32038,18 +34041,15 @@ function showNBAPropPlayer(
 
 
   let prop =
-    playerLines
-      .find(
-        item =>
-          item.market ===
-          selectedMarket
-      ) ||
+    playerLines.find(
+      item =>
+        item.market ===
+        selectedMarket
+    ) ||
     null;
 
 
-  if (
-    !prop
-  ) {
+  if (!prop) {
 
     prop =
       playerLines
@@ -32122,71 +34122,12 @@ function showNBAPropPlayer(
     );
 
 
-  const bookProbability =
-    getNBAPropBookProbability(
-      prop
-    );
-
-
-  const expectedMinutes =
-    Number(
-      prop?.expectedMinutes
-    );
-
-
-  const baselineMinutes =
-    Number(
-      prop?.baselineMinutes
-    );
-
-
-  const roleChange =
-    Number(
-      prop?.roleChange
-    );
-
-
-  const roleCertainty =
-    Number(
-      prop?.roleCertainty
-    );
-
-
-  const matchupFactor =
-    Number(
-      prop?.matchupFactor
-    );
-
-
-  const hitRates =
-    prop?.hitRates ||
-    {};
-
-
-  const availability =
+  const side =
     String(
-      prop?.availabilityStatus ||
-      "available"
+      prop?.side ||
+      ""
     )
       .toUpperCase();
-
-
-  const roleLabel =
-    getNBAPropRoleLabel(
-      prop
-    );
-
-
-  const roleChangeText =
-    Number.isFinite(
-      roleChange
-    )
-      ? `${
-          roleChange > 0
-            ? "+"
-            : ""
-        }${roleChange.toFixed(1)}`
-      : "—";
 
 
   const oddsText =
@@ -32195,104 +34136,224 @@ function showNBAPropPlayer(
     );
 
 
+  const playerPhoto =
+    getNBAPlayerPhotoURL(
+      prop?.athleteId
+    );
+
+
+  const teamLogo =
+    getNBATeamLogoURL(
+      prop?.team
+    );
+
+
+  const hitRates =
+    prop?.hitRates ||
+    {};
+
+
+  const recentGames =
+    Array.isArray(
+      prop?.recentGames
+    )
+      ? prop.recentGames
+          .slice(
+            0,
+            10
+          )
+      : [];
+
+
   const marketTabs =
     playerLines
       .map(
-        item => {
-
-          return `
-            <button
-              type="button"
-              class="${
-                item.market ===
-                  prop.market
-                  ? "active"
-                  : ""
-              }"
-              onclick="showNBAPropPlayer(
-                ${index},
-                '${encodeURIComponent(
-                  playerName
-                )}',
-                '${returnCategory}',
-                '${String(
-                  item.market ||
-                  ""
-                )}'
-              )"
-            >
-              ${sanitize(
-                getNBAPropMarketLabel(
-                  item.market,
-                  true
-                )
-              )}
-            </button>
-          `;
-        }
+        item => `
+          <button
+            type="button"
+            class="${
+              item.market ===
+                prop.market
+                ? "active"
+                : ""
+            }"
+            onclick="showNBAPropPlayer(
+              ${index},
+              '${encodeURIComponent(
+                playerName
+              )}',
+              '${returnCategory}',
+              '${String(
+                item.market ||
+                ""
+              )}'
+            )"
+          >
+            ${sanitize(
+              getNBAPropMarketLabel(
+                item.market,
+                true
+              )
+            )}
+          </button>
+        `
       )
       .join("");
 
 
-  const affectedBy =
-    Array.isArray(
-      prop?.affectedBy
-    )
-      ? prop.affectedBy
-      : [];
+  function summaryBox(
+    label,
+    rate
+  ) {
+
+    const hits =
+      Number(
+        rate?.hits ||
+        0
+      );
 
 
-  const affectedHTML =
-    affectedBy.length
-      ? `
-        <div style="
-          margin-top:9px;
-          padding-top:8px;
-          border-top:1px solid #17243a;
-        ">
+    const games =
+      Number(
+        rate?.games ||
+        0
+      );
 
-          <div style="
-            color:#71839f;
-            font-size:8px;
-            font-weight:900;
-            margin-bottom:5px;
-          ">
-            ROTATION IMPACT
-          </div>
 
+   const pct =
+  nbaPropNumberOrNull(
+    rate?.pct
+  );
+
+    return `
+      <div class="nba-prop-summary">
+
+        <small>
+          ${sanitize(label)}
+        </small>
+
+        <strong>
           ${
-            affectedBy
-              .map(
-                impact => `
-                  <div style="
-                    color:#c9d6e8;
-                    font-size:9px;
-                    margin-top:3px;
-                  ">
-                    ${sanitize(
-                      impact?.player ||
-                      "Teammate"
-                    )}
+            games > 0
+              ? `${hits}/${games}`
+              : "—"
+          }
+        </strong>
+
+        <span>
+          ${
+            Number.isFinite(
+              pct
+            )
+              ? `${pct.toFixed(0)}%`
+              : ""
+          }
+        </span>
+
+      </div>
+    `;
+  }
+
+
+  const recentGamesHTML =
+    recentGames.length
+      ? recentGames
+          .map(
+            game => {
+
+              const push =
+                game?.push ===
+                true;
+
+
+              const hit =
+                game?.hit ===
+                true;
+
+
+              const cssClass =
+                push
+                  ? "push"
+                  : hit
+                    ? "hit"
+                    : "miss";
+
+
+              const resultIcon =
+                push
+                  ? "—"
+                  : hit
+                    ? "↗"
+                    : "✕";
+
+
+              return `
+                <div
+                  class="
+                    nba-prop-game
+                    ${cssClass}
+                  "
+                >
+
+                  <strong>
                     ${
                       Number.isFinite(
                         Number(
-                          impact?.minutes
+                          game?.value
                         )
                       )
-                        ? ` · +${Number(
-                            impact.minutes
-                          ).toFixed(1)} expected min`
-                        : ""
+                        ? Number(
+                            game.value
+                          ).toFixed(
+                            1
+                          )
+                        : "—"
                     }
-                  </div>
-                `
-              )
-              .join("")
-          }
+                  </strong>
 
-        </div>
-      `
-      : "";
+                  <span>
+                    ${resultIcon}
+                  </span>
+
+                </div>
+              `;
+            }
+          )
+          .join("")
+      : `
+          <div
+            style="
+              grid-column:1/-1;
+              color:#71839f;
+              font-size:9px;
+              text-align:center;
+              padding:10px;
+            "
+          >
+            Individual game history
+            is not available yet.
+          </div>
+        `;
+
+
+  const availability =
+    String(
+      prop
+        ?.availabilityStatus ||
+      "available"
+    )
+      .toUpperCase();
+
+
+  const ringAngle =
+    Math.max(
+      0,
+      Math.min(
+        100,
+        confidence
+      )
+    ) *
+    3.6;
 
 
   container.innerHTML = `
@@ -32304,82 +34365,107 @@ function showNBAPropPlayer(
         ${index},
         '${returnCategory}'
       )"
-      style="margin-bottom:14px;"
+      style="
+        margin-bottom:12px;
+      "
     >
-      ← BACK TO ${
-        returnCategory === "best"
-          ? "BEST"
-          : returnCategory === "points"
-            ? "POINTS"
-            : returnCategory === "rebounds"
-              ? "REBOUNDS"
-              : returnCategory === "assists"
-                ? "ASSISTS"
-                : returnCategory === "threes"
-                  ? "3PT"
-                  : "ALL"
-      }
+      ← BACK
     </button>
 
 
-    <div style="
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:10px;
-      margin-bottom:12px;
-    ">
+    <div class="nba-prop-detail-header">
+
+      <div class="nba-prop-detail-photo">
+
+        ${
+          playerPhoto
+            ? `
+              <img
+                src="${playerPhoto}"
+                alt=""
+                onerror="this.style.display='none'"
+              >
+            `
+            : ""
+        }
+
+      </div>
+
 
       <div>
 
+        <div style="
+          display:flex;
+          align-items:center;
+          gap:6px;
+        ">
+
+          ${
+            teamLogo
+              ? `
+                <img
+                  src="${teamLogo}"
+                  alt=""
+                  style="
+                    width:24px;
+                    height:24px;
+                    object-fit:contain;
+                  "
+                  onerror="this.style.display='none'"
+                >
+              `
+              : ""
+          }
+
+          <div style="
+            color:#fff;
+            font-size:19px;
+            font-weight:950;
+            line-height:1.05;
+          ">
+            ${sanitize(
+              playerName
+            )}
+          </div>
+
+        </div>
+
+
+        <div style="
+          margin-top:5px;
+          color:#71839f;
+          font-size:9px;
+        ">
+          ${sanitize(
+            prop?.team ||
+            ""
+          )}
+        </div>
+
+
         ${
-          prop?.team
+          availability !==
+          "AVAILABLE"
             ? `
               <div style="
-                color:#60708d;
-                font-size:8px;
+                display:inline-block;
+                margin-top:6px;
+                padding:3px 7px;
+                border-radius:10px;
+                background:rgba(255,86,105,.15);
+                color:#ff6578;
+                font-size:7px;
+                font-weight:950;
               ">
                 ${sanitize(
-                  prop.team
+                  availability
                 )}
               </div>
             `
             : ""
         }
 
-        <div style="
-          margin-top:3px;
-          color:#ffffff;
-          font-size:18px;
-          font-weight:950;
-        ">
-          ${sanitize(
-            playerName
-          )}
-        </div>
-
       </div>
-
-
-      ${
-        availability !==
-        "AVAILABLE"
-          ? `
-            <div style="
-              border:1px solid rgba(255,179,71,.35);
-              color:#ffb347;
-              border-radius:14px;
-              padding:5px 9px;
-              font-size:8px;
-              font-weight:900;
-            ">
-              ${sanitize(
-                availability
-              )}
-            </div>
-          `
-          : ""
-      }
 
     </div>
 
@@ -32387,154 +34473,169 @@ function showNBAPropPlayer(
     <div
       class="ps-market-tabs"
       style="
-        padding:0;
-        margin-bottom:10px;
+        display:flex;
+        gap:5px;
         overflow-x:auto;
+        margin-bottom:10px;
       "
     >
       ${marketTabs}
     </div>
 
 
-    <div style="
-      background:#0b1323;
-      border:1px solid rgba(0,255,231,.24);
-      border-radius:12px;
-      padding:12px;
-      margin-bottom:9px;
-    ">
+    <div class="nba-prop-main-card">
 
-      <div style="
-        color:#71839f;
-        font-size:8px;
-        font-weight:900;
-      ">
-        TODAY'S PROP
-      </div>
+      <div>
 
+        <div style="
+          color:#fff;
+          font-size:17px;
+          line-height:1.05;
+          font-weight:950;
+        ">
+          ${sanitize(
+            side
+          )}
 
-      <div style="
-        margin-top:5px;
-        color:#ffffff;
-        font-size:14px;
-        font-weight:950;
-      ">
-        ${sanitize(
-          String(
-            prop?.side ||
-            ""
-          ).toUpperCase()
-        )}
+          ${
+            Number.isFinite(
+              line
+            )
+              ? line
+              : "—"
+          }
 
-        ${
-          Number.isFinite(
-            line
-          )
-            ? line
-            : "—"
-        }
-
-        ${sanitize(
-          getNBAPropMarketLabel(
-            prop.market
-          )
-        )}
-
-        ·
-        ${sanitize(
-          oddsText
-        )}
-      </div>
+          ${sanitize(
+            getNBAPropMarketLabel(
+              prop.market
+            )
+          )}
+        </div>
 
 
-      ${
-        prop?.bookmaker
-          ? `
-            <div style="
-              margin-top:5px;
-              color:#71839f;
-              font-size:8px;
-            ">
-              ${sanitize(
-                prop.bookmaker
-              )}
-            </div>
-          `
-          : ""
-      }
+        <div style="
+          margin-top:5px;
+          color:#8ba0bd;
+          font-size:11px;
+        ">
+          ${sanitize(
+            oddsText
+          )}
 
-
-      <div style="
-        display:grid;
-        grid-template-columns:repeat(3,minmax(0,1fr));
-        gap:8px;
-        margin-top:14px;
-      ">
-
-        ${renderNBAPropMetric(
-          "SPORTSBOOK",
-          Number.isFinite(
-            line
-          )
-            ? String(
-                line
-              )
-            : "—"
-        )}
-
-        ${renderNBAPropMetric(
-          "CASHEDGE",
-          Number.isFinite(
-            projection
-          )
-            ? projection.toFixed(
-                1
-              )
-            : "—",
-          true
-        )}
-
-        ${renderNBAPropMetric(
-          "CONFIDENCE",
-          `${confidence.toFixed(0)}%`,
-          true
-        )}
+          ${
+            prop?.bookmaker
+              ? ` · ${sanitize(
+                  prop.bookmaker
+                )}`
+              : ""
+          }
+        </div>
 
       </div>
 
 
-      <div style="
-        display:grid;
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:8px;
-        margin-top:8px;
-      ">
+      <div
+        class="ce-confidence-ring"
+        style="
+          width:62px;
+          height:62px;
+          --ring-angle:
+          ${ringAngle}deg;
+        "
+      >
 
-        ${renderNBAPropMetric(
-          "SPORTSBOOK %",
-          Number.isFinite(
-            bookProbability
-          )
-            ? `${bookProbability.toFixed(1)}%`
-            : "—"
-        )}
+        <div>
 
-        ${renderNBAPropMetric(
-          "VALUE",
-          Number.isFinite(
-            value
-          )
-            ? `${
-                value >= 0
-                  ? "+"
-                  : ""
-              }${value.toFixed(1)}%`
-            : "—",
-          Number.isFinite(
-            value
-          ) &&
-          value > 0
-        )}
+          <strong style="
+            font-size:15px;
+          ">
+            ${confidence.toFixed(0)}%
+          </strong>
+
+          <small>
+            CONF.
+          </small>
+
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div class="nba-prop-metric-grid">
+
+      <div class="nba-prop-metric">
+
+        <small>
+          SPORTSBOOK
+        </small>
+
+        <strong>
+          ${
+            Number.isFinite(
+              line
+            )
+              ? line
+              : "—"
+          }
+        </strong>
+
+      </div>
+
+
+      <div class="nba-prop-metric">
+
+        <small>
+          CASHEDGE
+        </small>
+
+        <strong>
+          ${
+            Number.isFinite(
+              projection
+            )
+              ? projection.toFixed(
+                  1
+                )
+              : "—"
+          }
+        </strong>
+
+      </div>
+
+
+      <div class="nba-prop-metric">
+
+        <small>
+          VALUE
+        </small>
+
+        <strong style="
+          color:
+            ${
+              Number.isFinite(
+                value
+              ) &&
+              value > 0
+                ? "#00ffe7"
+                : "#fff"
+            };
+        ">
+          ${
+            Number.isFinite(
+              value
+            )
+              ? `${
+                  value >= 0
+                    ? "+"
+                    : ""
+                }${value.toFixed(
+                  1
+                )}%`
+              : "—"
+          }
+        </strong>
 
       </div>
 
@@ -32542,45 +34643,41 @@ function showNBAPropPlayer(
 
 
     <div style="
-      background:#0b1323;
-      border:1px solid #1a2740;
+      margin-top:10px;
+      padding:10px;
+      background:#071624;
+      border:1px solid #19354e;
       border-radius:11px;
-      padding:11px;
-      margin-bottom:9px;
     ">
 
-      <div style="
-        color:#71839f;
-        font-size:8px;
-        font-weight:900;
-        margin-bottom:8px;
-      ">
-        PERFORMANCE VS TODAY'S LINE
+      <div class="ce-nba-section-title">
+        PERFORMANCE VS THIS LINE
       </div>
 
 
-      <div style="
-        display:grid;
-        grid-template-columns:repeat(4,minmax(0,1fr));
-        gap:6px;
-      ">
+      <div
+        class="nba-prop-summary-grid"
+        style="
+          margin-top:8px;
+        "
+      >
 
-        ${renderNBAPropHitRate(
+        ${summaryBox(
           "LAST 3",
           hitRates.last3
         )}
 
-        ${renderNBAPropHitRate(
+        ${summaryBox(
           "LAST 5",
           hitRates.last5
         )}
 
-        ${renderNBAPropHitRate(
+        ${summaryBox(
           "LAST 10",
           hitRates.last10
         )}
 
-        ${renderNBAPropHitRate(
+        ${summaryBox(
           "SEASON",
           hitRates.season
         )}
@@ -32591,104 +34688,59 @@ function showNBAPropPlayer(
 
 
     <div style="
-      background:#0b1323;
-      border:1px solid #1a2740;
+      margin-top:8px;
+      padding:10px;
+      background:#071624;
+      border:1px solid #19354e;
       border-radius:11px;
-      padding:11px;
     ">
 
-      <div style="
-        color:#71839f;
-        font-size:8px;
-        font-weight:900;
-        margin-bottom:8px;
-      ">
-        EXPECTED ROLE
+      <div class="ce-nba-section-title">
+        LAST 10 GAMES
+      </div>
+
+
+      <div class="nba-prop-last10">
+        ${recentGamesHTML}
       </div>
 
 
       <div style="
-        display:grid;
-        grid-template-columns:repeat(4,minmax(0,1fr));
-        gap:6px;
-      ">
-
-        ${renderNBAPropMetric(
-          "EXPECTED MIN",
-          Number.isFinite(
-            expectedMinutes
-          )
-            ? expectedMinutes.toFixed(
-                1
-              )
-            : "—",
-          true
-        )}
-
-        ${renderNBAPropMetric(
-          "BASE MIN",
-          Number.isFinite(
-            baselineMinutes
-          )
-            ? baselineMinutes.toFixed(
-                1
-              )
-            : "—"
-        )}
-
-        ${renderNBAPropMetric(
-          "ROLE CHANGE",
-          roleChangeText,
-          Number.isFinite(
-            roleChange
-          ) &&
-          roleChange >
-            1
-        )}
-
-        ${renderNBAPropMetric(
-          "ROLE CONF.",
-          Number.isFinite(
-            roleCertainty
-          )
-            ? `${roleCertainty.toFixed(0)}%`
-            : "—"
-        )}
-
-      </div>
-
-
-      <div style="
-        display:grid;
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:8px;
+        display:flex;
+        gap:12px;
         margin-top:8px;
+        color:#71839f;
+        font-size:7px;
+        font-weight:800;
       ">
 
-        ${renderNBAPropMetric(
-          "ROLE",
-          roleLabel
-        )}
+        <span>
+          <b style="color:#00e9b4;">
+            ↗
+          </b>
+          HIT
+        </span>
 
-        ${renderNBAPropMetric(
-          "MATCHUP",
-          Number.isFinite(
-            matchupFactor
-          )
-            ? `${matchupFactor.toFixed(2)}x`
-            : "—"
-        )}
+        <span>
+          <b style="color:#ff5c70;">
+            ✕
+          </b>
+          MISS
+        </span>
+
+        <span>
+          <b style="color:#f5c451;">
+            —
+          </b>
+          PUSH
+        </span>
 
       </div>
-
-
-      ${affectedHTML}
 
     </div>
 
   `;
 }
-
 
 // ============================================================
 // MAIN OPEN / TOGGLE
@@ -32716,19 +34768,59 @@ async function toggleNBAPlayerProps(
    * Existing loaded panel:
    * simply open / close it.
    */
+ if (
+  box.dataset.loaded ===
+  "true"
+) {
+
   if (
-    box.dataset.loaded ===
-    "true"
+    box.style.display !==
+    "none"
   ) {
 
     box.style.display =
-      box.style.display ===
-        "none"
-        ? "block"
-        : "none";
+      "none";
 
     return;
   }
+
+
+  const currentState =
+    nbaPlayerPropsState[
+      index
+    ] ||
+    {};
+
+
+  const dataAge =
+    currentState.dataLoadedAt
+      ? (
+          Date.now() -
+          currentState.dataLoadedAt
+        )
+      : Infinity;
+
+
+  const dataIsFresh =
+    currentState.data &&
+    dataAge <
+      15 * 60 * 1000;
+
+
+  if (
+    dataIsFresh
+  ) {
+
+    box.style.display =
+      "block";
+
+    return;
+  }
+
+
+  box.dataset.loaded =
+    "false";
+}
 
 
   const {
