@@ -618,11 +618,392 @@ module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
+ if (req.method === "OPTIONS") {
+  return res.status(200).end();
+}
+
+
+// ============================================================
+// NBA LIVE INJURY INGEST
+//
+// Railway -> Vercel -> Supabase
+//
+// INTERNAL ONLY.
+// This does NOT run the NBA model yet.
+// ============================================================
+
+if (
+  req.method === "POST" &&
+  req.query.mode === "ingest-nba-injuries"
+) {
+
+  try {
+
+    const suppliedSecret =
+      String(
+        req.headers["x-internal-secret"] ||
+        ""
+      );
+
+
+    const expectedSecret =
+      String(
+        process.env.MARKET_INGEST_SECRET ||
+        ""
+      );
+
+
+    if (
+      !expectedSecret ||
+      suppliedSecret !== expectedSecret
+    ) {
+
+      return res.status(401).json({
+        ok: false,
+        error: "Unauthorized"
+      });
+    }
+
+
+    const {
+      gameId,
+      awayTeam,
+      homeTeam,
+      gameTime,
+      awayTeamId,
+      homeTeamId,
+      injuries
+    } =
+      req.body ||
+      {};
+
+
+    if (
+      !gameId ||
+      !awayTeam ||
+      !homeTeam ||
+      !gameTime ||
+      !Array.isArray(injuries)
+    ) {
+
+      return res.status(400).json({
+        ok: false,
+        error:
+          "Invalid NBA injury snapshot"
+      });
+    }
+
+
+    const parsedGameTime =
+      new Date(gameTime);
+
+
+    if (
+      Number.isNaN(
+        parsedGameTime.getTime()
+      )
+    ) {
+
+      return res.status(400).json({
+        ok: false,
+        error:
+          "Invalid NBA game time"
+      });
+    }
+
+
+    const normalizedInjuries =
+      injuries
+        .map(
+          injury => {
+
+            const playerId =
+              injury?.playerId != null
+                ? String(
+                    injury.playerId
+                  )
+                : null;
+
+
+            const teamId =
+              injury?.teamId != null
+                ? String(
+                    injury.teamId
+                  )
+                : null;
+
+
+            return {
+
+              player_id:
+                playerId,
+
+              player_name:
+                String(
+                  injury?.playerName ||
+                  ""
+                )
+                  .trim() ||
+                null,
+
+              team_id:
+                teamId,
+
+              status:
+                String(
+                  injury?.status ||
+                  "unknown"
+                )
+                  .trim()
+                  .toLowerCase(),
+
+              return_date:
+                injury?.returnDate ||
+                null,
+
+              description:
+                String(
+                  injury?.description ||
+                  ""
+                )
+                  .trim() ||
+                null
+            };
+          }
+        )
+        .filter(
+          injury =>
+            Boolean(
+              injury.player_id
+            )
+        )
+        .sort(
+          (a, b) => {
+
+            const aKey =
+              `${a.team_id || ""}|${a.player_id}|${a.status}|${a.return_date || ""}`;
+
+
+            const bKey =
+              `${b.team_id || ""}|${b.player_id}|${b.status}|${b.return_date || ""}`;
+
+
+            return aKey.localeCompare(
+              bKey
+            );
+          }
+        );
+
+
+    const fingerprint =
+      JSON.stringify(
+        normalizedInjuries.map(
+          injury => ({
+
+            player_id:
+              injury.player_id,
+
+            team_id:
+              injury.team_id,
+
+            status:
+              injury.status,
+
+            return_date:
+              injury.return_date
+          })
+        )
+      );
+
+
+    const {
+      data:
+        previousState,
+
+      error:
+        previousStateError
+    } =
+      await supabaseAdmin
+        .from(
+          "nba_live_injury_state"
+        )
+        .select(
+          "fingerprint, changed_at"
+        )
+        .eq(
+          "game_id",
+          String(gameId)
+        )
+        .maybeSingle();
+
+
+    if (
+      previousStateError
+    ) {
+
+      throw previousStateError;
+    }
+
+
+    const changed =
+      !previousState ||
+      String(
+        previousState.fingerprint ||
+        ""
+      ) !==
+      fingerprint;
+
+
+    const nowIso =
+      new Date()
+        .toISOString();
+
+
+    const parsedAwayTeamId =
+      Number(
+        awayTeamId
+      );
+
+
+    const parsedHomeTeamId =
+      Number(
+        homeTeamId
+      );
+
+
+    const {
+      error:
+        upsertError
+    } =
+      await supabaseAdmin
+        .from(
+          "nba_live_injury_state"
+        )
+        .upsert(
+          {
+
+            game_id:
+              String(
+                gameId
+              ),
+
+            away_team:
+              String(
+                awayTeam
+              ),
+
+            home_team:
+              String(
+                homeTeam
+              ),
+
+            game_time:
+              parsedGameTime
+                .toISOString(),
+
+            away_team_id:
+              Number.isFinite(
+                parsedAwayTeamId
+              )
+                ? parsedAwayTeamId
+                : null,
+
+            home_team_id:
+              Number.isFinite(
+                parsedHomeTeamId
+              )
+                ? parsedHomeTeamId
+                : null,
+
+            injuries:
+              normalizedInjuries,
+
+            fingerprint,
+
+            provider:
+              "balldontlie",
+
+            checked_at:
+              nowIso,
+
+            changed_at:
+              changed
+                ? nowIso
+                : (
+                    previousState
+                      ?.changed_at ||
+                    nowIso
+                  ),
+
+            updated_at:
+              nowIso
+          },
+          {
+            onConflict:
+              "game_id"
+          }
+        );
+
+
+    if (
+      upsertError
+    ) {
+
+      throw upsertError;
+    }
+
+
+    return res.status(200).json({
+
+      ok:
+        true,
+
+      gameId:
+        String(
+          gameId
+        ),
+
+      changed,
+
+      injuries:
+        normalizedInjuries.length,
+
+      fingerprint
+    });
+
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      "NBA LIVE INJURY INGEST ERROR:",
+      error
+    );
+
+
+    return res.status(500).json({
+
+      ok:
+        false,
+
+      error:
+        error?.message ||
+        String(error)
+    });
   }
-  if (req.query.mode === "nba-player-props") {
-  return await handleNBAPlayerProps(req, res);
+}
+
+
+if (
+  req.query.mode ===
+  "nba-player-props"
+) {
+
+  return await handleNBAPlayerProps(
+    req,
+    res
+  );
 }
   if (req.method === "GET" && req.query.mode === "refresh-all-daily") {
   try {
