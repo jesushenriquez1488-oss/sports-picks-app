@@ -776,6 +776,12 @@ const INGEST_QUOTE_URL =
 
 const INGEST_SPLIT_URL =
   `${CASHEDGE_ORIGIN}/api/market-intelligence/ingest-split`;
+
+
+const NBA_INJURY_INGEST_URL =
+  `${CASHEDGE_ORIGIN}/api/analyze-nba?mode=ingest-nba-injuries`;
+
+
 const PICK_CONTEXT_SYNC_URL =
   process.env.PICK_CONTEXT_SYNC_URL;
 const SPORTS = [
@@ -1338,6 +1344,132 @@ function resolveLearningMarketGame({
   });
 }
 // ============================================================
+// NBA LIVE INJURY SNAPSHOT — SAFE SYNC
+//
+// Completely isolated from Market Intelligence.
+//
+// Baseline / structural changes only.
+// Failure here must NEVER affect:
+// - Owls
+// - Market Intelligence
+// - quote ingestion
+// - splits
+// - Learning
+// ============================================================
+
+async function syncNBAInjurySnapshotSafe(
+  event
+) {
+
+  try {
+
+    if (
+      !event?.gameId ||
+      !event?.game
+    ) {
+      return;
+    }
+
+
+    const response =
+      await fetch(
+        NBA_INJURY_INGEST_URL,
+        {
+
+          method:
+            "POST",
+
+          headers: {
+
+            "Content-Type":
+              "application/json",
+
+            "X-Internal-Secret":
+              MARKET_INGEST_SECRET
+          },
+
+          body:
+            JSON.stringify({
+
+              gameId:
+                event.gameId,
+
+              awayTeam:
+                event.game
+                  ?.away_team,
+
+              homeTeam:
+                event.game
+                  ?.home_team,
+
+              gameTime:
+                event.game
+                  ?.game_time,
+
+              awayTeamId:
+                event.awayTeamId,
+
+              homeTeamId:
+                event.homeTeamId,
+
+              injuries:
+                event.injuries ||
+                []
+            })
+        }
+      );
+
+
+    const body =
+      await response
+        .json()
+        .catch(
+          () => null
+        );
+
+
+    if (
+      !response.ok ||
+      body?.ok !== true
+    ) {
+
+      throw new Error(
+        body?.error ||
+        `HTTP ${response.status}`
+      );
+    }
+
+
+    if (
+      body.changed === true
+    ) {
+
+      console.log(
+        `[${WORKER_NAME}] NBA injury snapshot changed: ${event.gameId} | injuries=${Number(body.injuries || 0)}`
+      );
+
+    } else if (
+      event.isBaseline === true
+    ) {
+
+      console.log(
+        `[${WORKER_NAME}] NBA injury baseline saved: ${event.gameId} | injuries=${Number(body.injuries || 0)}`
+      );
+    }
+
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      `[nba-injury-watch] snapshot sync failed: ${error?.message || error}`
+    );
+  }
+}
+
+
+// ============================================================
 // NBA LIVE WATCHERS — SAFE INITIALIZATION
 //
 // Absolutely isolated from Market Intelligence.
@@ -1372,34 +1504,51 @@ function initializeNBAWatchersSafe() {
     }
 
 
-    nbaInjuryWatcher =
-      createInjuryWatcher({
+nbaInjuryWatcher =
+  createInjuryWatcher({
 
-        balldontlieApiKey:
-          BALLDONTLIE_API_KEY,
+    balldontlieApiKey:
+      BALLDONTLIE_API_KEY,
 
-        getGameStartMs:
-          game =>
-            parseCashEdgeGameTime(
-              game?.game_time
-            ),
 
-        onChange:
-          event => {
+    getGameStartMs:
+      game =>
+        parseCashEdgeGameTime(
+          game?.game_time
+        ),
 
-            /*
-             * IMPORTANT:
-             *
-             * For now we ONLY prove detection.
-             *
-             * No Vercel reanalysis yet.
-             * No Market Intelligence mutation.
-             */
-            console.log(
-              `[${WORKER_NAME}] NBA STRUCTURAL INJURY CHANGE: ${event.gameId} | ${event.changedProviders.join(", ")}`
-            );
-          }
-      });
+
+    // ========================================================
+    // GOOD BDL SNAPSHOT
+    //
+    // Baseline or structural change only.
+    // Completely non-blocking for Market Intelligence.
+    // ========================================================
+
+    onSnapshot:
+      event => {
+
+        return syncNBAInjurySnapshotSafe(
+          event
+        );
+      },
+
+
+    // ========================================================
+    // STRUCTURAL INJURY CHANGE
+    //
+    // For now this logs detection.
+    // Automatic model recalculation comes next.
+    // ========================================================
+
+    onChange:
+      event => {
+
+        console.log(
+          `[${WORKER_NAME}] NBA STRUCTURAL INJURY CHANGE: ${event.gameId} | ${event.changedProviders.join(", ")}`
+        );
+      }
+  });
 
 
     nbaMarketSignalWatcher =
