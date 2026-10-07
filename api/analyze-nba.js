@@ -3416,6 +3416,131 @@ const forceRefresh =
   req.query.force === "true" ||
   req.body?.force === true ||
   req.body?.forceRefresh === true;
+    // ============================================================
+// NBA LIVE INJURY STATE
+//
+// NBA reads the last GOOD BDL snapshot saved by Railway.
+//
+// Provider failure never becomes "no injuries".
+// ============================================================
+
+let nbaLiveInjuryState =
+  null;
+
+
+let nbaLiveInjuryStateReadable =
+  true;
+
+
+if (
+  selectedLeague === "nba"
+) {
+
+  const {
+    data:
+      liveInjuryState,
+
+    error:
+      liveInjuryStateError
+  } =
+    await supabaseAdmin
+      .from(
+        "nba_live_injury_state"
+      )
+      .select(
+        `
+          game_id,
+          away_team,
+          home_team,
+          game_time,
+          away_team_id,
+          home_team_id,
+          injuries,
+          fingerprint,
+          provider,
+          checked_at,
+          changed_at,
+          updated_at
+        `
+      )
+      .eq(
+        "game_id",
+        gameId
+      )
+      .maybeSingle();
+
+
+  if (
+    liveInjuryStateError
+  ) {
+
+    nbaLiveInjuryStateReadable =
+      false;
+
+
+    console.error(
+      "NBA LIVE INJURY STATE READ ERROR:",
+      liveInjuryStateError.message
+    );
+
+  } else {
+
+    nbaLiveInjuryState =
+      liveInjuryState ||
+      null;
+  }
+}
+
+
+const currentInjuryFingerprint =
+  selectedLeague === "nba"
+    ? (
+        nbaLiveInjuryState
+          ?.fingerprint ||
+        null
+      )
+    : null;
+
+
+const cachedInjuryFingerprint =
+  selectedLeague === "nba"
+    ? (
+        existing
+          ?.analysis_json
+          ?.injurySnapshotFingerprint ||
+        null
+      )
+    : null;
+
+
+const nbaInjuryStateReady =
+  selectedLeague !== "nba" ||
+  (
+    nbaLiveInjuryStateReadable ===
+      true &&
+
+    Boolean(
+      nbaLiveInjuryState
+    ) &&
+
+    Array.isArray(
+      nbaLiveInjuryState
+        ?.injuries
+    ) &&
+
+    typeof nbaLiveInjuryState
+      ?.fingerprint ===
+      "string"
+  );
+
+
+const injuryStateUnchanged =
+  selectedLeague !== "nba" ||
+  (
+    nbaInjuryStateReady &&
+    cachedInjuryFingerprint ===
+      currentInjuryFingerprint
+  );
 
 // =====================================================
 // ANALYSIS FREEZE
@@ -3596,7 +3721,157 @@ if (
       : "Premium window locked 30 minutes before game time"
 });
 }
+// ============================================================
+// NBA LIVE INJURY FAIL-SAFE
+//
+// Never interpret:
+// - Supabase read failure
+// - missing BDL baseline
+//
+// as "zero injuries".
+//
+// If we already have a previous analysis,
+// preserve it exactly until a valid BDL snapshot exists.
+//
+// If we have never analyzed this game,
+// wait instead of inventing a healthy roster.
+// ============================================================
 
+if (
+  selectedLeague === "nba" &&
+  !nbaInjuryStateReady
+) {
+
+  if (
+    existing?.analysis_json
+  ) {
+
+    const cachedAnalysis =
+      existing.analysis_json;
+
+
+    const locked =
+      cachedAnalysis
+        .isPremiumPick &&
+      !isPremiumUser;
+
+
+    if (
+      !cachedAnalysis
+        .isPremiumPick &&
+      !cachedAnalysis
+        .noPlay &&
+      !freeUsageCheck
+        .allowed
+    ) {
+
+      return res
+        .status(429)
+        .json({
+
+          error:
+            freeUsageCheck
+              .message,
+
+          limitReached:
+            true,
+
+          upgradeRequired:
+            true
+        });
+    }
+
+
+    if (
+      !cachedAnalysis
+        .isPremiumPick &&
+      !cachedAnalysis
+        .noPlay
+    ) {
+
+      await recordFreeAnalysis(
+
+        user?.id,
+
+        isUnlimited,
+
+        "analyze-nba"
+      );
+    }
+
+
+    return res
+      .status(200)
+      .json({
+
+        locked,
+
+        isPremiumPick:
+          cachedAnalysis
+            .isPremiumPick,
+
+        noPlay:
+          cachedAnalysis
+            .noPlay,
+
+
+        card:
+          locked
+            ? (
+                cachedAnalysis
+                  .card ||
+                null
+              )
+            : (
+                cachedAnalysis
+                  ?.premium
+                  ?.card ||
+                cachedAnalysis
+                  .card ||
+                null
+              ),
+
+
+        public:
+          cachedAnalysis
+            .public,
+
+
+        premium:
+          locked
+            ? null
+            : cachedAnalysis
+                .premium,
+
+
+        liveInjuryStatePending:
+          true
+      });
+  }
+
+
+  return res
+    .status(503)
+    .json({
+
+      ok:
+        false,
+
+      noPlay:
+        true,
+
+      retryable:
+        true,
+
+      liveInjuryStatePending:
+        true,
+
+      reason:
+        nbaLiveInjuryStateReadable
+          ? "Waiting for initial BALLDONTLIE injury snapshot."
+          : "BALLDONTLIE injury state temporarily unavailable."
+    });
+}
 const normalizeMarketValue = value => {
   if (
     value === null ||
@@ -3702,6 +3977,7 @@ const marketUnchanged =
 if (
   existing?.analysis_json &&
   marketUnchanged &&
+  injuryStateUnchanged &&
   !forceRefresh &&
   cacheAge < 2 * 60 * 60 * 1000
 ) {
@@ -3969,10 +4245,112 @@ if (
     error: "Not enough recent games with complete data."
   });
 }
-    const [awayInjuries, homeInjuries] = await Promise.all([
-      getInjuryAdjustment(origin, awayTeam),
-      getInjuryAdjustment(origin, homeTeam)
+    let awayInjuries;
+let homeInjuries;
+
+
+// ============================================================
+// NBA — HISTORICAL ABSENCE INTELLIGENCE
+// ============================================================
+
+if (
+  selectedLeague === "nba"
+) {
+
+  const liveInjuries =
+    Array.isArray(
+      nbaLiveInjuryState
+        ?.injuries
+    )
+      ? nbaLiveInjuryState
+          .injuries
+      : [];
+
+
+  const awayLiveTeamId =
+    Number(
+      nbaLiveInjuryState
+        ?.away_team_id
+    );
+
+
+  const homeLiveTeamId =
+    Number(
+      nbaLiveInjuryState
+        ?.home_team_id
+    );
+
+
+  [
+    awayInjuries,
+    homeInjuries
+  ] =
+    await Promise.all([
+
+      getNBAHistoricalInjuryAdjustment({
+
+        teamName:
+          awayTeam,
+
+        teamId:
+          Number.isFinite(
+            awayLiveTeamId
+          )
+            ? awayLiveTeamId
+            : null,
+
+        injuries:
+          liveInjuries,
+
+        gameTime
+      }),
+
+
+      getNBAHistoricalInjuryAdjustment({
+
+        teamName:
+          homeTeam,
+
+        teamId:
+          Number.isFinite(
+            homeLiveTeamId
+          )
+            ? homeLiveTeamId
+            : null,
+
+        injuries:
+          liveInjuries,
+
+        gameTime
+      })
     ]);
+
+}
+
+
+// ============================================================
+// WNBA / NCAAB — LEAVE CURRENT BEHAVIOR UNCHANGED
+// ============================================================
+
+else {
+
+  [
+    awayInjuries,
+    homeInjuries
+  ] =
+    await Promise.all([
+
+      getInjuryAdjustment(
+        origin,
+        awayTeam
+      ),
+
+      getInjuryAdjustment(
+        origin,
+        homeTeam
+      )
+    ]);
+}
 
 const useCorrectedBasketballFormula =
   selectedLeague === "nba" ||
@@ -4369,7 +4747,8 @@ else if (hasTotalMarket) {
         marketSnapshot:
           currentMarket,
 
-
+injurySnapshotFingerprint:
+  currentInjuryFingerprint,
         ...(selectedLeague === "nba"
           ? {
               card: {
@@ -4579,7 +4958,7 @@ try {
 return res.status(200).json(
   noPlayData
 );
-return res.status(200).json(noPlayData);
+
     }
 
     const isPremiumPick = mainEdge >= 13;
@@ -4650,7 +5029,8 @@ const risk = isPremiumPick ? "Bajo" : "Medio";
 
       marketSnapshot:
         currentMarket,
-
+injurySnapshotFingerprint:
+  currentInjuryFingerprint,
 
       // ======================================================
       // NBA CARD DATA
@@ -4810,16 +5190,66 @@ const risk = isPremiumPick ? "Bajo" : "Medio";
           },
 
 
-          injuries: {
+injuries: {
 
-            away:
-              awayInjuries.note ||
-              "",
+  fingerprint:
+    currentInjuryFingerprint,
 
-            home:
-              homeInjuries.note ||
-              ""
-          }
+  checkedAt:
+    nbaLiveInjuryState
+      ?.checked_at ||
+    null,
+
+  away: {
+
+    team:
+      awayTeam,
+
+    offenseImpact:
+      Number(
+        awayInjuries
+          ?.offenseImpact ||
+        0
+      ),
+
+    defenseImpact:
+      Number(
+        awayInjuries
+          ?.defenseImpact ||
+        0
+      ),
+
+    players:
+      awayInjuries
+        ?.players ||
+      []
+  },
+
+  home: {
+
+    team:
+      homeTeam,
+
+    offenseImpact:
+      Number(
+        homeInjuries
+          ?.offenseImpact ||
+        0
+      ),
+
+    defenseImpact:
+      Number(
+        homeInjuries
+          ?.defenseImpact ||
+        0
+      ),
+
+    players:
+      homeInjuries
+        ?.players ||
+      []
+  }
+}
         },
 
 
@@ -4973,16 +5403,66 @@ card: {
         ""
     },
 
-    injuries: {
+   injuries: {
 
-      away:
-        awayInjuries.note ||
-        "",
+  fingerprint:
+    currentInjuryFingerprint,
 
-      home:
-        homeInjuries.note ||
-        ""
-    }
+  checkedAt:
+    nbaLiveInjuryState
+      ?.checked_at ||
+    null,
+
+  away: {
+
+    team:
+      awayTeam,
+
+    offenseImpact:
+      Number(
+        awayInjuries
+          ?.offenseImpact ||
+        0
+      ),
+
+    defenseImpact:
+      Number(
+        awayInjuries
+          ?.defenseImpact ||
+        0
+      ),
+
+    players:
+      awayInjuries
+        ?.players ||
+      []
+  },
+
+  home: {
+
+    team:
+      homeTeam,
+
+    offenseImpact:
+      Number(
+        homeInjuries
+          ?.offenseImpact ||
+        0
+      ),
+
+    defenseImpact:
+      Number(
+        homeInjuries
+          ?.defenseImpact ||
+        0
+      ),
+
+    players:
+      homeInjuries
+        ?.players ||
+      []
+  }
+}
   },
 
   generatedAt:
@@ -7518,6 +7998,1507 @@ function getNBARelativeRestAdjustment(
       `${awayRestInfo.note} No relative REST adjustment.`,
     homeNote:
       `${homeRestInfo.note} No relative REST adjustment.`
+  };
+}
+// ============================================================
+// NBA HISTORICAL ABSENCE INTELLIGENCE
+//
+// NBA NORMAL ONLY.
+//
+// Live source:
+//   BALLDONTLIE snapshot persisted by Railway.
+//
+// Historical source:
+//   nba_player_absence_impact
+//   nba_player_game_stats
+//   nba_games
+// ============================================================
+
+
+function nbaInjuryNumber(
+  value
+) {
+
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
+
+  const number =
+    Number(
+      value
+    );
+
+
+  return Number.isFinite(
+    number
+  )
+    ? number
+    : null;
+}
+
+
+// ============================================================
+// STATUS WEIGHT
+// ============================================================
+
+function getNBAInjuryStatusWeight(
+  status
+) {
+
+  const clean =
+    String(
+      status ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+
+
+  if (
+    clean.includes("out")
+  ) {
+    return 1;
+  }
+
+
+  if (
+    clean.includes("doubt")
+  ) {
+    return 0.75;
+  }
+
+
+  if (
+    clean.includes("question")
+  ) {
+    return 0.40;
+  }
+
+
+  if (
+    clean.includes("day-to-day") ||
+    clean.includes("day to day")
+  ) {
+    return 0.25;
+  }
+
+
+  if (
+    clean.includes("probable")
+  ) {
+    return 0.10;
+  }
+
+
+  if (
+    clean.includes("available") ||
+    clean.includes("active")
+  ) {
+    return 0;
+  }
+
+
+  return 0;
+}
+
+
+// ============================================================
+// CONSECUTIVE ABSENCE DECAY
+//
+// Upcoming absence game:
+//
+// 1 → 100%
+// 2 → 95%
+// 3 → 80%
+// 4 → 65%
+// 5 → 35%
+// 6 → 15%
+// 7+ → 0%
+// ============================================================
+
+function getNBAAbsenceDecay(
+  absenceGameNumber
+) {
+
+  const game =
+    Math.max(
+      1,
+      Number(
+        absenceGameNumber ||
+        1
+      )
+    );
+
+
+  if (game <= 1) {
+    return 1;
+  }
+
+
+  if (game === 2) {
+    return 0.95;
+  }
+
+
+  if (game === 3) {
+    return 0.80;
+  }
+
+
+  if (game === 4) {
+    return 0.65;
+  }
+
+
+  if (game === 5) {
+    return 0.35;
+  }
+
+
+  if (game === 6) {
+    return 0.15;
+  }
+
+
+  return 0;
+}
+
+
+// ============================================================
+// CURRENT / PREVIOUS SEASON BLEND
+// ============================================================
+
+function getNBAAbsenceSeasonWeights(
+  currentGamesWithout
+) {
+
+  const games =
+    Math.max(
+      0,
+      Number(
+        currentGamesWithout ||
+        0
+      )
+    );
+
+
+  if (
+    games <= 0
+  ) {
+    return {
+      current: 0,
+      previous: 1
+    };
+  }
+
+
+  if (
+    games === 1
+  ) {
+    return {
+      current: 0.20,
+      previous: 0.80
+    };
+  }
+
+
+  if (
+    games === 2
+  ) {
+    return {
+      current: 0.35,
+      previous: 0.65
+    };
+  }
+
+
+  if (
+    games === 3
+  ) {
+    return {
+      current: 0.50,
+      previous: 0.50
+    };
+  }
+
+
+  if (
+    games === 4
+  ) {
+    return {
+      current: 0.60,
+      previous: 0.40
+    };
+  }
+
+
+  if (
+    games === 5
+  ) {
+    return {
+      current: 0.70,
+      previous: 0.30
+    };
+  }
+
+
+  return {
+    current: 0.80,
+    previous: 0.20
+  };
+}
+
+
+// ============================================================
+// CONTROLLED → RAW COMPONENT FALLBACK
+//
+// If real absence history exists,
+// NEVER jump to 10% PPG merely because controlled is null.
+// ============================================================
+
+function getNBAAbsenceComponent(
+  row,
+  controlledKey,
+  rawKey
+) {
+
+  if (
+    Number(
+      row?.games_without ||
+      0
+    ) <
+    1
+  ) {
+
+    return null;
+  }
+
+
+  const controlled =
+    nbaInjuryNumber(
+      row?.[
+        controlledKey
+      ]
+    );
+
+
+  if (
+    controlled !==
+    null
+  ) {
+
+    return controlled;
+  }
+
+
+  const raw =
+    nbaInjuryNumber(
+      row?.[
+        rawKey
+      ]
+    );
+
+
+  if (
+    raw !==
+    null
+  ) {
+
+    return raw;
+  }
+
+
+  /*
+   * History exists but this component
+   * is unavailable.
+   *
+   * Do NOT replace real history with
+   * the 10% PPG fallback.
+   */
+  return 0;
+}
+
+
+// ============================================================
+// READ HISTORICAL ABSENCE PROFILE
+// ============================================================
+
+async function getNBAPlayerAbsenceHistory({
+  teamId,
+  playerId,
+  currentSeason
+}) {
+
+  const previousSeason =
+    currentSeason -
+    1;
+
+
+  const {
+    data,
+    error
+  } =
+    await supabaseAdmin
+      .from(
+        "nba_player_absence_impact"
+      )
+      .select(
+        `
+          season,
+          team_id,
+          player_id,
+          games_with,
+          games_without,
+          pace_change,
+          team_points_change,
+          opponent_points_change,
+          total_change,
+          margin_change,
+          offense_change_controlled,
+          defense_change_controlled,
+          margin_change_controlled,
+          matched_weight,
+          reliability
+        `
+      )
+      .eq(
+        "team_id",
+        Number(
+          teamId
+        )
+      )
+      .eq(
+        "player_id",
+        Number(
+          playerId
+        )
+      )
+      .in(
+        "season",
+        [
+          currentSeason,
+          previousSeason
+        ]
+      );
+
+
+  if (
+    error
+  ) {
+
+    throw new Error(
+      `NBA absence history read: ${error.message}`
+    );
+  }
+
+
+  const rows =
+    Array.isArray(data)
+      ? data
+      : [];
+
+
+  const current =
+    rows.find(
+      row =>
+        Number(
+          row.season
+        ) ===
+        currentSeason
+    ) ||
+    null;
+
+
+  const previous =
+    rows.find(
+      row =>
+        Number(
+          row.season
+        ) ===
+        previousSeason
+    ) ||
+    null;
+
+
+  const currentGamesWithout =
+    Number(
+      current?.games_without ||
+      0
+    );
+
+
+  const previousGamesWithout =
+    Number(
+      previous?.games_without ||
+      0
+    );
+
+
+  const currentHasHistory =
+    currentGamesWithout >=
+    1;
+
+
+  const previousHasHistory =
+    previousGamesWithout >=
+    1;
+
+
+  if (
+    !currentHasHistory &&
+    !previousHasHistory
+  ) {
+
+    return {
+      hasHistory: false,
+      offense: null,
+      defense: null,
+      currentGamesWithout,
+      previousGamesWithout,
+      currentReliability:
+        current?.reliability ||
+        null,
+      previousReliability:
+        previous?.reliability ||
+        null
+    };
+  }
+
+
+  const currentOffense =
+    currentHasHistory
+      ? getNBAAbsenceComponent(
+          current,
+          "offense_change_controlled",
+          "team_points_change"
+        )
+      : null;
+
+
+  const currentDefense =
+    currentHasHistory
+      ? getNBAAbsenceComponent(
+          current,
+          "defense_change_controlled",
+          "opponent_points_change"
+        )
+      : null;
+
+
+  const previousOffense =
+    previousHasHistory
+      ? getNBAAbsenceComponent(
+          previous,
+          "offense_change_controlled",
+          "team_points_change"
+        )
+      : null;
+
+
+  const previousDefense =
+    previousHasHistory
+      ? getNBAAbsenceComponent(
+          previous,
+          "defense_change_controlled",
+          "opponent_points_change"
+        )
+      : null;
+
+
+  // ========================================================
+  // ONLY CURRENT SEASON HAS REAL HISTORY
+  // ========================================================
+
+  if (
+    currentHasHistory &&
+    !previousHasHistory
+  ) {
+
+    return {
+
+      hasHistory:
+        true,
+
+      offense:
+        currentOffense,
+
+      defense:
+        currentDefense,
+
+      currentGamesWithout,
+
+      previousGamesWithout,
+
+      currentWeight:
+        1,
+
+      previousWeight:
+        0,
+
+      currentReliability:
+        current?.reliability ||
+        null,
+
+      previousReliability:
+        null
+    };
+  }
+
+
+  // ========================================================
+  // ONLY PREVIOUS SEASON HAS REAL HISTORY
+  // ========================================================
+
+  if (
+    !currentHasHistory &&
+    previousHasHistory
+  ) {
+
+    return {
+
+      hasHistory:
+        true,
+
+      offense:
+        previousOffense,
+
+      defense:
+        previousDefense,
+
+      currentGamesWithout,
+
+      previousGamesWithout,
+
+      currentWeight:
+        0,
+
+      previousWeight:
+        1,
+
+      currentReliability:
+        null,
+
+      previousReliability:
+        previous
+          ?.reliability ||
+        null
+    };
+  }
+
+
+  // ========================================================
+  // BOTH SEASONS
+  // ========================================================
+
+  const weights =
+    getNBAAbsenceSeasonWeights(
+      currentGamesWithout
+    );
+
+
+  return {
+
+    hasHistory:
+      true,
+
+
+    offense:
+      (
+        Number(
+          currentOffense ||
+          0
+        ) *
+        weights.current
+      ) +
+      (
+        Number(
+          previousOffense ||
+          0
+        ) *
+        weights.previous
+      ),
+
+
+    defense:
+      (
+        Number(
+          currentDefense ||
+          0
+        ) *
+        weights.current
+      ) +
+      (
+        Number(
+          previousDefense ||
+          0
+        ) *
+        weights.previous
+      ),
+
+
+    currentGamesWithout,
+
+    previousGamesWithout,
+
+    currentWeight:
+      weights.current,
+
+    previousWeight:
+      weights.previous,
+
+    currentReliability:
+      current
+        ?.reliability ||
+      null,
+
+    previousReliability:
+      previous
+        ?.reliability ||
+      null
+  };
+}
+
+
+// ============================================================
+// PPG FALLBACK
+//
+// Used ONLY when zero real absence history exists.
+//
+// Current season, same team first.
+// Previous season, same team second.
+// ============================================================
+
+async function getNBAPlayerPPGFallback({
+  teamId,
+  playerId,
+  currentSeason
+}) {
+
+  const previousSeason =
+    currentSeason -
+    1;
+
+
+  const {
+    data,
+    error
+  } =
+    await supabaseAdmin
+      .from(
+        "nba_player_game_stats"
+      )
+      .select(
+        "season, points"
+      )
+      .eq(
+        "team_id",
+        Number(
+          teamId
+        )
+      )
+      .eq(
+        "player_id",
+        Number(
+          playerId
+        )
+      )
+      .in(
+        "season",
+        [
+          currentSeason,
+          previousSeason
+        ]
+      )
+      .order(
+        "game_date",
+        {
+          ascending:
+            false
+        }
+      );
+
+
+  if (
+    error
+  ) {
+
+    throw new Error(
+      `NBA player PPG read: ${error.message}`
+    );
+  }
+
+
+  const rows =
+    Array.isArray(
+      data
+    )
+      ? data
+      : [];
+
+
+  const currentPoints =
+    rows
+      .filter(
+        row =>
+          Number(
+            row.season
+          ) ===
+          currentSeason
+      )
+      .map(
+        row =>
+          Number(
+            row.points
+          )
+      )
+      .filter(
+        Number.isFinite
+      );
+
+
+  const previousPoints =
+    rows
+      .filter(
+        row =>
+          Number(
+            row.season
+          ) ===
+          previousSeason
+      )
+      .map(
+        row =>
+          Number(
+            row.points
+          )
+      )
+      .filter(
+        Number.isFinite
+      );
+
+
+  const average =
+    values => {
+
+      if (
+        !values.length
+      ) {
+        return null;
+      }
+
+
+      return (
+        values.reduce(
+          (
+            sum,
+            value
+          ) =>
+            sum +
+            value,
+          0
+        ) /
+        values.length
+      );
+    };
+
+
+  // ========================================================
+  // 5+ CURRENT-SEASON GAMES
+  //
+  // Enough current information:
+  // current season becomes the fallback source.
+  // ========================================================
+
+  if (
+    currentPoints.length >=
+    5
+  ) {
+
+    return average(
+      currentPoints
+    );
+  }
+
+
+  // ========================================================
+  // EARLY SEASON
+  //
+  // Fewer than 5 current games:
+  // prefer previous season with SAME TEAM.
+  // ========================================================
+
+  if (
+    previousPoints.length >
+    0
+  ) {
+
+    return average(
+      previousPoints
+    );
+  }
+
+
+  // ========================================================
+  // NO PREVIOUS SAME-TEAM DATA
+  //
+  // Use whatever current-season information exists.
+  // ========================================================
+
+  if (
+    currentPoints.length >
+    0
+  ) {
+
+    return average(
+      currentPoints
+    );
+  }
+
+
+  return null;
+}
+
+
+// ============================================================
+// UPCOMING CONSECUTIVE ABSENCE NUMBER
+//
+// We start counting only AFTER the player's latest
+// participation with this same team.
+//
+// This prevents pre-trade / pre-tenure team games
+// from being counted as absences.
+// ============================================================
+
+async function getNBAUpcomingAbsenceGameNumber({
+  teamId,
+  playerId,
+  currentSeason,
+  gameTime
+}) {
+
+  const {
+    data:
+      latestParticipation,
+
+    error:
+      participationError
+  } =
+    await supabaseAdmin
+      .from(
+        "nba_player_game_stats"
+      )
+      .select(
+        "game_id, game_date"
+      )
+      .eq(
+        "season",
+        currentSeason
+      )
+      .eq(
+        "team_id",
+        Number(
+          teamId
+        )
+      )
+      .eq(
+        "player_id",
+        Number(
+          playerId
+        )
+      )
+      .lt(
+        "game_date",
+        new Date(
+          gameTime
+        ).toISOString()
+      )
+      .order(
+        "game_date",
+        {
+          ascending:
+            false
+        }
+      )
+      .limit(
+        1
+      );
+
+
+  if (
+    participationError
+  ) {
+
+    throw new Error(
+      `NBA participation read: ${participationError.message}`
+    );
+  }
+
+
+  const lastPlayed =
+    latestParticipation
+      ?.[0]
+      ?.game_date ||
+    null;
+
+
+  /*
+   * No current-season participation with
+   * this same team yet.
+   *
+   * Do NOT count old team games.
+   */
+  if (
+    !lastPlayed
+  ) {
+
+    return 1;
+  }
+
+
+  const {
+    count:
+      missedSincePlayed,
+
+    error:
+      gamesError
+  } =
+    await supabaseAdmin
+      .from(
+        "nba_games"
+      )
+      .select(
+        "game_id",
+        {
+          count:
+            "exact",
+
+          head:
+            true
+        }
+      )
+      .eq(
+        "season",
+        currentSeason
+      )
+      .eq(
+        "postseason",
+        false
+      )
+      .gt(
+        "game_date",
+        lastPlayed
+      )
+      .lt(
+        "game_date",
+        new Date(
+          gameTime
+        ).toISOString()
+      )
+      .or(
+        `home_team_id.eq.${Number(teamId)},visitor_team_id.eq.${Number(teamId)}`
+      );
+
+
+  if (
+    gamesError
+  ) {
+
+    throw new Error(
+      `NBA consecutive absence games read: ${gamesError.message}`
+    );
+  }
+
+
+  return Math.min(
+    Number(
+      missedSincePlayed ||
+      0
+    ) +
+    1,
+    7
+  );
+}
+
+
+// ============================================================
+// ONE PLAYER EFFECT
+// ============================================================
+
+async function getNBAPlayerLiveAbsenceEffect({
+  injury,
+  teamId,
+  currentSeason,
+  gameTime
+}) {
+
+  const playerId =
+    Number(
+      injury?.player_id ??
+      injury?.playerId
+    );
+
+
+  if (
+    !Number.isFinite(
+      playerId
+    )
+  ) {
+
+    return null;
+  }
+
+
+  const status =
+    String(
+      injury?.status ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+
+
+  const statusWeight =
+    getNBAInjuryStatusWeight(
+      status
+    );
+
+
+  if (
+    statusWeight <=
+    0
+  ) {
+
+    return null;
+  }
+
+
+  const [
+    history,
+    absenceGameNumber
+  ] =
+    await Promise.all([
+
+      getNBAPlayerAbsenceHistory({
+
+        teamId,
+
+        playerId,
+
+        currentSeason
+      }),
+
+
+      getNBAUpcomingAbsenceGameNumber({
+
+        teamId,
+
+        playerId,
+
+        currentSeason,
+
+        gameTime
+      })
+    ]);
+
+
+  let historicalOffense =
+    0;
+
+
+  let historicalDefense =
+    0;
+
+
+  let source =
+    "history";
+
+
+  let fallbackPPG =
+    null;
+
+
+  if (
+    history.hasHistory
+  ) {
+
+    historicalOffense =
+      Number(
+        history.offense ||
+        0
+      );
+
+
+    historicalDefense =
+      Number(
+        history.defense ||
+        0
+      );
+
+  } else {
+
+    source =
+      "ppg_fallback";
+
+
+    fallbackPPG =
+      await getNBAPlayerPPGFallback({
+
+        teamId,
+
+        playerId,
+
+        currentSeason
+      });
+
+
+    historicalOffense =
+      fallbackPPG !== null
+        ? -Math.abs(
+            fallbackPPG *
+            0.10
+          )
+        : 0;
+
+
+    historicalDefense =
+      0;
+  }
+
+
+  const decay =
+    getNBAAbsenceDecay(
+      absenceGameNumber
+    );
+
+
+  const offenseAfterDecay =
+    historicalOffense *
+    decay;
+
+
+  const defenseAfterDecay =
+    historicalDefense *
+    decay;
+
+
+  const offenseAfterStatus =
+    offenseAfterDecay *
+    statusWeight;
+
+
+  const defenseAfterStatus =
+    defenseAfterDecay *
+    statusWeight;
+
+
+  return {
+
+    playerId,
+
+    playerName:
+      String(
+        injury?.player_name ??
+        injury?.playerName ??
+        `Player ${playerId}`
+      ),
+
+    teamId:
+      Number(
+        teamId
+      ),
+
+    status,
+
+    returnDate:
+      injury?.return_date ??
+      injury?.returnDate ??
+      null,
+
+    source,
+
+    fallbackPPG,
+
+    historicalOffense,
+
+    historicalDefense,
+
+    absenceGameNumber,
+
+    decay,
+
+    statusWeight,
+
+    offenseBeforeMulti:
+      offenseAfterStatus,
+
+    defenseBeforeMulti:
+      defenseAfterStatus,
+
+    impactMagnitude:
+      Math.abs(
+        offenseAfterStatus
+      ) +
+      Math.abs(
+        defenseAfterStatus
+      ),
+
+    history
+  };
+}
+
+
+// ============================================================
+// TEAM INJURY ADJUSTMENT
+//
+// 1 active player:
+//   100%
+//
+// 2+ active players:
+//   greatest effective magnitude → 100%
+//   every additional player      → 70%
+// ============================================================
+
+async function getNBAHistoricalInjuryAdjustment({
+  teamName,
+  teamId,
+  injuries,
+  gameTime
+}) {
+
+  if (
+    !Number.isFinite(
+      Number(
+        teamId
+      )
+    )
+  ) {
+
+    return {
+
+      offenseImpact:
+        0,
+
+      defenseImpact:
+        0,
+
+      note:
+        `No BALLDONTLIE team ID available for ${teamName}.`,
+
+      players:
+        [],
+
+      source:
+        "balldontlie"
+    };
+  }
+
+
+  const numericTeamId =
+    Number(
+      teamId
+    );
+
+
+  const currentSeason =
+    getCurrentNBASeason();
+
+
+  const teamInjuries =
+    (
+      Array.isArray(
+        injuries
+      )
+        ? injuries
+        : []
+    )
+      .filter(
+        injury =>
+          Number(
+            injury?.team_id ??
+            injury?.teamId
+          ) ===
+          numericTeamId
+      )
+      .filter(
+        injury =>
+          getNBAInjuryStatusWeight(
+            injury?.status
+          ) >
+          0
+      );
+
+
+  if (
+    !teamInjuries.length
+  ) {
+
+    return {
+
+      offenseImpact:
+        0,
+
+      defenseImpact:
+        0,
+
+      note:
+        `No active BALLDONTLIE absences reported for ${teamName}.`,
+
+      players:
+        [],
+
+      source:
+        "balldontlie"
+    };
+  }
+
+
+  const rawEffects =
+    await Promise.all(
+
+      teamInjuries.map(
+        injury =>
+          getNBAPlayerLiveAbsenceEffect({
+
+            injury,
+
+            teamId:
+              numericTeamId,
+
+            currentSeason,
+
+            gameTime
+          })
+      )
+    );
+
+
+  const effects =
+    rawEffects
+      .filter(Boolean)
+      .sort(
+        (
+          a,
+          b
+        ) =>
+          b.impactMagnitude -
+          a.impactMagnitude
+      );
+
+
+  if (
+    !effects.length
+  ) {
+
+    return {
+
+      offenseImpact:
+        0,
+
+      defenseImpact:
+        0,
+
+      note:
+        `No active injury adjustment available for ${teamName}.`,
+
+      players:
+        [],
+
+      source:
+        "balldontlie"
+    };
+  }
+
+
+  let offenseImpact =
+    0;
+
+
+  let defenseImpact =
+    0;
+
+
+  const multipleInjuries =
+    effects.length >
+    1;
+
+
+  const players =
+    effects.map(
+      (
+        effect,
+        index
+      ) => {
+
+        const multiFactor =
+          !multipleInjuries ||
+          index === 0
+            ? 1
+            : 0.70;
+
+
+        const offenseImpactPlayer =
+          effect.offenseBeforeMulti *
+          multiFactor;
+
+
+        const defenseImpactPlayer =
+          effect.defenseBeforeMulti *
+          multiFactor;
+
+
+        offenseImpact +=
+          offenseImpactPlayer;
+
+
+        defenseImpact +=
+          defenseImpactPlayer;
+
+
+        return {
+
+          ...effect,
+
+          multiFactor,
+
+          offenseImpact:
+            offenseImpactPlayer,
+
+          defenseImpact:
+            defenseImpactPlayer
+        };
+      }
+    );
+
+
+  const note =
+    players
+      .map(
+        player =>
+          `${player.playerName} (${player.status})`
+      )
+      .join(
+        ", "
+      );
+
+
+  return {
+
+    offenseImpact,
+
+    defenseImpact,
+
+    note,
+
+    players,
+
+    source:
+      "historical_absence",
+
+    currentSeason
   };
 }
 async function getInjuryAdjustment(origin, teamName) {
