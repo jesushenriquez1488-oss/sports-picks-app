@@ -96,7 +96,7 @@ const NBA_LEAGUE_AVG = {
 };
 
 const NBA_PLAYER_PROPS_VERSION =
-  3;
+  4;
 
 
 const NBA_PROP_RULES = {
@@ -3730,7 +3730,87 @@ function calculateNBAPropV3({
 
   };
 
+const recentGames =
+  currentStatRows
+    .slice(
+      0,
+      10
+    )
+    .map(
+      row => {
 
+        const statValue =
+          nbaPropStatValue(
+            row,
+            market
+          );
+
+
+        if (
+          !Number.isFinite(
+            statValue
+          )
+        ) {
+          return null;
+        }
+
+
+        const push =
+          Number(
+            statValue
+          ) ===
+          Number(
+            propLine
+          );
+
+
+        const hit =
+          push
+            ? null
+            : (
+                side === "OVER"
+                  ? Number(
+                      statValue
+                    ) >
+                    Number(
+                      propLine
+                    )
+                  : Number(
+                      statValue
+                    ) <
+                    Number(
+                      propLine
+                    )
+              );
+
+
+        return {
+
+          gameId:
+            row.game_id ||
+            null,
+
+          date:
+            row.game_date ||
+            null,
+
+          value:
+            Number(
+              Number(
+                statValue
+              ).toFixed(
+                2
+              )
+            ),
+
+          hit,
+
+          push
+
+        };
+      }
+    )
+    .filter(Boolean);
   return {
 
     market,
@@ -3827,10 +3907,12 @@ function calculateNBAPropV3({
           )
         : null,
 
-    hitRates,
+   hitRates,
 
-    currentSeasonGames:
-      currentStatRows.length,
+recentGames,
+
+currentSeasonGames:
+  currentStatRows.length,
 
     seasonAverage:
       nbaPropStatAverage(
@@ -5528,11 +5610,13 @@ async function handleNBAPlayerProps(
         model.standardDeviation,
 
       hitRates:
-        model.hitRates,
+  model.hitRates,
 
-      currentSeasonGames:
-        model.currentSeasonGames,
+recentGames:
+  model.recentGames,
 
+currentSeasonGames:
+  model.currentSeasonGames,
       seasonAverage:
         model.seasonAverage,
 
