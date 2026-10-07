@@ -1461,35 +1461,88 @@ async function syncNBAInjurySnapshotSafe(
     // A baseline NEVER causes reanalysis.
     // ========================================================
 
-    if (
-      event.isBaseline === true
-    ) {
-
-      console.log(
-        `[${WORKER_NAME}] NBA injury baseline saved: ${event.gameId} | injuries=${Number(body.injuries || 0)}`
-      );
-
-      return;
-    }
-
-
     // ========================================================
-    // NO REAL STRUCTURAL CHANGE
-    // ========================================================
+// DECIDE WHETHER THIS REALLY NEEDS REANALYSIS
+//
+// Cases:
+//
+// 1. Brand-new baseline:
+//    no previous persisted state
+//    → NO reanalysis
+//
+// 2. Railway restart, same BDL state:
+//    previous persisted state exists
+//    but fingerprint did not change
+//    → NO reanalysis
+//
+// 3. Railway restart while it was offline,
+//    and BDL changed meanwhile:
+//    in-memory event looks like baseline,
+//    but persisted Vercel state was different
+//    → YES reanalysis
+//
+// 4. Normal live structural change:
+//    → YES reanalysis
+// ========================================================
 
-    if (
-      event.changed !== true ||
-      body.changed !== true
-    ) {
-
-      return;
-    }
+const recoveredChangeAfterRestart =
+  event.isBaseline === true &&
+  body.hadPreviousState === true &&
+  body.changed === true;
 
 
-    console.log(
-      `[${WORKER_NAME}] NBA injury snapshot changed: ${event.gameId} | injuries=${Number(body.injuries || 0)}`
-    );
+const normalLiveChange =
+  event.changed === true &&
+  body.changed === true;
 
+
+const shouldReanalyze =
+  recoveredChangeAfterRestart ||
+  normalLiveChange;
+
+
+// ========================================================
+// BASELINE WITH NO CHANGE
+// ========================================================
+
+if (
+  event.isBaseline === true &&
+  !shouldReanalyze
+) {
+
+  console.log(
+    `[${WORKER_NAME}] NBA injury baseline saved: ${event.gameId} | injuries=${Number(body.injuries || 0)}`
+  );
+
+  return;
+}
+
+
+// ========================================================
+// NO PERSISTED STRUCTURAL CHANGE
+// ========================================================
+
+if (
+  !shouldReanalyze
+) {
+  return;
+}
+
+
+if (
+  recoveredChangeAfterRestart
+) {
+
+  console.log(
+    `[${WORKER_NAME}] NBA injury change recovered after restart: ${event.gameId} | injuries=${Number(body.injuries || 0)}`
+  );
+
+} else {
+
+  console.log(
+    `[${WORKER_NAME}] NBA injury snapshot changed: ${event.gameId} | injuries=${Number(body.injuries || 0)}`
+  );
+}
 
     // ========================================================
     // 2. TARGETED NBA REANALYSIS
