@@ -30270,180 +30270,2666 @@ async function togglePlayerEdgeProps(index, eventId) {
     box.dataset.loaded = "true";
   }
 }
-async function toggleNBAPlayerProps(index, awayTeam, homeTeam, btn) {
-  const box = document.getElementById(`nbaProps${index}`);
-  if (!box) return;
+// ============================================================
+// NBA PLAYER PROPS V3 — FRONTEND
+// ============================================================
 
-  if (box.dataset.loaded === "true") {
-    box.style.display = box.style.display === "none" ? "block" : "none";
+const nbaPlayerPropsState = {};
+
+const NBA_PROP_MARKET_META = {
+
+  player_points: {
+    label: "POINTS",
+    short: "PTS"
+  },
+
+  player_rebounds: {
+    label: "REBOUNDS",
+    short: "REB"
+  },
+
+  player_assists: {
+    label: "ASSISTS",
+    short: "AST"
+  },
+
+  player_threes: {
+    label: "3PT MADE",
+    short: "3PT"
+  }
+
+};
+
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function getNBAPropMarketLabel(
+  market,
+  short = false
+) {
+
+  const meta =
+    NBA_PROP_MARKET_META[
+      market
+    ];
+
+
+  if (!meta) {
+    return market || "PROP";
+  }
+
+
+  return short
+    ? meta.short
+    : meta.label;
+}
+
+
+function formatNBAPropAmericanOdds(
+  decimalOdds
+) {
+
+  const decimal =
+    Number(
+      decimalOdds
+    );
+
+
+  if (
+    !Number.isFinite(
+      decimal
+    ) ||
+    decimal <= 1
+  ) {
+    return "—";
+  }
+
+
+  let american;
+
+
+  if (
+    decimal >= 2
+  ) {
+
+    american =
+      Math.round(
+        (
+          decimal - 1
+        ) *
+        100
+      );
+
+    return `+${american}`;
+
+  }
+
+
+  american =
+    Math.round(
+      -100 /
+      (
+        decimal - 1
+      )
+    );
+
+
+  return String(
+    american
+  );
+}
+
+
+function getNBAPropValue(
+  prop
+) {
+
+  const value =
+    Number(
+      prop?.value
+    );
+
+
+  return Number.isFinite(
+    value
+  )
+    ? value
+    : null;
+}
+
+
+function getNBAPropConfidence(
+  prop
+) {
+
+  const confidence =
+    Number(
+      prop?.confidence
+    );
+
+
+  return Number.isFinite(
+    confidence
+  )
+    ? confidence
+    : 0;
+}
+
+
+function getNBAPropProjection(
+  prop
+) {
+
+  const projection =
+    Number(
+      prop?.projection
+    );
+
+
+  return Number.isFinite(
+    projection
+  )
+    ? projection
+    : null;
+}
+
+
+function getNBAPropLine(
+  prop
+) {
+
+  const line =
+    Number(
+      prop?.line
+    );
+
+
+  return Number.isFinite(
+    line
+  )
+    ? line
+    : null;
+}
+
+
+function getNBAPropBookProbability(
+  prop
+) {
+
+  const noVig =
+    Number(
+      prop?.sportsbookNoVigPct
+    );
+
+
+  if (
+    Number.isFinite(
+      noVig
+    )
+  ) {
+    return noVig;
+  }
+
+
+  const implied =
+    Number(
+      prop?.sportsbookImpliedPct
+    );
+
+
+  return Number.isFinite(
+    implied
+  )
+    ? implied
+    : null;
+}
+
+
+function getNBAPropRoleLabel(
+  prop
+) {
+
+  const source =
+    String(
+      prop?.roleSource ||
+      ""
+    );
+
+
+  if (
+    source ===
+    "historical_teammate_absence"
+  ) {
+    return "INJURY-ADJUSTED";
+  }
+
+
+  if (
+    source ===
+    "position_rotation_fallback"
+  ) {
+    return "PROJECTED ROTATION";
+  }
+
+
+  if (
+    source ===
+    "new_team_fallback"
+  ) {
+    return "NEW ROLE";
+  }
+
+
+  if (
+    source ===
+    "stable_rotation"
+  ) {
+    return "STABLE";
+  }
+
+
+  return "PROJECTED";
+}
+
+
+function renderNBAPropMetric(
+  label,
+  value,
+  highlight = false
+) {
+
+  return `
+    <div
+      class="ps-stat-box"
+      style="
+        min-width:0;
+      "
+    >
+      <small>
+        ${sanitize(label)}
+      </small>
+
+      <strong
+        style="
+          color:${highlight ? "#00ffe7" : "#ffffff"};
+        "
+      >
+        ${sanitize(value)}
+      </strong>
+    </div>
+  `;
+}
+
+
+function renderNBAPropHitRate(
+  label,
+  rate
+) {
+
+  const hits =
+    Number(
+      rate?.hits ||
+      0
+    );
+
+
+  const games =
+    Number(
+      rate?.games ||
+      0
+    );
+
+
+  const pct =
+    Number(
+      rate?.pct
+    );
+
+
+  return `
+    <div style="
+      background:#08101d;
+      border:1px solid #17243a;
+      border-radius:10px;
+      padding:9px 6px;
+      text-align:center;
+      min-width:0;
+    ">
+
+      <div style="
+        color:#71839f;
+        font-size:7px;
+        font-weight:900;
+        letter-spacing:.06em;
+      ">
+        ${sanitize(label)}
+      </div>
+
+      <div style="
+        color:#ffffff;
+        font-size:13px;
+        font-weight:900;
+        margin-top:4px;
+      ">
+        ${
+          games > 0
+            ? `${hits}/${games}`
+            : "—"
+        }
+      </div>
+
+      <div style="
+        color:#00ffe7;
+        font-size:8px;
+        font-weight:900;
+        margin-top:2px;
+      ">
+        ${
+          Number.isFinite(
+            pct
+          )
+            ? `${pct.toFixed(0)}%`
+            : ""
+        }
+      </div>
+
+    </div>
+  `;
+}
+
+
+// ============================================================
+// SELECT BEST LINE PER PLAYER + MARKET
+// ============================================================
+
+function chooseNBAPlayerMarketLines(
+  props
+) {
+
+  const map =
+    new Map();
+
+
+  (
+    props ||
+    []
+  )
+    .forEach(
+      prop => {
+
+        const market =
+          String(
+            prop?.market ||
+            ""
+          );
+
+
+        if (!market) {
+          return;
+        }
+
+
+        const current =
+          map.get(
+            market
+          );
+
+
+        if (!current) {
+
+          map.set(
+            market,
+            prop
+          );
+
+          return;
+        }
+
+
+        const currentValue =
+          Number(
+            current?.value ??
+            -999
+          );
+
+
+        const newValue =
+          Number(
+            prop?.value ??
+            -999
+          );
+
+
+        if (
+          newValue >
+          currentValue
+        ) {
+
+          map.set(
+            market,
+            prop
+          );
+
+          return;
+        }
+
+
+        if (
+          newValue ===
+            currentValue &&
+          getNBAPropConfidence(
+            prop
+          ) >
+          getNBAPropConfidence(
+            current
+          )
+        ) {
+
+          map.set(
+            market,
+            prop
+          );
+        }
+
+      }
+    );
+
+
+  return Array.from(
+    map.values()
+  );
+}
+
+
+// ============================================================
+// PLAYER GROUPING
+// ============================================================
+
+function groupNBAPlayerPropLines(
+  lines
+) {
+
+  const map =
+    new Map();
+
+
+  (
+    lines ||
+    []
+  )
+    .forEach(
+      prop => {
+
+        const player =
+          String(
+            prop?.player ||
+            ""
+          ).trim();
+
+
+        if (!player) {
+          return;
+        }
+
+
+        const key =
+          String(
+            prop?.bdlPlayerId ||
+            player.toLowerCase()
+          );
+
+
+        if (
+          !map.has(
+            key
+          )
+        ) {
+
+          map.set(
+            key,
+            {
+              player,
+              team:
+                prop?.team ||
+                "",
+              bdlPlayerId:
+                prop?.bdlPlayerId ||
+                null,
+              athleteId:
+                prop?.athleteId ||
+                null,
+              props: []
+            }
+          );
+        }
+
+
+        map
+          .get(
+            key
+          )
+          .props
+          .push(
+            prop
+          );
+
+      }
+    );
+
+
+  return Array.from(
+    map.values()
+  );
+}
+
+
+// ============================================================
+// COMPACT PROP CARD
+//
+// IMPORTANT:
+// EDGE IS NEVER DISPLAYED.
+// ============================================================
+
+function renderNBAPlayerPropCard(
+  prop
+) {
+
+  const confidence =
+    getNBAPropConfidence(
+      prop
+    );
+
+
+  const projection =
+    getNBAPropProjection(
+      prop
+    );
+
+
+  const line =
+    getNBAPropLine(
+      prop
+    );
+
+
+  const value =
+    getNBAPropValue(
+      prop
+    );
+
+
+  const side =
+    String(
+      prop?.side ||
+      ""
+    )
+      .toUpperCase();
+
+
+  const market =
+    getNBAPropMarketLabel(
+      prop?.market,
+      true
+    );
+
+
+  const oddsText =
+    formatNBAPropAmericanOdds(
+      prop?.odds
+    );
+
+
+  const confidenceColor =
+    confidence >= 75
+      ? "#00ffe7"
+      : confidence >= 65
+        ? "#ffb347"
+        : "#c9d6e8";
+
+
+  return `
+    <div style="
+      position:relative;
+      background:#081321;
+      border:1px solid #17243a;
+      border-radius:12px;
+      padding:13px 82px 13px 14px;
+      margin-bottom:7px;
+      min-height:74px;
+    ">
+
+      <div style="
+        font-size:13px;
+        font-weight:900;
+        color:#ffffff;
+      ">
+        ${sanitize(
+          prop?.player ||
+          "Player"
+        )}
+      </div>
+
+
+      ${
+        prop?.team
+          ? `
+            <div style="
+              margin-top:2px;
+              font-size:8px;
+              color:#60708d;
+            ">
+              ${sanitize(
+                prop.team
+              )}
+            </div>
+          `
+          : ""
+      }
+
+
+      <div style="
+        margin-top:7px;
+        font-size:11px;
+        color:#00ffe7;
+        font-weight:900;
+      ">
+        ${sanitize(side)}
+        ${
+          Number.isFinite(
+            line
+          )
+            ? line
+            : "—"
+        }
+        ${sanitize(market)}
+        ·
+        ${sanitize(oddsText)}
+      </div>
+
+
+      <div style="
+        display:flex;
+        flex-wrap:wrap;
+        gap:12px;
+        margin-top:6px;
+      ">
+
+        <div>
+          <span style="
+            display:block;
+            font-size:7px;
+            color:#71839f;
+            font-weight:800;
+          ">
+            CASHEDGE
+          </span>
+
+          <strong style="
+            font-size:11px;
+            color:#ffffff;
+          ">
+            ${
+              Number.isFinite(
+                projection
+              )
+                ? projection.toFixed(
+                    1
+                  )
+                : "—"
+            }
+          </strong>
+        </div>
+
+
+        ${
+          Number.isFinite(
+            value
+          )
+            ? `
+              <div>
+                <span style="
+                  display:block;
+                  font-size:7px;
+                  color:#71839f;
+                  font-weight:800;
+                ">
+                  VALUE
+                </span>
+
+                <strong style="
+                  font-size:11px;
+                  color:${value > 0 ? "#00ffe7" : "#71839f"};
+                ">
+                  ${value >= 0 ? "+" : ""}${value.toFixed(1)}%
+                </strong>
+              </div>
+            `
+            : ""
+        }
+
+      </div>
+
+
+      ${
+        prop?.bookmaker
+          ? `
+            <div style="
+              margin-top:6px;
+              font-size:8px;
+              color:#60708d;
+            ">
+              ${sanitize(
+                prop.bookmaker
+              )}
+            </div>
+          `
+          : ""
+      }
+
+
+      <div style="
+        width:58px;
+        height:58px;
+        position:absolute;
+        right:14px;
+        top:50%;
+        transform:translateY(-50%);
+        border-radius:50%;
+        border:2px solid ${confidenceColor};
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        flex-direction:column;
+      ">
+
+        <strong style="
+          color:${confidenceColor};
+          font-size:14px;
+          line-height:1;
+        ">
+          ${confidence.toFixed(0)}%
+        </strong>
+
+        <small style="
+          margin-top:3px;
+          font-size:7px;
+          color:#71839f;
+        ">
+          CONF.
+        </small>
+
+      </div>
+
+    </div>
+  `;
+}
+
+
+// ============================================================
+// PLAYER ROW
+// ============================================================
+
+function renderNBAPropsPlayerRow(
+  index,
+  item,
+  returnCategory
+) {
+
+  const playerProps =
+    chooseNBAPlayerMarketLines(
+      item?.props ||
+      []
+    );
+
+
+  const markets =
+    [
+      ...new Set(
+        playerProps
+          .map(
+            prop =>
+              prop.market
+          )
+          .filter(Boolean)
+      )
+    ];
+
+
+  const marketNames =
+    markets
+      .map(
+        market =>
+          getNBAPropMarketLabel(
+            market,
+            true
+          )
+      )
+      .join(
+        " · "
+      );
+
+
+  const preferredProp =
+    playerProps
+      .slice()
+      .sort(
+        (
+          a,
+          b
+        ) => {
+
+          const valueDiff =
+            Number(
+              b?.value ??
+              -999
+            ) -
+            Number(
+              a?.value ??
+              -999
+            );
+
+
+          if (
+            valueDiff !==
+            0
+          ) {
+            return valueDiff;
+          }
+
+
+          return (
+            getNBAPropConfidence(
+              b
+            ) -
+            getNBAPropConfidence(
+              a
+            )
+          );
+        }
+      )[0] ||
+    null;
+
+
+  const selectedMarket =
+    String(
+      preferredProp
+        ?.market ||
+      ""
+    );
+
+
+  return `
+    <button
+      type="button"
+      onclick="showNBAPropPlayer(
+        ${index},
+        '${encodeURIComponent(
+          item?.player ||
+          ""
+        )}',
+        '${returnCategory}',
+        '${selectedMarket}'
+      )"
+      style="
+        width:100%;
+        background:#081321;
+        border:1px solid #17243a;
+        border-radius:12px;
+        padding:13px 14px;
+        margin-bottom:7px;
+        display:grid;
+        grid-template-columns:minmax(0,1fr) auto;
+        align-items:center;
+        gap:12px;
+        text-align:left;
+        cursor:pointer;
+      "
+    >
+
+      <div style="min-width:0;">
+
+        <div style="
+          font-size:13px;
+          font-weight:900;
+          color:#ffffff;
+        ">
+          ${sanitize(
+            item?.player ||
+            "Player"
+          )}
+        </div>
+
+
+        ${
+          item?.team
+            ? `
+              <div style="
+                margin-top:2px;
+                font-size:8px;
+                color:#60708d;
+              ">
+                ${sanitize(
+                  item.team
+                )}
+              </div>
+            `
+            : ""
+        }
+
+
+        <div style="
+          margin-top:5px;
+          font-size:9px;
+          color:#71839f;
+        ">
+          ${sanitize(
+            marketNames ||
+            "Player Props"
+          )}
+        </div>
+
+      </div>
+
+
+      <div style="
+        color:#52647d;
+        font-size:22px;
+      ">
+        ›
+      </div>
+
+    </button>
+  `;
+}
+
+
+// ============================================================
+// SHELL
+// ============================================================
+
+function renderNBAPlayerPropsShell(
+  index
+) {
+
+  const state =
+    nbaPlayerPropsState[
+      index
+    ] ||
+    {};
+
+
+  const box =
+    document.getElementById(
+      `nbaProps${index}`
+    );
+
+
+  if (!box) {
     return;
   }
 
-  const { data: sessionData } = await supabaseClient.auth.getSession();
-  if (!sessionData.session) { alert("Debes iniciar sesión."); return; }
 
-  if (!IS_ADMIN && !isPremiumUser) {
-  box.innerHTML =
-    cePlayerPropsLockedHTML();
+  box.innerHTML = `
 
-  box.dataset.loaded =
-    "true";
+    <div
+      class="ps-card"
+      style="
+        margin-top:10px;
+      "
+    >
 
-  return;
+      <div class="ps-sticky-bar">
+
+        <div class="ps-sticky-game">
+
+          <small>
+            NBA PLAYER PROPS
+          </small>
+
+          <strong>
+            ${sanitize(
+              state.awayTeam ||
+              "Away"
+            )}
+            vs
+            ${sanitize(
+              state.homeTeam ||
+              "Home"
+            )}
+          </strong>
+
+        </div>
+
+      </div>
+
+
+      <div
+        class="ps-market-tabs"
+        id="nbaPropsNavigation${index}"
+        style="
+          margin-top:14px;
+          margin-bottom:16px;
+          overflow-x:auto;
+        "
+      >
+
+        <button
+          type="button"
+          class="active"
+          data-prop-view="best"
+          onclick="showNBAPlayerPropsCategory(
+            ${index},
+            'best'
+          )"
+        >
+          🔥 BEST
+        </button>
+
+
+        <button
+          type="button"
+          data-prop-view="points"
+          onclick="showNBAPlayerPropsCategory(
+            ${index},
+            'points'
+          )"
+        >
+          🏀 POINTS
+        </button>
+
+
+        <button
+          type="button"
+          data-prop-view="rebounds"
+          onclick="showNBAPlayerPropsCategory(
+            ${index},
+            'rebounds'
+          )"
+        >
+          💪 REBOUNDS
+        </button>
+
+
+        <button
+          type="button"
+          data-prop-view="assists"
+          onclick="showNBAPlayerPropsCategory(
+            ${index},
+            'assists'
+          )"
+        >
+          🎯 ASSISTS
+        </button>
+
+
+        <button
+          type="button"
+          data-prop-view="threes"
+          onclick="showNBAPlayerPropsCategory(
+            ${index},
+            'threes'
+          )"
+        >
+          🎯 3PT
+        </button>
+
+
+        <button
+          type="button"
+          data-prop-view="all"
+          onclick="showNBAPlayerPropsCategory(
+            ${index},
+            'all'
+          )"
+        >
+          📋 ALL
+        </button>
+
+      </div>
+
+
+      <div
+        id="nbaPlayerPropsContent${index}"
+      >
+        <div class="loading-analysis">
+          Loading Player Props...
+        </div>
+      </div>
+
+    </div>
+  `;
 }
-  box.innerHTML = `<div class="loading-analysis" style="margin-top:8px;">Loading player props...</div>`;
 
-  try {
-    // Buscar el eventId del juego
-    const oddsRes = await fetch(`https://www.cashedgeapp.com/api/odds?sport=${encodeURIComponent(selectedSport)}`, {
-      headers: { "Authorization": `Bearer ${sessionData.session.access_token}` }
+
+// ============================================================
+// LOAD DATA
+// ============================================================
+
+async function loadNBAPlayerPropsData(
+  index,
+  force = false
+) {
+
+  const state =
+    nbaPlayerPropsState[
+      index
+    ] ||
+    {};
+
+
+  const dataAge =
+    state.dataLoadedAt
+      ? (
+          Date.now() -
+          state.dataLoadedAt
+        )
+      : Infinity;
+
+
+  if (
+    !force &&
+    state.data &&
+    dataAge <
+      15 * 60 * 1000
+  ) {
+
+    return state.data;
+  }
+
+
+  const container =
+    document.getElementById(
+      `nbaPlayerPropsContent${index}`
+    );
+
+
+  if (container) {
+
+    container.innerHTML =
+      `<div class="loading-analysis">Loading Player Props...</div>`;
+  }
+
+
+  const {
+    data:
+      sessionData
+  } =
+    await supabaseClient
+      .auth
+      .getSession();
+
+
+  if (
+    !sessionData
+      ?.session
+      ?.access_token
+  ) {
+
+    throw new Error(
+      "Unauthorized"
+    );
+  }
+
+
+  let eventId =
+    state.eventId ||
+    null;
+
+
+  /*
+   * Same event-id resolution the old NBA frontend used.
+   */
+  if (
+    !eventId
+  ) {
+
+    const oddsRes =
+      await fetch(
+        `https://www.cashedgeapp.com/api/odds?sport=${encodeURIComponent(selectedSport)}`,
+        {
+          headers: {
+            "Authorization":
+              `Bearer ${sessionData.session.access_token}`
+          }
+        }
+      );
+
+
+    const games =
+      await oddsRes
+        .json();
+
+
+    const game =
+      Array.isArray(
+        games
+      )
+        ? games.find(
+            g =>
+              (
+                g.away_team ===
+                  state.awayTeam &&
+                g.home_team ===
+                  state.homeTeam
+              ) ||
+              (
+                g.home_team ===
+                  state.awayTeam &&
+                g.away_team ===
+                  state.homeTeam
+              )
+          )
+        : null;
+
+
+    eventId =
+      game?.id ||
+      null;
+
+
+    nbaPlayerPropsState[index] = {
+      ...state,
+      eventId
+    };
+  }
+
+
+  const query =
+    new URLSearchParams({
+      mode:
+        "nba-player-props"
     });
-    const games = await oddsRes.json();
-    const game = games.find(g =>
-      (g.away_team === awayTeam && g.home_team === homeTeam) ||
-      (g.home_team === awayTeam && g.away_team === homeTeam)
-    );
-    const eventId = game?.id || null;
 
-    const res = await fetch(
-      `https://www.cashedgeapp.com/api/analyze-nba?mode=nba-player-props${eventId ? `&eventId=${eventId}` : ""}`,
-      { headers: { "Authorization": `Bearer ${sessionData.session.access_token}` } }
-    );
-    const data = await res.json();
 
-    if (!res.ok || data.noPlay || !data.props?.length) {
-      box.innerHTML = `
-        <div style="background:#0f1628;border-radius:8px;padding:12px;margin-top:8px;text-align:center;">
-          <div style="font-size:11px;color:#556688;">No player props available for this game yet.</div>
+  if (
+    eventId
+  ) {
+
+    query.set(
+      "eventId",
+      eventId
+    );
+  }
+
+
+  if (
+    force
+  ) {
+
+    query.set(
+      "force",
+      "true"
+    );
+  }
+
+
+  const response =
+    await fetch(
+      `https://www.cashedgeapp.com/api/analyze-nba?${query.toString()}`,
+      {
+        headers: {
+          "Authorization":
+            `Bearer ${sessionData.session.access_token}`
+        }
+      }
+    );
+
+
+  const data =
+    await response
+      .json()
+      .catch(
+        () => ({})
+      );
+
+
+  if (
+    !response.ok
+  ) {
+
+    throw new Error(
+      data?.error ||
+      data?.reason ||
+      "Error loading NBA Player Props"
+    );
+  }
+
+
+  nbaPlayerPropsState[index] = {
+
+    ...(
+      nbaPlayerPropsState[
+        index
+      ] ||
+      {}
+    ),
+
+    eventId:
+      data?.eventId ||
+      eventId,
+
+    data,
+
+    dataLoadedAt:
+      Date.now()
+
+  };
+
+
+  return data;
+}
+
+
+// ============================================================
+// CATEGORY VIEW
+// ============================================================
+
+function showNBAPlayerPropsCategory(
+  index,
+  category = "best"
+) {
+
+  const state =
+    nbaPlayerPropsState[
+      index
+    ] ||
+    {};
+
+
+  const data =
+    state.data ||
+    {};
+
+
+  const container =
+    document.getElementById(
+      `nbaPlayerPropsContent${index}`
+    );
+
+
+  if (!container) {
+    return;
+  }
+
+
+  const nav =
+    document.getElementById(
+      `nbaPropsNavigation${index}`
+    );
+
+
+  if (nav) {
+
+    nav
+      .querySelectorAll(
+        "button"
+      )
+      .forEach(
+        button => {
+
+          button.classList.toggle(
+            "active",
+            button.dataset.propView ===
+              category
+          );
+
+        }
+      );
+  }
+
+
+  nbaPlayerPropsState[index] = {
+    ...state,
+    mainView:
+      category
+  };
+
+
+  const allLines =
+    Array.isArray(
+      data
+        .analyzedPlayerLines
+    )
+      ? data
+          .analyzedPlayerLines
+      : [];
+
+
+  if (
+    category ===
+    "best"
+  ) {
+
+    const recommended =
+      [
+        ...(
+          Array.isArray(
+            data.props
+          )
+            ? data.props
+            : []
+        ),
+
+        ...(
+          Array.isArray(
+            data.lockedProps
+          )
+            ? data.lockedProps
+            : []
+        )
+      ]
+        .filter(
+          prop =>
+            prop?.recommended ===
+              true ||
+            prop?.finalSignal
+        )
+        .sort(
+          (
+            a,
+            b
+          ) => {
+
+            const valueDiff =
+              Number(
+                b?.value ??
+                -999
+              ) -
+              Number(
+                a?.value ??
+                -999
+              );
+
+
+            if (
+              valueDiff !==
+              0
+            ) {
+              return valueDiff;
+            }
+
+
+            return (
+              getNBAPropConfidence(
+                b
+              ) -
+              getNBAPropConfidence(
+                a
+              )
+            );
+          }
+        )
+        .slice(
+          0,
+          7
+        );
+
+
+    if (
+      !recommended.length
+    ) {
+
+      container.innerHTML = `
+
+        <div class="ps-empty">
+
+          No CashEdge recommended
+          Player Props for this matchup yet.
+
+          <div style="
+            margin-top:8px;
+            font-size:9px;
+            color:#71839f;
+          ">
+            You can still review every player
+            using the market tabs above.
+          </div>
+
         </div>
       `;
-      box.dataset.loaded = "true";
+
       return;
     }
 
-    const marketLabels = {
-      player_points: "pts", player_rebounds: "reb",
-      player_assists: "ast", player_threes: "3PT"
-    };
 
-    const tabs = ["Points", "Rebounds", "Assists", "3PT"];
-    const marketKeys = ["player_points", "player_rebounds", "player_assists", "player_threes"];
+    container.innerHTML = `
 
-    const allProps = [...(data.props || []), ...(data.lockedProps || [])];
+      <div style="
+        margin-bottom:10px;
+      ">
 
-    function renderProps(marketKey) {
-      const filtered = allProps.filter(p => p.market === marketKey);
-      if (!filtered.length) return `<div style="font-size:11px;color:#556688;padding:10px;text-align:center;">No props for this market.</div>`;
+        <div style="
+          color:#00ffe7;
+          font-size:11px;
+          font-weight:900;
+          letter-spacing:.10em;
+        ">
+          🔥 CASHEDGE RECOMMENDED
+        </div>
 
-      return filtered.slice(0, 4).map(prop => {
-        const isPos = prop.edge >= 0;
-        const borderColor = isPos ? "#00ffe7" : "#7c3cff";
-        const textColor = isPos ? "#00ffe7" : "#a07cff";
-        const confFill = isPos ? "#00ffe7" : "#7c3cff";
-        const mktLabel = marketLabels[prop.market] || prop.market;
+        <div style="
+          margin-top:3px;
+          color:#71839f;
+          font-size:10px;
+        ">
+          Best NBA Player Props for this matchup
+        </div>
 
-        return `
-          <div style="background:#030c18;border-radius:10px;padding:12px;margin-bottom:6px;display:flex;gap:12px;align-items:center;">
-            <div style="width:54px;height:54px;border-radius:50%;border:2px solid ${borderColor};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;">
-              <span style="font-size:14px;font-weight:700;color:${textColor};line-height:1;">${prop.confidence.toFixed(0)}%</span>
-              <span style="font-size:8px;color:#5a7a9a;">PROB</span>
-            </div>
-            <div style="flex:1;">
-              <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:3px;">${sanitize(prop.player)}</div>
-              <div style="font-size:12px;color:${textColor};font-weight:600;margin-bottom:5px;">${prop.side} ${prop.line} ${mktLabel} · ${prop.odds ? prop.odds.toFixed(2) : "-"}</div>
-              <div style="display:flex;gap:10px;">
-                <div style="text-align:center;">
-                  <div style="font-size:9px;color:#5a7a9a;">avg</div>
-                  <div style="font-size:12px;font-weight:600;color:#e8f4ff;">${prop.projection ? (prop.projection - prop.edge).toFixed(1) : "-"}</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:9px;color:#5a7a9a;">proy</div>
-                  <div style="font-size:12px;font-weight:600;color:#e8f4ff;">${prop.projection?.toFixed(1) || "-"}</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:9px;color:#5a7a9a;">edge</div>
-                  <div style="font-size:12px;font-weight:600;color:${textColor};">${prop.edge >= 0 ? "+" : ""}${prop.edge?.toFixed(2)}</div>
-                </div>
+      </div>
+
+
+      ${
+        recommended
+          .map(
+            prop => {
+
+              return `
+                <button
+                  type="button"
+                  onclick="showNBAPropPlayer(
+                    ${index},
+                    '${encodeURIComponent(
+                      prop?.player ||
+                      ""
+                    )}',
+                    'best',
+                    '${String(
+                      prop?.market ||
+                      ""
+                    )}'
+                  )"
+                  style="
+                    width:100%;
+                    padding:0;
+                    border:0;
+                    background:transparent;
+                    text-align:left;
+                    cursor:pointer;
+                    display:block;
+                  "
+                >
+                  ${renderNBAPlayerPropCard(
+                    prop
+                  )}
+                </button>
+              `;
+            }
+          )
+          .join("")
+      }
+    `;
+
+
+    return;
+  }
+
+
+  const categoryMarket = {
+
+    points:
+      "player_points",
+
+    rebounds:
+      "player_rebounds",
+
+    assists:
+      "player_assists",
+
+    threes:
+      "player_threes"
+
+  }[
+    category
+  ] ||
+  null;
+
+
+  const categoryLines =
+    categoryMarket
+      ? allLines.filter(
+          prop =>
+            prop?.market ===
+            categoryMarket
+        )
+      : allLines;
+
+
+  if (
+    !categoryLines.length
+  ) {
+
+    container.innerHTML = `
+      <div class="ps-empty">
+        No Player Props available
+        in this category.
+      </div>
+    `;
+
+    return;
+  }
+
+
+  const players =
+    groupNBAPlayerPropLines(
+      categoryLines
+    )
+      .sort(
+        (
+          a,
+          b
+        ) =>
+          String(
+            a.player ||
+            ""
+          )
+            .localeCompare(
+              String(
+                b.player ||
+                ""
+              )
+            )
+      );
+
+
+  container.innerHTML =
+    players
+      .map(
+        item =>
+          renderNBAPropsPlayerRow(
+            index,
+            item,
+            category
+          )
+      )
+      .join("");
+}
+
+
+// ============================================================
+// PLAYER DETAIL
+// ============================================================
+
+function showNBAPropPlayer(
+  index,
+  encodedPlayer,
+  returnCategory = "all",
+  selectedMarket = ""
+) {
+
+  const playerName =
+    decodeURIComponent(
+      encodedPlayer ||
+      ""
+    );
+
+
+  const state =
+    nbaPlayerPropsState[
+      index
+    ] ||
+    {};
+
+
+  const data =
+    state.data ||
+    {};
+
+
+  const container =
+    document.getElementById(
+      `nbaPlayerPropsContent${index}`
+    );
+
+
+  if (!container) {
+    return;
+  }
+
+
+  const allLines =
+    Array.isArray(
+      data
+        .analyzedPlayerLines
+    )
+      ? data
+          .analyzedPlayerLines
+      : [];
+
+
+  const playerRawLines =
+    allLines
+      .filter(
+        prop =>
+          String(
+            prop?.player ||
+            ""
+          )
+            .trim()
+            .toLowerCase() ===
+          String(
+            playerName
+          )
+            .trim()
+            .toLowerCase()
+      );
+
+
+  if (
+    !playerRawLines.length
+  ) {
+
+    container.innerHTML = `
+      <div class="ps-empty">
+        No Player Props available
+        for this player.
+      </div>
+    `;
+
+    return;
+  }
+
+
+  const playerLines =
+    chooseNBAPlayerMarketLines(
+      playerRawLines
+    );
+
+
+  let prop =
+    playerLines
+      .find(
+        item =>
+          item.market ===
+          selectedMarket
+      ) ||
+    null;
+
+
+  if (
+    !prop
+  ) {
+
+    prop =
+      playerLines
+        .slice()
+        .sort(
+          (
+            a,
+            b
+          ) => {
+
+            const valueDiff =
+              Number(
+                b?.value ??
+                -999
+              ) -
+              Number(
+                a?.value ??
+                -999
+              );
+
+
+            if (
+              valueDiff !==
+              0
+            ) {
+              return valueDiff;
+            }
+
+
+            return (
+              getNBAPropConfidence(
+                b
+              ) -
+              getNBAPropConfidence(
+                a
+              )
+            );
+          }
+        )[0] ||
+      null;
+  }
+
+
+  if (!prop) {
+    return;
+  }
+
+
+  const confidence =
+    getNBAPropConfidence(
+      prop
+    );
+
+
+  const projection =
+    getNBAPropProjection(
+      prop
+    );
+
+
+  const line =
+    getNBAPropLine(
+      prop
+    );
+
+
+  const value =
+    getNBAPropValue(
+      prop
+    );
+
+
+  const bookProbability =
+    getNBAPropBookProbability(
+      prop
+    );
+
+
+  const expectedMinutes =
+    Number(
+      prop?.expectedMinutes
+    );
+
+
+  const baselineMinutes =
+    Number(
+      prop?.baselineMinutes
+    );
+
+
+  const roleChange =
+    Number(
+      prop?.roleChange
+    );
+
+
+  const roleCertainty =
+    Number(
+      prop?.roleCertainty
+    );
+
+
+  const matchupFactor =
+    Number(
+      prop?.matchupFactor
+    );
+
+
+  const hitRates =
+    prop?.hitRates ||
+    {};
+
+
+  const availability =
+    String(
+      prop?.availabilityStatus ||
+      "available"
+    )
+      .toUpperCase();
+
+
+  const roleLabel =
+    getNBAPropRoleLabel(
+      prop
+    );
+
+
+  const roleChangeText =
+    Number.isFinite(
+      roleChange
+    )
+      ? `${
+          roleChange > 0
+            ? "+"
+            : ""
+        }${roleChange.toFixed(1)}`
+      : "—";
+
+
+  const oddsText =
+    formatNBAPropAmericanOdds(
+      prop?.odds
+    );
+
+
+  const marketTabs =
+    playerLines
+      .map(
+        item => {
+
+          return `
+            <button
+              type="button"
+              class="${
+                item.market ===
+                  prop.market
+                  ? "active"
+                  : ""
+              }"
+              onclick="showNBAPropPlayer(
+                ${index},
+                '${encodeURIComponent(
+                  playerName
+                )}',
+                '${returnCategory}',
+                '${String(
+                  item.market ||
+                  ""
+                )}'
+              )"
+            >
+              ${sanitize(
+                getNBAPropMarketLabel(
+                  item.market,
+                  true
+                )
+              )}
+            </button>
+          `;
+        }
+      )
+      .join("");
+
+
+  const affectedBy =
+    Array.isArray(
+      prop?.affectedBy
+    )
+      ? prop.affectedBy
+      : [];
+
+
+  const affectedHTML =
+    affectedBy.length
+      ? `
+        <div style="
+          margin-top:9px;
+          padding-top:8px;
+          border-top:1px solid #17243a;
+        ">
+
+          <div style="
+            color:#71839f;
+            font-size:8px;
+            font-weight:900;
+            margin-bottom:5px;
+          ">
+            ROTATION IMPACT
+          </div>
+
+          ${
+            affectedBy
+              .map(
+                impact => `
+                  <div style="
+                    color:#c9d6e8;
+                    font-size:9px;
+                    margin-top:3px;
+                  ">
+                    ${sanitize(
+                      impact?.player ||
+                      "Teammate"
+                    )}
+                    ${
+                      Number.isFinite(
+                        Number(
+                          impact?.minutes
+                        )
+                      )
+                        ? ` · +${Number(
+                            impact.minutes
+                          ).toFixed(1)} expected min`
+                        : ""
+                    }
+                  </div>
+                `
+              )
+              .join("")
+          }
+
+        </div>
+      `
+      : "";
+
+
+  container.innerHTML = `
+
+    <button
+      type="button"
+      class="ps-back-analysis-btn"
+      onclick="showNBAPlayerPropsCategory(
+        ${index},
+        '${returnCategory}'
+      )"
+      style="margin-bottom:14px;"
+    >
+      ← BACK TO ${
+        returnCategory === "best"
+          ? "BEST"
+          : returnCategory === "points"
+            ? "POINTS"
+            : returnCategory === "rebounds"
+              ? "REBOUNDS"
+              : returnCategory === "assists"
+                ? "ASSISTS"
+                : returnCategory === "threes"
+                  ? "3PT"
+                  : "ALL"
+      }
+    </button>
+
+
+    <div style="
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:12px;
+    ">
+
+      <div>
+
+        ${
+          prop?.team
+            ? `
+              <div style="
+                color:#60708d;
+                font-size:8px;
+              ">
+                ${sanitize(
+                  prop.team
+                )}
               </div>
+            `
+            : ""
+        }
+
+        <div style="
+          margin-top:3px;
+          color:#ffffff;
+          font-size:18px;
+          font-weight:950;
+        ">
+          ${sanitize(
+            playerName
+          )}
+        </div>
+
+      </div>
+
+
+      ${
+        availability !==
+        "AVAILABLE"
+          ? `
+            <div style="
+              border:1px solid rgba(255,179,71,.35);
+              color:#ffb347;
+              border-radius:14px;
+              padding:5px 9px;
+              font-size:8px;
+              font-weight:900;
+            ">
+              ${sanitize(
+                availability
+              )}
             </div>
+          `
+          : ""
+      }
+
+    </div>
+
+
+    <div
+      class="ps-market-tabs"
+      style="
+        padding:0;
+        margin-bottom:10px;
+        overflow-x:auto;
+      "
+    >
+      ${marketTabs}
+    </div>
+
+
+    <div style="
+      background:#0b1323;
+      border:1px solid rgba(0,255,231,.24);
+      border-radius:12px;
+      padding:12px;
+      margin-bottom:9px;
+    ">
+
+      <div style="
+        color:#71839f;
+        font-size:8px;
+        font-weight:900;
+      ">
+        TODAY'S PROP
+      </div>
+
+
+      <div style="
+        margin-top:5px;
+        color:#ffffff;
+        font-size:14px;
+        font-weight:950;
+      ">
+        ${sanitize(
+          String(
+            prop?.side ||
+            ""
+          ).toUpperCase()
+        )}
+
+        ${
+          Number.isFinite(
+            line
+          )
+            ? line
+            : "—"
+        }
+
+        ${sanitize(
+          getNBAPropMarketLabel(
+            prop.market
+          )
+        )}
+
+        ·
+        ${sanitize(
+          oddsText
+        )}
+      </div>
+
+
+      ${
+        prop?.bookmaker
+          ? `
+            <div style="
+              margin-top:5px;
+              color:#71839f;
+              font-size:8px;
+            ">
+              ${sanitize(
+                prop.bookmaker
+              )}
+            </div>
+          `
+          : ""
+      }
+
+
+      <div style="
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:8px;
+        margin-top:14px;
+      ">
+
+        ${renderNBAPropMetric(
+          "SPORTSBOOK",
+          Number.isFinite(
+            line
+          )
+            ? String(
+                line
+              )
+            : "—"
+        )}
+
+        ${renderNBAPropMetric(
+          "CASHEDGE",
+          Number.isFinite(
+            projection
+          )
+            ? projection.toFixed(
+                1
+              )
+            : "—",
+          true
+        )}
+
+        ${renderNBAPropMetric(
+          "CONFIDENCE",
+          `${confidence.toFixed(0)}%`,
+          true
+        )}
+
+      </div>
+
+
+      <div style="
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:8px;
+        margin-top:8px;
+      ">
+
+        ${renderNBAPropMetric(
+          "SPORTSBOOK %",
+          Number.isFinite(
+            bookProbability
+          )
+            ? `${bookProbability.toFixed(1)}%`
+            : "—"
+        )}
+
+        ${renderNBAPropMetric(
+          "VALUE",
+          Number.isFinite(
+            value
+          )
+            ? `${
+                value >= 0
+                  ? "+"
+                  : ""
+              }${value.toFixed(1)}%`
+            : "—",
+          Number.isFinite(
+            value
+          ) &&
+          value > 0
+        )}
+
+      </div>
+
+    </div>
+
+
+    <div style="
+      background:#0b1323;
+      border:1px solid #1a2740;
+      border-radius:11px;
+      padding:11px;
+      margin-bottom:9px;
+    ">
+
+      <div style="
+        color:#71839f;
+        font-size:8px;
+        font-weight:900;
+        margin-bottom:8px;
+      ">
+        PERFORMANCE VS TODAY'S LINE
+      </div>
+
+
+      <div style="
+        display:grid;
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:6px;
+      ">
+
+        ${renderNBAPropHitRate(
+          "LAST 3",
+          hitRates.last3
+        )}
+
+        ${renderNBAPropHitRate(
+          "LAST 5",
+          hitRates.last5
+        )}
+
+        ${renderNBAPropHitRate(
+          "LAST 10",
+          hitRates.last10
+        )}
+
+        ${renderNBAPropHitRate(
+          "SEASON",
+          hitRates.season
+        )}
+
+      </div>
+
+    </div>
+
+
+    <div style="
+      background:#0b1323;
+      border:1px solid #1a2740;
+      border-radius:11px;
+      padding:11px;
+    ">
+
+      <div style="
+        color:#71839f;
+        font-size:8px;
+        font-weight:900;
+        margin-bottom:8px;
+      ">
+        EXPECTED ROLE
+      </div>
+
+
+      <div style="
+        display:grid;
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:6px;
+      ">
+
+        ${renderNBAPropMetric(
+          "EXPECTED MIN",
+          Number.isFinite(
+            expectedMinutes
+          )
+            ? expectedMinutes.toFixed(
+                1
+              )
+            : "—",
+          true
+        )}
+
+        ${renderNBAPropMetric(
+          "BASE MIN",
+          Number.isFinite(
+            baselineMinutes
+          )
+            ? baselineMinutes.toFixed(
+                1
+              )
+            : "—"
+        )}
+
+        ${renderNBAPropMetric(
+          "ROLE CHANGE",
+          roleChangeText,
+          Number.isFinite(
+            roleChange
+          ) &&
+          roleChange >
+            1
+        )}
+
+        ${renderNBAPropMetric(
+          "ROLE CONF.",
+          Number.isFinite(
+            roleCertainty
+          )
+            ? `${roleCertainty.toFixed(0)}%`
+            : "—"
+        )}
+
+      </div>
+
+
+      <div style="
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:8px;
+        margin-top:8px;
+      ">
+
+        ${renderNBAPropMetric(
+          "ROLE",
+          roleLabel
+        )}
+
+        ${renderNBAPropMetric(
+          "MATCHUP",
+          Number.isFinite(
+            matchupFactor
+          )
+            ? `${matchupFactor.toFixed(2)}x`
+            : "—"
+        )}
+
+      </div>
+
+
+      ${affectedHTML}
+
+    </div>
+
+  `;
+}
+
+
+// ============================================================
+// MAIN OPEN / TOGGLE
+// ============================================================
+
+async function toggleNBAPlayerProps(
+  index,
+  awayTeam,
+  homeTeam,
+  btn
+) {
+
+  const box =
+    document.getElementById(
+      `nbaProps${index}`
+    );
+
+
+  if (!box) {
+    return;
+  }
+
+
+  /*
+   * Existing loaded panel:
+   * simply open / close it.
+   */
+  if (
+    box.dataset.loaded ===
+    "true"
+  ) {
+
+    box.style.display =
+      box.style.display ===
+        "none"
+        ? "block"
+        : "none";
+
+    return;
+  }
+
+
+  const {
+    data:
+      sessionData
+  } =
+    await supabaseClient
+      .auth
+      .getSession();
+
+
+  if (
+    !sessionData
+      ?.session
+  ) {
+
+    alert(
+      "Debes iniciar sesión."
+    );
+
+    return;
+  }
+
+
+  if (
+    !IS_ADMIN &&
+    !isPremiumUser
+  ) {
+
+    box.innerHTML =
+      cePlayerPropsLockedHTML();
+
+    box.dataset.loaded =
+      "true";
+
+    box.style.display =
+      "block";
+
+    return;
+  }
+
+
+  nbaPlayerPropsState[index] = {
+
+    ...(
+      nbaPlayerPropsState[
+        index
+      ] ||
+      {}
+    ),
+
+    awayTeam,
+
+    homeTeam,
+
+    mainView:
+      "best"
+
+  };
+
+
+  box.style.display =
+    "block";
+
+
+  renderNBAPlayerPropsShell(
+    index
+  );
+
+
+  try {
+
+    const data =
+      await loadNBAPlayerPropsData(
+        index
+      );
+
+
+    if (
+      data?.noPlay ===
+        true
+    ) {
+
+      const container =
+        document.getElementById(
+          `nbaPlayerPropsContent${index}`
+        );
+
+
+      if (container) {
+
+        container.innerHTML = `
+          <div class="ps-empty">
+            ${sanitize(
+              data?.reason ||
+              "No NBA Player Props available yet."
+            )}
           </div>
         `;
-      }).join("");
+      }
+
+
+      box.dataset.loaded =
+        "true";
+
+      return;
     }
 
-    let activeTab = 0;
 
-    function buildHTML(tabIdx) {
-      const tabsHTML = tabs.map((t, i) => `
-        <button onclick="switchNBAPropsTab(${index}, ${i})"
-          style="font-size:11px;padding:4px 12px;border-radius:20px;border:0.5px solid ${i === tabIdx ? '#00ffe7' : '#0e2040'};color:${i === tabIdx ? '#00ffe7' : '#a0b4cc'};background:${i === tabIdx ? 'rgba(0,255,231,0.1)' : 'transparent'};cursor:pointer;white-space:nowrap;">
-          ${t}
-        </button>
-      `).join("");
+    const analyzed =
+      Array.isArray(
+        data?.analyzedPlayerLines
+      )
+        ? data
+            .analyzedPlayerLines
+        : [];
 
-      return `
-        <div style="margin-top:10px;">
-          <div style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;" id="nbaPropsTabRow${index}">${tabsHTML}</div>
-          <div id="nbaPropsContent${index}">${renderProps(marketKeys[tabIdx])}</div>
+
+    if (
+      !analyzed.length
+    ) {
+
+      const container =
+        document.getElementById(
+          `nbaPlayerPropsContent${index}`
+        );
+
+
+      if (container) {
+
+        container.innerHTML = `
+          <div class="ps-empty">
+            No NBA Player Props available
+            for this matchup yet.
+          </div>
+        `;
+      }
+
+
+      box.dataset.loaded =
+        "true";
+
+      return;
+    }
+
+
+    box.dataset.loaded =
+      "true";
+
+
+    showNBAPlayerPropsCategory(
+      index,
+      "best"
+    );
+
+
+  } catch (
+    error
+  ) {
+
+    const container =
+      document.getElementById(
+        `nbaPlayerPropsContent${index}`
+      );
+
+
+    if (container) {
+
+      container.innerHTML = `
+        <div class="ps-empty">
+          Error loading Player Props:
+          ${sanitize(
+            error?.message ||
+            String(error)
+          )}
         </div>
       `;
     }
 
-    box.innerHTML = buildHTML(0);
-    box.dataset.loaded = "true";
-    box.dataset.allProps = JSON.stringify(allProps);
 
-    window[`switchNBAPropsTab`] = function(idx, tabIdx) {
-      const b = document.getElementById(`nbaProps${idx}`);
-      if (!b) return;
-      const props = JSON.parse(b.dataset.allProps || "[]");
-
-      const tabsHTML = tabs.map((t, i) => `
-        <button onclick="switchNBAPropsTab(${idx}, ${i})"
-          style="font-size:11px;padding:4px 12px;border-radius:20px;border:0.5px solid ${i === tabIdx ? '#00ffe7' : '#0e2040'};color:${i === tabIdx ? '#00ffe7' : '#a0b4cc'};background:${i === tabIdx ? 'rgba(0,255,231,0.1)' : 'transparent'};cursor:pointer;white-space:nowrap;">
-          ${t}
-        </button>
-      `).join("");
-
-      document.getElementById(`nbaPropsTabRow${idx}`).innerHTML = tabsHTML;
-
-      const filtered = props.filter(p => p.market === marketKeys[tabIdx]);
-      const marketLabels = { player_points: "pts", player_rebounds: "reb", player_assists: "ast", player_threes: "3PT" };
-
-      document.getElementById(`nbaPropsContent${idx}`).innerHTML = filtered.length
-        ? filtered.slice(0, 4).map(prop => {
-            const isPos = prop.edge >= 0;
-            const borderColor = isPos ? "#00ffe7" : "#7c3cff";
-            const textColor = isPos ? "#00ffe7" : "#a07cff";
-            const mktLabel = marketLabels[prop.market] || prop.market;
-            return `
-              <div style="background:#030c18;border-radius:10px;padding:12px;margin-bottom:6px;display:flex;gap:12px;align-items:center;">
-                <div style="width:54px;height:54px;border-radius:50%;border:2px solid ${borderColor};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;">
-                  <span style="font-size:14px;font-weight:700;color:${textColor};line-height:1;">${prop.confidence.toFixed(0)}%</span>
-                  <span style="font-size:8px;color:#5a7a9a;">PROB</span>
-                </div>
-                <div style="flex:1;">
-                  <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:3px;">${prop.player}</div>
-                  <div style="font-size:12px;color:${textColor};font-weight:600;margin-bottom:5px;">${prop.side} ${prop.line} ${mktLabel} · ${prop.odds ? prop.odds.toFixed(2) : "-"}</div>
-                  <div style="display:flex;gap:10px;">
-                    <div style="text-align:center;"><div style="font-size:9px;color:#5a7a9a;">avg</div><div style="font-size:12px;font-weight:600;color:#e8f4ff;">${prop.projection ? (prop.projection - prop.edge).toFixed(1) : "-"}</div></div>
-                    <div style="text-align:center;"><div style="font-size:9px;color:#5a7a9a;">proy</div><div style="font-size:12px;font-weight:600;color:#e8f4ff;">${prop.projection?.toFixed(1) || "-"}</div></div>
-                    <div style="text-align:center;"><div style="font-size:9px;color:#5a7a9a;">edge</div><div style="font-size:12px;font-weight:600;color:${textColor};">${prop.edge >= 0 ? "+" : ""}${prop.edge?.toFixed(2)}</div></div>
-                  </div>
-                </div>
-              </div>
-            `;
-          }).join("")
-        : `<div style="font-size:11px;color:#556688;padding:10px;text-align:center;">No props for this market.</div>`;
-    };
-
-  } catch (err) {
-    box.innerHTML = `<div style="font-size:11px;color:#556688;padding:8px;">Error: ${err.message}</div>`;
-    box.dataset.loaded = "true";
+    /*
+     * Leave loaded=false so the user can retry.
+     */
+    box.dataset.loaded =
+      "false";
   }
 }
 
-window.toggleNBAPlayerProps = toggleNBAPlayerProps;
+
+// ============================================================
+// GLOBALS
+// ============================================================
+
+window.toggleNBAPlayerProps =
+  toggleNBAPlayerProps;
+
+window.showNBAPlayerPropsCategory =
+  showNBAPlayerPropsCategory;
+
+window.showNBAPropPlayer =
+  showNBAPropPlayer;
 window.togglePlayerEdgeProps = togglePlayerEdgeProps;
 window.addEventListener("load", async () => {
   await trackUserEvent("app_open", {
