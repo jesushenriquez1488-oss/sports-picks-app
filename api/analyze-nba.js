@@ -1355,24 +1355,28 @@ if (
     }
 
 
-    return res.status(200).json({
+ return res.status(200).json({
 
-      ok:
-        true,
+  ok:
+    true,
 
-      gameId:
-        String(
-          gameId
-        ),
+  gameId:
+    String(
+      gameId
+    ),
 
-      changed,
+  hadPreviousState:
+    Boolean(
+      previousState
+    ),
 
-      injuries:
-        normalizedInjuries.length,
+  changed,
 
-      fingerprint
-    });
+  injuries:
+    normalizedInjuries.length,
 
+  fingerprint
+});
 
   } catch (
     error
