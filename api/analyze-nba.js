@@ -142,6 +142,187 @@ function findNBATeamId(teamName) {
   return null;
 }
 // ============================================================
+// NBA — BALLDONTLIE TEAM RESOLUTION
+//
+// IMPORTANT:
+// NBA_TEAM_IDS / findNBATeamId() above are ESPN IDs.
+//
+// BALLDONTLIE has a DIFFERENT team-id namespace.
+// Never reuse ESPN ids for BDL injuries / player history.
+// ============================================================
+
+const NBA_BDL_TEAMS_CACHE =
+  global.__NBA_BDL_TEAMS_CACHE__ || {
+    loadedAt: 0,
+    teams: []
+  };
+
+global.__NBA_BDL_TEAMS_CACHE__ =
+  NBA_BDL_TEAMS_CACHE;
+
+
+function normalizeNBATeamLookup(
+  value
+) {
+
+  return String(
+    value || ""
+  )
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(
+      /[^a-z0-9]+/g,
+      " "
+    )
+    .replace(
+      /\s+/g,
+      " "
+    )
+    .trim();
+}
+
+
+async function getBDLTeamIdByName(
+  teamName,
+  apiKey
+) {
+
+  const cleanTarget =
+    normalizeNBATeamLookup(
+      teamName
+    );
+
+
+  if (!cleanTarget) {
+    return null;
+  }
+
+
+  const cacheFresh =
+    Array.isArray(
+      NBA_BDL_TEAMS_CACHE.teams
+    ) &&
+    NBA_BDL_TEAMS_CACHE.teams.length > 0 &&
+    (
+      Date.now() -
+      Number(
+        NBA_BDL_TEAMS_CACHE.loadedAt ||
+        0
+      )
+    ) <
+      24 * 60 * 60 * 1000;
+
+
+  if (!cacheFresh) {
+
+    const response =
+      await fetch(
+        "https://api.balldontlie.io/v1/teams",
+        {
+          headers: {
+            Authorization:
+              String(apiKey || "")
+          }
+        }
+      );
+
+
+    const body =
+      await response
+        .json()
+        .catch(
+          () => null
+        );
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        body?.error ||
+        `BALLDONTLIE teams HTTP ${response.status}`
+      );
+    }
+
+
+    NBA_BDL_TEAMS_CACHE.teams =
+      (
+        Array.isArray(
+          body?.data
+        )
+          ? body.data
+          : []
+      )
+        .map(
+          team => ({
+            id:
+              Number(
+                team?.id
+              ),
+
+            fullName:
+              String(
+                team?.full_name ||
+                ""
+              ),
+
+            city:
+              String(
+                team?.city ||
+                ""
+              ),
+
+            name:
+              String(
+                team?.name ||
+                ""
+              )
+          })
+        )
+        .filter(
+          team =>
+            Number.isFinite(
+              team.id
+            )
+        );
+
+
+    NBA_BDL_TEAMS_CACHE.loadedAt =
+      Date.now();
+  }
+
+
+  const match =
+    NBA_BDL_TEAMS_CACHE.teams
+      .find(
+        team => {
+
+          const full =
+            normalizeNBATeamLookup(
+              team.fullName
+            );
+
+          const combined =
+            normalizeNBATeamLookup(
+              `${team.city} ${team.name}`
+            );
+
+
+          return (
+            full === cleanTarget ||
+            combined === cleanTarget
+          );
+        }
+      );
+
+
+  return match?.id ?? null;
+}
+// ============================================================
 // NBA LIVE INJURY BOOTSTRAP
 //
 // Used ONLY when a new NBA game does not yet have a persisted
@@ -240,20 +421,23 @@ async function bootstrapNBAInjuryState({
   }
 
 
-  const awayTeamId =
-    Number(
-      findNBATeamId(
-        awayTeam
-      )
-    );
+ const [
+  awayTeamId,
+  homeTeamId
+] =
+  await Promise.all([
 
+    getBDLTeamIdByName(
+      awayTeam,
+      apiKey
+    ),
 
-  const homeTeamId =
-    Number(
-      findNBATeamId(
-        homeTeam
-      )
-    );
+    getBDLTeamIdByName(
+      homeTeam,
+      apiKey
+    )
+
+  ]);
 
 
   if (
