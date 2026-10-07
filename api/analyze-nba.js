@@ -141,6 +141,408 @@ function findNBATeamId(teamName) {
   }
   return null;
 }
+// ============================================================
+// NBA LIVE INJURY BOOTSTRAP
+//
+// Used ONLY when a new NBA game does not yet have a persisted
+// BDL snapshot. Once daily_picks exists, Railway becomes the
+// live owner of injury monitoring.
+// ============================================================
+
+function normalizeNBALiveInjuryStatus(
+  value
+) {
+
+  const status =
+    String(
+      value ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+
+
+  if (status.includes("out")) {
+    return "out";
+  }
+
+
+  if (status.includes("doubt")) {
+    return "doubtful";
+  }
+
+
+  if (status.includes("question")) {
+    return "questionable";
+  }
+
+
+  if (
+    status.includes("day-to-day") ||
+    status.includes("day to day")
+  ) {
+    return "day-to-day";
+  }
+
+
+  if (status.includes("probable")) {
+    return "probable";
+  }
+
+
+  if (
+    status.includes("available") ||
+    status.includes("active")
+  ) {
+    return "available";
+  }
+
+
+  return status ||
+    "unknown";
+}
+
+
+async function bootstrapNBAInjuryState({
+  gameId,
+  awayTeam,
+  homeTeam,
+  gameTime
+}) {
+
+  const gameStartMs =
+    Date.parse(
+      gameTime
+    );
+
+
+  if (
+    !Number.isFinite(
+      gameStartMs
+    ) ||
+    gameStartMs <= Date.now()
+  ) {
+    return null;
+  }
+
+
+  const apiKey =
+    String(
+      process.env.BALLDONTLIE_API_KEY ||
+      ""
+    ).trim();
+
+
+  if (!apiKey) {
+    throw new Error(
+      "BALLDONTLIE_API_KEY not configured in Vercel"
+    );
+  }
+
+
+  const awayTeamId =
+    Number(
+      findNBATeamId(
+        awayTeam
+      )
+    );
+
+
+  const homeTeamId =
+    Number(
+      findNBATeamId(
+        homeTeam
+      )
+    );
+
+
+  if (
+    !Number.isFinite(
+      awayTeamId
+    ) ||
+    !Number.isFinite(
+      homeTeamId
+    )
+  ) {
+    throw new Error(
+      `BALLDONTLIE team mapping failed: ${awayTeam} @ ${homeTeam}`
+    );
+  }
+
+
+  const controller =
+    new AbortController();
+
+
+  const timer =
+    setTimeout(
+      () =>
+        controller.abort(),
+      10000
+    );
+
+
+  try {
+
+    const url =
+      new URL(
+        "https://api.balldontlie.io/v1/player_injuries"
+      );
+
+
+    url.searchParams.append(
+      "team_ids[]",
+      String(awayTeamId)
+    );
+
+
+    url.searchParams.append(
+      "team_ids[]",
+      String(homeTeamId)
+    );
+
+
+    url.searchParams.set(
+      "per_page",
+      "100"
+    );
+
+
+    const response =
+      await fetch(
+        url.toString(),
+        {
+          headers: {
+            Authorization:
+              apiKey
+          },
+          signal:
+            controller.signal
+        }
+      );
+
+
+    const body =
+      await response
+        .json()
+        .catch(
+          () => null
+        );
+
+
+    if (!response.ok) {
+      throw new Error(
+        body?.error ||
+        `BALLDONTLIE HTTP ${response.status}`
+      );
+    }
+
+
+    const normalizedInjuries =
+      (
+        Array.isArray(
+          body?.data
+        )
+          ? body.data
+          : []
+      )
+        .map(
+          item => {
+
+            const player =
+              item?.player ||
+              {};
+
+
+            const playerId =
+              player?.id != null
+                ? String(
+                    player.id
+                  )
+                : null;
+
+
+            const teamId =
+              player?.team_id ??
+              player?.team?.id ??
+              null;
+
+
+            return {
+
+              player_id:
+                playerId,
+
+              player_name:
+                [
+                  player?.first_name,
+                  player?.last_name
+                ]
+                  .filter(Boolean)
+                  .join(" ")
+                  .trim() ||
+                null,
+
+              team_id:
+                teamId != null
+                  ? String(teamId)
+                  : null,
+
+              status:
+                normalizeNBALiveInjuryStatus(
+                  item?.status
+                ),
+
+              return_date:
+                item?.return_date ||
+                null,
+
+              description:
+                String(
+                  item?.description ||
+                  ""
+                )
+                  .trim() ||
+                null
+            };
+          }
+        )
+        .filter(
+          injury =>
+            Boolean(
+              injury.player_id
+            ) &&
+            (
+              String(
+                injury.team_id ||
+                ""
+              ) ===
+                String(awayTeamId) ||
+              String(
+                injury.team_id ||
+                ""
+              ) ===
+                String(homeTeamId)
+            )
+        )
+        .sort(
+          (a, b) => {
+
+            const aKey =
+              `${a.team_id || ""}|${a.player_id}|${a.status}|${a.return_date || ""}`;
+
+
+            const bKey =
+              `${b.team_id || ""}|${b.player_id}|${b.status}|${b.return_date || ""}`;
+
+
+            return aKey.localeCompare(
+              bKey
+            );
+          }
+        );
+
+
+    const fingerprint =
+      JSON.stringify(
+        normalizedInjuries.map(
+          injury => ({
+
+            player_id:
+              injury.player_id,
+
+            team_id:
+              injury.team_id,
+
+            status:
+              injury.status,
+
+            return_date:
+              injury.return_date
+          })
+        )
+      );
+
+
+    const nowIso =
+      new Date()
+        .toISOString();
+
+
+    const row = {
+
+      game_id:
+        String(gameId),
+
+      away_team:
+        String(awayTeam),
+
+      home_team:
+        String(homeTeam),
+
+      game_time:
+        new Date(
+          gameTime
+        ).toISOString(),
+
+      away_team_id:
+        awayTeamId,
+
+      home_team_id:
+        homeTeamId,
+
+      injuries:
+        normalizedInjuries,
+
+      fingerprint,
+
+      provider:
+        "balldontlie",
+
+      checked_at:
+        nowIso,
+
+      changed_at:
+        nowIso,
+
+      updated_at:
+        nowIso
+    };
+
+
+    const { error } =
+      await supabaseAdmin
+        .from(
+          "nba_live_injury_state"
+        )
+        .upsert(
+          row,
+          {
+            onConflict:
+              "game_id"
+          }
+        );
+
+
+    if (error) {
+      throw error;
+    }
+
+
+    console.log(
+      `NBA BDL BOOTSTRAP READY: ${gameId} | injuries=${normalizedInjuries.length}`
+    );
+
+
+    return row;
+
+  } finally {
+
+    clearTimeout(
+      timer
+    );
+  }
+}
 
 async function getNBATeamSchedule(teamId) {
   const season = new Date().getFullYear();
@@ -3488,6 +3890,52 @@ if (
     nbaLiveInjuryState =
       liveInjuryState ||
       null;
+
+
+    // ========================================================
+    // FIRST NBA SNAPSHOT BOOTSTRAP
+    //
+    // A brand-new game does not exist in daily_picks yet, so
+    // Railway cannot discover it through tracked-games.
+    //
+    // Vercel performs exactly one initial BDL read here.
+    // After this analysis creates daily_picks, Railway takes
+    // over all live monitoring.
+    // ========================================================
+
+    if (
+      !nbaLiveInjuryState
+    ) {
+
+      try {
+
+        nbaLiveInjuryState =
+          await bootstrapNBAInjuryState({
+
+            gameId,
+
+            awayTeam,
+
+            homeTeam,
+
+            gameTime
+          });
+
+      } catch (
+        bootstrapError
+      ) {
+
+        nbaLiveInjuryStateReadable =
+          false;
+
+
+        console.error(
+          "NBA BDL BOOTSTRAP ERROR:",
+          bootstrapError?.message ||
+          bootstrapError
+        );
+      }
+    }
   }
 }
 
