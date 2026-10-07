@@ -16411,18 +16411,48 @@ const fullResponse = {
     baseProjectedTotal,
   fpiAdjustment: fpiAdj,
     sinAjuste: { [teamA]: rawA, [teamB]: rawB },
-  modelAudit: type === "ncaaf"
-  ? {
-      [teamA]: {
-        edges: teamAEdges,
-        games: teamAGames
-      },
-      [teamB]: {
-        edges: teamBEdges,
-        games: teamBGames
-      }
-    }
-  : null,
+ modelAudit: {
+
+  season: {
+    current: selectedSeason,
+    previous: previousSeason
+  },
+
+  [teamA]: {
+    currentSeasonGames:
+      currentTeamAGames.length,
+
+    previousSeasonGames:
+      previousTeamAGames.length,
+
+    gamesUsed:
+      teamAGames.length,
+
+    edges:
+      teamAEdges,
+
+    games:
+      teamAGames
+  },
+
+  [teamB]: {
+    currentSeasonGames:
+      currentTeamBGames.length,
+
+    previousSeasonGames:
+      previousTeamBGames.length,
+
+    gamesUsed:
+      teamBGames.length,
+
+    edges:
+      teamBEdges,
+
+    games:
+      teamBGames
+  }
+
+},
     paceEfficiencyAdjustment: paceModule,
     injuryImpact: {
       active: NFL_INJURY_ACTIVE,
