@@ -2026,55 +2026,62 @@ function buildNBAPlayerGameRows(
     }
 
 
-    const row = {
+  const row = {
 
-      game_id:
-        gameId,
+  game_id:
+    gameId,
 
-      season:
-        Number(season),
+  season:
+    Number(season),
 
-      game_date:
-        game.game_date,
+  game_date:
+    game.game_date,
 
-      team_id:
-        teamId,
+  team_id:
+    teamId,
 
-      player_id:
-        playerId,
+  player_id:
+    playerId,
 
-      player_name:
-        playerName,
+  player_name:
+    playerName,
 
-      minutes:
-        minutes,
+  minutes:
+    minutes,
 
-      points:
-        Math.round(
-          nbaStatNumber(
-            stat?.pts
-          )
-        ),
+  points:
+    Math.round(
+      nbaStatNumber(
+        stat?.pts
+      )
+    ),
 
-      rebounds:
-        Math.round(
-          nbaStatNumber(
-            stat?.reb
-          )
-        ),
+  rebounds:
+    Math.round(
+      nbaStatNumber(
+        stat?.reb
+      )
+    ),
 
-      assists:
-        Math.round(
-          nbaStatNumber(
-            stat?.ast
-          )
-        ),
+  assists:
+    Math.round(
+      nbaStatNumber(
+        stat?.ast
+      )
+    ),
 
-      synced_at:
-        new Date()
-          .toISOString()
+  three_pointers_made:
+    Math.round(
+      nbaStatNumber(
+        stat?.fg3m
+      )
+    ),
 
-    };
+  synced_at:
+    new Date()
+      .toISOString()
+
+};
 
 
     rows.set(
