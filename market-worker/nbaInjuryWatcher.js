@@ -47,128 +47,61 @@ const MAX_CONCURRENT_GAME_CHECKS =
 
 
 // ============================================================
-// ESPN NBA TEAM IDS
-// Same mapping already used by CashEdge injuries.js
-// ============================================================
-
-const ESPN_NBA_TEAM_IDS = {
-  "atlanta hawks": "1",
-  "boston celtics": "2",
-  "brooklyn nets": "17",
-  "charlotte hornets": "30",
-  "chicago bulls": "4",
-  "cleveland cavaliers": "5",
-  "dallas mavericks": "6",
-  "denver nuggets": "7",
-  "detroit pistons": "8",
-  "golden state warriors": "9",
-  "houston rockets": "10",
-  "indiana pacers": "11",
-  "los angeles clippers": "12",
-  "los angeles lakers": "13",
-  "memphis grizzlies": "29",
-  "miami heat": "14",
-  "milwaukee bucks": "15",
-  "minnesota timberwolves": "16",
-  "new orleans pelicans": "3",
-  "new york knicks": "18",
-  "oklahoma city thunder": "25",
-  "orlando magic": "19",
-  "philadelphia 76ers": "20",
-  "phoenix suns": "21",
-  "portland trail blazers": "22",
-  "sacramento kings": "23",
-  "san antonio spurs": "24",
-  "toronto raptors": "28",
-  "utah jazz": "26",
-  "washington wizards": "27"
-};
-
-
-// ============================================================
 // HELPERS
 // ============================================================
 
-function cleanText(
-  value
-) {
-  return String(
-    value || ""
-  )
+function cleanText(value) {
+  return String(value || "")
     .trim()
     .toLowerCase()
-    .replace(
-      /\s+/g,
-      " "
-    );
+    .replace(/\s+/g, " ");
 }
 
 
-function normalizeStatus(
-  value
-) {
-
+function normalizeStatus(value) {
   const status =
-    cleanText(
-      value
-    );
+    cleanText(value);
 
 
   if (
-    status.includes(
-      "out"
-    )
+    status.includes("out")
   ) {
     return "out";
   }
 
 
   if (
-    status.includes(
-      "doubt"
-    )
+    status.includes("doubt")
   ) {
     return "doubtful";
   }
 
 
   if (
-    status.includes(
-      "question"
-    )
+    status.includes("question")
   ) {
     return "questionable";
   }
 
 
   if (
-    status.includes(
-      "day-to-day"
-    ) ||
-    status.includes(
-      "day to day"
-    )
+    status.includes("day-to-day") ||
+    status.includes("day to day")
   ) {
     return "day-to-day";
   }
 
 
   if (
-    status.includes(
-      "probable"
-    )
+    status.includes("probable")
   ) {
     return "probable";
   }
 
 
   if (
-    status.includes(
-      "available"
-    ) ||
-    status.includes(
-      "active"
-    )
+    status.includes("available") ||
+    status.includes("active")
   ) {
     return "available";
   }
@@ -254,12 +187,23 @@ function normalizeProviderRows(
   )
     .map(
       row => ({
+
         playerId:
           row?.playerId != null
             ? String(
                 row.playerId
               )
             : null,
+
+
+        playerName:
+          String(
+            row?.playerName ||
+            ""
+          )
+            .trim() ||
+          null,
+
 
         teamId:
           row?.teamId != null
@@ -268,13 +212,24 @@ function normalizeProviderRows(
               )
             : null,
 
+
         status:
           normalizeStatus(
             row?.status
           ),
 
+
         returnDate:
           row?.returnDate ||
+          null,
+
+
+        description:
+          String(
+            row?.description ||
+            ""
+          )
+            .trim() ||
           null
       })
     )
@@ -285,17 +240,23 @@ function normalizeProviderRows(
         )
     )
     .sort(
-      (a, b) => {
+      (
+        a,
+        b
+      ) => {
 
         const aKey =
           `${a.teamId || ""}|${a.playerId}|${a.status}|${a.returnDate || ""}`;
 
+
         const bKey =
           `${b.teamId || ""}|${b.playerId}|${b.status}|${b.returnDate || ""}`;
 
-        return aKey.localeCompare(
-          bKey
-        );
+
+        return aKey
+          .localeCompare(
+            bKey
+          );
       }
     );
 }
@@ -305,9 +266,29 @@ function fingerprintRows(
   rows
 ) {
 
-  return JSON.stringify(
+  const normalized =
     normalizeProviderRows(
       rows
+    );
+
+
+  return JSON.stringify(
+
+    normalized.map(
+      row => ({
+
+        playerId:
+          row.playerId,
+
+        teamId:
+          row.teamId,
+
+        status:
+          row.status,
+
+        returnDate:
+          row.returnDate
+      })
     )
   );
 }
@@ -318,18 +299,29 @@ function fingerprintRows(
 // ============================================================
 
 function createNBAInjuryWatcher({
+
   balldontlieApiKey,
+
   getGameStartMs,
+
+  onSnapshot,
+
   onChange,
+
   logger = console
+
 } = {}) {
+
 
   let stopped =
     false;
 
 
   let bdlTeamsCache = {
-    expiresAt: 0,
+
+    expiresAt:
+      0,
+
     teams:
       new Map()
   };
@@ -359,11 +351,12 @@ function createNBAInjuryWatcher({
   // SMALL INTERNAL CONCURRENCY QUEUE
   //
   // Even if several NBA games move together,
-  // do not hammer BDL/ESPN all at once.
+  // do not hammer BALLDONTLIE all at once.
   // ==========================================================
 
   const checkQueue =
     [];
+
 
   let activeChecks =
     0;
@@ -372,9 +365,12 @@ function createNBAInjuryWatcher({
   function drainQueue() {
 
     while (
+
       !stopped &&
+
       activeChecks <
         MAX_CONCURRENT_GAME_CHECKS &&
+
       checkQueue.length >
         0
     ) {
@@ -435,7 +431,9 @@ function createNBAInjuryWatcher({
       resolve => {
 
         checkQueue.push({
+
           game,
+
           resolve
         });
 
@@ -470,14 +468,16 @@ function createNBAInjuryWatcher({
         ) ===
       signature
     ) {
+
       return;
     }
 
 
-    providerErrorSignatures.set(
-      key,
-      signature
-    );
+    providerErrorSignatures
+      .set(
+        key,
+        signature
+      );
 
 
     logger.error(
@@ -491,9 +491,10 @@ function createNBAInjuryWatcher({
     provider
   ) {
 
-    providerErrorSignatures.delete(
-      `${gameId}|${provider}`
-    );
+    providerErrorSignatures
+      .delete(
+        `${gameId}|${provider}`
+      );
   }
 
 
@@ -505,6 +506,7 @@ function createNBAInjuryWatcher({
       typeof onChange !==
       "function"
     ) {
+
       return;
     }
 
@@ -542,6 +544,52 @@ function createNBAInjuryWatcher({
   }
 
 
+  function fireSnapshotSafe(
+    payload
+  ) {
+
+    if (
+      typeof onSnapshot !==
+      "function"
+    ) {
+
+      return;
+    }
+
+
+    setImmediate(
+      () => {
+
+        try {
+
+          Promise
+            .resolve(
+              onSnapshot(
+                payload
+              )
+            )
+            .catch(
+              error => {
+
+                logger.error(
+                  `[nba-injury-watch] onSnapshot failed: ${error?.message || error}`
+                );
+              }
+            );
+
+        } catch (
+          error
+        ) {
+
+          logger.error(
+            `[nba-injury-watch] onSnapshot failed: ${error?.message || error}`
+          );
+        }
+      }
+    );
+  }
+
+
   // ==========================================================
   // BALLDONTLIE
   // ==========================================================
@@ -549,10 +597,12 @@ function createNBAInjuryWatcher({
   async function getBDLTeamMap() {
 
     if (
+
       bdlTeamsCache
         .teams
         .size >
-        0 &&
+      0 &&
+
       Date.now() <
         bdlTeamsCache
           .expiresAt
@@ -566,6 +616,7 @@ function createNBAInjuryWatcher({
     if (
       bdlTeamsPromise
     ) {
+
       return bdlTeamsPromise;
     }
 
@@ -585,9 +636,13 @@ function createNBAInjuryWatcher({
 
         const body =
           await fetchJsonStrict(
+
             "https://api.balldontlie.io/v1/teams",
+
             {
+
               headers: {
+
                 Authorization:
                   balldontlieApiKey
               }
@@ -601,7 +656,8 @@ function createNBAInjuryWatcher({
 
         for (
           const team
-          of body?.data || []
+          of body?.data ||
+          []
         ) {
 
           const name =
@@ -632,6 +688,7 @@ function createNBAInjuryWatcher({
 
 
         bdlTeamsCache = {
+
           teams,
 
           expiresAt:
@@ -721,9 +778,13 @@ function createNBAInjuryWatcher({
 
     const body =
       await fetchJsonStrict(
+
         url.toString(),
+
         {
+
           headers: {
+
             Authorization:
               balldontlieApiKey
           }
@@ -732,7 +793,10 @@ function createNBAInjuryWatcher({
 
 
     const rows =
-      (body?.data || [])
+      (
+        body?.data ||
+        []
+      )
         .map(
           item => {
 
@@ -742,23 +806,50 @@ function createNBAInjuryWatcher({
 
 
             return {
+
               playerId:
                 player?.id,
 
+
+              playerName:
+                [
+                  player?.first_name,
+                  player?.last_name
+                ]
+                  .filter(
+                    Boolean
+                  )
+                  .join(
+                    " "
+                  )
+                  .trim() ||
+                null,
+
+
               teamId:
-                player?.team_id,
+                player?.team_id ??
+                player?.team?.id ??
+                null,
+
 
               status:
                 item?.status,
 
+
               returnDate:
                 item?.return_date ||
+                null,
+
+
+              description:
+                item?.description ||
                 null
             };
           }
         )
         .filter(
           row =>
+
             String(
               row?.teamId ||
               ""
@@ -766,6 +857,7 @@ function createNBAInjuryWatcher({
               String(
                 awayId
               ) ||
+
             String(
               row?.teamId ||
               ""
@@ -777,165 +869,26 @@ function createNBAInjuryWatcher({
 
 
     return {
-      ok: true,
+
+      ok:
+        true,
+
+
+      awayTeamId:
+        awayId,
+
+
+      homeTeamId:
+        homeId,
+
+
       rows
     };
   }
 
 
   // ==========================================================
-  // ESPN
-  // ==========================================================
-
-  async function fetchESPNTeamInjuries(
-    teamName
-  ) {
-
-    const teamId =
-      ESPN_NBA_TEAM_IDS[
-        cleanText(
-          teamName
-        )
-      ];
-
-
-    if (
-      !teamId
-    ) {
-
-      throw new Error(
-        `team mapping failed: ${teamName}`
-      );
-    }
-
-
-    const listUrl =
-      `https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/teams/${teamId}/injuries?limit=100`;
-
-
-    const listBody =
-      await fetchJsonStrict(
-        listUrl
-      );
-
-
-    const refs =
-      (listBody?.items || [])
-        .map(
-          item =>
-            item?.$ref
-        )
-        .filter(Boolean);
-
-
-    if (
-      !refs.length
-    ) {
-
-      return [];
-    }
-
-
-    /*
-     * Strict on purpose.
-     *
-     * If one detail fails, reject this ESPN snapshot
-     * instead of accidentally thinking a player
-     * disappeared from the injury report.
-     */
-    const details =
-      await Promise.all(
-        refs.map(
-          ref =>
-            fetchJsonStrict(
-              ref
-            )
-        )
-      );
-
-
-    return details
-      .map(
-        detail => {
-
-          const athleteRef =
-            detail
-              ?.athlete
-              ?.$ref ||
-            "";
-
-
-          const match =
-            String(
-              athleteRef
-            )
-              .match(
-                /athletes\/(\d+)/
-              );
-
-
-          return {
-            playerId:
-              match
-                ? match[1]
-                : null,
-
-            teamId,
-
-            status:
-              detail?.status ||
-              detail?.type
-                ?.description ||
-              "Unknown",
-
-            returnDate:
-              detail?.details
-                ?.returnDate ||
-              null
-          };
-        }
-      )
-      .filter(
-        row =>
-          Boolean(
-            row.playerId
-          )
-      );
-  }
-
-
-  async function fetchESPNGameInjuries(
-    game
-  ) {
-
-    const [
-      away,
-      home
-    ] =
-      await Promise.all([
-        fetchESPNTeamInjuries(
-          game?.away_team
-        ),
-
-        fetchESPNTeamInjuries(
-          game?.home_team
-        )
-      ]);
-
-
-    return {
-      ok: true,
-
-      rows: [
-        ...away,
-        ...home
-      ]
-    };
-  }
-
-
-  // ==========================================================
-  // ONE COMPLETE CHECK
+  // ONE COMPLETE CHECK — BALLDONTLIE ONLY
   // ==========================================================
 
   async function checkGameInternal(
@@ -945,6 +898,7 @@ function createNBAInjuryWatcher({
     if (
       stopped
     ) {
+
       return;
     }
 
@@ -960,25 +914,31 @@ function createNBAInjuryWatcher({
     if (
       !gameId
     ) {
+
       return;
     }
 
 
     const gameStartMs =
+
       typeof getGameStartMs ===
         "function"
+
         ? getGameStartMs(
             game
           )
+
         : Date.parse(
             game?.game_time
           );
 
 
     if (
+
       !Number.isFinite(
         gameStartMs
       ) ||
+
       gameStartMs <=
         Date.now()
     ) {
@@ -987,150 +947,146 @@ function createNBAInjuryWatcher({
         gameId
       );
 
+
       return;
     }
 
 
-    const [
-      bdl,
-      espn
-    ] =
-      await Promise.all([
+    const bdl =
 
-        fetchBDLGameInjuries(
-          game
-        )
-          .catch(
-            error => ({
-              ok: false,
-              error:
-                error?.message ||
-                String(error)
-            })
-          ),
+      await fetchBDLGameInjuries(
+        game
+      )
 
-        fetchESPNGameInjuries(
-          game
-        )
-          .catch(
-            error => ({
-              ok: false,
-              error:
-                error?.message ||
-                String(error)
-            })
-          )
+        .catch(
+          error => ({
 
-      ]);
+            ok:
+              false,
 
-
-    const state =
-      gameStates.get(
-        gameId
-      ) || {
-        fingerprints: {},
-        snapshots: {}
-      };
-
-
-    const changedProviders =
-      [];
-
-
-    const applyProvider =
-      (
-        provider,
-        result
-      ) => {
-
-        if (
-          result?.ok !==
-          true
-        ) {
-
-          logProviderErrorOnce(
-            gameId,
-            provider,
-            result?.error
-          );
-
-          /*
-           * CRITICAL:
-           * Failed provider does NOT overwrite
-           * last known good state.
-           */
-          return;
-        }
-
-
-        clearProviderError(
-          gameId,
-          provider
+            error:
+              error?.message ||
+              String(
+                error
+              )
+          })
         );
 
 
-        const normalized =
-          normalizeProviderRows(
-            result.rows
-          );
+    // ========================================================
+    // BDL FAILURE
+    //
+    // A provider failure NEVER becomes "0 injuries".
+    // Keep the last known good state intact.
+    // ========================================================
+
+    if (
+      bdl?.ok !==
+      true
+    ) {
+
+      logProviderErrorOnce(
+
+        gameId,
+
+        "balldontlie",
+
+        bdl?.error
+      );
 
 
-        const fingerprint =
-          fingerprintRows(
-            normalized
-          );
+      return;
+    }
 
 
-        const previous =
-          state
-            .fingerprints[
-              provider
-            ];
+    clearProviderError(
+
+      gameId,
+
+      "balldontlie"
+    );
 
 
-        if (
-          typeof previous ===
-            "string" &&
-          previous !==
-            fingerprint
-        ) {
+    const state =
 
-          changedProviders.push(
-            provider
-          );
-        }
+      gameStates.get(
+        gameId
+      ) ||
 
+      {
 
-        state
-          .fingerprints[
-            provider
-          ] =
-          fingerprint;
+        fingerprints:
+          {},
 
-
-        state
-          .snapshots[
-            provider
-          ] =
-          normalized;
+        snapshots:
+          {}
       };
 
 
-    applyProvider(
-      "balldontlie",
-      bdl
-    );
+    const normalized =
+      normalizeProviderRows(
+        bdl.rows
+      );
 
 
-    applyProvider(
-      "espn",
-      espn
-    );
+    const fingerprint =
+      fingerprintRows(
+        normalized
+      );
+
+
+    const previousFingerprint =
+
+      state
+        ?.fingerprints
+        ?.balldontlie;
+
+
+    const isBaseline =
+
+      typeof previousFingerprint !==
+      "string";
+
+
+    const changed =
+
+      !isBaseline &&
+
+      previousFingerprint !==
+        fingerprint;
+
+
+    const nowIso =
+      new Date()
+        .toISOString();
+
+
+    // ========================================================
+    // LAST KNOWN GOOD IN-MEMORY STATE
+    // ========================================================
+
+    state
+      .fingerprints
+      .balldontlie =
+      fingerprint;
+
+
+    state
+      .snapshots
+      .balldontlie =
+      normalized;
+
+
+    state.awayTeamId =
+      bdl.awayTeamId;
+
+
+    state.homeTeamId =
+      bdl.homeTeamId;
 
 
     state.updatedAt =
-      new Date()
-        .toISOString();
+      nowIso;
 
 
     gameStates.set(
@@ -1139,31 +1095,89 @@ function createNBAInjuryWatcher({
     );
 
 
+    // ========================================================
+    // PERSIST
+    //
+    // Only baseline or REAL structural change reaches Vercel.
+    //
+    // Identical repeated checks stay inside Railway.
+    // ========================================================
+
     if (
-      changedProviders.length >
-      0
+      isBaseline ||
+      changed
+    ) {
+
+      fireSnapshotSafe({
+
+        gameId,
+
+        game,
+
+
+        awayTeamId:
+          bdl.awayTeamId,
+
+
+        homeTeamId:
+          bdl.homeTeamId,
+
+
+        injuries:
+          normalized,
+
+
+        fingerprint,
+
+
+        isBaseline,
+
+
+        changed,
+
+
+        checkedAt:
+          nowIso
+      });
+    }
+
+
+    // ========================================================
+    // STRUCTURAL CHANGE
+    // ========================================================
+
+    if (
+      changed
     ) {
 
       logger.log(
-        `[nba-injury-watch] CHANGE ${gameId} | ${changedProviders.join(", ")}`
+        `[nba-injury-watch] CHANGE ${gameId} | balldontlie`
       );
 
 
       fireChangeSafe({
+
         gameId,
+
         game,
 
-        changedProviders,
+
+        changedProviders:
+          [
+            "balldontlie"
+          ],
+
 
         fingerprints:
           state.fingerprints,
 
+
         snapshots:
           state.snapshots,
 
+
         detectedAt:
-          new Date()
-            .toISOString()
+          nowIso
       });
     }
   }
@@ -1180,11 +1194,15 @@ function createNBAInjuryWatcher({
     try {
 
       if (
+
         stopped ||
+
         cleanText(
           game?.sport
-        ) !== "nba"
+        ) !==
+          "nba"
       ) {
+
         return;
       }
 
@@ -1198,11 +1216,14 @@ function createNBAInjuryWatcher({
 
 
       if (
+
         !gameId ||
+
         baselineInFlight.has(
           gameId
         )
       ) {
+
         return;
       }
 
@@ -1214,18 +1235,15 @@ function createNBAInjuryWatcher({
 
 
       if (
+
         existing &&
-        (
-          typeof existing
-            ?.fingerprints
-            ?.balldontlie ===
-            "string" ||
-          typeof existing
-            ?.fingerprints
-            ?.espn ===
-            "string"
-        )
+
+        typeof existing
+          ?.fingerprints
+          ?.balldontlie ===
+          "string"
       ) {
+
         return;
       }
 
@@ -1242,9 +1260,31 @@ function createNBAInjuryWatcher({
         );
 
 
-        logger.log(
-          `[nba-injury-watch] baseline ready ${gameId}`
-        );
+        const baselineState =
+          gameStates.get(
+            gameId
+          );
+
+
+        if (
+
+          typeof baselineState
+            ?.fingerprints
+            ?.balldontlie ===
+          "string"
+        ) {
+
+          logger.log(
+            `[nba-injury-watch] baseline ready ${gameId}`
+          );
+
+        } else {
+
+          logger.log(
+            `[nba-injury-watch] baseline unavailable ${gameId}`
+          );
+        }
+
 
       } finally {
 
@@ -1252,6 +1292,7 @@ function createNBAInjuryWatcher({
           gameId
         );
       }
+
 
     } catch (
       error
@@ -1262,6 +1303,8 @@ function createNBAInjuryWatcher({
       );
     }
   }
+
+
 
 
   // ==========================================================
