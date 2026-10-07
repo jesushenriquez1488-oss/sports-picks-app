@@ -782,6 +782,9 @@ const NBA_INJURY_INGEST_URL =
   `${CASHEDGE_ORIGIN}/api/analyze-nba?mode=ingest-nba-injuries`;
 
 
+const NBA_INJURY_REANALYSIS_URL =
+  `${CASHEDGE_ORIGIN}/api/analyze-nba?mode=generate-daily`;
+
 const PICK_CONTEXT_SYNC_URL =
   process.env.PICK_CONTEXT_SYNC_URL;
 const SPORTS = [
@@ -1371,6 +1374,13 @@ async function syncNBAInjurySnapshotSafe(
     }
 
 
+    // ========================================================
+    // 1. PERSIST NEW GOOD INJURY SNAPSHOT
+    //
+    // Nothing happens until Vercel confirms the snapshot
+    // was successfully stored.
+    // ========================================================
+
     const response =
       await fetch(
         NBA_INJURY_INGEST_URL,
@@ -1440,20 +1450,161 @@ async function syncNBAInjurySnapshotSafe(
     }
 
 
+    // ========================================================
+    // BASELINE
+    //
+    // Important:
+    // Vercel may report changed=true when the row did not
+    // previously exist.
+    //
+    // Railway knows whether this was actually a baseline.
+    // A baseline NEVER causes reanalysis.
+    // ========================================================
+
     if (
-      body.changed === true
-    ) {
-
-      console.log(
-        `[${WORKER_NAME}] NBA injury snapshot changed: ${event.gameId} | injuries=${Number(body.injuries || 0)}`
-      );
-
-    } else if (
       event.isBaseline === true
     ) {
 
       console.log(
         `[${WORKER_NAME}] NBA injury baseline saved: ${event.gameId} | injuries=${Number(body.injuries || 0)}`
+      );
+
+      return;
+    }
+
+
+    // ========================================================
+    // NO REAL STRUCTURAL CHANGE
+    // ========================================================
+
+    if (
+      event.changed !== true ||
+      body.changed !== true
+    ) {
+
+      return;
+    }
+
+
+    console.log(
+      `[${WORKER_NAME}] NBA injury snapshot changed: ${event.gameId} | injuries=${Number(body.injuries || 0)}`
+    );
+
+
+    // ========================================================
+    // 2. TARGETED NBA REANALYSIS
+    //
+    // Snapshot is already persisted at this point.
+    //
+    // Only:
+    // - basketball_nba
+    // - this exact gameId
+    // - force=true
+    //
+    // Completely isolated from Market Intelligence.
+    // ========================================================
+
+    try {
+
+      const params =
+        new URLSearchParams({
+
+          sport:
+            "basketball_nba",
+
+          gameId:
+            String(
+              event.gameId
+            ),
+
+          force:
+            "true"
+        });
+
+
+      const reanalysisResponse =
+        await fetch(
+          `${NBA_INJURY_REANALYSIS_URL}&${params.toString()}`,
+          {
+
+            method:
+              "GET",
+
+            headers: {
+
+              "X-Internal-Secret":
+                MARKET_INGEST_SECRET
+            }
+          }
+        );
+
+
+      const reanalysisBody =
+        await reanalysisResponse
+          .json()
+          .catch(
+            () => null
+          );
+
+
+      if (
+        !reanalysisResponse.ok
+      ) {
+
+        throw new Error(
+          reanalysisBody?.error ||
+          `HTTP ${reanalysisResponse.status}`
+        );
+      }
+
+
+      // ======================================================
+      // generate-daily can return HTTP 200 while an individual
+      // generated game contains an analysis error.
+      //
+      // Detect that too.
+      // ======================================================
+
+      const failedResult =
+        Array.isArray(
+          reanalysisBody?.results
+        )
+          ? reanalysisBody.results
+              .find(
+                result =>
+                  result?.ok !== true
+              )
+          : null;
+
+
+      if (
+        failedResult
+      ) {
+
+        throw new Error(
+          failedResult?.error ||
+          "Targeted NBA reanalysis failed"
+        );
+      }
+
+
+      console.log(
+        `[${WORKER_NAME}] NBA injury reanalysis complete: ${event.gameId}`
+      );
+
+    } catch (
+      error
+    ) {
+
+      /*
+       * CRITICAL:
+       *
+       * Snapshot already succeeded.
+       * Reanalysis failure must NEVER propagate back into
+       * Owls / Market Intelligence / splits / Learning.
+       */
+      console.error(
+        `[nba-injury-watch] reanalysis failed ${event.gameId}: ${error?.message || error}`
       );
     }
 
