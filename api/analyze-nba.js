@@ -3037,22 +3037,40 @@ const forceRefresh =
   req.body?.forceRefresh === true;
 
 // =====================================================
-// CONGELAR PREMIUM 30 MINUTOS ANTES DEL JUEGO
+// ANALYSIS FREEZE
+//
+// NBA:
+//   todo puede cambiar hasta TIPOFF.
+//   En tipoff se congela absolutamente.
+//
+// WNBA / NCAAB:
+//   conservan el comportamiento anterior.
 // =====================================================
 
-const gameStartMs = gameTime
-  ? new Date(gameTime).getTime()
-  : NaN;
+const gameStartMs =
+  gameTime
+    ? new Date(
+        gameTime
+      ).getTime()
+    : NaN;
 
-const premiumFrozen =
-  Number.isFinite(gameStartMs) &&
-  Date.now() >= gameStartMs - 30 * 60 * 1000;
+
+const freezeAtMs =
+  selectedLeague === "nba"
+    ? gameStartMs
+    : gameStartMs -
+      30 * 60 * 1000;
 
 
-// Si faltan 30 minutos o menos:
-// NO recalcular, NO aceptar nueva línea,
-// NO crear un Premium nuevo.
-if (premiumFrozen) {
+const analysisFrozen =
+  Number.isFinite(
+    gameStartMs
+  ) &&
+  Date.now() >=
+    freezeAtMs;
+
+
+if (analysisFrozen) {
 
   // Si ya existe análisis, devolver exactamente
   // lo que estaba guardado antes del cierre.
@@ -3086,65 +3104,119 @@ if (
 }
 
     return res.status(200).json({
-      locked,
-      isPremiumPick:
-        cachedAnalysis.isPremiumPick,
-      noPlay:
-        cachedAnalysis.noPlay,
-      public:
-        cachedAnalysis.public,
-      premium:
-        locked
-          ? null
-          : cachedAnalysis.premium
-    });
+
+  locked,
+
+  isPremiumPick:
+    cachedAnalysis.isPremiumPick,
+
+  noPlay:
+    cachedAnalysis.noPlay,
+
+
+  card:
+    locked
+      ? (
+          cachedAnalysis.card ||
+          null
+        )
+      : (
+          cachedAnalysis
+            ?.premium
+            ?.card ||
+          cachedAnalysis.card ||
+          null
+        ),
+
+
+  public:
+    cachedAnalysis.public,
+
+  premium:
+    locked
+      ? null
+      : cachedAnalysis.premium
+});
   }
 
   // Si nunca hubo análisis antes del cierre,
   // ya no puede aparecer una Premium nueva.
   return res.status(200).json({
-    locked: false,
-    isPremiumPick: false,
-    noPlay: true,
-    public: {
-      awayTeam,
-      homeTeam,
-      confidence: null,
-      freePick: null
-    },
-    premium: null,
-    reason:
-      "Premium window locked 30 minutes before game time"
-  });
+
+  locked:
+    false,
+
+  isPremiumPick:
+    false,
+
+  noPlay:
+    true,
+
+
+  ...(selectedLeague === "nba"
+    ? {
+        card: {
+
+          status:
+            "game_started",
+
+          locked:
+            true,
+
+          isPremium:
+            false,
+
+          awayTeam,
+          homeTeam,
+          gameTime,
+
+          pick:
+            null,
+
+          confidence:
+            null,
+
+          edge:
+            null,
+
+          projection:
+            null,
+
+          market:
+            null,
+
+          context:
+            null
+        }
+      }
+    : {}),
+
+
+  public: {
+
+    awayTeam,
+    homeTeam,
+
+    confidence:
+      null,
+
+    freePick:
+      null
+  },
+
+
+  premium:
+    null,
+
+
+  reason:
+    selectedLeague === "nba"
+      ? "NBA analysis locked at tipoff."
+      : "Premium window locked 30 minutes before game time"
+});
 }
 
-const currentMarket = {
-  awaySpread:
-    awaySpread === null ||
-    awaySpread === undefined ||
-    awaySpread === ""
-      ? null
-      : Number(awaySpread),
-
-  homeSpread:
-    homeSpread === null ||
-    homeSpread === undefined ||
-    homeSpread === ""
-      ? null
-      : Number(homeSpread),
-
-  total:
-    total === null ||
-    total === undefined ||
-    total === ""
-      ? null
-      : Number(total)
-};
-
-const cachedMarket =
-  existing?.analysis_json?.marketSnapshot;
-
-const normalizeCachedMarketValue = value => {
+const normalizeMarketValue = value => {
   if (
     value === null ||
     value === undefined ||
@@ -3153,18 +3225,97 @@ const normalizeCachedMarketValue = value => {
     return null;
   }
 
-  const number = Number(value);
+  const number =
+    Number(value);
 
   return Number.isFinite(number)
     ? number
     : null;
 };
 
+
+const currentMarket = {
+
+  awaySpread:
+    normalizeMarketValue(
+      awaySpread
+    ),
+
+  homeSpread:
+    normalizeMarketValue(
+      homeSpread
+    ),
+
+  awaySpreadPrice:
+    normalizeMarketValue(
+      awaySpreadPrice
+    ),
+
+  homeSpreadPrice:
+    normalizeMarketValue(
+      homeSpreadPrice
+    ),
+
+  total:
+    normalizeMarketValue(
+      total
+    ),
+
+  overPrice:
+    normalizeMarketValue(
+      overPrice
+    ),
+
+  underPrice:
+    normalizeMarketValue(
+      underPrice
+    )
+};
+
+
+const cachedMarket =
+  existing
+    ?.analysis_json
+    ?.marketSnapshot;
+
+
 const marketUnchanged =
   cachedMarket &&
-  normalizeCachedMarketValue(cachedMarket.awaySpread) === currentMarket.awaySpread &&
-  normalizeCachedMarketValue(cachedMarket.homeSpread) === currentMarket.homeSpread &&
-  normalizeCachedMarketValue(cachedMarket.total) === currentMarket.total;
+
+  normalizeMarketValue(
+    cachedMarket.awaySpread
+  ) ===
+  currentMarket.awaySpread &&
+
+  normalizeMarketValue(
+    cachedMarket.homeSpread
+  ) ===
+  currentMarket.homeSpread &&
+
+  normalizeMarketValue(
+    cachedMarket.awaySpreadPrice
+  ) ===
+  currentMarket.awaySpreadPrice &&
+
+  normalizeMarketValue(
+    cachedMarket.homeSpreadPrice
+  ) ===
+  currentMarket.homeSpreadPrice &&
+
+  normalizeMarketValue(
+    cachedMarket.total
+  ) ===
+  currentMarket.total &&
+
+  normalizeMarketValue(
+    cachedMarket.overPrice
+  ) ===
+  currentMarket.overPrice &&
+
+  normalizeMarketValue(
+    cachedMarket.underPrice
+  ) ===
+  currentMarket.underPrice;
 // Caché normal mientras todavía faltan
 // más de 30 minutos.
 if (
@@ -3214,19 +3365,40 @@ if (
   );
 }
 
-  return res.status(200).json({
-    locked,
-    isPremiumPick:
-      cachedAnalysis.isPremiumPick,
-    noPlay:
-      cachedAnalysis.noPlay,
-    public:
-      cachedAnalysis.public,
-    premium:
-      locked
-        ? null
-        : cachedAnalysis.premium
-  });
+ return res.status(200).json({
+
+  locked,
+
+  isPremiumPick:
+    cachedAnalysis.isPremiumPick,
+
+  noPlay:
+    cachedAnalysis.noPlay,
+
+
+  card:
+    locked
+      ? (
+          cachedAnalysis.card ||
+          null
+        )
+      : (
+          cachedAnalysis
+            ?.premium
+            ?.card ||
+          cachedAnalysis.card ||
+          null
+        ),
+
+
+  public:
+    cachedAnalysis.public,
+
+  premium:
+    locked
+      ? null
+      : cachedAnalysis.premium
+});
 }
     const origin = getOrigin(req);
 
@@ -3792,18 +3964,94 @@ else if (hasTotalMarket) {
   }
 }
 
-    if (confidence < 60) {
-      const noPlayData = {
-        locked: false,
-        isPremiumPick: false,
-        noPlay: true,
-        marketSnapshot: currentMarket,
-       public: {
-          title: "No clear edge",
-          message: "The model didn't find enough edge to recommend a play on this game.",
-          reason: "Low probability according to the model."
+      const minimumVisibleConfidence =
+      selectedLeague === "nba"
+        ? 51
+        : 60;
+
+
+    if (
+      confidence <
+      minimumVisibleConfidence
+    ) {
+           const noPlayData = {
+
+        locked:
+          false,
+
+        isPremiumPick:
+          false,
+
+        noPlay:
+          true,
+
+        marketSnapshot:
+          currentMarket,
+
+
+        ...(selectedLeague === "nba"
+          ? {
+              card: {
+
+                status:
+                  "no_play",
+
+                isPremium:
+                  false,
+
+                awayTeam,
+                homeTeam,
+                gameTime,
+
+                pick:
+                  null,
+
+                confidence,
+
+                edge:
+                  mainEdge,
+
+                projection: {
+
+                  away:
+                    projA,
+
+                  home:
+                    projB,
+
+                  total:
+                    totalProj,
+
+                  margin:
+                    projectedMargin
+                },
+
+                market: {
+                  ...currentMarket
+                },
+
+                generatedAt:
+                  new Date()
+                    .toISOString()
+              }
+            }
+          : {}),
+
+
+        public: {
+
+          title:
+            "No clear edge",
+
+          message:
+            "The model didn't find enough edge to recommend a play on this game.",
+
+          reason:
+            "Low probability according to the model."
         },
-        premium: null
+
+        premium:
+          null
       };
 
      const {
@@ -3959,46 +4207,478 @@ const verdict = isPremiumPick ? "Premium" : "Moderado";
 const risk = isPremiumPick ? "Bajo" : "Medio";
     const locked = isPremiumPick && !isPremiumUser;
 
+      const cardPickText =
+      String(
+        pick || ""
+      );
+
+
+    const cardPickLower =
+      cardPickText
+        .toLowerCase();
+
+
+    const cardIsTotal =
+      cardPickLower
+        .includes("over") ||
+      cardPickLower
+        .includes("under");
+
+
+    const cardPickTeam =
+      cardIsTotal
+        ? null
+        : cardPickText
+            .includes(awayTeam)
+          ? awayTeam
+          : cardPickText
+              .includes(homeTeam)
+            ? homeTeam
+            : null;
+
+
+    const cardLine =
+      cardIsTotal
+        ? currentMarket.total
+        : cardPickTeam === awayTeam
+          ? currentMarket.awaySpread
+          : cardPickTeam === homeTeam
+            ? currentMarket.homeSpread
+            : null;
+
+
+    const cardDirection =
+      cardPickLower
+        .includes("over")
+        ? "OVER"
+        : cardPickLower
+            .includes("under")
+          ? "UNDER"
+          : null;
+
+
     const fullAnalysis = {
-      locked: false,
+
+      locked:
+        false,
+
       isPremiumPick,
-      noPlay: false,
-      marketSnapshot: currentMarket,
+
+      noPlay:
+        false,
+
+      marketSnapshot:
+        currentMarket,
+
+
+      // ======================================================
+      // NBA CARD DATA
+      //
+      // Nueva estructura estable para reconstruir
+      // completamente la tarjeta NBA después.
+      //
+      // No reemplaza public/premium todavía.
+      // ======================================================
+
+      ...(selectedLeague === "nba"
+        ? {
+        card: {
+
+  status:
+    isPremiumPick
+      ? "premium_locked"
+      : "play",
+
+  locked:
+    isPremiumPick,
+
+  isPremium:
+    isPremiumPick,
+
+  awayTeam,
+  homeTeam,
+  gameTime,
+
+
+  // ==============================================
+  // PUBLIC RECOMMENDATION
+  //
+  // Una Premium nunca expone aquí la jugada.
+  // ==============================================
+
+  pick:
+    isPremiumPick
+      ? null
+      : pick,
+
+  marketType:
+    isPremiumPick
+      ? null
+      : (
+          cardIsTotal
+            ? "total"
+            : "spread"
+        ),
+
+  pickTeam:
+    isPremiumPick
+      ? null
+      : cardPickTeam,
+
+  direction:
+    isPremiumPick
+      ? null
+      : cardDirection,
+
+  line:
+    isPremiumPick
+      ? null
+      : cardLine,
+
+  odds:
+    isPremiumPick
+      ? null
+      : pickPrice,
+
+
+  // ==============================================
+  // STRENGTH
+  // ==============================================
+
+  confidence,
+
+  edge:
+    isPremiumPick
+      ? null
+      : mainEdge,
+
+
+  // ==============================================
+  // MODEL PROJECTION
+  //
+  // También se oculta porque con la proyección
+  // se podría reconstruir la jugada Premium.
+  // ==============================================
+
+  projection:
+    isPremiumPick
+      ? null
+      : {
+
+          away:
+            projA,
+
+          home:
+            projB,
+
+          total:
+            totalProj,
+
+          margin:
+            projectedMargin
+        },
+
+
+  // ==============================================
+  // MARKET
+  //
+  // Lo ocultamos en la tarjeta Premium bloqueada
+  // para mantener el paquete completamente cerrado.
+  // ==============================================
+
+  market:
+    isPremiumPick
+      ? null
+      : {
+          ...currentMarket
+        },
+
+
+  // ==============================================
+  // MODEL CONTEXT
+  // ==============================================
+
+  context:
+    isPremiumPick
+      ? null
+      : {
+
+          pace: {
+
+            applied:
+              nbaPaceAdjustment
+                .applied ===
+              true,
+
+            expectedPace:
+              nbaPaceAdjustment
+                .expectedPace ??
+              null
+          },
+
+
+          rest: {
+
+            away:
+              awayRest.note ||
+              "",
+
+            home:
+              homeRest.note ||
+              ""
+          },
+
+
+          injuries: {
+
+            away:
+              awayInjuries.note ||
+              "",
+
+            home:
+              homeInjuries.note ||
+              ""
+          }
+        },
+
+
+  generatedAt:
+    new Date()
+      .toISOString()
+}
+          }
+        : {}),
+
+
+      // ======================================================
+      // LEGACY PUBLIC
+      //
+      // Se mantiene para NO romper el frontend actual.
+      // NBA recibe también pick / odds / edge.
+      // ======================================================
+
       public: {
+
         confidence,
+
         risk,
+
         verdict,
-        hasPremium: isPremiumPick,
+
+        hasPremium:
+          isPremiumPick,
+
+
+       ...(selectedLeague === "nba" &&
+!isPremiumPick
+  ? {
+
+      pick,
+
+      odds:
+        pickPrice,
+
+      edge:
+        mainEdge
+    }
+  : {}),
+
+
         factors: [
+
           "Forma reciente",
+
           "Condición local/visitante",
+
           "Descanso",
+
           "Lesiones",
+
           "Edge contra spread/total"
         ]
       },
+
+
+      // ======================================================
+      // LEGACY PREMIUM
+      //
+      // NO eliminar todavía.
+      // Premium Radar y el frontend actual todavía pueden
+      // depender de esta estructura.
+      // ======================================================
+
       premium: {
-        pick,
+card: {
+
+  status:
+    "play",
+
+  locked:
+    false,
+
+  isPremium:
+    isPremiumPick,
+
+  awayTeam,
+  homeTeam,
+  gameTime,
+
+  pick,
+
+  marketType:
+    cardIsTotal
+      ? "total"
+      : "spread",
+
+  pickTeam:
+    cardPickTeam,
+
+  direction:
+    cardDirection,
+
+  line:
+    cardLine,
+
+  odds:
+    pickPrice,
+
+  confidence,
+
+  edge:
+    mainEdge,
+
+  projection: {
+
+    away:
+      projA,
+
+    home:
+      projB,
+
+    total:
+      totalProj,
+
+    margin:
+      projectedMargin
+  },
+
+  market: {
+    ...currentMarket
+  },
+
+  context: {
+
+    pace: {
+
+      applied:
+        nbaPaceAdjustment
+          .applied ===
+        true,
+
+      expectedPace:
+        nbaPaceAdjustment
+          .expectedPace ??
+        null
+    },
+
+    rest: {
+
+      away:
+        awayRest.note ||
+        "",
+
+      home:
+        homeRest.note ||
+        ""
+    },
+
+    injuries: {
+
+      away:
+        awayInjuries.note ||
+        "",
+
+      home:
+        homeInjuries.note ||
+        ""
+    }
+  },
+
+  generatedAt:
+    new Date()
+      .toISOString()
+},
+
+ pick,
+
         confidence,
+
         risk,
+
         verdict,
+
         mainEdge,
-        mainEdgeConfidence: confidence,
-        odds_american: pickPrice,
-        spreadDiff: projectedMargin,
+
+        mainEdgeConfidence:
+          confidence,
+
+        odds_american:
+          pickPrice,
+
+        spreadDiff:
+          projectedMargin,
+
         projA,
+
         projB,
+
         totalProj,
-        totalLine: currentMarket.total,
-        modelAnalysis: getModelAnalysis(verdict),
-        awayRestNote: awayRest.note,
-        homeRestNote: homeRest.note,
-        awayInjuryNote: awayInjuries.note || "",
-        homeInjuryNote: homeInjuries.note || "",
-        awayInjuryPublic: getInjuryPublicMessage(awayTeam, awayInjuries),
-       homeInjuryPublic: getInjuryPublicMessage(homeTeam, homeInjuries),
-        awayRecentForm: buildRecentForm(awayAll, awayGames),
-        homeRecentForm: buildRecentForm(homeAll, homeGames)
+
+        totalLine:
+          currentMarket.total,
+
+        modelAnalysis:
+          getModelAnalysis(
+            verdict
+          ),
+
+        awayRestNote:
+          awayRest.note,
+
+        homeRestNote:
+          homeRest.note,
+
+        awayInjuryNote:
+          awayInjuries.note ||
+          "",
+
+        homeInjuryNote:
+          homeInjuries.note ||
+          "",
+
+        awayInjuryPublic:
+          getInjuryPublicMessage(
+            awayTeam,
+            awayInjuries
+          ),
+
+        homeInjuryPublic:
+          getInjuryPublicMessage(
+            homeTeam,
+            homeInjuries
+          ),
+
+        awayRecentForm:
+          buildRecentForm(
+            awayAll,
+            awayGames
+          ),
+
+        homeRecentForm:
+          buildRecentForm(
+            homeAll,
+            homeGames
+          )
       }
     };
 
@@ -4376,14 +5056,43 @@ if (!isPremiumPick) {
     "analyze-nba"
   );
 }
- return res.status(200).json({
-      locked,
-      isPremiumPick,
-      noPlay: false,
-      pickId: insertedPick?.id || null,
-      public: fullAnalysis.public,
-      premium: locked ? null : fullAnalysis.premium
-    });
+return res.status(200).json({
+
+  locked,
+
+  isPremiumPick,
+
+  noPlay:
+    false,
+
+  pickId:
+    insertedPick?.id ||
+    null,
+
+
+  card:
+    locked
+      ? (
+          fullAnalysis.card ||
+          null
+        )
+      : (
+          fullAnalysis
+            ?.premium
+            ?.card ||
+          fullAnalysis.card ||
+          null
+        ),
+
+
+  public:
+    fullAnalysis.public,
+
+  premium:
+    locked
+      ? null
+      : fullAnalysis.premium
+});
 
   } catch (error) {
     console.error("ANALYZE NBA ERROR:", error);
