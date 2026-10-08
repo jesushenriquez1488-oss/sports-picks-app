@@ -24,6 +24,69 @@ function normalizeName(value) {
     .replace(/[^a-z0-9]/g, "");
 }
 
+function normalizeStatus(status, description) {
+  const raw =
+    `${status || ""} ${description || ""}`
+      .toLowerCase();
+
+  if (
+    raw.includes("questionable")
+  ) {
+    return "Questionable";
+  }
+
+  if (
+    raw.includes("doubtful")
+  ) {
+    return "Doubtful";
+  }
+
+  if (
+    raw.includes("out for") ||
+    raw.includes("sidelined") ||
+    raw.includes("i.l.") ||
+    raw.includes("injured reserve") ||
+    raw.includes("pup")
+  ) {
+    return "Out";
+  }
+
+  return String(status || "Unknown");
+}
+
+async function apiSports(path, apiKey) {
+  const response = await fetch(
+    `https://v1.american-football.api-sports.io${path}`,
+    {
+      headers: {
+        "x-apisports-key": apiKey
+      }
+    }
+  );
+
+  const data = await response.json();
+
+  const errors =
+    data?.errors || [];
+
+  const hasErrors =
+    Array.isArray(errors)
+      ? errors.length > 0
+      : Object.keys(errors || {}).length > 0;
+
+  if (!response.ok || hasErrors) {
+    throw new Error(
+      JSON.stringify({
+        path,
+        status: response.status,
+        errors
+      })
+    );
+  }
+
+  return data;
+}
+
 module.exports = async function handler(req, res) {
   try {
     const expectedSecret = String(
@@ -47,77 +110,100 @@ module.exports = async function handler(req, res) {
       process.env.API_SPORTS_KEY || ""
     ).trim();
 
-    const apiSportsPlayerId =
-      Number(req.query.playerId || 157);
-
-    // Kansas City Chiefs ESPN ID
-    const espnTeamId = "12";
-
-
-    // ========================================================
-    // API-SPORTS PROFILE
-    // ========================================================
-
-    const apiSportsRes = await fetch(
-      `https://v1.american-football.api-sports.io/players?id=${apiSportsPlayerId}`,
-      {
-        headers: {
-          "x-apisports-key": apiKey
-        }
-      }
-    );
-
-    const apiSportsData =
-      await apiSportsRes.json();
-
-    const player =
-      apiSportsData?.response?.[0] || null;
-
-    if (!player) {
-      return res.status(404).json({
+    if (!apiKey) {
+      return res.status(500).json({
         ok: false,
-        error: "API-Sports player not found"
+        error: "API_SPORTS_KEY missing"
       });
     }
 
 
     // ========================================================
-    // ESPN TEAM ROSTER
+    // KANSAS CITY
+    // API-SPORTS = 17
+    // ESPN       = 12
     // ========================================================
 
-    const espnUrl =
-      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${espnTeamId}/roster`;
+    const apiTeamId = 17;
+    const espnTeamId = "12";
+    const season = 2026;
 
-    const espnRes =
-      await fetch(espnUrl);
 
-    if (!espnRes.ok) {
+    // ========================================================
+    // 1. CURRENT INJURIES
+    // ========================================================
+
+    const injuriesData =
+      await apiSports(
+        `/injuries?team=${apiTeamId}`,
+        apiKey
+      );
+
+    const injuries =
+      Array.isArray(injuriesData?.response)
+        ? injuriesData.response
+        : [];
+
+
+    // ========================================================
+    // 2. API-SPORTS TEAM PLAYERS
+    // ========================================================
+
+    const playersData =
+      await apiSports(
+        `/players?team=${apiTeamId}&season=${season}`,
+        apiKey
+      );
+
+    const apiPlayers =
+      Array.isArray(playersData?.response)
+        ? playersData.response
+        : [];
+
+
+    const apiPlayersById =
+      new Map(
+        apiPlayers.map(player => [
+          String(player?.id),
+          player
+        ])
+      );
+
+
+    // ========================================================
+    // 3. ESPN TEAM ROSTER
+    // ========================================================
+
+    const espnResponse = await fetch(
+      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${espnTeamId}/roster`
+    );
+
+    if (!espnResponse.ok) {
       throw new Error(
-        `ESPN roster HTTP ${espnRes.status}`
+        `ESPN roster HTTP ${espnResponse.status}`
       );
     }
 
     const espnData =
-      await espnRes.json();
+      await espnResponse.json();
 
+    const espnRoster = [];
 
-    const roster = [];
-
-    const groups =
+    for (
+      const group of
       Array.isArray(espnData?.athletes)
         ? espnData.athletes
-        : [];
-
-    for (const group of groups) {
-      const items =
+        : []
+    ) {
+      for (
+        const athlete of
         Array.isArray(group?.items)
           ? group.items
-          : [];
-
-      for (const athlete of items) {
-        roster.push({
+          : []
+      ) {
+        espnRoster.push({
           id:
-            athlete?.id || null,
+            String(athlete?.id || ""),
 
           name:
             athlete?.displayName ||
@@ -138,39 +224,144 @@ module.exports = async function handler(req, res) {
 
 
     // ========================================================
-    // MATCH BY NAME
+    // 4. CROSSWALK ALL CURRENT INJURIES
     // ========================================================
 
-    const targetName =
-      normalizeName(player.name);
+    const resolved =
+      injuries.map(injury => {
 
-    const exactMatches =
-      roster.filter(
-        athlete =>
-          normalizeName(athlete.name) ===
-          targetName
+        const apiPlayerId =
+          String(
+            injury?.player?.id ||
+            ""
+          );
+
+        const apiProfile =
+          apiPlayersById.get(
+            apiPlayerId
+          ) || null;
+
+        const injuryName =
+          injury?.player?.name ||
+          apiProfile?.name ||
+          null;
+
+        const targetName =
+          normalizeName(
+            injuryName
+          );
+
+        const position =
+          apiProfile?.position ||
+          null;
+
+
+        let espnMatch =
+          espnRoster.find(player =>
+            normalizeName(player.name) ===
+              targetName &&
+            (
+              !position ||
+              !player.position ||
+              String(player.position)
+                .toUpperCase() ===
+              String(position)
+                .toUpperCase()
+            )
+          ) || null;
+
+
+        if (!espnMatch) {
+          espnMatch =
+            espnRoster.find(player =>
+              normalizeName(player.name) ===
+              targetName
+            ) || null;
+        }
+
+
+        return {
+          apiSportsPlayerId:
+            apiPlayerId || null,
+
+          espnAthleteId:
+            espnMatch?.id ||
+            null,
+
+          name:
+            injuryName,
+
+          position:
+            position ||
+            espnMatch?.position ||
+            null,
+
+          rawStatus:
+            injury?.status ||
+            null,
+
+          normalizedStatus:
+            normalizeStatus(
+              injury?.status,
+              injury?.description
+            ),
+
+          reportDate:
+            injury?.date ||
+            null,
+
+          description:
+            injury?.description ||
+            null,
+
+          matched:
+            Boolean(
+              apiProfile &&
+              espnMatch
+            )
+        };
+      });
+
+
+    const matched =
+      resolved.filter(
+        player => player.matched
+      );
+
+    const unmatched =
+      resolved.filter(
+        player => !player.matched
       );
 
 
     return res.status(200).json({
       ok: true,
 
-      apiSports: {
-        id: player.id,
-        name: player.name,
-        position: player.position,
-        number: player.number
-      },
+      team: "Kansas City Chiefs",
+
+      apiSportsTeamId:
+        apiTeamId,
 
       espnTeamId,
 
-      rosterCount:
-        roster.length,
+      injuryCount:
+        injuries.length,
 
-      exactMatches,
+      apiPlayersCount:
+        apiPlayers.length,
 
-      sampleRoster:
-        roster.slice(0, 10)
+      espnRosterCount:
+        espnRoster.length,
+
+      matchedCount:
+        matched.length,
+
+      unmatchedCount:
+        unmatched.length,
+
+      matched,
+
+      unmatched
     });
 
   } catch (error) {
