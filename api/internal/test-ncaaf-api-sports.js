@@ -16,6 +16,9 @@ function secureEqual(supplied, expected) {
   return crypto.timingSafeEqual(a, b);
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 async function apiSportsGet(path, apiKey) {
   const response = await fetch(
@@ -49,7 +52,6 @@ async function apiSportsGet(path, apiKey) {
   return data;
 }
 
-
 module.exports = async function handler(req, res) {
   try {
     const expectedSecret = String(
@@ -69,7 +71,6 @@ module.exports = async function handler(req, res) {
       });
     }
 
-
     const apiKey = String(
       process.env.API_SPORTS_KEY || ""
     ).trim();
@@ -81,107 +82,90 @@ module.exports = async function handler(req, res) {
       });
     }
 
-
-    // ========================================================
-    // 1. NFL 2026 COVERAGE
-    // ========================================================
-
-    const leagueData =
-      await apiSportsGet(
-        "/leagues?id=1&season=2026",
-        apiKey
-      );
-
-    const league =
-      leagueData?.response?.[0] || null;
-
-    const season =
-      league?.seasons?.find(
-        item => Number(item?.year) === 2026
-      ) || null;
-
-
-    // ========================================================
-    // 2. NFL TEAMS
-    // ========================================================
-
     const teamsData =
       await apiSportsGet(
-        "/teams?league=1&season=2026",
+        "/teams?league=2&season=2026",
         apiKey
       );
 
-    const teams =
+    const allTeams =
       Array.isArray(teamsData?.response)
         ? teamsData.response
         : [];
 
+    const wantedNames = [
+      "Alabama",
+      "Georgia",
+      "Ohio State",
+      "Notre Dame",
+      "Texas",
+      "Texas A&M",
+      "LSU",
+      "Florida",
+      "Tennessee",
+      "Oregon",
+      "Penn State",
+      "Michigan",
+      "Clemson",
+      "Miami",
+      "USC",
+      "Oklahoma",
+      "Auburn",
+      "Missouri"
+    ];
 
-    // ========================================================
-    // 3. INJURIES — ALL NFL TEAMS
-    // ========================================================
+    const teams =
+      wantedNames
+        .map(name =>
+          allTeams.find(
+            team =>
+              String(team?.name || "")
+                .toLowerCase() ===
+              name.toLowerCase()
+          )
+        )
+        .filter(Boolean);
 
     const results = [];
 
-    const BATCH_SIZE = 8;
+    for (const team of teams) {
+      try {
+        const data =
+          await apiSportsGet(
+            `/injuries?team=${team.id}`,
+            apiKey
+          );
 
-    for (
-      let i = 0;
-      i < teams.length;
-      i += BATCH_SIZE
-    ) {
-      const batch =
-        teams.slice(
-          i,
-          i + BATCH_SIZE
-        );
+        const injuries =
+          Array.isArray(data?.response)
+            ? data.response
+            : [];
 
-      const batchResults =
-        await Promise.all(
-          batch.map(async team => {
-            try {
-              const data =
-                await apiSportsGet(
-                  `/injuries?team=${team.id}`,
-                  apiKey
-                );
+        results.push({
+          teamId: team.id,
+          teamName: team.name,
+          count: injuries.length,
+          injuries
+        });
 
-              const injuries =
-                Array.isArray(data?.response)
-                  ? data.response
-                  : [];
+      } catch (error) {
+        results.push({
+          teamId: team.id,
+          teamName: team.name,
+          count: 0,
+          injuries: [],
+          error: error.message
+        });
+      }
 
-              return {
-                teamId: team.id,
-                teamName: team.name,
-                count: injuries.length,
-                injuries
-              };
-
-            } catch (error) {
-              return {
-                teamId: team.id,
-                teamName: team.name,
-                count: 0,
-                injuries: [],
-                error: error.message
-              };
-            }
-          })
-        );
-
-      results.push(
-        ...batchResults
-      );
+      // ~20 requests/minuto máximo
+      await sleep(3000);
     }
-
 
     const teamsWithInjuries =
       results.filter(
-        team =>
-          team.count > 0
+        team => team.count > 0
       );
-
 
     const totalInjuries =
       teamsWithInjuries.reduce(
@@ -190,33 +174,13 @@ module.exports = async function handler(req, res) {
         0
       );
 
-
     return res.status(200).json({
       ok: true,
-
-      league:
-        league?.league?.name || null,
-
-      season:
-        season?.year || null,
-
-      injuriesCoverage:
-        season?.coverage?.injuries ?? null,
-
-      nflTeams:
-        teams.length,
-
-      teamsChecked:
-        results.length,
-
+      teamsChecked: results.length,
       teamsWithInjuries:
         teamsWithInjuries.length,
-
       totalInjuries,
-
-      results:
-        teamsWithInjuries,
-
+      results,
       errors:
         results.filter(
           team => team.error
