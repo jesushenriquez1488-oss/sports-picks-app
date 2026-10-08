@@ -20,10 +20,7 @@ function secureEqual(
   supplied,
   expected
 ) {
-  if (
-    !supplied ||
-    !expected
-  ) {
+  if (!supplied || !expected) {
     return false;
   }
 
@@ -39,52 +36,175 @@ function secureEqual(
       .update(String(expected))
       .digest();
 
-  return crypto
-    .timingSafeEqual(
-      a,
-      b
-    );
+  return crypto.timingSafeEqual(
+    a,
+    b
+  );
 }
 
 
 // ============================================================
-// TEAM MAP — ESPN
+// CSV PARSER
 // ============================================================
 
-const ESPN_TEAM_IDS = {
-  "arizona cardinals": "22",
-  "atlanta falcons": "1",
-  "baltimore ravens": "33",
-  "buffalo bills": "2",
-  "carolina panthers": "29",
-  "chicago bears": "3",
-  "cincinnati bengals": "4",
-  "cleveland browns": "5",
-  "dallas cowboys": "6",
-  "denver broncos": "7",
-  "detroit lions": "8",
-  "green bay packers": "9",
-  "houston texans": "34",
-  "indianapolis colts": "11",
-  "jacksonville jaguars": "30",
-  "kansas city chiefs": "12",
-  "las vegas raiders": "13",
-  "los angeles chargers": "24",
-  "los angeles rams": "14",
-  "miami dolphins": "15",
-  "minnesota vikings": "16",
-  "new england patriots": "17",
-  "new orleans saints": "18",
-  "new york giants": "19",
-  "new york jets": "20",
-  "philadelphia eagles": "21",
-  "pittsburgh steelers": "23",
-  "san francisco 49ers": "25",
-  "seattle seahawks": "26",
-  "tampa bay buccaneers": "27",
-  "tennessee titans": "10",
-  "washington commanders": "28"
-};
+function parseCSV(text) {
+
+  const rows = [];
+
+  let row = [];
+  let field = "";
+  let quoted = false;
+
+  for (
+    let i = 0;
+    i < text.length;
+    i++
+  ) {
+
+    const char =
+      text[i];
+
+    const next =
+      text[i + 1];
+
+
+    if (char === "\"") {
+
+      if (
+        quoted &&
+        next === "\""
+      ) {
+        field += "\"";
+        i++;
+      } else {
+        quoted = !quoted;
+      }
+
+      continue;
+    }
+
+
+    if (
+      char === "," &&
+      !quoted
+    ) {
+      row.push(field);
+      field = "";
+      continue;
+    }
+
+
+    if (
+      (char === "\n" ||
+       char === "\r") &&
+      !quoted
+    ) {
+
+      if (
+        char === "\r" &&
+        next === "\n"
+      ) {
+        i++;
+      }
+
+      row.push(field);
+      field = "";
+
+      if (
+        row.some(
+          value =>
+            String(value).trim() !== ""
+        )
+      ) {
+        rows.push(row);
+      }
+
+      row = [];
+
+      continue;
+    }
+
+
+    field += char;
+  }
+
+
+  if (
+    field.length ||
+    row.length
+  ) {
+    row.push(field);
+    rows.push(row);
+  }
+
+
+  if (!rows.length) {
+    return [];
+  }
+
+
+  const headers =
+    rows[0].map(
+      value =>
+        String(value || "")
+          .replace(/^\uFEFF/, "")
+          .trim()
+    );
+
+
+  return rows
+    .slice(1)
+    .map(values => {
+
+      const result = {};
+
+      for (
+        let i = 0;
+        i < headers.length;
+        i++
+      ) {
+        result[
+          headers[i]
+        ] =
+          values[i] ?? "";
+      }
+
+      return result;
+    });
+}
+
+
+// ============================================================
+// FETCH CSV
+// ============================================================
+
+async function fetchCSV(url) {
+
+  const response =
+    await fetch(
+      url,
+      {
+        headers: {
+          "User-Agent":
+            "CashEdge-NFL-History/1.0"
+        }
+      }
+    );
+
+
+  if (!response.ok) {
+    throw new Error(
+      `NFLverse HTTP ${response.status}: ${url}`
+    );
+  }
+
+
+  const text =
+    await response.text();
+
+
+  return parseCSV(text);
+}
 
 
 // ============================================================
@@ -92,25 +212,41 @@ const ESPN_TEAM_IDS = {
 // ============================================================
 
 function normalizeName(value) {
-  return String(value || "")
+
+  return String(
+    value || ""
+  )
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
     .replace(
       /\b(jr|sr|ii|iii|iv|v)\b/gi,
       ""
     )
     .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
+    .replace(
+      /[^a-z0-9]/g,
+      ""
+    );
 }
 
 
 function normalizePosition(value) {
+
   const pos =
-    String(value || "")
+    String(
+      value || ""
+    )
       .toUpperCase()
       .trim();
 
-  if (pos === "QB") return "QB";
+
+  if (pos === "QB") {
+    return "QB";
+  }
+
 
   if (
     pos === "RB" ||
@@ -120,413 +256,137 @@ function normalizePosition(value) {
     return "RB";
   }
 
-  if (pos === "WR") return "WR";
 
-  if (pos === "TE") return "TE";
+  if (pos === "WR") {
+    return "WR";
+  }
+
+
+  if (pos === "TE") {
+    return "TE";
+  }
+
 
   return null;
 }
 
 
-function getESPNTeamId(name) {
-  return (
-    ESPN_TEAM_IDS[
-      String(name || "")
-        .toLowerCase()
-        .trim()
-    ] ||
-    null
-  );
-}
-
-
-function hasApiErrors(errors) {
-  if (Array.isArray(errors)) {
-    return errors.length > 0;
-  }
-
-  return (
-    errors &&
-    typeof errors === "object" &&
-    Object.keys(errors).length > 0
-  );
-}
-
-
-// ============================================================
-// API SPORTS
-// ============================================================
-
-async function apiSports(
-  path,
-  apiKey
-) {
-  const response =
-    await fetch(
-      `https://v1.american-football.api-sports.io${path}`,
-      {
-        headers: {
-          "x-apisports-key":
-            apiKey
-        }
-      }
-    );
-
-  const data =
-    await response.json();
+function numberOrNull(value) {
 
   if (
-    !response.ok ||
-    hasApiErrors(
-      data?.errors
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
+
+  const n =
+    Number(value);
+
+
+  return Number.isFinite(n)
+    ? n
+    : null;
+}
+
+
+// ============================================================
+// ROSTER STATUS
+//
+// Estos estados significan que el jugador
+// todavía pertenece al equipo / está bajo control del equipo.
+//
+// NO incluimos CUT / UFA / practice squad.
+// ============================================================
+
+const VALID_TEAM_STATUSES =
+  new Set([
+    "ACT",
+    "INA",
+    "PUP",
+    "RES",
+    "RSN",
+    "EXE",
+    "SUS"
+  ]);
+
+
+function rosterStatusCounts(
+  status
+) {
+
+  return VALID_TEAM_STATUSES.has(
+    String(
+      status || ""
     )
-  ) {
-    throw new Error(
-      `API-Sports ${path}: ` +
-      JSON.stringify(
-        data?.errors ||
-        response.status
-      )
-    );
-  }
-
-  return data;
-}
-
-
-// ============================================================
-// ESPN
-// ============================================================
-
-async function espnJson(url) {
-  const response =
-    await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(
-      `ESPN ${response.status}`
-    );
-  }
-
-  return response.json();
-}
-
-
-const scoreboardCache =
-  new Map();
-
-
-async function getESPNScoreboard(
-  date
-) {
-  const key =
-    String(date)
-      .replace(/-/g, "");
-
-  if (
-    scoreboardCache.has(key)
-  ) {
-    return scoreboardCache.get(
-      key
-    );
-  }
-
-  const data =
-    await espnJson(
-      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${key}&limit=100`
-    );
-
-  scoreboardCache.set(
-    key,
-    data
-  );
-
-  return data;
-}
-
-
-async function findESPNGame({
-  date,
-  homeTeamId,
-  awayTeamId
-}) {
-  const data =
-    await getESPNScoreboard(
-      date
-    );
-
-  const events =
-    Array.isArray(data?.events)
-      ? data.events
-      : [];
-
-  for (const event of events) {
-    const competition =
-      event?.competitions?.[0];
-
-    const competitors =
-      competition?.competitors ||
-      [];
-
-    const ids =
-      competitors.map(
-        item =>
-          String(
-            item?.team?.id ||
-            ""
-          )
-      );
-
-    if (
-      ids.includes(
-        String(homeTeamId)
-      ) &&
-      ids.includes(
-        String(awayTeamId)
-      )
-    ) {
-      return event;
-    }
-  }
-
-  return null;
-}
-
-
-async function getESPNSummary(
-  gameId
-) {
-  return espnJson(
-    `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`
+      .toUpperCase()
+      .trim()
   );
 }
 
 
 // ============================================================
-// ESPN PLAYER PARSER
+// UPSERT
 // ============================================================
 
-function parseESPNPlayers(
-  summary,
-  teamId
-) {
-  const teamBlocks =
-    Array.isArray(
-      summary?.boxscore?.players
-    )
-      ? summary.boxscore.players
-      : [];
-
-  const block =
-    teamBlocks.find(
-      item =>
-        String(
-          item?.team?.id ||
-          ""
-        ) ===
-        String(teamId)
-    );
-
-  if (!block) {
-    return [];
-  }
-
-  const map =
-    new Map();
-
-  for (
-    const group of
-    block.statistics || []
-  ) {
-    for (
-      const entry of
-      group?.athletes || []
-    ) {
-      const athlete =
-        entry?.athlete;
-
-      const athleteId =
-        String(
-          athlete?.id ||
-          ""
-        );
-
-      if (!athleteId) {
-        continue;
-      }
-
-      const position =
-        normalizePosition(
-          athlete?.position
-            ?.abbreviation
-        );
-
-      // Solo posiciones que usa
-      // actualmente el modelo NFL.
-      if (!position) {
-        continue;
-      }
-
-      const existing =
-        map.get(athleteId) ||
-        {
-          athleteId,
-
-          name:
-            athlete?.displayName ||
-            athlete?.fullName ||
-            null,
-
-          position,
-
-          starter: false,
-
-          playedExplicit:
-            false,
-
-          didNotPlayExplicit:
-            false
-        };
-
-      if (
-        entry?.starter ===
-        true
-      ) {
-        existing.starter =
-          true;
-      }
-
-      if (
-        entry?.didNotPlay ===
-        true
-      ) {
-        existing.didNotPlayExplicit =
-          true;
-      }
-
-      if (
-        entry?.didNotPlay ===
-        false
-      ) {
-        existing.playedExplicit =
-          true;
-      }
-
-      map.set(
-        athleteId,
-        existing
-      );
-    }
-  }
-
-  return Array.from(
-    map.values()
-  );
-}
-
-
-// ============================================================
-// API-SPORTS APPEARANCES
-// ============================================================
-
-function parseApiAppearances(
-  statsData,
-  apiTeamId
-) {
-  const response =
-    Array.isArray(
-      statsData?.response
-    )
-      ? statsData.response
-      : [];
-
-  const team =
-    response.find(
-      item =>
-        String(
-          item?.team?.id ||
-          ""
-        ) ===
-        String(apiTeamId)
-    );
-
-  if (!team) {
-    return [];
-  }
-
-  const map =
-    new Map();
-
-  for (
-    const group of
-    team.groups || []
-  ) {
-    for (
-      const entry of
-      group?.players || []
-    ) {
-      const player =
-        entry?.player;
-
-      if (!player?.id) {
-        continue;
-      }
-
-      const id =
-        String(player.id);
-
-      if (
-        !map.has(id)
-      ) {
-        map.set(id, {
-          id,
-
-          name:
-            player?.name ||
-            null
-        });
-      }
-    }
-  }
-
-  return Array.from(
-    map.values()
-  );
-}
-
-
-// ============================================================
-// UPSERT HELPER
-// ============================================================
-
-async function upsertRows(
+async function upsertChunks(
   table,
   rows,
   onConflict
 ) {
+
   if (!rows.length) {
     return 0;
   }
 
-  const {
-    error
-  } =
-    await supabaseAdmin
-      .from(table)
-      .upsert(
-        rows,
-        {
-          onConflict
-        }
+
+  let saved = 0;
+
+  const chunkSize =
+    500;
+
+
+  for (
+    let i = 0;
+    i < rows.length;
+    i += chunkSize
+  ) {
+
+    const chunk =
+      rows.slice(
+        i,
+        i + chunkSize
       );
 
-  if (error) {
-    throw new Error(
-      `${table}: ${error.message}`
-    );
+
+    const {
+      error
+    } =
+      await supabaseAdmin
+        .from(table)
+        .upsert(
+          chunk,
+          {
+            onConflict
+          }
+        );
+
+
+    if (error) {
+      throw new Error(
+        `${table}: ${error.message}`
+      );
+    }
+
+
+    saved +=
+      chunk.length;
   }
 
-  return rows.length;
+
+  return saved;
 }
 
 
@@ -539,6 +399,7 @@ module.exports =
     req,
     res
   ) {
+
     try {
 
       // ======================================================
@@ -553,6 +414,7 @@ module.exports =
           ""
         );
 
+
       const suppliedSecret =
         String(
           req.headers[
@@ -561,12 +423,14 @@ module.exports =
           ""
         );
 
+
       if (
         !secureEqual(
           suppliedSecret,
           expectedSecret
         )
       ) {
+
         return res
           .status(401)
           .json({
@@ -574,20 +438,6 @@ module.exports =
             error:
               "Unauthorized"
           });
-      }
-
-
-      const apiKey =
-        String(
-          process.env
-            .API_SPORTS_KEY ||
-          ""
-        ).trim();
-
-      if (!apiKey) {
-        throw new Error(
-          "API_SPORTS_KEY missing"
-        );
       }
 
 
@@ -601,25 +451,11 @@ module.exports =
           2025
         );
 
-      const start =
-        Math.max(
-          0,
-          Number(
-            req.query.start ||
-            0
-          )
-        );
 
-      const limit =
-        Math.min(
-          4,
-          Math.max(
-            1,
-            Number(
-              req.query.limit ||
-              4
-            )
-          )
+      const week =
+        Number(
+          req.query.week ||
+          1
         );
 
 
@@ -627,776 +463,733 @@ module.exports =
         ![2025, 2026]
           .includes(season)
       ) {
+
         return res
           .status(400)
           .json({
             ok: false,
             error:
-              "Use season 2025 or 2026"
+              "season must be 2025 or 2026"
+          });
+      }
+
+
+      if (
+        !Number.isInteger(week) ||
+        week < 1 ||
+        week > 22
+      ) {
+
+        return res
+          .status(400)
+          .json({
+            ok: false,
+            error:
+              "Invalid week"
           });
       }
 
 
       // ======================================================
-      // FULL SEASON SCHEDULE
+      // NFLVERSE URLS
       // ======================================================
 
-      const gamesData =
-        await apiSports(
-          `/games?league=1&season=${season}`,
-          apiKey
-        );
-
-      const allGames =
-        Array.isArray(
-          gamesData?.response
-        )
-          ? gamesData.response
-          : [];
+      const rosterUrl =
+        `https://github.com/nflverse/nflverse-data/releases/download/weekly_rosters/roster_weekly_${season}.csv`;
 
 
-      const completed =
-        allGames
-          .filter(item => {
-
-            const status =
-              String(
-                item?.game?.status
-                  ?.short ||
-                ""
-              )
-                .toUpperCase();
-
-            const stage =
-              String(
-                item?.game?.stage ||
-                ""
-              )
-                .toLowerCase();
-
-            const week =
-              String(
-                item?.game?.week ||
-                ""
-              )
-                .toLowerCase();
-
-            const finished =
-              status === "FT" ||
-              status === "AOT";
-
-            const preseason =
-              stage.includes(
-                "pre"
-              ) ||
-              week.includes(
-                "pre"
-              );
-
-            return (
-              finished &&
-              !preseason
-            );
-          })
-          .sort(
-            (a, b) =>
-              Number(
-                a?.game?.date
-                  ?.timestamp ||
-                0
-              ) -
-              Number(
-                b?.game?.date
-                  ?.timestamp ||
-                0
-              )
-          );
+      const snapsUrl =
+        `https://github.com/nflverse/nflverse-data/releases/download/snap_counts/snap_counts_${season}.csv`;
 
 
-      const batch =
-        completed.slice(
-          start,
-          start + limit
+      const scheduleUrl =
+        "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv";
+
+
+      // ======================================================
+      // LOAD DATA
+      // ======================================================
+
+      const [
+        rosterData,
+        snapData,
+        scheduleData
+      ] =
+        await Promise.all([
+          fetchCSV(
+            rosterUrl
+          ),
+
+          fetchCSV(
+            snapsUrl
+          ),
+
+          fetchCSV(
+            scheduleUrl
+          )
+        ]);
+
+
+      // ======================================================
+      // SCHEDULE FOR THIS WEEK
+      // REGULAR SEASON ONLY
+      // ======================================================
+
+      const games =
+        scheduleData.filter(
+          game =>
+            Number(
+              game.season
+            ) === season &&
+            Number(
+              game.week
+            ) === week &&
+            String(
+              game.game_type ||
+              ""
+            )
+              .toUpperCase() ===
+              "REG"
         );
 
 
-      // ======================================================
-      // NOTHING LEFT
-      // ======================================================
+      if (!games.length) {
 
-      if (!batch.length) {
         return res
           .status(200)
           .json({
             ok: true,
             season,
-            totalGames:
-              completed.length,
-            start,
-            processed: 0,
-            nextStart: null,
-            done: true
+            week,
+            games: 0,
+            message:
+              "No regular-season games found for this week."
           });
       }
 
 
-      const playerRows = [];
-      const teamGameRows = [];
-      const crosswalkRows = [];
-
-      const failures = [];
-
-      let apiPlayersSeen = 0;
-      let espnPlayersSeen = 0;
-      let classifiedPlayers = 0;
-      let explicitDNP = 0;
-
-
       // ======================================================
-      // PROCESS GAMES
+      // GAME MAP BY TEAM
       // ======================================================
+
+      const gameByTeam =
+        new Map();
+
 
       for (
-        const game of
-        batch
+        const game of games
       ) {
-        try {
 
-          const apiGameId =
-            game?.game?.id;
-
-          const gameDate =
-            game?.game?.date?.date;
-
-          const home =
-            game?.teams?.home;
-
-          const away =
-            game?.teams?.away;
+        const home =
+          String(
+            game.home_team ||
+            ""
+          ).trim();
 
 
-          if (
-            !apiGameId ||
-            !gameDate ||
-            !home?.id ||
-            !away?.id
-          ) {
-            throw new Error(
-              "Invalid API game"
-            );
-          }
+        const away =
+          String(
+            game.away_team ||
+            ""
+          ).trim();
 
 
-          const homeESPN =
-            getESPNTeamId(
-              home.name
-            );
-
-          const awayESPN =
-            getESPNTeamId(
-              away.name
-            );
+        if (
+          !home ||
+          !away ||
+          !game.game_id
+        ) {
+          continue;
+        }
 
 
-          if (
-            !homeESPN ||
-            !awayESPN
-          ) {
-            throw new Error(
-              "ESPN team mapping missing"
-            );
-          }
+        gameByTeam.set(
+          home,
+          {
+            ...game,
+            team:
+              home,
 
+            opponent:
+              away,
 
-          // ================================================
-          // FIND ESPN GAME
-          // ================================================
+            isHome:
+              true,
 
-          const espnGame =
-            await findESPNGame({
-              date:
-                gameDate,
-
-              homeTeamId:
-                homeESPN,
-
-              awayTeamId:
-                awayESPN
-            });
-
-
-          if (!espnGame?.id) {
-            throw new Error(
-              "ESPN game not found"
-            );
-          }
-
-
-          const espnGameId =
-            String(
-              espnGame.id
-            );
-
-
-          // ================================================
-          // LOAD BOTH DATA SOURCES
-          // ================================================
-
-          const [
-            statsData,
-            summary
-          ] =
-            await Promise.all([
-              apiSports(
-                `/games/statistics/players?id=${apiGameId}`,
-                apiKey
+            teamScore:
+              numberOrNull(
+                game.home_score
               ),
 
-              getESPNSummary(
-                espnGameId
+            opponentScore:
+              numberOrNull(
+                game.away_score
               )
-            ]);
-
-// ============================================================
-// TEMP DEBUG — ESPN HISTORICAL SHAPE
-// Solo inspecciona el primer juego del batch.
-// ============================================================
-
-if (
-  game === batch[0]
-) {
-
-  return res
-    .status(200)
-    .json({
-      ok: true,
-
-      debug: true,
-
-      apiGameId:
-        String(apiGameId),
-
-      espnGameId,
-
-      gameDate,
-
-      matchup: {
-        away:
-          away?.name || null,
-
-        home:
-          home?.name || null
-      },
-
-      summaryKeys:
-        Object.keys(
-          summary || {}
-        ),
-
-      boxscoreKeys:
-        Object.keys(
-          summary?.boxscore || {}
-        ),
-
-      boxscorePlayersType:
-        Array.isArray(
-          summary?.boxscore?.players
-        )
-          ? "array"
-          : typeof summary
-              ?.boxscore
-              ?.players,
-
-      boxscorePlayersCount:
-        Array.isArray(
-          summary?.boxscore?.players
-        )
-          ? summary
-              .boxscore
-              .players
-              .length
-          : null,
-
-      boxscorePlayersSample:
-        Array.isArray(
-          summary?.boxscore?.players
-        )
-          ? summary
-              .boxscore
-              .players
-              .slice(0, 1)
-          : summary
-              ?.boxscore
-              ?.players ||
-            null,
-
-      rostersType:
-        Array.isArray(
-          summary?.rosters
-        )
-          ? "array"
-          : typeof summary?.rosters,
-
-      rostersCount:
-        Array.isArray(
-          summary?.rosters
-        )
-          ? summary
-              .rosters
-              .length
-          : null,
-
-      rostersSample:
-        Array.isArray(
-          summary?.rosters
-        )
-          ? summary
-              .rosters
-              .slice(0, 1)
-          : summary?.rosters ||
-            null,
-
-      apiSportsTeams:
-        Array.isArray(
-          statsData?.response
-        )
-          ? statsData.response.map(
-              item => ({
-                team:
-                  item?.team ||
-                  null,
-
-                groups:
-                  Array.isArray(
-                    item?.groups
-                  )
-                    ? item.groups
-                        .map(
-                          group => ({
-                            name:
-                              group?.name ||
-                              null,
-
-                            players:
-                              Array.isArray(
-                                group?.players
-                              )
-                                ? group
-                                    .players
-                                    .length
-                                : 0
-                          })
-                        )
-                    : []
-              })
-            )
-          : []
-    });
-}
-          // ================================================
-          // SCORES
-          // ================================================
-
-          const homePoints =
-            Number(
-              game?.scores?.home
-                ?.total
-            );
-
-          const awayPoints =
-            Number(
-              game?.scores?.away
-                ?.total
-            );
-
-
-          if (
-            Number.isFinite(
-              homePoints
-            ) &&
-            Number.isFinite(
-              awayPoints
-            )
-          ) {
-
-            teamGameRows.push(
-              {
-                sport:
-                  "nfl",
-
-                season,
-
-                game_id:
-                  espnGameId,
-
-                provider_game_id:
-                  String(
-                    apiGameId
-                  ),
-
-                game_date:
-                  gameDate,
-
-                team_id:
-                  homeESPN,
-
-                team_name:
-                  home.name,
-
-                opponent_id:
-                  awayESPN,
-
-                opponent_name:
-                  away.name,
-
-                is_home:
-                  true,
-
-                team_points:
-                  homePoints,
-
-                opponent_points:
-                  awayPoints,
-
-                updated_at:
-                  new Date()
-                    .toISOString()
-              },
-
-              {
-                sport:
-                  "nfl",
-
-                season,
-
-                game_id:
-                  espnGameId,
-
-                provider_game_id:
-                  String(
-                    apiGameId
-                  ),
-
-                game_date:
-                  gameDate,
-
-                team_id:
-                  awayESPN,
-
-                team_name:
-                  away.name,
-
-                opponent_id:
-                  homeESPN,
-
-                opponent_name:
-                  home.name,
-
-                is_home:
-                  false,
-
-                team_points:
-                  awayPoints,
-
-                opponent_points:
-                  homePoints,
-
-                updated_at:
-                  new Date()
-                    .toISOString()
-              }
-            );
           }
+        );
 
 
-          // ================================================
-          // EACH TEAM
-          // ================================================
+        gameByTeam.set(
+          away,
+          {
+            ...game,
+            team:
+              away,
 
-          const teams = [
-            {
-              apiTeamId:
-                home.id,
+            opponent:
+              home,
 
-              espnTeamId:
-                homeESPN,
+            isHome:
+              false,
 
-              teamName:
-                home.name
-            },
+            teamScore:
+              numberOrNull(
+                game.away_score
+              ),
 
-            {
-              apiTeamId:
-                away.id,
-
-              espnTeamId:
-                awayESPN,
-
-              teamName:
-                away.name
-            }
-          ];
-
-
-          for (
-            const team of teams
-          ) {
-
-            const apiAppearances =
-              parseApiAppearances(
-                statsData,
-                team.apiTeamId
-              );
-
-            const espnPlayers =
-              parseESPNPlayers(
-                summary,
-                team.espnTeamId
-              );
-
-
-            apiPlayersSeen +=
-              apiAppearances.length;
-
-            espnPlayersSeen +=
-              espnPlayers.length;
-
-
-            const apiByName =
-              new Map(
-                apiAppearances.map(
-                  player => [
-                    normalizeName(
-                      player.name
-                    ),
-                    player
-                  ]
-                )
-              );
-
-
-            for (
-              const player of
-              espnPlayers
-            ) {
-
-              const apiMatch =
-                apiByName.get(
-                  normalizeName(
-                    player.name
-                  )
-                ) ||
-                null;
-
-
-              // ------------------------------------------
-              // PLAYED =
-              // API-Sports says appeared
-              // OR ESPN explicitly says played
-              // OR ESPN says starter.
-              //
-              // ABSENT =
-              // ONLY when ESPN explicitly says DNP.
-              //
-              // Unknown = do not invent.
-              // ------------------------------------------
-
-              let played =
-                null;
-
-              if (
-                apiMatch ||
-                player.playedExplicit ||
-                player.starter
-              ) {
-                played =
-                  true;
-              } else if (
-                player
-                  .didNotPlayExplicit
-              ) {
-                played =
-                  false;
-              }
-
-
-              if (
-                played ===
-                null
-              ) {
-                continue;
-              }
-
-
-              classifiedPlayers++;
-
-
-              if (
-                played ===
-                false
-              ) {
-                explicitDNP++;
-              }
-
-
-              playerRows.push({
-                sport:
-                  "nfl",
-
-                season,
-
-                game_id:
-                  espnGameId,
-
-                provider_game_id:
-                  String(
-                    apiGameId
-                  ),
-
-                game_date:
-                  gameDate,
-
-                team_id:
-                  String(
-                    team.espnTeamId
-                  ),
-
-                player_id:
-                  String(
-                    player.athleteId
-                  ),
-
-                api_sports_player_id:
-                  apiMatch?.id
-                    ? String(
-                        apiMatch.id
-                      )
-                    : null,
-
-                player_name:
-                  player.name,
-
-                position:
-                  player.position,
-
-                played:
-                  played === true,
-
-                starter:
-                  player.starter ===
-                  true,
-
-                explicit_dnp:
-                  player
-                    .didNotPlayExplicit ===
-                  true,
-
-                source:
-                  apiMatch
-                    ? "api-sports+espn"
-                    : "espn",
-
-                updated_at:
-                  new Date()
-                    .toISOString()
-              });
-
-
-              // ==========================================
-              // CROSSWALK
-              // ==========================================
-
-              if (
-                apiMatch?.id
-              ) {
-                crosswalkRows.push({
-                  api_sports_player_id:
-                    String(
-                      apiMatch.id
-                    ),
-
-                  espn_athlete_id:
-                    String(
-                      player.athleteId
-                    ),
-
-                  player_name:
-                    player.name,
-
-                  position:
-                    player.position,
-
-                  api_sports_team_id:
-                    String(
-                      team.apiTeamId
-                    ),
-
-                  espn_team_id:
-                    String(
-                      team.espnTeamId
-                    ),
-
-                  match_method:
-                    "game-name-team",
-
-                  confidence:
-                    1,
-
-                  updated_at:
-                    new Date()
-                      .toISOString()
-                });
-              }
-            }
+            opponentScore:
+              numberOrNull(
+                game.home_score
+              )
           }
+        );
+      }
 
 
-        } catch (error) {
+      // ======================================================
+      // TEAM GAME ROWS
+      // ======================================================
 
-          failures.push({
-            apiGameId:
-              game?.game?.id ||
-              null,
+      const teamGameRows =
+        [];
 
-            date:
-              game?.game?.date
-                ?.date ||
-              null,
 
-            home:
-              game?.teams?.home
-                ?.name ||
-              null,
+      for (
+        const game of games
+      ) {
 
-            away:
-              game?.teams?.away
-                ?.name ||
-              null,
+        const gameId =
+          String(
+            game.game_id ||
+            ""
+          );
 
-            error:
-              error?.message ||
-              String(error)
-          });
+
+        const date =
+          String(
+            game.gameday ||
+            ""
+          );
+
+
+        const home =
+          String(
+            game.home_team ||
+            ""
+          );
+
+
+        const away =
+          String(
+            game.away_team ||
+            ""
+          );
+
+
+        const homeScore =
+          numberOrNull(
+            game.home_score
+          );
+
+
+        const awayScore =
+          numberOrNull(
+            game.away_score
+          );
+
+
+        if (
+          !gameId ||
+          !date ||
+          !home ||
+          !away
+        ) {
+          continue;
+        }
+
+
+        // No guardamos partidos
+        // todavía no terminados.
+        if (
+          homeScore === null ||
+          awayScore === null
+        ) {
+          continue;
+        }
+
+
+        teamGameRows.push(
+          {
+            sport:
+              "nfl",
+
+            season,
+
+            game_id:
+              gameId,
+
+            provider_game_id:
+              gameId,
+
+            game_date:
+              date,
+
+            team_id:
+              home,
+
+            team_name:
+              home,
+
+            opponent_id:
+              away,
+
+            opponent_name:
+              away,
+
+            is_home:
+              true,
+
+            team_points:
+              homeScore,
+
+            opponent_points:
+              awayScore,
+
+            updated_at:
+              new Date()
+                .toISOString()
+          },
+
+          {
+            sport:
+              "nfl",
+
+            season,
+
+            game_id:
+              gameId,
+
+            provider_game_id:
+              gameId,
+
+            game_date:
+              date,
+
+            team_id:
+              away,
+
+            team_name:
+              away,
+
+            opponent_id:
+              home,
+
+            opponent_name:
+              home,
+
+            is_home:
+              false,
+
+            team_points:
+              awayScore,
+
+            opponent_points:
+              homeScore,
+
+            updated_at:
+              new Date()
+                .toISOString()
+          }
+        );
+      }
+
+
+      // ======================================================
+      // SNAP COUNTS FOR WEEK
+      // ======================================================
+
+      const weekSnaps =
+        snapData.filter(
+          row =>
+            Number(
+              row.season
+            ) === season &&
+            Number(
+              row.week
+            ) === week &&
+            String(
+              row.game_type ||
+              ""
+            )
+              .toUpperCase() ===
+              "REG"
+        );
+
+
+      // ======================================================
+      // INDEX SNAP COUNTS
+      // Preferimos PFR ID.
+      // Nombre es fallback.
+      // ======================================================
+
+      const snapsByPfr =
+        new Map();
+
+
+      const snapsByName =
+        new Map();
+
+
+      for (
+        const snap of
+        weekSnaps
+      ) {
+
+        const team =
+          String(
+            snap.team ||
+            ""
+          ).trim();
+
+
+        if (!team) {
+          continue;
+        }
+
+
+        const pfrId =
+          String(
+            snap.pfr_player_id ||
+            ""
+          ).trim();
+
+
+        if (pfrId) {
+
+          snapsByPfr.set(
+            `${team}|${pfrId}`,
+            snap
+          );
+        }
+
+
+        const normalizedName =
+          normalizeName(
+            snap.player
+          );
+
+
+        if (normalizedName) {
+
+          snapsByName.set(
+            `${team}|${normalizedName}`,
+            snap
+          );
         }
       }
 
 
       // ======================================================
-      // DEDUPE CROSSWALK
+      // WEEKLY ROSTER
       // ======================================================
 
-      const crosswalkMap =
+      const weekRoster =
+        rosterData.filter(
+          row =>
+            Number(
+              row.season
+            ) === season &&
+            Number(
+              row.week
+            ) === week &&
+            String(
+              row.game_type ||
+              "REG"
+            )
+              .toUpperCase() ===
+              "REG"
+        );
+
+
+      // ======================================================
+      // DEDUPE ROSTER
+      // ======================================================
+
+      const rosterMap =
         new Map();
 
+
       for (
-        const row of
-        crosswalkRows
+        const player of
+        weekRoster
       ) {
-        crosswalkMap.set(
-          row
-            .api_sports_player_id,
-          row
+
+        const team =
+          String(
+            player.team ||
+            ""
+          ).trim();
+
+
+        const gsisId =
+          String(
+            player.gsis_id ||
+            ""
+          ).trim();
+
+
+        const position =
+          normalizePosition(
+            player.position ||
+            player
+              .depth_chart_position
+          );
+
+
+        if (
+          !team ||
+          !gsisId ||
+          !position
+        ) {
+          continue;
+        }
+
+
+        if (
+          !rosterStatusCounts(
+            player.status
+          )
+        ) {
+          continue;
+        }
+
+
+        if (
+          !gameByTeam.has(
+            team
+          )
+        ) {
+
+          // Bye week / no game.
+          continue;
+        }
+
+
+        rosterMap.set(
+          `${team}|${gsisId}`,
+          {
+            ...player,
+            team,
+            gsisId,
+            position
+          }
         );
+      }
+
+
+      // ======================================================
+      // BUILD PLAYER GAME ROWS
+      // ======================================================
+
+      const playerRows =
+        [];
+
+
+      let withOffensiveSnaps =
+        0;
+
+
+      let withoutOffensiveSnaps =
+        0;
+
+
+      let matchedByPfr =
+        0;
+
+
+      let matchedByName =
+        0;
+
+
+      for (
+        const player of
+        rosterMap.values()
+      ) {
+
+        const game =
+          gameByTeam.get(
+            player.team
+          );
+
+
+        if (
+          !game?.game_id
+        ) {
+          continue;
+        }
+
+
+        // Only completed games.
+        if (
+          game.teamScore === null ||
+          game.opponentScore === null
+        ) {
+          continue;
+        }
+
+
+        const pfrId =
+          String(
+            player.pfr_id ||
+            ""
+          ).trim();
+
+
+        let snap =
+          null;
+
+
+        if (pfrId) {
+
+          snap =
+            snapsByPfr.get(
+              `${player.team}|${pfrId}`
+            ) ||
+            null;
+
+
+          if (snap) {
+            matchedByPfr++;
+          }
+        }
+
+
+        if (!snap) {
+
+          snap =
+            snapsByName.get(
+              `${player.team}|${normalizeName(
+                player.full_name
+              )}`
+            ) ||
+            null;
+
+
+          if (snap) {
+            matchedByName++;
+          }
+        }
+
+
+        const offenseSnaps =
+          snap
+            ? (
+                numberOrNull(
+                  snap.offense_snaps
+                ) || 0
+              )
+            : 0;
+
+
+        const offensePct =
+          snap
+            ? numberOrNull(
+                snap.offense_pct
+              )
+            : 0;
+
+
+        // IMPORTANT:
+        // "played" aquí significa:
+        // participó ofensivamente.
+        //
+        // Para nuestro modelo QB/RB/WR/TE
+        // eso es lo que interesa.
+        const played =
+          offenseSnaps > 0;
+
+
+        if (played) {
+          withOffensiveSnaps++;
+        } else {
+          withoutOffensiveSnaps++;
+        }
+
+
+        playerRows.push({
+          sport:
+            "nfl",
+
+          season,
+
+          game_id:
+            String(
+              game.game_id
+            ),
+
+          provider_game_id:
+            String(
+              game.game_id
+            ),
+
+          game_date:
+            String(
+              game.gameday
+            ),
+
+          team_id:
+            String(
+              player.team
+            ),
+
+          player_id:
+            String(
+              player.gsisId
+            ),
+
+          player_name:
+            player.full_name ||
+            snap?.player ||
+            null,
+
+          position:
+            player.position,
+
+          played,
+
+          offense_snaps:
+            offenseSnaps,
+
+          offense_pct:
+            offensePct,
+
+          pfr_player_id:
+            pfrId ||
+            snap?.pfr_player_id ||
+            null,
+
+          gsis_player_id:
+            String(
+              player.gsisId
+            ),
+
+          source:
+            "nflverse",
+
+          updated_at:
+            new Date()
+              .toISOString()
+        });
       }
 
 
@@ -1405,7 +1198,7 @@ if (
       // ======================================================
 
       const teamGamesSaved =
-        await upsertRows(
+        await upsertChunks(
           "football_team_games",
           teamGameRows,
           "sport,game_id,team_id"
@@ -1413,27 +1206,16 @@ if (
 
 
       const playerGamesSaved =
-        await upsertRows(
+        await upsertChunks(
           "football_player_game_stats",
           playerRows,
           "sport,game_id,team_id,player_id"
         );
 
 
-      const crosswalkSaved =
-        await upsertRows(
-          "nfl_player_crosswalk",
-          Array.from(
-            crosswalkMap.values()
-          ),
-          "api_sports_player_id"
-        );
-
-
-      const nextStart =
-        start +
-        batch.length;
-
+      // ======================================================
+      // RESPONSE
+      // ======================================================
 
       return res
         .status(200)
@@ -1441,44 +1223,62 @@ if (
 
           ok: true,
 
+          source:
+            "nflverse",
+
           season,
 
-          totalGames:
-            completed.length,
+          week,
 
-          start,
+          gamesFound:
+            games.length,
 
-          batchRequested:
-            limit,
-
-          processed:
-            batch.length,
-
-          nextStart:
-            nextStart >=
-            completed.length
-              ? null
-              : nextStart,
-
-          done:
-            nextStart >=
-            completed.length,
+          completedGamesSaved:
+            teamGameRows.length /
+            2,
 
           teamGamesSaved,
 
+          rosterRowsRaw:
+            weekRoster.length,
+
+          rosterPlayersEligible:
+            rosterMap.size,
+
+          snapRowsRaw:
+            weekSnaps.length,
+
           playerGamesSaved,
 
-          crosswalkSaved,
+          withOffensiveSnaps,
 
-          apiPlayersSeen,
+          withoutOffensiveSnaps,
 
-          espnPlayersSeen,
+          matchedByPfr,
 
-          classifiedPlayers,
+          matchedByName,
 
-          explicitDNP,
+          samplePlayed:
+            playerRows
+              .filter(
+                row =>
+                  row.played
+              )
+              .slice(
+                0,
+                5
+              ),
 
-          failures
+          sampleWithout:
+            playerRows
+              .filter(
+                row =>
+                  !row.played
+              )
+              .slice(
+                0,
+                5
+              )
         });
 
 
