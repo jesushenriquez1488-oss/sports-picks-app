@@ -16,8 +16,10 @@ function secureEqual(supplied, expected) {
   return crypto.timingSafeEqual(a, b);
 }
 
+
 module.exports = async function handler(req, res) {
   try {
+
     const expectedSecret = String(
       process.env.CRON_SECRET ||
       process.env.GENERATE_DAILY_SECRET ||
@@ -28,6 +30,7 @@ module.exports = async function handler(req, res) {
       req.headers["x-internal-secret"] || ""
     );
 
+
     if (!secureEqual(suppliedSecret, expectedSecret)) {
       return res.status(401).json({
         ok: false,
@@ -35,9 +38,11 @@ module.exports = async function handler(req, res) {
       });
     }
 
+
     const apiKey = String(
       process.env.API_SPORTS_KEY || ""
     ).trim();
+
 
     if (!apiKey) {
       return res.status(500).json({
@@ -46,62 +51,105 @@ module.exports = async function handler(req, res) {
       });
     }
 
+
     const url =
-      "https://v1.american-football.api-sports.io/leagues?id=2&season=2026";
+      "https://v1.american-football.api-sports.io/teams?league=2&season=2026";
+
 
     const response = await fetch(url, {
-      method: "GET",
       headers: {
         "x-apisports-key": apiKey
       }
     });
 
+
     const data = await response.json();
 
-    if (!response.ok) {
-      return res.status(response.status).json({
+
+    const apiErrors =
+      data?.errors || [];
+
+
+    const hasErrors =
+      Array.isArray(apiErrors)
+        ? apiErrors.length > 0
+        : Object.keys(apiErrors || {}).length > 0;
+
+
+    if (hasErrors) {
+      return res.status(400).json({
         ok: false,
-        httpStatus: response.status,
-        apiResponse: data
+        apiErrors
       });
     }
 
-    const league = data?.response?.[0] || null;
 
-    const season =
-      league?.seasons?.find(
-        item => Number(item?.year) === 2026
-      ) || null;
+    const teams =
+      Array.isArray(data?.response)
+        ? data.response
+        : [];
+
+
+    const selectedNames = [
+      "Ohio State",
+      "Alabama",
+      "Georgia",
+      "Texas",
+      "Notre Dame"
+    ];
+
+
+    const selected =
+      teams
+        .filter(team => {
+          const name =
+            String(team?.name || "")
+              .toLowerCase();
+
+          return selectedNames.some(
+            target =>
+              name.includes(
+                target.toLowerCase()
+              )
+          );
+        })
+        .map(team => ({
+          id: team?.id ?? null,
+          name: team?.name ?? null,
+          code: team?.code ?? null
+        }));
+
 
     return res.status(200).json({
       ok: true,
 
       apiResults:
-        data?.results ?? null,
+        data?.results ?? teams.length,
 
-      league: {
-        id: league?.league?.id ?? null,
-        name: league?.league?.name ?? null
-      },
+      totalTeams:
+        teams.length,
 
-      season: season?.year ?? null,
+      selected,
 
-      current: season?.current ?? null,
+      first10:
+        teams
+          .slice(0, 10)
+          .map(team => ({
+            id: team?.id ?? null,
+            name: team?.name ?? null,
+            code: team?.code ?? null
+          })),
 
-      injuriesCoverage:
-        season?.coverage?.injuries ?? null,
-
-      coverage:
-        season?.coverage ?? null,
-
-      apiErrors:
-        data?.errors ?? null
+      apiErrors
     });
 
   } catch (error) {
+
     return res.status(500).json({
       ok: false,
-      error: error?.message || String(error)
+      error:
+        error?.message ||
+        String(error)
     });
   }
 };
