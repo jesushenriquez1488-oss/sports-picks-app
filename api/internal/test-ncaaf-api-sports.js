@@ -46,7 +46,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const TEAM_ID = 106; // Alabama
+  const TEAM_ID = 109; // Georgia
 
     const url =
   `https://v1.american-football.api-sports.io/injuries?team=${TEAM_ID}`;
