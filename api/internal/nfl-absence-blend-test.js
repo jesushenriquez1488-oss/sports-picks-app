@@ -876,12 +876,11 @@ module.exports =
          * a cero.
          */
 
-        const usageFactor =
-          0.35 +
-          (
-            0.65 *
-            usage
-          );
+      const usageFactor =
+  Math.pow(
+    usage,
+    1.5
+  );
 
 
         // ====================================================
@@ -937,14 +936,17 @@ module.exports =
             : 0;
 
 
-        const adverseDefense =
-          blendedDefense !== null
-            ? Math.max(
-                0,
-                blendedDefense
-              )
-            : 0;
-
+       const adverseDefense =
+  blendedDefense !== null
+    ? clamp(
+        Math.max(
+          0,
+          blendedDefense
+        ),
+        0,
+        4
+      )
+    : 0;
 
         const position =
           String(
