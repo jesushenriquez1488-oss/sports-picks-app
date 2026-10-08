@@ -125,27 +125,33 @@ function getReliability(
     return 0;
   }
 
-  const withScore =
-    Math.min(
-      gamesWith / 8,
-      1
+
+  // Harmonic effective sample.
+  //
+  // Penaliza muestras muy desbalanceadas:
+  // 14 WITH / 3 WITHOUT ya no parece
+  // casi tan confiable como 8 / 8.
+
+  const effectiveSample =
+    (
+      2 *
+      gamesWith *
+      gamesWithout
+    ) /
+    (
+      gamesWith +
+      gamesWithout
     );
 
-  const withoutScore =
-    Math.min(
-      gamesWithout / 4,
-      1
-    );
 
   return round(
-    Math.sqrt(
-      withScore *
-      withoutScore
+    Math.min(
+      effectiveSample / 8,
+      1
     ),
     3
   );
 }
-
 
 // ============================================================
 // READ PAGED
