@@ -82,7 +82,7 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({
       ok: true,
       teamId: TEAM_ID,
-      teamName: "Alabama",
+      teamName: "Georgia",
       results: data?.results ?? injuries.length,
       injuries,
       apiErrors
