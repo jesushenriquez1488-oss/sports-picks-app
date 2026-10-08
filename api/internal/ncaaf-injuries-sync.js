@@ -455,31 +455,11 @@ module.exports =
       // 1. REFRESH TEAMS ONLY WHEN NECESSARY
       // ======================================================
 
-      let teamsRefreshed =
-        false;
+   const teamsRefreshed =
+  false;
 
-      let teamsSaved =
-        0;
-
-
-      const forceTeams =
-        String(
-          req.query?.forceTeams ||
-          ""
-        ) === "1";
-
-
-      if (
-        forceTeams ||
-        await shouldRefreshTeams()
-      ) {
-
-        teamsSaved =
-          await refreshTeams();
-
-        teamsRefreshed =
-          true;
-      }
+const teamsSaved =
+  0;
 
 
       // ======================================================
