@@ -875,12 +875,8 @@ module.exports =
          * Pero tampoco lo llevamos automáticamente
          * a cero.
          */
-
-      const usageFactor =
-  Math.pow(
-    usage,
-    1.5
-  );
+const usageFactor =
+  usage;
 
 
         // ====================================================
@@ -935,16 +931,11 @@ module.exports =
               )
             : 0;
 
-
-       const adverseDefense =
+const adverseDefense =
   blendedDefense !== null
-    ? clamp(
-        Math.max(
-          0,
-          blendedDefense
-        ),
+    ? Math.max(
         0,
-        4
+        blendedDefense
       )
     : 0;
 
