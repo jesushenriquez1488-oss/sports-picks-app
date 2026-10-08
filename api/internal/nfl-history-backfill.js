@@ -311,7 +311,15 @@ const VALID_TEAM_STATUSES =
     "EXE",
     "SUS"
   ]);
-
+const EXPLICIT_ABSENCE_STATUSES =
+  new Set([
+    "INA",
+    "PUP",
+    "RES",
+    "RSN",
+    "SUS",
+    "EXE"
+  ]);
 
 function rosterStatusCounts(
   status
@@ -1115,16 +1123,56 @@ module.exports =
         //
         // Para nuestro modelo QB/RB/WR/TE
         // eso es lo que interesa.
-        const played =
-          offenseSnaps > 0;
+      const rosterStatus =
+  String(
+    player.status || ""
+  )
+    .toUpperCase()
+    .trim();
 
 
-        if (played) {
-          withOffensiveSnaps++;
-        } else {
-          withoutOffensiveSnaps++;
-        }
+const explicitAbsence =
+  EXPLICIT_ABSENCE_STATUSES.has(
+    rosterStatus
+  );
 
+
+let played =
+  null;
+
+
+if (
+  offenseSnaps > 0
+) {
+
+  played =
+    true;
+
+} else if (
+  explicitAbsence
+) {
+
+  played =
+    false;
+
+}
+
+
+// ACT + 0 snaps:
+// puede ser backup sano.
+// No lo convertimos en ausencia.
+if (
+  played === null
+) {
+  continue;
+}
+
+
+if (played) {
+  withOffensiveSnaps++;
+} else {
+  withoutOffensiveSnaps++;
+}
 
         playerRows.push({
           sport:
@@ -1165,11 +1213,16 @@ module.exports =
           position:
             player.position,
 
-          played,
+        played,
 
-          offense_snaps:
-            offenseSnaps,
+roster_status:
+  rosterStatus,
 
+explicit_dnp:
+  explicitAbsence,
+
+offense_snaps:
+  offenseSnaps,
           offense_pct:
             offensePct,
 
