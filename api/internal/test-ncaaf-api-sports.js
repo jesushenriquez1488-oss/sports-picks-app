@@ -49,8 +49,7 @@ module.exports = async function handler(req, res) {
     const TEAM_ID = 106; // Alabama
 
     const url =
-      `https://v1.american-football.api-sports.io/injuries?team=${TEAM_ID}&season=2026`;
-
+  `https://v1.american-football.api-sports.io/injuries?team=${TEAM_ID}`;
     const response = await fetch(url, {
       method: "GET",
       headers: {
