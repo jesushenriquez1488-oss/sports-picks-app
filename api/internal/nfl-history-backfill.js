@@ -857,7 +857,142 @@ module.exports =
               )
             ]);
 
+// ============================================================
+// TEMP DEBUG — ESPN HISTORICAL SHAPE
+// Solo inspecciona el primer juego del batch.
+// ============================================================
 
+if (
+  game === batch[0]
+) {
+
+  return res
+    .status(200)
+    .json({
+      ok: true,
+
+      debug: true,
+
+      apiGameId:
+        String(apiGameId),
+
+      espnGameId,
+
+      gameDate,
+
+      matchup: {
+        away:
+          away?.name || null,
+
+        home:
+          home?.name || null
+      },
+
+      summaryKeys:
+        Object.keys(
+          summary || {}
+        ),
+
+      boxscoreKeys:
+        Object.keys(
+          summary?.boxscore || {}
+        ),
+
+      boxscorePlayersType:
+        Array.isArray(
+          summary?.boxscore?.players
+        )
+          ? "array"
+          : typeof summary
+              ?.boxscore
+              ?.players,
+
+      boxscorePlayersCount:
+        Array.isArray(
+          summary?.boxscore?.players
+        )
+          ? summary
+              .boxscore
+              .players
+              .length
+          : null,
+
+      boxscorePlayersSample:
+        Array.isArray(
+          summary?.boxscore?.players
+        )
+          ? summary
+              .boxscore
+              .players
+              .slice(0, 1)
+          : summary
+              ?.boxscore
+              ?.players ||
+            null,
+
+      rostersType:
+        Array.isArray(
+          summary?.rosters
+        )
+          ? "array"
+          : typeof summary?.rosters,
+
+      rostersCount:
+        Array.isArray(
+          summary?.rosters
+        )
+          ? summary
+              .rosters
+              .length
+          : null,
+
+      rostersSample:
+        Array.isArray(
+          summary?.rosters
+        )
+          ? summary
+              .rosters
+              .slice(0, 1)
+          : summary?.rosters ||
+            null,
+
+      apiSportsTeams:
+        Array.isArray(
+          statsData?.response
+        )
+          ? statsData.response.map(
+              item => ({
+                team:
+                  item?.team ||
+                  null,
+
+                groups:
+                  Array.isArray(
+                    item?.groups
+                  )
+                    ? item.groups
+                        .map(
+                          group => ({
+                            name:
+                              group?.name ||
+                              null,
+
+                            players:
+                              Array.isArray(
+                                group?.players
+                              )
+                                ? group
+                                    .players
+                                    .length
+                                : 0
+                          })
+                        )
+                    : []
+              })
+            )
+          : []
+    });
+}
           // ================================================
           // SCORES
           // ================================================
