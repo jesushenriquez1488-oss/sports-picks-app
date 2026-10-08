@@ -16,41 +16,6 @@ function secureEqual(supplied, expected) {
   return crypto.timingSafeEqual(a, b);
 }
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function apiSportsGet(path, apiKey) {
-  const response = await fetch(
-    `https://v1.american-football.api-sports.io${path}`,
-    {
-      headers: {
-        "x-apisports-key": apiKey
-      }
-    }
-  );
-
-  const data = await response.json();
-
-  const errors = data?.errors || [];
-
-  const hasErrors =
-    Array.isArray(errors)
-      ? errors.length > 0
-      : Object.keys(errors || {}).length > 0;
-
-  if (!response.ok || hasErrors) {
-    throw new Error(
-      JSON.stringify({
-        path,
-        status: response.status,
-        errors
-      })
-    );
-  }
-
-  return data;
-}
 
 module.exports = async function handler(req, res) {
   try {
@@ -71,6 +36,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
+
     const apiKey = String(
       process.env.API_SPORTS_KEY || ""
     ).trim();
@@ -82,109 +48,71 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const teamsData =
-      await apiSportsGet(
-        "/teams?league=2&season=2026",
-        apiKey
+
+    const teamId =
+      Number(req.query.teamId);
+
+    const teamName =
+      String(
+        req.query.teamName || ""
       );
 
-    const allTeams =
-      Array.isArray(teamsData?.response)
-        ? teamsData.response
-        : [];
 
-    const wantedNames = [
-      "Alabama",
-      "Georgia",
-      "Ohio State",
-      "Notre Dame",
-      "Texas",
-      "Texas A&M",
-      "LSU",
-      "Florida",
-      "Tennessee",
-      "Oregon",
-      "Penn State",
-      "Michigan",
-      "Clemson",
-      "Miami",
-      "USC",
-      "Oklahoma",
-      "Auburn",
-      "Missouri"
-    ];
-
-    const teams =
-      wantedNames
-        .map(name =>
-          allTeams.find(
-            team =>
-              String(team?.name || "")
-                .toLowerCase() ===
-              name.toLowerCase()
-          )
-        )
-        .filter(Boolean);
-
-    const results = [];
-
-    for (const team of teams) {
-      try {
-        const data =
-          await apiSportsGet(
-            `/injuries?team=${team.id}`,
-            apiKey
-          );
-
-        const injuries =
-          Array.isArray(data?.response)
-            ? data.response
-            : [];
-
-        results.push({
-          teamId: team.id,
-          teamName: team.name,
-          count: injuries.length,
-          injuries
-        });
-
-      } catch (error) {
-        results.push({
-          teamId: team.id,
-          teamName: team.name,
-          count: 0,
-          injuries: [],
-          error: error.message
-        });
-      }
-
-      // ~20 requests/minuto máximo
-      await sleep(3000);
+    if (!Number.isFinite(teamId)) {
+      return res.status(400).json({
+        ok: false,
+        error: "Missing teamId"
+      });
     }
 
-    const teamsWithInjuries =
-      results.filter(
-        team => team.count > 0
+
+    const response =
+      await fetch(
+        `https://v1.american-football.api-sports.io/injuries?team=${teamId}`,
+        {
+          headers: {
+            "x-apisports-key": apiKey
+          }
+        }
       );
 
-    const totalInjuries =
-      teamsWithInjuries.reduce(
-        (sum, team) =>
-          sum + team.count,
-        0
-      );
+
+    const data =
+      await response.json();
+
+
+    const apiErrors =
+      data?.errors || [];
+
+
+    const hasErrors =
+      Array.isArray(apiErrors)
+        ? apiErrors.length > 0
+        : Object.keys(apiErrors || {}).length > 0;
+
+
+    if (hasErrors) {
+      return res.status(200).json({
+        ok: false,
+        teamId,
+        teamName,
+        apiErrors
+      });
+    }
+
+
+    const injuries =
+      Array.isArray(data?.response)
+        ? data.response
+        : [];
+
 
     return res.status(200).json({
       ok: true,
-      teamsChecked: results.length,
-      teamsWithInjuries:
-        teamsWithInjuries.length,
-      totalInjuries,
-      results,
-      errors:
-        results.filter(
-          team => team.error
-        )
+      teamId,
+      teamName,
+      count: injuries.length,
+      injuries
     });
 
   } catch (error) {
