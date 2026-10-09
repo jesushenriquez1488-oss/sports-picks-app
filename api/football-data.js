@@ -7509,21 +7509,7 @@ if (
 // NFL PROPS — DIAGNOSTICO DE TITULARIDAD ESPN
 // ==============================================
 
-if (
-  category.includes("passing") ||
-  category.includes("rushing") ||
-  category.includes("receiving")
-) {
-  console.log("NFL ROLE SOURCE CHECK:", {
-    player: athleteName,
-    gameId,
-    category,
-    starter: entry?.starter ?? null,
-    active: entry?.athlete?.active ?? null,
-    statKeys: keys,
-    stats
-  });
-}
+
   // ================================================
 // NFL PROPS — VERIFICACION HISTORICA DEL ROL
 // ================================================
