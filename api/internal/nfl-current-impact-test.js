@@ -2498,11 +2498,72 @@ module.exports =
         // ----------------------------------------------------
 
         const hierarchy =
-          qbHierarchyByTeam.get(
-            nflverseTeam
-          ) ||
-          [];
+  eligible
+    .filter(
+      player =>
+        player.position === "QB"
+    )
+    .sort(
+      (
+        a,
+        b
+      ) => {
 
+        // ================================================
+        // QB PRIORITY
+        //
+        // Mayor usage histórico = QB de mayor jerarquía.
+        //
+        // Ejemplo WAS:
+        // Daniels 0.881
+        // Mariota 0.745
+        //
+        // Daniels debe evaluarse primero aunque Mariota
+        // haya acumulado más snaps recientemente por
+        // estar reemplazándolo.
+        // ================================================
+
+        const usageDiff =
+          Number(
+            b.usage ||
+            0
+          ) -
+          Number(
+            a.usage ||
+            0
+          );
+
+
+        if (
+          Math.abs(
+            usageDiff
+          ) >
+          0.01
+        ) {
+
+          return usageDiff;
+        }
+
+
+        // Si el usage es prácticamente igual,
+        // usamos reliability como desempate.
+
+        return (
+          Number(
+            b.reliability ||
+            0
+          ) -
+          Number(
+            a.reliability ||
+            0
+          )
+        );
+      }
+    )
+    .map(
+      player =>
+        player.gsisPlayerId
+    );
 
         let qbChainProbability =
           1;
