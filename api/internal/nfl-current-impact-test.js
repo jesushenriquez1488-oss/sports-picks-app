@@ -1672,141 +1672,166 @@ module.exports =
         );
       }
 
-      const teamIndex =
-        new Map();
+    // ============================================================
+// CANONICAL 32 NFL TEAMS
+//
+// La lista de equipos NO depende de que tengan lesiones.
+// Siempre deben existir los 32.
+// ============================================================
 
-      for (
-        const row of injuryStateRows
-      ) {
+const apiTeamIdByName =
+  new Map();
 
-        const id =
-          String(
-            row.api_sports_team_id ||
-            ""
-          ).trim();
 
-        const name =
-          String(
-            row.team_name ||
-            ""
-          ).trim();
+for (
+  const row of injuryStateRows
+) {
 
-        if (
-          !id ||
-          !name
-        ) {
-          continue;
-        }
+  const id =
+    String(
+      row.api_sports_team_id ||
+      ""
+    ).trim();
 
-        if (
-          !teamIndex.has(
-            id
-          )
-        ) {
+  const name =
+    String(
+      row.team_name ||
+      ""
+    ).trim();
 
-          teamIndex.set(
-            id,
-            {
-              id,
-              name
-            }
-          );
-        }
-      }
 
-      for (
-        const row of crosswalkRows
-      ) {
+  if (
+    !id ||
+    !name
+  ) {
+    continue;
+  }
 
-        const id =
-          String(
-            row.api_sports_team_id ||
-            ""
-          ).trim();
 
-        const name =
-          String(
-            row.api_sports_team_name ||
-            ""
-          ).trim();
+  apiTeamIdByName.set(
+    name,
+    id
+  );
+}
 
-        if (
-          !id ||
-          !name ||
-          teamIndex.has(
-            id
-          )
-        ) {
-          continue;
-        }
 
-        teamIndex.set(
-          id,
-          {
-            id,
-            name
-          }
-        );
-      }
+for (
+  const row of crosswalkRows
+) {
 
-      const teams =
-        Array.from(
-          teamIndex.values()
+  const id =
+    String(
+      row.api_sports_team_id ||
+      ""
+    ).trim();
+
+  const name =
+    String(
+      row.api_sports_team_name ||
+      ""
+    ).trim();
+
+
+  if (
+    !id ||
+    !name
+  ) {
+    continue;
+  }
+
+
+  if (
+    !apiTeamIdByName.has(
+      name
+    )
+  ) {
+
+    apiTeamIdByName.set(
+      name,
+      id
+    );
+  }
+}
+
+
+// Siempre 32 equipos.
+const teams =
+  Object
+    .keys(
+      NFLVERSE_TEAM_BY_NAME
+    )
+    .sort(
+      (
+        a,
+        b
+      ) =>
+        a.localeCompare(
+          b
         )
-          .filter(
-            team =>
-              team.id &&
-              team.name
-          )
-          .sort(
-            (
-              a,
-              b
-            ) =>
-              a.name.localeCompare(
-                b.name
-              )
-          );
+    )
+    .map(
+      name => ({
+        name,
 
-      const activeInjuriesByTeam =
-        new Map();
+        id:
+          apiTeamIdByName.get(
+            name
+          ) ||
+          null
+      })
+    );
 
-      for (
-        const row of activeInjuryRows
-      ) {
 
-        const teamId =
-          String(
-            row.api_sports_team_id ||
-            ""
-          ).trim();
+// ============================================================
+// ACTIVE INJURIES BY TEAM NAME
+//
+// Usamos nombre porque un equipo sin lesiones puede no tener
+// ningún row actual del cual recuperar api_sports_team_id.
+// ============================================================
 
-        if (
-          !teamId
-        ) {
-          continue;
-        }
+const activeInjuriesByTeamName =
+  new Map();
 
-        if (
-          !activeInjuriesByTeam.has(
-            teamId
-          )
-        ) {
 
-          activeInjuriesByTeam.set(
-            teamId,
-            []
-          );
-        }
+for (
+  const row of activeInjuryRows
+) {
 
-        activeInjuriesByTeam
-          .get(
-            teamId
-          )
-          .push(
-            row
-          );
-      }
+  const teamName =
+    String(
+      row.team_name ||
+      ""
+    ).trim();
+
+
+  if (
+    !teamName
+  ) {
+    continue;
+  }
+
+
+  if (
+    !activeInjuriesByTeamName.has(
+      teamName
+    )
+  ) {
+
+    activeInjuriesByTeamName.set(
+      teamName,
+      []
+    );
+  }
+
+
+  activeInjuriesByTeamName
+    .get(
+      teamName
+    )
+    .push(
+      row
+    );
+}
 
       const batch =
         teams.slice(
@@ -1847,10 +1872,10 @@ module.exports =
         }
 
         const injuries =
-          activeInjuriesByTeam.get(
-            team.id
-          ) ||
-          [];
+  activeInjuriesByTeamName.get(
+    team.name
+  ) ||
+  [];
 
         const eligible =
           [];
