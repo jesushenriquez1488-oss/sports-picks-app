@@ -5178,6 +5178,863 @@ async function getNFLStarterQBId(
     null
   );
 }
+const NFLVERSE_TEAM_BY_CLEAN_NAME = {
+  "arizona cardinals": "ARI",
+  "atlanta falcons": "ATL",
+  "baltimore ravens": "BAL",
+  "buffalo bills": "BUF",
+  "carolina panthers": "CAR",
+  "chicago bears": "CHI",
+  "cincinnati bengals": "CIN",
+  "cleveland browns": "CLE",
+  "dallas cowboys": "DAL",
+  "denver broncos": "DEN",
+  "detroit lions": "DET",
+  "green bay packers": "GB",
+  "houston texans": "HOU",
+  "indianapolis colts": "IND",
+  "jacksonville jaguars": "JAX",
+  "kansas city chiefs": "KC",
+  "las vegas raiders": "LV",
+  "los angeles chargers": "LAC",
+  "los angeles rams": "LAR",
+  "miami dolphins": "MIA",
+  "minnesota vikings": "MIN",
+  "new england patriots": "NE",
+  "new orleans saints": "NO",
+  "new york giants": "NYG",
+  "new york jets": "NYJ",
+  "philadelphia eagles": "PHI",
+  "pittsburgh steelers": "PIT",
+  "san francisco 49ers": "SF",
+  "seattle seahawks": "SEA",
+  "tampa bay buccaneers": "TB",
+  "tennessee titans": "TEN",
+  "washington commanders": "WAS"
+};
+
+const NFL_HISTORY_ELIGIBLE_POSITIONS =
+  new Set([
+    "QB",
+    "RB",
+    "WR",
+    "TE"
+  ]);
+
+
+function nflImpactNumberOrNull(value) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
+  const n = Number(value);
+
+  return Number.isFinite(n)
+    ? n
+    : null;
+}
+
+
+function nflImpactStatusWeight(
+  status,
+  description
+) {
+  const s =
+    String(status || "")
+      .toLowerCase()
+      .trim();
+
+  const d =
+    String(description || "")
+      .toLowerCase()
+      .trim();
+
+  const combined =
+    `${s} ${d}`;
+
+
+  if (
+    combined.includes("injured reserve") ||
+    s === "i.l." ||
+    s === "il" ||
+    combined.includes(" i.l.")
+  ) {
+    return {
+      weight: 1,
+      normalizedStatus: "Out"
+    };
+  }
+
+
+  if (
+    s === "pup" ||
+    combined.includes(
+      "physically unable to perform"
+    )
+  ) {
+    return {
+      weight: 1,
+      normalizedStatus: "Out"
+    };
+  }
+
+
+  if (
+    s.includes("out") ||
+    d.includes("out for week") ||
+    d.includes("ruled out")
+  ) {
+    return {
+      weight: 1,
+      normalizedStatus: "Out"
+    };
+  }
+
+
+  if (
+    s.includes("sidelined")
+  ) {
+    if (
+      d.includes("out") ||
+      d.includes("will not play") ||
+      d.includes("inactive")
+    ) {
+      return {
+        weight: 1,
+        normalizedStatus: "Out"
+      };
+    }
+
+    return {
+      weight: 0,
+      normalizedStatus:
+        "Sidelined-Unconfirmed"
+    };
+  }
+
+
+  if (
+    s.includes("doubtful") ||
+    d.includes("doubtful")
+  ) {
+    return {
+      weight: 0.75,
+      normalizedStatus: "Doubtful"
+    };
+  }
+
+
+  if (
+    s.includes("questionable") ||
+    d.includes("questionable")
+  ) {
+    return {
+      weight: 0.40,
+      normalizedStatus: "Questionable"
+    };
+  }
+
+
+  if (
+    s.includes("day-to-day") ||
+    s.includes("day to day") ||
+    d.includes("day-to-day") ||
+    d.includes("day to day")
+  ) {
+    return {
+      weight: 0.25,
+      normalizedStatus: "Day-to-Day"
+    };
+  }
+
+
+  if (
+    s.includes("probable") ||
+    d.includes("probable")
+  ) {
+    return {
+      weight: 0.10,
+      normalizedStatus: "Probable"
+    };
+  }
+
+
+  return {
+    weight: 0,
+    normalizedStatus:
+      status || "Unknown"
+  };
+}
+
+
+function nflImpactAbsenceDecay(
+  gamesOut
+) {
+  const games =
+    Math.max(
+      0,
+      Number(gamesOut || 0)
+    );
+
+  if (games <= 1) return 1;
+  if (games === 2) return 0.95;
+  if (games === 3) return 0.80;
+  if (games === 4) return 0.65;
+  if (games === 5) return 0.35;
+  if (games === 6) return 0.15;
+
+  return 0;
+}
+
+
+function nflImpactSeasonWeights(
+  currentGamesWithout
+) {
+  const games =
+    Math.max(
+      0,
+      Number(
+        currentGamesWithout ||
+        0
+      )
+    );
+
+  if (games <= 0) {
+    return {
+      current: 0,
+      previous: 1
+    };
+  }
+
+  if (games === 1) {
+    return {
+      current: 0.20,
+      previous: 0.80
+    };
+  }
+
+  if (games === 2) {
+    return {
+      current: 0.35,
+      previous: 0.65
+    };
+  }
+
+  if (games === 3) {
+    return {
+      current: 0.50,
+      previous: 0.50
+    };
+  }
+
+  if (games === 4) {
+    return {
+      current: 0.60,
+      previous: 0.40
+    };
+  }
+
+  if (games === 5) {
+    return {
+      current: 0.70,
+      previous: 0.30
+    };
+  }
+
+  return {
+    current: 0.80,
+    previous: 0.20
+  };
+}
+
+
+function nflImpactHasHistory(row) {
+  return Boolean(
+    row &&
+    Number(row.games_with || 0) >= 1 &&
+    Number(row.games_without || 0) >= 1
+  );
+}
+
+
+function nflImpactComponent(
+  row,
+  controlledKey,
+  rawKey
+) {
+  if (
+    !nflImpactHasHistory(row)
+  ) {
+    return null;
+  }
+
+  const controlled =
+    nflImpactNumberOrNull(
+      row[controlledKey]
+    );
+
+  if (
+    controlled !== null
+  ) {
+    return controlled;
+  }
+
+  return nflImpactNumberOrNull(
+    row[rawKey]
+  );
+}
+
+
+function nflImpactWeightedValue(
+  currentValue,
+  previousValue,
+  currentWeight,
+  previousWeight
+) {
+  const values = [];
+
+
+  if (
+    currentValue !== null &&
+    currentWeight > 0
+  ) {
+    values.push({
+      value: currentValue,
+      weight: currentWeight
+    });
+  }
+
+
+  if (
+    previousValue !== null &&
+    previousWeight > 0
+  ) {
+    values.push({
+      value: previousValue,
+      weight: previousWeight
+    });
+  }
+
+
+  if (!values.length) {
+    return null;
+  }
+
+
+  const totalWeight =
+    values.reduce(
+      (sum, item) =>
+        sum + item.weight,
+      0
+    );
+
+
+  if (totalWeight <= 0) {
+    return null;
+  }
+
+
+  return (
+    values.reduce(
+      (sum, item) =>
+        sum +
+        item.value *
+        item.weight,
+      0
+    ) /
+    totalWeight
+  );
+}
+
+
+function nflBuildBlendedImpactProfile(
+  current,
+  previous
+) {
+  const currentHas =
+    nflImpactHasHistory(
+      current
+    );
+
+  const previousHas =
+    nflImpactHasHistory(
+      previous
+    );
+
+
+  if (
+    !currentHas &&
+    !previousHas
+  ) {
+    return null;
+  }
+
+
+  let baseWeights =
+    nflImpactSeasonWeights(
+      current?.games_without ||
+      0
+    );
+
+
+  if (
+    currentHas &&
+    !previousHas
+  ) {
+    baseWeights = {
+      current: 1,
+      previous: 0
+    };
+  } else if (
+    !currentHas &&
+    previousHas
+  ) {
+    baseWeights = {
+      current: 0,
+      previous: 1
+    };
+  }
+
+
+  const currentReliability =
+    currentHas
+      ? clamp(
+          Number(
+            current.reliability ||
+            0
+          ),
+          0,
+          1
+        )
+      : 0;
+
+
+  const previousReliability =
+    previousHas
+      ? clamp(
+          Number(
+            previous.reliability ||
+            0
+          ),
+          0,
+          1
+        )
+      : 0;
+
+
+  let currentWeight =
+    baseWeights.current *
+    currentReliability;
+
+
+  let previousWeight =
+    baseWeights.previous *
+    previousReliability;
+
+
+  if (
+    currentHas &&
+    !previousHas
+  ) {
+    currentWeight = 1;
+    previousWeight = 0;
+  }
+
+
+  if (
+    !currentHas &&
+    previousHas
+  ) {
+    currentWeight = 0;
+    previousWeight = 1;
+  }
+
+
+  const currentOffense =
+    currentHas
+      ? nflImpactComponent(
+          current,
+          "offense_change_controlled",
+          "team_points_change"
+        )
+      : null;
+
+
+  const previousOffense =
+    previousHas
+      ? nflImpactComponent(
+          previous,
+          "offense_change_controlled",
+          "team_points_change"
+        )
+      : null;
+
+
+  const blendedOffense =
+    nflImpactWeightedValue(
+      currentOffense,
+      previousOffense,
+      currentWeight,
+      previousWeight
+    );
+
+
+  const currentDefense =
+    currentHas
+      ? nflImpactComponent(
+          current,
+          "defense_change_controlled",
+          "opponent_points_change"
+        )
+      : null;
+
+
+  const previousDefense =
+    previousHas
+      ? nflImpactComponent(
+          previous,
+          "defense_change_controlled",
+          "opponent_points_change"
+        )
+      : null;
+
+
+  const blendedDefense =
+    nflImpactWeightedValue(
+      currentDefense,
+      previousDefense,
+      currentWeight,
+      previousWeight
+    );
+
+
+  const currentUsage =
+    currentHas
+      ? nflImpactNumberOrNull(
+          current
+            .avg_offense_pct_with
+        )
+      : null;
+
+
+  const previousUsage =
+    previousHas
+      ? nflImpactNumberOrNull(
+          previous
+            .avg_offense_pct_with
+        )
+      : null;
+
+
+  const blendedUsage =
+    nflImpactWeightedValue(
+      currentUsage,
+      previousUsage,
+      currentWeight,
+      previousWeight
+    );
+
+
+  const usage =
+    clamp(
+      blendedUsage ?? 0,
+      0,
+      1
+    );
+
+
+  const reliability =
+    nflImpactWeightedValue(
+      currentReliability,
+      previousReliability,
+      currentWeight,
+      previousWeight
+    ) ?? 0;
+
+
+  const sampleFactor =
+    reliability *
+    reliability;
+
+
+  const shrinkFactor =
+    sampleFactor *
+    usage;
+
+
+  const adverseOffense =
+    blendedOffense !== null
+      ? Math.min(
+          0,
+          blendedOffense
+        )
+      : 0;
+
+
+  const adverseDefense =
+    blendedDefense !== null
+      ? Math.max(
+          0,
+          blendedDefense
+        )
+      : 0;
+
+
+  const position =
+    String(
+      current?.position ||
+      previous?.position ||
+      ""
+    )
+      .toUpperCase()
+      .trim();
+
+
+  const defensiveCrossover =
+    NFL_DEF_CROSSOVER[
+      position
+    ] ?? 0;
+
+
+  let offenseImpact =
+    adverseOffense *
+    shrinkFactor;
+
+
+  let defenseImpact =
+    -(
+      adverseDefense *
+      shrinkFactor *
+      defensiveCrossover
+    );
+
+
+  let pointsImpact =
+    offenseImpact +
+    defenseImpact;
+
+
+  // ==========================================================
+  // STARTING QB
+  // ==========================================================
+
+  const isStartingQB =
+    position === "QB" &&
+    usage >= 0.70;
+
+
+  if (isStartingQB) {
+    const rawQBOffenseImpact =
+      adverseOffense *
+      usage;
+
+
+    const rawQBDefenseImpact =
+      -(
+        adverseDefense *
+        usage *
+        defensiveCrossover
+      );
+
+
+    const qbHistoryWeight =
+      reliability >= 0.70
+        ? 1
+        : 0.70;
+
+
+    offenseImpact =
+      rawQBOffenseImpact *
+      qbHistoryWeight;
+
+
+    defenseImpact =
+      rawQBDefenseImpact *
+      qbHistoryWeight;
+
+
+    pointsImpact =
+      offenseImpact +
+      defenseImpact;
+
+
+    if (
+      pointsImpact > -7
+    ) {
+      offenseImpact +=
+        -7 -
+        pointsImpact;
+
+      pointsImpact = -7;
+    }
+  }
+
+
+  return {
+    player_name:
+      current?.player_name ||
+      previous?.player_name ||
+      null,
+
+    position,
+
+    current_games_with:
+      Number(
+        current?.games_with ||
+        0
+      ),
+
+    current_games_without:
+      Number(
+        current?.games_without ||
+        0
+      ),
+
+    previous_games_with:
+      Number(
+        previous?.games_with ||
+        0
+      ),
+
+    previous_games_without:
+      Number(
+        previous?.games_without ||
+        0
+      ),
+
+    reliability:
+      round(
+        reliability,
+        3
+      ),
+
+    usage:
+      round(
+        usage,
+        3
+      ),
+
+    offense_change:
+      round(
+        blendedOffense,
+        3
+      ),
+
+    defense_change:
+      round(
+        blendedDefense,
+        3
+      ),
+
+    offense_impact:
+      round(
+        offenseImpact,
+        3
+      ),
+
+    defense_impact:
+      round(
+        defenseImpact,
+        3
+      ),
+
+    points_impact:
+      round(
+        pointsImpact,
+        3
+      )
+  };
+}
+
+
+function nflBuildHistoricalImpactProfiles(
+  rows,
+  currentSeason,
+  previousSeason
+) {
+  const raw =
+    new Map();
+
+
+  for (
+    const row of
+    rows || []
+  ) {
+    const key =
+      `${String(
+        row.team_id || ""
+      )}|${String(
+        row.player_id || ""
+      )}`;
+
+
+    if (
+      !raw.has(key)
+    ) {
+      raw.set(
+        key,
+        {
+          current: null,
+          previous: null
+        }
+      );
+    }
+
+
+    const profile =
+      raw.get(key);
+
+
+    if (
+      Number(row.season) ===
+      currentSeason
+    ) {
+      profile.current =
+        row;
+    } else if (
+      Number(row.season) ===
+      previousSeason
+    ) {
+      profile.previous =
+        row;
+    }
+  }
+
+
+  const output =
+    new Map();
+
+
+  for (
+    const [
+      key,
+      profile
+    ] of raw.entries()
+  ) {
+    const blended =
+      nflBuildBlendedImpactProfile(
+        profile.current,
+        profile.previous
+      );
+
+
+    if (blended) {
+      output.set(
+        key,
+        blended
+      );
+    }
+  }
+
+
+  return output;
+}
+
+
 async function getInjuryAdjustmentNFL(
   teamName,
   teamRef,
@@ -5186,103 +6043,1109 @@ async function getInjuryAdjustmentNFL(
   teamGames = []
 ) {
   try {
-    const [injuries, starters] = await Promise.all([
-  getNFLTeamInjuriesList(teamName, type),
-  getFootballStarters(teamRef, type, season)
-]);
-    let totalImpact = 0;
-    const counted = [];
+    const currentSeason =
+      Number(
+        season ||
+        getDefaultSeason()
+      );
 
-    for (const player of injuries) {
-      const peso = getNFLPesoStatus(player.status);
-      if (peso === 0) continue;
 
-      // Lesión ya resuelta según ESPN
-      if (player.returnDate && new Date(player.returnDate).getTime() < Date.now()) continue;
+    const previousSeason =
+      currentSeason - 1;
 
-    if (player.startDate) {
-  const injuryStart =
-    new Date(player.startDate).getTime();
 
-  const now =
-    Date.now();
+    const nflverseTeam =
+      NFLVERSE_TEAM_BY_CLEAN_NAME[
+        cleanText(teamName)
+      ];
 
-  const days =
-    Number.isFinite(injuryStart)
-      ? (now - injuryStart) / 86400000
-      : 0;
 
-  const gamesSinceInjury =
-    Array.isArray(teamGames)
-      ? teamGames.filter(game => {
-          const gameDate =
-            new Date(game?.date || 0)
-              .getTime();
-
-          return (
-            Number.isFinite(gameDate) &&
-            Number.isFinite(injuryStart) &&
-            gameDate >= injuryStart &&
-            gameDate <= now
-          );
-        }).length
-      : 0;
-
-  // Si ya jugó el equipo 5+ partidos sin él,
-  // nuestra muestra reciente ya refleja su ausencia.
-  if (gamesSinceInjury >= 5) {
-    continue;
-  }
-
-  // Mantener protección contra reportes viejos
-  // de lesiones menores.
-  if (peso < 4 && days > 30) {
-    continue;
-  }
-}
-      const pos = normalizeNFLPosition(player.position);
-       // Solo posiciones con impacto medible cuentan (QB/RB/WR/TE)
-      if (!NFL_POS_LEAGUE_AVG[pos]) continue;
-      // Solo titulares confirmados pueden afectar la proyección.
-// Si ESPN no confirma al jugador como titular, impacto = 0.
-const starterIds =
-  Array.isArray(starters?.[pos])
-    ? starters[pos].map(String)
-    : [];
-
-if (
-  !starterIds.length ||
-  !starterIds.includes(
-    String(player.athleteId)
-  )
-) {
-  continue;
-}
-      const mult = NFL_POS_MULTIPLIER[pos] ?? NFL_POS_MULTIPLIER.DEFAULT;
-      const cross = NFL_DEF_CROSSOVER[pos] ?? NFL_DEF_CROSSOVER.DEFAULT;
-
-      const stats = NFL_POS_LEAGUE_AVG[pos]
-        ? await getNFLPlayerSeasonStats(player.athleteId, type, season)
-        : null;
-
-      const ois = calcNFLOIS(pos, stats);
-// Suplente / pieza menor: producción insuficiente para ser el titular que iba a jugar
-      const minOIS = pos === "QB" ? 0.6 : 0.4;
-      if (NFL_POS_LEAGUE_AVG[pos] && ois < minOIS) continue;
-      const impact = peso * ois * mult * 0.5;
-      totalImpact += impact * (1 + cross);
-
-      counted.push(`${player.name} (${pos}, ${player.status})`);
+    if (!nflverseTeam) {
+      return {
+        pointsImpact: 0,
+        players: [],
+        source:
+          "nfl_injury_state",
+        note:
+          `NFLverse mapping unavailable for ${teamName}.`
+      };
     }
 
-    totalImpact = Math.min(totalImpact, NFL_MAX_TEAM_INJURY_IMPACT);
+
+    // ========================================================
+    // HISTORICAL DATA + CURRENT PARTICIPATION
+    // ========================================================
+
+    const [
+      impactResult,
+      playerGameResult,
+      teamCrosswalkResult
+    ] =
+      await Promise.all([
+
+        supabaseAdmin
+          .from(
+            "football_player_absence_impact"
+          )
+          .select(`
+            sport,
+            season,
+            team_id,
+            player_id,
+            player_name,
+            position,
+            games_with,
+            games_without,
+            team_points_change,
+            opponent_points_change,
+            offense_change_controlled,
+            defense_change_controlled,
+            margin_change_controlled,
+            avg_offense_pct_with,
+            avg_offense_snaps_with,
+            reliability
+          `)
+          .eq(
+            "sport",
+            "nfl"
+          )
+          .eq(
+            "team_id",
+            nflverseTeam
+          )
+          .in(
+            "season",
+            [
+              previousSeason,
+              currentSeason
+            ]
+          ),
+
+
+        supabaseAdmin
+          .from(
+            "football_player_game_stats"
+          )
+          .select(`
+            sport,
+            season,
+            team_id,
+            player_id,
+            position,
+            game_date,
+            played,
+            offense_snaps
+          `)
+          .eq(
+            "sport",
+            "nfl"
+          )
+          .eq(
+            "team_id",
+            nflverseTeam
+          )
+          .in(
+            "season",
+            [
+              previousSeason,
+              currentSeason
+            ]
+          ),
+
+
+        supabaseAdmin
+          .from(
+            "nfl_player_crosswalk"
+          )
+          .select(`
+            api_sports_team_id,
+            api_sports_team_name
+          `)
+          .eq(
+            "nflverse_team_id",
+            nflverseTeam
+          )
+          .limit(10)
+
+      ]);
+
+
+    if (impactResult.error) {
+      throw impactResult.error;
+    }
+
+    if (playerGameResult.error) {
+      throw playerGameResult.error;
+    }
+
+    if (teamCrosswalkResult.error) {
+      throw teamCrosswalkResult.error;
+    }
+
+
+    const impactRows =
+      impactResult.data || [];
+
+    const playerGameRows =
+      playerGameResult.data || [];
+
+    const teamCrosswalkRows =
+      teamCrosswalkResult.data || [];
+
+
+    const apiTeamId =
+      String(
+        teamCrosswalkRows.find(
+          row =>
+            row?.api_sports_team_id !==
+              null &&
+            row?.api_sports_team_id !==
+              undefined &&
+            String(
+              row.api_sports_team_id
+            ).trim()
+        )
+          ?.api_sports_team_id ||
+        ""
+      ).trim();
+
+
+    // ========================================================
+    // CURRENT INJURY SNAPSHOT
+    // ========================================================
+
+    let injuryQuery =
+      supabaseAdmin
+        .from(
+          "nfl_injury_state"
+        )
+        .select(`
+          api_sports_team_id,
+          api_sports_player_id,
+          team_name,
+          player_name,
+          position,
+          raw_status,
+          normalized_status,
+          report_date,
+          description,
+          active
+        `)
+        .eq(
+          "active",
+          true
+        );
+
+
+    if (apiTeamId) {
+      injuryQuery =
+        injuryQuery.eq(
+          "api_sports_team_id",
+          apiTeamId
+        );
+    } else {
+      injuryQuery =
+        injuryQuery.eq(
+          "team_name",
+          teamName
+        );
+    }
+
+
+    const {
+      data: injuryRows,
+      error: injuryError
+    } =
+      await injuryQuery;
+
+
+    if (injuryError) {
+      throw injuryError;
+    }
+
+
+    const injuries =
+      injuryRows || [];
+
+
+    if (!injuries.length) {
+      return {
+        pointsImpact: 0,
+        players: [],
+        source:
+          "nfl_injury_state",
+        nflverseTeam,
+        note:
+          "No active NFL injuries in snapshot."
+      };
+    }
+
+
+    // ========================================================
+    // CROSSWALK ONLY FOR CURRENT INJURED PLAYERS
+    // ========================================================
+
+    const apiPlayerIds =
+      Array.from(
+        new Set(
+          injuries
+            .map(
+              row =>
+                String(
+                  row
+                    ?.api_sports_player_id ||
+                  ""
+                ).trim()
+            )
+            .filter(Boolean)
+        )
+      );
+
+
+    let crosswalkRows = [];
+
+
+    if (apiPlayerIds.length) {
+      const {
+        data,
+        error
+      } =
+        await supabaseAdmin
+          .from(
+            "nfl_player_crosswalk"
+          )
+          .select(`
+            api_sports_player_id,
+            gsis_player_id,
+            player_name,
+            position,
+            api_sports_team_id,
+            nflverse_team_id,
+            api_sports_team_name,
+            confidence
+          `)
+          .in(
+            "api_sports_player_id",
+            apiPlayerIds
+          );
+
+
+      if (error) {
+        throw error;
+      }
+
+
+      crosswalkRows =
+        data || [];
+    }
+
+
+    const historicalProfiles =
+      nflBuildHistoricalImpactProfiles(
+        impactRows,
+        currentSeason,
+        previousSeason
+      );
+
+
+    // ========================================================
+    // CURRENT QB ROOM
+    // ========================================================
+
+    const currentSeasonQBs =
+      new Set();
+
+
+    for (
+      const row of
+      playerGameRows
+    ) {
+      const position =
+        String(
+          row.position || ""
+        )
+          .toUpperCase()
+          .trim();
+
+
+      if (
+        position !== "QB" ||
+        Number(row.season) !==
+          currentSeason
+      ) {
+        continue;
+      }
+
+
+      const playerId =
+        String(
+          row.player_id || ""
+        ).trim();
+
+
+      if (playerId) {
+        currentSeasonQBs.add(
+          playerId
+        );
+      }
+    }
+
+
+    // ========================================================
+    // CONSECUTIVE ABSENCES
+    // ========================================================
+
+    const currentGamesByPlayer =
+      new Map();
+
+
+    for (
+      const row of
+      playerGameRows
+    ) {
+      if (
+        Number(row.season) !==
+        currentSeason
+      ) {
+        continue;
+      }
+
+
+      const playerId =
+        String(
+          row.player_id || ""
+        ).trim();
+
+
+      if (!playerId) {
+        continue;
+      }
+
+
+      const key =
+        `${nflverseTeam}|${playerId}`;
+
+
+      if (
+        !currentGamesByPlayer.has(
+          key
+        )
+      ) {
+        currentGamesByPlayer.set(
+          key,
+          []
+        );
+      }
+
+
+      currentGamesByPlayer
+        .get(key)
+        .push(row);
+    }
+
+
+    const consecutiveAbsencesByPlayer =
+      new Map();
+
+
+    for (
+      const [
+        key,
+        rows
+      ] of
+      currentGamesByPlayer.entries()
+    ) {
+      rows.sort(
+        (a, b) =>
+          new Date(
+            b.game_date || 0
+          ).getTime() -
+          new Date(
+            a.game_date || 0
+          ).getTime()
+      );
+
+
+      let consecutive = 0;
+
+
+      for (
+        const row of rows
+      ) {
+        if (
+          row.played === false
+        ) {
+          consecutive++;
+        } else {
+          break;
+        }
+      }
+
+
+      consecutiveAbsencesByPlayer.set(
+        key,
+        consecutive
+      );
+    }
+
+
+    // ========================================================
+    // CROSSWALK INDEX
+    // ========================================================
+
+    const crosswalkByApiId =
+      new Map();
+
+
+    for (
+      const row of
+      crosswalkRows
+    ) {
+      const apiId =
+        String(
+          row
+            .api_sports_player_id ||
+          ""
+        ).trim();
+
+
+      const gsis =
+        String(
+          row
+            .gsis_player_id ||
+          ""
+        ).trim();
+
+
+      if (
+        !apiId ||
+        !gsis
+      ) {
+        continue;
+      }
+
+
+      crosswalkByApiId.set(
+        apiId,
+        row
+      );
+    }
+
+
+    // ========================================================
+    // CURRENT INJURY PLAYERS
+    // ========================================================
+
+    const eligible = [];
+    const qbStatusByGsis =
+      new Map();
+
+    const noCrosswalk = [];
+    const noHistory = [];
+    const ignoredStatus = [];
+
+    let ignoredPositionCount = 0;
+
+
+    for (
+      const injury of injuries
+    ) {
+      const apiPlayerId =
+        String(
+          injury
+            ?.api_sports_player_id ??
+          ""
+        ).trim();
+
+
+      const apiPlayerName =
+        String(
+          injury
+            ?.player_name ??
+          ""
+        ).trim();
+
+
+      const originalStatus =
+        String(
+          injury?.raw_status ??
+          injury?.normalized_status ??
+          ""
+        ).trim();
+
+
+      const description =
+        String(
+          injury?.description ??
+          ""
+        ).trim();
+
+
+      const crosswalk =
+        crosswalkByApiId.get(
+          apiPlayerId
+        );
+
+
+      if (!crosswalk) {
+        noCrosswalk.push({
+          apiPlayerId,
+          player:
+            apiPlayerName,
+          status:
+            originalStatus
+        });
+
+        continue;
+      }
+
+
+      const gsis =
+        String(
+          crosswalk
+            .gsis_player_id ||
+          ""
+        ).trim();
+
+
+      const position =
+        String(
+          crosswalk.position ||
+          ""
+        )
+          .toUpperCase()
+          .trim();
+
+
+      if (
+        !NFL_HISTORY_ELIGIBLE_POSITIONS.has(
+          position
+        )
+      ) {
+        ignoredPositionCount++;
+        continue;
+      }
+
+
+      const statusInfo =
+        nflImpactStatusWeight(
+          originalStatus,
+          description
+        );
+
+
+      if (
+        statusInfo.weight <= 0
+      ) {
+        ignoredStatus.push({
+          player:
+            apiPlayerName,
+          position,
+          status:
+            originalStatus,
+          description
+        });
+
+        continue;
+      }
+
+
+      // QB status se guarda incluso
+      // si no tiene historial.
+      if (
+        position === "QB"
+      ) {
+        qbStatusByGsis.set(
+          gsis,
+          {
+            weight:
+              statusInfo.weight,
+
+            status:
+              statusInfo
+                .normalizedStatus
+          }
+        );
+      }
+
+
+      const history =
+        historicalProfiles.get(
+          `${nflverseTeam}|${gsis}`
+        );
+
+
+      if (!history) {
+        noHistory.push({
+          apiPlayerId,
+          player:
+            apiPlayerName,
+          gsis,
+          position,
+          status:
+            statusInfo
+              .normalizedStatus,
+          statusWeight:
+            statusInfo.weight
+        });
+
+        continue;
+      }
+
+
+      const historicalImpact =
+        Number(
+          history.points_impact ||
+          0
+        );
+
+
+      const playerKey =
+        `${nflverseTeam}|${gsis}`;
+
+
+      const consecutiveGamesOut =
+        position === "QB"
+          ? (
+              consecutiveAbsencesByPlayer.get(
+                playerKey
+              ) || 0
+            )
+          : 0;
+
+
+      const absenceDecay =
+        position === "QB"
+          ? nflImpactAbsenceDecay(
+              consecutiveGamesOut
+            )
+          : 1;
+
+
+      const fullAbsenceImpact =
+        historicalImpact *
+        absenceDecay;
+
+
+      const statusAdjustedImpact =
+        fullAbsenceImpact *
+        statusInfo.weight;
+
+
+      if (
+        statusAdjustedImpact >= 0
+      ) {
+        continue;
+      }
+
+
+      eligible.push({
+        apiPlayerId,
+
+        gsisPlayerId:
+          gsis,
+
+        player:
+          apiPlayerName,
+
+        position,
+
+        status:
+          statusInfo
+            .normalizedStatus,
+
+        originalStatus,
+
+        description,
+
+        statusWeight:
+          statusInfo.weight,
+
+        usage:
+          history.usage,
+
+        reliability:
+          history.reliability,
+
+        historicalImpact:
+          round(
+            historicalImpact,
+            3
+          ),
+
+        fullAbsenceImpact:
+          round(
+            fullAbsenceImpact,
+            3
+          ),
+
+        consecutiveGamesOut,
+
+        absenceDecay:
+          round(
+            absenceDecay,
+            3
+          ),
+
+        statusAdjustedImpact:
+          round(
+            statusAdjustedImpact,
+            3
+          ),
+
+        currentGamesWithout:
+          history
+            .current_games_without,
+
+        previousGamesWithout:
+          history
+            .previous_games_without
+      });
+    }
+
+
+    // ========================================================
+    // NON-QB
+    // ========================================================
+
+    const impactCandidates = [];
+
+
+    for (
+      const player of
+      eligible.filter(
+        player =>
+          player.position !==
+          "QB"
+      )
+    ) {
+      impactCandidates.push({
+        ...player,
+
+        expectedImpact:
+          player
+            .statusAdjustedImpact,
+
+        qbConditionalWeight:
+          null
+      });
+    }
+
+
+    // ========================================================
+    // QB CONDITIONAL CHAIN
+    // ========================================================
+
+    const qbPlayersByGsis =
+      new Map();
+
+
+    for (
+      const player of eligible
+    ) {
+      if (
+        player.position === "QB"
+      ) {
+        qbPlayersByGsis.set(
+          player.gsisPlayerId,
+          player
+        );
+      }
+    }
+
+
+    const hierarchy =
+      Array.from(
+        currentSeasonQBs
+      )
+        .map(
+          gsis => {
+            const history =
+              historicalProfiles.get(
+                `${nflverseTeam}|${gsis}`
+              );
+
+
+            return {
+              gsis,
+
+              usage:
+                Number(
+                  history?.usage ||
+                  0
+                ),
+
+              reliability:
+                Number(
+                  history
+                    ?.reliability ||
+                  0
+                )
+            };
+          }
+        )
+        .sort(
+          (a, b) => {
+            const usageDiff =
+              b.usage -
+              a.usage;
+
+
+            if (
+              Math.abs(
+                usageDiff
+              ) > 0.01
+            ) {
+              return usageDiff;
+            }
+
+
+            return (
+              b.reliability -
+              a.reliability
+            );
+          }
+        )
+        .map(
+          qb =>
+            qb.gsis
+        );
+
+
+    let qbChainProbability = 1;
+
+
+    for (
+      const qbGsis of
+      hierarchy
+    ) {
+      const status =
+        qbStatusByGsis.get(
+          qbGsis
+        );
+
+
+      // QB superior sano:
+      // el resto de la cadena no cuenta.
+      if (
+        !status ||
+        status.weight <= 0
+      ) {
+        break;
+      }
+
+
+      const player =
+        qbPlayersByGsis.get(
+          qbGsis
+        );
+
+
+      if (player) {
+        const expectedImpact =
+          player
+            .fullAbsenceImpact *
+          status.weight *
+          qbChainProbability;
+
+
+        impactCandidates.push({
+          ...player,
+
+          qbConditionalWeight:
+            round(
+              qbChainProbability,
+              3
+            ),
+
+          expectedImpact:
+            round(
+              expectedImpact,
+              3
+            )
+        });
+      }
+
+
+      qbChainProbability *=
+        status.weight;
+
+
+      if (
+        qbChainProbability <= 0
+      ) {
+        break;
+      }
+    }
+
+
+    // Fallback solamente si no existe hierarchy.
+    if (!hierarchy.length) {
+      const fallbackQBs =
+        eligible
+          .filter(
+            player =>
+              player.position ===
+              "QB"
+          )
+          .sort(
+            (a, b) =>
+              b.usage -
+              a.usage
+          );
+
+
+      let fallbackChain = 1;
+
+
+      for (
+        const player of
+        fallbackQBs
+      ) {
+        const expectedImpact =
+          player
+            .fullAbsenceImpact *
+          player.statusWeight *
+          fallbackChain;
+
+
+        impactCandidates.push({
+          ...player,
+
+          qbConditionalWeight:
+            round(
+              fallbackChain,
+              3
+            ),
+
+          expectedImpact:
+            round(
+              expectedImpact,
+              3
+            )
+        });
+
+
+        fallbackChain *=
+          player.statusWeight;
+      }
+    }
+
+
+    // ========================================================
+    // MULTIPLE INJURIES
+    // Mayor impacto 100%, resto 70%.
+    // ========================================================
+
+    impactCandidates.sort(
+      (a, b) =>
+        a.expectedImpact -
+        b.expectedImpact
+    );
+
+
+    const appliedPlayers =
+      impactCandidates.map(
+        (
+          player,
+          index
+        ) => {
+          const multipleWeight =
+            index === 0
+              ? 1
+              : 0.70;
+
+
+          const finalImpact =
+            player.expectedImpact *
+            multipleWeight;
+
+
+          return {
+            ...player,
+
+            multipleWeight,
+
+            finalImpact:
+              round(
+                finalImpact,
+                3
+              )
+          };
+        }
+      );
+
+
+    // SIN CAP DE 10.
+    const rawCombinedImpact =
+      appliedPlayers.reduce(
+        (sum, player) =>
+          sum +
+          Number(
+            player.finalImpact ||
+            0
+          ),
+        0
+      );
+
 
     return {
-      pointsImpact: round(-totalImpact, 2),
-      note: counted.length ? counted.join(", ") : "No key injuries reported."
+      pointsImpact:
+        round(
+          rawCombinedImpact,
+          2
+        ),
+
+      players:
+        appliedPlayers,
+
+      source:
+        "nfl_injury_state",
+
+      nflverseTeam,
+
+      injuriesReported:
+        injuries.length,
+
+      usableHistoricalImpacts:
+        eligible.length,
+
+      noCrosswalk,
+
+      noHistory,
+
+      ignoredStatus,
+
+      ignoredPositionCount,
+
+      note:
+        appliedPlayers.length
+          ? appliedPlayers
+              .map(
+                player =>
+                  `${player.player} (${player.position}, ${player.status}, ${round(player.finalImpact, 2)})`
+              )
+              .join(", ")
+          : "No key NFL injury impact."
     };
-  } catch {
-    return { pointsImpact: 0, note: "Injury data unavailable." };
+
+
+  } catch (error) {
+    console.log(
+      "NFL HISTORICAL INJURY ERROR:",
+      teamName,
+      error?.message
+    );
+
+
+    return {
+      pointsImpact: 0,
+      players: [],
+      source:
+        "nfl_injury_state",
+      note:
+        "NFL historical injury data unavailable."
+    };
   }
 }
 // ============================================================
