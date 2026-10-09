@@ -12,7 +12,7 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const MAX_GAMES_USED = 7;
 
 const SPORT_PATHS = {
-  nfl: "football/nfl",
+  nfl: "football/nfl", 
   ncaaf: "football/college-football"
 };
 
