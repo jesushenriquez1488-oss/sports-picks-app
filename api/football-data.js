@@ -17186,10 +17186,7 @@ if (mode === "test-nfl-roster-cache") {
     });
   }
 
-  const success = await cacheNFLGameRoster(
-    "401772906",
-    2025
-  );
+  const success = await cacheNFLGameRoster("401772905", 2025);
 
   return res.status(success ? 200 : 500).json({
     test: "NFL roster cache",
