@@ -12784,9 +12784,9 @@ if (gsisId) {
     .eq("sport", "nfl")
     .eq("player_id", gsisId)
     .in("season", [
-      NFL_SEASON,
-      NFL_PREVIOUS_SEASON
-    ])
+  getNFLPlayerStatsSeasonYear(),
+  getNFLPlayerStatsSeasonYear() - 1
+])
     .limit(100);
 
   if (error) throw error;
