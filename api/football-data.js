@@ -7469,9 +7469,9 @@ async function getNFLPlayerStatsFromBoxscore(gameId, playerName) {
     receptions: 0,
     targets: 0,
 
-    totalPlays: 0,
-    found: false
-   started: null,
+   totalPlays: 0,
+found: false,
+started: null,
 roleVerified: false,
 participationVerified: false,
 };
