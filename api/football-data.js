@@ -17158,11 +17158,9 @@ res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 if (req.method === "OPTIONS") {
   return res.status(200).end();
 }
-  console.log("FOOTBALL REQUEST:", {
+ console.log("FOOTBALL REQUEST:", {
   method: req.method,
-  query: req.query,
-  headers: req.headers,
-  url: req.url
+  mode: req.query?.mode || null
 });
   try {
 const mode = req.query.mode || req.body?.mode;
@@ -17186,13 +17184,15 @@ if (mode === "test-nfl-roster-cache") {
     });
   }
 
-  const success = await cacheNFLGameRoster("401772905", 2025);
+const testGameId = "401772905";
 
-  return res.status(success ? 200 : 500).json({
-    test: "NFL roster cache",
-    gameId: "401772906",
-    success
-  });
+const success = await cacheNFLGameRoster(testGameId, 2025);
+
+return res.status(success ? 200 : 500).json({
+  test: "NFL roster cache",
+  gameId: testGameId,
+  success
+});
 }
 
 if (mode === "nfl-player-props") {
