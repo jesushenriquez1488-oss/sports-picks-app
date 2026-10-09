@@ -18003,6 +18003,10 @@ if (mode === "nfl-player-props") {
   return await handleNFLPlayerProps(req, res);
 }
 
+if (mode === "nfl-player-props-career") {
+  return await handleNFLPlayerPropsCareer(req, res);
+}
+
 if (mode === "nfl-player-stats") {
   return await handleNFLPlayerStats(req, res);
 }
