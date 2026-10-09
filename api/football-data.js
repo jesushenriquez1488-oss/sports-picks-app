@@ -7456,16 +7456,25 @@ async function getNFLPlayerStatsFromBoxscore(gameId, playerName) {
   const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
   const data = await espnFetchNFL(url);
  
-  const result = {
-    passingYards:    0,
-    rushingYards:    0,
-    rushingCarries:  0,
-    receivingYards:  0,
-    receptions:      0,
-    targets:         0,
-    totalPlays:      0,
-    found:           false
-  };
+ const result = {
+    gameId: String(gameId),
+
+    passingYards: 0,
+    passingAttempts: null,
+
+    rushingYards: 0,
+    rushingCarries: 0,
+
+    receivingYards: 0,
+    receptions: 0,
+    targets: 0,
+
+    totalPlays: 0,
+    found: false
+   started: null,
+roleVerified: false,
+participationVerified: false,
+};
  
  const targetClean =
   normalizeNFLPlayerName(playerName);
@@ -7496,12 +7505,70 @@ if (
 }
  
         const stats = entry?.stats || [];
+  // ==============================================
+// NFL PROPS — DIAGNOSTICO DE TITULARIDAD ESPN
+// ==============================================
+
+if (
+  category.includes("passing") ||
+  category.includes("rushing") ||
+  category.includes("receiving")
+) {
+  console.log("NFL ROLE SOURCE CHECK:", {
+    player: athleteName,
+    gameId,
+    category,
+    starter: entry?.starter ?? null,
+    active: entry?.athlete?.active ?? null,
+    statKeys: keys,
+    stats
+  });
+}
+  // ================================================
+// NFL PROPS — VERIFICACION HISTORICA DEL ROL
+// ================================================
+
+// Solo aceptamos una titularidad si ESPN
+// la informa expresamente como booleano.
+// Nunca inferimos titularidad por las yardas.
+
+if (typeof entry?.starter === "boolean") {
+  result.started = entry.starter;
+  result.roleVerified = true;
+}
+
+// Registrar evidencia de participacion
+// cuando ESPN identifica al jugador.
+if (
+  entry?.athlete?.id &&
+  athleteName === targetClean
+) {
+  result.participationVerified = true;
+}
  
-        if (category.includes("passing")) {
-          const idx = keys.indexOf("passingYards");
-          if (idx >= 0) result.passingYards = nflSafeNum(stats[idx]);
-          result.found = true;
-        }
+       if (category.includes("passing")) {
+  const yardsIdx = keys.indexOf("passingYards");
+
+  const attemptsIdx = [
+    "passingAttempts",
+    "passAttempts",
+    "attempts"
+  ]
+    .map(key => keys.indexOf(key))
+    .find(index => index >= 0);
+
+  if (yardsIdx >= 0) {
+    result.passingYards =
+      nflSafeNum(stats[yardsIdx]);
+  }
+
+  if (attemptsIdx !== undefined) {
+    result.passingAttempts =
+      nflSafeNum(stats[attemptsIdx]);
+  }
+
+  result.found = true;
+}
  
         if (category.includes("rushing")) {
 
@@ -9355,7 +9422,59 @@ const homeRosterMatch =
       p?.cleanName === normalizedPropPlayer
     )
   ) || null;
+// =====================================================
+// NFL PLAYER PROPS — VALIDACION DE IDENTIDAD Y ROL
+// PASO 2: EQUIPO Y POSICION
+// =====================================================
 
+const verifiedRosterPlayer =
+  awayRosterMatch && !homeRosterMatch
+    ? awayRosterMatch
+    : homeRosterMatch && !awayRosterMatch
+      ? homeRosterMatch
+      : null;
+
+// Sin equipo verificable, NO PICK.
+if (
+  !verifiedRosterPlayer ||
+  !athleteId ||
+  String(verifiedRosterPlayer.id) !== String(athleteId)
+) {
+  propsDebug.blockedUnverifiedPlayer =
+    (propsDebug.blockedUnverifiedPlayer || 0) + 1;
+
+  continue;
+}
+
+const verifiedPosition =
+  String(
+    verifiedRosterPlayer.position || ""
+  ).toUpperCase().trim();
+
+const allowedNFLPositions =
+  new Set(["QB", "RB", "FB", "WR", "TE"]);
+
+if (!allowedNFLPositions.has(verifiedPosition)) {
+  propsDebug.blockedUnverifiedPosition =
+    (propsDebug.blockedUnverifiedPosition || 0) + 1;
+
+  continue;
+}
+
+// Verificar que el mercado corresponda
+// a una posicion que pueda analizarse.
+const passingMarket =
+  market === "player_pass_yds";
+
+if (
+  passingMarket &&
+  verifiedPosition !== "QB"
+) {
+  propsDebug.blockedMarketPosition =
+    (propsDebug.blockedMarketPosition || 0) + 1;
+
+  continue;
+}
 
 /*
  * Contexto por defecto AWAY.
@@ -9622,8 +9741,14 @@ if (
               log?.receiving?.targets
             ),
 
-          totalPlays: 0,
-          found: true
+         totalPlays: 0,
+
+// Historial encontrado, pero el rol
+// todavía no está confirmado.
+found: true,
+started: null,
+roleVerified: false,
+participationVerified: false
         }));
 
     if (
@@ -9661,7 +9786,56 @@ const propsHistory10 = [
   ...previousPlayerGameStats
 ].slice(0, 10);
 
+// ================================================
+// NFL PLAYER PROPS — AUDITORIA DE ROL HISTORICO
+// ================================================
 
+const nflRoleAudit = {
+  player,
+  position:
+    verifiedPosition,
+
+  totalGames:
+    propsHistory10.length,
+
+  verifiedGames:
+    propsHistory10.filter(
+      g => g?.roleVerified === true
+    ).length,
+
+  startedGames:
+    propsHistory10.filter(
+      g =>
+        g?.roleVerified === true &&
+        g?.started === true
+    ).length,
+
+  benchGames:
+    propsHistory10.filter(
+      g =>
+        g?.roleVerified === true &&
+        g?.started === false
+    ).length,
+
+  unknownGames:
+    propsHistory10.filter(
+      g => g?.roleVerified !== true
+    ).length
+};
+
+if (
+  !propsDebug.roleAudit
+) {
+  propsDebug.roleAudit = [];
+}
+
+if (
+  propsDebug.roleAudit.length < 10
+) {
+  propsDebug.roleAudit.push(
+    nflRoleAudit
+  );
+}
 /*
  * Ventanas derivadas de LA MISMA muestra.
  *
