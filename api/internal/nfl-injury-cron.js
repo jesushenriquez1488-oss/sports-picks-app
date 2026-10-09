@@ -102,11 +102,6 @@ function getNFLSeason(
   month
 ) {
 
-  /*
-   * January / February belong to
-   * the previous NFL season.
-   */
-
   if (
     month <= 2
   ) {
@@ -136,6 +131,7 @@ async function apiSports(
   if (
     !apiKey
   ) {
+
     throw new Error(
       "API_SPORTS_KEY missing"
     );
@@ -165,8 +161,7 @@ async function apiSports(
 
 
   const body =
-    await response
-      .json();
+    await response.json();
 
 
   const errors =
@@ -209,6 +204,553 @@ async function apiSports(
 
 
 // ============================================================
+// TEAM NORMALIZATION
+// ============================================================
+
+function normalizeNFLTeamName(
+  value
+) {
+
+  return String(
+    value ||
+    ""
+  )
+    .toLowerCase()
+    .normalize(
+      "NFD"
+    )
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(
+      /[^a-z0-9]+/g,
+      " "
+    )
+    .trim();
+}
+
+
+// ============================================================
+// CENTRAL DATE FOR GAME
+// ============================================================
+
+function getCentralDateFromValue(
+  value
+) {
+
+  const date =
+    new Date(
+      value
+    );
+
+
+  if (
+    !Number.isFinite(
+      date.getTime()
+    )
+  ) {
+    return null;
+  }
+
+
+  const parts =
+    new Intl.DateTimeFormat(
+      "en-US",
+      {
+        timeZone:
+          "America/Chicago",
+
+        year:
+          "numeric",
+
+        month:
+          "2-digit",
+
+        day:
+          "2-digit"
+      }
+    )
+      .formatToParts(
+        date
+      );
+
+
+  const map =
+    Object.fromEntries(
+      parts.map(
+        part => [
+          part.type,
+          part.value
+        ]
+      )
+    );
+
+
+  return (
+    `${map.year}-${map.month}-${map.day}`
+  );
+}
+
+
+// ============================================================
+// ADD DAYS
+// ============================================================
+
+function addDaysToDate(
+  dateString,
+  days
+) {
+
+  const [
+    year,
+    month,
+    day
+  ] =
+    String(
+      dateString
+    )
+      .split("-")
+      .map(
+        Number
+      );
+
+
+  const date =
+    new Date(
+      Date.UTC(
+        year,
+        month - 1,
+        day +
+        Number(
+          days ||
+          0
+        )
+      )
+    );
+
+
+  return date
+    .toISOString()
+    .slice(
+      0,
+      10
+    );
+}
+
+
+// ============================================================
+// DID THIS TEAM CHANGE?
+// ============================================================
+
+function teamHadInjuryChange(
+  teamResult
+) {
+
+  return [
+    "inserted",
+    "changed",
+    "reactivated",
+    "deactivated"
+  ]
+    .some(
+      key =>
+        Number(
+          teamResult?.[key] ||
+          0
+        ) > 0
+    );
+}
+
+
+// ============================================================
+// REANALYZE AFFECTED NFL GAME
+// ============================================================
+
+async function reanalyzeChangedNFLGames({
+  syncBody,
+  cronSecret,
+  centralDate
+}) {
+
+  try {
+
+    // ========================================================
+    // CHANGED TEAMS
+    // ========================================================
+
+    const changedTeams =
+      Array.from(
+        new Set(
+          (
+            syncBody?.teamResults ||
+            []
+          )
+            .filter(
+              teamHadInjuryChange
+            )
+            .map(
+              row =>
+                String(
+                  row?.team ||
+                  ""
+                ).trim()
+            )
+            .filter(
+              Boolean
+            )
+        )
+      );
+
+
+    if (
+      !changedTeams.length
+    ) {
+
+      return {
+        ok: true,
+        triggered: false,
+        changedTeams: [],
+        gamesFound: 0,
+        gamesReanalyzed: 0,
+        results: []
+      };
+    }
+
+
+    // ========================================================
+    // FRESH NFL ODDS
+    // ========================================================
+
+    const oddsResponse =
+      await fetch(
+        `${CASHEDGE_ORIGIN}` +
+        `/api/odds` +
+        `?sport=americanfootball_nfl` +
+        `&force=true`,
+        {
+          headers: {
+            "X-Internal-Secret":
+              cronSecret
+          }
+        }
+      );
+
+
+    const oddsBody =
+      await oddsResponse
+        .json()
+        .catch(
+          () => null
+        );
+
+
+    if (
+      !oddsResponse.ok ||
+      !Array.isArray(
+        oddsBody
+      )
+    ) {
+
+      return {
+        ok: false,
+        triggered: true,
+        changedTeams,
+        gamesFound: 0,
+        gamesReanalyzed: 0,
+
+        error:
+          oddsBody?.error ||
+          `NFL odds HTTP ${oddsResponse.status}`,
+
+        results: []
+      };
+    }
+
+
+    // ========================================================
+    // ONLY TODAY + NEXT 6 DAYS
+    // ========================================================
+
+    const changedSet =
+      new Set(
+        changedTeams.map(
+          normalizeNFLTeamName
+        )
+      );
+
+
+    const footballWindow =
+      new Set(
+        Array.from(
+          {
+            length: 7
+          },
+          (
+            _,
+            index
+          ) =>
+            addDaysToDate(
+              centralDate,
+              index
+            )
+        )
+      );
+
+
+    const targets =
+      new Map();
+
+
+    for (
+      const game of
+      oddsBody
+    ) {
+
+      const awayTeam =
+        String(
+          game?.away_team ||
+          game?.awayTeam ||
+          ""
+        ).trim();
+
+
+      const homeTeam =
+        String(
+          game?.home_team ||
+          game?.homeTeam ||
+          ""
+        ).trim();
+
+
+      if (
+        !awayTeam ||
+        !homeTeam
+      ) {
+        continue;
+      }
+
+
+      const gameDate =
+        getCentralDateFromValue(
+          game?.commence_time ||
+          game?.commenceTime ||
+          game?.game_time
+        );
+
+
+      if (
+        !gameDate ||
+        !footballWindow.has(
+          gameDate
+        )
+      ) {
+        continue;
+      }
+
+
+      const affected =
+        changedSet.has(
+          normalizeNFLTeamName(
+            awayTeam
+          )
+        ) ||
+        changedSet.has(
+          normalizeNFLTeamName(
+            homeTeam
+          )
+        );
+
+
+      if (
+        !affected
+      ) {
+        continue;
+      }
+
+
+      const key =
+        String(
+          game?.id ||
+          `${awayTeam}|${homeTeam}|${gameDate}`
+        );
+
+
+      targets.set(
+        key,
+        {
+          game,
+          awayTeam,
+          homeTeam,
+          gameDate
+        }
+      );
+    }
+
+
+    // ========================================================
+    // FORCE REANALYSIS
+    // ========================================================
+
+    const results =
+      [];
+
+
+    for (
+      const target of
+      targets.values()
+    ) {
+
+      const params =
+        new URLSearchParams({
+          type:
+            "nfl",
+
+          teamA:
+            target.awayTeam,
+
+          teamB:
+            target.homeTeam,
+
+          force:
+            "true"
+        });
+
+
+      const response =
+        await fetch(
+          `${CASHEDGE_ORIGIN}` +
+          `/api/football-data` +
+          `?${params.toString()}`,
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              "X-Internal-Secret":
+                cronSecret
+            },
+
+            body:
+              JSON.stringify({
+                oddsSnapshot:
+                  target.game,
+
+                force:
+                  true
+              })
+          }
+        );
+
+
+      const data =
+        await response
+          .json()
+          .catch(
+            () => null
+          );
+
+
+      results.push({
+
+        game:
+          `${target.awayTeam} vs ${target.homeTeam}`,
+
+        gameDate:
+          target.gameDate,
+
+        ok:
+          response.ok,
+
+        status:
+          response.status,
+
+        frozen:
+          data?.frozen ===
+          true,
+
+        noPlay:
+          data?.noPlay ===
+          true,
+
+        projectedSpread:
+          data?.projectedSpread ??
+          null,
+
+        error:
+          response.ok
+            ? null
+            : (
+                data?.error ||
+                `football-data HTTP ${response.status}`
+              )
+      });
+    }
+
+
+    return {
+
+      ok:
+        results.every(
+          item =>
+            item.ok
+        ),
+
+      triggered:
+        true,
+
+      changedTeams,
+
+      gamesFound:
+        targets.size,
+
+      gamesReanalyzed:
+        results.filter(
+          item =>
+            item.ok &&
+            item.frozen !==
+              true
+        ).length,
+
+      results
+    };
+
+
+  } catch (
+    error
+  ) {
+
+    return {
+
+      ok: false,
+
+      triggered:
+        true,
+
+      changedTeams:
+        [],
+
+      gamesFound:
+        0,
+
+      gamesReanalyzed:
+        0,
+
+      error:
+        error?.message ||
+        String(error),
+
+      results:
+        []
+    };
+  }
+}
+
+
+// ============================================================
 // MAIN
 // ============================================================
 
@@ -234,7 +776,7 @@ module.exports =
 
 
     // ========================================================
-    // AUTH — VERCEL CRON
+    // AUTH
     // ========================================================
 
     const cronSecret =
@@ -321,7 +863,7 @@ module.exports =
 
 
       // ======================================================
-      // DOES NFL PLAY TODAY?
+      // GAME DAY?
       // ======================================================
 
       let gamesToday =
@@ -350,16 +892,6 @@ module.exports =
         error
       ) {
 
-        /*
-         * SAFETY:
-         *
-         * If schedule lookup fails,
-         * DON'T stop injury monitoring.
-         *
-         * We prefer extra polling over
-         * missing an injury change.
-         */
-
         scheduleError =
           error?.message ||
           String(error);
@@ -367,24 +899,12 @@ module.exports =
 
 
       const isGameDay =
-        gamesToday.length > 0;
+        gamesToday.length >
+        0;
 
 
       // ======================================================
-      // FREQUENCY
-      //
-      // GAME DAY:
-      // cron runs every 10 minutes.
-      //
-      // NO GAME:
-      // only first cycle of each hour runs.
-      //
-      // Our four batches execute at:
-      // :00 :02 :04 :06
-      //
-      // The next cycles:
-      // :10 :12 :14 :16...
-      // are skipped when there is no NFL game.
+      // NON-GAME DAY = HOURLY
       // ======================================================
 
       if (
@@ -421,7 +941,7 @@ module.exports =
 
 
       // ======================================================
-      // RUN INJURY SYNC
+      // SYNC INJURIES
       // ======================================================
 
       const syncUrl =
@@ -457,7 +977,8 @@ module.exports =
 
       if (
         !response.ok ||
-        body?.ok !== true
+        body?.ok !==
+          true
       ) {
 
         throw new Error(
@@ -466,6 +987,26 @@ module.exports =
         );
       }
 
+
+      // ======================================================
+      // AUTO REANALYSIS
+      // ======================================================
+
+      const reanalysis =
+        await reanalyzeChangedNFLGames({
+          syncBody:
+            body,
+
+          cronSecret,
+
+          centralDate:
+            central.date
+        });
+
+
+      // ======================================================
+      // RESPONSE
+      // ======================================================
 
       return res
         .status(200)
@@ -502,7 +1043,9 @@ module.exports =
             8,
 
           sync:
-            body
+            body,
+
+          reanalysis
 
         });
 
