@@ -12723,15 +12723,140 @@ async function handleNFLPlayerPropsCareer(
   // CAREER LOGS
   // =========================
 
-  const allCareerLogs =
-    await loadNFLPlayerPropsCareerLogs({
-      athleteId,
-      experienceYears
-    });
+ 
+const allCareerLogs =
+  await loadNFLPlayerPropsCareerLogs({
+    athleteId,
+    experienceYears
+  });
 
+// Verificar participación real antes de contar
+// un partido como HIT o MISS.
+const careerGameIds = [...new Set(
+  allCareerLogs
+    .map(log => String(log?.gameId || ""))
+    .filter(id => /^\d+$/.test(id))
+)];
 
-  let contextLogs =
-    allCareerLogs;
+const { data: careerRoles, error: roleError } =
+  await supabaseAdmin
+    .from("nfl_player_roles")
+    .select(
+      "game_id,starter,did_not_play,roster_valid,snap_count"
+    )
+    .eq("player_id", athleteId)
+    .in(
+      "game_id",
+      careerGameIds.length ? careerGameIds : ["0"]
+    )
+    .limit(300);
+
+if (roleError) throw roleError;
+
+const rolesByGame = new Map(
+  (careerRoles || []).map(
+    role => [String(role.game_id), role]
+  )
+);
+
+// Usar los snaps que YA están en Supabase.
+let gsisId = null;
+
+try {
+  gsisId =
+    (await nflPropEspnGsisMap())
+      .get(String(athleteId)) || null;
+} catch (error) {
+  console.warn(
+    "NFL career GSIS map:",
+    error.message
+  );
+}
+
+let snapRows = [];
+
+if (gsisId) {
+  const { data, error } = await supabaseAdmin
+    .from("football_player_game_stats")
+    .select(
+      "season,game_date,position,played,offense_snaps"
+    )
+    .eq("sport", "nfl")
+    .eq("player_id", gsisId)
+    .in("season", [
+      NFL_SEASON,
+      NFL_PREVIOUS_SEASON
+    ])
+    .limit(100);
+
+  if (error) throw error;
+
+  snapRows = data || [];
+}
+
+const snapsByDate = new Map(
+  snapRows.map(row => [
+    `${Number(row.season)}|${nflPropDateET(row.game_date)}`,
+    row
+  ])
+);
+
+const verifiedCareerLogs =
+  allCareerLogs.filter(log => {
+    const rosterRole = rolesByGame.get(
+      String(log?.gameId || "")
+    );
+
+    const snapRow = snapsByDate.get(
+      `${Number(log?.season)}|${nflPropDateET(log?.date)}`
+    );
+
+    if (snapRow?.played === false) {
+      return false;
+    }
+
+    const hasSnaps =
+      snapRow?.offense_snaps != null &&
+      Number.isFinite(
+        Number(snapRow.offense_snaps)
+      );
+
+    const role = hasSnaps
+      ? {
+          ...(rosterRole || {}),
+          snap_count:
+            Number(snapRow.offense_snaps),
+          did_not_play:
+            rosterRole?.did_not_play === true,
+          roster_valid:
+            rosterRole?.roster_valid !== false
+        }
+      : rosterRole;
+
+    const position = String(
+      snapRow?.position ||
+      (
+        market === "player_pass_yds" ||
+        Number(log?.passing?.attempts) >= 15
+          ? "QB"
+          : (
+              market === "player_rush_attempts" ||
+              market === "player_rush_yds"
+                ? "RB"
+                : "WR"
+            )
+      )
+    ).toUpperCase();
+
+    return nflPropComparableParticipation(
+      position,
+      market,
+      role,
+      log
+    );
+  });
+
+let contextLogs = verifiedCareerLogs;
 
 
   if (
@@ -12743,7 +12868,7 @@ async function handleNFLPlayerPropsCareer(
 
 
     contextLogs =
-      allCareerLogs.filter(
+     verifiedCareerLogs.filter(
         log =>
           String(
             log?.homeAway || ""
