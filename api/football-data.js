@@ -7451,6 +7451,166 @@ async function getNFLTeamRecentGameIds(espnTeamId, season, count = 5) {
     .map(e => e.id);
 }
  
+/*
+ * ================================================
+ * CASHEDGE NFL - CACHE DE ROLES HISTORICOS
+ * ESPN -> SUPABASE
+ * ================================================
+ */
+
+async function cacheNFLGameRoster(gameId, season) {
+  const id = String(gameId || "");
+
+  if (!id) return false;
+
+  try {
+    // 1. Comprobar si ya está guardado.
+    const { data: cached, error: cacheError } =
+      await supabaseAdmin
+        .from("nfl_game_rosters")
+        .select("status, player_count")
+        .eq("game_id", id)
+        .maybeSingle();
+
+    if (cacheError) {
+      throw cacheError;
+    }
+
+    if (
+      cached?.status === "completed" &&
+      cached.player_count > 0
+    ) {
+      return true;
+    }
+
+    // 2. Obtener información del partido.
+    const summary = await espnFetchNFL(
+      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${id}`
+    );
+
+    const event = summary?.header?.competitions?.[0];
+
+    if (!event) return false;
+
+    const competitionId = String(event.id || id);
+    const competitors = event.competitors || [];
+
+    if (competitors.length !== 2) return false;
+
+    const home = competitors.find(
+      c => c.homeAway === "home"
+    );
+
+    const away = competitors.find(
+      c => c.homeAway === "away"
+    );
+
+    const roles = [];
+
+    // 3. Consultar una vez cada roster.
+    for (const competitor of competitors) {
+      const teamId = String(
+        competitor?.team?.id || ""
+      );
+
+      if (!teamId) return false;
+
+      const url =
+        `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/${id}` +
+        `/competitions/${competitionId}/competitors/${teamId}/roster`;
+
+      const roster = await espnFetchNFL(url);
+
+      if (!Array.isArray(roster?.entries)) {
+        return false;
+      }
+
+      for (const p of roster.entries) {
+        if (!p.playerId) continue;
+
+        roles.push({
+          game_id: id,
+          player_id: String(p.playerId),
+          team_id: teamId,
+          player_name: p.displayName || null,
+          starter:
+            typeof p.starter === "boolean"
+              ? p.starter
+              : null,
+          did_not_play:
+            typeof p.didNotPlay === "boolean"
+              ? p.didNotPlay
+              : null,
+          roster_valid:
+            typeof p.valid === "boolean"
+              ? p.valid
+              : null
+        });
+      }
+    }
+
+    if (!roles.length) return false;
+
+    // 4. Registrar el partido.
+    const { error: gameError } =
+      await supabaseAdmin
+        .from("nfl_game_rosters")
+        .upsert({
+          game_id: id,
+          season: Number(season),
+          game_date: event.date || null,
+          home_team_id:
+            String(home?.team?.id || "") || null,
+          away_team_id:
+            String(away?.team?.id || "") || null,
+          status: "pending",
+          player_count: 0,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: "game_id"
+        });
+
+    if (gameError) throw gameError;
+
+    // 5. Guardar todos los jugadores.
+    const { error: rolesError } =
+      await supabaseAdmin
+        .from("nfl_player_roles")
+        .upsert(roles, {
+          onConflict: "game_id,player_id"
+        });
+
+    if (rolesError) throw rolesError;
+
+    // 6. Marcar como completado únicamente
+    // después de guardar los jugadores.
+    const { error: completeError } =
+      await supabaseAdmin
+        .from("nfl_game_rosters")
+        .update({
+          status: "completed",
+          player_count: roles.length,
+          fetched_at: new Date().toISOString(),
+          last_error: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq("game_id", id);
+
+    if (completeError) throw completeError;
+
+    return true;
+
+  } catch (error) {
+    console.error(
+      "NFL ROSTER CACHE ERROR:",
+      id,
+      error.message
+    );
+
+    return false;
+  }
+}
+
 // Stats de un jugador específico en un boxscore
 async function getNFLPlayerStatsFromBoxscore(gameId, playerName) {
   const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${gameId}`;
