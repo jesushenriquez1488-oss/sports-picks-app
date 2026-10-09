@@ -6,20 +6,13 @@ const {
 } =
   require("@supabase/supabase-js");
 
-
 const supabaseAdmin =
   createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
-
-// ============================================================
-// CONFIG
-// ============================================================
-
 const NFLVERSE_TEAM_BY_NAME = {
-
   "Arizona Cardinals": "ARI",
   "Atlanta Falcons": "ATL",
   "Baltimore Ravens": "BAL",
@@ -28,41 +21,31 @@ const NFLVERSE_TEAM_BY_NAME = {
   "Chicago Bears": "CHI",
   "Cincinnati Bengals": "CIN",
   "Cleveland Browns": "CLE",
-
   "Dallas Cowboys": "DAL",
   "Denver Broncos": "DEN",
   "Detroit Lions": "DET",
   "Green Bay Packers": "GB",
-
   "Houston Texans": "HOU",
   "Indianapolis Colts": "IND",
   "Jacksonville Jaguars": "JAX",
   "Kansas City Chiefs": "KC",
-
   "Las Vegas Raiders": "LV",
   "Los Angeles Chargers": "LAC",
   "Los Angeles Rams": "LA",
-
   "Miami Dolphins": "MIA",
   "Minnesota Vikings": "MIN",
   "New England Patriots": "NE",
   "New Orleans Saints": "NO",
-
   "New York Giants": "NYG",
   "New York Jets": "NYJ",
-
   "Philadelphia Eagles": "PHI",
   "Pittsburgh Steelers": "PIT",
-
   "San Francisco 49ers": "SF",
   "Seattle Seahawks": "SEA",
-
   "Tampa Bay Buccaneers": "TB",
   "Tennessee Titans": "TEN",
-
   "Washington Commanders": "WAS"
 };
-
 
 const ELIGIBLE_POSITIONS =
   new Set([
@@ -72,7 +55,6 @@ const ELIGIBLE_POSITIONS =
     "TE"
   ]);
 
-
 const DEF_CROSSOVER = {
   QB: 0.35,
   RB: 0.15,
@@ -80,14 +62,8 @@ const DEF_CROSSOVER = {
   TE: 0.10
 };
 
-
 const LEGACY_TEAM_CAP =
   10;
-
-
-// ============================================================
-// SECURITY
-// ============================================================
 
 function secureEqual(
   supplied,
@@ -101,7 +77,6 @@ function secureEqual(
     return false;
   }
 
-
   const a =
     crypto
       .createHash("sha256")
@@ -109,7 +84,6 @@ function secureEqual(
         String(supplied)
       )
       .digest();
-
 
   const b =
     crypto
@@ -119,18 +93,12 @@ function secureEqual(
       )
       .digest();
 
-
   return crypto
     .timingSafeEqual(
       a,
       b
     );
 }
-
-
-// ============================================================
-// HELPERS
-// ============================================================
 
 function round(
   value,
@@ -140,17 +108,14 @@ function round(
   const n =
     Number(value);
 
-
   if (
     !Number.isFinite(n)
   ) {
     return 0;
   }
 
-
   const p =
     10 ** decimals;
-
 
   return (
     Math.round(
@@ -159,7 +124,6 @@ function round(
     p
   );
 }
-
 
 function clamp(
   value,
@@ -176,7 +140,6 @@ function clamp(
   );
 }
 
-
 function numberOrNull(
   value
 ) {
@@ -189,88 +152,13 @@ function numberOrNull(
     return null;
   }
 
-
   const n =
     Number(value);
-
 
   return Number.isFinite(n)
     ? n
     : null;
 }
-
-
-// ============================================================
-// API SPORTS
-// ============================================================
-
-async function apiSports(
-  path
-) {
-
-  const response =
-    await fetch(
-      `https://v1.american-football.api-sports.io${path}`,
-      {
-        headers: {
-          "x-apisports-key":
-            process.env.API_SPORTS_KEY
-        }
-      }
-    );
-
-
-  if (
-    !response.ok
-  ) {
-
-    throw new Error(
-      `API-Sports HTTP ${response.status}`
-    );
-  }
-
-
-  const data =
-    await response.json();
-
-
-  const errors =
-    data?.errors;
-
-
-  const hasErrors =
-    Array.isArray(errors)
-      ? errors.length > 0
-      : (
-          errors &&
-          typeof errors === "object" &&
-          Object.keys(errors).length > 0
-        );
-
-
-  if (
-    hasErrors
-  ) {
-
-    throw new Error(
-      `API-Sports: ${JSON.stringify(
-        errors
-      )}`
-    );
-  }
-
-
-  return Array.isArray(
-    data?.response
-  )
-    ? data.response
-    : [];
-}
-
-
-// ============================================================
-// PAGED SUPABASE READ
-// ============================================================
 
 async function readAll(
   table,
@@ -287,7 +175,6 @@ async function readAll(
   let from =
     0;
 
-
   while (
     true
   ) {
@@ -296,7 +183,6 @@ async function readAll(
       supabaseAdmin
         .from(table)
         .select(select);
-
 
     for (
       const filter of filters
@@ -324,7 +210,6 @@ async function readAll(
       }
     }
 
-
     const {
       data,
       error
@@ -336,7 +221,6 @@ async function readAll(
         1
       );
 
-
     if (
       error
     ) {
@@ -346,15 +230,12 @@ async function readAll(
       );
     }
 
-
     const rows =
       data || [];
-
 
     output.push(
       ...rows
     );
-
 
     if (
       rows.length <
@@ -363,19 +244,12 @@ async function readAll(
       break;
     }
 
-
     from +=
       PAGE_SIZE;
   }
 
-
   return output;
 }
-
-
-// ============================================================
-// STATUS WEIGHT
-// ============================================================
 
 function getStatusWeight(
   status,
@@ -389,7 +263,6 @@ function getStatusWeight(
       .toLowerCase()
       .trim();
 
-
   const d =
     String(
       description || ""
@@ -397,10 +270,8 @@ function getStatusWeight(
       .toLowerCase()
       .trim();
 
-
   const combined =
     `${s} ${d}`;
-
 
   if (
     combined.includes(
@@ -419,7 +290,6 @@ function getStatusWeight(
     };
   }
 
-
   if (
     s === "pup" ||
     combined.includes(
@@ -433,7 +303,6 @@ function getStatusWeight(
     };
   }
 
-
   if (
     s.includes("out") ||
     d.includes("out for week") ||
@@ -445,7 +314,6 @@ function getStatusWeight(
       normalizedStatus: "Out"
     };
   }
-
 
   if (
     s.includes("sidelined")
@@ -463,14 +331,12 @@ function getStatusWeight(
       };
     }
 
-
     return {
       weight: 0,
       normalizedStatus:
         "Sidelined-Unconfirmed"
     };
   }
-
 
   if (
     s.includes("doubtful") ||
@@ -483,7 +349,6 @@ function getStatusWeight(
     };
   }
 
-
   if (
     s.includes("questionable") ||
     d.includes("questionable")
@@ -494,7 +359,6 @@ function getStatusWeight(
       normalizedStatus: "Questionable"
     };
   }
-
 
   if (
     s.includes("day-to-day") ||
@@ -509,7 +373,6 @@ function getStatusWeight(
     };
   }
 
-
   if (
     s.includes("probable") ||
     d.includes("probable")
@@ -521,18 +384,12 @@ function getStatusWeight(
     };
   }
 
-
   return {
     weight: 0,
     normalizedStatus:
       status || "Unknown"
   };
 }
-
-
-// ============================================================
-// ABSENCE DECAY
-// ============================================================
 
 function getAbsenceDecay(
   gamesOut
@@ -547,13 +404,11 @@ function getAbsenceDecay(
       )
     );
 
-
   if (
     games <= 1
   ) {
     return 1;
   }
-
 
   if (
     games === 2
@@ -561,13 +416,11 @@ function getAbsenceDecay(
     return 0.95;
   }
 
-
   if (
     games === 3
   ) {
     return 0.80;
   }
-
 
   if (
     games === 4
@@ -575,13 +428,11 @@ function getAbsenceDecay(
     return 0.65;
   }
 
-
   if (
     games === 5
   ) {
     return 0.35;
   }
-
 
   if (
     games === 6
@@ -589,14 +440,8 @@ function getAbsenceDecay(
     return 0.15;
   }
 
-
   return 0;
 }
-
-
-// ============================================================
-// SEASON WEIGHTS
-// ============================================================
 
 function getSeasonWeights(
   currentGamesWithout
@@ -611,7 +456,6 @@ function getSeasonWeights(
       )
     );
 
-
   if (
     games <= 0
   ) {
@@ -621,7 +465,6 @@ function getSeasonWeights(
       previous: 1
     };
   }
-
 
   if (
     games === 1
@@ -633,7 +476,6 @@ function getSeasonWeights(
     };
   }
 
-
   if (
     games === 2
   ) {
@@ -643,7 +485,6 @@ function getSeasonWeights(
       previous: 0.65
     };
   }
-
 
   if (
     games === 3
@@ -655,7 +496,6 @@ function getSeasonWeights(
     };
   }
 
-
   if (
     games === 4
   ) {
@@ -665,7 +505,6 @@ function getSeasonWeights(
       previous: 0.40
     };
   }
-
 
   if (
     games === 5
@@ -677,17 +516,11 @@ function getSeasonWeights(
     };
   }
 
-
   return {
     current: 0.80,
     previous: 0.20
   };
 }
-
-
-// ============================================================
-// HISTORY HELPERS
-// ============================================================
 
 function hasHistory(
   row
@@ -706,7 +539,6 @@ function hasHistory(
   );
 }
 
-
 function getComponent(
   row,
   controlledKey,
@@ -719,14 +551,12 @@ function getComponent(
     return null;
   }
 
-
   const controlled =
     numberOrNull(
       row[
         controlledKey
       ]
     );
-
 
   if (
     controlled !==
@@ -735,14 +565,12 @@ function getComponent(
     return controlled;
   }
 
-
   return numberOrNull(
     row[
       rawKey
     ]
   );
 }
-
 
 function weightedValue(
   currentValue,
@@ -753,7 +581,6 @@ function weightedValue(
 
   const values =
     [];
-
 
   if (
     currentValue !== null &&
@@ -769,7 +596,6 @@ function weightedValue(
     });
   }
 
-
   if (
     previousValue !== null &&
     previousWeight > 0
@@ -784,13 +610,11 @@ function weightedValue(
     });
   }
 
-
   if (
     !values.length
   ) {
     return null;
   }
-
 
   const totalWeight =
     values.reduce(
@@ -803,13 +627,11 @@ function weightedValue(
       0
     );
 
-
   if (
     totalWeight <= 0
   ) {
     return null;
   }
-
 
   return (
     values.reduce(
@@ -828,11 +650,6 @@ function weightedValue(
   );
 }
 
-
-// ============================================================
-// BUILD ONE BLENDED PLAYER PROFILE
-// ============================================================
-
 function buildBlendedProfile(
   current,
   previous
@@ -843,12 +660,10 @@ function buildBlendedProfile(
       current
     );
 
-
   const previousHas =
     hasHistory(
       previous
     );
-
 
   if (
     !currentHas &&
@@ -857,13 +672,11 @@ function buildBlendedProfile(
     return null;
   }
 
-
   let baseWeights =
     getSeasonWeights(
       current?.games_without ||
       0
     );
-
 
   if (
     currentHas &&
@@ -886,7 +699,6 @@ function buildBlendedProfile(
     };
   }
 
-
   const currentReliability =
     currentHas
       ? clamp(
@@ -898,7 +710,6 @@ function buildBlendedProfile(
           1
         )
       : 0;
-
 
   const previousReliability =
     previousHas
@@ -912,16 +723,13 @@ function buildBlendedProfile(
         )
       : 0;
 
-
   let currentWeight =
     baseWeights.current *
     currentReliability;
 
-
   let previousWeight =
     baseWeights.previous *
     previousReliability;
-
 
   if (
     currentHas &&
@@ -935,7 +743,6 @@ function buildBlendedProfile(
       0;
   }
 
-
   if (
     !currentHas &&
     previousHas
@@ -948,7 +755,6 @@ function buildBlendedProfile(
       1;
   }
 
-
   const currentOffense =
     currentHas
       ? getComponent(
@@ -957,7 +763,6 @@ function buildBlendedProfile(
           "team_points_change"
         )
       : null;
-
 
   const previousOffense =
     previousHas
@@ -968,7 +773,6 @@ function buildBlendedProfile(
         )
       : null;
 
-
   const blendedOffense =
     weightedValue(
       currentOffense,
@@ -976,7 +780,6 @@ function buildBlendedProfile(
       currentWeight,
       previousWeight
     );
-
 
   const currentDefense =
     currentHas
@@ -987,7 +790,6 @@ function buildBlendedProfile(
         )
       : null;
 
-
   const previousDefense =
     previousHas
       ? getComponent(
@@ -997,7 +799,6 @@ function buildBlendedProfile(
         )
       : null;
 
-
   const blendedDefense =
     weightedValue(
       currentDefense,
@@ -1005,7 +806,6 @@ function buildBlendedProfile(
       currentWeight,
       previousWeight
     );
-
 
   const currentUsage =
     currentHas
@@ -1015,7 +815,6 @@ function buildBlendedProfile(
         )
       : null;
 
-
   const previousUsage =
     previousHas
       ? numberOrNull(
@@ -1023,7 +822,6 @@ function buildBlendedProfile(
             .avg_offense_pct_with
         )
       : null;
-
 
   const blendedUsage =
     weightedValue(
@@ -1033,7 +831,6 @@ function buildBlendedProfile(
       previousWeight
     );
 
-
   const usage =
     clamp(
       blendedUsage ??
@@ -1042,10 +839,8 @@ function buildBlendedProfile(
       1
     );
 
-
   const usageFactor =
     usage;
-
 
   const reliability =
     weightedValue(
@@ -1056,16 +851,13 @@ function buildBlendedProfile(
     ) ??
     0;
 
-
   const sampleFactor =
     reliability *
     reliability;
 
-
   const shrinkFactor =
     sampleFactor *
     usageFactor;
-
 
   const adverseOffense =
     blendedOffense !== null
@@ -1075,7 +867,6 @@ function buildBlendedProfile(
         )
       : 0;
 
-
   const adverseDefense =
     blendedDefense !== null
       ? Math.max(
@@ -1083,7 +874,6 @@ function buildBlendedProfile(
           blendedDefense
         )
       : 0;
-
 
   const position =
     String(
@@ -1094,18 +884,15 @@ function buildBlendedProfile(
       .toUpperCase()
       .trim();
 
-
   const defensiveCrossover =
     DEF_CROSSOVER[
       position
     ] ??
     0;
 
-
   let offenseImpact =
     adverseOffense *
     shrinkFactor;
-
 
   let defenseImpact =
     -(
@@ -1114,20 +901,13 @@ function buildBlendedProfile(
       defensiveCrossover
     );
 
-
   let pointsImpact =
     offenseImpact +
     defenseImpact;
 
-
-  // ==========================================================
-  // STARTING QB RULE
-  // ==========================================================
-
   const isStartingQB =
     position === "QB" &&
     usage >= 0.70;
-
 
   if (
     isStartingQB
@@ -1137,7 +917,6 @@ function buildBlendedProfile(
       adverseOffense *
       usageFactor;
 
-
     const rawQBDefenseImpact =
       -(
         adverseDefense *
@@ -1145,36 +924,29 @@ function buildBlendedProfile(
         defensiveCrossover
       );
 
-
     const rawQBImpact =
       rawQBOffenseImpact +
       rawQBDefenseImpact;
 
-
     const reliableQBHistory =
       reliability >= 0.70;
-
 
     const qbHistoryWeight =
       reliableQBHistory
         ? 1
         : 0.70;
 
-
     offenseImpact =
       rawQBOffenseImpact *
       qbHistoryWeight;
-
 
     defenseImpact =
       rawQBDefenseImpact *
       qbHistoryWeight;
 
-
     pointsImpact =
       offenseImpact +
       defenseImpact;
-
 
     if (
       pointsImpact > -7
@@ -1184,16 +956,13 @@ function buildBlendedProfile(
         -7 -
         pointsImpact;
 
-
       offenseImpact +=
         missingImpact;
-
 
       pointsImpact =
         -7;
     }
   }
-
 
   return {
 
@@ -1275,11 +1044,6 @@ function buildBlendedProfile(
   };
 }
 
-
-// ============================================================
-// BUILD ALL HISTORICAL PROFILES
-// ============================================================
-
 function buildHistoricalProfiles(
   rows,
   currentSeason,
@@ -1288,7 +1052,6 @@ function buildHistoricalProfiles(
 
   const raw =
     new Map();
-
 
   for (
     const row of rows
@@ -1300,7 +1063,6 @@ function buildHistoricalProfiles(
       )}|${String(
         row.player_id
       )}`;
-
 
     if (
       !raw.has(
@@ -1317,12 +1079,10 @@ function buildHistoricalProfiles(
       );
     }
 
-
     const profile =
       raw.get(
         key
       );
-
 
     if (
       Number(
@@ -1346,10 +1106,8 @@ function buildHistoricalProfiles(
     }
   }
 
-
   const output =
     new Map();
-
 
   for (
     const [
@@ -1364,7 +1122,6 @@ function buildHistoricalProfiles(
         profile.previous
       );
 
-
     if (
       blended
     ) {
@@ -1376,14 +1133,8 @@ function buildHistoricalProfiles(
     }
   }
 
-
   return output;
 }
-
-
-// ============================================================
-// MAIN
-// ============================================================
 
 module.exports =
   async function handler(
@@ -1393,10 +1144,6 @@ module.exports =
 
     try {
 
-      // ======================================================
-      // AUTH
-      // ======================================================
-
       const expectedSecret =
         String(
           process.env.CRON_SECRET ||
@@ -1405,7 +1152,6 @@ module.exports =
           ""
         );
 
-
       const suppliedSecret =
         String(
           req.headers[
@@ -1413,7 +1159,6 @@ module.exports =
           ] ||
           ""
         );
-
 
       if (
         !secureEqual(
@@ -1431,22 +1176,15 @@ module.exports =
           });
       }
 
-
-      // ======================================================
-      // INPUT
-      // ======================================================
-
       const currentSeason =
         Number(
           req.query.season ||
           2026
         );
 
-
       const previousSeason =
         currentSeason -
         1;
-
 
       const start =
         Math.max(
@@ -1456,7 +1194,6 @@ module.exports =
             0
           )
         );
-
 
       const limit =
         Math.min(
@@ -1470,16 +1207,11 @@ module.exports =
           )
         );
 
-
-      // ======================================================
-      // LOAD STATIC DATA
-      // ======================================================
-
       const [
         impactRows,
         crosswalkRows,
         playerGameRows,
-        apiTeams
+        injuryStateRows
       ] =
         await Promise.all([
 
@@ -1520,7 +1252,6 @@ module.exports =
             ]
           ),
 
-
           readAll(
             "nfl_player_crosswalk",
             `
@@ -1534,7 +1265,6 @@ module.exports =
               confidence
             `
           ),
-
 
           readAll(
             "football_player_game_stats",
@@ -1565,24 +1295,53 @@ module.exports =
             ]
           ),
 
-
-          apiSports(
-            `/teams?league=1&season=${currentSeason}`
+          readAll(
+            "nfl_injury_state",
+            `
+              api_sports_team_id,
+              api_sports_player_id,
+              team_name,
+              player_name,
+              position,
+              raw_status,
+              normalized_status,
+              report_date,
+              description,
+              first_seen_at,
+              last_seen_at,
+              active,
+              updated_at
+            `
           )
 
         ]);
 
+      if (
+        !injuryStateRows.length
+      ) {
 
-      // ======================================================
-      // CURRENT QB ROOM
-      //
-      // Primero identificamos los QBs que realmente aparecen
-      // en el roster/juegos de la temporada actual.
-      // ======================================================
+        throw new Error(
+          "nfl_injury_state is empty; refusing to calculate from an empty injury snapshot"
+        );
+      }
+
+      const activeInjuryRows =
+        injuryStateRows.filter(
+          row =>
+            row.active === true
+        );
+
+      if (
+        !activeInjuryRows.length
+      ) {
+
+        throw new Error(
+          "nfl_injury_state has no active injuries; refusing to calculate from a suspicious empty active snapshot"
+        );
+      }
 
       const currentSeasonQBsByTeam =
         new Map();
-
 
       for (
         const row of playerGameRows
@@ -1596,7 +1355,6 @@ module.exports =
             .toUpperCase()
             .trim();
 
-
         if (
           position !== "QB" ||
           Number(
@@ -1607,13 +1365,11 @@ module.exports =
           continue;
         }
 
-
         const teamId =
           String(
             row.team_id ||
             ""
           ).trim();
-
 
         const playerId =
           String(
@@ -1621,14 +1377,12 @@ module.exports =
             ""
           ).trim();
 
-
         if (
           !teamId ||
           !playerId
         ) {
           continue;
         }
-
 
         if (
           !currentSeasonQBsByTeam.has(
@@ -1642,7 +1396,6 @@ module.exports =
           );
         }
 
-
         currentSeasonQBsByTeam
           .get(
             teamId
@@ -1652,21 +1405,8 @@ module.exports =
           );
       }
 
-
-      // ======================================================
-      // QB HIERARCHY
-      //
-      // Usamos snaps 2025 + 2026,
-      // PERO solamente entre QBs que siguen formando parte
-      // del QB room de 2026.
-      //
-      // Así un QB viejo que ya salió del equipo no bloquea
-      // la cadena actual.
-      // ======================================================
-
       const qbSnapsByTeam =
         new Map();
-
 
       for (
         const row of playerGameRows
@@ -1680,13 +1420,11 @@ module.exports =
             .toUpperCase()
             .trim();
 
-
         if (
           position !== "QB"
         ) {
           continue;
         }
-
 
         const teamId =
           String(
@@ -1694,13 +1432,11 @@ module.exports =
             ""
           ).trim();
 
-
         const playerId =
           String(
             row.player_id ||
             ""
           ).trim();
-
 
         if (
           !teamId ||
@@ -1709,12 +1445,10 @@ module.exports =
           continue;
         }
 
-
         const currentQBs =
           currentSeasonQBsByTeam.get(
             teamId
           );
-
 
         if (
           !currentQBs ||
@@ -1724,7 +1458,6 @@ module.exports =
         ) {
           continue;
         }
-
 
         if (
           !qbSnapsByTeam.has(
@@ -1738,12 +1471,10 @@ module.exports =
           );
         }
 
-
         const teamMap =
           qbSnapsByTeam.get(
             teamId
           );
-
 
         teamMap.set(
           playerId,
@@ -1760,10 +1491,8 @@ module.exports =
         );
       }
 
-
       const qbHierarchyByTeam =
         new Map();
-
 
       for (
         const [
@@ -1789,23 +1518,14 @@ module.exports =
                 item[0]
             );
 
-
         qbHierarchyByTeam.set(
           teamId,
           hierarchy
         );
       }
 
-
-      // ======================================================
-      // CONSECUTIVE ABSENCES
-      //
-      // Solo temporada actual.
-      // ======================================================
-
       const currentGamesByPlayer =
         new Map();
-
 
       for (
         const row of playerGameRows
@@ -1820,20 +1540,17 @@ module.exports =
           continue;
         }
 
-
         const teamId =
           String(
             row.team_id ||
             ""
           ).trim();
 
-
         const playerId =
           String(
             row.player_id ||
             ""
           ).trim();
-
 
         if (
           !teamId ||
@@ -1842,10 +1559,8 @@ module.exports =
           continue;
         }
 
-
         const key =
           `${teamId}|${playerId}`;
-
 
         if (
           !currentGamesByPlayer.has(
@@ -1859,7 +1574,6 @@ module.exports =
           );
         }
 
-
         currentGamesByPlayer
           .get(
             key
@@ -1869,10 +1583,8 @@ module.exports =
           );
       }
 
-
       const consecutiveAbsencesByPlayer =
         new Map();
-
 
       for (
         const [
@@ -1896,10 +1608,8 @@ module.exports =
             ).getTime()
         );
 
-
         let consecutive =
           0;
-
 
         for (
           const row of rows
@@ -1917,17 +1627,11 @@ module.exports =
           }
         }
 
-
         consecutiveAbsencesByPlayer.set(
           key,
           consecutive
         );
       }
-
-
-      // ======================================================
-      // HISTORICAL INDEX
-      // ======================================================
 
       const historicalProfiles =
         buildHistoricalProfiles(
@@ -1936,14 +1640,8 @@ module.exports =
           previousSeason
         );
 
-
-      // ======================================================
-      // CROSSWALK INDEX
-      // ======================================================
-
       const crosswalkByApiId =
         new Map();
-
 
       for (
         const row of crosswalkRows
@@ -1955,13 +1653,11 @@ module.exports =
             ""
           ).trim();
 
-
         const gsis =
           String(
             row.gsis_player_id ||
             ""
           ).trim();
-
 
         if (
           !apiId ||
@@ -1970,44 +1666,93 @@ module.exports =
           continue;
         }
 
-
         crosswalkByApiId.set(
           apiId,
           row
         );
       }
 
+      const teamIndex =
+        new Map();
 
-      // ======================================================
-      // NORMALIZE TEAMS
-      // ======================================================
+      for (
+        const row of injuryStateRows
+      ) {
+
+        const id =
+          String(
+            row.api_sports_team_id ||
+            ""
+          ).trim();
+
+        const name =
+          String(
+            row.team_name ||
+            ""
+          ).trim();
+
+        if (
+          !id ||
+          !name
+        ) {
+          continue;
+        }
+
+        if (
+          !teamIndex.has(
+            id
+          )
+        ) {
+
+          teamIndex.set(
+            id,
+            {
+              id,
+              name
+            }
+          );
+        }
+      }
+
+      for (
+        const row of crosswalkRows
+      ) {
+
+        const id =
+          String(
+            row.api_sports_team_id ||
+            ""
+          ).trim();
+
+        const name =
+          String(
+            row.api_sports_team_name ||
+            ""
+          ).trim();
+
+        if (
+          !id ||
+          !name ||
+          teamIndex.has(
+            id
+          )
+        ) {
+          continue;
+        }
+
+        teamIndex.set(
+          id,
+          {
+            id,
+            name
+          }
+        );
+      }
 
       const teams =
-        apiTeams
-          .map(
-            item => {
-
-              const team =
-                item?.team ||
-                item;
-
-
-              return {
-
-                id:
-                  String(
-                    team?.id ||
-                    ""
-                  ),
-
-                name:
-                  String(
-                    team?.name ||
-                    ""
-                  )
-              };
-            }
-          )
+        Array.from(
+          teamIndex.values()
+        )
           .filter(
             team =>
               team.id &&
@@ -2023,6 +1768,45 @@ module.exports =
               )
           );
 
+      const activeInjuriesByTeam =
+        new Map();
+
+      for (
+        const row of activeInjuryRows
+      ) {
+
+        const teamId =
+          String(
+            row.api_sports_team_id ||
+            ""
+          ).trim();
+
+        if (
+          !teamId
+        ) {
+          continue;
+        }
+
+        if (
+          !activeInjuriesByTeam.has(
+            teamId
+          )
+        ) {
+
+          activeInjuriesByTeam.set(
+            teamId,
+            []
+          );
+        }
+
+        activeInjuriesByTeam
+          .get(
+            teamId
+          )
+          .push(
+            row
+          );
+      }
 
       const batch =
         teams.slice(
@@ -2031,14 +1815,8 @@ module.exports =
           limit
         );
 
-
-      // ======================================================
-      // TEAM LOOP
-      // ======================================================
-
       const teamResults =
         [];
-
 
       for (
         const team of batch
@@ -2048,7 +1826,6 @@ module.exports =
           NFLVERSE_TEAM_BY_NAME[
             team.name
           ];
-
 
         if (
           !nflverseTeam
@@ -2069,46 +1846,29 @@ module.exports =
           continue;
         }
 
-
-        // ====================================================
-        // CURRENT INJURIES
-        // ====================================================
-
         const injuries =
-          await apiSports(
-            `/injuries?team=${encodeURIComponent(
-              team.id
-            )}`
-          );
-
+          activeInjuriesByTeam.get(
+            team.id
+          ) ||
+          [];
 
         const eligible =
           [];
 
-
         const qbStatusByGsis =
           new Map();
-
 
         const noCrosswalk =
           [];
 
-
         const noHistory =
           [];
-
 
         const ignoredPosition =
           [];
 
-
         const ignoredStatus =
           [];
-
-
-        // ====================================================
-        // INJURY LOOP
-        // ====================================================
 
         for (
           const injury of injuries
@@ -2116,43 +1876,38 @@ module.exports =
 
           const apiPlayerId =
             String(
-              injury?.player?.id ??
-              injury?.player_id ??
+              injury
+                ?.api_sports_player_id ??
               ""
             ).trim();
-
 
           const apiPlayerName =
             String(
-              injury?.player?.name ??
-              injury?.player_name ??
+              injury
+                ?.player_name ??
               ""
             ).trim();
-
 
           const originalStatus =
             String(
-              injury?.status ??
+              injury
+                ?.raw_status ??
+              injury
+                ?.normalized_status ??
               ""
             ).trim();
-
 
           const description =
             String(
-              injury?.description ??
+              injury
+                ?.description ??
               ""
             ).trim();
-
-
-          // ==================================================
-          // CROSSWALK
-          // ==================================================
 
           const crosswalk =
             crosswalkByApiId.get(
               apiPlayerId
             );
-
 
           if (
             !crosswalk
@@ -2172,14 +1927,12 @@ module.exports =
             continue;
           }
 
-
           const gsis =
             String(
               crosswalk
                 .gsis_player_id ||
               ""
             ).trim();
-
 
           const position =
             String(
@@ -2188,11 +1941,6 @@ module.exports =
             )
               .toUpperCase()
               .trim();
-
-
-          // ==================================================
-          // ONLY QB/RB/WR/TE
-          // ==================================================
 
           if (
             !ELIGIBLE_POSITIONS.has(
@@ -2214,17 +1962,11 @@ module.exports =
             continue;
           }
 
-
-          // ==================================================
-          // CURRENT STATUS
-          // ==================================================
-
           const statusInfo =
             getStatusWeight(
               originalStatus,
               description
             );
-
 
           if (
             statusInfo.weight <=
@@ -2247,15 +1989,6 @@ module.exports =
             continue;
           }
 
-
-          // ==================================================
-          // QB STATUS
-          //
-          // Lo guardamos aunque después no tenga historial.
-          // Así el QB puede seguir condicionando al siguiente
-          // QB de la cadena.
-          // ==================================================
-
           if (
             position === "QB"
           ) {
@@ -2274,20 +2007,13 @@ module.exports =
             );
           }
 
-
-          // ==================================================
-          // HISTORICAL PROFILE
-          // ==================================================
-
           const historyKey =
             `${nflverseTeam}|${gsis}`;
-
 
           const history =
             historicalProfiles.get(
               historyKey
             );
-
 
           if (
             !history
@@ -2315,21 +2041,14 @@ module.exports =
             continue;
           }
 
-
           const historicalImpact =
             Number(
               history.points_impact ||
               0
             );
 
-
-          // ==================================================
-          // QB ABSENCE DECAY
-          // ==================================================
-
           const playerKey =
             `${nflverseTeam}|${gsis}`;
-
 
           const consecutiveGamesOut =
             position === "QB"
@@ -2341,7 +2060,6 @@ module.exports =
                 )
               : 0;
 
-
           const absenceDecay =
             position === "QB"
               ? getAbsenceDecay(
@@ -2349,16 +2067,13 @@ module.exports =
                 )
               : 1;
 
-
           const fullAbsenceImpact =
             historicalImpact *
             absenceDecay;
 
-
           const statusAdjustedImpact =
             fullAbsenceImpact *
             statusInfo.weight;
-
 
           if (
             statusAdjustedImpact >=
@@ -2366,7 +2081,6 @@ module.exports =
           ) {
             continue;
           }
-
 
           eligible.push({
 
@@ -2429,11 +2143,6 @@ module.exports =
           });
         }
 
-
-        // ====================================================
-        // QB DEPTH / CONDITIONAL LOGIC
-        // ====================================================
-
         const nonQBPlayers =
           eligible.filter(
             player =>
@@ -2441,10 +2150,8 @@ module.exports =
               "QB"
           );
 
-
         const qbPlayersByGsis =
           new Map();
-
 
         for (
           const player of eligible
@@ -2462,18 +2169,8 @@ module.exports =
           }
         }
 
-
-        // ====================================================
-        // EXPECTED IMPACT CANDIDATES
-        // ====================================================
-
         const impactCandidates =
           [];
-
-
-        // ----------------------------------------------------
-        // NON-QB
-        // ----------------------------------------------------
 
         for (
           const player of nonQBPlayers
@@ -2492,84 +2189,75 @@ module.exports =
           });
         }
 
-
-        // ----------------------------------------------------
-        // QB CHAIN
-        // ----------------------------------------------------
-
- const currentTeamQBs =
-  Array.from(
-    currentSeasonQBsByTeam.get(
-      nflverseTeam
-    ) ||
-    []
-  );
-
-
-const hierarchy =
-  currentTeamQBs
-    .map(
-      gsis => {
-
-        const history =
-          historicalProfiles.get(
-            `${nflverseTeam}|${gsis}`
+        const currentTeamQBs =
+          Array.from(
+            currentSeasonQBsByTeam.get(
+              nflverseTeam
+            ) ||
+            []
           );
 
+        const hierarchy =
+          currentTeamQBs
+            .map(
+              gsis => {
 
-        return {
-          gsis,
+                const history =
+                  historicalProfiles.get(
+                    `${nflverseTeam}|${gsis}`
+                  );
 
-          usage:
-            Number(
-              history?.usage ||
-              0
-            ),
+                return {
 
-          reliability:
-            Number(
-              history?.reliability ||
-              0
+                  gsis,
+
+                  usage:
+                    Number(
+                      history?.usage ||
+                      0
+                    ),
+
+                  reliability:
+                    Number(
+                      history?.reliability ||
+                      0
+                    )
+                };
+              }
             )
-        };
-      }
-    )
-    .sort(
-      (
-        a,
-        b
-      ) => {
+            .sort(
+              (
+                a,
+                b
+              ) => {
 
-        const usageDiff =
-          b.usage -
-          a.usage;
+                const usageDiff =
+                  b.usage -
+                  a.usage;
 
+                if (
+                  Math.abs(
+                    usageDiff
+                  ) >
+                  0.01
+                ) {
 
-        if (
-          Math.abs(
-            usageDiff
-          ) >
-          0.01
-        ) {
+                  return usageDiff;
+                }
 
-          return usageDiff;
-        }
-
-
-        return (
-          b.reliability -
-          a.reliability
-        );
-      }
-    )
-    .map(
-      qb =>
-        qb.gsis
-    );
+                return (
+                  b.reliability -
+                  a.reliability
+                );
+              }
+            )
+            .map(
+              qb =>
+                qb.gsis
+            );
 
         let qbChainProbability =
           1;
-
 
         for (
           const qbGsis of hierarchy
@@ -2580,16 +2268,6 @@ const hierarchy =
               qbGsis
             );
 
-
-          // ==================================================
-          // QB SUPERIOR DISPONIBLE
-          //
-          // Si el QB de arriba no aparece con status que pese,
-          // la cadena termina.
-          //
-          // Así un QB2 lesionado NO afecta si QB1 juega.
-          // ==================================================
-
           if (
             !status ||
             status.weight <= 0
@@ -2598,12 +2276,10 @@ const hierarchy =
             break;
           }
 
-
           const player =
             qbPlayersByGsis.get(
               qbGsis
             );
-
 
           if (
             player
@@ -2614,7 +2290,6 @@ const hierarchy =
                 .fullAbsenceImpact *
               status.weight *
               qbChainProbability;
-
 
             impactCandidates.push({
 
@@ -2632,17 +2307,8 @@ const hierarchy =
             });
           }
 
-
-          // ==================================================
-          // SIGUIENTE QB
-          //
-          // El siguiente QB solamente importa en el escenario
-          // donde este QB también falta.
-          // ==================================================
-
           qbChainProbability *=
             status.weight;
-
 
           if (
             qbChainProbability <=
@@ -2652,13 +2318,6 @@ const hierarchy =
             break;
           }
         }
-
-
-        // ====================================================
-        // FALLBACK QB LOGIC
-        //
-        // Solo si no tenemos hierarchy.
-        // ====================================================
 
         if (
           !hierarchy.length
@@ -2680,10 +2339,8 @@ const hierarchy =
                   a.usage
               );
 
-
           let fallbackChain =
             1;
-
 
           for (
             const player of fallbackQBs
@@ -2694,7 +2351,6 @@ const hierarchy =
                 .fullAbsenceImpact *
               player.statusWeight *
               fallbackChain;
-
 
             impactCandidates.push({
 
@@ -2711,19 +2367,10 @@ const hierarchy =
                 )
             });
 
-
             fallbackChain *=
               player.statusWeight;
           }
         }
-
-
-        // ====================================================
-        // MULTIPLE INJURY WEIGHT
-        //
-        // Mayor impacto esperado = 100%
-        // Resto = 70%
-        // ====================================================
 
         impactCandidates.sort(
           (
@@ -2733,7 +2380,6 @@ const hierarchy =
             a.expectedImpact -
             b.expectedImpact
         );
-
 
         const appliedPlayers =
           impactCandidates.map(
@@ -2747,12 +2393,10 @@ const hierarchy =
                   ? 1
                   : 0.70;
 
-
               const finalImpact =
                 player
                   .expectedImpact *
                 multipleWeight;
-
 
               return {
 
@@ -2768,11 +2412,6 @@ const hierarchy =
             }
           );
 
-
-        // ====================================================
-        // TOTALS
-        // ====================================================
-
         const simpleSumImpact =
           impactCandidates.reduce(
             (
@@ -2785,7 +2424,6 @@ const hierarchy =
             0
           );
 
-
         const rawCombinedImpact =
           appliedPlayers.reduce(
             (
@@ -2797,17 +2435,11 @@ const hierarchy =
             0
           );
 
-
         const legacyCap10Impact =
           Math.max(
             -LEGACY_TEAM_CAP,
             rawCombinedImpact
           );
-
-
-        // ====================================================
-        // RESPONSE PER TEAM
-        // ====================================================
 
         teamResults.push({
 
@@ -2863,14 +2495,8 @@ const hierarchy =
 
           ignoredPositionCount:
             ignoredPosition.length
-
         });
       }
-
-
-      // ======================================================
-      // WORST IMPACT FIRST
-      // ======================================================
 
       teamResults.sort(
         (
@@ -2886,11 +2512,6 @@ const hierarchy =
             0
           )
       );
-
-
-      // ======================================================
-      // BATCH SUMMARY
-      // ======================================================
 
       const batchSummary = {
 
@@ -2937,11 +2558,6 @@ const hierarchy =
           ).length
       };
 
-
-      // ======================================================
-      // RESPONSE
-      // ======================================================
-
       return res
         .status(200)
         .json({
@@ -2950,6 +2566,12 @@ const hierarchy =
 
           currentSeason,
           previousSeason,
+
+          injurySource:
+            "nfl_injury_state",
+
+          activeSnapshotRows:
+            activeInjuryRows.length,
 
           totalTeams:
             teams.length,
@@ -2974,9 +2596,7 @@ const hierarchy =
           batchSummary,
 
           teamResults
-
         });
-
 
     } catch (
       error
@@ -2991,7 +2611,6 @@ const hierarchy =
           error:
             error?.message ||
             String(error)
-
         });
     }
   };
