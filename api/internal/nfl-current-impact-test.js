@@ -1092,23 +1092,107 @@ function buildBlendedProfile(
     0;
 
 
-  const offenseImpact =
+ let offenseImpact =
+  adverseOffense *
+  shrinkFactor;
+
+
+let defenseImpact =
+  -(
+    adverseDefense *
+    shrinkFactor *
+    defensiveCrossover
+  );
+
+
+let pointsImpact =
+  offenseImpact +
+  defenseImpact;
+
+
+// ============================================================
+// STARTING QB RULE
+//
+// Un QB que juega 70%+ de los snaps se considera QB titular.
+//
+// - muestra confiable -> 100% de la señal histórica
+// - muestra no confiable -> 70% de la señal
+// - impacto mínimo por AUSENCIA real = -7 puntos
+//
+// El status actual se aplica después.
+// ============================================================
+
+const isStartingQB =
+  position === "QB" &&
+  usage >= 0.70;
+
+
+if (
+  isStartingQB
+) {
+
+  const rawQBOffenseImpact =
     adverseOffense *
-    shrinkFactor;
+    usageFactor;
 
 
-  const defenseImpact =
+  const rawQBDefenseImpact =
     -(
       adverseDefense *
-      shrinkFactor *
+      usageFactor *
       defensiveCrossover
     );
 
 
-  const pointsImpact =
+  const rawQBImpact =
+    rawQBOffenseImpact +
+    rawQBDefenseImpact;
+
+
+  const reliableQBHistory =
+    reliability >= 0.70;
+
+
+  const qbHistoryWeight =
+    reliableQBHistory
+      ? 1
+      : 0.70;
+
+
+  offenseImpact =
+    rawQBOffenseImpact *
+    qbHistoryWeight;
+
+
+  defenseImpact =
+    rawQBDefenseImpact *
+    qbHistoryWeight;
+
+
+  pointsImpact =
     offenseImpact +
     defenseImpact;
 
+
+  // QB titular ausente:
+  // nunca menos de 7 puntos de valor.
+  if (
+    pointsImpact > -7
+  ) {
+
+    const missingImpact =
+      -7 -
+      pointsImpact;
+
+
+    offenseImpact +=
+      missingImpact;
+
+
+    pointsImpact =
+      -7;
+  }
+}
 
   return {
 
