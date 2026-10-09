@@ -17141,6 +17141,37 @@ if (req.method === "OPTIONS") {
   try {
 const mode = req.query.mode || req.body?.mode;
 
+if (mode === "test-nfl-roster-cache") {
+  const secret = String(
+    req.headers["x-internal-secret"] || ""
+  );
+
+  const expectedSecret = String(
+    process.env.CRON_SECRET || ""
+  );
+
+  if (
+    req.method !== "POST" ||
+    !expectedSecret ||
+    secret !== expectedSecret
+  ) {
+    return res.status(403).json({
+      error: "Acceso no autorizado"
+    });
+  }
+
+  const success = await cacheNFLGameRoster(
+    "401772906",
+    2025
+  );
+
+  return res.status(success ? 200 : 500).json({
+    test: "NFL roster cache",
+    gameId: "401772906",
+    success
+  });
+}
+
 if (mode === "nfl-player-props") {
   return await handleNFLPlayerProps(req, res);
 }
