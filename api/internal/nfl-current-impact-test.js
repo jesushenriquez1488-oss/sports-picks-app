@@ -375,11 +375,6 @@ async function readAll(
 
 // ============================================================
 // STATUS WEIGHT
-//
-// Importante:
-// esto es probabilidad / severidad ACTUAL.
-//
-// NO multiplica por "cantidad de lesionados".
 // ============================================================
 
 function getStatusWeight(
@@ -406,10 +401,6 @@ function getStatusWeight(
   const combined =
     `${s} ${d}`;
 
-
-  // =========================================================
-  // CONFIRMED UNAVAILABLE
-  // =========================================================
 
   if (
     combined.includes(
@@ -456,8 +447,6 @@ function getStatusWeight(
   }
 
 
-  // Sidelined solamente cuenta como OUT
-  // cuando la descripción confirma ausencia.
   if (
     s.includes("sidelined")
   ) {
@@ -477,14 +466,11 @@ function getStatusWeight(
 
     return {
       weight: 0,
-      normalizedStatus: "Sidelined-Unconfirmed"
+      normalizedStatus:
+        "Sidelined-Unconfirmed"
     };
   }
 
-
-  // =========================================================
-  // UNCERTAIN AVAILABILITY
-  // =========================================================
 
   if (
     s.includes("doubtful") ||
@@ -545,9 +531,71 @@ function getStatusWeight(
 
 
 // ============================================================
+// ABSENCE DECAY
+// ============================================================
+
+function getAbsenceDecay(
+  gamesOut
+) {
+
+  const games =
+    Math.max(
+      0,
+      Number(
+        gamesOut ||
+        0
+      )
+    );
+
+
+  if (
+    games <= 1
+  ) {
+    return 1;
+  }
+
+
+  if (
+    games === 2
+  ) {
+    return 0.95;
+  }
+
+
+  if (
+    games === 3
+  ) {
+    return 0.80;
+  }
+
+
+  if (
+    games === 4
+  ) {
+    return 0.65;
+  }
+
+
+  if (
+    games === 5
+  ) {
+    return 0.35;
+  }
+
+
+  if (
+    games === 6
+  ) {
+    return 0.15;
+  }
+
+
+  return 0;
+}
+
+
+// ============================================================
 // SEASON WEIGHTS
-//
-// MISMA lógica que ya validamos.
 // ============================================================
 
 function getSeasonWeights(
@@ -681,7 +729,8 @@ function getComponent(
 
 
   if (
-    controlled !== null
+    controlled !==
+    null
   ) {
     return controlled;
   }
@@ -809,10 +858,6 @@ function buildBlendedProfile(
   }
 
 
-  // =========================================================
-  // SEASON WEIGHTS
-  // =========================================================
-
   let baseWeights =
     getSeasonWeights(
       current?.games_without ||
@@ -841,10 +886,6 @@ function buildBlendedProfile(
     };
   }
 
-
-  // =========================================================
-  // RELIABILITY
-  // =========================================================
 
   const currentReliability =
     currentHas
@@ -908,10 +949,6 @@ function buildBlendedProfile(
   }
 
 
-  // =========================================================
-  // OFFENSE
-  // =========================================================
-
   const currentOffense =
     currentHas
       ? getComponent(
@@ -941,10 +978,6 @@ function buildBlendedProfile(
     );
 
 
-  // =========================================================
-  // DEFENSE / INDIRECT CROSSOVER
-  // =========================================================
-
   const currentDefense =
     currentHas
       ? getComponent(
@@ -973,10 +1006,6 @@ function buildBlendedProfile(
       previousWeight
     );
 
-
-  // =========================================================
-  // USAGE
-  // =========================================================
 
   const currentUsage =
     currentHas
@@ -1014,21 +1043,9 @@ function buildBlendedProfile(
     );
 
 
-  // =========================================================
-  // THIS IS THE VERSION WE VALIDATED:
-  //
-  // 97% snaps -> 0.97
-  // 50% snaps -> 0.50
-  //  3% snaps -> 0.03
-  // =========================================================
-
   const usageFactor =
     usage;
 
-
-  // =========================================================
-  // BLENDED RELIABILITY
-  // =========================================================
 
   const reliability =
     weightedValue(
@@ -1040,7 +1057,6 @@ function buildBlendedProfile(
     0;
 
 
-  // Mantener exactamente como lo validamos.
   const sampleFactor =
     reliability *
     reliability;
@@ -1050,12 +1066,6 @@ function buildBlendedProfile(
     sampleFactor *
     usageFactor;
 
-
-  // =========================================================
-  // ONLY ADVERSE HISTORICAL SIGNAL
-  //
-  // No premiamos artificialmente una lesión.
-  // =========================================================
 
   const adverseOffense =
     blendedOffense !== null
@@ -1092,107 +1102,98 @@ function buildBlendedProfile(
     0;
 
 
- let offenseImpact =
-  adverseOffense *
-  shrinkFactor;
-
-
-let defenseImpact =
-  -(
-    adverseDefense *
-    shrinkFactor *
-    defensiveCrossover
-  );
-
-
-let pointsImpact =
-  offenseImpact +
-  defenseImpact;
-
-
-// ============================================================
-// STARTING QB RULE
-//
-// Un QB que juega 70%+ de los snaps se considera QB titular.
-//
-// - muestra confiable -> 100% de la señal histórica
-// - muestra no confiable -> 70% de la señal
-// - impacto mínimo por AUSENCIA real = -7 puntos
-//
-// El status actual se aplica después.
-// ============================================================
-
-const isStartingQB =
-  position === "QB" &&
-  usage >= 0.70;
-
-
-if (
-  isStartingQB
-) {
-
-  const rawQBOffenseImpact =
+  let offenseImpact =
     adverseOffense *
-    usageFactor;
+    shrinkFactor;
 
 
-  const rawQBDefenseImpact =
+  let defenseImpact =
     -(
       adverseDefense *
-      usageFactor *
+      shrinkFactor *
       defensiveCrossover
     );
 
 
-  const rawQBImpact =
-    rawQBOffenseImpact +
-    rawQBDefenseImpact;
-
-
-  const reliableQBHistory =
-    reliability >= 0.70;
-
-
-  const qbHistoryWeight =
-    reliableQBHistory
-      ? 1
-      : 0.70;
-
-
-  offenseImpact =
-    rawQBOffenseImpact *
-    qbHistoryWeight;
-
-
-  defenseImpact =
-    rawQBDefenseImpact *
-    qbHistoryWeight;
-
-
-  pointsImpact =
+  let pointsImpact =
     offenseImpact +
     defenseImpact;
 
 
-  // QB titular ausente:
-  // nunca menos de 7 puntos de valor.
+  // ==========================================================
+  // STARTING QB RULE
+  // ==========================================================
+
+  const isStartingQB =
+    position === "QB" &&
+    usage >= 0.70;
+
+
   if (
-    pointsImpact > -7
+    isStartingQB
   ) {
 
-    const missingImpact =
-      -7 -
-      pointsImpact;
+    const rawQBOffenseImpact =
+      adverseOffense *
+      usageFactor;
 
 
-    offenseImpact +=
-      missingImpact;
+    const rawQBDefenseImpact =
+      -(
+        adverseDefense *
+        usageFactor *
+        defensiveCrossover
+      );
+
+
+    const rawQBImpact =
+      rawQBOffenseImpact +
+      rawQBDefenseImpact;
+
+
+    const reliableQBHistory =
+      reliability >= 0.70;
+
+
+    const qbHistoryWeight =
+      reliableQBHistory
+        ? 1
+        : 0.70;
+
+
+    offenseImpact =
+      rawQBOffenseImpact *
+      qbHistoryWeight;
+
+
+    defenseImpact =
+      rawQBDefenseImpact *
+      qbHistoryWeight;
 
 
     pointsImpact =
-      -7;
+      offenseImpact +
+      defenseImpact;
+
+
+    if (
+      pointsImpact > -7
+    ) {
+
+      const missingImpact =
+        -7 -
+        pointsImpact;
+
+
+      offenseImpact +=
+        missingImpact;
+
+
+      pointsImpact =
+        -7;
+    }
   }
-}
+
 
   return {
 
@@ -1302,7 +1303,9 @@ function buildHistoricalProfiles(
 
 
     if (
-      !raw.has(key)
+      !raw.has(
+        key
+      )
     ) {
 
       raw.set(
@@ -1316,7 +1319,9 @@ function buildHistoricalProfiles(
 
 
     const profile =
-      raw.get(key);
+      raw.get(
+        key
+      );
 
 
     if (
@@ -1453,8 +1458,6 @@ module.exports =
         );
 
 
-      // Seguimos usando lotes pequeños
-      // por el rate limit de API-Sports.
       const limit =
         Math.min(
           8,
@@ -1475,6 +1478,7 @@ module.exports =
       const [
         impactRows,
         crosswalkRows,
+        playerGameRows,
         apiTeams
       ] =
         await Promise.all([
@@ -1532,11 +1536,393 @@ module.exports =
           ),
 
 
+          readAll(
+            "football_player_game_stats",
+            `
+              sport,
+              season,
+              team_id,
+              player_id,
+              position,
+              game_date,
+              played,
+              offense_snaps
+            `,
+            [
+              {
+                type: "eq",
+                column: "sport",
+                value: "nfl"
+              },
+              {
+                type: "in",
+                column: "season",
+                value: [
+                  previousSeason,
+                  currentSeason
+                ]
+              }
+            ]
+          ),
+
+
           apiSports(
             `/teams?league=1&season=${currentSeason}`
           )
 
         ]);
+
+
+      // ======================================================
+      // CURRENT QB ROOM
+      //
+      // Primero identificamos los QBs que realmente aparecen
+      // en el roster/juegos de la temporada actual.
+      // ======================================================
+
+      const currentSeasonQBsByTeam =
+        new Map();
+
+
+      for (
+        const row of playerGameRows
+      ) {
+
+        const position =
+          String(
+            row.position ||
+            ""
+          )
+            .toUpperCase()
+            .trim();
+
+
+        if (
+          position !== "QB" ||
+          Number(
+            row.season
+          ) !==
+          currentSeason
+        ) {
+          continue;
+        }
+
+
+        const teamId =
+          String(
+            row.team_id ||
+            ""
+          ).trim();
+
+
+        const playerId =
+          String(
+            row.player_id ||
+            ""
+          ).trim();
+
+
+        if (
+          !teamId ||
+          !playerId
+        ) {
+          continue;
+        }
+
+
+        if (
+          !currentSeasonQBsByTeam.has(
+            teamId
+          )
+        ) {
+
+          currentSeasonQBsByTeam.set(
+            teamId,
+            new Set()
+          );
+        }
+
+
+        currentSeasonQBsByTeam
+          .get(
+            teamId
+          )
+          .add(
+            playerId
+          );
+      }
+
+
+      // ======================================================
+      // QB HIERARCHY
+      //
+      // Usamos snaps 2025 + 2026,
+      // PERO solamente entre QBs que siguen formando parte
+      // del QB room de 2026.
+      //
+      // Así un QB viejo que ya salió del equipo no bloquea
+      // la cadena actual.
+      // ======================================================
+
+      const qbSnapsByTeam =
+        new Map();
+
+
+      for (
+        const row of playerGameRows
+      ) {
+
+        const position =
+          String(
+            row.position ||
+            ""
+          )
+            .toUpperCase()
+            .trim();
+
+
+        if (
+          position !== "QB"
+        ) {
+          continue;
+        }
+
+
+        const teamId =
+          String(
+            row.team_id ||
+            ""
+          ).trim();
+
+
+        const playerId =
+          String(
+            row.player_id ||
+            ""
+          ).trim();
+
+
+        if (
+          !teamId ||
+          !playerId
+        ) {
+          continue;
+        }
+
+
+        const currentQBs =
+          currentSeasonQBsByTeam.get(
+            teamId
+          );
+
+
+        if (
+          !currentQBs ||
+          !currentQBs.has(
+            playerId
+          )
+        ) {
+          continue;
+        }
+
+
+        if (
+          !qbSnapsByTeam.has(
+            teamId
+          )
+        ) {
+
+          qbSnapsByTeam.set(
+            teamId,
+            new Map()
+          );
+        }
+
+
+        const teamMap =
+          qbSnapsByTeam.get(
+            teamId
+          );
+
+
+        teamMap.set(
+          playerId,
+          (
+            teamMap.get(
+              playerId
+            ) ||
+            0
+          ) +
+          Number(
+            row.offense_snaps ||
+            0
+          )
+        );
+      }
+
+
+      const qbHierarchyByTeam =
+        new Map();
+
+
+      for (
+        const [
+          teamId,
+          players
+        ] of qbSnapsByTeam.entries()
+      ) {
+
+        const hierarchy =
+          Array.from(
+            players.entries()
+          )
+            .sort(
+              (
+                a,
+                b
+              ) =>
+                b[1] -
+                a[1]
+            )
+            .map(
+              item =>
+                item[0]
+            );
+
+
+        qbHierarchyByTeam.set(
+          teamId,
+          hierarchy
+        );
+      }
+
+
+      // ======================================================
+      // CONSECUTIVE ABSENCES
+      //
+      // Solo temporada actual.
+      // ======================================================
+
+      const currentGamesByPlayer =
+        new Map();
+
+
+      for (
+        const row of playerGameRows
+      ) {
+
+        if (
+          Number(
+            row.season
+          ) !==
+          currentSeason
+        ) {
+          continue;
+        }
+
+
+        const teamId =
+          String(
+            row.team_id ||
+            ""
+          ).trim();
+
+
+        const playerId =
+          String(
+            row.player_id ||
+            ""
+          ).trim();
+
+
+        if (
+          !teamId ||
+          !playerId
+        ) {
+          continue;
+        }
+
+
+        const key =
+          `${teamId}|${playerId}`;
+
+
+        if (
+          !currentGamesByPlayer.has(
+            key
+          )
+        ) {
+
+          currentGamesByPlayer.set(
+            key,
+            []
+          );
+        }
+
+
+        currentGamesByPlayer
+          .get(
+            key
+          )
+          .push(
+            row
+          );
+      }
+
+
+      const consecutiveAbsencesByPlayer =
+        new Map();
+
+
+      for (
+        const [
+          key,
+          rows
+        ] of currentGamesByPlayer.entries()
+      ) {
+
+        rows.sort(
+          (
+            a,
+            b
+          ) =>
+            new Date(
+              b.game_date ||
+              0
+            ).getTime() -
+            new Date(
+              a.game_date ||
+              0
+            ).getTime()
+        );
+
+
+        let consecutive =
+          0;
+
+
+        for (
+          const row of rows
+        ) {
+
+          if (
+            row.played === false
+          ) {
+
+            consecutive++;
+
+          } else {
+
+            break;
+          }
+        }
+
+
+        consecutiveAbsencesByPlayer.set(
+          key,
+          consecutive
+        );
+      }
 
 
       // ======================================================
@@ -1598,29 +1984,30 @@ module.exports =
 
       const teams =
         apiTeams
-          .map(item => {
+          .map(
+            item => {
 
-            const team =
-              item?.team ||
-              item;
+              const team =
+                item?.team ||
+                item;
 
 
-            return {
+              return {
 
-              id:
-                String(
-                  team?.id ||
-                  ""
-                ),
+                id:
+                  String(
+                    team?.id ||
+                    ""
+                  ),
 
-              name:
-                String(
-                  team?.name ||
-                  ""
-                )
-            };
-
-          })
+                name:
+                  String(
+                    team?.name ||
+                    ""
+                  )
+              };
+            }
+          )
           .filter(
             team =>
               team.id &&
@@ -1698,14 +2085,22 @@ module.exports =
         const eligible =
           [];
 
+
+        const qbStatusByGsis =
+          new Map();
+
+
         const noCrosswalk =
           [];
+
 
         const noHistory =
           [];
 
+
         const ignoredPosition =
           [];
+
 
         const ignoredStatus =
           [];
@@ -1764,9 +2159,12 @@ module.exports =
           ) {
 
             noCrosswalk.push({
+
               apiPlayerId,
+
               player:
                 apiPlayerName,
+
               status:
                 originalStatus
             });
@@ -1803,9 +2201,12 @@ module.exports =
           ) {
 
             ignoredPosition.push({
+
               player:
                 apiPlayerName,
+
               position,
+
               status:
                 originalStatus
             });
@@ -1831,15 +2232,46 @@ module.exports =
           ) {
 
             ignoredStatus.push({
+
               player:
                 apiPlayerName,
+
               position,
+
               status:
                 originalStatus,
+
               description
             });
 
             continue;
+          }
+
+
+          // ==================================================
+          // QB STATUS
+          //
+          // Lo guardamos aunque después no tenga historial.
+          // Así el QB puede seguir condicionando al siguiente
+          // QB de la cadena.
+          // ==================================================
+
+          if (
+            position === "QB"
+          ) {
+
+            qbStatusByGsis.set(
+              gsis,
+              {
+
+                weight:
+                  statusInfo.weight,
+
+                status:
+                  statusInfo
+                    .normalizedStatus
+              }
+            );
           }
 
 
@@ -1862,14 +2294,20 @@ module.exports =
           ) {
 
             noHistory.push({
+
               apiPlayerId,
+
               player:
                 apiPlayerName,
+
               gsis,
+
               position,
+
               status:
                 statusInfo
                   .normalizedStatus,
+
               statusWeight:
                 statusInfo.weight
             });
@@ -1878,10 +2316,6 @@ module.exports =
           }
 
 
-          // ==================================================
-          // STATUS-ADJUSTED IMPACT
-          // ==================================================
-
           const historicalImpact =
             Number(
               history.points_impact ||
@@ -1889,13 +2323,43 @@ module.exports =
             );
 
 
-          const statusAdjustedImpact =
+          // ==================================================
+          // QB ABSENCE DECAY
+          // ==================================================
+
+          const playerKey =
+            `${nflverseTeam}|${gsis}`;
+
+
+          const consecutiveGamesOut =
+            position === "QB"
+              ? (
+                  consecutiveAbsencesByPlayer.get(
+                    playerKey
+                  ) ||
+                  0
+                )
+              : 0;
+
+
+          const absenceDecay =
+            position === "QB"
+              ? getAbsenceDecay(
+                  consecutiveGamesOut
+                )
+              : 1;
+
+
+          const fullAbsenceImpact =
             historicalImpact *
+            absenceDecay;
+
+
+          const statusAdjustedImpact =
+            fullAbsenceImpact *
             statusInfo.weight;
 
 
-          // Historical model only produces
-          // adverse impact, but keep this safety.
           if (
             statusAdjustedImpact >=
             0
@@ -1938,6 +2402,18 @@ module.exports =
                 historicalImpact
               ),
 
+            fullAbsenceImpact:
+              round(
+                fullAbsenceImpact
+              ),
+
+            consecutiveGamesOut,
+
+            absenceDecay:
+              round(
+                absenceDecay
+              ),
+
             statusAdjustedImpact:
               round(
                 statusAdjustedImpact
@@ -1955,24 +2431,249 @@ module.exports =
 
 
         // ====================================================
-        // MULTIPLE INJURIES
-        //
-        // Biggest expected impact = 100%
-        // Every additional one = 70%
+        // QB DEPTH / CONDITIONAL LOGIC
         // ====================================================
 
-        eligible.sort(
+        const nonQBPlayers =
+          eligible.filter(
+            player =>
+              player.position !==
+              "QB"
+          );
+
+
+        const qbPlayersByGsis =
+          new Map();
+
+
+        for (
+          const player of eligible
+        ) {
+
+          if (
+            player.position ===
+            "QB"
+          ) {
+
+            qbPlayersByGsis.set(
+              player.gsisPlayerId,
+              player
+            );
+          }
+        }
+
+
+        // ====================================================
+        // EXPECTED IMPACT CANDIDATES
+        // ====================================================
+
+        const impactCandidates =
+          [];
+
+
+        // ----------------------------------------------------
+        // NON-QB
+        // ----------------------------------------------------
+
+        for (
+          const player of nonQBPlayers
+        ) {
+
+          impactCandidates.push({
+
+            ...player,
+
+            expectedImpact:
+              player
+                .statusAdjustedImpact,
+
+            qbConditionalWeight:
+              null
+          });
+        }
+
+
+        // ----------------------------------------------------
+        // QB CHAIN
+        // ----------------------------------------------------
+
+        const hierarchy =
+          qbHierarchyByTeam.get(
+            nflverseTeam
+          ) ||
+          [];
+
+
+        let qbChainProbability =
+          1;
+
+
+        for (
+          const qbGsis of hierarchy
+        ) {
+
+          const status =
+            qbStatusByGsis.get(
+              qbGsis
+            );
+
+
+          // ==================================================
+          // QB SUPERIOR DISPONIBLE
+          //
+          // Si el QB de arriba no aparece con status que pese,
+          // la cadena termina.
+          //
+          // Así un QB2 lesionado NO afecta si QB1 juega.
+          // ==================================================
+
+          if (
+            !status ||
+            status.weight <= 0
+          ) {
+
+            break;
+          }
+
+
+          const player =
+            qbPlayersByGsis.get(
+              qbGsis
+            );
+
+
+          if (
+            player
+          ) {
+
+            const expectedImpact =
+              player
+                .fullAbsenceImpact *
+              status.weight *
+              qbChainProbability;
+
+
+            impactCandidates.push({
+
+              ...player,
+
+              qbConditionalWeight:
+                round(
+                  qbChainProbability
+                ),
+
+              expectedImpact:
+                round(
+                  expectedImpact
+                )
+            });
+          }
+
+
+          // ==================================================
+          // SIGUIENTE QB
+          //
+          // El siguiente QB solamente importa en el escenario
+          // donde este QB también falta.
+          // ==================================================
+
+          qbChainProbability *=
+            status.weight;
+
+
+          if (
+            qbChainProbability <=
+            0
+          ) {
+
+            break;
+          }
+        }
+
+
+        // ====================================================
+        // FALLBACK QB LOGIC
+        //
+        // Solo si no tenemos hierarchy.
+        // ====================================================
+
+        if (
+          !hierarchy.length
+        ) {
+
+          const fallbackQBs =
+            eligible
+              .filter(
+                player =>
+                  player.position ===
+                  "QB"
+              )
+              .sort(
+                (
+                  a,
+                  b
+                ) =>
+                  b.usage -
+                  a.usage
+              );
+
+
+          let fallbackChain =
+            1;
+
+
+          for (
+            const player of fallbackQBs
+          ) {
+
+            const expectedImpact =
+              player
+                .fullAbsenceImpact *
+              player.statusWeight *
+              fallbackChain;
+
+
+            impactCandidates.push({
+
+              ...player,
+
+              qbConditionalWeight:
+                round(
+                  fallbackChain
+                ),
+
+              expectedImpact:
+                round(
+                  expectedImpact
+                )
+            });
+
+
+            fallbackChain *=
+              player.statusWeight;
+          }
+        }
+
+
+        // ====================================================
+        // MULTIPLE INJURY WEIGHT
+        //
+        // Mayor impacto esperado = 100%
+        // Resto = 70%
+        // ====================================================
+
+        impactCandidates.sort(
           (
             a,
             b
           ) =>
-            a.statusAdjustedImpact -
-            b.statusAdjustedImpact
+            a.expectedImpact -
+            b.expectedImpact
         );
 
 
         const appliedPlayers =
-          eligible.map(
+          impactCandidates.map(
             (
               player,
               index
@@ -1986,11 +2687,12 @@ module.exports =
 
               const finalImpact =
                 player
-                  .statusAdjustedImpact *
+                  .expectedImpact *
                 multipleWeight;
 
 
               return {
+
                 ...player,
 
                 multipleWeight,
@@ -2009,14 +2711,14 @@ module.exports =
         // ====================================================
 
         const simpleSumImpact =
-          eligible.reduce(
+          impactCandidates.reduce(
             (
               sum,
               player
             ) =>
               sum +
               player
-                .statusAdjustedImpact,
+                .expectedImpact,
             0
           );
 
@@ -2033,9 +2735,6 @@ module.exports =
           );
 
 
-        // Comparison ONLY.
-        // We are NOT deciding yet that production
-        // should keep this cap.
         const legacyCap10Impact =
           Math.max(
             -LEGACY_TEAM_CAP,
@@ -2107,7 +2806,7 @@ module.exports =
 
 
       // ======================================================
-      // WORST INJURY IMPACT FIRST
+      // WORST IMPACT FIRST
       // ======================================================
 
       teamResults.sort(
