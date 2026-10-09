@@ -2497,11 +2497,42 @@ module.exports =
         // QB CHAIN
         // ----------------------------------------------------
 
-        const hierarchy =
-  eligible
-    .filter(
-      player =>
-        player.position === "QB"
+ const currentTeamQBs =
+  Array.from(
+    currentSeasonQBsByTeam.get(
+      nflverseTeam
+    ) ||
+    []
+  );
+
+
+const hierarchy =
+  currentTeamQBs
+    .map(
+      gsis => {
+
+        const history =
+          historicalProfiles.get(
+            `${nflverseTeam}|${gsis}`
+          );
+
+
+        return {
+          gsis,
+
+          usage:
+            Number(
+              history?.usage ||
+              0
+            ),
+
+          reliability:
+            Number(
+              history?.reliability ||
+              0
+            )
+        };
+      }
     )
     .sort(
       (
@@ -2509,29 +2540,9 @@ module.exports =
         b
       ) => {
 
-        // ================================================
-        // QB PRIORITY
-        //
-        // Mayor usage histórico = QB de mayor jerarquía.
-        //
-        // Ejemplo WAS:
-        // Daniels 0.881
-        // Mariota 0.745
-        //
-        // Daniels debe evaluarse primero aunque Mariota
-        // haya acumulado más snaps recientemente por
-        // estar reemplazándolo.
-        // ================================================
-
         const usageDiff =
-          Number(
-            b.usage ||
-            0
-          ) -
-          Number(
-            a.usage ||
-            0
-          );
+          b.usage -
+          a.usage;
 
 
         if (
@@ -2545,24 +2556,15 @@ module.exports =
         }
 
 
-        // Si el usage es prácticamente igual,
-        // usamos reliability como desempate.
-
         return (
-          Number(
-            b.reliability ||
-            0
-          ) -
-          Number(
-            a.reliability ||
-            0
-          )
+          b.reliability -
+          a.reliability
         );
       }
     )
     .map(
-      player =>
-        player.gsisPlayerId
+      qb =>
+        qb.gsis
     );
 
         let qbChainProbability =
