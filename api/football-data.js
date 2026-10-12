@@ -3775,9 +3775,130 @@ function sanitizePicksForPublic(picks, isPremiumUser) {
     totalPick: sanitizePick(picks.totalPick)
   };
 }
+
+function buildNFLGameContext(full) {
+  if (full?.sport !== "nfl") return null;
+
+  const audit = full?.modelAudit;
+  if (!audit) return null;
+
+  const season = String(
+    audit.season?.current || ""
+  );
+
+  const toNumber = value => {
+    if (
+      value === null ||
+      value === undefined ||
+      value === ""
+    ) {
+      return null;
+    }
+
+    const number = Number(value);
+
+    return Number.isFinite(number)
+      ? number
+      : null;
+  };
+
+  const teams = {};
+
+  for (const [teamName, info] of Object.entries(audit)) {
+    if (teamName === "season" || !info?.edges) {
+      continue;
+    }
+
+    const games = (
+      Array.isArray(info.games)
+        ? info.games
+        : []
+    )
+      .filter(game =>
+        String(game.date || "").slice(0, 4) === season
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.date) - new Date(a.date)
+      )
+      .slice(0, 7)
+      .map(game => ({
+        date: game.date,
+        opponent: game.opponent,
+        scored: toNumber(game.teamPoints),
+        allowed: toNumber(game.pointsAllowed)
+      }))
+      .filter(game =>
+        game.scored !== null &&
+        game.allowed !== null
+      );
+
+    const average = values =>
+      values.length
+        ? Number(
+            (
+              values.reduce((a, b) => a + b, 0) /
+              values.length
+            ).toFixed(1)
+          )
+        : null;
+
+    const edges = info.edges;
+
+    teams[teamName] = {
+      recent: {
+        games: games.length,
+
+        wins: games.filter(
+          game => game.scored > game.allowed
+        ).length,
+
+        losses: games.filter(
+          game => game.scored < game.allowed
+        ).length,
+
+        avgScored: average(
+          games.map(game => game.scored)
+        ),
+
+        avgAllowed: average(
+          games.map(game => game.allowed)
+        ),
+
+        results: games
+      },
+
+      model: {
+        gamesUsed: toNumber(edges.gamesUsed),
+
+        avgScored: toNumber(edges.avgPointsScored),
+
+        avgAllowed: toNumber(edges.avgPointsAllowed),
+
+        offensiveEdge:
+          toNumber(edges.avgOffensiveEdge),
+
+        defensiveEdge:
+          toNumber(edges.avgDefensiveEdge),
+
+        opponentDefense:
+          toNumber(edges.sosDef),
+
+        opponentOffense:
+          toNumber(edges.sosOff)
+      }
+    };
+  }
+
+  return Object.keys(teams).length === 2
+    ? { season, teams }
+    : null;
+}
+
 function buildFootballPublicResponse(full, isPremiumUser) {
   const publicPicks = sanitizePicksForPublic(
     full?.picks,
+    
     isPremiumUser
   );
 
@@ -3816,12 +3937,19 @@ paceEfficiencyAdjustment:
     ? null
     : full?.paceEfficiencyAdjustment || null,
 
+
 injuryImpact:
   hasLockedPremium
     ? null
     : full?.injuryImpact || null,
 
+nflGameContext:
+  hasLockedPremium
+    ? null
+    : buildNFLGameContext(full),
+
 isPremiumUser
+
   };
 }
 // ============================================================
