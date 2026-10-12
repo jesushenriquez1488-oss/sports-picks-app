@@ -5997,6 +5997,634 @@ else if (isSpread && pickedInjNote) {
 
   return s.join(" ");
 }
+
+function ceNFLCompactCard({
+  data, awayTeam, homeTeam, bestPick,
+  locked, isPremium, confidence, gameTime,
+  odds, statsButtonHTML, propsButtonHTML,
+  propsPanelHTML
+}) {
+
+  if (!document.getElementById("ceNFLCompactStyle")) {
+    const css = document.createElement("style");
+    css.id = "ceNFLCompactStyle";
+
+    css.textContent = `
+      .card.ce-nfl-open {
+        padding:5px;
+        border-color:rgba(0,255,231,.10);
+      }
+
+      .card.ce-nfl-open > h2,
+      .card.ce-nfl-open > p,
+      .card.ce-nfl-open > button {
+        display:none!important;
+      }
+
+      .card.ce-nfl-open::before {
+        display:none;
+      }
+
+      .ce-nfl-compact {
+        --accent:#00ffe7;
+        color:#eef5ff;
+        background:#08101f;
+        border:1px solid rgba(0,255,231,.33);
+        border-radius:16px;
+        padding:12px;
+        width:100%;
+        box-sizing:border-box;
+      }
+
+      .ce-nfl-compact * {
+        box-sizing:border-box;
+        min-width:0;
+      }
+
+      .ce-nfl-compact.premium {
+        --accent:#b693ff;
+        border-color:rgba(182,147,255,.72);
+        background:linear-gradient(
+          160deg,#141029,#090e1b 42%
+        );
+      }
+
+      .ce-nfl-top {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:8px;
+        font-size:10px;
+        color:#97a7c2;
+        margin-bottom:10px;
+      }
+
+      .ce-nfl-status {
+        color:var(--accent);
+        border:1px solid currentColor;
+        border-radius:16px;
+        padding:4px 8px;
+        font-size:9px;
+        font-weight:900;
+      }
+
+      .ce-nfl-teams {
+        display:grid;
+        grid-template-columns:1fr auto 1fr;
+        align-items:center;
+        gap:6px;
+        text-align:center;
+      }
+
+      .ce-nfl-team img {
+        width:46px;
+        height:46px;
+        object-fit:contain;
+        display:block;
+        margin:0 auto 3px;
+      }
+
+      .ce-nfl-team strong {
+        display:block;
+        font-size:12px;
+        line-height:1.2;
+      }
+
+      .ce-nfl-vs {
+        font-size:10px;
+        color:#71839f;
+        font-weight:900;
+      }
+
+      .ce-nfl-play {
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:10px;
+        margin:10px 0;
+        padding:10px;
+        border-radius:10px;
+        background:rgba(255,255,255,.025);
+        border:1px solid rgba(255,255,255,.07);
+      }
+
+      .ce-nfl-play-name {
+        font-size:20px;
+        line-height:1.1;
+        font-weight:950;
+        color:#fff;
+        overflow-wrap:anywhere;
+      }
+
+      .ce-nfl-play-sub {
+        font-size:10px;
+        color:#94a6c4;
+        margin-top:4px;
+      }
+
+      .ce-nfl-conf {
+        width:66px;
+        height:66px;
+        flex:0 0 66px;
+        border-radius:50%;
+        border:4px solid var(--accent);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        flex-direction:column;
+      }
+
+      .ce-nfl-conf strong {
+        font-size:16px;
+        color:var(--accent);
+      }
+
+      .ce-nfl-conf small {
+        font-size:8px;
+        color:#8b9ab5;
+      }
+
+      .ce-nfl-numbers {
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:6px;
+        margin-bottom:9px;
+      }
+
+      .ce-nfl-number {
+        background:#111b2e;
+        border-radius:8px;
+        padding:8px 4px;
+        text-align:center;
+      }
+
+      .ce-nfl-number small {
+        font-size:8px;
+        color:#97a7c2;
+        display:block;
+        margin-bottom:3px;
+      }
+
+      .ce-nfl-number strong {
+        font-size:14px;
+        color:#fff;
+        display:block;
+      }
+
+      .ce-nfl-injuries {
+        padding:10px;
+        background:#0d1727;
+        border:1px solid #26334b;
+        border-radius:9px;
+        margin:9px 0;
+        font-size:11px;
+        line-height:1.45;
+        color:#b8c6db;
+      }
+
+      .ce-nfl-injuries b {
+        display:block;
+        color:#fff;
+        font-size:11px;
+        margin-bottom:5px;
+      }
+
+      .ce-nfl-inj-row {
+        display:flex;
+        justify-content:space-between;
+        gap:8px;
+        padding:3px 0;
+      }
+
+      .ce-nfl-impact {
+        color:#ff9b9b;
+        white-space:nowrap;
+        font-weight:900;
+      }
+
+      .ce-nfl-compact details {
+        border:1px solid #25314a;
+        border-radius:9px;
+        margin-top:6px;
+        background:#0b1526;
+        overflow:hidden;
+      }
+
+      .ce-nfl-compact summary {
+        cursor:pointer;
+        list-style:none;
+        padding:11px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:8px;
+        color:#eaf2ff;
+        font-size:11px;
+        font-weight:800;
+      }
+
+      .ce-nfl-compact summary::-webkit-details-marker {
+        display:none;
+      }
+
+      .ce-nfl-compact summary::after {
+        content:'⌄';
+        color:var(--accent);
+        font-size:18px;
+      }
+
+      .ce-nfl-compact details[open] summary::after {
+        content:'⌃';
+      }
+
+      .ce-nfl-detail {
+        padding:0 11px 11px;
+        font-size:11px;
+        line-height:1.65;
+        color:#b6c6d9;
+      }
+
+      .ce-nfl-detail p {
+        font-size:11px!important;
+        margin:6px 0!important;
+      }
+
+      .ce-nfl-actions {
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:7px;
+        margin-top:10px;
+      }
+
+      .ce-nfl-actions button {
+        min-height:43px!important;
+        margin:0!important;
+        padding:8px 5px!important;
+        font-size:10px!important;
+        border-radius:9px!important;
+      }
+
+      @media(max-width:370px) {
+        .ce-nfl-team img {
+          width:39px;
+          height:39px;
+        }
+
+        .ce-nfl-compact {
+          padding:9px;
+        }
+
+        .ce-nfl-play-name {
+          font-size:18px;
+        }
+      }
+    `;
+
+    document.head.appendChild(css);
+  }
+
+  const logoCodes = {
+    "arizona cardinals":"ari",
+    "atlanta falcons":"atl",
+    "baltimore ravens":"bal",
+    "buffalo bills":"buf",
+    "carolina panthers":"car",
+    "chicago bears":"chi",
+    "cincinnati bengals":"cin",
+    "cleveland browns":"cle",
+    "dallas cowboys":"dal",
+    "denver broncos":"den",
+    "detroit lions":"det",
+    "green bay packers":"gb",
+    "houston texans":"hou",
+    "indianapolis colts":"ind",
+    "jacksonville jaguars":"jax",
+    "kansas city chiefs":"kc",
+    "las vegas raiders":"lv",
+    "los angeles chargers":"lac",
+    "los angeles rams":"lar",
+    "miami dolphins":"mia",
+    "minnesota vikings":"min",
+    "new england patriots":"ne",
+    "new orleans saints":"no",
+    "new york giants":"nyg",
+    "new york jets":"nyj",
+    "philadelphia eagles":"phi",
+    "pittsburgh steelers":"pit",
+    "san francisco 49ers":"sf",
+    "seattle seahawks":"sea",
+    "tampa bay buccaneers":"tb",
+    "tennessee titans":"ten",
+    "washington commanders":"wsh"
+  };
+
+  const safe = value =>
+    sanitize(String(value || ""));
+
+  const shortName = name =>
+    String(name || "").split(" ").pop();
+
+  const logo = name => {
+    const code =
+      logoCodes[String(name || "").trim().toLowerCase()];
+
+    return code
+      ? `<img src="https://a.espncdn.com/i/teamlogos/nfl/500/${code}.png" alt="" onerror="this.style.display='none'">`
+      : "";
+  };
+
+  const num = value =>
+    value === null ||
+    value === undefined ||
+    value === "" ||
+    !Number.isFinite(Number(value))
+      ? null
+      : Number(value);
+
+  const fmt = value =>
+    value === null ? "—" : value.toFixed(1);
+
+  const signed = value =>
+    value === null
+      ? "—"
+      : `${value > 0 ? "+" : ""}${fmt(value)}`;
+
+  const scheduled = new Date(
+    gameTime || odds?.commenceTime || ""
+  );
+
+  const kickoff = Number.isNaN(scheduled.getTime())
+    ? "Time unavailable"
+    : scheduled.toLocaleString("en-US", {
+        timeZone:"America/Chicago",
+        weekday:"short",
+        month:"short",
+        day:"numeric",
+        hour:"numeric",
+        minute:"2-digit"
+      });
+
+  const noPick = !bestPick && !locked;
+
+  const pick = String(
+    bestPick?.pick || "No strong edge found"
+  );
+
+  const isTotal = /\b(over|under)\b/i.test(pick);
+
+  const selectedAway =
+    String(bestPick?.side || "").toLowerCase() ===
+      String(awayTeam).toLowerCase() ||
+    pick.toLowerCase().startsWith(
+      String(awayTeam).toLowerCase()
+    );
+
+  const projAway = num(data.projectedScore?.[awayTeam]);
+  const projHome = num(data.projectedScore?.[homeTeam]);
+  const projTotal = num(data.projectedTotal);
+  const projSpread = num(data.projectedSpread);
+
+  const line = isTotal
+    ? num(odds?.totalLine)
+    : num(
+        selectedAway
+          ? odds?.spreadLineA
+          : odds?.spreadLineB
+      );
+
+  const model = isTotal
+    ? projTotal
+    : projSpread === null
+      ? null
+      : selectedAway
+        ? -projSpread
+        : projSpread;
+
+  const edge = num(bestPick?.edge);
+
+  const pace = num(
+    data.paceEfficiencyAdjustment?.adjustment
+  );
+
+  const injury = data.injuryImpact || {};
+
+  const teams = [awayTeam, homeTeam];
+
+  const injuryRows = teams.flatMap(team => {
+    const teamData = injury?.[team];
+
+    const players = Array.isArray(teamData?.players)
+      ? teamData.players
+      : [];
+
+    return players
+      .filter(player =>
+        num(player.finalImpact) !== null &&
+        num(player.finalImpact) !== 0
+      )
+      .slice(0,2)
+      .map(player => `
+        <div class="ce-nfl-inj-row">
+          <span>
+            ${safe(shortName(team))} ·
+            ${safe(player.player || "Player")}
+            (${safe(player.status || "")})
+          </span>
+          <span class="ce-nfl-impact">
+            ${signed(num(player.finalImpact))} pts
+          </span>
+        </div>
+      `);
+  });
+
+  const injuryNote = !data.injuryImpact
+    ? "Injury impact unavailable."
+    : injuryRows.length
+      ? injuryRows.join("")
+      : "No quantified injury adjustment from currently eligible absences.";
+
+  const modelAdvantage =
+    line !== null &&
+    model !== null &&
+    isTotal
+      ? `${Math.abs(line - model).toFixed(1)} points ${model < line ? "below" : "above"} the market total`
+      : edge !== null
+        ? `${fmt(edge)} points of model edge`
+        : "no measurable edge";
+
+  const paragraphs = [];
+
+  if (noPick) {
+    paragraphs.push(
+      "CashEdge did not identify sufficient separation to recommend a play."
+    );
+  } else if (line !== null && model !== null) {
+    paragraphs.push(
+      isTotal
+        ? `CashEdge projects ${fmt(model)} combined points against the ${fmt(line)} market total (${modelAdvantage}). Projected score: ${safe(awayTeam)} ${fmt(projAway)} and ${safe(homeTeam)} ${fmt(projHome)}.`
+        : `CashEdge favors ${safe(pick)} with ${modelAdvantage}. Projected score: ${safe(awayTeam)} ${fmt(projAway)} and ${safe(homeTeam)} ${fmt(projHome)}.`
+    );
+  }
+
+  const relevantInjuries = teams
+    .filter(team =>
+      num(injury?.[team]?.pointsImpact) !== null &&
+      num(injury?.[team]?.pointsImpact) !== 0
+    )
+    .map(team =>
+      `${safe(team)} ${signed(num(injury[team].pointsImpact))} pts`
+    );
+
+  if (relevantInjuries.length) {
+    paragraphs.push(
+      `The injury adjustment is ${relevantInjuries.join("; ")}. This impact is already included in the final projection.`
+    );
+  }
+
+  if (pace !== null) {
+    paragraphs.push(
+      `The pace and efficiency module adjusts expected scoring by ${signed(pace)} points. This is a scoring adjustment, not a percentage change in possessions.`
+    );
+  }
+
+  if (!noPick) {
+    paragraphs.push(
+      "The projection is an estimate. Late roster changes and unexpected game conditions remain risks."
+    );
+  }
+
+  const narrative = paragraphs.length
+    ? paragraphs.map(text => `<p>${text}</p>`).join("")
+    : "<p>More matchup data is needed.</p>";
+
+  const metric = (label,value) => `
+    <div class="ce-nfl-number">
+      <small>${label}</small>
+      <strong>${value}</strong>
+    </div>
+  `;
+
+  const teamHTML = name => `
+    <div class="ce-nfl-team">
+      ${logo(name)}
+      <strong>${safe(shortName(name))}</strong>
+    </div>
+  `;
+
+  return `
+    <section class="ce-nfl-compact ${isPremium ? "premium" : ""}">
+
+      <div class="ce-nfl-top">
+        <span class="ce-nfl-status">
+          ${isPremium ? "PREMIUM PICK" : "CASHEDGE ANALYSIS"} · NFL
+        </span>
+        <span>${safe(kickoff)} CT</span>
+      </div>
+
+      <div class="ce-nfl-teams">
+        ${teamHTML(awayTeam)}
+        <div class="ce-nfl-vs">VS</div>
+        ${teamHTML(homeTeam)}
+      </div>
+
+      <div class="ce-nfl-play">
+        <div>
+          <div class="ce-nfl-play-name">
+            ${locked ? "PREMIUM LOCKED" : safe(pick)}
+          </div>
+
+          <div class="ce-nfl-play-sub">
+            ${locked
+              ? "Unlock to view model insights"
+              : `${isTotal ? "Total" : "Spread"} · Edge ${fmt(edge)}`}
+          </div>
+        </div>
+
+        <div class="ce-nfl-conf">
+          <strong>
+            ${locked
+              ? "75%+"
+              : noPick
+                ? "—"
+                : Number(confidence || 0).toFixed(0) + "%"}
+          </strong>
+          <small>CONF.</small>
+        </div>
+      </div>
+
+      ${locked
+        ? cePremiumPickLockedHTML({
+            sportLabel:"nfl",
+            recordText:ceRecordPlain("nfl")
+          })
+        : `
+          <div class="ce-nfl-numbers">
+            ${metric("MARKET",isTotal ? fmt(line) : signed(line))}
+            ${metric("MODEL",isTotal ? fmt(model) : signed(model))}
+            ${metric("EDGE",signed(edge))}
+          </div>
+
+          <div class="ce-nfl-injuries">
+            <b>INJURY IMPACT</b>
+            ${injuryNote}
+          </div>
+
+          <details>
+            <summary>
+              ${noPick
+                ? "Why CashEdge Passed"
+                : "Why CashEdge Likes This"}
+            </summary>
+            <div class="ce-nfl-detail">
+              ${narrative}
+            </div>
+          </details>
+
+          <details>
+            <summary>Advanced Game Data</summary>
+            <div class="ce-nfl-detail">
+              <p>
+                Projected score:
+                ${safe(shortName(awayTeam))} ${fmt(projAway)}
+                –
+                ${safe(shortName(homeTeam))} ${fmt(projHome)}
+              </p>
+              <p>
+                Pace/efficiency adjustment:
+                ${signed(pace)} points
+              </p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Betting Market</summary>
+            <div class="ce-nfl-detail">
+              <p>
+                Current line:
+                ${isTotal ? fmt(line) : signed(line)}
+              </p>
+              <p>
+                Model:
+                ${isTotal ? fmt(model) : signed(model)}
+              </p>
+              <p>
+                Line movement and betting splits
+                are not connected to this card yet.
+              </p>
+            </div>
+          </details>
+
+          <div class="ce-nfl-actions">
+            ${statsButtonHTML}
+            ${propsButtonHTML}
+          </div>
+
+          ${propsPanelHTML}
+        `}
+    </section>
+  `;
+}
+
 async function analyzeFootball(
   awayTeam,
   homeTeam,
@@ -6965,7 +7593,24 @@ const statsButtonHTML =
       </button>
     `
     : "";
-   const footballAnalysisHTML = isPremium ? `
+  
+const footballAnalysisHTML = type === "nfl"
+  ? ceNFLCompactCard({
+      data,
+      awayTeam,
+      homeTeam,
+      bestPick,
+      locked,
+      isPremium,
+      confidence,
+      gameTime,
+      odds,
+      statsButtonHTML,
+      propsButtonHTML,
+      propsPanelHTML
+    })
+  : isPremium ? `
+
  
 <div class="ce-premium-basket-card ce-nfl-premium">
  
@@ -7124,6 +7769,13 @@ ${propsPanelHTML}
 </div>
  
 `;
+    
+if (type === "nfl") {
+  resultDiv
+    .closest(".card")
+    ?.classList.add("ce-nfl-open");
+}
+
 resultDiv.innerHTML = `
   <div id="nflAnalysisView${index}">
     ${footballAnalysisHTML}
