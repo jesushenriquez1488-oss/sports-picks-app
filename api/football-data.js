@@ -18240,6 +18240,252 @@ async function recordFreeAnalysis(userId, isUnlimited, endpoint) {
   if (error) console.log("recordFreeAnalysis error:", error.message);
 }
 
+async function handleNFLLearningMarket(req, res) {
+  if (req.method !== "GET") {
+    return res.status(405).json({
+      error: "Method not allowed"
+    });
+  }
+
+  const gameId =
+    String(req.query.gameId || "").trim();
+
+  const marketType =
+    String(req.query.marketType || "")
+      .toLowerCase()
+      .trim();
+
+  const selectionKey =
+    String(req.query.selectionKey || "")
+      .toLowerCase()
+      .trim();
+
+  if (
+    !/^nfl-\d{4}-\d{2}-\d{2}-/.test(gameId) ||
+    gameId.length > 200 ||
+    !["total", "spread"].includes(marketType) ||
+    !selectionKey ||
+    selectionKey.length > 100
+  ) {
+    return res.status(400).json({
+      error: "Invalid NFL market request"
+    });
+  }
+
+  const auth =
+    String(req.headers.authorization || "");
+
+  const token =
+    auth.match(/^Bearer\s+(.+)$/i)?.[1];
+
+  if (!token) {
+    return res.status(401).json({
+      error: "Unauthorized"
+    });
+  }
+
+  const {
+    data: authData,
+    error: authError
+  } = await supabaseAdmin.auth.getUser(token);
+
+  if (authError || !authData?.user?.id) {
+    return res.status(401).json({
+      error: "Unauthorized"
+    });
+  }
+
+  res.setHeader(
+    "Cache-Control",
+    "private, no-store"
+  );
+
+  const baseMarket = supabaseAdmin
+    .from("learning_market_states")
+    .select(
+      "sportsbook_key,line,price_american,observed_at"
+    )
+    .eq("cashedge_game_id", gameId)
+    .eq("sport", "nfl")
+    .eq("market_type", marketType)
+    .eq("selection_key", selectionKey);
+
+  const baseSplits = supabaseAdmin
+    .from("learning_split_states")
+    .select(
+      "split_source_key,line,money_pct,tickets_pct,observed_at"
+    )
+    .eq("cashedge_game_id", gameId)
+    .eq("sport", "nfl")
+    .eq("market_type", marketType)
+    .eq("selection_key", selectionKey);
+
+  const [
+    marketResponse,
+    splitsResponse
+  ] = await Promise.all([
+    baseMarket
+      .order("observed_at", {
+        ascending: false
+      })
+      .limit(250),
+
+    baseSplits
+      .order("observed_at", {
+        ascending: false
+      })
+      .limit(100)
+  ]);
+
+  if (
+    marketResponse.error ||
+    splitsResponse.error
+  ) {
+    console.error("Learning market query failed", {
+      market: marketResponse.error?.message,
+      splits: splitsResponse.error?.message
+    });
+
+    return res.status(500).json({
+      error: "Market data unavailable"
+    });
+  }
+
+  const num = value =>
+    value === null ||
+    value === undefined ||
+    value === "" ||
+    !Number.isFinite(Number(value))
+      ? null
+      : Number(value);
+
+  const within = (date, hours) => {
+    const timestamp = Date.parse(date || "");
+    const age = Date.now() - timestamp;
+
+    return (
+      Number.isFinite(age) &&
+      age >= 0 &&
+      age <= hours * 3600000
+    );
+  };
+
+  const markets = marketResponse.data || [];
+
+  const latestByBook = new Map();
+
+  for (const row of markets) {
+    if (
+      row.sportsbook_key &&
+      !latestByBook.has(row.sportsbook_key)
+    ) {
+      latestByBook.set(
+        row.sportsbook_key,
+        row
+      );
+    }
+  }
+
+  const current = markets[0] || null;
+
+  let firstCaptured = null;
+
+  if (current?.sportsbook_key) {
+    const {
+      data: opening,
+      error
+    } = await supabaseAdmin
+      .from("learning_market_states")
+      .select(
+        "line,price_american,observed_at"
+      )
+      .eq("cashedge_game_id", gameId)
+      .eq("sport", "nfl")
+      .eq("market_type", marketType)
+      .eq("selection_key", selectionKey)
+      .eq(
+        "sportsbook_key",
+        current.sportsbook_key
+      )
+      .order("observed_at", {
+        ascending: true
+      })
+      .limit(1);
+
+    if (error) {
+      console.warn(
+        "Learning baseline unavailable",
+        error.message
+      );
+    } else {
+      firstCaptured = opening?.[0] || null;
+    }
+  }
+
+  const latestBySource = new Map();
+
+  for (const row of splitsResponse.data || []) {
+    if (
+      row.split_source_key &&
+      !latestBySource.has(row.split_source_key)
+    ) {
+      latestBySource.set(
+        row.split_source_key,
+        row
+      );
+    }
+  }
+
+  return res.status(200).json({
+    ok: true,
+    gameId,
+    marketType,
+    selectionKey,
+
+    baseline: firstCaptured
+      ? {
+          line: num(firstCaptured.line),
+          price: num(firstCaptured.price_american),
+          observedAt: firstCaptured.observed_at,
+          sportsbook: current.sportsbook_key
+        }
+      : null,
+
+    current: current
+      ? {
+          line: num(current.line),
+          price: num(current.price_american),
+          observedAt: current.observed_at,
+          sportsbook: current.sportsbook_key,
+          fresh: within(current.observed_at, 2)
+        }
+      : null,
+
+    books: [...latestByBook.values()]
+      .filter(row =>
+        within(row.observed_at, 2)
+      )
+      .map(row => ({
+        sportsbook: row.sportsbook_key,
+        line: num(row.line),
+        price: num(row.price_american),
+        observedAt: row.observed_at
+      })),
+
+    splits: [...latestBySource.values()]
+      .filter(row =>
+        within(row.observed_at, 24)
+      )
+      .map(row => ({
+        source: row.split_source_key,
+        line: num(row.line),
+        moneyPct: num(row.money_pct),
+        ticketsPct: num(row.tickets_pct),
+        observedAt: row.observed_at
+      }))
+  });
+}
+
 module.exports = async function handler(req, res) {
 res.setHeader("Access-Control-Allow-Origin", "*");
 res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -18255,6 +18501,10 @@ if (req.method === "OPTIONS") {
   try {
 const mode = req.query.mode || req.body?.mode;
 
+
+if (mode === "nfl-learning-market") {
+  return await handleNFLLearningMarket(req, res);
+}
 
 
 if (mode === "nfl-player-props") {
