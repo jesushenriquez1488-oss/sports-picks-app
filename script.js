@@ -12916,6 +12916,64 @@ function showNFLPlayerDetail(
     ? data.teams?.home?.name || state.homeTeam || ""
     : data.teams?.away?.name || state.awayTeam || "";
 
+const cePlayerEspnId =
+  /^\d+$/.test(String(player.id || ""))
+    ? String(player.id)
+    : null;
+
+const ceTeamEspnId = String(
+  isAwayPlayer
+    ? data.teams?.away?.id || ""
+    : data.teams?.home?.id || ""
+);
+
+const ceNFLTeamCodes = {
+  "1":"atl",
+  "2":"buf",
+  "3":"chi",
+  "4":"cin",
+  "5":"cle",
+  "6":"dal",
+  "7":"den",
+  "8":"det",
+  "9":"gb",
+  "10":"ten",
+  "11":"ind",
+  "12":"kc",
+  "13":"lv",
+  "14":"lar",
+  "15":"mia",
+  "16":"min",
+  "17":"ne",
+  "18":"no",
+  "19":"nyg",
+  "20":"nyj",
+  "21":"phi",
+  "22":"ari",
+  "23":"pit",
+  "24":"lac",
+  "25":"sf",
+  "26":"sea",
+  "27":"tb",
+  "28":"wsh",
+  "29":"car",
+  "30":"jax",
+  "33":"bal",
+  "34":"hou"
+};
+
+const ceTeamLogoCode =
+  ceNFLTeamCodes[ceTeamEspnId] || "";
+
+const cePlayerInitials =
+  String(player.name || "?")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(part => part[0] || "")
+    .join("")
+    .toUpperCase();
+
   const stats = player?.[windowKey] || {};
 
   const windowLabels = {
@@ -14462,43 +14520,142 @@ ${wins}/${games}
         ${backLabel}
       </button>
 
-      <div style="
-        display:flex;
-        justify-content:space-between;
-        align-items:flex-start;
-        gap:12px;
-        margin-bottom:12px;
-      ">
-        <div style="min-width:0;">
-          <small style="
-            display:block;
+     
+<div style="
+  display:grid;
+  grid-template-columns:64px minmax(0,1fr) 44px;
+  align-items:center;
+  gap:10px;
+  padding:11px;
+  margin-bottom:12px;
+  border-radius:13px;
+  border:1px solid rgba(0,255,231,.26);
+  background:linear-gradient(
+    125deg,
+    #0d2030,
+    #101326
+  );
+">
+
+  <!-- PLAYER PHOTO -->
+
+  <div style="
+    width:64px;
+    height:64px;
+    position:relative;
+    border-radius:50%;
+    overflow:hidden;
+    background:#192b40;
+    border:2px solid rgba(0,255,231,.45);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  ">
+
+    <span style="
+      color:#00ffe7;
+      font-size:20px;
+      font-weight:900;
+    ">
+      ${sanitize(cePlayerInitials)}
+    </span>
+
+    ${
+      cePlayerEspnId
+        ? `
+          <img
+            src="https://a.espncdn.com/i/headshots/nfl/players/full/${cePlayerEspnId}.png"
+            alt="${sanitize(player.name || "NFL player")}"
+            loading="lazy"
+            onerror="this.style.display='none'"
+            style="
+              position:absolute;
+              inset:0;
+              width:100%;
+              height:100%;
+              object-fit:cover;
+              object-position:top center;
+              background:#192b40;
+            "
+          >
+        `
+        : ""
+    }
+
+  </div>
+
+  <!-- NAME AND POSITION -->
+
+  <div style="
+    min-width:0;
+  ">
+
+    <div style="
+      font-size:16px;
+      font-weight:950;
+      color:#ffffff;
+      line-height:1.2;
+      overflow-wrap:break-word;
+    ">
+      ${sanitize(player.name)}
+    </div>
+
+    <div style="
+      color:#00ffe7;
+      font-size:10px;
+      font-weight:850;
+      margin-top:5px;
+    ">
+      ${sanitize(player.position || "NFL")}
+    </div>
+
+    <div style="
+      color:#a0b5cf;
+      font-size:10px;
+      margin-top:3px;
+      line-height:1.3;
+    ">
+      ${sanitize(playerTeam)}
+    </div>
+
+  </div>
+
+  <!-- TEAM LOGO -->
+
+  <div style="
+    display:flex;
+    justify-content:center;
+    align-items:center;
+  ">
+
+    ${
+      ceTeamLogoCode
+        ? `
+          <img
+            src="https://a.espncdn.com/i/teamlogos/nfl/500/${ceTeamLogoCode}.png"
+            alt="${sanitize(playerTeam)}"
+            loading="lazy"
+            onerror="this.style.display='none'"
+            style="
+              width:42px;
+              height:42px;
+              object-fit:contain;
+            "
+          >
+        `
+        : `
+          <span style="
             color:#71839f;
-            font-size:9px;
-            line-height:1.2;
-            margin-bottom:4px;
-          ">${sanitize(playerTeam)}</small>
+            font-size:10px;
+            font-weight:800;
+          ">NFL</span>
+        `
+    }
 
-          <div style="
-            color:#fff;
-            font-size:19px;
-            font-weight:850;
-            line-height:1.1;
-            overflow:hidden;
-            text-overflow:ellipsis;
-          ">${sanitize(player.name)}</div>
-        </div>
+  </div>
 
-        <span style="
-          color:#00ffe7;
-          border:1px solid rgba(0,255,231,.28);
-          background:rgba(0,255,231,.06);
-          border-radius:14px;
-          padding:4px 8px;
-          font-size:9px;
-          font-weight:800;
-          flex-shrink:0;
-        ">${sanitize(player.position)}</span>
-      </div>
+</div>
+
 
       <div style="
         display:grid;
