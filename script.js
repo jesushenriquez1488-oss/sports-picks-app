@@ -6487,6 +6487,127 @@ css.textContent += `
 
 `;
 
+css.textContent += `
+
+/* PREMIUM — DARK BLACK + GOLD + CYAN */
+
+.ce-nfl-compact.premium {
+  --accent:#ffd166;
+
+  background:
+    radial-gradient(
+      circle at 15% -15%,
+      rgba(0,255,231,.10),
+      transparent 53%
+    ),
+    linear-gradient(
+      145deg,
+      #080e18,
+      #040711 65%,
+      #05060d
+    );
+
+  border:1px solid rgba(255,209,102,.74);
+
+  box-shadow:
+    0 0 25px rgba(255,209,102,.12),
+    inset 0 1px 0 rgba(255,255,255,.05);
+}
+
+.ce-nfl-compact.premium .ce-nfl-play {
+  background:
+    linear-gradient(
+      125deg,
+      rgba(0,255,231,.10),
+      rgba(255,209,102,.06)
+    );
+
+  border-color:rgba(255,209,102,.34);
+}
+
+.ce-nfl-compact.premium .ce-nfl-projection {
+  background:#0b1724;
+  border-color:rgba(255,209,102,.40);
+}
+
+.ce-nfl-compact.premium .ce-nfl-conf {
+  box-shadow:0 0 18px rgba(255,209,102,.18);
+}
+
+/* INJURY IMPACT — TWO TEAM CARDS */
+
+.ce-nfl-injury-grid {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+
+.ce-nfl-injury-team {
+  min-width:0;
+  padding:9px;
+  background:#081523;
+  border:1px solid #294358;
+  border-radius:10px;
+}
+
+.ce-nfl-injury-team.away {
+  border-color:rgba(0,255,231,.40);
+}
+
+.ce-nfl-injury-team.home {
+  border-color:rgba(255,209,102,.42);
+}
+
+.ce-nfl-injury-head {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:11px;
+  color:#e9f4ff;
+}
+
+.ce-nfl-injury-head img {
+  width:24px;
+  height:24px;
+  object-fit:contain;
+  flex-shrink:0;
+}
+
+.ce-nfl-injury-points {
+  font-size:17px;
+  font-weight:950;
+  margin:6px 0;
+}
+
+.ce-nfl-injury-players {
+  font-size:10px;
+  line-height:1.45;
+  color:#a8b9d0;
+  overflow-wrap:anywhere;
+}
+
+.ce-nfl-injury-person {
+  border-top:1px solid #22354a;
+  padding:4px 0;
+}
+
+.ce-nfl-injury-person span {
+  color:#eef5ff;
+  font-weight:800;
+}
+
+.ce-nfl-injury-person small {
+  display:block;
+  font-size:9px;
+  color:#9baccc;
+}
+
+.ce-nfl-injury-empty {
+  color:#99adc3;
+}
+
+`;
+
     document.head.appendChild(css);
   }
 
@@ -6617,38 +6738,90 @@ css.textContent += `
 
   const teams = [awayTeam, homeTeam];
 
-  const injuryRows = teams.flatMap(team => {
-    const teamData = injury?.[team];
 
-    const players = Array.isArray(teamData?.players)
-      ? teamData.players
-      : [];
+const injuryCardsHTML = teams.map((team, index) => {
+  const report = injury?.[team] || null;
+  const impact = num(report?.pointsImpact);
+  const reported = num(report?.injuriesReported);
 
-    return players
-      .filter(player =>
-        num(player.finalImpact) !== null &&
-        num(player.finalImpact) !== 0
-      )
-      .slice(0,2)
-      .map(player => `
-        <div class="ce-nfl-inj-row">
-          <span>
-            ${safe(shortName(team))} ·
-            ${safe(player.player || "Player")}
-            (${safe(player.status || "")})
-          </span>
-          <span class="ce-nfl-impact">
-            ${signed(num(player.finalImpact))} pts
-          </span>
-        </div>
-      `);
-  });
+  const players = (
+    Array.isArray(report?.players)
+      ? report.players
+      : []
+  )
+    .filter(p =>
+      num(p.finalImpact) !== null &&
+      num(p.finalImpact) !== 0
+    )
+    .sort(
+      (a, b) =>
+        Math.abs(Number(b.finalImpact)) -
+        Math.abs(Number(a.finalImpact))
+    );
 
-  const injuryNote = !data.injuryImpact
-    ? "Injury impact unavailable."
-    : injuryRows.length
-      ? injuryRows.join("")
-      : "No quantified injury adjustment from currently eligible absences.";
+  const playerHTML = players
+    .slice(0, 2)
+    .map(p => `
+      <div class="ce-nfl-injury-person">
+        <span>
+          ${safe(p.player || "Player")}
+        </span>
+        <small>
+          ${safe(p.position || "")} ·
+          ${safe(p.status || "")} ·
+          ${signed(num(p.finalImpact))} pts
+        </small>
+      </div>
+    `)
+    .join("");
+
+  const noImpactText = !report
+    ? "Injury information unavailable."
+    : /no active/i.test(String(report.note || ""))
+      ? "No active injuries in the snapshot."
+      : reported > 0
+        ? "Reported injuries, but no quantified scoring impact."
+        : "No quantified injury impact.";
+
+  return `
+    <div class="ce-nfl-injury-team ${index === 0 ? "away" : "home"}">
+
+      <div class="ce-nfl-injury-head">
+        ${logo(team)}
+        <strong>${safe(shortName(team))}</strong>
+      </div>
+
+      <div
+        class="ce-nfl-injury-points"
+        style="color:${impact < 0 ? "#ff8585" : "#00e6cb"}"
+      >
+        ${
+          impact === null
+            ? "—"
+            : `${impact > 0 ? "+" : ""}${impact.toFixed(2)} pts`
+        }
+      </div>
+
+      <div class="ce-nfl-injury-players">
+        ${
+          playerHTML ||
+          `<span class="ce-nfl-injury-empty">
+            ${noImpactText}
+          </span>`
+        }
+
+        ${
+          players.length > 2
+            ? `<small>
+                +${players.length - 2} additional impacted player(s)
+              </small>`
+            : ""
+        }
+      </div>
+
+    </div>
+  `;
+}).join("");
 
   const modelAdvantage =
     line !== null &&
@@ -6672,6 +6845,52 @@ css.textContent += `
         : `CashEdge favors ${safe(pick)} with ${modelAdvantage}. Projected score: ${safe(awayTeam)} ${fmt(projAway)} and ${safe(homeTeam)} ${fmt(projHome)}.`
     );
   }
+
+const gameContext =
+  data?.nflGameContext?.teams || {};
+
+for (const teamName of [awayTeam, homeTeam]) {
+  const teamData = gameContext[teamName];
+
+  if (!teamData) continue;
+
+  const recent = teamData.recent;
+  const m = teamData.model;
+
+  if (recent?.games > 0) {
+    paragraphs.push(
+      `<strong style="color:#00ffe7">${safe(teamName)}</strong> ` +
+      `is <strong style="color:#ffc77e">` +
+      `${recent.wins}-${recent.losses}</strong> ` +
+      `over its last ${recent.games} available games, ` +
+      `averaging <strong>${fmt(num(recent.avgScored))}</strong> ` +
+      `points scored and ` +
+      `<strong>${fmt(num(recent.avgAllowed))}</strong> ` +
+      `points allowed.`
+    );
+  }
+
+  if (m?.gamesUsed > 0) {
+    const off = num(m.offensiveEdge);
+    const def = num(m.defensiveEdge);
+
+    if (off !== null && def !== null) {
+      paragraphs.push(
+        `<strong style="color:#b693ff">${safe(teamName)} ` +
+        `matchup profile:</strong> ` +
+        `Across ${m.gamesUsed} model-eligible games, ` +
+        `the offensive edge is ` +
+        `<strong style="color:${off < 0 ? "#ff9b9b" : "#00ffe7"}">` +
+        `${signed(off)}</strong> points relative ` +
+        `to opponents' defensive baselines. ` +
+        `The defensive edge is ` +
+        `<strong style="color:${def < 0 ? "#00ffe7" : "#ff9b9b"}">` +
+        `${signed(def)}</strong> points relative ` +
+        `to opponents' offensive baselines.`
+      );
+    }
+  }
+}
 
   const relevantInjuries = teams
     .filter(team =>
@@ -6799,10 +7018,14 @@ css.textContent += `
             ${metric("EDGE",signed(edge))}
           </div>
 
-          <div class="ce-nfl-injuries">
-            <b>INJURY IMPACT</b>
-            ${injuryNote}
-          </div>
+         
+<div class="ce-nfl-injuries">
+  <b>INJURY IMPACT BY TEAM</b>
+
+  <div class="ce-nfl-injury-grid">
+    ${injuryCardsHTML}
+  </div>
+</div>
 
           <details>
             <summary>
