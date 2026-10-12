@@ -10327,7 +10327,10 @@ async function openNFLPropPlayerDetail(
   encodedPlayer,
   returnCategory = "all",
   athleteId = "",
-  selectedMarket = ""
+ 
+selectedMarket = "",
+bestPosition = -1
+
 ) {
   const playerName =
     decodeURIComponent(
@@ -10383,6 +10386,13 @@ async function openNFLPropPlayerDetail(
       nflPlayerPropsState[index] || {};
 
 
+const exactBestProp =
+  returnCategory === "best" &&
+  Number.isInteger(bestPosition) &&
+  bestPosition >= 0
+    ? propsState.bestVisibleProps?.[bestPosition] || null
+    : null;
+
     if (nflPlayerStatsState[index]) {
       nflPlayerStatsState[index].currentProps =
         Array.isArray(
@@ -10399,6 +10409,8 @@ async function openNFLPropPlayerDetail(
      */
     nflPlayerPropsState[index] = {
       ...propsState,
+
+detailExactBestProp: exactBestProp,
 
       detailReturnCategory:
         returnCategory,
@@ -11341,10 +11353,13 @@ function showNFLPlayerPropsCategory(
     return;
   }
 
+
 if (category === "best") {
+  nflPlayerPropsState[index].bestVisibleProps = lines;
+
   container.innerHTML =
     lines
-      .map(prop => {
+      .map((prop, bestPosition) => {
 
         const encodedPlayer =
           encodeURIComponent(
@@ -11364,7 +11379,10 @@ if (category === "best") {
   '${encodedPlayer}',
   'best',
   '${athleteId}',
-  '${String(prop?.market || "")}'
+ 
+'${String(prop?.market || "")}',
+${bestPosition}
+
 )"
             style="
               width:100%;
@@ -13160,11 +13178,34 @@ const backLabel =
 
   const categoryPreferredMarket = categoryToPropMarket[marketKey] || "";
 
-  let selectedProp = null;
+const exactBestProp =
+  source === "props"
+    ? nflPlayerPropsState[index]?.detailExactBestProp
+    : null;
 
-  if (selectedPropMarket) {
-    selectedProp = playerProps.find(prop => prop.market === selectedPropMarket) || null;
-  }
+let selectedProp = null;
+
+if (
+  exactBestProp &&
+  ceNFLNamesMatch(
+    exactBestProp.player,
+    player.name
+  ) &&
+  (
+    !selectedPropMarket ||
+    exactBestProp.market === selectedPropMarket
+  )
+) {
+  selectedProp = exactBestProp;
+}
+
+if (!selectedProp && selectedPropMarket) {
+  selectedProp =
+    playerProps.find(
+      prop => prop.market === selectedPropMarket
+    ) || null;
+}
+
 
   if (!selectedProp && categoryPreferredMarket) {
     selectedProp = playerProps.find(prop => prop.market === categoryPreferredMarket) || null;
