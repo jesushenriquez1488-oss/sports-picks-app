@@ -5998,6 +5998,413 @@ else if (isSpread && pickedInjNote) {
   return s.join(" ");
 }
 
+async function ceLoadNFLBettingMarket(panel, context) {
+  if (!panel || panel.dataset.loading === "1") return;
+
+  if (
+    Date.now() -
+    Number(panel.dataset.loadedAt || 0) < 60000
+  ) return;
+
+  const { awayTeam, homeTeam, gameTime, bestPick } = context;
+
+  const clean = value => sanitize(String(value ?? ""));
+
+  const numeric = value =>
+    value === null ||
+    value === undefined ||
+    value === "" ||
+    !Number.isFinite(Number(value))
+      ? null
+      : Number(value);
+
+  const normalize = value =>
+    String(value || "")
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, " ");
+
+  const pickText = String(bestPick?.pick || "");
+  const pickSide = String(bestPick?.side || "");
+
+  const totalSide =
+    /\b(over|under)\b/i.exec(pickText)?.[1]?.toLowerCase() ||
+    /^(over|under)$/i.exec(pickSide)?.[1]?.toLowerCase() ||
+    null;
+
+  const marketType = totalSide ? "total" : "spread";
+  const teams = [awayTeam, homeTeam];
+
+  const pickedTeam = teams.find(name => {
+    const full = normalize(name);
+    const nickname = normalize(name.split(" ").at(-1));
+    const text = ` ${normalize(pickText)} `;
+    const side = normalize(pickSide);
+
+    return (
+      text.includes(` ${full} `) ||
+      text.includes(` ${nickname} `) ||
+      side === full ||
+      side === nickname
+    );
+  });
+
+  const selectionKey =
+    totalSide ||
+    (pickedTeam ? normalize(pickedTeam) : "");
+
+  const kickoff = new Date(gameTime || "");
+
+  if (!selectionKey || !Number.isFinite(kickoff.getTime())) {
+    panel.textContent =
+      "Market selection or kickoff unavailable.";
+    return;
+  }
+
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(kickoff);
+
+  const part = type =>
+    parts.find(item => item.type === type)?.value;
+
+  const gameDate =
+    `${part("year")}-${part("month")}-${part("day")}`;
+
+  const gameId =
+    `nfl-${gameDate}-${teams
+      .map(name => name.trim())
+      .sort()
+      .join("-")}`;
+
+  const lineText = value => {
+    const n = numeric(value);
+
+    return n === null
+      ? "—"
+      : `${marketType === "spread" && n > 0 ? "+" : ""}${n.toFixed(1)}`;
+  };
+
+  const priceText = value => {
+    const n = numeric(value);
+
+    return n === null
+      ? "—"
+      : `${n > 0 ? "+" : ""}${Math.round(n)}`;
+  };
+
+  const stamp = value => {
+    const date = new Date(value || "");
+
+    return Number.isFinite(date.getTime())
+      ? date.toLocaleString("en-US", {
+          timeZone: "America/Chicago",
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit"
+        }) + " CT"
+      : "Unavailable";
+  };
+
+  panel.dataset.loading = "1";
+  panel.textContent = "Loading Learning Intelligence...";
+
+  try {
+    const { data: sessionData } =
+      await supabaseClient.auth.getSession();
+
+    const token = sessionData?.session?.access_token;
+
+    if (!token) {
+      throw new Error("Sign in to view Betting Market.");
+    }
+
+    const query = new URLSearchParams({
+      mode: "nfl-learning-market",
+      gameId,
+      marketType,
+      selectionKey
+    });
+
+    const response = await fetch(
+      `https://www.cashedgeapp.com/api/football-data?${query.toString()}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        cache: "no-store"
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || data.ok !== true) {
+      throw new Error(
+        data.error || "Market service unavailable."
+      );
+    }
+
+    if (!panel.isConnected) return;
+
+    const baseline = data.baseline;
+    const current = data.current;
+
+    const firstLine = numeric(baseline?.line);
+    const latestLine = numeric(current?.line);
+
+    const movement =
+      firstLine !== null && latestLine !== null
+        ? latestLine - firstLine
+        : null;
+
+    const books = Array.isArray(data.books)
+      ? data.books.filter(
+          book => numeric(book.line) !== null
+        )
+      : [];
+
+    const bestBook = [...books].sort((a, b) => {
+      const aLine = numeric(a.line);
+      const bLine = numeric(b.line);
+
+      if (aLine !== bLine) {
+        return marketType === "total" &&
+          selectionKey === "over"
+            ? aLine - bLine
+            : bLine - aLine;
+      }
+
+      return (
+        (numeric(b.price) ?? -10000) -
+        (numeric(a.price) ?? -10000)
+      );
+    })[0] || null;
+
+    const splits = Array.isArray(data.splits)
+      ? data.splits
+      : [];
+
+    const pct = value => {
+      const n = numeric(value);
+
+      return n !== null && n >= 0 && n <= 100
+        ? `${n.toFixed(0)}%`
+        : "—";
+    };
+
+    const tile = (label, value, color) => `
+      <div style="
+        background:#0b1a29;
+        border:1px solid #243953;
+        border-radius:10px;
+        padding:10px 5px;
+        text-align:center;
+        min-width:0;
+      ">
+        <small style="
+          display:block;
+          color:#96abc5;
+          font-size:9px;
+          font-weight:800;
+        ">${label}</small>
+
+        <strong style="
+          display:block;
+          color:${color};
+          font-size:17px;
+          margin-top:4px;
+        ">${clean(value)}</strong>
+      </div>
+    `;
+
+    panel.innerHTML = `
+      <div style="
+        color:#ffd166;
+        font-size:10px;
+        font-weight:850;
+        margin-bottom:9px;
+      ">
+        ${clean(marketType.toUpperCase())} ·
+        ${clean(selectionKey.toUpperCase())}
+      </div>
+
+      <div style="
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:6px;
+      ">
+        ${tile("FIRST CAPTURED", lineText(firstLine), "#ffc77e")}
+
+        ${tile("LATEST", lineText(latestLine), "#00ffe7")}
+
+        ${tile(
+          "LINE CHANGE",
+          movement === null
+            ? "—"
+            : `${movement > 0 ? "+" : ""}${movement.toFixed(1)}`,
+          "#be9bff"
+        )}
+      </div>
+
+      <p style="
+        font-size:10px;
+        color:#8ca4bd;
+        margin:9px 0 12px;
+        line-height:1.5;
+      ">
+        ${
+          baseline
+            ? `First seen: ${clean(stamp(baseline.observedAt))}.`
+            : "No first capture available."
+        }
+
+        ${
+          current
+            ? `Latest: ${clean(stamp(current.observedAt))}
+               (${clean(current.sportsbook)}).
+               ${current.fresh
+                 ? "Recent snapshot."
+                 : "Snapshot older than 2 hours — not live."}`
+            : "No market snapshot."
+        }
+      </p>
+
+      <div style="
+        color:#ffd166;
+        font-size:11px;
+        font-weight:850;
+        margin-bottom:5px;
+      ">
+        MONEY / TICKETS
+      </div>
+
+      ${
+        splits.length
+          ? splits.slice(0, 4).map(source => `
+              <div style="
+                display:grid;
+                grid-template-columns:1fr auto;
+                gap:5px;
+                border-top:1px solid #23364b;
+                padding:8px 0;
+                font-size:10px;
+              ">
+                <div>
+                  <strong style="color:#c8d8ed">
+                    ${clean(source.source || "Source")}
+                  </strong>
+
+                  <div style="
+                    color:#718eaa;
+                    font-size:9px;
+                  ">
+                    ${clean(stamp(source.observedAt))}
+                    ${
+                      numeric(source.line) !== null
+                        ? ` · Line ${clean(lineText(source.line))}`
+                        : ""
+                    }
+                  </div>
+                </div>
+
+                <div style="text-align:right">
+                  <span style="color:#ffc77e">
+                    Tickets ${clean(pct(source.ticketsPct))}
+                  </span>
+
+                  <div style="color:#00ffe7">
+                    Money ${clean(pct(source.moneyPct))}
+                  </div>
+                </div>
+              </div>
+            `).join("")
+          : `<p style="color:#8ca4bd;font-size:10px">
+               No betting splits captured in the last 24 hours.
+             </p>`
+      }
+
+      <div style="
+        color:#ffd166;
+        font-size:11px;
+        font-weight:850;
+        margin:12px 0 6px;
+      ">
+        BEST AVAILABLE LINE
+      </div>
+
+      ${
+        bestBook
+          ? `
+            <div style="
+              display:flex;
+              justify-content:space-between;
+              align-items:center;
+              gap:8px;
+              background:#0b1e27;
+              border:1px solid #2b4654;
+              border-radius:9px;
+              padding:9px;
+            ">
+              <span style="
+                color:#cbdcf1;
+                font-size:11px;
+              ">
+                ${clean(bestBook.sportsbook)}
+              </span>
+
+              <strong style="
+                color:#00ffe7;
+                font-size:15px;
+              ">
+                ${clean(lineText(bestBook.line))}
+
+                <span style="
+                  color:#ffc77e;
+                  font-size:11px;
+                ">
+                  (${clean(priceText(bestBook.price))})
+                </span>
+              </strong>
+            </div>
+
+            <p style="color:#7995af;font-size:9px">
+              Based on sportsbook captures from the last 2 hours.
+            </p>
+          `
+          : `<p style="color:#8ca4bd;font-size:10px">
+               No recently captured sportsbook lines available.
+             </p>`
+      }
+
+      <p style="
+        color:#7e95ac;
+        font-size:9px;
+        line-height:1.5;
+        margin-top:10px;
+      ">
+        First captured is not necessarily the official
+        opening line. Betting splits reflect their
+        individual source and timestamp. Market signals
+        do not guarantee an outcome.
+      </p>
+    `;
+
+    panel.dataset.loadedAt = String(Date.now());
+
+  } catch (error) {
+    if (panel.isConnected) {
+      panel.textContent =
+        error?.message || "Market data unavailable.";
+    }
+  } finally {
+    delete panel.dataset.loading;
+  }
+}
+
 function ceNFLCompactCard({
   data, awayTeam, homeTeam, bestPick,
   locked, isPremium, confidence, gameTime,
@@ -7077,23 +7484,17 @@ const teamHTML = name => {
 
           </details>
 
-          <details>
-            <summary>Betting Market</summary>
-            <div class="ce-nfl-detail">
-              <p>
-                Current line:
-                ${isTotal ? fmt(line) : signed(line)}
-              </p>
-              <p>
-                Model:
-                ${isTotal ? fmt(model) : signed(model)}
-              </p>
-              <p>
-                Line movement and betting splits
-                are not connected to this card yet.
-              </p>
-            </div>
-          </details>
+         
+<details>
+  <summary>Betting Market</summary>
+
+  <div class="ce-nfl-detail">
+    <div data-nfl-betting-market>
+      Open to load Learning Intelligence.
+    </div>
+  </div>
+</details>
+
 
           <div class="ce-nfl-actions">
             ${statsButtonHTML}
@@ -8278,6 +8679,28 @@ resultDiv.innerHTML = `
     style="display:none;"
   ></div>
 `;
+    
+if (type === "nfl" && !locked) {
+  const marketPanel = resultDiv.querySelector(
+    "[data-nfl-betting-market]"
+  );
+
+  const marketDetails = marketPanel?.closest("details");
+
+  if (marketPanel && marketDetails) {
+    marketDetails.addEventListener("toggle", () => {
+      if (!marketDetails.open) return;
+
+      ceLoadNFLBettingMarket(marketPanel, {
+        awayTeam,
+        homeTeam,
+        gameTime: odds?.commenceTime || gameTime,
+        bestPick
+      });
+    });
+  }
+}
+
 } catch (err) {
     const msg = err?.message || String(err);
     if (msg.includes("free analyses") || msg.includes("every 3 hours") || msg.includes("unlock 5")) {
