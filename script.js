@@ -6930,12 +6930,40 @@ for (const teamName of [awayTeam, homeTeam]) {
     </div>
   `;
 
-  const teamHTML = name => `
+
+const teamHTML = name => {
+  const record = data?.seasonRecords?.[name];
+
+  const recordText = record &&
+    Number.isFinite(Number(record.wins)) &&
+    Number.isFinite(Number(record.losses))
+      ? `${Number(record.wins)}-${Number(record.losses)}${
+          Number(record.ties) > 0
+            ? `-${Number(record.ties)}`
+            : ""
+        }`
+      : "—";
+
+  return `
     <div class="ce-nfl-team">
       ${logo(name)}
+
       <strong>${safe(shortName(name))}</strong>
+
+      <small style="
+        display:block;
+        margin-top:4px;
+        font-size:10px;
+        font-weight:800;
+        color:#a5b8d2;
+        letter-spacing:.5px;
+      ">
+        ${recordText}
+      </small>
     </div>
   `;
+};
+
 
   return `
     <section class="ce-nfl-compact ${isPremium ? "premium" : ""}">
