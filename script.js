@@ -6002,7 +6002,8 @@ function ceNFLCompactCard({
   data, awayTeam, homeTeam, bestPick,
   locked, isPremium, confidence, gameTime,
   odds, statsButtonHTML, propsButtonHTML,
-  propsPanelHTML
+ propsPanelHTML,
+gameIntelligenceHTML
 }) {
 
   if (!document.getElementById("ceNFLCompactStyle")) {
@@ -6279,6 +6280,212 @@ function ceNFLCompactCard({
         }
       }
     `;
+
+css.textContent += `
+
+.ce-nfl-compact {
+  background:
+    radial-gradient(
+      circle at 50% -12%,
+      rgba(0,255,231,.12),
+      transparent 55%
+    ),
+    #08101f;
+
+  border-color:rgba(0,255,231,.45);
+  box-shadow:0 0 24px rgba(0,255,231,.10);
+}
+
+.ce-nfl-compact.premium {
+  background:
+    radial-gradient(
+      circle at 30% -10%,
+      rgba(176,105,255,.24),
+      transparent 60%
+    ),
+    #100d20;
+
+  border:1px solid #b47aff;
+  box-shadow:0 0 28px rgba(162,98,255,.19);
+}
+
+.ce-nfl-compact.premium .ce-nfl-status {
+  color:#ffcf80;
+  border-color:rgba(255,207,128,.65);
+  background:rgba(255,183,72,.10);
+}
+
+.ce-nfl-team:first-child strong {
+  color:#00ffe7;
+}
+
+.ce-nfl-team:last-child strong {
+  color:#ba9aff;
+}
+
+.ce-nfl-vs {
+  color:#ffca78;
+}
+
+.ce-nfl-play {
+  background:linear-gradient(
+    125deg,
+    rgba(0,255,231,.11),
+    rgba(124,60,255,.13)
+  );
+  border-color:rgba(0,255,231,.28);
+}
+
+.ce-nfl-compact.premium .ce-nfl-play {
+  background:linear-gradient(
+    125deg,
+    rgba(163,96,255,.17),
+    rgba(255,177,72,.07)
+  );
+  border-color:rgba(183,133,255,.43);
+}
+
+.ce-nfl-play-name {
+  font-size:23px;
+  color:#ffffff;
+  font-weight:950;
+  letter-spacing:.2px;
+}
+
+.ce-nfl-play-sub {
+  color:#ffc77e;
+  font-weight:750;
+}
+
+.ce-nfl-projection {
+  background:linear-gradient(
+    125deg,
+    #0b2130,
+    #12142b
+  );
+  border:1px solid rgba(0,255,231,.28);
+  border-radius:11px;
+  padding:10px 12px;
+  margin-bottom:9px;
+}
+
+.ce-nfl-compact.premium .ce-nfl-projection {
+  border-color:rgba(174,126,255,.45);
+}
+
+.ce-nfl-projection-title {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  font-size:9px;
+  font-weight:900;
+  color:#00ffe7;
+  letter-spacing:.35px;
+}
+
+.ce-nfl-projection-title strong {
+  color:#ffca78;
+  font-size:11px;
+  white-space:nowrap;
+}
+
+.ce-nfl-projection-row {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+  align-items:center;
+  gap:7px;
+  margin-top:8px;
+  text-align:center;
+}
+
+.ce-nfl-projection-row span {
+  color:#a8b8d4;
+  font-size:11px;
+  font-weight:800;
+}
+
+.ce-nfl-projection-row strong {
+  color:#ffffff;
+  font-size:23px;
+  font-weight:950;
+  white-space:nowrap;
+}
+
+.ce-nfl-projection-row em {
+  color:#7e8dac;
+  font-style:normal;
+  font-size:15px;
+}
+
+.ce-nfl-number {
+  border:1px solid #263348;
+  padding:9px 4px;
+}
+
+.ce-nfl-number:nth-child(1) {
+  border-color:rgba(255,199,126,.22);
+}
+
+.ce-nfl-number:nth-child(1) small,
+.ce-nfl-number:nth-child(1) strong {
+  color:#ffc77e;
+}
+
+.ce-nfl-number:nth-child(2) {
+  border-color:rgba(0,255,231,.24);
+}
+
+.ce-nfl-number:nth-child(2) small,
+.ce-nfl-number:nth-child(2) strong {
+  color:#00ffe7;
+}
+
+.ce-nfl-number:nth-child(3) {
+  border-color:rgba(182,147,255,.28);
+}
+
+.ce-nfl-number:nth-child(3) small,
+.ce-nfl-number:nth-child(3) strong {
+  color:#ba9aff;
+}
+
+.ce-nfl-injuries {
+  background:#101726;
+  border-color:rgba(255,165,118,.28);
+}
+
+.ce-nfl-injuries b {
+  color:#ffa976;
+  letter-spacing:.5px;
+}
+
+.ce-nfl-impact {
+  color:#ff8585;
+  font-size:12px;
+}
+
+.ce-nfl-compact details {
+  border-color:#2b3656;
+}
+
+.ce-nfl-compact details:nth-of-type(1) summary {
+  color:#00ffe7;
+}
+
+.ce-nfl-compact details:nth-of-type(2) summary {
+  color:#bd9aff;
+}
+
+.ce-nfl-compact details:nth-of-type(3) summary {
+  color:#ffc77e;
+}
+
+.ce-nfl-compact details[open] {
+  border-color:var(--accent);
+}
+
+`;
 
     document.head.appendChild(css);
   }
@@ -6558,6 +6765,34 @@ function ceNFLCompactCard({
             recordText:ceRecordPlain("nfl")
           })
         : `
+        
+<div class="ce-nfl-projection">
+
+  <div class="ce-nfl-projection-title">
+    <span>CASHEDGE PROJECTED SCORE</span>
+    <strong>${fmt(projTotal)} TOTAL</strong>
+  </div>
+
+  <div class="ce-nfl-projection-row">
+
+    <span>
+      ${sanitize(String(awayTeam).split(" ").pop())}
+    </span>
+
+    <strong>
+      ${fmt(projAway)}
+      <em>—</em>
+      ${fmt(projHome)}
+    </strong>
+
+    <span>
+      ${sanitize(String(homeTeam).split(" ").pop())}
+    </span>
+
+  </div>
+
+</div>
+
           <div class="ce-nfl-numbers">
             ${metric("MARKET",isTotal ? fmt(line) : signed(line))}
             ${metric("MODEL",isTotal ? fmt(model) : signed(model))}
@@ -6582,18 +6817,13 @@ function ceNFLCompactCard({
 
           <details>
             <summary>Advanced Game Data</summary>
-            <div class="ce-nfl-detail">
-              <p>
-                Projected score:
-                ${safe(shortName(awayTeam))} ${fmt(projAway)}
-                –
-                ${safe(shortName(homeTeam))} ${fmt(projHome)}
-              </p>
-              <p>
-                Pace/efficiency adjustment:
-                ${signed(pace)} points
-              </p>
-            </div>
+            
+<div class="ce-nfl-detail">
+  ${gameIntelligenceHTML ||
+    "<p>Detailed matchup data unavailable.</p>"
+  }
+</div>
+
           </details>
 
           <details>
@@ -7607,7 +7837,12 @@ const footballAnalysisHTML = type === "nfl"
       odds,
       statsButtonHTML,
       propsButtonHTML,
-      propsPanelHTML
+      propsPanelHTML,
+    
+gameIntelligenceHTML: isPremium
+  ? premiumGameIntelligenceHTML
+  : gameIntelligenceHTML
+
     })
   : isPremium ? `
 
