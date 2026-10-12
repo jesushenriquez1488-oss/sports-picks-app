@@ -3948,6 +3948,11 @@ nflGameContext:
     ? null
     : buildNFLGameContext(full),
 
+seasonRecords:
+  full?.sport === "nfl"
+    ? full?.seasonRecords || null
+    : null,
+
 isPremiumUser
 
   };
@@ -19679,8 +19684,38 @@ const ncaafInjuryFingerprint =
       )
     : null;
 
+const getSeasonRecord = teamRef => {
+  const games = getTeamGamesFromSeason(
+    currentSeasonAllGames,
+    teamRef
+  );
+
+  return {
+    wins: games.filter(
+      g => g.teamPoints > g.pointsAllowed
+    ).length,
+
+    losses: games.filter(
+      g => g.teamPoints < g.pointsAllowed
+    ).length,
+
+    ties: games.filter(
+      g => g.teamPoints === g.pointsAllowed
+    ).length
+  };
+};
+
 const fullResponse = {
     sport: type,
+  
+seasonRecords:
+  type === "nfl"
+    ? {
+        [teamA]: getSeasonRecord(teamARef),
+        [teamB]: getSeasonRecord(teamBRef)
+      }
+    : null,
+
   ncaafInjuryFingerprint,
     odds,
     picks: rawPicks || picks,
