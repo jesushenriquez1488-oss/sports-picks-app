@@ -4,6 +4,29 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Sports Picks App</title>
+  
+<!-- CASHEDGE: HIDE GOOGLE PLAY ON IOS -->
+<script>
+(function () {
+  const isIOS =
+    /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (
+      navigator.platform === "MacIntel" &&
+      navigator.maxTouchPoints > 1
+    );
+
+  if (isIOS) {
+    document.documentElement.classList.add("ce-ios-device");
+  }
+})();
+</script>
+
+<style>
+  .ce-ios-device #ceLanding .ce-google-play {
+    display: none !important;
+  }
+</style>
+
   <link rel="stylesheet" href="style.css">
 <script>
 (function () {
