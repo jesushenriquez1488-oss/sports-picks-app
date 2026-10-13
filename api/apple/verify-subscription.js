@@ -317,10 +317,15 @@ const premiumAccess = await syncPremiumAccess(userId);
     });
 
   } catch (error) {
-    console.error(
-      "APPLE SUBSCRIPTION VERIFICATION ERROR:",
-      error.message
-    );
+   console.error("APPLE SUBSCRIPTION VERIFICATION ERROR:", {
+  message: error?.message || String(error),
+  name: error?.name,
+  code: error?.code,
+  httpStatusCode: error?.httpStatusCode,
+  apiError: error?.apiError,
+  cause: error?.cause,
+  stack: error?.stack
+});
 
     return res.status(500).json({
       verified: false,
