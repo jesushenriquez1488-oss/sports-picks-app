@@ -2,7 +2,9 @@
 const fs = require("fs");
 const path = require("path");
 const { createClient } = require("@supabase/supabase-js");
-
+const {
+  syncPremiumAccess
+} = require("../../lib/syncPremiumAccess");
 const {
   AppStoreServerAPIClient,
   SignedDataVerifier,
@@ -365,6 +367,9 @@ module.exports = async function handler(req, res) {
     if (!updated) {
       throw new Error("Subscription update not applied");
     }
+    // Sincronizar Premium global después
+// de actualizar el estado de Apple.
+await syncPremiumAccess(existing.user_id);
 
     console.log("APPLE SUBSCRIPTION UPDATED:", {
       notificationType: notification.notificationType,
