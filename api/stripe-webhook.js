@@ -1,6 +1,9 @@
 const Stripe = require("stripe");
 const { buffer } = require("micro");
 const { createClient } = require("@supabase/supabase-js");
+const {
+  syncPremiumAccess
+} = require("../lib/syncPremiumAccess");
 const crypto = require("crypto");
 
 const stripe = new Stripe(
@@ -35,7 +38,20 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+async function syncStripeCustomerPremium(customerId) {
+  if (!customerId) return;
 
+  const { data: users, error } = await supabaseAdmin
+    .from("users")
+    .select("id")
+    .eq("stripe_customer_id", customerId);
+
+  if (error) throw error;
+
+  for (const user of users || []) {
+    await syncPremiumAccess(user.id);
+  }
+}
 module.exports.config = {
   api: {
     bodyParser: false
@@ -877,93 +893,32 @@ async function handler(
        CANCEL / PAYMENT FAILED
     ========================= */
 
-    if (
-      event.type ===
-        "customer.subscription.deleted" ||
-      event.type ===
-        "invoice.payment_failed"
-    ) {
+   
 
-      const subscription =
-        event.data.object;
+if (
+  event.type === "customer.subscription.deleted" ||
+  event.type === "invoice.payment_failed"
+) {
+  const subscription = event.data.object;
 
-      const customerId =
-        subscription.customer;
+  await syncStripeCustomerPremium(
+    subscription.customer
+  );
+}
 
-      const {
-        error
-      } =
-        await supabaseAdmin
-          .from("users")
-          .update({
-            is_premium:
-              false,
+  /* =========================
+   SUBSCRIPTION UPDATED
+========================= */
 
-            subscription_status:
-              "canceled"
-          })
-          .eq(
-            "stripe_customer_id",
-            customerId
-          );
+if (
+  event.type === "customer.subscription.updated"
+) {
+  const subscription = event.data.object;
 
-      if (error) {
-
-        console.error(
-          "❌ ERROR DESACTIVANDO PREMIUM:",
-          error.message
-        );
-      }
-    }
-
-    /* =========================
-       SUBSCRIPTION UPDATED
-    ========================= */
-
-    if (
-      event.type ===
-      "customer.subscription.updated"
-    ) {
-
-      const subscription =
-        event.data.object;
-
-      const customerId =
-        subscription.customer;
-
-      const active =
-        subscription.status ===
-          "active" ||
-        subscription.status ===
-          "trialing";
-
-      const {
-        error
-      } =
-        await supabaseAdmin
-          .from("users")
-          .update({
-            is_premium:
-              active,
-
-            subscription_status:
-              active
-                ? "premium"
-                : subscription.status
-          })
-          .eq(
-            "stripe_customer_id",
-            customerId
-          );
-
-      if (error) {
-
-        console.error(
-          "❌ ERROR ACTUALIZANDO SUBSCRIPCIÓN:",
-          error.message
-        );
-      }
-    }
+  await syncStripeCustomerPremium(
+    subscription.customer
+  );
+}
 
     return res
       .status(200)
