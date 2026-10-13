@@ -80,6 +80,11 @@
     const GOOGLE_ADS_ID = "AW-18266545354";
     const META_PIXEL_ID = "1360080689410498";
     const TIKTOK_PIXEL_ID = "D9T3HABC77UDV6S3LSIG";
+    
+const IS_IOS_APP =
+  window.Capacitor?.isNativePlatform?.() === true &&
+  window.Capacitor?.getPlatform?.() === "ios";
+
     function getPreferences() {
       try {
         const saved = localStorage.getItem(KEY);
@@ -147,6 +152,14 @@
 
     function loadGoogle(preferences) {
 
+
+if (
+  window.Capacitor?.isNativePlatform?.() === true &&
+  window.Capacitor?.getPlatform?.() === "ios"
+) {
+  return;
+}
+
       if (
         !preferences.analytics &&
         !preferences.advertising
@@ -205,6 +218,14 @@ window.gtag("js", new Date());
     }
 
     function loadMetaPixel() {
+      
+  if (
+    window.Capacitor?.isNativePlatform?.() === true &&
+    window.Capacitor?.getPlatform?.() === "ios"
+  ) {
+    return;
+  }
+
 
       if (window.__cashEdgeMetaLoaded) {
         return;
@@ -246,6 +267,14 @@ window.gtag("js", new Date());
       fbq("track", "PageView");
     }
     function loadTikTokPixel() {
+      
+  if (
+    window.Capacitor?.isNativePlatform?.() === true &&
+    window.Capacitor?.getPlatform?.() === "ios"
+  ) {
+    return;
+  }
+
 
   if (window.__cashEdgeTikTokLoaded) {
     return;
