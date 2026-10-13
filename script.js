@@ -33,13 +33,19 @@ function getCashEdgePrivacyPreferences() {
   }
 }
 
+
 function hasAnalyticsConsent() {
-  return getCashEdgePrivacyPreferences().analytics === true;
+  return !isIOSNativeApp() &&
+    getCashEdgePrivacyPreferences().analytics === true;
 }
 
+
+
 function hasAdvertisingConsent() {
-  return getCashEdgePrivacyPreferences().advertising === true;
+  return !isIOSNativeApp() &&
+    getCashEdgePrivacyPreferences().advertising === true;
 }
+
 
 function getAdvertisingConsentValue() {
   return hasAdvertisingConsent() ? "granted" : "denied";
