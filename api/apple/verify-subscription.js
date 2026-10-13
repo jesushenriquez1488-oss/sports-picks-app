@@ -100,12 +100,16 @@ async function getAppleTransaction(transactionId) {
         transaction
       };
     } catch (error) {
-      if (
-        environment === Environment.PRODUCTION &&
-        error.httpStatusCode === 404
-      ) {
-        continue;
-      }
+     if (
+  environment === Environment.PRODUCTION &&
+  [401, 404].includes(Number(error.httpStatusCode))
+) {
+  console.log(
+    "APPLE: Trying Sandbox after production response:",
+    error.httpStatusCode
+  );
+  continue;
+}
 
       throw error;
     }
