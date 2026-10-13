@@ -2,7 +2,9 @@
 const fs = require("fs");
 const path = require("path");
 const { createClient } = require("@supabase/supabase-js");
-
+const {
+  syncPremiumAccess
+} = require("../../lib/syncPremiumAccess");
 const {
   AppStoreServerAPIClient,
   SignedDataVerifier,
@@ -277,7 +279,9 @@ module.exports = async function handler(req, res) {
     if (dbError) {
       throw dbError;
     }
-
+// Actualizar el Premium global de CashEdge.
+// Conserva Premium si Apple o Stripe sigue activo.
+const premiumAccess = await syncPremiumAccess(userId);
     return res.status(200).json({
       verified: true,
       provider: "apple",
@@ -286,6 +290,7 @@ module.exports = async function handler(req, res) {
         "active",
         "grace_period"
       ].includes(status),
+      isPremium: premiumAccess.isPremium,
       environment: apple.environment
     });
 
