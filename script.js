@@ -19764,7 +19764,7 @@ async function startMarketIntelligencePreview(
 
     const response =
       await fetch(
-        "/api/market-intelligence/start-preview",
+        "https://www.cashedgeapp.com/api/market-intelligence/start-preview",
         {
           method: "POST",
 
