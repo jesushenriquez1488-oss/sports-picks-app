@@ -9,8 +9,12 @@ const { createClient } =
 const { loadNFLV2History } =
   require("../../lib/nfl-props-v2/data");
 
-const { evaluateNFLV2Role } =
-  require("../../lib/nfl-props-v2/roles");
+
+const {
+  evaluateNFLV2Role,
+  analyzeNFLV2RoleSignals
+} = require("../../lib/nfl-props-v2/roles");
+
 
 const { loadNFLV2Participation } =
   require("../../lib/nfl-props-v2/participation");
@@ -243,6 +247,15 @@ module.exports = async function handler(
       });
     }
 
+    const roleSignals = position
+      ? analyzeNFLV2RoleSignals({
+          playerGames: history.playerGames,
+          participation,
+          position,
+          season
+        })
+      : null;
+
     // Todavía NO aprobamos roles.
     // Primero debemos conectar snaps,
     // titularidad y lesiones.
@@ -282,7 +295,7 @@ module.exports = async function handler(
         history.totalPlayerBoxscores,
 
       participation,
-
+ roleSignals,
       opportunities:
         role?.opportunities || null,
 
