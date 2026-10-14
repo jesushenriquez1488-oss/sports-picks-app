@@ -294,10 +294,18 @@ module.exports = async function handler(
       historicalGamesFound:
         history.totalPlayerBoxscores,
 
+   
       participation,
- roleSignals,
+
+      apiCodeCheck: "NFL_V2_ROLE_TEST_01",
+
+      roleSignals: roleSignals === undefined
+        ? { diagnostic: "FUNCTION_RETURNED_UNDEFINED" }
+        : roleSignals,
+
       opportunities:
         role?.opportunities || null,
+
 
       roleStatus:
         role?.roleStatus ||
