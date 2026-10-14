@@ -83,9 +83,15 @@
   "path": "/api/internal/nfl-injury-cron?start=16",
   "schedule": "4,14,24,34,44,54 * * * *"
 },
+
 {
   "path": "/api/internal/nfl-injury-cron?start=24",
   "schedule": "6,16,26,36,46,56 * * * *"
+},
+{
+  "path": "/api/internal/nfl-history-auto",
+  "schedule": "0 15 * * 3,4,5"
 }
   ]
 }
+
