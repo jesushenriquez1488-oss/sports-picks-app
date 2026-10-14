@@ -467,17 +467,19 @@ module.exports =
         );
 
 
-      if (
-        ![2025, 2026]
-          .includes(season)
-      ) {
+      
+if (
+  !Number.isInteger(season) ||
+  season < 2025 ||
+  season > new Date().getUTCFullYear()
+) {
 
         return res
           .status(400)
           .json({
             ok: false,
             error:
-              "season must be 2025 or 2026"
+            "Invalid NFL season"
           });
       }
 
