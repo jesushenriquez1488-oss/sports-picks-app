@@ -12,6 +12,12 @@ const { loadNFLV2History } =
 const { evaluateNFLV2Role } =
   require("../../lib/nfl-props-v2/roles");
 
+const { loadNFLV2Participation } =
+  require("../../lib/nfl-props-v2/participation");
+
+const { nflPropEspnGsisMap } =
+  require("../football-data");
+
 // ==========================================
 // CASHEDGE NFL PLAYER PROPS V2
 // PRIVATE RESEARCH ENDPOINT
@@ -201,6 +207,20 @@ module.exports = async function handler(
       db
     });
 
+    // Conectar boxscores ESPN con
+    // participación real de NFLverse.
+    const espnGsisMap =
+      await nflPropEspnGsisMap();
+
+    const participation =
+      await loadNFLV2Participation({
+        db,
+        espnPlayerId: playerId,
+        playerGames: history.playerGames,
+        beforeDate,
+        espnGsisMap
+      });
+
     const requestedPosition = String(
       req.query?.position || ""
     ).trim().toUpperCase();
@@ -260,6 +280,8 @@ module.exports = async function handler(
 
       historicalGamesFound:
         history.totalPlayerBoxscores,
+
+      participation,
 
       opportunities:
         role?.opportunities || null,
