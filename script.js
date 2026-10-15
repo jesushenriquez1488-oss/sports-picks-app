@@ -11262,7 +11262,8 @@ function showNFLPlayerPropsCategory(
    */
   let lines = [];
 
- if (category === "best") {
+
+if (category === "best") {
 
   lines = [
     ...(
@@ -11277,6 +11278,16 @@ function showNFLPlayerPropsCategory(
         : []
     )
   ]
+    .filter(prop => {
+      const confidence =
+        Number(prop?.confidence);
+
+      return (
+        Number.isFinite(confidence) &&
+        confidence >= 70 &&
+        confidence < 85
+      );
+    })
     .sort((a, b) => {
 
       const valueDiff =
