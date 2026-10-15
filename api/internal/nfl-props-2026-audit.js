@@ -250,9 +250,24 @@ function summarize(records) {
   for (const r of records) {
     add("TODOS", r);
     add("MERCADO:" + r.market, r);
+   
     add("GRUPO:" + r.group, r);
     add("PREMIUM:" + r.isPremium, r);
+
+    add(
+      "GRUPO:" + r.group +
+      "|PREMIUM:" + r.isPremium,
+      r
+    );
+
+    add(
+      "MERCADO:" + r.market +
+      "|GRUPO:" + r.group,
+      r
+    );
+
     add("LADO:" + r.originalSide, r);
+
   }
 
   return Object.fromEntries(
