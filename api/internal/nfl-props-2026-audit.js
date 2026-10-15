@@ -979,7 +979,25 @@ module.exports = async function handler(
     if (mode === "overview") {
       return res.status(200).json({
         ...summary,
-        sample: results.slice(0, 12)
+        
+sample: results.slice(0, 12),
+
+auditRows: results.map(r => ({
+  gameDate: r.gameDate,
+  game: r.game,
+  player: r.player,
+  position: r.position,
+  market: r.market,
+  group: r.group,
+  isPremium: r.isPremium,
+  line: r.line,
+  originalSide: r.originalSide,
+  originalProjection: r.originalProjection,
+  actual: r.actual,
+  originalGrade: r.originalGrade,
+  odds: r.odds
+}))
+
       });
     }
 
