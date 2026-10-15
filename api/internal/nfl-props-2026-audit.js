@@ -370,13 +370,33 @@ async function compareV2(
     return result;
   }
 
+
   try {
-    // SOLO partidos anteriores.
+    // Utilizar la fecha del análisis original,
+    // no la fecha del partido.
+    // Excluimos el mismo día por seguridad
+    // cuando no tenemos horarios históricos
+    // precisos de disponibilidad de datos.
+    const analysisCutoffDate =
+      String(original.snapshotUTC || "")
+        .slice(0, 10);
+
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(
+        analysisCutoffDate
+      )
+    ) {
+      result.v2Status =
+        "invalid_original_snapshot_date";
+      return result;
+    }
+
     const playerGames = playerHistory(
       boxes,
       original.athleteId,
-      original.gameDate
+      analysisCutoffDate
     );
+
 
     const participation =
       await loadNFLV2Participation({
@@ -387,8 +407,9 @@ async function compareV2(
 
         playerGames,
 
-        beforeDate:
-          original.gameDate,
+        
+beforeDate:
+  analysisCutoffDate,
 
         espnGsisMap
       });
@@ -426,8 +447,10 @@ async function compareV2(
 
         season: 2026,
 
-        beforeDate:
-          original.gameDate,
+      
+beforeDate:
+  analysisCutoffDate,
+
 
         sampleGames:
           baseline.sampleGames || []
