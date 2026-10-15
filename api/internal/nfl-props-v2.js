@@ -25,6 +25,9 @@ const { nflPropEspnGsisMap } =
 const { calculateNFLV2Baseline } =
   require("../../lib/nfl-props-v2/projections");
 
+const { loadNFLV2Teammates } =
+  require("../../lib/nfl-props-v2/teammates");
+
 // ==========================================
 // CASHEDGE NFL PLAYER PROPS V2
 // PRIVATE RESEARCH ENDPOINT
@@ -259,6 +262,24 @@ module.exports = async function handler(
         })
       : null;
     
+    // Leer lesiones de compañeros
+    // una sola vez por consulta.
+    // No aplicar lesiones actuales
+    // a pruebas históricas.
+
+    const teammateContext =
+      req.query?.beforeDate === undefined
+        ? await loadNFLV2Teammates({
+            db,
+            team: roleSignals
+              ?.currentTeamFromLastBoxscore,
+            ownGsisId: participation?.gsisId
+          })
+        : {
+            status: "historical_injuries_not_loaded",
+            opportunityChange: null
+          };
+
     // Calcular la proyección base una sola vez
     // utilizando los datos ya recopilados.
 
@@ -312,8 +333,10 @@ module.exports = async function handler(
         history.totalPlayerBoxscores,
 
    
-     participation,
+    
+      participation,
       roleSignals,
+      teammateContext,
       v2Baseline,
 
       opportunities:
