@@ -22,8 +22,14 @@ const { loadNFLV2Participation } =
 const { nflPropEspnGsisMap } =
   require("../football-data");
 
-const { calculateNFLV2Baseline } =
-  require("../../lib/nfl-props-v2/projections");
+
+const {
+  calculateNFLV2Baseline,
+  applyNFLV2Defense
+} = require("../../lib/nfl-props-v2/projections");
+
+const { estimateDefense } =
+  require("../../lib/nfl-props-v2/defense");
 
 const { loadNFLV2Teammates } =
   require("../../lib/nfl-props-v2/teammates");
@@ -293,6 +299,43 @@ module.exports = async function handler(
       : null;
 
 
+// El rival se proporciona explícitamente.
+// Nunca asumir que es el último rival jugado.
+const opponentTeamId = String(
+  req.query?.opponentTeamId || ""
+).trim();
+
+if (
+  opponentTeamId &&
+  !/^\d+$/.test(opponentTeamId)
+) {
+  return res.status(400).json({
+    ok: false,
+    error: "Invalid ESPN opponent team ID"
+  });
+}
+
+// Utilizar los mismos boxscores que
+// data.js ya leyó desde Supabase.
+const defensiveContext = opponentTeamId
+  ? estimateDefense({
+      boxscores: history.cachedBoxscores,
+      opponentTeamId,
+      season,
+      beforeDate
+    })
+  : null;
+
+// Aplicar la defensa a la proyección
+// existente. No calcular otra base.
+const v2Adjusted =
+  defensiveContext && v2Baseline?.projections
+    ? applyNFLV2Defense({
+        v2Baseline,
+        defensiveContext
+      })
+    : null;
+
 
     // Todavía NO aprobamos roles.
     // Primero debemos conectar snaps,
@@ -338,6 +381,9 @@ module.exports = async function handler(
       roleSignals,
       teammateContext,
       v2Baseline,
+      defensiveContext,
+      v2Adjusted,
+
 
       opportunities:
         role?.opportunities || null,
