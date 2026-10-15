@@ -986,6 +986,9 @@ auditRows: results.map(r => ({
   gameDate: r.gameDate,
   game: r.game,
   player: r.player,
+  
+confidence: r.confidence,
+
   position: r.position,
   market: r.market,
   group: r.group,
