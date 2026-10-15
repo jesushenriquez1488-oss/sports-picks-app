@@ -22,6 +22,9 @@ const { loadNFLV2Participation } =
 const { nflPropEspnGsisMap } =
   require("../football-data");
 
+const { calculateNFLV2Baseline } =
+  require("../../lib/nfl-props-v2/projections");
+
 // ==========================================
 // CASHEDGE NFL PLAYER PROPS V2
 // PRIVATE RESEARCH ENDPOINT
@@ -255,6 +258,20 @@ module.exports = async function handler(
           season
         })
       : null;
+    
+    // Calcular la proyección base una sola vez
+    // utilizando los datos ya recopilados.
+
+    const v2Baseline = position
+      ? calculateNFLV2Baseline({
+          playerGames: history.playerGames,
+          participation,
+          roleSignals,
+          season
+        })
+      : null;
+
+
 
     // Todavía NO aprobamos roles.
     // Primero debemos conectar snaps,
@@ -295,17 +312,12 @@ module.exports = async function handler(
         history.totalPlayerBoxscores,
 
    
-      participation,
-
-      apiCodeCheck: "NFL_V2_ROLE_TEST_01",
-
-      roleSignals: roleSignals === undefined
-        ? { diagnostic: "FUNCTION_RETURNED_UNDEFINED" }
-        : roleSignals,
+     participation,
+      roleSignals,
+      v2Baseline,
 
       opportunities:
         role?.opportunities || null,
-
 
       roleStatus:
         role?.roleStatus ||
