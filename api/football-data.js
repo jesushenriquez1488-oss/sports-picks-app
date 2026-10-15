@@ -3,7 +3,13 @@ const { createClient } = require("@supabase/supabase-js");
 const {
   syncPremiumRadar
 } = require("../lib/premiumRadar");
-
+const {
+  getNFLCombinedMarket,
+  isNFLCombinedPositionAllowed,
+  buildNFLCombinedSample,
+  summarizeNFLCombinedSample,
+  buildNFLCombinedHistoricalCoverage
+} = require("../lib/nflCombinedProps");
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -9219,7 +9225,643 @@ function projectRBRushingYards({
     paceScore               * 0.05
   );
 }
- 
+ /*
+ * ============================================================
+ * NFL COMBINED PROPS — EXPERIMENTAL ENDPOINT
+ * ============================================================
+ *
+ * Shadow / development only.
+ *
+ * NO modifica:
+ *
+ * - NFL Player Props
+ * - BEST
+ * - Player Stats
+ * - Confidence actual
+ * - Parlay automático
+ *
+ * Este endpoint solamente:
+ *
+ * 1. carga el gamelog existente;
+ * 2. verifica participación histórica;
+ * 3. construye estadísticas combinadas;
+ * 4. devuelve una muestra para auditoría.
+ * ============================================================
+ */
+
+async function handleNFLCombinedPropsExperimental(
+  req,
+  res
+) {
+
+  // =========================
+  // PREMIUM AUTH
+  // =========================
+
+  const authHeader =
+    String(
+      req.headers.authorization || ""
+    );
+
+
+  const token =
+    authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : null;
+
+
+  if (!token) {
+
+    return res.status(401).json({
+      error: "Unauthorized"
+    });
+  }
+
+
+  const {
+    data: authData,
+    error: authError
+  } =
+    await supabaseAdmin.auth.getUser(
+      token
+    );
+
+
+  if (
+    authError ||
+    !authData?.user?.id
+  ) {
+
+    return res.status(401).json({
+      error: "Unauthorized"
+    });
+  }
+
+
+  const {
+    data: profile,
+    error: profileError
+  } =
+    await supabaseAdmin
+      .from("users")
+      .select(
+        "is_premium, subscription_status"
+      )
+      .eq(
+        "id",
+        authData.user.id
+      )
+      .maybeSingle();
+
+
+  if (profileError) {
+
+    return res.status(500).json({
+      error:
+        "Unable to verify subscription"
+    });
+  }
+
+
+  const isPremiumUser =
+    profile?.is_premium === true ||
+    profile?.subscription_status ===
+      "active" ||
+    profile?.subscription_status ===
+      "trialing" ||
+    authData.user.email === ADMIN_EMAIL;
+
+
+  if (!isPremiumUser) {
+
+    return res.status(403).json({
+      error: "Premium required"
+    });
+  }
+
+
+  // =========================
+  // INPUT
+  // =========================
+
+  const athleteId =
+    String(
+      req.query?.athleteId ||
+      req.body?.athleteId ||
+      ""
+    ).trim();
+
+
+  const position =
+    String(
+      req.query?.position ||
+      req.body?.position ||
+      ""
+    )
+      .trim()
+      .toUpperCase();
+
+
+  const market =
+    String(
+      req.query?.market ||
+      req.body?.market ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+
+
+  const player =
+    String(
+      req.query?.player ||
+      req.body?.player ||
+      ""
+    ).trim() || null;
+
+
+  const rawLine =
+    req.query?.line ??
+    req.body?.line ??
+    null;
+
+
+  const line =
+    rawLine === null ||
+    rawLine === undefined ||
+    rawLine === ""
+      ? null
+      : Number(rawLine);
+
+
+  const side =
+    String(
+      req.query?.side ||
+      req.body?.side ||
+      "OVER"
+    )
+      .trim()
+      .toUpperCase();
+
+
+  // =========================
+  // VALIDATION
+  // =========================
+
+  if (!athleteId) {
+
+    return res.status(400).json({
+      ok: false,
+
+      mode:
+        "nfl-combined-props-experimental",
+
+      error:
+        "athleteId is required"
+    });
+  }
+
+
+  const marketConfig =
+    getNFLCombinedMarket(
+      market
+    );
+
+
+  if (!marketConfig) {
+
+    return res.status(400).json({
+      ok: false,
+
+      mode:
+        "nfl-combined-props-experimental",
+
+      error:
+        "Invalid combined market",
+
+      allowedMarkets: [
+        "pass_rush_yards",
+        "rush_rec_yards"
+      ]
+    });
+  }
+
+
+  if (
+    !isNFLCombinedPositionAllowed(
+      market,
+      position
+    )
+  ) {
+
+    return res.status(400).json({
+      ok: false,
+
+      mode:
+        "nfl-combined-props-experimental",
+
+      error:
+        "Position not allowed for combined market",
+
+      position,
+
+      market,
+
+      allowedPositions:
+        marketConfig.allowedPositions
+    });
+  }
+
+
+  if (
+    line !== null &&
+    !Number.isFinite(line)
+  ) {
+
+    return res.status(400).json({
+      ok: false,
+
+      mode:
+        "nfl-combined-props-experimental",
+
+      error:
+        "line must be numeric"
+    });
+  }
+
+
+  if (
+    side !== "OVER" &&
+    side !== "UNDER"
+  ) {
+
+    return res.status(400).json({
+      ok: false,
+
+      mode:
+        "nfl-combined-props-experimental",
+
+      error:
+        "side must be OVER or UNDER"
+    });
+  }
+
+
+  // =========================
+  // SEASONS
+  // =========================
+
+  const currentSeason =
+    getNFLPlayerStatsSeasonYear();
+
+
+  const previousSeason =
+    currentSeason - 1;
+
+
+  // =========================
+  // LOAD GAMELOGS
+  // =========================
+
+  let currentResult;
+  let previousResult;
+
+
+  try {
+
+    [
+      currentResult,
+      previousResult
+    ] =
+      await Promise.all([
+
+        loadNFLPlayerGamelogCached(
+          athleteId,
+          currentSeason
+        ),
+
+        loadNFLPlayerGamelogCached(
+          athleteId,
+          previousSeason
+        )
+      ]);
+
+  } catch (error) {
+
+    console.error(
+      "NFL COMBINED PROPS GAMELOG:",
+      athleteId,
+      error.message
+    );
+
+
+    return res.status(503).json({
+
+      ok: false,
+
+      mode:
+        "nfl-combined-props-experimental",
+
+      error:
+        "Unable to load player history"
+    });
+  }
+
+
+  const currentLogs =
+    Array.isArray(
+      currentResult?.logs
+    )
+      ? currentResult.logs
+      : [];
+
+
+  const previousLogs =
+    Array.isArray(
+      previousResult?.logs
+    )
+      ? previousResult.logs
+      : [];
+
+
+  /*
+   * Temporada actual primero.
+   *
+   * Para esta primera auditoría
+   * mantenemos máximo 20:
+   *
+   * 10 current
+   * 10 previous
+   */
+  const rawLogs = [
+
+    ...currentLogs.slice(
+      0,
+      10
+    ),
+
+    ...previousLogs.slice(
+      0,
+      10
+    )
+  ];
+
+
+  // =========================
+  // ROLE EVIDENCE
+  // =========================
+
+  let roleEvidence;
+
+
+  try {
+
+    /*
+     * Pasamos arrays vacíos de equipo
+     * intencionalmente.
+     *
+     * nflLoadRoleEvidenceForProps también
+     * recupera los game IDs desde
+     * nfl_player_gamelog_cache para
+     * este athleteId.
+     */
+
+    roleEvidence =
+      await nflLoadRoleEvidenceForProps({
+
+        awayGameIds: [],
+
+        homeGameIds: [],
+
+        awayPreviousGameIds: [],
+
+        homePreviousGameIds: [],
+
+        currentSeason,
+
+        previousSeason,
+
+        playerIds: [
+          athleteId
+        ]
+      });
+
+  } catch (error) {
+
+    console.error(
+      "NFL COMBINED PROPS ROLE:",
+      athleteId,
+      error.message
+    );
+
+
+    return res.status(503).json({
+
+      ok: false,
+
+      mode:
+        "nfl-combined-props-experimental",
+
+      error:
+        "Historical participation verification unavailable"
+    });
+  }
+
+
+  const roleMap =
+    roleEvidence?.roleMap instanceof Map
+      ? roleEvidence.roleMap
+      : new Map();
+
+
+  /*
+   * nflPropComparableParticipation
+   * todavía trabaja con nombres
+   * de mercados individuales.
+   *
+   * Seleccionamos el mercado individual
+   * más representativo únicamente para
+   * validar participación.
+   *
+   * NO estamos reutilizando su Confidence.
+   */
+
+  let roleReferenceMarket =
+    "player_rush_yds";
+
+
+  if (
+    market ===
+    "pass_rush_yards"
+  ) {
+
+    roleReferenceMarket =
+      "player_pass_yds";
+
+  } else if (
+    market ===
+      "rush_rec_yards" &&
+    (
+      position === "WR" ||
+      position === "TE"
+    )
+  ) {
+
+    roleReferenceMarket =
+      "player_reception_yds";
+  }
+
+
+  const verifiedLogs =
+    rawLogs.filter(
+      log => {
+
+        const gameId =
+          String(
+            log?.gameId || ""
+          );
+
+
+        if (!gameId) {
+          return false;
+        }
+
+
+        const role =
+          roleMap.get(
+            `${gameId}|${athleteId}`
+          );
+
+
+        return (
+          nflPropComparableParticipation(
+            position,
+            roleReferenceMarket,
+            role,
+            log
+          )
+        );
+      }
+    );
+
+
+  // =========================
+  // BUILD COMBINED SAMPLE
+  // =========================
+
+  const sample =
+    buildNFLCombinedSample({
+
+      logs:
+        verifiedLogs,
+
+      market
+    });
+
+
+  const summary =
+    summarizeNFLCombinedSample(
+      sample
+    );
+
+
+  // =========================
+  // OPTIONAL HISTORICAL LINE
+  // =========================
+
+  const historicalCoverage =
+    line !== null
+      ? buildNFLCombinedHistoricalCoverage({
+
+          sample,
+
+          line,
+
+          side
+        })
+
+      : null;
+
+
+  // =========================
+  // RESPONSE
+  // =========================
+
+  return res.status(200).json({
+
+    ok: true,
+
+    mode:
+      "nfl-combined-props-experimental",
+
+    experimental: true,
+
+    shadowMode: true,
+
+    player,
+
+    athleteId,
+
+    position,
+
+    market,
+
+    marketLabel:
+      marketConfig.label,
+
+    roleReferenceMarket,
+
+    seasons: {
+
+      current:
+        currentSeason,
+
+      previous:
+        previousSeason
+    },
+
+    source: {
+
+      currentGames:
+        currentLogs.length,
+
+      previousGames:
+        previousLogs.length,
+
+      rawGamesUsed:
+        rawLogs.length,
+
+      roleVerifiedGames:
+        verifiedLogs.length,
+
+      combinedGames:
+        sample.length
+    },
+
+    summary,
+
+    historicalCoverage,
+
+    requestedLine:
+      line,
+
+    requestedSide:
+      line !== null
+        ? side
+        : null,
+
+    /*
+     * Auditoría visible.
+     *
+     * Esto desaparecerá o se reducirá
+     * antes de producción.
+     */
+    sample,
+
+    generatedAt:
+      new Date().toISOString()
+  });
+}
 // ---- Handler NFL Player Props ----
  
 async function handleNFLPlayerProps(req, res) {
@@ -18510,6 +19152,18 @@ if (mode === "nfl-learning-market") {
 if (mode === "nfl-player-props") {
   return await handleNFLPlayerProps(req, res);
 }
+
+
+if (
+  mode ===
+  "nfl-combined-props-experimental"
+) {
+  return await handleNFLCombinedPropsExperimental(
+    req,
+    res
+  );
+}
+
 
 if (mode === "nfl-player-props-career") {
   return await handleNFLPlayerPropsCareer(req, res);
