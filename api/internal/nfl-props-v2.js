@@ -28,8 +28,10 @@ const {
   applyNFLV2Defense
 } = require("../../lib/nfl-props-v2/projections");
 
-const { estimateDefense } =
+
+const { estimateRelativeDefense } =
   require("../../lib/nfl-props-v2/defense");
+
 
 const { loadNFLV2Teammates } =
   require("../../lib/nfl-props-v2/teammates");
@@ -317,14 +319,18 @@ if (
 
 // Utilizar los mismos boxscores que
 // data.js ya leyó desde Supabase.
+
 const defensiveContext = opponentTeamId
-  ? estimateDefense({
+  ? estimateRelativeDefense({
       boxscores: history.cachedBoxscores,
       opponentTeamId,
       season,
-      beforeDate
+      beforeDate,
+      sampleGames:
+        v2Baseline?.sampleGames || []
     })
   : null;
+
 
 // Aplicar la defensa a la proyección
 // existente. No calcular otra base.
