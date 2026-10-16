@@ -10071,7 +10071,201 @@ const effectiveLine =
     roleEvidence?.roleMap instanceof Map
       ? roleEvidence.roleMap
       : new Map();
+// ============================================================
+// NFL COMBINED PROPS — ROLE FALLBACK FROM REAL SNAP DATA
+// EXPERIMENTAL ONLY
+// ============================================================
 
+try {
+
+  const combinedEspnGsisMap =
+    await nflPropEspnGsisMap();
+
+
+  const combinedGsisId =
+    combinedEspnGsisMap.get(
+      String(
+        athleteId
+      )
+    ) ||
+    null;
+
+
+  if (
+    combinedGsisId
+  ) {
+
+    const {
+      data:
+        combinedSnapRows,
+      error:
+        combinedSnapError
+    } =
+      await supabaseAdmin
+        .from(
+          "football_player_game_stats"
+        )
+        .select(`
+          player_id,
+          season,
+          game_date,
+          played,
+          offense_snaps
+        `)
+        .eq(
+          "sport",
+          "nfl"
+        )
+        .eq(
+          "player_id",
+          combinedGsisId
+        )
+        .in(
+          "season",
+          [
+            currentSeason,
+            previousSeason
+          ]
+        );
+
+
+    if (
+      combinedSnapError
+    ) {
+      throw combinedSnapError;
+    }
+
+
+    const combinedSnapsByDate =
+      new Map();
+
+
+    for (
+      const row
+      of combinedSnapRows || []
+    ) {
+
+      const date =
+        String(
+          row?.game_date ||
+          ""
+        )
+          .slice(
+            0,
+            10
+          );
+
+
+      if (
+        !date
+      ) {
+        continue;
+      }
+
+
+      combinedSnapsByDate.set(
+        date,
+        row
+      );
+    }
+
+
+    for (
+      const log
+      of rawLogs
+    ) {
+
+      const gameId =
+        String(
+          log?.gameId ||
+          ""
+        );
+
+
+      if (
+        !gameId
+      ) {
+        continue;
+      }
+
+
+      const roleKey =
+        `${gameId}|${String(athleteId)}`;
+
+
+      if (
+        roleMap.has(
+          roleKey
+        )
+      ) {
+        continue;
+      }
+
+
+      const gameDate =
+        nflPropDateET(
+          log?.date
+        );
+
+
+      if (
+        !gameDate
+      ) {
+        continue;
+      }
+
+
+      const observed =
+        combinedSnapsByDate.get(
+          gameDate
+        );
+
+
+      if (
+        !observed
+      ) {
+        continue;
+      }
+
+
+      roleMap.set(
+        roleKey,
+        {
+
+          game_id:
+            gameId,
+
+          player_id:
+            String(
+              athleteId
+            ),
+
+          starter:
+            null,
+
+          did_not_play:
+            observed.played ===
+            false,
+
+          roster_valid:
+            true,
+
+          snap_count:
+            observed.offense_snaps
+        }
+      );
+    }
+  }
+
+
+} catch (error) {
+
+  console.error(
+    "NFL COMBINED ROLE FALLBACK ERROR:",
+    error?.message ||
+    error
+  );
+}
 
   /*
    * nflPropComparableParticipation
