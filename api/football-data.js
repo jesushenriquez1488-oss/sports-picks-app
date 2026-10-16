@@ -9225,6 +9225,366 @@ function projectRBRushingYards({
     paceScore               * 0.05
   );
 }
+// ============================================================
+// NFL COMBINED PROPS — LIVE OWLS MARKET
+// EXPERIMENTAL ONLY
+// ============================================================
+
+const NFL_COMBINED_MARKET_MAX_AGE_MS =
+  5 * 60 * 1000;
+
+
+const NFL_COMBINED_BOOK_PRIORITY = [
+  "draftkings",
+  "fanduel",
+  "betmgm"
+];
+
+
+function normalizeNFLCombinedText(
+  value
+) {
+
+  return String(
+    value || ""
+  )
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .toLowerCase()
+    .replace(
+      /[^a-z0-9]+/g,
+      " "
+    )
+    .trim()
+    .replace(
+      /\s+/g,
+      " "
+    );
+}
+
+
+async function getNFLCombinedLiveMarket({
+  player,
+  market,
+  awayTeam = null,
+  homeTeam = null
+}) {
+
+  if (
+    !player ||
+    !market
+  ) {
+    return null;
+  }
+
+
+  const cutoff =
+    new Date(
+      Date.now() -
+      NFL_COMBINED_MARKET_MAX_AGE_MS
+    )
+      .toISOString();
+
+
+  const {
+    data,
+    error
+  } =
+    await supabaseAdmin
+      .from(
+        "nfl_combined_props_market_cache"
+      )
+      .select(`
+        provider_event_id,
+        commence_time,
+        home_team,
+        away_team,
+        player,
+        market,
+        bookmaker,
+        structure,
+        line,
+        over_odds,
+        under_odds,
+        alternate_lines,
+        provider_market_id,
+        provider_updated_at,
+        updated_at
+      `)
+      .eq(
+        "market",
+        market
+      )
+      .eq(
+        "structure",
+        "over_under"
+      )
+      .gte(
+        "updated_at",
+        cutoff
+      )
+      .not(
+        "line",
+        "is",
+        null
+      )
+      .not(
+        "over_odds",
+        "is",
+        null
+      )
+      .not(
+        "under_odds",
+        "is",
+        null
+      )
+      .limit(
+        500
+      );
+
+
+  if (
+    error
+  ) {
+
+    console.error(
+      "NFL COMBINED MARKET CACHE READ ERROR:",
+      error.message
+    );
+
+    return null;
+  }
+
+
+  const rows =
+    Array.isArray(
+      data
+    )
+      ? data
+      : [];
+
+
+  const targetPlayer =
+    normalizeNFLPlayerName(
+      player
+    );
+
+
+  const targetAway =
+    normalizeNFLCombinedText(
+      awayTeam
+    );
+
+
+  const targetHome =
+    normalizeNFLCombinedText(
+      homeTeam
+    );
+
+
+  let candidates =
+    rows.filter(
+      row =>
+        normalizeNFLPlayerName(
+          row?.player
+        ) ===
+        targetPlayer
+    );
+
+
+  if (
+    targetAway &&
+    targetHome
+  ) {
+
+    candidates =
+      candidates.filter(
+        row =>
+          normalizeNFLCombinedText(
+            row?.away_team
+          ) ===
+            targetAway &&
+          normalizeNFLCombinedText(
+            row?.home_team
+          ) ===
+            targetHome
+      );
+  }
+
+
+  if (
+    !candidates.length
+  ) {
+    return null;
+  }
+
+
+  candidates.sort(
+    (a, b) => {
+
+      const aBook =
+        String(
+          a?.bookmaker || ""
+        )
+          .toLowerCase();
+
+      const bBook =
+        String(
+          b?.bookmaker || ""
+        )
+          .toLowerCase();
+
+
+      const aPriority =
+        NFL_COMBINED_BOOK_PRIORITY
+          .indexOf(
+            aBook
+          );
+
+      const bPriority =
+        NFL_COMBINED_BOOK_PRIORITY
+          .indexOf(
+            bBook
+          );
+
+
+      const aRank =
+        aPriority === -1
+          ? 999
+          : aPriority;
+
+      const bRank =
+        bPriority === -1
+          ? 999
+          : bPriority;
+
+
+      if (
+        aRank !== bRank
+      ) {
+        return (
+          aRank -
+          bRank
+        );
+      }
+
+
+      return (
+        new Date(
+          b?.updated_at || 0
+        ).getTime() -
+        new Date(
+          a?.updated_at || 0
+        ).getTime()
+      );
+    }
+  );
+
+
+  const selected =
+    candidates[0];
+
+
+  const updatedAtMs =
+    new Date(
+      selected?.updated_at || 0
+    )
+      .getTime();
+
+
+  const ageMs =
+    Number.isFinite(
+      updatedAtMs
+    )
+      ? Date.now() -
+        updatedAtMs
+      : null;
+
+
+  return {
+
+    source:
+      "owls",
+
+    providerEventId:
+      selected.provider_event_id,
+
+    awayTeam:
+      selected.away_team,
+
+    homeTeam:
+      selected.home_team,
+
+    player:
+      selected.player,
+
+    market:
+      selected.market,
+
+    bookmaker:
+      selected.bookmaker,
+
+    structure:
+      selected.structure,
+
+    line:
+      Number(
+        selected.line
+      ),
+
+    overOdds:
+      Number(
+        selected.over_odds
+      ),
+
+    underOdds:
+      Number(
+        selected.under_odds
+      ),
+
+    alternateLines:
+      Array.isArray(
+        selected.alternate_lines
+      )
+        ? selected.alternate_lines
+        : [],
+
+    providerMarketId:
+      selected.provider_market_id ||
+      null,
+
+    providerUpdatedAt:
+      selected.provider_updated_at ||
+      null,
+
+    updatedAt:
+      selected.updated_at ||
+      null,
+
+    ageSeconds:
+      Number.isFinite(
+        ageMs
+      )
+        ? Number(
+            (
+              ageMs /
+              1000
+            ).toFixed(1)
+          )
+        : null,
+
+    fresh:
+      Number.isFinite(
+        ageMs
+      ) &&
+      ageMs >= 0 &&
+      ageMs <=
+        NFL_COMBINED_MARKET_MAX_AGE_MS
+  };
+}
  /*
  * ============================================================
  * NFL COMBINED PROPS — EXPERIMENTAL ENDPOINT
@@ -9378,7 +9738,20 @@ async function handleNFLCombinedPropsExperimental(
       req.body?.player ||
       ""
     ).trim() || null;
+const awayTeam =
+  String(
+    req.query?.awayTeam ||
+    req.body?.awayTeam ||
+    ""
+  ).trim();
 
+
+const homeTeam =
+  String(
+    req.query?.homeTeam ||
+    req.body?.homeTeam ||
+    ""
+  ).trim();
 
   const rawLine =
     req.query?.line ??
@@ -9506,7 +9879,33 @@ async function handleNFLCombinedPropsExperimental(
     });
   }
 
+const liveMarket =
+  player
+    ? await getNFLCombinedLiveMarket({
+        player,
+        market,
+        awayTeam:
+          awayTeam || null,
+        homeTeam:
+          homeTeam || null
+      })
+    : null;
 
+
+const effectiveLine =
+  line !== null
+    ? line
+    : (
+        Number.isFinite(
+          Number(
+            liveMarket?.line
+          )
+        )
+          ? Number(
+              liveMarket.line
+            )
+          : null
+      );
   // =========================
   // SEASONS
   // =========================
@@ -9769,18 +10168,15 @@ async function handleNFLCombinedPropsExperimental(
   // OPTIONAL HISTORICAL LINE
   // =========================
 
-  const historicalCoverage =
-    line !== null
-      ? buildNFLCombinedHistoricalCoverage({
-
-          sample,
-
-          line,
-
-          side
-        })
-
-      : null;
+const historicalCoverage =
+  effectiveLine !== null
+    ? buildNFLCombinedHistoricalCoverage({
+        sample,
+        line:
+          effectiveLine,
+        side
+      })
+    : null;
 
 
   // =========================
@@ -9840,23 +10236,111 @@ async function handleNFLCombinedPropsExperimental(
 
     summary,
 
-    historicalCoverage,
+  historicalCoverage,
 
-    requestedLine:
-      line,
+requestedLine:
+  line,
 
-    requestedSide:
-      line !== null
-        ? side
-        : null,
+requestedSide:
+  line !== null
+    ? side
+    : null,
 
-    /*
-     * Auditoría visible.
-     *
-     * Esto desaparecerá o se reducirá
-     * antes de producción.
-     */
-    sample,
+effectiveLine:
+  effectiveLine,
+
+effectiveSide:
+  effectiveLine !== null
+    ? side
+    : null,
+
+marketData: {
+
+  found:
+    Boolean(
+      liveMarket
+    ),
+
+  source:
+    liveMarket?.source ||
+    null,
+
+  providerEventId:
+    liveMarket
+      ?.providerEventId ||
+    null,
+
+  awayTeam:
+    liveMarket
+      ?.awayTeam ||
+    null,
+
+  homeTeam:
+    liveMarket
+      ?.homeTeam ||
+    null,
+
+  bookmaker:
+    liveMarket
+      ?.bookmaker ||
+    null,
+
+  structure:
+    liveMarket
+      ?.structure ||
+    null,
+
+  line:
+    liveMarket
+      ?.line ??
+    null,
+
+  overOdds:
+    liveMarket
+      ?.overOdds ??
+    null,
+
+  underOdds:
+    liveMarket
+      ?.underOdds ??
+    null,
+
+  alternateLines:
+    liveMarket
+      ?.alternateLines ||
+    [],
+
+  alternateCount:
+    Array.isArray(
+      liveMarket
+        ?.alternateLines
+    )
+      ? liveMarket
+          .alternateLines
+          .length
+      : 0,
+
+  providerUpdatedAt:
+    liveMarket
+      ?.providerUpdatedAt ||
+    null,
+
+  updatedAt:
+    liveMarket
+      ?.updatedAt ||
+    null,
+
+  ageSeconds:
+    liveMarket
+      ?.ageSeconds ??
+    null,
+
+  fresh:
+    liveMarket
+      ?.fresh === true
+},
+
+sample,
 
     generatedAt:
       new Date().toISOString()
