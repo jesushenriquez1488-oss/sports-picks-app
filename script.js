@@ -12880,8 +12880,121 @@ function scheduleNFLPropLineAnalyzer(
 
 function stepNFLPropLineAnalyzer(
   index,
-  amount
+  direction
 ) {
+
+  const state =
+    nflPropLineAnalyzerUiState
+      .get(index);
+
+
+  if (
+    !state ||
+    !state.data
+  ) {
+    return;
+  }
+
+
+  const currentLine =
+    nflPropAnalyzerNumber(
+      state.data.selectedLine ??
+      state.line
+    );
+
+
+  if (currentLine === null) {
+    return;
+  }
+
+
+  const currentSide =
+    String(
+      state.data.side ||
+      state.side ||
+      "OVER"
+    ).toUpperCase();
+
+
+  const availableOffers =
+    Array.isArray(
+      state.data.availableOffers
+    )
+      ? state.data.availableOffers
+      : [];
+
+
+  const realLines =
+    Array.from(
+      new Set(
+        availableOffers
+          .filter(
+            offer =>
+              String(
+                offer?.side ||
+                ""
+              ).toUpperCase() ===
+                currentSide
+          )
+          .map(
+            offer =>
+              nflPropAnalyzerNumber(
+                offer?.line
+              )
+          )
+          .filter(
+            line =>
+              line !== null
+          )
+      )
+    )
+      .sort(
+        (a, b) =>
+          a - b
+      );
+
+
+  if (!realLines.length) {
+    return;
+  }
+
+
+  let nextLine =
+    null;
+
+
+  if (
+    Number(direction) < 0
+  ) {
+
+    const lowerLines =
+      realLines.filter(
+        line =>
+          line < currentLine
+      );
+
+
+    nextLine =
+      lowerLines.length
+        ? lowerLines[
+            lowerLines.length - 1
+          ]
+        : null;
+
+  } else {
+
+    nextLine =
+      realLines.find(
+        line =>
+          line > currentLine
+      ) ?? null;
+  }
+
+
+  if (nextLine === null) {
+    return;
+  }
+
 
   const input =
     document.getElementById(
@@ -12889,41 +13002,16 @@ function stepNFLPropLineAnalyzer(
     );
 
 
-  if (!input) {
-    return;
+  if (input) {
+    input.value =
+      String(nextLine);
   }
-
-
-  const current =
-    nflPropAnalyzerNumber(
-      input.value
-    );
-
-
-  if (current === null) {
-    return;
-  }
-
-
-  const next =
-    Math.max(
-      0,
-      Math.round(
-        (
-          current +
-          Number(amount || 0)
-        ) * 2
-      ) / 2
-    );
-
-
-  input.value =
-    String(next);
 
 
   refreshNFLPropLineAnalyzer(
     index,
-    next
+    nextLine,
+    currentSide
   );
 }
 
