@@ -9939,6 +9939,291 @@ const matchedLines =
       null
   };
 }
+// ============================================================
+// NFL COMBINED PROPS — PREDICTIVE DISTRIBUTION
+// EXPERIMENTAL / SHADOW ONLY
+//
+// IMPORTANTE:
+//
+// Esto NO es Historical Coverage.
+//
+// Historical Coverage:
+//   compara directamente resultados pasados
+//   contra la línea de hoy.
+//
+// Predictive Distribution:
+//   toma la variabilidad REAL del jugador,
+//   conserva la forma de su distribución combinada,
+//   y la centra en la proyección CashEdge de HOY.
+//
+// De esta manera:
+//
+// - la proyección de hoy aporta rival/contexto/modelo
+// - el histórico aporta dispersión real
+// - Passing + Rushing o Rush + Receiving permanecen
+//   unidos como resultado del MISMO partido
+//
+// NO suma Confidence individuales.
+// NO es todavía Confidence Premium.
+// ============================================================
+
+function buildNFLCombinedPredictiveProbability({
+  values = [],
+  projection,
+  line,
+  side
+}) {
+
+  const projectedValue =
+    Number(
+      projection
+    );
+
+
+  const targetLine =
+    Number(
+      line
+    );
+
+
+  const targetSide =
+    String(
+      side || ""
+    )
+      .trim()
+      .toUpperCase();
+
+
+  if (
+    !Number.isFinite(
+      projectedValue
+    ) ||
+    !Number.isFinite(
+      targetLine
+    ) ||
+    (
+      targetSide !== "OVER" &&
+      targetSide !== "UNDER"
+    )
+  ) {
+    return null;
+  }
+
+
+  const sampleValues =
+    (
+      Array.isArray(values)
+        ? values
+        : []
+    )
+      .map(
+        value =>
+          Number(value)
+      )
+      .filter(
+        value =>
+          Number.isFinite(
+            value
+          )
+      );
+
+
+  /*
+   * Muestra mínima experimental.
+   *
+   * Menos de 5 partidos:
+   * no generamos probabilidad.
+   */
+  if (
+    sampleValues.length < 5
+  ) {
+    return {
+      available:
+        false,
+
+      reason:
+        "insufficient_sample",
+
+      games:
+        sampleValues.length,
+
+      minimumGames:
+        5,
+
+      probability:
+        null
+    };
+  }
+
+
+  const historicalMean =
+    sampleValues.reduce(
+      (sum, value) =>
+        sum + value,
+      0
+    ) /
+    sampleValues.length;
+
+
+  /*
+   * Diferencia entre lo que CashEdge
+   * proyecta HOY y la media histórica
+   * de esta distribución combinada.
+   */
+  const projectionShift =
+    projectedValue -
+    historicalMean;
+
+
+  /*
+   * Preservamos cada desviación histórica
+   * respecto a la media, pero centramos
+   * toda la distribución en la proyección
+   * actual de CashEdge.
+   */
+  const predictiveValues =
+    sampleValues.map(
+      value =>
+        value +
+        projectionShift
+    );
+
+
+  let wins = 0;
+  let losses = 0;
+  let pushes = 0;
+
+
+  for (
+    const value
+    of predictiveValues
+  ) {
+
+    if (
+      Math.abs(
+        value -
+        targetLine
+      ) < 0.000001
+    ) {
+      pushes++;
+      continue;
+    }
+
+
+    const winsPrediction =
+      targetSide === "OVER"
+        ? value > targetLine
+        : value < targetLine;
+
+
+    if (
+      winsPrediction
+    ) {
+      wins++;
+    } else {
+      losses++;
+    }
+  }
+
+
+  const decisions =
+    wins +
+    losses;
+
+
+  if (
+    decisions <= 0
+  ) {
+    return {
+      available:
+        false,
+
+      reason:
+        "no_decisions",
+
+      games:
+        sampleValues.length,
+
+      probability:
+        null
+    };
+  }
+
+
+  const probability =
+    Number(
+      (
+        (
+          wins /
+          decisions
+        ) *
+        100
+      ).toFixed(1)
+    );
+
+
+  return {
+
+    available:
+      true,
+
+    /*
+     * Todavía NO llamar esto
+     * Confidence Premium.
+     */
+    experimental:
+      true,
+
+    calibrated:
+      false,
+
+    method:
+      "projection_centered_empirical_distribution",
+
+    side:
+      targetSide,
+
+    line:
+      targetLine,
+
+    projection:
+      Number(
+        projectedValue
+          .toFixed(1)
+      ),
+
+    games:
+      sampleValues.length,
+
+    historicalMean:
+      Number(
+        historicalMean
+          .toFixed(2)
+      ),
+
+    projectionShift:
+      Number(
+        projectionShift
+          .toFixed(2)
+      ),
+
+    wins,
+
+    losses,
+
+    pushes,
+
+    probability,
+
+    predictiveValues:
+      predictiveValues.map(
+        value =>
+          Number(
+            value.toFixed(2)
+          )
+      )
+  };
+}
  /*
  * ============================================================
  * NFL COMBINED PROPS — EXPERIMENTAL ENDPOINT
