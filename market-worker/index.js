@@ -4394,48 +4394,184 @@ alternateLines
     }
 
 
-    const response =
-      await fetch(
-        NFL_PROP_LINES_INGEST_URL,
-        {
-          method:
-            "POST",
+  // ============================================================
+// SEND TO CASHEDGE IN SAFE PAYLOAD BATCHES
+//
+// Vercel rejects oversized request bodies before
+// football-data.js gets a chance to process them.
+//
+// We split by REAL serialized byte size instead of
+// assuming every prop row weighs the same.
+// ============================================================
 
-          headers: {
-
-            Authorization:
-              `Bearer ${MARKET_INGEST_SECRET}`,
-
-            "Content-Type":
-              "application/json"
-          },
-
-          body:
-            JSON.stringify({
-              items
-            })
-        }
-      );
+const MAX_INGEST_BATCH_BYTES =
+  900 * 1024;
 
 
-    const text =
-      await response.text();
+const batches =
+  [];
 
 
-    if (
-      !response.ok
-    ) {
-
-      throw new Error(
-        `CashEdge NFL prop line ingest failed: ` +
-        `${response.status} ${text.slice(0, 300)}`
-      );
-    }
+let currentBatch =
+  [];
 
 
-    console.log(
-      `[${WORKER_NAME}] NFL prop lines refreshed: ${items.length}`
+for (
+  const item
+  of items
+) {
+
+  const candidateBatch = [
+    ...currentBatch,
+    item
+  ];
+
+
+  const candidateBytes =
+    Buffer.byteLength(
+      JSON.stringify({
+        items:
+          candidateBatch
+      }),
+      "utf8"
     );
+
+
+  if (
+    currentBatch.length &&
+    candidateBytes >
+      MAX_INGEST_BATCH_BYTES
+  ) {
+
+    batches.push(
+      currentBatch
+    );
+
+
+    currentBatch = [
+      item
+    ];
+
+  } else {
+
+    currentBatch =
+      candidateBatch;
+  }
+}
+
+
+if (
+  currentBatch.length
+) {
+
+  batches.push(
+    currentBatch
+  );
+}
+
+
+let totalAccepted =
+  0;
+
+let totalRejected =
+  0;
+
+
+for (
+  let batchIndex = 0;
+  batchIndex < batches.length;
+  batchIndex += 1
+) {
+
+  const batch =
+    batches[
+      batchIndex
+    ];
+
+
+  const response =
+    await fetch(
+      NFL_PROP_LINES_INGEST_URL,
+      {
+        method:
+          "POST",
+
+        headers: {
+
+          Authorization:
+            `Bearer ${MARKET_INGEST_SECRET}`,
+
+          "Content-Type":
+            "application/json"
+        },
+
+        body:
+          JSON.stringify({
+            items:
+              batch
+          })
+      }
+    );
+
+
+  const text =
+    await response.text();
+
+
+  if (
+    !response.ok
+  ) {
+
+    throw new Error(
+      `CashEdge NFL prop line ingest failed ` +
+      `batch ${batchIndex + 1}/${batches.length}: ` +
+      `${response.status} ${text.slice(0, 300)}`
+    );
+  }
+
+
+  let body =
+    null;
+
+
+  try {
+
+    body =
+      text
+        ? JSON.parse(
+            text
+          )
+        : null;
+
+  } catch (error) {
+
+    body =
+      null;
+  }
+
+
+  totalAccepted +=
+    Number(
+      body?.accepted ||
+      0
+    );
+
+
+  totalRejected +=
+    Number(
+      body?.rejected ||
+      0
+    );
+}
+
+
+console.log(
+  `[${WORKER_NAME}] NFL prop lines refreshed: ` +
+  `${items.length}, ` +
+  `batches: ${batches.length}, ` +
+  `accepted: ${totalAccepted}, ` +
+  `rejected: ${totalRejected}`
+);
 
 
   } catch (error) {
