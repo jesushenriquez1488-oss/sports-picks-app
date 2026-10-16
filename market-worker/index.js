@@ -776,7 +776,8 @@ const INGEST_QUOTE_URL =
 
 const INGEST_SPLIT_URL =
   `${CASHEDGE_ORIGIN}/api/market-intelligence/ingest-split`;
-
+const NFL_COMBINED_PROPS_INGEST_URL =
+  `${CASHEDGE_ORIGIN}/api/market-intelligence/ingest-nfl-combined-props`;
 
 const NBA_INJURY_INGEST_URL =
   `${CASHEDGE_ORIGIN}/api/analyze-nba?mode=ingest-nba-injuries`;
@@ -909,7 +910,8 @@ let splitTimer =
 
 let splitRefreshRunning =
   false;
-
+let nflCombinedPropsRefreshRunning =
+  false;
 const lastSentSplitSignatures =
   new Map();
 let watchdogTimer =
@@ -3491,7 +3493,519 @@ function buildSplitPayload({
       null
   };
 }
+// ============================================================
+// NFL COMBINED PROPS — OWLS EXPERIMENTAL FEED
+//
+// Completely isolated from:
+// - production Player Props
+// - BEST
+// - Market Intelligence calculations
+//
+// Markets:
+// - pass_rush_yards
+// - rush_rec_yards
+// ============================================================
 
+async function refreshNFLCombinedPropsMarket() {
+
+  if (
+    nflCombinedPropsRefreshRunning
+  ) {
+    return;
+  }
+
+
+  nflCombinedPropsRefreshRunning =
+    true;
+
+
+  try {
+
+    const categories = [
+      "pass_rush_yards",
+      "rush_rec_yards"
+    ];
+
+
+    const books = [
+      "fanduel",
+      "draftkings",
+      "betmgm"
+    ];
+
+
+    const combinedItems = [];
+
+
+    // ========================================================
+    // FETCH EACH COMBINED MARKET
+    // ========================================================
+
+    for (
+      const category
+      of categories
+    ) {
+
+      const url =
+        `${OWLS_URL}/api/v1/nfl/props` +
+        `?category=${encodeURIComponent(category)}` +
+        `&books=${encodeURIComponent(books.join(","))}`;
+
+
+      const response =
+        await fetch(
+          url,
+          {
+            headers: {
+              Authorization:
+                `Bearer ${OWLS_API_KEY}`
+            }
+          }
+        );
+
+
+      const text =
+        await response.text();
+
+
+      let body = null;
+
+
+      try {
+
+        body =
+          text
+            ? JSON.parse(text)
+            : null;
+
+      } catch (error) {
+
+        throw new Error(
+          `Owls combined props returned invalid JSON for ${category}`
+        );
+      }
+
+
+     if (
+  !response.ok ||
+  body?.success !== true ||
+  !Array.isArray(
+    body?.data
+  )
+) {
+
+  throw new Error(
+    `Owls combined props ${category} failed: ` +
+    `${response.status} ` +
+    `${body?.error || body?.message || text.slice(0, 300)}`
+  );
+}
+
+      const games =
+        Array.isArray(
+          body?.data
+        )
+          ? body.data
+          : [];
+
+
+      const providerTimestamp =
+        body?.meta?.timestamp ||
+        new Date().toISOString();
+
+
+      // ======================================================
+      // GAMES
+      // ======================================================
+
+      for (
+        const game
+        of games
+      ) {
+
+        const providerEventId =
+          String(
+            game?.gameId ||
+            ""
+          ).trim();
+
+
+        if (
+          !providerEventId
+        ) {
+          continue;
+        }
+
+
+        const homeTeam =
+          game?.homeTeam ||
+          null;
+
+
+        const awayTeam =
+          game?.awayTeam ||
+          null;
+
+
+        /*
+         * The merged Props response does not
+         * promise game time in every payload.
+         *
+         * Keep it only when available.
+         */
+        const commenceTime =
+          game?.commence_time ||
+          game?.commenceTime ||
+          game?.startTime ||
+          null;
+
+
+        const gameBooks =
+          Array.isArray(
+            game?.books
+          )
+            ? game.books
+            : [];
+
+
+        // ====================================================
+        // SPORTSBOOKS
+        // ====================================================
+
+        for (
+          const book
+          of gameBooks
+        ) {
+
+          const bookmaker =
+            String(
+              book?.key ||
+              ""
+            )
+              .trim()
+              .toLowerCase();
+
+
+          if (
+            !bookmaker
+          ) {
+            continue;
+          }
+
+
+          const props =
+            Array.isArray(
+              book?.props
+            )
+              ? book.props
+              : [];
+
+
+          // ==================================================
+          // PLAYER PROPS
+          // ==================================================
+
+          for (
+            const prop
+            of props
+          ) {
+
+            const propCategory =
+              String(
+                prop?.category ||
+                category
+              )
+                .trim()
+                .toLowerCase();
+
+
+            /*
+             * Extra protection.
+             *
+             * This experimental feed is allowed
+             * to ingest ONLY these two markets.
+             */
+            if (
+              propCategory !==
+                "pass_rush_yards" &&
+              propCategory !==
+                "rush_rec_yards"
+            ) {
+              continue;
+            }
+
+
+            const player =
+              String(
+                prop?.playerName ||
+                prop?.player ||
+                ""
+              ).trim();
+
+
+            if (
+              !player
+            ) {
+              continue;
+            }
+
+
+            // =================================================
+            // ALTERNATE LINES
+            // =================================================
+
+            const alternateLines =
+              Array.isArray(
+                prop?.alternateLines
+              )
+                ? prop.alternateLines.map(
+                    alternate => ({
+
+                      line:
+                        alternate?.line ??
+                        null,
+
+                      odds:
+                        alternate?.odds ??
+                        null,
+
+                      /*
+                       * IMPORTANT:
+                       *
+                       * Keep the original meaning.
+                       *
+                       * milestone is NOT converted
+                       * into an Over/Under line.
+                       */
+                      kind:
+                        alternate?.kind ??
+                        null,
+
+                      selectionId:
+                        alternate?.selectionId ??
+                        alternate?.selection_id ??
+                        null,
+
+                      marketId:
+                        alternate?.marketId ??
+                        alternate?.market_id ??
+                        null
+                    })
+                  )
+                : [];
+
+
+            // =================================================
+            // NORMALIZED CACHE ITEM
+            // =================================================
+
+            combinedItems.push({
+
+              provider_event_id:
+                providerEventId,
+
+              commence_time:
+                commenceTime,
+
+              home_team:
+                homeTeam,
+
+              away_team:
+                awayTeam,
+
+              player,
+
+              market:
+                propCategory,
+
+              bookmaker,
+
+              /*
+               * Never assume over_under.
+               *
+               * If Owls does not specify the
+               * structure, store unknown.
+               */
+              marketStructure:
+                prop?.marketStructure ??
+                "unknown",
+
+              line:
+                prop?.line ??
+                null,
+
+              over:
+                prop?.overPrice ??
+                null,
+
+              under:
+                prop?.underPrice ??
+                null,
+
+              alternateLines,
+
+              provider_market_id:
+                prop?.marketId ??
+                null,
+
+              provider_updated_at:
+                providerTimestamp,
+
+              raw_json: {
+
+                gameId:
+                  providerEventId,
+
+                homeTeam,
+                awayTeam,
+
+                bookmaker,
+
+                playerName:
+                  player,
+
+                category:
+                  propCategory,
+
+                line:
+                  prop?.line ??
+                  null,
+
+                overPrice:
+                  prop?.overPrice ??
+                  null,
+
+                underPrice:
+                  prop?.underPrice ??
+                  null,
+
+                marketStructure:
+                  prop?.marketStructure ??
+                  null,
+
+                alternateLines
+              }
+            });
+          }
+        }
+      }
+    }
+
+
+    // ========================================================
+    // NOTHING AVAILABLE
+    // ========================================================
+
+    if (
+      !combinedItems.length
+    ) {
+
+      console.log(
+        `[${WORKER_NAME}] NFL combined props — no markets returned`
+      );
+
+      return;
+    }
+
+
+    // ========================================================
+    // SEND SNAPSHOT TO CASHEDGE
+    // ========================================================
+
+    const ingestResponse =
+      await fetch(
+        NFL_COMBINED_PROPS_INGEST_URL,
+        {
+          method:
+            "POST",
+
+          headers: {
+
+            Authorization:
+              `Bearer ${MARKET_INGEST_SECRET}`,
+
+            "Content-Type":
+              "application/json"
+          },
+
+          body:
+            JSON.stringify({
+              items:
+                combinedItems
+            })
+        }
+      );
+
+
+    const ingestText =
+      await ingestResponse.text();
+
+
+    let ingestBody =
+      null;
+
+
+    try {
+
+      ingestBody =
+        ingestText
+          ? JSON.parse(
+              ingestText
+            )
+          : null;
+
+    } catch (error) {
+
+      ingestBody =
+        null;
+    }
+
+
+    if (
+      !ingestResponse.ok
+    ) {
+
+      throw new Error(
+        `CashEdge combined props ingest failed: ` +
+        `${ingestResponse.status} ` +
+        `${ingestText.slice(0, 500)}`
+      );
+    }
+
+
+    console.log(
+      `[${WORKER_NAME}] NFL combined props — ` +
+      `fetched: ${combinedItems.length}, ` +
+      `accepted: ${Number(ingestBody?.accepted || 0)}, ` +
+      `rejected: ${Number(ingestBody?.rejected || 0)}`
+    );
+
+
+  } catch (error) {
+
+    /*
+     * EXPERIMENTAL / NON-FATAL.
+     *
+     * A failure here must NEVER stop:
+     *
+     * - Owls WebSocket
+     * - Market Intelligence
+     * - betting splits
+     * - learning
+     */
+
+    console.error(
+      `[${WORKER_NAME}] NFL combined props refresh error: ` +
+      `${error?.message || error}`
+    );
+
+
+  } finally {
+
+    nflCombinedPropsRefreshRunning =
+      false;
+  }
+}
 
 async function refreshBettingSplits() {
 
@@ -4997,7 +5511,13 @@ initializeNBAWatchersSafe();
       );
     }
   }
-
+  /*
+   * Initial experimental Combined Props snapshot.
+   *
+   * NON-BLOCKING.
+   * A failure here does not affect worker startup.
+   */
+  void refreshNFLCombinedPropsMarket();
 
   /*
    * Tracked games refresh every minute.
@@ -5028,7 +5548,16 @@ initializeNBAWatchersSafe();
           `[${WORKER_NAME}] Owls board revalidation error: ${error.message}`
         );
       }
-
+      /*
+       * Experimental Combined Props.
+       *
+       * IMPORTANT:
+       * Do NOT await this.
+       *
+       * Combined Props must never block
+       * production Market Intelligence.
+       */
+      void refreshNFLCombinedPropsMarket();
     },
     REFRESH_INTERVAL_MS
   );
