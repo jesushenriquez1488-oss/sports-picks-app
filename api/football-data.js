@@ -9726,27 +9726,52 @@ async function getNFLCombinedExistingProjections({
     of rows
   ) {
 
-    const analyzedLines =
-      Array.isArray(
-        row
-          ?.analysis_json
-          ?.analyzedPlayerLines
-      )
-        ? row
-            .analysis_json
-            .analyzedPlayerLines
-        : [];
+const componentLines =
+  Array.isArray(
+    row
+      ?.analysis_json
+      ?.componentProjectionLines
+  )
+    ? row
+        .analysis_json
+        .componentProjectionLines
+    : [];
 
 
-    if (
-      !analyzedLines.length
-    ) {
-      continue;
-    }
+const analyzedLines =
+  Array.isArray(
+    row
+      ?.analysis_json
+      ?.analyzedPlayerLines
+  )
+    ? row
+        .analysis_json
+        .analyzedPlayerLines
+    : [];
 
 
-    const matchedLines =
-      analyzedLines.filter(
+/*
+ * Combined Props usa primero las
+ * proyecciones puras.
+ *
+ * analyzedPlayerLines queda solamente
+ * como fallback para caches compatibles.
+ */
+const projectionLines = [
+  ...componentLines,
+  ...analyzedLines
+];
+
+
+if (
+  !projectionLines.length
+) {
+  continue;
+}
+
+
+const matchedLines =
+  projectionLines.filter(
         item => {
 
           const samePlayer =
@@ -10251,19 +10276,23 @@ const effectiveLine =
     : null;
 
 
+const rawCombinedProjection =
+  existingProjections
+    ?.combinedProjection;
+
+
 const combinedProjection =
+  rawCombinedProjection !== null &&
+  rawCombinedProjection !== undefined &&
   Number.isFinite(
     Number(
-      existingProjections
-        ?.combinedProjection
+      rawCombinedProjection
     )
   )
     ? Number(
-        existingProjections
-          .combinedProjection
+        rawCombinedProjection
       )
     : null;
-
 
 const projectionEdge =
   combinedProjection !== null &&
@@ -11098,6 +11127,7 @@ if (!selectedEvent) {
      if (
 cachedJson.nflRoleFilterVersion === 3 &&
 cachedJson.playerLinesVersion === 5 &&
+cachedJson.combinedProjectionCacheVersion === 1 &&
 (
   cachedJson.nflRoleWarmComplete === true ||
   Date.now() -
@@ -11340,7 +11370,257 @@ const uniqueProps =
   Array.from(
     uniqueMap.values()
   );
+// =====================================================
+// NFL COMBINED PROPS — PROJECTION-ONLY INPUTS
+// SHADOW / EXPERIMENTAL ONLY
+//
+// IMPORTANTE:
+//
+// Esto NO usa líneas individuales.
+//
+// Owls solamente nos dice qué jugador tiene
+// un mercado combinado disponible.
+//
+// Después CashEdge calcula por su cuenta
+// las proyecciones individuales necesarias.
+//
+// pass_rush_yards:
+//   passing projection + rushing projection
+//
+// rush_rec_yards:
+//   rushing projection + receiving projection
+//
+// Estas entradas NO generan:
+// - Confidence individual
+// - BEST
+// - recomendaciones individuales
+// - EV individual
+// =====================================================
 
+let combinedProjectionMarketRows =
+  [];
+
+
+try {
+
+  const combinedCutoff =
+    new Date(
+      Date.now() -
+      NFL_COMBINED_MARKET_MAX_AGE_MS
+    )
+      .toISOString();
+
+
+  const {
+    data:
+      combinedRows,
+    error:
+      combinedRowsError
+  } =
+    await supabaseAdmin
+      .from(
+        "nfl_combined_props_market_cache"
+      )
+      .select(`
+        player,
+        market,
+        away_team,
+        home_team,
+        updated_at
+      `)
+      .eq(
+        "structure",
+        "over_under"
+      )
+      .gte(
+        "updated_at",
+        combinedCutoff
+      )
+      .in(
+        "market",
+        [
+          "pass_rush_yards",
+          "rush_rec_yards"
+        ]
+      )
+      .limit(
+        500
+      );
+
+
+  if (
+    combinedRowsError
+  ) {
+    throw combinedRowsError;
+  }
+
+
+  combinedProjectionMarketRows =
+    (
+      Array.isArray(
+        combinedRows
+      )
+        ? combinedRows
+        : []
+    )
+      .filter(
+        row =>
+          normalizeNFLCombinedText(
+            row?.away_team
+          ) ===
+            normalizeNFLCombinedText(
+              selectedEvent.away_team
+            ) &&
+          normalizeNFLCombinedText(
+            row?.home_team
+          ) ===
+            normalizeNFLCombinedText(
+              selectedEvent.home_team
+            )
+      );
+
+
+} catch (error) {
+
+  console.warn(
+    "NFL COMBINED PROJECTION INPUTS:",
+    error?.message ||
+    error
+  );
+}
+
+
+// =====================================================
+// CONVERTIR MERCADO COMBINADO → COMPONENTES
+// =====================================================
+
+const componentProjectionInputMap =
+  new Map();
+
+
+for (
+  const row
+  of combinedProjectionMarketRows
+) {
+
+  const combinedMarket =
+    String(
+      row?.market ||
+      ""
+    );
+
+
+  let componentMarkets =
+    [];
+
+
+  if (
+    combinedMarket ===
+    "pass_rush_yards"
+  ) {
+
+    componentMarkets = [
+      "player_pass_yds",
+      "player_rush_yds"
+    ];
+
+  } else if (
+    combinedMarket ===
+    "rush_rec_yards"
+  ) {
+
+    componentMarkets = [
+      "player_rush_yds",
+      "player_reception_yds"
+    ];
+
+  }
+
+
+  for (
+    const componentMarket
+    of componentMarkets
+  ) {
+
+    const player =
+      String(
+        row?.player ||
+        ""
+      ).trim();
+
+
+    if (
+      !player
+    ) {
+      continue;
+    }
+
+
+    const key =
+      `${normalizeNFLPlayerName(
+        player
+      )}|${componentMarket}`;
+
+
+    if (
+      componentProjectionInputMap
+        .has(
+          key
+        )
+    ) {
+      continue;
+    }
+
+
+    componentProjectionInputMap.set(
+      key,
+      {
+
+        player,
+
+        market:
+          componentMarket,
+
+        /*
+         * No existe línea individual.
+         *
+         * Esto es intencional.
+         * La proyección NO depende de ella.
+         */
+        line:
+          null,
+
+        side:
+          "OVER",
+
+        odds:
+          null,
+
+        bookmaker:
+          null,
+
+        componentProjectionOnly:
+          true,
+
+        combinedSourceMarket:
+          combinedMarket
+      }
+    );
+  }
+}
+
+
+const componentProjectionOnlyProps =
+  Array.from(
+    componentProjectionInputMap
+      .values()
+  );
+
+
+const modelInputProps = [
+  ...uniqueProps,
+  ...componentProjectionOnlyProps
+];
  
   if (!uniqueProps.length) {
     return res.status(200).json({
@@ -11762,7 +12042,7 @@ const [
 
   const rolePlayerIds = Array.from(
     new Set(
-      uniqueProps
+      modelInputProps
         .map(prop =>
           findNFLAthleteId(
             prop.player,
@@ -12122,6 +12402,16 @@ const loadNFLPropCareerLogs =
   // 6. Analizar cada prop
 const analyzedProps = [];
 const analyzedPlayerLines = [];
+
+/*
+ * Proyecciones puras para Combined Props.
+ *
+ * No son recomendaciones.
+ * No tienen Confidence.
+ * No tienen EV.
+ */
+const componentProjectionLines = [];
+
 const propsDebug = {
   totalUnique: uniqueProps.length,
   noPlayerHistory: 0,
@@ -12134,7 +12424,7 @@ const propsDebug = {
 wrDiagnostics: []
 };
  
-  for (const prop of uniqueProps) {
+ for (const prop of modelInputProps) {
      const {
     player,
     market,
@@ -13389,8 +13679,57 @@ projectionDebug = {
   continue;
 }
  
-    projection = Number(projection.toFixed(1));
-   const edge =
+    projection =
+  Number(
+    projection.toFixed(1)
+  );
+
+
+// =====================================================
+// NFL COMBINED PROPS — PURE COMPONENT PROJECTION
+// =====================================================
+//
+// Ya tenemos la proyección CashEdge.
+//
+// Si esta entrada existe solamente para alimentar
+// Combined Props, terminamos AQUÍ.
+//
+// No necesitamos línea individual.
+// No calculamos edge individual.
+// No calculamos Confidence individual.
+// No calculamos EV.
+// No entra a BEST.
+// =====================================================
+
+if (
+  prop.componentProjectionOnly ===
+  true
+) {
+
+  componentProjectionLines.push({
+
+    player,
+
+    athleteId,
+
+    position:
+      verifiedPosition,
+
+    market,
+
+    projection,
+
+    combinedSourceMarket:
+      prop.combinedSourceMarket ||
+      null
+  });
+
+
+  continue;
+}
+
+
+const edge =
   propSide === "UNDER"
     ? Number(
         (line - projection).toFixed(2)
@@ -14104,9 +14443,9 @@ for (const prop of analyzedProps) {
 
     // Board completo de mercado para Player Stats.
     // Sale de la misma respuesta de Odds API; no hace otra consulta.
-    playerLinesVersion: 5,
+   playerLinesVersion: 5,
+combinedProjectionCacheVersion: 1,
 nflRoleFilterVersion: 3,
-
 nflRoleWarmComplete:
   nflRoleEvidence.fullyCached,
 
@@ -14120,9 +14459,20 @@ totalPlayerLines:
     // Recomendaciones CashEdge: lógica actual intacta.
    totalRawProps:            rawProps.length,
 totalAnalyzedProps:       analyzedProps.length,
-totalAnalyzedPlayerLines: analyzedPlayerLines.length,
+totalAnalyzedPlayerLines:
+  analyzedPlayerLines.length,
+
 analyzedPlayerLines,
-debug:                    propsDebug,
+
+// Proyecciones puras utilizadas exclusivamente
+// por Combined Props.
+totalComponentProjectionLines:
+  componentProjectionLines.length,
+
+componentProjectionLines,
+
+debug:
+  propsDebug,
     props:              uniquePlayerProps.slice(0, 3),
     lockedProps:        uniquePlayerProps.slice(3, 40)
   };
