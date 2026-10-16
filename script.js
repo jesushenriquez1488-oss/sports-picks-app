@@ -13969,20 +13969,49 @@ function getNFLAnytimeTDProps(
 
 
   const props =
-    Array.isArray(
-      state
-        ?.data
-        ?.anytimeTDProps
-    )
-      ? [
-          ...state
-            .data
-            .anytimeTDProps
-        ]
-      : [];
+  Array.isArray(
+    state
+      ?.data
+      ?.anytimeTDProps
+  )
+    ? [
+        ...state
+          .data
+          .anytimeTDProps
+      ]
+    : [];
 
 
-  return props.sort(
+/*
+ * No mostrar ATD cuando CashEdge
+ * calcula 0% de probabilidad.
+ *
+ * Conservamos:
+ * - jugadores con menos de 40%
+ * - jugadores con value negativo
+ *
+ * porque todavía pueden aparecer
+ * dentro de la ficha individual.
+ */
+const validProps =
+  props.filter(
+    item => {
+
+      const probability =
+        nflAnytimeTDNumber(
+          item?.probability
+        );
+
+
+      return (
+        probability !== null &&
+        probability > 0
+      );
+    }
+  );
+
+
+return validProps.sort(
     (
       a,
       b
@@ -14039,9 +14068,57 @@ function showNFLAnytimeTDProps(
   }
 
 
-  const props =
-    getNFLAnytimeTDProps(
-      index
+ const allProps =
+  getNFLAnytimeTDProps(
+    index
+  );
+
+
+const props =
+  allProps
+    .filter(
+      item => {
+
+        const probability =
+          nflAnytimeTDNumber(
+            item?.probability
+          );
+
+
+        const value =
+          nflAnytimeTDNumber(
+            item?.value
+          );
+
+
+        return (
+          probability !== null &&
+          probability >= 40 &&
+          value !== null &&
+          value > 0
+        );
+      }
+    )
+    .sort(
+      (a, b) => {
+
+        const probabilityA =
+          nflAnytimeTDNumber(
+            a?.probability
+          ) || 0;
+
+
+        const probabilityB =
+          nflAnytimeTDNumber(
+            b?.probability
+          ) || 0;
+
+
+        return (
+          probabilityB -
+          probabilityA
+        );
+      }
     );
 
 
@@ -14049,8 +14126,8 @@ function showNFLAnytimeTDProps(
 
     container.innerHTML = `
       <div class="ps-empty">
-        No Anytime TD markets available
-        for this game.
+        No CashEdge Anytime TD recommendations
+for this game.
       </div>
     `;
 
@@ -14096,7 +14173,7 @@ function showNFLAnytimeTDProps(
               margin-top:3px;
             "
           >
-            Player to score at least one touchdown
+           Recommended plays · 40%+ probability · Positive value
           </div>
 
         </div>
