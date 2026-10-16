@@ -16564,7 +16564,253 @@ function buildNFLAnytimeTDHistoricalProfile(
         : null
   };
 }
+// ============================================================
+// NFL ANYTIME TD — HISTORICAL PROFILE
+// ============================================================
 
+function buildNFLAnytimeTDHistoricalProfile(
+  logs = []
+) {
+
+  const games =
+    (
+      Array.isArray(logs)
+        ? logs
+        : []
+    )
+      .map(
+        log => {
+
+          const touchdowns =
+            getNFLPropHistoricalValue(
+              log,
+              "player_anytime_td"
+            );
+
+
+          if (
+            !Number.isFinite(
+              touchdowns
+            )
+          ) {
+            return null;
+          }
+
+
+          return {
+            touchdowns,
+
+            hit:
+              touchdowns >= 1
+          };
+        }
+      )
+      .filter(Boolean)
+      .slice(0, 10);
+
+
+  if (!games.length) {
+
+    return {
+      available:
+        false,
+
+      games:
+        0
+    };
+  }
+
+
+  const buildWindow =
+    size => {
+
+      const sample =
+        games.slice(
+          0,
+          Math.min(
+            size,
+            games.length
+          )
+        );
+
+
+      const hits =
+        sample.filter(
+          game =>
+            game.hit
+        ).length;
+
+
+      const touchdowns =
+        sample.reduce(
+          (
+            sum,
+            game
+          ) =>
+            sum +
+            game.touchdowns,
+          0
+        );
+
+
+      return {
+
+        games:
+          sample.length,
+
+        hits,
+
+        misses:
+          sample.length -
+          hits,
+
+        hitRate:
+          sample.length
+            ? Number(
+                (
+                  hits /
+                  sample.length *
+                  100
+                ).toFixed(1)
+              )
+            : null,
+
+        touchdowns,
+
+        tdPerGame:
+          sample.length
+            ? Number(
+                (
+                  touchdowns /
+                  sample.length
+                ).toFixed(3)
+              )
+            : null
+      };
+    };
+
+
+  let weightSum = 0;
+
+  let weightedTD =
+    0;
+
+  let weightedHits =
+    0;
+
+
+  games.forEach(
+    (
+      game,
+      index
+    ) => {
+
+      const weight =
+        Math.pow(
+          0.90,
+          index
+        );
+
+
+      weightSum +=
+        weight;
+
+
+      weightedTD +=
+        game.touchdowns *
+        weight;
+
+
+      weightedHits +=
+        (
+          game.hit
+            ? 1
+            : 0
+        ) *
+        weight;
+    }
+  );
+
+
+  const weightedTDRate =
+    weightSum > 0
+      ? weightedTD /
+        weightSum
+      : null;
+
+
+  const weightedHitRate =
+    weightSum > 0
+      ? (
+          weightedHits /
+          weightSum
+        ) *
+        100
+      : null;
+
+
+  const baseProbability =
+    Number.isFinite(
+      weightedTDRate
+    )
+      ? (
+          1 -
+          Math.exp(
+            -weightedTDRate
+          )
+        ) *
+        100
+      : null;
+
+
+  return {
+
+    available:
+      true,
+
+    games:
+      games.length,
+
+    last3:
+      buildWindow(3),
+
+    last5:
+      buildWindow(5),
+
+    last10:
+      buildWindow(10),
+
+    weightedTDRate:
+      Number.isFinite(
+        weightedTDRate
+      )
+        ? Number(
+            weightedTDRate
+              .toFixed(4)
+          )
+        : null,
+
+    weightedHitRate:
+      Number.isFinite(
+        weightedHitRate
+      )
+        ? Number(
+            weightedHitRate
+              .toFixed(1)
+          )
+        : null,
+
+    baseProbability:
+      Number.isFinite(
+        baseProbability
+      )
+        ? Number(
+            baseProbability
+              .toFixed(1)
+          )
+        : null
+  };
+}
 const buildNFLPropHistoricalCoverage = ({
   logs = [],
   market,
