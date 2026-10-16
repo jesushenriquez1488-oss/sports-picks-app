@@ -8792,53 +8792,30 @@ function renderNFLPlayerPropsShell(index) {
         "
       >
 
-        <button
-          type="button"
-          class="active"
-          data-prop-view="best"
-          onclick="showNFLPlayerPropsCategory(
-            ${index},
-            'best'
-          )"
-        >
-          🔥 BEST
-        </button>
+    <button
+  type="button"
+  class="active"
+  data-prop-view="best"
+  onclick="showNFLPlayerPropsCategory(
+    ${index},
+    'best'
+  )"
+>
+  🔥 BEST
+</button>
 
 
-        <button
-          type="button"
-          data-prop-view="qbs"
-          onclick="showNFLPlayerPropsCategory(
-            ${index},
-            'qbs'
-          )"
-        >
-          🏈 QBs
-        </button>
+<button
+  type="button"
+  data-prop-view="anytime"
+  onclick="showNFLPlayerPropsCategory(
+    ${index},
+    'anytime'
+  )"
+>
+  🔥 ANYTIME TD
+</button>
 
-
-        <button
-          type="button"
-          data-prop-view="rbs"
-          onclick="showNFLPlayerPropsCategory(
-            ${index},
-            'rbs'
-          )"
-        >
-          🏃 RBs
-        </button>
-
-
-        <button
-          type="button"
-          data-prop-view="receivers"
-          onclick="showNFLPlayerPropsCategory(
-            ${index},
-            'receivers'
-          )"
-        >
-          🎯 RECEIVERS
-        </button>
 
 <button
   type="button"
@@ -8850,16 +8827,54 @@ function renderNFLPlayerPropsShell(index) {
 >
   ⚡ COMBINED
 </button>
-        <button
-          type="button"
-          data-prop-view="all"
-          onclick="showNFLPlayerPropsCategory(
-            ${index},
-            'all'
-          )"
-        >
-          📋 ALL
-        </button>
+
+
+<button
+  type="button"
+  data-prop-view="qbs"
+  onclick="showNFLPlayerPropsCategory(
+    ${index},
+    'qbs'
+  )"
+>
+  🏈 QBs
+</button>
+
+
+<button
+  type="button"
+  data-prop-view="rbs"
+  onclick="showNFLPlayerPropsCategory(
+    ${index},
+    'rbs'
+  )"
+>
+  🏃 RBs
+</button>
+
+
+<button
+  type="button"
+  data-prop-view="receivers"
+  onclick="showNFLPlayerPropsCategory(
+    ${index},
+    'receivers'
+  )"
+>
+  🎯 RECEIVERS
+</button>
+
+
+<button
+  type="button"
+  data-prop-view="all"
+  onclick="showNFLPlayerPropsCategory(
+    ${index},
+    'all'
+  )"
+>
+  📋 ALL
+</button>
 
       </div>
 
@@ -13090,6 +13105,1120 @@ window.setNFLPropLineAnalyzerSide =
 window.selectNFLPropLineAnalyzerOffer =
   selectNFLPropLineAnalyzerOffer;
 // ============================================================
+// NFL ANYTIME TD — FRONTEND
+// ============================================================
+
+function nflAnytimeTDNumber(
+  value
+) {
+
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
+
+  const number =
+    Number(value);
+
+
+  return Number.isFinite(number)
+    ? number
+    : null;
+}
+
+
+function formatNFLAnytimeTDOdds(
+  value
+) {
+
+  const odds =
+    nflAnytimeTDNumber(
+      value
+    );
+
+
+  if (odds === null) {
+    return "—";
+  }
+
+
+  return odds > 0
+    ? `+${odds}`
+    : `${odds}`;
+}
+
+
+function renderNFLAnytimeTDWindow(
+  label,
+  coverage
+) {
+
+  const games =
+    nflAnytimeTDNumber(
+      coverage?.games
+    );
+
+
+  const hits =
+    nflAnytimeTDNumber(
+      coverage?.hits
+    );
+
+
+  const hitRate =
+    nflAnytimeTDNumber(
+      coverage?.hitRate
+    );
+
+
+  return `
+    <div
+      style="
+        background:#0f1628;
+        border:1px solid #1a2740;
+        border-radius:9px;
+        padding:10px 6px;
+        text-align:center;
+        min-width:0;
+      "
+    >
+
+      <div
+        style="
+          color:#6f819f;
+          font-size:7px;
+          font-weight:900;
+          letter-spacing:.08em;
+        "
+      >
+        ${sanitize(label)}
+      </div>
+
+
+      <strong
+        style="
+          display:block;
+          color:#fff;
+          font-size:15px;
+          line-height:1;
+          margin-top:6px;
+        "
+      >
+        ${
+          hits !== null &&
+          games !== null
+            ? `${hits}/${games}`
+            : "—"
+        }
+      </strong>
+
+
+      <div
+        style="
+          color:#00ffe7;
+          font-size:9px;
+          font-weight:900;
+          margin-top:5px;
+        "
+      >
+        ${
+          hitRate !== null
+            ? `${hitRate.toFixed(1)}%`
+            : "—"
+        }
+      </div>
+
+    </div>
+  `;
+}
+
+
+function renderNFLAnytimeTDCard(
+  item
+) {
+
+  const probability =
+    nflAnytimeTDNumber(
+      item?.probability
+    );
+
+
+  const odds =
+    nflAnytimeTDNumber(
+      item?.odds
+    );
+
+
+  const value =
+    nflAnytimeTDNumber(
+      item?.value
+    );
+
+
+  const ev =
+    nflAnytimeTDNumber(
+      item?.ev?.evPercent
+    );
+
+
+  const impliedProbability =
+    nflAnytimeTDNumber(
+      item?.impliedProbability
+    );
+
+
+  const history =
+    item?.historicalProfile ||
+    {};
+
+
+  const model =
+    item?.model ||
+    {};
+
+
+  const expectedTD =
+    nflAnytimeTDNumber(
+      model?.expectedTouchdowns
+    );
+
+
+  const baseTDRate =
+    nflAnytimeTDNumber(
+      model?.baseTDRate
+    );
+
+
+  const roleFactor =
+    nflAnytimeTDNumber(
+      model?.roleFactor
+    );
+
+
+  const scoringFactor =
+    nflAnytimeTDNumber(
+      model?.scoringFactor
+    );
+
+
+  const impliedTeamPoints =
+    nflAnytimeTDNumber(
+      model?.impliedTeamPoints
+    );
+
+
+  const roleProjection =
+    nflAnytimeTDNumber(
+      model?.roleProjection
+    );
+
+
+  const historicalRoleAverage =
+    nflAnytimeTDNumber(
+      model?.historicalRoleAverage
+    );
+
+
+  const bookmaker =
+    String(
+      item?.bookmaker ||
+      ""
+    ).toUpperCase();
+
+
+  const position =
+    String(
+      item?.position ||
+      ""
+    ).toUpperCase();
+
+
+  return `
+    <details
+      style="
+        background:
+          linear-gradient(
+            145deg,
+            #081321 0%,
+            #091525 100%
+          );
+
+        border:
+          1px solid
+          rgba(0,255,231,.30);
+
+        border-radius:12px;
+
+        margin-bottom:8px;
+
+        overflow:hidden;
+
+        box-shadow:
+          0 7px 20px
+          rgba(0,0,0,.12);
+      "
+    >
+
+      <summary
+        style="
+          list-style:none;
+          cursor:pointer;
+          padding:13px 14px;
+        "
+      >
+
+        <div
+          style="
+            display:flex;
+            justify-content:space-between;
+            align-items:flex-start;
+            gap:12px;
+          "
+        >
+
+          <div
+            style="
+              min-width:0;
+            "
+          >
+
+            <div
+              style="
+                display:flex;
+                align-items:center;
+                gap:6px;
+              "
+            >
+
+              <strong
+                style="
+                  color:#fff;
+                  font-size:13px;
+                  font-weight:950;
+                "
+              >
+                ${sanitize(
+                  item?.player ||
+                  "Player"
+                )}
+              </strong>
+
+
+              ${
+                position
+                  ? `
+                    <span
+                      style="
+                        color:#71839f;
+                        font-size:7px;
+                        font-weight:800;
+                        border:1px solid #1a2740;
+                        border-radius:5px;
+                        padding:2px 4px;
+                      "
+                    >
+                      ${sanitize(position)}
+                    </span>
+                  `
+                  : ""
+              }
+
+            </div>
+
+
+            <small
+              style="
+                display:block;
+                color:#71839f;
+                font-size:7px;
+                margin-top:4px;
+              "
+            >
+              ANYTIME TOUCHDOWN
+            </small>
+
+
+            <div
+              style="
+                display:flex;
+                align-items:center;
+                gap:7px;
+                margin-top:7px;
+              "
+            >
+
+              <strong
+                style="
+                  color:#00ffe7;
+                  font-size:12px;
+                  font-weight:950;
+                "
+              >
+                YES
+              </strong>
+
+
+              <span
+                style="
+                  color:#ffb85c;
+                  font-size:11px;
+                  font-weight:900;
+                "
+              >
+                ${formatNFLAnytimeTDOdds(
+                  odds
+                )}
+              </span>
+
+            </div>
+
+          </div>
+
+
+          <div
+            style="
+              text-align:right;
+              flex-shrink:0;
+            "
+          >
+
+            <strong
+              style="
+                display:block;
+                color:#00ffe7;
+                font-size:18px;
+                line-height:1;
+                font-weight:950;
+              "
+            >
+              ${
+                probability !== null
+                  ? `${probability.toFixed(1)}%`
+                  : "—"
+              }
+            </strong>
+
+
+            <small
+              style="
+                display:block;
+                color:#60708d;
+                font-size:6px;
+                margin-top:4px;
+                font-weight:800;
+              "
+            >
+              PROBABILITY
+            </small>
+
+
+            <div
+              style="
+                color:#71839f;
+                font-size:7px;
+                font-weight:800;
+                margin-top:7px;
+              "
+            >
+              TAP FOR STATS ↓
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <div
+          style="
+            display:grid;
+            grid-template-columns:
+              repeat(3,minmax(0,1fr));
+            gap:6px;
+            margin-top:12px;
+          "
+        >
+
+          <div
+            style="
+              background:#0f1628;
+              border-radius:8px;
+              padding:8px 4px;
+              text-align:center;
+            "
+          >
+
+            <small
+              style="
+                display:block;
+                color:#60708d;
+                font-size:6px;
+                font-weight:900;
+              "
+            >
+              MARKET
+            </small>
+
+
+            <strong
+              style="
+                display:block;
+                color:#fff;
+                font-size:11px;
+                margin-top:4px;
+              "
+            >
+              ${
+                impliedProbability !== null
+                  ? `${impliedProbability.toFixed(1)}%`
+                  : "—"
+              }
+            </strong>
+
+          </div>
+
+
+          <div
+            style="
+              background:#0f1628;
+              border-radius:8px;
+              padding:8px 4px;
+              text-align:center;
+            "
+          >
+
+            <small
+              style="
+                display:block;
+                color:#60708d;
+                font-size:6px;
+                font-weight:900;
+              "
+            >
+              VALUE
+            </small>
+
+
+            <strong
+              style="
+                display:block;
+                color:${
+                  value !== null &&
+                  value > 0
+                    ? "#00ffe7"
+                    : "#71839f"
+                };
+                font-size:11px;
+                margin-top:4px;
+              "
+            >
+              ${
+                value !== null
+                  ? `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`
+                  : "—"
+              }
+            </strong>
+
+          </div>
+
+
+          <div
+            style="
+              background:#0f1628;
+              border-radius:8px;
+              padding:8px 4px;
+              text-align:center;
+            "
+          >
+
+            <small
+              style="
+                display:block;
+                color:#60708d;
+                font-size:6px;
+                font-weight:900;
+              "
+            >
+              EV
+            </small>
+
+
+            <strong
+              style="
+                display:block;
+                color:${
+                  ev !== null &&
+                  ev > 0
+                    ? "#00ffe7"
+                    : "#71839f"
+                };
+                font-size:11px;
+                margin-top:4px;
+              "
+            >
+              ${
+                ev !== null
+                  ? `${ev >= 0 ? "+" : ""}${ev.toFixed(1)}%`
+                  : "—"
+              }
+            </strong>
+
+          </div>
+
+        </div>
+
+
+        <div
+          style="
+            margin-top:7px;
+            text-align:right;
+            color:#60708d;
+            font-size:6px;
+          "
+        >
+          ${sanitize(bookmaker)}
+        </div>
+
+      </summary>
+
+
+      <div
+        style="
+          border-top:
+            1px solid #17243a;
+
+          padding:
+            12px 14px 14px;
+        "
+      >
+
+        <div
+          style="
+            color:#00ffe7;
+            font-size:8px;
+            font-weight:950;
+            letter-spacing:.08em;
+            margin-bottom:8px;
+          "
+        >
+          TOUCHDOWN HISTORY
+        </div>
+
+
+        <div
+          style="
+            display:grid;
+            grid-template-columns:
+              repeat(3,minmax(0,1fr));
+            gap:6px;
+          "
+        >
+
+          ${renderNFLAnytimeTDWindow(
+            "LAST 3",
+            history?.last3
+          )}
+
+          ${renderNFLAnytimeTDWindow(
+            "LAST 5",
+            history?.last5
+          )}
+
+          ${renderNFLAnytimeTDWindow(
+            "LAST 10",
+            history?.last10
+          )}
+
+        </div>
+
+
+        <div
+          style="
+            margin-top:12px;
+            color:#71839f;
+            font-size:7px;
+            font-weight:900;
+            letter-spacing:.08em;
+          "
+        >
+          CASHEDGE MODEL
+        </div>
+
+
+        <div
+          style="
+            display:grid;
+            grid-template-columns:
+              repeat(2,minmax(0,1fr));
+            gap:6px;
+            margin-top:7px;
+          "
+        >
+
+          <div
+            style="
+              background:#0f1628;
+              border-radius:8px;
+              padding:9px;
+            "
+          >
+
+            <small
+              style="
+                display:block;
+                color:#60708d;
+                font-size:6px;
+                font-weight:900;
+              "
+            >
+              BASE TD RATE
+            </small>
+
+
+            <strong
+              style="
+                display:block;
+                color:#fff;
+                font-size:11px;
+                margin-top:5px;
+              "
+            >
+              ${
+                baseTDRate !== null
+                  ? baseTDRate.toFixed(3)
+                  : "—"
+              }
+            </strong>
+
+          </div>
+
+
+          <div
+            style="
+              background:#0f1628;
+              border-radius:8px;
+              padding:9px;
+            "
+          >
+
+            <small
+              style="
+                display:block;
+                color:#60708d;
+                font-size:6px;
+                font-weight:900;
+              "
+            >
+              EXPECTED TD
+            </small>
+
+
+            <strong
+              style="
+                display:block;
+                color:#fff;
+                font-size:11px;
+                margin-top:5px;
+              "
+            >
+              ${
+                expectedTD !== null
+                  ? expectedTD.toFixed(3)
+                  : "—"
+              }
+            </strong>
+
+          </div>
+
+
+          <div
+            style="
+              background:#0f1628;
+              border-radius:8px;
+              padding:9px;
+            "
+          >
+
+            <small
+              style="
+                display:block;
+                color:#60708d;
+                font-size:6px;
+                font-weight:900;
+              "
+            >
+              ROLE FACTOR
+            </small>
+
+
+            <strong
+              style="
+                display:block;
+                color:#fff;
+                font-size:11px;
+                margin-top:5px;
+              "
+            >
+              ${
+                roleFactor !== null
+                  ? `${roleFactor.toFixed(2)}x`
+                  : "—"
+              }
+            </strong>
+
+
+            ${
+              roleProjection !== null &&
+              historicalRoleAverage !== null
+                ? `
+                  <small
+                    style="
+                      display:block;
+                      color:#60708d;
+                      font-size:6px;
+                      margin-top:4px;
+                    "
+                  >
+                    ${roleProjection.toFixed(1)}
+                    vs
+                    ${historicalRoleAverage.toFixed(1)}
+                    historical
+                  </small>
+                `
+                : ""
+            }
+
+          </div>
+
+
+          <div
+            style="
+              background:#0f1628;
+              border-radius:8px;
+              padding:9px;
+            "
+          >
+
+            <small
+              style="
+                display:block;
+                color:#60708d;
+                font-size:6px;
+                font-weight:900;
+              "
+            >
+              TEAM SCORING
+            </small>
+
+
+            <strong
+              style="
+                display:block;
+                color:#fff;
+                font-size:11px;
+                margin-top:5px;
+              "
+            >
+              ${
+                scoringFactor !== null
+                  ? `${scoringFactor.toFixed(2)}x`
+                  : "—"
+              }
+            </strong>
+
+
+            ${
+              impliedTeamPoints !== null
+                ? `
+                  <small
+                    style="
+                      display:block;
+                      color:#60708d;
+                      font-size:6px;
+                      margin-top:4px;
+                    "
+                  >
+                    ${impliedTeamPoints.toFixed(1)}
+                    implied team pts
+                  </small>
+                `
+                : ""
+            }
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </details>
+  `;
+}
+
+
+function getNFLAnytimeTDProps(
+  index
+) {
+
+  const state =
+    nflPlayerPropsState[index] ||
+    {};
+
+
+  const props =
+    Array.isArray(
+      state
+        ?.data
+        ?.anytimeTDProps
+    )
+      ? [
+          ...state
+            .data
+            .anytimeTDProps
+        ]
+      : [];
+
+
+  return props.sort(
+    (
+      a,
+      b
+    ) => {
+
+      const evA =
+        nflAnytimeTDNumber(
+          a?.ev?.evPercent
+        );
+
+
+      const evB =
+        nflAnytimeTDNumber(
+          b?.ev?.evPercent
+        );
+
+
+      if (
+        evA !== null &&
+        evB !== null &&
+        evA !== evB
+      ) {
+        return evB - evA;
+      }
+
+
+      return (
+        Number(
+          b?.probability ||
+          0
+        ) -
+        Number(
+          a?.probability ||
+          0
+        )
+      );
+    }
+  );
+}
+
+
+function showNFLAnytimeTDProps(
+  index
+) {
+
+  const container =
+    document.getElementById(
+      `nflPlayerPropsContent${index}`
+    );
+
+
+  if (!container) {
+    return;
+  }
+
+
+  const props =
+    getNFLAnytimeTDProps(
+      index
+    );
+
+
+  if (!props.length) {
+
+    container.innerHTML = `
+      <div class="ps-empty">
+        No Anytime TD markets available
+        for this game.
+      </div>
+    `;
+
+    return;
+  }
+
+
+  container.innerHTML = `
+
+    <div
+      style="
+        margin-bottom:10px;
+      "
+    >
+
+      <div
+        style="
+          display:flex;
+          justify-content:space-between;
+          align-items:center;
+          gap:10px;
+          margin:0 2px 9px;
+        "
+      >
+
+        <div>
+
+          <div
+            style="
+              color:#00ffe7;
+              font-size:9px;
+              font-weight:950;
+              letter-spacing:.08em;
+            "
+          >
+            🔥 ANYTIME TOUCHDOWN
+          </div>
+
+          <div
+            style="
+              color:#60708d;
+              font-size:7px;
+              margin-top:3px;
+            "
+          >
+            Player to score at least one touchdown
+          </div>
+
+        </div>
+
+
+        <div
+          style="
+            color:#71839f;
+            font-size:7px;
+            font-weight:800;
+          "
+        >
+          ${props.length}
+          AVAILABLE
+        </div>
+
+      </div>
+
+
+      ${props
+        .map(
+          renderNFLAnytimeTDCard
+        )
+        .join("")}
+
+    </div>
+  `;
+}
+
+
+function showNFLAnytimeTDForPlayer(
+  index,
+  playerName,
+  athleteId = ""
+) {
+
+  const section =
+    document.getElementById(
+      `nflPlayerAnytimeTDSection${index}`
+    );
+
+
+  if (!section) {
+    return;
+  }
+
+
+  const props =
+    getNFLAnytimeTDProps(
+      index
+    );
+
+
+  const playerProp =
+    props.find(
+      item => {
+
+        const sameAthlete =
+          athleteId &&
+          item?.athleteId &&
+          String(
+            item.athleteId
+          ) ===
+            String(
+              athleteId
+            );
+
+
+        const sameName =
+          ceNFLNamesMatch(
+            item?.player ||
+            "",
+            playerName
+          );
+
+
+        return (
+          sameAthlete ||
+          sameName
+        );
+      }
+    );
+
+
+  if (!playerProp) {
+
+    section.innerHTML =
+      "";
+
+    return;
+  }
+
+
+  section.innerHTML = `
+
+    <div
+      style="
+        margin-bottom:9px;
+      "
+    >
+
+      <div
+        style="
+          color:#00ffe7;
+          font-size:8px;
+          font-weight:950;
+          letter-spacing:.08em;
+          margin:0 2px 8px;
+        "
+      >
+        🔥 ANYTIME TD
+      </div>
+
+
+      ${renderNFLAnytimeTDCard(
+        playerProp
+      )}
+
+    </div>
+  `;
+}
+// ============================================================
 // NFL COMBINED PROPS — RENDER
 // ============================================================
 
@@ -14130,6 +15259,17 @@ if (
 ) {
 
   void showNFLCombinedProps(
+    index
+  );
+
+  return;
+}
+  if (
+  category ===
+  "anytime"
+) {
+
+  showNFLAnytimeTDProps(
     index
   );
 
@@ -17596,7 +18736,9 @@ ${
       <div
         id="nflPropLineAnalyzerSection${index}"
       ></div>
-
+<div
+  id="nflPlayerAnytimeTDSection${index}"
+></div>
       <div
         id="nflPlayerCombinedSection${index}"
       ></div>
@@ -17726,6 +18868,13 @@ ${
       propLine
     );
   }
+
+
+  showNFLAnytimeTDForPlayer(
+    index,
+    player.name,
+    propsReturnAthleteId
+  );
 
 
   void showNFLCombinedPropsForPlayer(
