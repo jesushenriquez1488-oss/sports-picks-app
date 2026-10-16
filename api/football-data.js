@@ -9585,6 +9585,335 @@ async function getNFLCombinedLiveMarket({
         NFL_COMBINED_MARKET_MAX_AGE_MS
   };
 }
+// ============================================================
+// NFL COMBINED PROPS — EXISTING CASHEDGE PROJECTIONS
+// EXPERIMENTAL ONLY
+//
+// Reutiliza las proyecciones individuales ya calculadas
+// por NFL Player Props.
+//
+// NO recalcula fórmulas.
+// NO reutiliza Confidence.
+// NO modifica Player Props.
+// ============================================================
+
+async function getNFLCombinedExistingProjections({
+  player,
+  athleteId,
+  market,
+  awayTeam,
+  homeTeam
+}) {
+
+  if (
+    !player ||
+    !market ||
+    !awayTeam ||
+    !homeTeam
+  ) {
+    return null;
+  }
+
+
+  let componentMarkets;
+
+
+  if (
+    market ===
+    "pass_rush_yards"
+  ) {
+
+    componentMarkets = [
+      "player_pass_yds",
+      "player_rush_yds"
+    ];
+
+  } else if (
+    market ===
+    "rush_rec_yards"
+  ) {
+
+    componentMarkets = [
+      "player_rush_yds",
+      "player_reception_yds"
+    ];
+
+  } else {
+
+    return null;
+  }
+
+
+  const game =
+    `${awayTeam} @ ${homeTeam}`;
+
+
+  const {
+    data,
+    error
+  } =
+    await supabaseAdmin
+      .from(
+        "player_props_cache"
+      )
+      .select(`
+        event_id,
+        game,
+        game_date,
+        analysis_json,
+        updated_at
+      `)
+      .eq(
+        "sport",
+        "nfl"
+      )
+      .eq(
+        "game",
+        game
+      )
+      .order(
+        "updated_at",
+        {
+          ascending: false
+        }
+      )
+      .limit(
+        5
+      );
+
+
+  if (
+    error
+  ) {
+
+    console.error(
+      "NFL COMBINED PROJECTION CACHE ERROR:",
+      error.message
+    );
+
+    return null;
+  }
+
+
+  const rows =
+    Array.isArray(data)
+      ? data
+      : [];
+
+
+  if (
+    !rows.length
+  ) {
+    return null;
+  }
+
+
+  const targetPlayer =
+    normalizeNFLPlayerName(
+      player
+    );
+
+
+  const targetAthleteId =
+    String(
+      athleteId ||
+      ""
+    );
+
+
+  for (
+    const row
+    of rows
+  ) {
+
+    const analyzedLines =
+      Array.isArray(
+        row
+          ?.analysis_json
+          ?.analyzedPlayerLines
+      )
+        ? row
+            .analysis_json
+            .analyzedPlayerLines
+        : [];
+
+
+    if (
+      !analyzedLines.length
+    ) {
+      continue;
+    }
+
+
+    const matchedLines =
+      analyzedLines.filter(
+        item => {
+
+          const samePlayer =
+            normalizeNFLPlayerName(
+              item?.player
+            ) ===
+            targetPlayer;
+
+
+          const itemAthleteId =
+            String(
+              item?.athleteId ||
+              ""
+            );
+
+
+          const sameAthlete =
+            !targetAthleteId ||
+            !itemAthleteId ||
+            itemAthleteId ===
+              targetAthleteId;
+
+
+          return (
+            samePlayer &&
+            sameAthlete &&
+            componentMarkets.includes(
+              String(
+                item?.market ||
+                ""
+              )
+            )
+          );
+        }
+      );
+
+
+    const projections = {};
+
+
+    for (
+      const componentMarket
+      of componentMarkets
+    ) {
+
+      const componentLine =
+        matchedLines.find(
+          item =>
+            String(
+              item?.market ||
+              ""
+            ) ===
+              componentMarket &&
+            Number.isFinite(
+              Number(
+                item?.projection
+              )
+            )
+        );
+
+
+      if (
+        componentLine
+      ) {
+
+        projections[
+          componentMarket
+        ] =
+          Number(
+            componentLine.projection
+          );
+      }
+    }
+
+
+    const firstProjection =
+      projections[
+        componentMarkets[0]
+      ];
+
+
+    const secondProjection =
+      projections[
+        componentMarkets[1]
+      ];
+
+
+    if (
+      !Number.isFinite(
+        firstProjection
+      ) ||
+      !Number.isFinite(
+        secondProjection
+      )
+    ) {
+      continue;
+    }
+
+
+    const combinedProjection =
+      Number(
+        (
+          firstProjection +
+          secondProjection
+        ).toFixed(1)
+      );
+
+
+    return {
+
+      found: true,
+
+      source:
+        "player_props_cache",
+
+      eventId:
+        row.event_id ||
+        null,
+
+      game:
+        row.game ||
+        game,
+
+      gameDate:
+        row.game_date ||
+        null,
+
+      updatedAt:
+        row.updated_at ||
+        null,
+
+      componentMarkets,
+
+      components: {
+
+        [componentMarkets[0]]:
+          Number(
+            firstProjection.toFixed(1)
+          ),
+
+        [componentMarkets[1]]:
+          Number(
+            secondProjection.toFixed(1)
+          )
+      },
+
+      combinedProjection
+    };
+  }
+
+
+  return {
+    found: false,
+
+    source:
+      "player_props_cache",
+
+    game,
+
+    componentMarkets,
+
+    components: {},
+
+    combinedProjection:
+      null
+  };
+}
  /*
  * ============================================================
  * NFL COMBINED PROPS — EXPERIMENTAL ENDPOINT
@@ -9906,6 +10235,46 @@ const effectiveLine =
             )
           : null
       );
+  const existingProjections =
+  (
+    player &&
+    awayTeam &&
+    homeTeam
+  )
+    ? await getNFLCombinedExistingProjections({
+        player,
+        athleteId,
+        market,
+        awayTeam,
+        homeTeam
+      })
+    : null;
+
+
+const combinedProjection =
+  Number.isFinite(
+    Number(
+      existingProjections
+        ?.combinedProjection
+    )
+  )
+    ? Number(
+        existingProjections
+          .combinedProjection
+      )
+    : null;
+
+
+const projectionEdge =
+  combinedProjection !== null &&
+  effectiveLine !== null
+    ? Number(
+        (
+          combinedProjection -
+          effectiveLine
+        ).toFixed(1)
+      )
+    : null;
   // =========================
   // SEASONS
   // =========================
@@ -10448,8 +10817,48 @@ effectiveSide:
     ? side
     : null,
 
-marketData: {
+projectionData: {
 
+  found:
+    existingProjections
+      ?.found === true,
+
+  source:
+    existingProjections
+      ?.source ||
+    null,
+
+  eventId:
+    existingProjections
+      ?.eventId ||
+    null,
+
+  game:
+    existingProjections
+      ?.game ||
+    null,
+
+  componentMarkets:
+    existingProjections
+      ?.componentMarkets ||
+    [],
+
+  components:
+    existingProjections
+      ?.components ||
+    {},
+
+  combinedProjection:
+    combinedProjection,
+
+  marketLine:
+    effectiveLine,
+
+  edge:
+    projectionEdge
+},
+
+marketData: {
   found:
     Boolean(
       liveMarket
