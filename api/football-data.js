@@ -11079,7 +11079,29 @@ const historicalCoverage =
       })
     : null;
 
+const predictiveProbability =
+  combinedProjection !== null &&
+  effectiveLine !== null &&
+  effectiveSide !== null
+    ? buildNFLCombinedPredictiveProbability({
 
+        values:
+          Array.isArray(
+            summary?.values
+          )
+            ? summary.values
+            : [],
+
+        projection:
+          combinedProjection,
+
+        line:
+          effectiveLine,
+
+        side:
+          effectiveSide
+      })
+    : null;
   // =========================
   // RESPONSE
   // =========================
@@ -11137,7 +11159,9 @@ const historicalCoverage =
 
     summary,
 
-  historicalCoverage,
+historicalCoverage,
+
+predictiveProbability,
 
 requestedLine:
   line,
