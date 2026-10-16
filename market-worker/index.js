@@ -4355,11 +4355,14 @@ async function refreshNFLPropLineMarket() {
                     prop?.underPrice ??
                     null,
 
-                  marketStructure:
-                    prop?.marketStructure ??
-                    null,
+                 marketStructure:
+  prop?.marketStructure ??
+  null,
 
-                  alternateLines
+providerProp:
+  prop,
+
+alternateLines
                 }
               });
             }
