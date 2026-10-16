@@ -3885,7 +3885,8 @@ async function refreshNFLCombinedPropsMarket() {
                 marketStructure:
                   prop?.marketStructure ??
                   null,
-
+providerProp:
+  prop,
                 alternateLines
               }
             });
@@ -4030,12 +4031,13 @@ async function refreshNFLPropLineMarket() {
   try {
 
     const categories = [
-      "passing_yards",
-      "rushing_yards",
-      "rush_attempts",
-      "receiving_yards",
-      "receptions"
-    ];
+  "passing_yards",
+  "rushing_yards",
+  "rush_attempts",
+  "receiving_yards",
+  "receptions",
+  "touchdowns"
+];
 
 
     const books = [
