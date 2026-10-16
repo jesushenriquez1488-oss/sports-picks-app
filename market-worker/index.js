@@ -778,7 +778,8 @@ const INGEST_SPLIT_URL =
   `${CASHEDGE_ORIGIN}/api/market-intelligence/ingest-split`;
 const NFL_COMBINED_PROPS_INGEST_URL =
   `${CASHEDGE_ORIGIN}/api/market-intelligence/ingest-nfl-combined-props`;
-
+const NFL_PROP_LINES_INGEST_URL =
+  `${CASHEDGE_ORIGIN}/api/football-data?mode=nfl-prop-lines-ingest`;
 const NBA_INJURY_INGEST_URL =
   `${CASHEDGE_ORIGIN}/api/analyze-nba?mode=ingest-nba-injuries`;
 
@@ -911,6 +912,8 @@ let splitTimer =
 let splitRefreshRunning =
   false;
 let nflCombinedPropsRefreshRunning =
+  false;
+let nflPropLinesRefreshRunning =
   false;
 const lastSentSplitSignatures =
   new Map();
@@ -4006,7 +4009,442 @@ async function refreshNFLCombinedPropsMarket() {
       false;
   }
 }
+// ============================================================
+// NFL INDIVIDUAL PROP LINES — OWLS
+// PRODUCTION FEED FOR PROP LINE ANALYZER
+// ============================================================
 
+async function refreshNFLPropLineMarket() {
+
+  if (
+    nflPropLinesRefreshRunning
+  ) {
+    return;
+  }
+
+
+  nflPropLinesRefreshRunning =
+    true;
+
+
+  try {
+
+    const categories = [
+      "passing_yards",
+      "rushing_yards",
+      "rush_attempts",
+      "receiving_yards",
+      "receptions"
+    ];
+
+
+    const books = [
+      "fanduel",
+      "draftkings",
+      "caesars",
+      "betmgm"
+    ];
+
+
+    const items = [];
+
+
+    for (
+      const category
+      of categories
+    ) {
+
+      try {
+
+        const url =
+          `${OWLS_URL}/api/v1/nfl/props` +
+          `?category=${encodeURIComponent(category)}` +
+          `&books=${encodeURIComponent(books.join(","))}`;
+
+
+        const response =
+          await fetch(
+            url,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${OWLS_API_KEY}`
+              }
+            }
+          );
+
+
+        const text =
+          await response.text();
+
+
+        if (
+          !response.ok
+        ) {
+
+          console.error(
+            `[${WORKER_NAME}] NFL prop lines ${category}: ` +
+            `${response.status} ${text.slice(0, 200)}`
+          );
+
+          continue;
+        }
+
+
+        let body;
+
+
+        try {
+
+          body =
+            text
+              ? JSON.parse(text)
+              : null;
+
+        } catch (error) {
+
+          console.error(
+            `[${WORKER_NAME}] NFL prop lines invalid JSON: ${category}`
+          );
+
+          continue;
+        }
+
+
+        const games =
+          Array.isArray(
+            body?.data
+          )
+            ? body.data
+            : [];
+
+
+        const providerTimestamp =
+          body?.meta?.timestamp ||
+          new Date().toISOString();
+
+
+        for (
+          const game
+          of games
+        ) {
+
+          const providerEventId =
+            String(
+              game?.gameId ||
+              ""
+            ).trim();
+
+
+          if (
+            !providerEventId
+          ) {
+            continue;
+          }
+
+
+          const homeTeam =
+            game?.homeTeam ||
+            null;
+
+
+          const awayTeam =
+            game?.awayTeam ||
+            null;
+
+
+          const commenceTime =
+            game?.commence_time ||
+            game?.commenceTime ||
+            game?.startTime ||
+            null;
+
+
+          const gameBooks =
+            Array.isArray(
+              game?.books
+            )
+              ? game.books
+              : [];
+
+
+          for (
+            const book
+            of gameBooks
+          ) {
+
+            const bookmaker =
+              String(
+                book?.key ||
+                ""
+              )
+                .trim()
+                .toLowerCase();
+
+
+            if (!bookmaker) {
+              continue;
+            }
+
+
+            const props =
+              Array.isArray(
+                book?.props
+              )
+                ? book.props
+                : [];
+
+
+            for (
+              const prop
+              of props
+            ) {
+
+              const propCategory =
+                String(
+                  prop?.category ||
+                  category
+                )
+                  .trim()
+                  .toLowerCase();
+
+
+              if (
+                propCategory !==
+                category
+              ) {
+                continue;
+              }
+
+
+              const player =
+                String(
+                  prop?.playerName ||
+                  prop?.player ||
+                  ""
+                ).trim();
+
+
+              if (!player) {
+                continue;
+              }
+
+
+              const alternateLines =
+                Array.isArray(
+                  prop?.alternateLines
+                )
+                  ? prop.alternateLines.map(
+                      alternate => ({
+
+                        line:
+                          alternate?.line ??
+                          null,
+
+                        odds:
+                          alternate?.odds ??
+                          null,
+
+                        kind:
+                          alternate?.kind ??
+                          null,
+
+                        side:
+                          alternate?.side ??
+                          alternate?.name ??
+                          null,
+
+                        over:
+                          alternate?.overPrice ??
+                          alternate?.over ??
+                          null,
+
+                        under:
+                          alternate?.underPrice ??
+                          alternate?.under ??
+                          null,
+
+                        selectionId:
+                          alternate?.selectionId ??
+                          alternate?.selection_id ??
+                          null,
+
+                        marketId:
+                          alternate?.marketId ??
+                          alternate?.market_id ??
+                          null
+                      })
+                    )
+                  : [];
+
+
+              items.push({
+
+                provider_event_id:
+                  providerEventId,
+
+                commence_time:
+                  commenceTime,
+
+                home_team:
+                  homeTeam,
+
+                away_team:
+                  awayTeam,
+
+                player,
+
+                market:
+                  propCategory,
+
+                bookmaker,
+
+                marketStructure:
+                  prop?.marketStructure ??
+                  "unknown",
+
+                line:
+                  prop?.line ??
+                  null,
+
+                over:
+                  prop?.overPrice ??
+                  null,
+
+                under:
+                  prop?.underPrice ??
+                  null,
+
+                alternateLines,
+
+                provider_market_id:
+                  prop?.marketId ??
+                  null,
+
+                provider_updated_at:
+                  providerTimestamp,
+
+                raw_json: {
+
+                  gameId:
+                    providerEventId,
+
+                  homeTeam,
+
+                  awayTeam,
+
+                  playerName:
+                    player,
+
+                  category:
+                    propCategory,
+
+                  bookmaker,
+
+                  line:
+                    prop?.line ??
+                    null,
+
+                  overPrice:
+                    prop?.overPrice ??
+                    null,
+
+                  underPrice:
+                    prop?.underPrice ??
+                    null,
+
+                  marketStructure:
+                    prop?.marketStructure ??
+                    null,
+
+                  alternateLines
+                }
+              });
+            }
+          }
+        }
+
+
+      } catch (error) {
+
+        console.error(
+          `[${WORKER_NAME}] NFL prop line ${category} error: ` +
+          `${error?.message || error}`
+        );
+      }
+    }
+
+
+    if (
+      !items.length
+    ) {
+
+      console.log(
+        `[${WORKER_NAME}] NFL prop lines — no markets returned`
+      );
+
+      return;
+    }
+
+
+    const response =
+      await fetch(
+        NFL_PROP_LINES_INGEST_URL,
+        {
+          method:
+            "POST",
+
+          headers: {
+
+            Authorization:
+              `Bearer ${MARKET_INGEST_SECRET}`,
+
+            "Content-Type":
+              "application/json"
+          },
+
+          body:
+            JSON.stringify({
+              items
+            })
+        }
+      );
+
+
+    const text =
+      await response.text();
+
+
+    if (
+      !response.ok
+    ) {
+
+      throw new Error(
+        `CashEdge NFL prop line ingest failed: ` +
+        `${response.status} ${text.slice(0, 300)}`
+      );
+    }
+
+
+    console.log(
+      `[${WORKER_NAME}] NFL prop lines refreshed: ${items.length}`
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      `[${WORKER_NAME}] NFL prop line refresh error: ` +
+      `${error?.message || error}`
+    );
+
+
+  } finally {
+
+    nflPropLinesRefreshRunning =
+      false;
+  }
+}
 async function refreshBettingSplits() {
 
   if (
@@ -5518,7 +5956,7 @@ initializeNBAWatchersSafe();
    * A failure here does not affect worker startup.
    */
   void refreshNFLCombinedPropsMarket();
-
+void refreshNFLPropLineMarket();
   /*
    * Tracked games refresh every minute.
    */
@@ -5558,6 +5996,7 @@ initializeNBAWatchersSafe();
        * production Market Intelligence.
        */
       void refreshNFLCombinedPropsMarket();
+      void refreshNFLPropLineMarket();
     },
     REFRESH_INTERVAL_MS
   );
