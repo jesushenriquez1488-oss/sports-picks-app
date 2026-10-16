@@ -12455,7 +12455,43 @@ async function handleNFLPropLinesIngest(
     });
   }
 
+// ============================================================
+// DEDUPE BEFORE UPSERT
+// Supabase cannot update the same conflict key twice
+// inside one INSERT / UPSERT statement.
+// ============================================================
 
+const uniqueRowsMap =
+  new Map();
+
+
+for (
+  const row
+  of rows
+) {
+
+  const key = [
+    row.provider_event_id,
+    row.player,
+    row.market,
+    row.bookmaker
+  ].join("|");
+
+
+  /*
+   * Keep the latest occurrence returned by Owls.
+   */
+  uniqueRowsMap.set(
+    key,
+    row
+  );
+}
+
+
+const uniqueRows =
+  Array.from(
+    uniqueRowsMap.values()
+  );
   if (!rows.length) {
 
     return res
@@ -12480,13 +12516,13 @@ async function handleNFLPropLinesIngest(
       .from(
         "nfl_prop_lines_cache"
       )
-      .upsert(
-        rows,
-        {
-          onConflict:
-            "provider_event_id,player,market,bookmaker"
-        }
-      );
+    .upsert(
+  uniqueRows,
+  {
+    onConflict:
+      "provider_event_id,player,market,bookmaker"
+  }
+);
 
 
   if (error) {
@@ -12517,8 +12553,8 @@ async function handleNFLPropLinesIngest(
       ok:
         true,
 
-      accepted:
-        rows.length,
+     accepted:
+  uniqueRows.length,
 
       rejected
     });
