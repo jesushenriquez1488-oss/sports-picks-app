@@ -4360,7 +4360,9 @@ async function refreshNFLPropLineMarket() {
   null,
 
 providerProp:
-  prop,
+  propCategory === "touchdowns"
+    ? prop
+    : null,
 
 alternateLines
                 }
