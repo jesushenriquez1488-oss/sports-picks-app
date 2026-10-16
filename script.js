@@ -8840,7 +8840,16 @@ function renderNFLPlayerPropsShell(index) {
           🎯 RECEIVERS
         </button>
 
-
+<button
+  type="button"
+  data-prop-view="combined"
+  onclick="showNFLPlayerPropsCategory(
+    ${index},
+    'combined'
+  )"
+>
+  ⚡ COMBINED
+</button>
         <button
           type="button"
           data-prop-view="all"
@@ -11207,6 +11216,2378 @@ ${
     </div>
   `;
 }
+// ============================================================
+// NFL COMBINED PROPS — SHARED PRODUCTION LOADER
+// Used by:
+// 1. COMBINED tab
+// 2. Individual player detail
+// ============================================================
+
+const nflCombinedPropsProductionCache =
+  new Map();
+
+
+async function loadNFLCombinedProp(
+  index,
+  preview
+) {
+
+  const state =
+    nflPlayerPropsState[index] ||
+    {};
+
+
+  if (
+    !preview?.athleteId ||
+    !preview?.position ||
+    !preview?.market ||
+    !preview?.player
+  ) {
+    return null;
+  }
+
+
+  const cacheKey = [
+    state.eventId || "",
+    preview.athleteId,
+    preview.market
+  ].join("|");
+
+
+  if (
+    nflCombinedPropsProductionCache
+      .has(cacheKey)
+  ) {
+
+    return nflCombinedPropsProductionCache
+      .get(cacheKey);
+  }
+
+
+  const {
+    data: sessionData
+  } =
+    await supabaseClient.auth
+      .getSession();
+
+
+  const token =
+    sessionData
+      ?.session
+      ?.access_token;
+
+
+  if (!token) {
+    return null;
+  }
+
+
+  const params =
+    new URLSearchParams({
+
+      mode:
+        "nfl-combined-props",
+
+      athleteId:
+        String(
+          preview.athleteId
+        ),
+
+      position:
+        String(
+          preview.position
+        ),
+
+      market:
+        String(
+          preview.market
+        ),
+
+      player:
+        String(
+          preview.player
+        ),
+
+      awayTeam:
+        String(
+          state.awayTeam ||
+          ""
+        ),
+
+      homeTeam:
+        String(
+          state.homeTeam ||
+          ""
+        )
+    });
+
+
+  try {
+
+    const response =
+      await fetch(
+        `https://www.cashedgeapp.com/api/football-data?${params.toString()}`,
+        {
+          headers: {
+            Authorization:
+              `Bearer ${token}`
+          },
+
+          cache:
+            "no-store"
+        }
+      );
+
+
+    const data =
+      await response.json();
+
+
+    if (
+      !response.ok ||
+      data?.ok !== true
+    ) {
+
+      console.warn(
+        "NFL Combined unavailable:",
+        preview.player,
+        preview.market,
+        data
+      );
+
+      return null;
+    }
+
+
+    const result = {
+      ...data,
+
+      /*
+       * Preserve preview data useful
+       * for frontend rendering.
+       */
+      preview
+    };
+
+
+    nflCombinedPropsProductionCache
+      .set(
+        cacheKey,
+        result
+      );
+
+
+    return result;
+
+
+  } catch (error) {
+
+    console.warn(
+      "NFL Combined fetch error:",
+      preview.player,
+      error
+    );
+
+    return null;
+  }
+}
+
+
+async function loadNFLCombinedPropsForGame(
+  index
+) {
+
+  const state =
+    nflPlayerPropsState[index] ||
+    {};
+
+
+  const previews =
+    Array.isArray(
+      state
+        ?.data
+        ?.combinedPropsPreview
+    )
+      ? state
+          .data
+          .combinedPropsPreview
+      : [];
+
+
+  if (!previews.length) {
+    return [];
+  }
+
+
+  const results =
+    await Promise.all(
+      previews.map(
+        preview =>
+          loadNFLCombinedProp(
+            index,
+            preview
+          )
+      )
+    );
+
+
+  return results.filter(Boolean);
+}
+
+
+async function loadNFLCombinedPropsForPlayer(
+  index,
+  playerName,
+  athleteId = ""
+) {
+
+  const state =
+    nflPlayerPropsState[index] ||
+    {};
+
+
+  const previews =
+    Array.isArray(
+      state
+        ?.data
+        ?.combinedPropsPreview
+    )
+      ? state
+          .data
+          .combinedPropsPreview
+      : [];
+
+
+ const playerPreviews =
+  previews.filter(
+    preview => {
+
+      const sameAthlete =
+        athleteId &&
+        preview?.athleteId &&
+        String(
+          preview.athleteId
+        ) ===
+          String(
+            athleteId
+          );
+
+
+      const sameName =
+        ceNFLNamesMatch(
+          preview?.player || "",
+          playerName
+        );
+
+
+      return (
+        sameAthlete ||
+        sameName
+      );
+    }
+  );
+
+
+  if (!playerPreviews.length) {
+    return [];
+  }
+
+
+  const results =
+    await Promise.all(
+      playerPreviews.map(
+        preview =>
+          loadNFLCombinedProp(
+            index,
+            preview
+          )
+      )
+    );
+
+
+  return results.filter(Boolean);
+}
+// ============================================================
+// NFL PROP LINE ANALYZER — PRODUCTION LOADER
+// ============================================================
+
+async function loadNFLPropLineAnalyzer(
+  index,
+  playerName,
+  market,
+  side,
+  line
+) {
+
+  const state =
+    nflPlayerPropsState[index] ||
+    {};
+
+
+  const eventId =
+    String(
+      state.eventId ||
+      ""
+    ).trim();
+
+
+  const selectedLine =
+    Number(line);
+
+
+  if (
+    !eventId ||
+    !playerName ||
+    !market ||
+    !Number.isFinite(
+      selectedLine
+    )
+  ) {
+    return null;
+  }
+
+
+  const {
+    data: sessionData
+  } =
+    await supabaseClient.auth
+      .getSession();
+
+
+  const token =
+    sessionData
+      ?.session
+      ?.access_token;
+
+
+  if (!token) {
+    return null;
+  }
+
+
+  const params =
+    new URLSearchParams({
+
+      mode:
+        "nfl-prop-line-analyzer",
+
+      eventId,
+
+      player:
+        String(
+          playerName
+        ),
+
+      market:
+        String(
+          market
+        ),
+
+      side:
+        String(
+          side ||
+          "OVER"
+        ).toUpperCase(),
+
+      line:
+        String(
+          selectedLine
+        )
+    });
+
+
+  try {
+
+    const response =
+      await fetch(
+        `https://www.cashedgeapp.com/api/football-data?${params.toString()}`,
+        {
+          headers: {
+            Authorization:
+              `Bearer ${token}`
+          },
+
+          cache:
+            "no-store"
+        }
+      );
+
+
+    const data =
+      await response.json();
+
+
+    if (
+      !response.ok ||
+      data?.ok !== true
+    ) {
+
+      console.warn(
+        "NFL Prop Line Analyzer unavailable:",
+        playerName,
+        market,
+        selectedLine,
+        data
+      );
+
+      return null;
+    }
+
+
+    return data;
+
+
+  } catch (error) {
+
+    console.warn(
+      "NFL Prop Line Analyzer fetch error:",
+      playerName,
+      error
+    );
+
+    return null;
+  }
+}
+// ============================================================
+// NFL PROP LINE ANALYZER — UI
+// ============================================================
+
+const nflPropLineAnalyzerUiState =
+  new Map();
+
+
+const nflPropLineAnalyzerTimers =
+  new Map();
+
+
+function nflPropAnalyzerNumber(
+  value
+) {
+
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
+
+  const number =
+    Number(value);
+
+
+  return Number.isFinite(number)
+    ? number
+    : null;
+}
+
+
+function nflPropAnalyzerSigned(
+  value,
+  decimals = 1
+) {
+
+  const number =
+    nflPropAnalyzerNumber(
+      value
+    );
+
+
+  if (number === null) {
+    return "—";
+  }
+
+
+  return `${
+    number > 0
+      ? "+"
+      : ""
+  }${number.toFixed(decimals)}`;
+}
+
+
+function nflPropAnalyzerOdds(
+  value
+) {
+
+  const odds =
+    nflPropAnalyzerNumber(
+      value
+    );
+
+
+  if (odds === null) {
+    return "—";
+  }
+
+
+  return odds > 0
+    ? `+${Math.round(odds)}`
+    : `${Math.round(odds)}`;
+}
+
+
+function renderNFLPropAnalyzerCoverage(
+  label,
+  coverage
+) {
+
+  const percentage =
+    nflPropAnalyzerNumber(
+      coverage?.percentage
+    );
+
+
+  const wins =
+    nflPropAnalyzerNumber(
+      coverage?.wins
+    );
+
+
+  const games =
+    nflPropAnalyzerNumber(
+      coverage?.games
+    );
+
+
+  return `
+    <div
+      style="
+        background:#0f1628;
+        border-radius:8px;
+        padding:8px 4px;
+        text-align:center;
+      "
+    >
+
+      <small
+        style="
+          display:block;
+          color:#60708d;
+          font-size:6px;
+          font-weight:800;
+        "
+      >
+        ${sanitize(label)}
+      </small>
+
+
+      <strong
+        style="
+          display:block;
+          color:#fff;
+          font-size:12px;
+          margin-top:4px;
+        "
+      >
+        ${
+          wins !== null &&
+          games !== null
+            ? `${wins}/${games}`
+            : "—"
+        }
+      </strong>
+
+
+      <span
+        style="
+          display:block;
+          color:${
+            percentage !== null &&
+            percentage >= 70
+              ? "#00ffe7"
+              : "#71839f"
+          };
+          font-size:7px;
+          font-weight:800;
+          margin-top:3px;
+        "
+      >
+        ${
+          percentage !== null
+            ? `${percentage.toFixed(0)}%`
+            : "NO DATA"
+        }
+      </span>
+
+    </div>
+  `;
+}
+
+
+function renderNFLPropLineAnalyzerCard(
+  index,
+  data
+) {
+
+  const selectedLine =
+    nflPropAnalyzerNumber(
+      data?.selectedLine
+    );
+
+
+  const projection =
+    nflPropAnalyzerNumber(
+      data?.projection
+    );
+
+
+  const probability =
+    nflPropAnalyzerNumber(
+      data
+        ?.probability
+        ?.probability
+    );
+
+
+  const confidence =
+    nflPropAnalyzerNumber(
+      data?.confidence
+    );
+
+
+  const side =
+    String(
+      data?.side ||
+      "OVER"
+    ).toUpperCase();
+
+
+  const offer =
+    data?.marketOffer ||
+    {};
+
+
+  const odds =
+    nflPropAnalyzerNumber(
+      offer?.odds
+    );
+
+
+  const value =
+    nflPropAnalyzerNumber(
+      offer?.value
+    );
+
+
+  const ev =
+    nflPropAnalyzerNumber(
+      offer
+        ?.ev
+        ?.evPercent
+    );
+
+
+  const bookmaker =
+    String(
+      offer?.bookmaker ||
+      ""
+    );
+
+
+  const marketLabel =
+    getNFLPlayerPropMarketLabel(
+      data?.market
+    );
+
+
+  const isMilestone =
+    offer?.contractType ===
+      "milestone" &&
+    offer?.inclusive === true;
+
+
+  const selectedContract =
+    selectedLine === null
+      ? "—"
+      : isMilestone
+        ? `${selectedLine}+`
+        : `${side} ${selectedLine}`;
+
+
+  const coverages =
+    data?.historicalCoverages ||
+    {};
+
+
+  const rawOffers =
+    Array.isArray(
+      data?.availableOffers
+    )
+      ? data.availableOffers
+      : [];
+
+
+  const offerKeys =
+    new Set();
+
+
+  const offers =
+    rawOffers.filter(
+      item => {
+
+        const line =
+          nflPropAnalyzerNumber(
+            item?.line
+          );
+
+
+        if (line === null) {
+          return false;
+        }
+
+
+        const key = [
+          item?.contractType || "",
+          line,
+          item?.side || "",
+          item?.bookmaker || "",
+          item?.odds ?? ""
+        ].join("|");
+
+
+        if (
+          offerKeys.has(key)
+        ) {
+          return false;
+        }
+
+
+        offerKeys.add(key);
+
+        return true;
+      }
+    );
+
+
+  return `
+    <div
+      style="
+        background:#081321;
+        border:1px solid rgba(124,60,255,.45);
+        border-radius:12px;
+        padding:12px;
+        margin-bottom:9px;
+      "
+    >
+
+      <div
+        style="
+          display:flex;
+          justify-content:space-between;
+          align-items:flex-start;
+          gap:10px;
+        "
+      >
+
+        <div>
+
+          <div
+            style="
+              color:#c4a0ff;
+              font-size:8px;
+              font-weight:900;
+              letter-spacing:.08em;
+            "
+          >
+            🎚 PROP LINE ANALYZER
+          </div>
+
+
+          <div
+            style="
+              color:#fff;
+              font-size:12px;
+              font-weight:850;
+              margin-top:5px;
+            "
+          >
+            ${sanitize(
+              marketLabel
+            )}
+          </div>
+
+        </div>
+
+
+        <div
+          style="
+            text-align:right;
+          "
+        >
+
+          <small
+            style="
+              display:block;
+              color:#60708d;
+              font-size:6px;
+              font-weight:800;
+            "
+          >
+            CASHEDGE PROJECTION
+          </small>
+
+
+          <strong
+            style="
+              display:block;
+              color:#00ffe7;
+              font-size:17px;
+              margin-top:3px;
+            "
+          >
+            ${
+              projection !== null
+                ? projection.toFixed(1)
+                : "—"
+            }
+          </strong>
+
+        </div>
+
+      </div>
+
+
+      <div
+        style="
+          margin-top:7px;
+          color:#60708d;
+          font-size:7px;
+          line-height:1.35;
+        "
+      >
+        CashEdge projection stays fixed.
+        Move the line to recalculate the matchup.
+      </div>
+
+
+      <div
+        style="
+          display:grid;
+          grid-template-columns:
+            42px minmax(0,1fr) 42px;
+          gap:6px;
+          margin-top:11px;
+        "
+      >
+
+        <button
+          type="button"
+          onclick="
+            window.stepNFLPropLineAnalyzer(
+              ${index},
+              -0.5
+            )
+          "
+          style="
+            border:1px solid #243653;
+            background:#0f1628;
+            color:#fff;
+            border-radius:9px;
+            font-size:18px;
+            font-weight:900;
+            cursor:pointer;
+          "
+        >
+          −
+        </button>
+
+
+        <input
+          id="nflPropAnalyzerLineInput${index}"
+          type="number"
+          step="0.5"
+          value="${
+            selectedLine !== null
+              ? selectedLine
+              : ""
+          }"
+          oninput="
+            window.scheduleNFLPropLineAnalyzer(
+              ${index},
+              this.value
+            )
+          "
+          style="
+            width:100%;
+            min-width:0;
+            text-align:center;
+            background:#0f1628;
+            border:1px solid rgba(124,60,255,.55);
+            border-radius:9px;
+            color:#fff;
+            padding:9px 5px;
+            font-size:15px;
+            font-weight:900;
+            outline:none;
+          "
+        >
+
+
+        <button
+          type="button"
+          onclick="
+            window.stepNFLPropLineAnalyzer(
+              ${index},
+              0.5
+            )
+          "
+          style="
+            border:1px solid #243653;
+            background:#0f1628;
+            color:#fff;
+            border-radius:9px;
+            font-size:18px;
+            font-weight:900;
+            cursor:pointer;
+          "
+        >
+          +
+        </button>
+
+      </div>
+
+
+      <div
+        style="
+          display:grid;
+          grid-template-columns:
+            repeat(2,minmax(0,1fr));
+          gap:6px;
+          margin-top:7px;
+        "
+      >
+
+        <button
+          type="button"
+          onclick="
+            window.setNFLPropLineAnalyzerSide(
+              ${index},
+              'OVER'
+            )
+          "
+          style="
+            padding:8px 4px;
+            border-radius:8px;
+            border:1px solid ${
+              side === "OVER"
+                ? "#00ffe7"
+                : "#243653"
+            };
+            background:${
+              side === "OVER"
+                ? "rgba(0,255,231,.08)"
+                : "#0f1628"
+            };
+            color:${
+              side === "OVER"
+                ? "#00ffe7"
+                : "#71839f"
+            };
+            font-size:8px;
+            font-weight:900;
+            cursor:pointer;
+          "
+        >
+          OVER
+        </button>
+
+
+        <button
+          type="button"
+          onclick="
+            window.setNFLPropLineAnalyzerSide(
+              ${index},
+              'UNDER'
+            )
+          "
+          style="
+            padding:8px 4px;
+            border-radius:8px;
+            border:1px solid ${
+              side === "UNDER"
+                ? "#00ffe7"
+                : "#243653"
+            };
+            background:${
+              side === "UNDER"
+                ? "rgba(0,255,231,.08)"
+                : "#0f1628"
+            };
+            color:${
+              side === "UNDER"
+                ? "#00ffe7"
+                : "#71839f"
+            };
+            font-size:8px;
+            font-weight:900;
+            cursor:pointer;
+          "
+        >
+          UNDER
+        </button>
+
+      </div>
+
+
+      <div
+        style="
+          margin-top:10px;
+          padding:10px;
+          background:#0b1323;
+          border-radius:9px;
+        "
+      >
+
+        <div
+          style="
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:10px;
+          "
+        >
+
+          <strong
+            style="
+              color:#fff;
+              font-size:13px;
+            "
+          >
+            ${sanitize(
+              selectedContract
+            )}
+          </strong>
+
+
+          <strong
+            style="
+              color:#00ffe7;
+              font-size:17px;
+            "
+          >
+            ${
+              probability !== null
+                ? `${probability.toFixed(1)}%`
+                : "—"
+            }
+          </strong>
+
+        </div>
+
+
+        <div
+          style="
+            display:grid;
+            grid-template-columns:
+              repeat(4,minmax(0,1fr));
+            gap:5px;
+            margin-top:9px;
+          "
+        >
+
+          <div
+            style="
+              text-align:center;
+              background:#0f1628;
+              border-radius:8px;
+              padding:7px 3px;
+            "
+          >
+            <small
+              style="
+                color:#60708d;
+                font-size:6px;
+                font-weight:800;
+              "
+            >
+              CONF.
+            </small>
+
+            <strong
+              style="
+                display:block;
+                color:#fff;
+                margin-top:4px;
+                font-size:11px;
+              "
+            >
+              ${
+                confidence !== null
+                  ? `${confidence.toFixed(1)}%`
+                  : "—"
+              }
+            </strong>
+          </div>
+
+
+          <div
+            style="
+              text-align:center;
+              background:#0f1628;
+              border-radius:8px;
+              padding:7px 3px;
+            "
+          >
+            <small
+              style="
+                color:#60708d;
+                font-size:6px;
+                font-weight:800;
+              "
+            >
+              ODDS
+            </small>
+
+            <strong
+              style="
+                display:block;
+                color:#ffad5c;
+                margin-top:4px;
+                font-size:11px;
+              "
+            >
+              ${nflPropAnalyzerOdds(
+                odds
+              )}
+            </strong>
+          </div>
+
+
+          <div
+            style="
+              text-align:center;
+              background:#0f1628;
+              border-radius:8px;
+              padding:7px 3px;
+            "
+          >
+            <small
+              style="
+                color:#60708d;
+                font-size:6px;
+                font-weight:800;
+              "
+            >
+              VALUE
+            </small>
+
+            <strong
+              style="
+                display:block;
+                color:${
+                  value !== null &&
+                  value > 0
+                    ? "#00ffe7"
+                    : "#71839f"
+                };
+                margin-top:4px;
+                font-size:11px;
+              "
+            >
+              ${
+                value !== null
+                  ? `${nflPropAnalyzerSigned(
+                      value
+                    )}%`
+                  : "—"
+              }
+            </strong>
+          </div>
+
+
+          <div
+            style="
+              text-align:center;
+              background:#0f1628;
+              border-radius:8px;
+              padding:7px 3px;
+            "
+          >
+            <small
+              style="
+                color:#60708d;
+                font-size:6px;
+                font-weight:800;
+              "
+            >
+              EV
+            </small>
+
+            <strong
+              style="
+                display:block;
+                color:${
+                  ev !== null &&
+                  ev > 0
+                    ? "#00ffe7"
+                    : "#71839f"
+                };
+                margin-top:4px;
+                font-size:11px;
+              "
+            >
+              ${
+                ev !== null
+                  ? `${nflPropAnalyzerSigned(
+                      ev
+                    )}%`
+                  : "—"
+              }
+            </strong>
+          </div>
+
+        </div>
+
+
+        <div
+          style="
+            margin-top:7px;
+            color:#60708d;
+            font-size:7px;
+          "
+        >
+          ${
+            offer?.found === true
+              ? `Real price · ${sanitize(
+                  bookmaker.toUpperCase()
+                )}`
+              : "No real sportsbook price for this exact line."
+          }
+        </div>
+
+      </div>
+
+
+      <div
+        style="
+          margin-top:10px;
+          color:#71839f;
+          font-size:7px;
+          font-weight:900;
+          letter-spacing:.07em;
+        "
+      >
+        HISTORICAL HIT RATE
+      </div>
+
+
+      <div
+        style="
+          display:grid;
+          grid-template-columns:
+            repeat(4,minmax(0,1fr));
+          gap:5px;
+          margin-top:6px;
+        "
+      >
+        ${renderNFLPropAnalyzerCoverage(
+          "LAST 10",
+          coverages.last10
+        )}
+
+        ${renderNFLPropAnalyzerCoverage(
+          "SEASON",
+          coverages.season
+        )}
+
+        ${renderNFLPropAnalyzerCoverage(
+          "LOCATION",
+          coverages.location
+        )}
+
+        ${renderNFLPropAnalyzerCoverage(
+          "VS OPP",
+          coverages.vs
+        )}
+      </div>
+
+
+      ${
+        offers.length
+          ? `
+            <div
+              style="
+                margin-top:11px;
+                color:#71839f;
+                font-size:7px;
+                font-weight:900;
+                letter-spacing:.07em;
+              "
+            >
+              REAL AVAILABLE LINES
+            </div>
+
+
+            <div
+              style="
+                display:flex;
+                gap:5px;
+                overflow-x:auto;
+                margin-top:6px;
+                padding-bottom:3px;
+              "
+            >
+
+              ${offers
+                .slice(0, 14)
+                .map(
+                  item => {
+
+                    const offerLine =
+                      nflPropAnalyzerNumber(
+                        item?.line
+                      );
+
+
+                    const milestone =
+                      item
+                        ?.contractType ===
+                        "milestone";
+
+
+                    const label =
+                      milestone
+                        ? `${offerLine}+`
+                        : `${
+                            item?.side ===
+                            "UNDER"
+                              ? "U"
+                              : "O"
+                          } ${offerLine}`;
+
+
+                    return `
+                      <button
+                        type="button"
+                        onclick="
+                          window.selectNFLPropLineAnalyzerOffer(
+                            ${index},
+                            ${offerLine},
+                            '${String(
+                              item?.side ||
+                              side
+                            ).replace(
+                              /'/g,
+                              "\\'"
+                            )}'
+                          )
+                        "
+                        style="
+                          flex:0 0 auto;
+                          border:1px solid #243653;
+                          background:#0f1628;
+                          border-radius:9px;
+                          padding:7px 8px;
+                          color:#fff;
+                          cursor:pointer;
+                        "
+                      >
+
+                        <strong
+                          style="
+                            display:block;
+                            font-size:8px;
+                          "
+                        >
+                          ${sanitize(label)}
+                        </strong>
+
+                        <small
+                          style="
+                            display:block;
+                            color:#ffad5c;
+                            font-size:7px;
+                            margin-top:2px;
+                          "
+                        >
+                          ${nflPropAnalyzerOdds(
+                            item?.odds
+                          )}
+                        </small>
+
+                        <small
+                          style="
+                            display:block;
+                            color:#60708d;
+                            font-size:6px;
+                            margin-top:2px;
+                          "
+                        >
+                          ${sanitize(
+                            String(
+                              item?.bookmaker ||
+                              ""
+                            ).toUpperCase()
+                          )}
+                        </small>
+
+                      </button>
+                    `;
+                  }
+                )
+                .join("")}
+
+            </div>
+          `
+          : ""
+      }
+
+    </div>
+  `;
+}
+
+
+async function showNFLPropLineAnalyzer(
+  index,
+  playerName,
+  market,
+  side,
+  line,
+  showLoading = true
+) {
+
+  const section =
+    document.getElementById(
+      `nflPropLineAnalyzerSection${index}`
+    );
+
+
+  if (!section) {
+    return;
+  }
+
+
+  const selectedLine =
+    nflPropAnalyzerNumber(
+      line
+    );
+
+
+  if (
+    !playerName ||
+    !market ||
+    selectedLine === null
+  ) {
+
+    section.innerHTML = "";
+
+    return;
+  }
+
+
+  const previous =
+    nflPropLineAnalyzerUiState
+      .get(index) ||
+    {};
+
+
+  const requestId =
+    Number(
+      previous.requestId ||
+      0
+    ) + 1;
+
+
+  const analyzerSide =
+    String(
+      side ||
+      "OVER"
+    ).toUpperCase();
+
+
+  nflPropLineAnalyzerUiState
+    .set(
+      index,
+      {
+        ...previous,
+
+        playerName,
+        market,
+        side:
+          analyzerSide,
+        line:
+          selectedLine,
+        requestId
+      }
+    );
+
+
+  if (
+    showLoading &&
+    !previous.data
+  ) {
+
+    section.innerHTML = `
+      <div
+        class="loading-analysis"
+        style="margin-bottom:9px;"
+      >
+        Loading Prop Line Analyzer...
+      </div>
+    `;
+  }
+
+
+  const data =
+    await loadNFLPropLineAnalyzer(
+      index,
+      playerName,
+      market,
+      analyzerSide,
+      selectedLine
+    );
+
+
+  const current =
+    nflPropLineAnalyzerUiState
+      .get(index);
+
+
+  if (
+    !current ||
+    current.requestId !==
+      requestId ||
+    !section.isConnected
+  ) {
+    return;
+  }
+
+
+  if (!data) {
+
+    if (!current.data) {
+
+      section.innerHTML = `
+        <div
+          style="
+            background:#0b1323;
+            border:1px solid #243653;
+            border-radius:11px;
+            padding:10px;
+            margin-bottom:9px;
+            color:#71839f;
+            font-size:8px;
+          "
+        >
+          Prop Line Analyzer is not
+          available for this prop.
+        </div>
+      `;
+    }
+
+    return;
+  }
+
+
+  nflPropLineAnalyzerUiState
+    .set(
+      index,
+      {
+        ...current,
+        data
+      }
+    );
+
+
+  section.innerHTML =
+    renderNFLPropLineAnalyzerCard(
+      index,
+      data
+    );
+}
+
+
+function refreshNFLPropLineAnalyzer(
+  index,
+  line,
+  side = null
+) {
+
+  const state =
+    nflPropLineAnalyzerUiState
+      .get(index);
+
+
+  if (!state) {
+    return;
+  }
+
+
+  const selectedLine =
+    nflPropAnalyzerNumber(
+      line
+    );
+
+
+  if (selectedLine === null) {
+    return;
+  }
+
+
+  void showNFLPropLineAnalyzer(
+    index,
+    state.playerName,
+    state.market,
+    side ||
+      state.side ||
+      "OVER",
+    selectedLine,
+    false
+  );
+}
+
+
+function scheduleNFLPropLineAnalyzer(
+  index,
+  value
+) {
+
+  const oldTimer =
+    nflPropLineAnalyzerTimers
+      .get(index);
+
+
+  if (oldTimer) {
+    clearTimeout(
+      oldTimer
+    );
+  }
+
+
+  const timer =
+    setTimeout(
+      () => {
+
+        refreshNFLPropLineAnalyzer(
+          index,
+          value
+        );
+
+      },
+      180
+    );
+
+
+  nflPropLineAnalyzerTimers
+    .set(
+      index,
+      timer
+    );
+}
+
+
+function stepNFLPropLineAnalyzer(
+  index,
+  amount
+) {
+
+  const input =
+    document.getElementById(
+      `nflPropAnalyzerLineInput${index}`
+    );
+
+
+  if (!input) {
+    return;
+  }
+
+
+  const current =
+    nflPropAnalyzerNumber(
+      input.value
+    );
+
+
+  if (current === null) {
+    return;
+  }
+
+
+  const next =
+    Math.max(
+      0,
+      Math.round(
+        (
+          current +
+          Number(amount || 0)
+        ) * 2
+      ) / 2
+    );
+
+
+  input.value =
+    String(next);
+
+
+  refreshNFLPropLineAnalyzer(
+    index,
+    next
+  );
+}
+
+
+function setNFLPropLineAnalyzerSide(
+  index,
+  side
+) {
+
+  const input =
+    document.getElementById(
+      `nflPropAnalyzerLineInput${index}`
+    );
+
+
+  const state =
+    nflPropLineAnalyzerUiState
+      .get(index);
+
+
+  const line =
+    nflPropAnalyzerNumber(
+      input?.value ??
+      state?.line
+    );
+
+
+  if (line === null) {
+    return;
+  }
+
+
+  refreshNFLPropLineAnalyzer(
+    index,
+    line,
+    side
+  );
+}
+
+
+function selectNFLPropLineAnalyzerOffer(
+  index,
+  line,
+  side
+) {
+
+  const input =
+    document.getElementById(
+      `nflPropAnalyzerLineInput${index}`
+    );
+
+
+  if (input) {
+    input.value =
+      String(line);
+  }
+
+
+  refreshNFLPropLineAnalyzer(
+    index,
+    line,
+    side
+  );
+}
+
+
+window.scheduleNFLPropLineAnalyzer =
+  scheduleNFLPropLineAnalyzer;
+
+window.stepNFLPropLineAnalyzer =
+  stepNFLPropLineAnalyzer;
+
+window.setNFLPropLineAnalyzerSide =
+  setNFLPropLineAnalyzerSide;
+
+window.selectNFLPropLineAnalyzerOffer =
+  selectNFLPropLineAnalyzerOffer;
+// ============================================================
+// NFL COMBINED PROPS — RENDER
+// ============================================================
+
+function formatNFLCombinedAmericanOdds(
+  value
+) {
+
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return "—";
+  }
+
+
+  const odds =
+    Number(value);
+
+  if (!Number.isFinite(odds)) {
+    return "—";
+  }
+
+
+  return odds > 0
+    ? `+${odds}`
+    : `${odds}`;
+}
+
+
+function renderNFLCombinedProductionCard(
+  item
+) {
+
+  const toOptionalNumber =
+  value => {
+
+    if (
+      value === null ||
+      value === undefined ||
+      value === ""
+    ) {
+      return null;
+    }
+
+    const number =
+      Number(value);
+
+    return Number.isFinite(number)
+      ? number
+      : null;
+  };
+
+
+const probability =
+  toOptionalNumber(
+    item
+      ?.predictiveProbability
+      ?.probability
+  );
+
+
+const projection =
+  toOptionalNumber(
+    item
+      ?.projectionData
+      ?.combinedProjection
+  );
+
+
+const line =
+  toOptionalNumber(
+    item?.effectiveLine
+  );
+
+
+const side =
+  String(
+    item?.effectiveSide ||
+    ""
+  );
+
+
+const market =
+  item?.marketComparison ||
+  {};
+
+
+const value =
+  toOptionalNumber(
+    market?.value
+  );
+
+
+const ev =
+  toOptionalNumber(
+    market
+      ?.ev
+      ?.evPercent
+  );
+
+
+const odds =
+  toOptionalNumber(
+    market?.selectedOdds
+  );
+
+
+  return `
+    <div
+      style="
+        background:#081321;
+        border:1px solid rgba(0,255,231,.25);
+        border-radius:12px;
+        padding:13px 14px;
+        margin-bottom:8px;
+      "
+    >
+
+      <div
+        style="
+          display:flex;
+          justify-content:space-between;
+          align-items:flex-start;
+          gap:12px;
+        "
+      >
+
+        <div style="min-width:0;">
+
+          <div
+            style="
+              color:#fff;
+              font-size:13px;
+              font-weight:850;
+            "
+          >
+            ${sanitize(
+              item?.player ||
+              "Player"
+            )}
+          </div>
+
+
+          <div
+            style="
+              margin-top:4px;
+              color:#71839f;
+              font-size:9px;
+            "
+          >
+            ${sanitize(
+              item?.marketLabel ||
+              "Combined Prop"
+            )}
+          </div>
+
+
+          <div
+            style="
+              margin-top:7px;
+              color:#00ffe7;
+              font-size:13px;
+              font-weight:900;
+            "
+          >
+            ${sanitize(side)}
+            ${
+              Number.isFinite(line)
+                ? line
+                : "—"
+            }
+          </div>
+
+        </div>
+
+
+        <div style="text-align:right;">
+
+          <div
+            style="
+              color:#00ffe7;
+              font-size:17px;
+              font-weight:900;
+            "
+          >
+            ${
+              Number.isFinite(
+                probability
+              )
+                ? `${probability.toFixed(1)}%`
+                : "—"
+            }
+          </div>
+
+          <div
+            style="
+              color:#71839f;
+              font-size:7px;
+              margin-top:2px;
+            "
+          >
+            PROBABILITY
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div
+        style="
+          display:grid;
+          grid-template-columns:
+            repeat(4,minmax(0,1fr));
+          gap:6px;
+          margin-top:12px;
+        "
+      >
+
+        <div
+          style="
+            background:#0f1628;
+            border-radius:8px;
+            padding:8px 4px;
+            text-align:center;
+          "
+        >
+          <div
+            style="
+              color:#60708d;
+              font-size:6px;
+              font-weight:800;
+            "
+          >
+            PROJECTION
+          </div>
+
+          <strong
+            style="
+              display:block;
+              color:#fff;
+              font-size:11px;
+              margin-top:4px;
+            "
+          >
+            ${
+              Number.isFinite(
+                projection
+              )
+                ? projection.toFixed(1)
+                : "—"
+            }
+          </strong>
+        </div>
+
+
+        <div
+          style="
+            background:#0f1628;
+            border-radius:8px;
+            padding:8px 4px;
+            text-align:center;
+          "
+        >
+          <div
+            style="
+              color:#60708d;
+              font-size:6px;
+              font-weight:800;
+            "
+          >
+            ODDS
+          </div>
+
+          <strong
+            style="
+              display:block;
+              color:#ffad5c;
+              font-size:11px;
+              margin-top:4px;
+            "
+          >
+            ${formatNFLCombinedAmericanOdds(
+              odds
+            )}
+          </strong>
+        </div>
+
+
+        <div
+          style="
+            background:#0f1628;
+            border-radius:8px;
+            padding:8px 4px;
+            text-align:center;
+          "
+        >
+          <div
+            style="
+              color:#60708d;
+              font-size:6px;
+              font-weight:800;
+            "
+          >
+            VALUE
+          </div>
+
+          <strong
+            style="
+              display:block;
+              color:${
+                Number.isFinite(value) &&
+                value > 0
+                  ? "#00ffe7"
+                  : "#71839f"
+              };
+              font-size:11px;
+              margin-top:4px;
+            "
+          >
+            ${
+              Number.isFinite(value)
+                ? `${
+                    value >= 0
+                      ? "+"
+                      : ""
+                  }${value.toFixed(1)}%`
+                : "—"
+            }
+          </strong>
+        </div>
+
+
+        <div
+          style="
+            background:#0f1628;
+            border-radius:8px;
+            padding:8px 4px;
+            text-align:center;
+          "
+        >
+          <div
+            style="
+              color:#60708d;
+              font-size:6px;
+              font-weight:800;
+            "
+          >
+            EV
+          </div>
+
+          <strong
+            style="
+              display:block;
+              color:${
+                Number.isFinite(ev) &&
+                ev > 0
+                  ? "#00ffe7"
+                  : "#71839f"
+              };
+              font-size:11px;
+              margin-top:4px;
+            "
+          >
+            ${
+              Number.isFinite(ev)
+                ? `${
+                    ev >= 0
+                      ? "+"
+                      : ""
+                  }${ev.toFixed(1)}%`
+                : "—"
+            }
+          </strong>
+        </div>
+
+      </div>
+
+
+      <div
+        style="
+          margin-top:9px;
+          color:#60708d;
+          font-size:7px;
+          text-align:right;
+        "
+      >
+        ${sanitize(
+          String(
+            market?.bookmaker ||
+            ""
+          ).toUpperCase()
+        )}
+      </div>
+
+    </div>
+  `;
+}
+
+
+async function showNFLCombinedProps(
+  index
+) {
+
+  const container =
+    document.getElementById(
+      `nflPlayerPropsContent${index}`
+    );
+
+
+  if (!container) {
+    return;
+  }
+
+
+  container.innerHTML = `
+    <div class="loading-analysis">
+      Loading Combined Props...
+    </div>
+  `;
+
+
+  const combined =
+    await loadNFLCombinedPropsForGame(
+      index
+    );
+
+
+  if (!combined.length) {
+
+    container.innerHTML = `
+      <div class="ps-empty">
+        No Combined Props available
+        for this game.
+      </div>
+    `;
+
+    return;
+  }
+
+
+  combined.sort(
+    (a, b) => {
+
+      const evA =
+        Number(
+          a
+            ?.marketComparison
+            ?.ev
+            ?.evPercent
+        );
+
+
+      const evB =
+        Number(
+          b
+            ?.marketComparison
+            ?.ev
+            ?.evPercent
+        );
+
+
+      const safeA =
+        Number.isFinite(evA)
+          ? evA
+          : -999;
+
+
+      const safeB =
+        Number.isFinite(evB)
+          ? evB
+          : -999;
+
+
+      return safeB - safeA;
+    }
+  );
+
+
+  container.innerHTML =
+    combined
+      .map(
+        renderNFLCombinedProductionCard
+      )
+      .join("");
+}
+async function showNFLCombinedPropsForPlayer(
+  index,
+  playerName,
+  athleteId = ""
+) {
+
+  const section =
+    document.getElementById(
+      `nflPlayerCombinedSection${index}`
+    );
+
+
+  if (!section) {
+    return;
+  }
+
+
+  const combined =
+    await loadNFLCombinedPropsForPlayer(
+      index,
+      playerName,
+      athleteId
+    );
+
+
+  if (!combined.length) {
+
+    section.innerHTML = "";
+
+    return;
+  }
+
+
+  combined.sort(
+    (a, b) => {
+
+      const evA =
+        Number(
+          a
+            ?.marketComparison
+            ?.ev
+            ?.evPercent
+        );
+
+
+      const evB =
+        Number(
+          b
+            ?.marketComparison
+            ?.ev
+            ?.evPercent
+        );
+
+
+      const safeA =
+        Number.isFinite(evA)
+          ? evA
+          : -999;
+
+
+      const safeB =
+        Number.isFinite(evB)
+          ? evB
+          : -999;
+
+
+      return safeB - safeA;
+    }
+  );
+
+
+  section.innerHTML = `
+    <div
+      style="
+        margin-bottom:9px;
+      "
+    >
+
+      <div
+        style="
+          color:#00ffe7;
+          font-size:8px;
+          font-weight:900;
+          letter-spacing:.08em;
+          margin:0 2px 8px;
+        "
+      >
+        ⚡ COMBINED PROPS
+      </div>
+
+      ${combined
+        .map(
+          renderNFLCombinedProductionCard
+        )
+        .join("")}
+
+    </div>
+  `;
+}
 function showNFLPlayerPropsCategory(
   index,
   category = "best"
@@ -11252,7 +13633,17 @@ function showNFLPlayerPropsCategory(
     mainView: category
   };
 
+if (
+  category ===
+  "combined"
+) {
 
+  void showNFLCombinedProps(
+    index
+  );
+
+  return;
+}
   /*
    * BEST:
    * mantiene las recomendaciones CashEdge.
@@ -14708,11 +17099,21 @@ ${wins}/${games}
       </div>
       ${hitRateCard}
 
-      ${
-        source === "props"
-          ? todayConditionsCard
-          : matchupCard + situationalCard
-      }
+${
+  source === "props"
+    ? `
+      <div
+        id="nflPropLineAnalyzerSection${index}"
+      ></div>
+
+      <div
+        id="nflPlayerCombinedSection${index}"
+      ></div>
+
+      ${todayConditionsCard}
+    `
+    : matchupCard + situationalCard
+}
       ${
   source === "props"
     ? `
@@ -14809,9 +17210,39 @@ ${wins}/${games}
         margin-bottom:2px;
       ">RECENT GAMES</div>
 
-      ${recentGamesHTML}
+     ${recentGamesHTML}
     </div>
   `;
+
+
+ if (
+  source === "props"
+) {
+
+  if (
+    selectedProp &&
+    selectedProp.market &&
+    Number.isFinite(
+      propLine
+    )
+  ) {
+
+    void showNFLPropLineAnalyzer(
+      index,
+      player.name,
+      selectedProp.market,
+      propSide,
+      propLine
+    );
+  }
+
+
+  void showNFLCombinedPropsForPlayer(
+    index,
+    player.name,
+    propsReturnAthleteId
+  );
+}
 }
 
 function showNFLPlayerStatsWindow(index, windowKey) {
