@@ -15604,6 +15604,10 @@ cachedJson.propLineAnalyzerVersion === 1 &&
 Array.isArray(
   cachedJson.propLineAnalyzerSources
 ) &&
+cachedJson.anytimeTDVersion === 1 &&
+Array.isArray(
+  cachedJson.anytimeTDProps
+) &&
 (
   cachedJson.nflRoleWarmComplete === true ||
   Date.now() -
@@ -15634,34 +15638,134 @@ Array.isArray(
   );
   const oddsData = await propsRes.json();
  
-  // Obtener moneyline para GameScriptScore
-  const mlRes = await fetch(
-    `https://api.the-odds-api.com/v4/sports/americanfootball_nfl/events/${selectedEvent.id}/odds` +
-    `?apiKey=${ODDS_API_KEY}&regions=us&markets=h2h,spreads&oddsFormat=american`
-  );
-  const mlData = await mlRes.json();
- 
-  // Extraer spread y moneyline del primer bookmaker disponible
-  let awayMoneyline = null, homeMoneyline = null;
-  let awaySpread = null, homeSpread = null;
- 
-  for (const bk of mlData?.bookmakers || []) {
-    for (const mkt of bk?.markets || []) {
-      if (mkt.key === "h2h") {
-        for (const o of mkt?.outcomes || []) {
-          if (o.name === selectedEvent.away_team) awayMoneyline = Number(o.price);
-          if (o.name === selectedEvent.home_team) homeMoneyline = Number(o.price);
+  // Obtener moneyline, spread y total para GameScriptScore
+// y contexto de anotación de Anytime TD.
+const mlRes = await fetch(
+  `https://api.the-odds-api.com/v4/sports/americanfootball_nfl/events/${selectedEvent.id}/odds` +
+  `?apiKey=${ODDS_API_KEY}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`
+);
+
+const mlData =
+  await mlRes.json();
+
+
+// Extraer mercado del primer bookmaker disponible.
+let awayMoneyline = null;
+let homeMoneyline = null;
+
+let awaySpread = null;
+let homeSpread = null;
+
+let gameTotal = null;
+
+
+for (
+  const bk
+  of mlData?.bookmakers || []
+) {
+
+  for (
+    const mkt
+    of bk?.markets || []
+  ) {
+
+    if (
+      mkt.key === "h2h"
+    ) {
+
+      for (
+        const o
+        of mkt?.outcomes || []
+      ) {
+
+        if (
+          o.name ===
+          selectedEvent.away_team
+        ) {
+          awayMoneyline =
+            Number(o.price);
         }
-      }
-      if (mkt.key === "spreads") {
-        for (const o of mkt?.outcomes || []) {
-          if (o.name === selectedEvent.away_team) awaySpread = Number(o.point);
-          if (o.name === selectedEvent.home_team) homeSpread = Number(o.point);
+
+        if (
+          o.name ===
+          selectedEvent.home_team
+        ) {
+          homeMoneyline =
+            Number(o.price);
         }
       }
     }
-    if (awayMoneyline && homeMoneyline) break;
+
+
+    if (
+      mkt.key === "spreads"
+    ) {
+
+      for (
+        const o
+        of mkt?.outcomes || []
+      ) {
+
+        if (
+          o.name ===
+          selectedEvent.away_team
+        ) {
+          awaySpread =
+            Number(o.point);
+        }
+
+        if (
+          o.name ===
+          selectedEvent.home_team
+        ) {
+          homeSpread =
+            Number(o.point);
+        }
+      }
+    }
+
+
+    if (
+      mkt.key === "totals"
+    ) {
+
+      for (
+        const o
+        of mkt?.outcomes || []
+      ) {
+
+        const totalPoint =
+          Number(
+            o?.point
+          );
+
+
+        if (
+          Number.isFinite(
+            totalPoint
+          )
+        ) {
+
+          gameTotal =
+            totalPoint;
+
+          break;
+        }
+      }
+    }
   }
+
+
+  if (
+    awayMoneyline !== null &&
+    homeMoneyline !== null &&
+    Number.isFinite(
+      gameTotal
+    )
+  ) {
+    break;
+  }
+}
  
   // Win probabilities implícitas
   const awayWinProb = getGameScriptFromMoneyline(awayMoneyline);
@@ -16314,32 +16418,44 @@ function buildNFLAnytimeTDHistoricalProfile(
         ? logs
         : []
     )
-      .map(
-        log => {
+      .map(log => {
 
-          const touchdowns =
-            getNFLPropHistoricalValue(
-              log,
-              "player_anytime_td"
-            );
-
-
-          if (
-            !Number.isFinite(
-              touchdowns
-            )
-          ) {
-            return null;
-          }
+        const touchdowns =
+          getNFLPropHistoricalValue(
+            log,
+            "player_anytime_td"
+          );
 
 
-          return {
-            touchdowns,
-            hit:
-              touchdowns >= 1
-          };
+        if (
+          !Number.isFinite(
+            touchdowns
+          )
+        ) {
+          return null;
         }
-      )
+
+
+        const teamPoints =
+          Number(
+            log?.teamScore
+          );
+
+
+        return {
+          touchdowns,
+
+          hit:
+            touchdowns >= 1,
+
+          teamPoints:
+            Number.isFinite(
+              teamPoints
+            )
+              ? teamPoints
+              : null
+        };
+      })
       .filter(Boolean)
       .slice(0, 10);
 
@@ -16386,6 +16502,7 @@ function buildNFLAnytimeTDHistoricalProfile(
 
 
       return {
+
         games:
           sample.length,
 
@@ -16424,19 +16541,12 @@ function buildNFLAnytimeTDHistoricalProfile(
     };
 
 
-  /*
-   * Recency weighting:
-   *
-   * Juego más reciente = 1.00
-   * cada juego anterior pierde 10%.
-   *
-   * Esto NO inventa touchdowns.
-   * Solo da más importancia al rol
-   * y producción más reciente.
-   */
   let weightSum = 0;
   let weightedTD = 0;
   let weightedHits = 0;
+
+  let teamPointsWeight = 0;
+  let weightedTeamPoints = 0;
 
 
   games.forEach(
@@ -16468,6 +16578,21 @@ function buildNFLAnytimeTDHistoricalProfile(
             : 0
         ) *
         weight;
+
+
+      if (
+        Number.isFinite(
+          game.teamPoints
+        )
+      ) {
+
+        weightedTeamPoints +=
+          game.teamPoints *
+          weight;
+
+        teamPointsWeight +=
+          weight;
+      }
     }
   );
 
@@ -16489,19 +16614,13 @@ function buildNFLAnytimeTDHistoricalProfile(
       : null;
 
 
-  /*
-   * Poisson:
-   *
-   * P(anotar >= 1 TD)
-   * = 1 - e^(-lambda)
-   *
-   * Por ahora lambda es únicamente
-   * la tasa histórica ponderada.
-   *
-   * Después aplicaremos:
-   * - Role Factor
-   * - Team Scoring Factor
-   */
+  const historicalTeamPoints =
+    teamPointsWeight > 0
+      ? weightedTeamPoints /
+        teamPointsWeight
+      : null;
+
+
   const baseProbability =
     Number.isFinite(
       weightedTDRate
@@ -16550,6 +16669,16 @@ function buildNFLAnytimeTDHistoricalProfile(
         ? Number(
             weightedHitRate
               .toFixed(1)
+          )
+        : null,
+
+    weightedTeamPoints:
+      Number.isFinite(
+        historicalTeamPoints
+      )
+        ? Number(
+            historicalTeamPoints
+              .toFixed(2)
           )
         : null,
 
@@ -16564,249 +16693,305 @@ function buildNFLAnytimeTDHistoricalProfile(
         : null
   };
 }
+
+
 // ============================================================
-// NFL ANYTIME TD — HISTORICAL PROFILE
+// NFL ANYTIME TD — TODAY MODEL
 // ============================================================
 
-function buildNFLAnytimeTDHistoricalProfile(
-  logs = []
-) {
+function buildNFLAnytimeTDTodayModel({
+  source,
+  impliedTeamPoints
+}) {
 
-  const games =
-    (
-      Array.isArray(logs)
-        ? logs
-        : []
-    )
-      .map(
-        log => {
-
-          const touchdowns =
-            getNFLPropHistoricalValue(
-              log,
-              "player_anytime_td"
-            );
+  const historical =
+    source?.historicalProfile;
 
 
-          if (
-            !Number.isFinite(
-              touchdowns
-            )
-          ) {
-            return null;
-          }
-
-
-          return {
-            touchdowns,
-
-            hit:
-              touchdowns >= 1
-          };
-        }
-      )
-      .filter(Boolean)
-      .slice(0, 10);
-
-
-  if (!games.length) {
+  if (
+    historical?.available !== true ||
+    Number(
+      historical?.games || 0
+    ) < 3
+  ) {
 
     return {
-      available:
-        false,
-
-      games:
-        0
+      available: false,
+      reason: "insufficient_history"
     };
   }
 
 
-  const buildWindow =
-    size => {
-
-      const sample =
-        games.slice(
-          0,
-          Math.min(
-            size,
-            games.length
-          )
-        );
+  const baseLambda =
+    Number(
+      historical
+        ?.weightedTDRate
+    );
 
 
-      const hits =
-        sample.filter(
-          game =>
-            game.hit
-        ).length;
-
-
-      const touchdowns =
-        sample.reduce(
-          (
-            sum,
-            game
-          ) =>
-            sum +
-            game.touchdowns,
-          0
-        );
-
-
-      return {
-
-        games:
-          sample.length,
-
-        hits,
-
-        misses:
-          sample.length -
-          hits,
-
-        hitRate:
-          sample.length
-            ? Number(
-                (
-                  hits /
-                  sample.length *
-                  100
-                ).toFixed(1)
-              )
-            : null,
-
-        touchdowns,
-
-        tdPerGame:
-          sample.length
-            ? Number(
-                (
-                  touchdowns /
-                  sample.length
-                ).toFixed(3)
-              )
-            : null
-      };
-    };
-
-
-  let weightSum = 0;
-
-  let weightedTD =
-    0;
-
-  let weightedHits =
-    0;
-
-
-  games.forEach(
-    (
-      game,
-      index
-    ) => {
-
-      const weight =
-        Math.pow(
-          0.90,
-          index
-        );
-
-
-      weightSum +=
-        weight;
-
-
-      weightedTD +=
-        game.touchdowns *
-        weight;
-
-
-      weightedHits +=
-        (
-          game.hit
-            ? 1
-            : 0
-        ) *
-        weight;
-    }
-  );
-
-
-  const weightedTDRate =
-    weightSum > 0
-      ? weightedTD /
-        weightSum
-      : null;
-
-
-  const weightedHitRate =
-    weightSum > 0
-      ? (
-          weightedHits /
-          weightSum
-        ) *
-        100
-      : null;
-
-
-  const baseProbability =
-    Number.isFinite(
-      weightedTDRate
+  if (
+    !Number.isFinite(
+      baseLambda
     )
-      ? (
-          1 -
-          Math.exp(
-            -weightedTDRate
-          )
-        ) *
-        100
-      : null;
+  ) {
+
+    return {
+      available: false,
+      reason: "td_rate_unavailable"
+    };
+  }
+
+
+  const position =
+    String(
+      source?.position || ""
+    ).toUpperCase();
+
+
+  const roleCandidates =
+    source?.roleCandidates ||
+    {};
+
+
+  let rolePriority = [];
+
+
+  if (
+    position === "QB"
+  ) {
+
+    rolePriority = [
+      "player_rush_yds"
+    ];
+
+  } else if (
+    position === "RB" ||
+    position === "FB"
+  ) {
+
+    rolePriority = [
+      "player_rush_attempts",
+      "player_rush_yds",
+      "player_receptions",
+      "player_reception_yds"
+    ];
+
+  } else {
+
+    rolePriority = [
+      "player_receptions",
+      "player_reception_yds",
+      "player_rush_yds"
+    ];
+  }
+
+
+  let roleMarket = null;
+  let roleProjection = null;
+  let historicalRoleAverage = null;
+
+
+  for (
+    const candidateMarket
+    of rolePriority
+  ) {
+
+    const candidate =
+      roleCandidates[
+        candidateMarket
+      ];
+
+
+    const candidateProjection =
+      Number(
+        candidate?.projection
+      );
+
+
+    const candidateAverage =
+      Number(
+        candidate
+          ?.historicalAverage
+      );
+
+
+    if (
+      Number.isFinite(
+        candidateProjection
+      ) &&
+      Number.isFinite(
+        candidateAverage
+      ) &&
+      candidateAverage > 0
+    ) {
+
+      roleMarket =
+        candidateMarket;
+
+      roleProjection =
+        candidateProjection;
+
+      historicalRoleAverage =
+        candidateAverage;
+
+      break;
+    }
+  }
+
+
+  let roleFactor = 1;
+
+
+  if (
+    Number.isFinite(
+      roleProjection
+    ) &&
+    Number.isFinite(
+      historicalRoleAverage
+    ) &&
+    historicalRoleAverage > 0
+  ) {
+
+    roleFactor =
+      roleProjection /
+      historicalRoleAverage;
+
+
+    roleFactor =
+      Math.max(
+        0.75,
+        Math.min(
+          1.25,
+          roleFactor
+        )
+      );
+  }
+
+
+  const historicalTeamPoints =
+    Number(
+      historical
+        ?.weightedTeamPoints
+    );
+
+
+  let scoringFactor = 1;
+
+
+  if (
+    Number.isFinite(
+      impliedTeamPoints
+    ) &&
+    Number.isFinite(
+      historicalTeamPoints
+    ) &&
+    historicalTeamPoints > 0
+  ) {
+
+    scoringFactor =
+      impliedTeamPoints /
+      historicalTeamPoints;
+
+
+    scoringFactor =
+      Math.max(
+        0.80,
+        Math.min(
+          1.20,
+          scoringFactor
+        )
+      );
+  }
+
+
+  const adjustedLambda =
+    Math.max(
+      0,
+      baseLambda *
+      roleFactor *
+      scoringFactor
+    );
+
+
+  const probability =
+    (
+      1 -
+      Math.exp(
+        -adjustedLambda
+      )
+    ) *
+    100;
 
 
   return {
 
-    available:
-      true,
+    available: true,
 
-    games:
-      games.length,
+    probability:
+      Number(
+        probability.toFixed(1)
+      ),
 
-    last3:
-      buildWindow(3),
+    expectedTouchdowns:
+      Number(
+        adjustedLambda
+          .toFixed(3)
+      ),
 
-    last5:
-      buildWindow(5),
+    baseTDRate:
+      Number(
+        baseLambda
+          .toFixed(3)
+      ),
 
-    last10:
-      buildWindow(10),
+    roleFactor:
+      Number(
+        roleFactor
+          .toFixed(3)
+      ),
 
-    weightedTDRate:
+    roleMarket,
+
+    roleProjection:
       Number.isFinite(
-        weightedTDRate
+        roleProjection
+      )
+        ? roleProjection
+        : null,
+
+    historicalRoleAverage:
+      Number.isFinite(
+        historicalRoleAverage
       )
         ? Number(
-            weightedTDRate
-              .toFixed(4)
+            historicalRoleAverage
+              .toFixed(2)
           )
         : null,
 
-    weightedHitRate:
+    scoringFactor:
+      Number(
+        scoringFactor
+          .toFixed(3)
+      ),
+
+    impliedTeamPoints:
       Number.isFinite(
-        weightedHitRate
+        impliedTeamPoints
       )
         ? Number(
-            weightedHitRate
-              .toFixed(1)
+            impliedTeamPoints
+              .toFixed(2)
           )
         : null,
 
-    baseProbability:
+    historicalTeamPoints:
       Number.isFinite(
-        baseProbability
+        historicalTeamPoints
       )
         ? Number(
-            baseProbability
-              .toFixed(1)
+            historicalTeamPoints
+              .toFixed(2)
           )
         : null
   };
@@ -17462,7 +17647,12 @@ const componentProjectionLines = [];
  */
 const propLineAnalyzerSourceMap =
   new Map();
+// ============================================================
+// NFL ANYTIME TD — INTERNAL SOURCES
+// ============================================================
 
+const nflAnytimeTDSourceMap =
+  new Map();
 const propsDebug = {
   totalUnique: uniqueProps.length,
   noPlayerHistory: 0,
@@ -19104,7 +19294,115 @@ const nflLineAnalyzerValues =
           )
       )
       .map(Number);
+// ============================================================
+// NFL ANYTIME TD — PLAYER SOURCE
+// ============================================================
 
+const anytimeTDPlayerKey =
+  normalizeNFLPlayerName(
+    player
+  );
+
+
+let anytimeTDSource =
+  nflAnytimeTDSourceMap.get(
+    anytimeTDPlayerKey
+  );
+
+
+if (!anytimeTDSource) {
+
+  anytimeTDSource = {
+
+    player,
+
+    athleteId:
+      athleteId ||
+      null,
+
+    position:
+      verifiedPosition ||
+      null,
+
+    location:
+      todayLocation,
+
+    historicalProfile:
+      buildNFLAnytimeTDHistoricalProfile(
+        careerLogs
+      ),
+
+    roleCandidates:
+      {}
+  };
+
+
+  nflAnytimeTDSourceMap.set(
+    anytimeTDPlayerKey,
+    anytimeTDSource
+  );
+}
+
+
+const anytimeRoleValues =
+  (
+    Array.isArray(
+      careerLogs
+    )
+      ? careerLogs
+      : []
+  )
+    .slice(0, 10)
+    .map(
+      log =>
+        getNFLPropHistoricalValue(
+          log,
+          market
+        )
+    )
+    .map(Number)
+    .filter(
+      Number.isFinite
+    );
+
+
+const anytimeRoleAverage =
+  anytimeRoleValues.length
+    ? (
+        anytimeRoleValues.reduce(
+          (
+            sum,
+            value
+          ) =>
+            sum + value,
+          0
+        ) /
+        anytimeRoleValues.length
+      )
+    : null;
+
+
+anytimeTDSource
+  .roleCandidates[
+    market
+  ] = {
+
+    projection:
+      Number(
+        projection
+          .toFixed(2)
+      ),
+
+    historicalAverage:
+      Number.isFinite(
+        anytimeRoleAverage
+      )
+        ? Number(
+            anytimeRoleAverage
+              .toFixed(2)
+          )
+        : null
+  };
 
 const lineAnalyzerKey =
   `${normalizeNFLPlayerName(
@@ -19929,25 +20227,393 @@ const combinedPropsPreview =
     combinedPreviewMap
       .values()
   )
-    .sort(
-      (a, b) =>
-        Math.abs(
-          Number(
-            b.edge ||
-            0
-          )
-        ) -
-        Math.abs(
-          Number(
-            a.edge ||
-            0
-          )
-        )
+   .sort(
+  (a, b) =>
+    Math.abs(
+      Number(
+        b.edge ||
+        0
+      )
+    ) -
+    Math.abs(
+      Number(
+        a.edge ||
+        0
+      )
     )
-    .slice(
-      0,
-      12
+);
+  // ============================================================
+// NFL ANYTIME TD — PRODUCTION BOARD
+// ============================================================
+
+let anytimeTDProps =
+  [];
+
+
+try {
+
+  const cutoff =
+    new Date(
+      Date.now() -
+      NFL_PROP_LINE_CACHE_MAX_AGE_MS
+    ).toISOString();
+
+
+  const {
+    data:
+      anytimeMarketRows,
+    error:
+      anytimeMarketError
+  } =
+    await supabaseAdmin
+      .from(
+        "nfl_prop_lines_cache"
+      )
+      .select(`
+        provider_event_id,
+        commence_time,
+        home_team,
+        away_team,
+        player,
+        market,
+        bookmaker,
+        structure,
+        line,
+        over_odds,
+        under_odds,
+        alternate_lines,
+        updated_at
+      `)
+      .eq(
+        "market",
+        "touchdowns"
+      )
+      .gte(
+        "updated_at",
+        cutoff
+      )
+      .limit(1000);
+
+
+  if (anytimeMarketError) {
+    throw anytimeMarketError;
+  }
+
+
+  const awayKey =
+    normalizeNFLCombinedText(
+      selectedEvent.away_team
     );
+
+
+  const homeKey =
+    normalizeNFLCombinedText(
+      selectedEvent.home_team
+    );
+
+
+  const bestMarketByPlayer =
+    new Map();
+
+
+  for (
+    const row
+    of anytimeMarketRows || []
+  ) {
+
+    if (
+      normalizeNFLCombinedText(
+        row?.away_team
+      ) !== awayKey ||
+      normalizeNFLCombinedText(
+        row?.home_team
+      ) !== homeKey
+    ) {
+      continue;
+    }
+
+
+    const line =
+      Number(
+        row?.line
+      );
+
+
+    const odds =
+      Number(
+        row?.over_odds
+      );
+
+
+    if (
+      !Number.isFinite(line) ||
+      Math.abs(
+        line - 0.5
+      ) > 0.000001 ||
+      !Number.isFinite(odds)
+    ) {
+      continue;
+    }
+
+
+    const playerKey =
+      normalizeNFLPlayerName(
+        row?.player
+      );
+
+
+    if (!playerKey) {
+      continue;
+    }
+
+
+    const existing =
+      bestMarketByPlayer.get(
+        playerKey
+      );
+
+
+    if (
+      !existing ||
+      odds >
+        Number(
+          existing?.over_odds
+        )
+    ) {
+
+      bestMarketByPlayer.set(
+        playerKey,
+        row
+      );
+    }
+  }
+
+
+  for (
+    const [
+      playerKey,
+      marketRow
+    ]
+    of bestMarketByPlayer
+  ) {
+
+    const source =
+      nflAnytimeTDSourceMap
+        .get(
+          playerKey
+        );
+
+
+    if (
+      !source ||
+      !source.athleteId
+    ) {
+      continue;
+    }
+
+
+    let impliedTeamPoints =
+      null;
+
+
+    if (
+      Number.isFinite(
+        gameTotal
+      )
+    ) {
+
+      if (
+        source.location ===
+          "HOME"
+      ) {
+
+        impliedTeamPoints =
+          Number.isFinite(
+            homeSpread
+          )
+            ? (
+                gameTotal / 2 -
+                homeSpread / 2
+              )
+            : gameTotal / 2;
+
+      } else if (
+        source.location ===
+          "AWAY"
+      ) {
+
+        impliedTeamPoints =
+          Number.isFinite(
+            awaySpread
+          )
+            ? (
+                gameTotal / 2 -
+                awaySpread / 2
+              )
+            : gameTotal / 2;
+      }
+    }
+
+
+    const model =
+      buildNFLAnytimeTDTodayModel({
+        source,
+        impliedTeamPoints
+      });
+
+
+    if (
+      model?.available !==
+      true
+    ) {
+      continue;
+    }
+
+
+    const odds =
+      Number(
+        marketRow
+          .over_odds
+      );
+
+
+    const impliedProbability =
+      nflCombinedAmericanOddsToProbability(
+        odds
+      );
+
+
+    const probability =
+      Number(
+        model.probability
+      );
+
+
+    const value =
+      Number.isFinite(
+        impliedProbability
+      )
+        ? Number(
+            (
+              probability -
+              impliedProbability
+            ).toFixed(2)
+          )
+        : null;
+
+
+    const ev =
+      buildNFLExpectedValue({
+        probability,
+        americanOdds:
+          odds
+      });
+
+
+    anytimeTDProps.push({
+
+      player:
+        source.player,
+
+      athleteId:
+        source.athleteId,
+
+      position:
+        source.position,
+
+      market:
+        "player_anytime_td",
+
+      marketLabel:
+        "Anytime Touchdown",
+
+      side:
+        "YES",
+
+      line:
+        0.5,
+
+      bookmaker:
+        marketRow.bookmaker,
+
+      odds,
+
+      probability,
+
+      confidence:
+        probability,
+
+      impliedProbability,
+
+      value,
+
+      ev,
+
+      historicalProfile:
+        source.historicalProfile,
+
+      model,
+
+      providerEventId:
+        marketRow
+          .provider_event_id
+    });
+  }
+
+
+  anytimeTDProps.sort(
+    (
+      a,
+      b
+    ) => {
+
+      const evA =
+        Number(
+          a?.ev
+            ?.evPercent
+        );
+
+      const evB =
+        Number(
+          b?.ev
+            ?.evPercent
+        );
+
+
+      if (
+        Number.isFinite(evA) &&
+        Number.isFinite(evB) &&
+        evA !== evB
+      ) {
+        return evB - evA;
+      }
+
+
+      return (
+        Number(
+          b?.probability ||
+          0
+        ) -
+        Number(
+          a?.probability ||
+          0
+        )
+      );
+    }
+  );
+
+
+} catch (error) {
+
+  console.error(
+    "NFL ANYTIME TD BOARD:",
+    error?.message ||
+    error
+  );
+
+  anytimeTDProps =
+    [];
+}
   const finalResponse = {
     ok:                  true,
     mode:                "nfl-player-props",
@@ -19977,6 +20643,14 @@ combinedProductionVersion: 1,
 combinedPropsPreview,
 
 propLineAnalyzerVersion: 1,
+
+anytimeTDVersion: 1,
+
+totalAnytimeTDProps:
+  anytimeTDProps.length,
+
+anytimeTDProps,
+
 nflRoleFilterVersion: 3,
 nflRoleWarmComplete:
   nflRoleEvidence.fullyCached,
