@@ -359,11 +359,12 @@ function normalizeCombinedProp(
 
       bookmaker,
 
-      structure:
-        cleanText(
-          item?.structure
-        ) ||
-        "over_under",
+     structure:
+  cleanText(
+    item?.structure ??
+    item?.marketStructure
+  ) ||
+  "unknown",
 
       line:
         cleanNumber(
