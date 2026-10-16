@@ -18810,9 +18810,7 @@ ${wins}/${games}
 ${
   source === "props"
     ? `
-      <div
-        id="nflPropLineAnalyzerSection${index}"
-      ></div>
+      
 <div
   id="nflPlayerAnytimeTDSection${index}"
 ></div>
@@ -18929,22 +18927,7 @@ ${
   source === "props"
 ) {
 
-  if (
-    selectedProp &&
-    selectedProp.market &&
-    Number.isFinite(
-      propLine
-    )
-  ) {
-
-    void showNFLPropLineAnalyzer(
-      index,
-      player.name,
-      selectedProp.market,
-      propSide,
-      propLine
-    );
-  }
+  
 
 
   showNFLAnytimeTDForPlayer(
