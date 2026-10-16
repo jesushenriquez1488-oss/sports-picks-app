@@ -586,42 +586,198 @@ module.exports =
       // NORMALIZE
       // ======================================================
 
-      const rows = [];
+     const rowsByKey =
+  new Map();
 
-      const rejected = [];
-
-
-      for (
-        let index = 0;
-        index < items.length;
-        index++
-      ) {
-
-        const normalized =
-          normalizeCombinedProp(
-            items[index]
-          );
+const rejected = [];
 
 
-        if (
-          normalized.valid
-        ) {
+for (
+  let index = 0;
+  index < items.length;
+  index++
+) {
 
-          rows.push(
-            normalized.row
-          );
+  const normalized =
+    normalizeCombinedProp(
+      items[index]
+    );
 
-        } else {
 
-          rejected.push({
+  if (
+    !normalized.valid
+  ) {
 
-            index,
+    rejected.push({
 
-            reason:
-              normalized.reason
-          });
-        }
-      }
+      index,
+
+      reason:
+        normalized.reason
+    });
+
+    continue;
+  }
+
+
+  const row =
+    normalized.row;
+
+
+  const key =
+    [
+      row.provider_event_id,
+      row.player
+        .trim()
+        .toLowerCase(),
+      row.market,
+      row.bookmaker
+    ].join("|");
+
+
+  const existing =
+    rowsByKey.get(
+      key
+    );
+
+
+  if (
+    !existing
+  ) {
+
+    rowsByKey.set(
+      key,
+      row
+    );
+
+    continue;
+  }
+
+
+  // ==========================================================
+  // DUPLICATE FROM OWLS
+  //
+  // Prefer a real Over/Under main market over another structure.
+  // ==========================================================
+
+  const existingIsOverUnder =
+    existing.structure ===
+    "over_under";
+
+
+  const incomingIsOverUnder =
+    row.structure ===
+    "over_under";
+
+
+  let preferred =
+    existing;
+
+
+  if (
+    !existingIsOverUnder &&
+    incomingIsOverUnder
+  ) {
+
+    preferred =
+      row;
+
+  } else if (
+    existingIsOverUnder ===
+      incomingIsOverUnder
+  ) {
+
+    const existingComplete =
+      existing.line !== null &&
+      existing.over_odds !== null &&
+      existing.under_odds !== null;
+
+
+    const incomingComplete =
+      row.line !== null &&
+      row.over_odds !== null &&
+      row.under_odds !== null;
+
+
+    if (
+      !existingComplete &&
+      incomingComplete
+    ) {
+
+      preferred =
+        row;
+    }
+  }
+
+
+  // ==========================================================
+  // MERGE ALTERNATIVE LINES
+  //
+  // Do not lose milestones/alternatives just because Owls
+  // returned the player more than once.
+  // ==========================================================
+
+  const mergedAlternates =
+    new Map();
+
+
+  for (
+    const alternate
+    of [
+      ...(Array.isArray(
+        existing.alternate_lines
+      )
+        ? existing.alternate_lines
+        : []),
+
+      ...(Array.isArray(
+        row.alternate_lines
+      )
+        ? row.alternate_lines
+        : [])
+    ]
+  ) {
+
+    const alternateKey =
+      [
+        alternate?.kind ??
+          "",
+        alternate?.line ??
+          "",
+        alternate?.odds ??
+          "",
+        alternate?.selectionId ??
+          "",
+        alternate?.marketId ??
+          ""
+      ].join("|");
+
+
+    mergedAlternates.set(
+      alternateKey,
+      alternate
+    );
+  }
+
+
+  rowsByKey.set(
+    key,
+    {
+      ...preferred,
+
+      alternate_lines:
+        Array.from(
+          mergedAlternates.values()
+        )
+    }
+  );
+}
+
+
+const rows =
+  Array.from(
+    rowsByKey.values()
+  );
 
 
       if (
