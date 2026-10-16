@@ -9510,9 +9510,13 @@ async function getNFLCombinedLiveMarket({
       "owls",
 
     providerEventId:
-      selected.provider_event_id,
+  selected.provider_event_id,
 
-    awayTeam:
+commenceTime:
+  selected.commence_time ||
+  null,
+
+awayTeam:
       selected.away_team,
 
     homeTeam:
@@ -9896,12 +9900,18 @@ const matchedLines =
         game,
 
       gameDate:
-        row.game_date ||
-        null,
+  row.game_date ||
+  null,
 
-      updatedAt:
-        row.updated_at ||
-        null,
+commenceTime:
+  row
+    ?.analysis_json
+    ?.commenceTime ||
+  null,
+
+updatedAt:
+  row.updated_at ||
+  null,
 
       componentMarkets,
 
@@ -10740,6 +10750,1349 @@ function buildNFLCombinedPredictiveProbability({
           )
       )
   };
+}
+// ============================================================
+// NFL COMBINED PROPS — SHADOW STORAGE
+// MODEL VERSION 1
+// ============================================================
+
+const NFL_COMBINED_SHADOW_MODEL_VERSION =
+  1;
+
+
+// ============================================================
+// FIRST PREGAME SNAPSHOT
+//
+// Una predicción por:
+// evento + jugador + mercado + book + versión.
+//
+// Nunca sobrescribimos la primera predicción.
+// ============================================================
+
+async function saveNFLCombinedShadowPrediction({
+  player,
+  athleteId,
+  position,
+  market,
+
+  awayTeam,
+  homeTeam,
+
+  requestedLine,
+  requestedSide,
+
+  effectiveLine,
+  effectiveSide,
+
+  existingProjections,
+  combinedProjection,
+  projectionEdge,
+
+  historicalCoverage,
+  summary,
+
+  predictiveProbability,
+  marketComparison,
+
+  liveMarket
+}) {
+
+  /*
+   * Solo líneas REALES del mercado.
+   *
+   * Una línea manual pertenece después
+   * al Prop Line Analyzer, NO a Shadow.
+   */
+  if (
+    requestedLine !== null ||
+    requestedSide !== null
+  ) {
+    return {
+      saved: false,
+      reason: "manual_override"
+    };
+  }
+
+
+  if (
+    !liveMarket ||
+    liveMarket.fresh !== true
+  ) {
+    return {
+      saved: false,
+      reason: "live_market_unavailable"
+    };
+  }
+
+
+  if (
+    predictiveProbability
+      ?.available !== true
+  ) {
+    return {
+      saved: false,
+      reason:
+        "predictive_probability_unavailable"
+    };
+  }
+
+
+  if (
+    marketComparison
+      ?.available !== true
+  ) {
+    return {
+      saved: false,
+      reason:
+        "market_comparison_unavailable"
+    };
+  }
+
+
+  if (
+    !Number.isFinite(
+      Number(
+        combinedProjection
+      )
+    ) ||
+    !Number.isFinite(
+      Number(
+        effectiveLine
+      )
+    ) ||
+    !effectiveSide
+  ) {
+    return {
+      saved: false,
+      reason:
+        "projection_or_line_unavailable"
+    };
+  }
+
+
+  /*
+   * Kickoff:
+   *
+   * 1. Owls si lo tiene.
+   * 2. Player Props cache como fallback.
+   */
+  const commenceTime =
+    liveMarket?.commenceTime ||
+    existingProjections
+      ?.commenceTime ||
+    null;
+
+
+  if (!commenceTime) {
+    return {
+      saved: false,
+      reason:
+        "commence_time_unavailable"
+    };
+  }
+
+
+  const commenceMs =
+    new Date(
+      commenceTime
+    ).getTime();
+
+
+  if (
+    !Number.isFinite(
+      commenceMs
+    )
+  ) {
+    return {
+      saved: false,
+      reason:
+        "invalid_commence_time"
+    };
+  }
+
+
+  /*
+   * PROTECCIÓN ABSOLUTA:
+   * nada se guarda después del kickoff.
+   */
+  if (
+    Date.now() >=
+    commenceMs
+  ) {
+    return {
+      saved: false,
+      reason:
+        "game_already_started"
+    };
+  }
+
+
+  const providerEventId =
+    String(
+      liveMarket
+        ?.providerEventId ||
+      ""
+    ).trim();
+
+
+  if (!providerEventId) {
+    return {
+      saved: false,
+      reason:
+        "provider_event_id_missing"
+    };
+  }
+
+
+  const bookmaker =
+    String(
+      liveMarket
+        ?.bookmaker ||
+      "unknown"
+    )
+      .trim()
+      .toLowerCase();
+
+
+  const predictionKey = [
+    providerEventId,
+    String(
+      athleteId ||
+      ""
+    ),
+    String(
+      market ||
+      ""
+    ),
+    bookmaker,
+    `v${NFL_COMBINED_SHADOW_MODEL_VERSION}`
+  ].join("|");
+
+
+  const selectedOdds =
+    effectiveSide === "OVER"
+      ? Number(
+          liveMarket
+            ?.overOdds
+        )
+      : Number(
+          liveMarket
+            ?.underOdds
+        );
+
+
+  const row = {
+
+    prediction_key:
+      predictionKey,
+
+    model_version:
+      NFL_COMBINED_SHADOW_MODEL_VERSION,
+
+    provider_event_id:
+      providerEventId,
+
+    event_id:
+      existingProjections
+        ?.eventId ||
+      null,
+
+    commence_time:
+      commenceTime,
+
+    away_team:
+      awayTeam,
+
+    home_team:
+      homeTeam,
+
+    player,
+
+    athlete_id:
+      String(
+        athleteId
+      ),
+
+    position:
+      position ||
+      null,
+
+    market,
+
+    bookmaker,
+
+    market_line:
+      Number(
+        effectiveLine
+      ),
+
+    side:
+      effectiveSide,
+
+    selected_odds:
+      Number.isFinite(
+        selectedOdds
+      )
+        ? selectedOdds
+        : null,
+
+    over_odds:
+      Number.isFinite(
+        Number(
+          liveMarket
+            ?.overOdds
+        )
+      )
+        ? Number(
+            liveMarket.overOdds
+          )
+        : null,
+
+    under_odds:
+      Number.isFinite(
+        Number(
+          liveMarket
+            ?.underOdds
+        )
+      )
+        ? Number(
+            liveMarket.underOdds
+          )
+        : null,
+
+    component_projections:
+      existingProjections
+        ?.components ||
+      {},
+
+    combined_projection:
+      Number(
+        combinedProjection
+      ),
+
+    projection_edge:
+      Number(
+        projectionEdge
+      ),
+
+    historical_games:
+      historicalCoverage
+        ?.games ??
+      null,
+
+    historical_wins:
+      historicalCoverage
+        ?.wins ??
+      null,
+
+    historical_losses:
+      historicalCoverage
+        ?.losses ??
+      null,
+
+    historical_pushes:
+      historicalCoverage
+        ?.pushes ??
+      null,
+
+    historical_percentage:
+      historicalCoverage
+        ?.percentage ??
+      null,
+
+    predictive_probability:
+      Number(
+        predictiveProbability
+          .probability
+      ),
+
+    predictive_method:
+      predictiveProbability
+        ?.method ||
+      null,
+
+    predictive_games:
+      predictiveProbability
+        ?.games ??
+      null,
+
+    historical_mean:
+      predictiveProbability
+        ?.historicalMean ??
+      null,
+
+    projection_shift:
+      predictiveProbability
+        ?.projectionShift ??
+      null,
+
+    fair_market_probability:
+      marketComparison
+        ?.fairMarketProbability ??
+      null,
+
+    raw_implied_probability:
+      marketComparison
+        ?.rawImpliedProbability ??
+      null,
+
+    model_vs_market_edge:
+      marketComparison
+        ?.modelVsMarketEdge ??
+      null,
+
+    model_vs_raw_break_even_edge:
+      marketComparison
+        ?.modelVsRawBreakEvenEdge ??
+      null,
+
+    market_hold:
+      marketComparison
+        ?.marketHold ??
+      null,
+
+    sample_values:
+      Array.isArray(
+        summary?.values
+      )
+        ? summary.values
+        : [],
+
+    predictive_values:
+      Array.isArray(
+        predictiveProbability
+          ?.predictiveValues
+      )
+        ? predictiveProbability
+            .predictiveValues
+        : [],
+
+    calibrated:
+      false,
+
+    provider_updated_at:
+      liveMarket
+        ?.providerUpdatedAt ||
+      null
+  };
+
+
+  const {
+    data,
+    error
+  } =
+    await supabaseAdmin
+      .from(
+        "nfl_combined_props_shadow"
+      )
+      .insert(
+        row
+      )
+      .select(`
+        id,
+        prediction_key,
+        captured_at
+      `)
+      .single();
+
+
+  /*
+   * Unique violation:
+   *
+   * significa que ya existe la
+   * predicción original.
+   *
+   * NO la reemplazamos.
+   */
+  if (
+    error &&
+    String(
+      error.code ||
+      ""
+    ) === "23505"
+  ) {
+
+    const {
+      data:
+        existing
+    } =
+      await supabaseAdmin
+        .from(
+          "nfl_combined_props_shadow"
+        )
+        .select(`
+          id,
+          prediction_key,
+          captured_at
+        `)
+        .eq(
+          "prediction_key",
+          predictionKey
+        )
+        .maybeSingle();
+
+
+    return {
+      saved:
+        false,
+
+      alreadyExists:
+        true,
+
+      prediction:
+        existing ||
+        null
+    };
+  }
+
+
+  if (error) {
+    throw error;
+  }
+
+
+  return {
+    saved:
+      true,
+
+    alreadyExists:
+      false,
+
+    prediction:
+      data
+  };
+}
+
+
+// ============================================================
+// NFL COMBINED PROPS — ACTUAL RESULT
+// ============================================================
+
+function getNFLCombinedActualFromLog(
+  log,
+  market
+) {
+
+  if (!log) {
+    return null;
+  }
+
+
+  const passYards =
+    Number(
+      log
+        ?.passing
+        ?.yards
+    );
+
+
+  const rushYards =
+    Number(
+      log
+        ?.rushing
+        ?.yards
+    );
+
+
+  const receivingYards =
+    Number(
+      log
+        ?.receiving
+        ?.yards
+    );
+
+
+  if (
+    market ===
+    "pass_rush_yards"
+  ) {
+
+    if (
+      !Number.isFinite(
+        passYards
+      ) ||
+      !Number.isFinite(
+        rushYards
+      )
+    ) {
+      return null;
+    }
+
+
+    return {
+
+      value:
+        passYards +
+        rushYards,
+
+      components: {
+        passingYards:
+          passYards,
+
+        rushingYards:
+          rushYards
+      }
+    };
+  }
+
+
+  if (
+    market ===
+    "rush_rec_yards"
+  ) {
+
+    if (
+      !Number.isFinite(
+        rushYards
+      ) ||
+      !Number.isFinite(
+        receivingYards
+      )
+    ) {
+      return null;
+    }
+
+
+    return {
+
+      value:
+        rushYards +
+        receivingYards,
+
+      components: {
+        rushingYards:
+          rushYards,
+
+        receivingYards:
+          receivingYards
+      }
+    };
+  }
+
+
+  return null;
+}
+
+
+// ============================================================
+// NFL SEASON FROM GAME DATE
+// ============================================================
+
+function getNFLSeasonFromDate(
+  value
+) {
+
+  const date =
+    new Date(
+      value
+    );
+
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return getNFLPlayerStatsSeasonYear();
+  }
+
+
+  const year =
+    date.getUTCFullYear();
+
+
+  const month =
+    date.getUTCMonth() +
+    1;
+
+
+  return month <= 2
+    ? year - 1
+    : year;
+}
+
+
+// ============================================================
+// MATCH GAMELOG AGAINST KICKOFF
+// ============================================================
+
+function findNFLCombinedResultLog(
+  logs,
+  commenceTime
+) {
+
+  const kickoff =
+    new Date(
+      commenceTime
+    ).getTime();
+
+
+  if (
+    !Number.isFinite(
+      kickoff
+    )
+  ) {
+    return null;
+  }
+
+
+  const candidates =
+    (
+      Array.isArray(logs)
+        ? logs
+        : []
+    )
+      .map(
+        log => {
+
+          const logTime =
+            new Date(
+              log?.date ||
+              0
+            ).getTime();
+
+
+          return {
+
+            log,
+
+            difference:
+              Number.isFinite(
+                logTime
+              )
+                ? Math.abs(
+                    logTime -
+                    kickoff
+                  )
+                : Infinity
+          };
+        }
+      )
+      .filter(
+        item =>
+          item.difference <=
+          18 *
+          60 *
+          60 *
+          1000
+      )
+      .sort(
+        (a, b) =>
+          a.difference -
+          b.difference
+      );
+
+
+  return (
+    candidates[0]
+      ?.log ||
+    null
+  );
+}
+
+
+// ============================================================
+// AMERICAN ODDS → 1 UNIT ROI
+// ============================================================
+
+function nflCombinedWinUnits(
+  americanOdds
+) {
+
+  const odds =
+    Number(
+      americanOdds
+    );
+
+
+  if (
+    !Number.isFinite(
+      odds
+    ) ||
+    odds === 0
+  ) {
+    return null;
+  }
+
+
+  return odds > 0
+    ? Number(
+        (
+          odds /
+          100
+        ).toFixed(4)
+      )
+    : Number(
+        (
+          100 /
+          Math.abs(
+            odds
+          )
+        ).toFixed(4)
+      );
+}
+
+
+// ============================================================
+// GRADE SHADOW PREDICTIONS
+// ============================================================
+
+async function gradeNFLCombinedShadowPredictions(
+  limit = 100
+) {
+
+  /*
+   * Esperamos mínimo 3 horas
+   * después del kickoff.
+   *
+   * Si el gamelog todavía no existe,
+   * simplemente queda pendiente.
+   */
+  const cutoff =
+    new Date(
+      Date.now() -
+      3 *
+      60 *
+      60 *
+      1000
+    )
+      .toISOString();
+
+
+  const {
+    data,
+    error
+  } =
+    await supabaseAdmin
+      .from(
+        "nfl_combined_props_shadow"
+      )
+      .select("*")
+      .is(
+        "graded_at",
+        null
+      )
+      .lte(
+        "commence_time",
+        cutoff
+      )
+      .order(
+        "commence_time",
+        {
+          ascending:
+            true
+        }
+      )
+      .limit(
+        Math.min(
+          Math.max(
+            Number(limit) ||
+            100,
+            1
+          ),
+          500
+        )
+      );
+
+
+  if (error) {
+    throw error;
+  }
+
+
+  const rows =
+    Array.isArray(data)
+      ? data
+      : [];
+
+
+  let graded = 0;
+  let pending = 0;
+  let failed = 0;
+
+
+  const details =
+    [];
+
+
+  for (
+    const row
+    of rows
+  ) {
+
+    try {
+
+      const season =
+        getNFLSeasonFromDate(
+          row.commence_time
+        );
+
+
+      const gamelogResult =
+        await loadNFLPlayerGamelogCached(
+          String(
+            row.athlete_id
+          ),
+          season
+        );
+
+
+      const logs =
+        Array.isArray(
+          gamelogResult
+            ?.logs
+        )
+          ? gamelogResult.logs
+          : [];
+
+
+      const gameLog =
+        findNFLCombinedResultLog(
+          logs,
+          row.commence_time
+        );
+
+
+      if (!gameLog) {
+
+        pending++;
+
+        details.push({
+          id:
+            row.id,
+
+          status:
+            "gamelog_pending"
+        });
+
+        continue;
+      }
+
+
+      const actual =
+        getNFLCombinedActualFromLog(
+          gameLog,
+          row.market
+        );
+
+
+      if (
+        !actual ||
+        !Number.isFinite(
+          Number(
+            actual.value
+          )
+        )
+      ) {
+
+        pending++;
+
+        details.push({
+          id:
+            row.id,
+
+          status:
+            "actual_pending"
+        });
+
+        continue;
+      }
+
+
+      const actualValue =
+        Number(
+          actual.value
+        );
+
+
+      const line =
+        Number(
+          row.market_line
+        );
+
+
+      const side =
+        String(
+          row.side ||
+          ""
+        )
+          .toUpperCase();
+
+
+      let result;
+
+
+      if (
+        actualValue ===
+        line
+      ) {
+
+        result =
+          "push";
+
+      } else {
+
+        const covered =
+          side === "UNDER"
+            ? actualValue < line
+            : actualValue > line;
+
+
+        result =
+          covered
+            ? "win"
+            : "loss";
+      }
+
+
+      const selectedOdds =
+        Number(
+          row.selected_odds
+        );
+
+
+      let roiUnits =
+        null;
+
+
+      if (
+        result === "push"
+      ) {
+
+        roiUnits = 0;
+
+      } else if (
+        result === "loss"
+      ) {
+
+        roiUnits = -1;
+
+      } else {
+
+        roiUnits =
+          nflCombinedWinUnits(
+            selectedOdds
+          );
+      }
+
+
+      const probability =
+        Number(
+          row.predictive_probability
+        );
+
+
+      const probability01 =
+        Number.isFinite(
+          probability
+        )
+          ? Math.min(
+              0.999,
+              Math.max(
+                0.001,
+                probability /
+                100
+              )
+            )
+          : null;
+
+
+      let brierScore =
+        null;
+
+
+      let logLoss =
+        null;
+
+
+      if (
+        result !== "push" &&
+        probability01 !== null
+      ) {
+
+        const outcome =
+          result === "win"
+            ? 1
+            : 0;
+
+
+        brierScore =
+          Number(
+            (
+              (
+                probability01 -
+                outcome
+              ) ** 2
+            ).toFixed(6)
+          );
+
+
+        logLoss =
+          Number(
+            (
+              -(
+                outcome *
+                  Math.log(
+                    probability01
+                  ) +
+                (
+                  1 -
+                  outcome
+                ) *
+                  Math.log(
+                    1 -
+                    probability01
+                  )
+              )
+            ).toFixed(6)
+          );
+      }
+
+
+      const projectionError =
+        actualValue -
+        Number(
+          row.combined_projection
+        );
+
+
+      const probabilityBin =
+        Number.isFinite(
+          probability
+        )
+          ? Math.min(
+              95,
+              Math.max(
+                0,
+                Math.floor(
+                  probability /
+                  5
+                ) *
+                5
+              )
+            )
+          : null;
+
+
+      const {
+        error:
+          updateError
+      } =
+        await supabaseAdmin
+          .from(
+            "nfl_combined_props_shadow"
+          )
+          .update({
+
+            actual_value:
+              actualValue,
+
+            actual_components:
+              actual.components,
+
+            result,
+
+            projection_error:
+              Number(
+                projectionError
+                  .toFixed(2)
+              ),
+
+            absolute_projection_error:
+              Number(
+                Math.abs(
+                  projectionError
+                ).toFixed(2)
+              ),
+
+            roi_units:
+              roiUnits,
+
+            brier_score:
+              brierScore,
+
+            log_loss:
+              logLoss,
+
+            probability_bin:
+              probabilityBin,
+
+            graded_at:
+              new Date()
+                .toISOString()
+          })
+          .eq(
+            "id",
+            row.id
+          );
+
+
+      if (updateError) {
+        throw updateError;
+      }
+
+
+      graded++;
+
+
+      details.push({
+
+        id:
+          row.id,
+
+        player:
+          row.player,
+
+        market:
+          row.market,
+
+        actualValue,
+
+        line,
+
+        side,
+
+        result,
+
+        roiUnits,
+
+        probability,
+
+        brierScore,
+
+        logLoss
+      });
+
+
+    } catch (error) {
+
+      failed++;
+
+
+      details.push({
+
+        id:
+          row.id,
+
+        status:
+          "error",
+
+        error:
+          error?.message ||
+          String(error)
+      });
+    }
+  }
+
+
+  return {
+
+    ok:
+      true,
+
+    checked:
+      rows.length,
+
+    graded,
+
+    pending,
+
+    failed,
+
+    details
+  };
+}
+
+
+// ============================================================
+// INTERNAL GRADING ENDPOINT
+// ============================================================
+
+async function handleNFLCombinedShadowGrade(
+  req,
+  res
+) {
+
+  const suppliedSecret =
+    String(
+      req.headers[
+        "x-internal-secret"
+      ] ||
+      ""
+    );
+
+
+  const validSecret =
+    String(
+      process.env
+        .CRON_SECRET ||
+      process.env
+        .GENERATE_DAILY_SECRET ||
+      ""
+    );
+
+
+  if (
+    !validSecret ||
+    suppliedSecret !==
+      validSecret
+  ) {
+
+    return res
+      .status(401)
+      .json({
+        ok:
+          false,
+
+        error:
+          "Unauthorized"
+      });
+  }
+
+
+  try {
+
+    const limit =
+      Number(
+        req.query?.limit ||
+        req.body?.limit ||
+        100
+      );
+
+
+    const result =
+      await gradeNFLCombinedShadowPredictions(
+        limit
+      );
+
+
+    return res
+      .status(200)
+      .json(
+        result
+      );
+
+
+  } catch (error) {
+
+    console.error(
+      "NFL COMBINED SHADOW GRADING:",
+      error
+    );
+
+
+    return res
+      .status(500)
+      .json({
+
+        ok:
+          false,
+
+        error:
+          error?.message ||
+          "Combined grading failed"
+      });
+  }
 }
  /*
  * ============================================================
@@ -11642,6 +12995,81 @@ const predictiveProbability =
         recommendationEligible:
           false
       };
+  let shadowRecord = {
+  saved:
+    false,
+
+  reason:
+    "not_attempted"
+};
+
+
+try {
+
+  shadowRecord =
+    await saveNFLCombinedShadowPrediction({
+
+      player,
+
+      athleteId,
+
+      position,
+
+      market,
+
+      awayTeam,
+
+      homeTeam,
+
+      requestedLine:
+        line,
+
+      requestedSide,
+
+      effectiveLine,
+
+      effectiveSide,
+
+      existingProjections,
+
+      combinedProjection,
+
+      projectionEdge,
+
+      historicalCoverage,
+
+      summary,
+
+      predictiveProbability,
+
+      marketComparison,
+
+      liveMarket
+    });
+
+
+} catch (error) {
+
+  console.error(
+    "NFL COMBINED SHADOW SAVE ERROR:",
+    error?.message ||
+    error
+  );
+
+
+  shadowRecord = {
+
+    saved:
+      false,
+
+    reason:
+      "save_error",
+
+    error:
+      error?.message ||
+      String(error)
+  };
+}
   // =========================
   // RESPONSE
   // =========================
@@ -11704,6 +13132,8 @@ historicalCoverage,
 predictiveProbability,
 
 marketComparison,
+
+shadowRecord,
 
 requestedLine:
   line,
@@ -11771,11 +13201,18 @@ marketData: {
     null,
 
   providerEventId:
-    liveMarket
-      ?.providerEventId ||
-    null,
+  liveMarket
+    ?.providerEventId ||
+  null,
 
-  awayTeam:
+commenceTime:
+  liveMarket
+    ?.commenceTime ||
+  existingProjections
+    ?.commenceTime ||
+  null,
+
+awayTeam:
     liveMarket
       ?.awayTeam ||
     null,
@@ -12000,7 +13437,7 @@ if (!selectedEvent) {
      if (
 cachedJson.nflRoleFilterVersion === 3 &&
 cachedJson.playerLinesVersion === 5 &&
-cachedJson.combinedProjectionCacheVersion === 1 &&
+cachedJson.combinedProjectionCacheVersion === 2 &&
 (
   cachedJson.nflRoleWarmComplete === true ||
   Date.now() -
@@ -15309,15 +16746,24 @@ for (const prop of analyzedProps) {
     ok:                  true,
     mode:                "nfl-player-props",
     cached:              false,
-    eventId:             selectedEvent.id,
-    game:                `${selectedEvent.away_team} @ ${selectedEvent.home_team}`,
-    gameDate:            today,
+   eventId:
+  selectedEvent.id,
+
+game:
+  `${selectedEvent.away_team} @ ${selectedEvent.home_team}`,
+
+gameDate:
+  today,
+
+commenceTime:
+  selectedEvent.commence_time ||
+  null,
    generatedAt:         new Date().toISOString(),
 
     // Board completo de mercado para Player Stats.
     // Sale de la misma respuesta de Odds API; no hace otra consulta.
    playerLinesVersion: 5,
-combinedProjectionCacheVersion: 1,
+combinedProjectionCacheVersion: 2,
 nflRoleFilterVersion: 3,
 nflRoleWarmComplete:
   nflRoleEvidence.fullyCached,
@@ -21461,6 +22907,17 @@ if (mode === "nfl-learning-market") {
 
 if (mode === "nfl-player-props") {
   return await handleNFLPlayerProps(req, res);
+}
+
+
+if (
+  mode ===
+  "nfl-combined-props-grade"
+) {
+  return await handleNFLCombinedShadowGrade(
+    req,
+    res
+  );
 }
 
 
