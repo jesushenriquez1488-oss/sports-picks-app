@@ -10121,14 +10121,22 @@ const homeTeam =
       : Number(rawLine);
 
 
-  const side =
-    String(
-      req.query?.side ||
-      req.body?.side ||
-      "OVER"
-    )
-      .trim()
-      .toUpperCase();
+const rawSide =
+  req.query?.side ??
+  req.body?.side ??
+  null;
+
+
+const requestedSide =
+  rawSide === null ||
+  rawSide === undefined ||
+  rawSide === ""
+    ? null
+    : String(
+        rawSide
+      )
+        .trim()
+        .toUpperCase();
 
 
   // =========================
@@ -10217,21 +10225,23 @@ const homeTeam =
   }
 
 
-  if (
-    side !== "OVER" &&
-    side !== "UNDER"
-  ) {
+if (
+  requestedSide !== null &&
+  requestedSide !== "OVER" &&
+  requestedSide !== "UNDER"
+) {
 
-    return res.status(400).json({
-      ok: false,
+  return res.status(400).json({
 
-      mode:
-        "nfl-combined-props-experimental",
+    ok: false,
 
-      error:
-        "side must be OVER or UNDER"
-    });
-  }
+    mode:
+      "nfl-combined-props-experimental",
+
+    error:
+      "side must be OVER or UNDER"
+  });
+}
 
 const liveMarket =
   player
@@ -10304,6 +10314,18 @@ const projectionEdge =
         ).toFixed(1)
       )
     : null;
+  const projectedSide =
+  projectionEdge === null ||
+  projectionEdge === 0
+    ? null
+    : projectionEdge > 0
+      ? "OVER"
+      : "UNDER";
+
+
+const effectiveSide =
+  requestedSide ||
+  projectedSide;
   // =========================
   // SEASONS
   // =========================
@@ -10761,12 +10783,14 @@ try {
   // =========================
 
 const historicalCoverage =
-  effectiveLine !== null
+  effectiveLine !== null &&
+  effectiveSide !== null
     ? buildNFLCombinedHistoricalCoverage({
         sample,
         line:
           effectiveLine,
-        side
+        side:
+          effectiveSide
       })
     : null;
 
@@ -10834,18 +10858,16 @@ requestedLine:
   line,
 
 requestedSide:
-  line !== null
-    ? side
-    : null,
+  requestedSide,
 
 effectiveLine:
   effectiveLine,
 
-effectiveSide:
-  effectiveLine !== null
-    ? side
-    : null,
+projectedSide:
+  projectedSide,
 
+effectiveSide:
+  effectiveSide,
 projectionData: {
 
   found:
@@ -11622,7 +11644,7 @@ const modelInputProps = [
   ...componentProjectionOnlyProps
 ];
  
-  if (!uniqueProps.length) {
+if (!modelInputProps.length) {
     return res.status(200).json({
       ok: true, mode: "nfl-player-props", noPlay: true,
       reason: "No hay player props NFL disponibles aún. Aparecen ~1-2 semanas antes del juego.",
