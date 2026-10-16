@@ -13124,372 +13124,775 @@ function renderNFLCombinedProductionCard(
   item
 ) {
 
-  const toOptionalNumber =
-  value => {
+  const numberOrNull =
+    value => {
 
-    if (
-      value === null ||
-      value === undefined ||
-      value === ""
-    ) {
-      return null;
-    }
+      if (
+        value === null ||
+        value === undefined ||
+        value === ""
+      ) {
+        return null;
+      }
 
-    const number =
-      Number(value);
+      const number =
+        Number(value);
 
-    return Number.isFinite(number)
-      ? number
-      : null;
-  };
-
-
-const probability =
-  toOptionalNumber(
-    item
-      ?.predictiveProbability
-      ?.probability
-  );
+      return Number.isFinite(number)
+        ? number
+        : null;
+    };
 
 
-const projection =
-  toOptionalNumber(
+  const probability =
+    numberOrNull(
+      item
+        ?.predictiveProbability
+        ?.probability
+    );
+
+
+  const projection =
+    numberOrNull(
+      item
+        ?.projectionData
+        ?.combinedProjection
+    );
+
+
+  const line =
+    numberOrNull(
+      item?.effectiveLine
+    );
+
+
+  const side =
+    String(
+      item?.effectiveSide ||
+      ""
+    ).toUpperCase();
+
+
+  const market =
+    item?.marketComparison ||
+    {};
+
+
+  const value =
+    numberOrNull(
+      market?.value
+    );
+
+
+  const ev =
+    numberOrNull(
+      market
+        ?.ev
+        ?.evPercent
+    );
+
+
+  const odds =
+    numberOrNull(
+      market?.selectedOdds
+    );
+
+
+  const history =
+    item?.historicalCoverage ||
+    {};
+
+
+  const historicalWins =
+    numberOrNull(
+      history?.wins
+    );
+
+
+  const historicalGames =
+    numberOrNull(
+      history?.games
+    );
+
+
+  const historicalPct =
+    numberOrNull(
+      history?.percentage
+    );
+
+
+  const sampleValues =
+    Array.isArray(
+      item?.summary?.values
+    )
+      ? item.summary.values
+          .map(numberOrNull)
+          .filter(
+            value =>
+              value !== null
+          )
+      : [];
+
+
+  const components =
     item
       ?.projectionData
-      ?.combinedProjection
-  );
+      ?.components ||
+    {};
 
 
-const line =
-  toOptionalNumber(
-    item?.effectiveLine
-  );
+  const passProjection =
+    numberOrNull(
+      components?.passingYards
+    );
 
 
-const side =
-  String(
-    item?.effectiveSide ||
-    ""
-  );
+  const rushProjection =
+    numberOrNull(
+      components?.rushingYards
+    );
 
 
-const market =
-  item?.marketComparison ||
-  {};
+  const receivingProjection =
+    numberOrNull(
+      components?.receivingYards
+    );
 
 
-const value =
-  toOptionalNumber(
-    market?.value
-  );
+  const marketLabel =
+    String(
+      item?.marketLabel ||
+      item?.market ||
+      "Combined Prop"
+    );
 
 
-const ev =
-  toOptionalNumber(
-    market
-      ?.ev
-      ?.evPercent
-  );
+  const bookmaker =
+    String(
+      market?.bookmaker ||
+      ""
+    ).toUpperCase();
 
 
-const odds =
-  toOptionalNumber(
-    market?.selectedOdds
-  );
+  const recentResultsHTML =
+    sampleValues
+      .slice(0, 10)
+      .map(
+        result => {
+
+          let resultStatus =
+            "push";
+
+
+          if (
+            line !== null
+          ) {
+
+            if (
+              result !== line
+            ) {
+
+              const hit =
+                side === "UNDER"
+                  ? result < line
+                  : result > line;
+
+
+              resultStatus =
+                hit
+                  ? "hit"
+                  : "miss";
+            }
+          }
+
+
+          const resultColor =
+            resultStatus === "hit"
+              ? "#00ffe7"
+              : resultStatus === "miss"
+                ? "#ff6174"
+                : "#f5c451";
+
+
+          return `
+            <div
+              style="
+                min-width:44px;
+                padding:7px 5px;
+                border-radius:8px;
+                background:#0f1628;
+                border:1px solid #1a2740;
+                text-align:center;
+              "
+            >
+
+              <strong
+                style="
+                  display:block;
+                  color:${resultColor};
+                  font-size:10px;
+                "
+              >
+                ${result.toFixed(0)}
+              </strong>
+
+              <small
+                style="
+                  display:block;
+                  color:#60708d;
+                  font-size:6px;
+                  margin-top:2px;
+                "
+              >
+                ${
+                  resultStatus === "hit"
+                    ? "✓"
+                    : resultStatus === "miss"
+                      ? "✕"
+                      : "P"
+                }
+              </small>
+
+            </div>
+          `;
+        }
+      )
+      .join("");
+
+
+  const componentsHTML =
+    [
+      [
+        "PASS",
+        passProjection
+      ],
+
+      [
+        "RUSH",
+        rushProjection
+      ],
+
+      [
+        "REC",
+        receivingProjection
+      ]
+    ]
+      .filter(
+        ([, componentValue]) =>
+          componentValue !== null
+      )
+      .map(
+        ([label, componentValue]) => `
+          <div
+            style="
+              text-align:center;
+              background:#0f1628;
+              border-radius:8px;
+              padding:8px 4px;
+            "
+          >
+            <small
+              style="
+                display:block;
+                color:#60708d;
+                font-size:6px;
+                font-weight:800;
+              "
+            >
+              ${label}
+            </small>
+
+            <strong
+              style="
+                display:block;
+                color:#fff;
+                font-size:11px;
+                margin-top:4px;
+              "
+            >
+              ${componentValue.toFixed(1)}
+            </strong>
+          </div>
+        `
+      )
+      .join("");
 
 
   return `
-    <div
+    <details
       style="
         background:#081321;
-        border:1px solid rgba(0,255,231,.25);
+        border:1px solid rgba(0,255,231,.28);
         border-radius:12px;
-        padding:13px 14px;
         margin-bottom:8px;
+        overflow:hidden;
       "
     >
 
-      <div
+      <summary
         style="
-          display:flex;
-          justify-content:space-between;
-          align-items:flex-start;
-          gap:12px;
-        "
-      >
-
-        <div style="min-width:0;">
-
-          <div
-            style="
-              color:#fff;
-              font-size:13px;
-              font-weight:850;
-            "
-          >
-            ${sanitize(
-              item?.player ||
-              "Player"
-            )}
-          </div>
-
-
-          <div
-            style="
-              margin-top:4px;
-              color:#71839f;
-              font-size:9px;
-            "
-          >
-            ${sanitize(
-              item?.marketLabel ||
-              "Combined Prop"
-            )}
-          </div>
-
-
-          <div
-            style="
-              margin-top:7px;
-              color:#00ffe7;
-              font-size:13px;
-              font-weight:900;
-            "
-          >
-            ${sanitize(side)}
-            ${
-              Number.isFinite(line)
-                ? line
-                : "—"
-            }
-          </div>
-
-        </div>
-
-
-        <div style="text-align:right;">
-
-          <div
-            style="
-              color:#00ffe7;
-              font-size:17px;
-              font-weight:900;
-            "
-          >
-            ${
-              Number.isFinite(
-                probability
-              )
-                ? `${probability.toFixed(1)}%`
-                : "—"
-            }
-          </div>
-
-          <div
-            style="
-              color:#71839f;
-              font-size:7px;
-              margin-top:2px;
-            "
-          >
-            PROBABILITY
-          </div>
-
-        </div>
-
-      </div>
-
-
-      <div
-        style="
-          display:grid;
-          grid-template-columns:
-            repeat(4,minmax(0,1fr));
-          gap:6px;
-          margin-top:12px;
+          list-style:none;
+          cursor:pointer;
+          padding:13px 14px;
         "
       >
 
         <div
           style="
-            background:#0f1628;
-            border-radius:8px;
-            padding:8px 4px;
-            text-align:center;
+            display:flex;
+            justify-content:space-between;
+            align-items:flex-start;
+            gap:10px;
           "
         >
+
           <div
             style="
-              color:#60708d;
-              font-size:6px;
-              font-weight:800;
+              min-width:0;
             "
           >
-            PROJECTION
+
+            <strong
+              style="
+                display:block;
+                color:#fff;
+                font-size:13px;
+                font-weight:900;
+              "
+            >
+              ${sanitize(
+                item?.player ||
+                "Player"
+              )}
+            </strong>
+
+
+            <small
+              style="
+                display:block;
+                color:#71839f;
+                font-size:7px;
+                margin-top:3px;
+              "
+            >
+              ${sanitize(
+                marketLabel
+              )}
+            </small>
+
+
+            <div
+              style="
+                margin-top:7px;
+                color:#00ffe7;
+                font-size:12px;
+                font-weight:950;
+              "
+            >
+              ${sanitize(side)}
+              ${
+                line !== null
+                  ? line
+                  : "—"
+              }
+            </div>
+
           </div>
 
-          <strong
+
+          <div
             style="
-              display:block;
-              color:#fff;
-              font-size:11px;
-              margin-top:4px;
+              text-align:right;
+              flex-shrink:0;
             "
           >
-            ${
-              Number.isFinite(
-                projection
-              )
-                ? projection.toFixed(1)
-                : "—"
-            }
-          </strong>
+
+            <strong
+              style="
+                color:#00ffe7;
+                font-size:17px;
+                font-weight:950;
+              "
+            >
+              ${
+                probability !== null
+                  ? `${probability.toFixed(1)}%`
+                  : "—"
+              }
+            </strong>
+
+
+            <small
+              style="
+                display:block;
+                color:#60708d;
+                font-size:6px;
+                margin-top:2px;
+              "
+            >
+              PROBABILITY
+            </small>
+
+
+            <div
+              style="
+                color:#60708d;
+                font-size:8px;
+                margin-top:5px;
+              "
+            >
+              TAP FOR STATS ›
+            </div>
+
+          </div>
+
         </div>
 
 
         <div
           style="
-            background:#0f1628;
-            border-radius:8px;
-            padding:8px 4px;
-            text-align:center;
+            display:grid;
+            grid-template-columns:
+              repeat(4,minmax(0,1fr));
+            gap:6px;
+            margin-top:11px;
           "
         >
+
           <div
             style="
-              color:#60708d;
-              font-size:6px;
-              font-weight:800;
+              background:#0f1628;
+              border-radius:8px;
+              padding:8px 4px;
+              text-align:center;
             "
           >
-            ODDS
+            <small
+              style="
+                color:#60708d;
+                font-size:6px;
+                font-weight:800;
+              "
+            >
+              PROJECTION
+            </small>
+
+            <strong
+              style="
+                display:block;
+                color:#fff;
+                font-size:11px;
+                margin-top:4px;
+              "
+            >
+              ${
+                projection !== null
+                  ? projection.toFixed(1)
+                  : "—"
+              }
+            </strong>
           </div>
 
-          <strong
+
+          <div
             style="
-              display:block;
-              color:#ffad5c;
-              font-size:11px;
-              margin-top:4px;
+              background:#0f1628;
+              border-radius:8px;
+              padding:8px 4px;
+              text-align:center;
             "
           >
-            ${formatNFLCombinedAmericanOdds(
-              odds
-            )}
-          </strong>
+            <small
+              style="
+                color:#60708d;
+                font-size:6px;
+                font-weight:800;
+              "
+            >
+              ODDS
+            </small>
+
+            <strong
+              style="
+                display:block;
+                color:#ffad5c;
+                font-size:11px;
+                margin-top:4px;
+              "
+            >
+              ${formatNFLCombinedAmericanOdds(
+                odds
+              )}
+            </strong>
+          </div>
+
+
+          <div
+            style="
+              background:#0f1628;
+              border-radius:8px;
+              padding:8px 4px;
+              text-align:center;
+            "
+          >
+            <small
+              style="
+                color:#60708d;
+                font-size:6px;
+                font-weight:800;
+              "
+            >
+              VALUE
+            </small>
+
+            <strong
+              style="
+                display:block;
+                color:${
+                  value !== null &&
+                  value > 0
+                    ? "#00ffe7"
+                    : "#71839f"
+                };
+                font-size:11px;
+                margin-top:4px;
+              "
+            >
+              ${
+                value !== null
+                  ? `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`
+                  : "—"
+              }
+            </strong>
+          </div>
+
+
+          <div
+            style="
+              background:#0f1628;
+              border-radius:8px;
+              padding:8px 4px;
+              text-align:center;
+            "
+          >
+            <small
+              style="
+                color:#60708d;
+                font-size:6px;
+                font-weight:800;
+              "
+            >
+              EV
+            </small>
+
+            <strong
+              style="
+                display:block;
+                color:${
+                  ev !== null &&
+                  ev > 0
+                    ? "#00ffe7"
+                    : "#71839f"
+                };
+                font-size:11px;
+                margin-top:4px;
+              "
+            >
+              ${
+                ev !== null
+                  ? `${ev >= 0 ? "+" : ""}${ev.toFixed(1)}%`
+                  : "—"
+              }
+            </strong>
+          </div>
+
         </div>
 
 
         <div
           style="
-            background:#0f1628;
-            border-radius:8px;
-            padding:8px 4px;
-            text-align:center;
+            margin-top:7px;
+            color:#60708d;
+            font-size:6px;
+            text-align:right;
           "
         >
-          <div
-            style="
-              color:#60708d;
-              font-size:6px;
-              font-weight:800;
-            "
-          >
-            VALUE
-          </div>
-
-          <strong
-            style="
-              display:block;
-              color:${
-                Number.isFinite(value) &&
-                value > 0
-                  ? "#00ffe7"
-                  : "#71839f"
-              };
-              font-size:11px;
-              margin-top:4px;
-            "
-          >
-            ${
-              Number.isFinite(value)
-                ? `${
-                    value >= 0
-                      ? "+"
-                      : ""
-                  }${value.toFixed(1)}%`
-                : "—"
-            }
-          </strong>
+          ${sanitize(bookmaker)}
         </div>
 
-
-        <div
-          style="
-            background:#0f1628;
-            border-radius:8px;
-            padding:8px 4px;
-            text-align:center;
-          "
-        >
-          <div
-            style="
-              color:#60708d;
-              font-size:6px;
-              font-weight:800;
-            "
-          >
-            EV
-          </div>
-
-          <strong
-            style="
-              display:block;
-              color:${
-                Number.isFinite(ev) &&
-                ev > 0
-                  ? "#00ffe7"
-                  : "#71839f"
-              };
-              font-size:11px;
-              margin-top:4px;
-            "
-          >
-            ${
-              Number.isFinite(ev)
-                ? `${
-                    ev >= 0
-                      ? "+"
-                      : ""
-                  }${ev.toFixed(1)}%`
-                : "—"
-            }
-          </strong>
-        </div>
-
-      </div>
+      </summary>
 
 
       <div
         style="
-          margin-top:9px;
-          color:#60708d;
-          font-size:7px;
-          text-align:right;
+          border-top:1px solid #17243a;
+          padding:12px 14px 14px;
         "
       >
-        ${sanitize(
-          String(
-            market?.bookmaker ||
-            ""
-          ).toUpperCase()
-        )}
+
+        <div
+          style="
+            color:#00ffe7;
+            font-size:8px;
+            font-weight:900;
+            letter-spacing:.08em;
+          "
+        >
+          HISTORICAL PERFORMANCE
+        </div>
+
+
+        <div
+          style="
+            display:grid;
+            grid-template-columns:
+              repeat(2,minmax(0,1fr));
+            gap:7px;
+            margin-top:8px;
+          "
+        >
+
+          <div
+            style="
+              background:#0f1628;
+              border-radius:9px;
+              padding:10px;
+              text-align:center;
+            "
+          >
+            <small
+              style="
+                color:#60708d;
+                font-size:6px;
+                font-weight:800;
+              "
+            >
+              COVERED LINE
+            </small>
+
+            <strong
+              style="
+                display:block;
+                color:#fff;
+                font-size:15px;
+                margin-top:4px;
+              "
+            >
+              ${
+                historicalWins !== null &&
+                historicalGames !== null
+                  ? `${historicalWins}/${historicalGames}`
+                  : "—"
+              }
+            </strong>
+          </div>
+
+
+          <div
+            style="
+              background:#0f1628;
+              border-radius:9px;
+              padding:10px;
+              text-align:center;
+            "
+          >
+            <small
+              style="
+                color:#60708d;
+                font-size:6px;
+                font-weight:800;
+              "
+            >
+              HIT RATE
+            </small>
+
+            <strong
+              style="
+                display:block;
+                color:#00ffe7;
+                font-size:15px;
+                margin-top:4px;
+              "
+            >
+              ${
+                historicalPct !== null
+                  ? `${historicalPct.toFixed(1)}%`
+                  : "—"
+              }
+            </strong>
+          </div>
+
+        </div>
+
+
+        ${
+          componentsHTML
+            ? `
+              <div
+                style="
+                  color:#71839f;
+                  font-size:7px;
+                  font-weight:900;
+                  margin-top:12px;
+                  letter-spacing:.07em;
+                "
+              >
+                CASHEDGE COMPONENT PROJECTIONS
+              </div>
+
+
+              <div
+                style="
+                  display:grid;
+                  grid-template-columns:
+                    repeat(3,minmax(0,1fr));
+                  gap:6px;
+                  margin-top:6px;
+                "
+              >
+                ${componentsHTML}
+              </div>
+            `
+            : ""
+        }
+
+
+        ${
+          recentResultsHTML
+            ? `
+              <div
+                style="
+                  color:#71839f;
+                  font-size:7px;
+                  font-weight:900;
+                  margin-top:12px;
+                  letter-spacing:.07em;
+                "
+              >
+                RECENT COMBINED RESULTS
+              </div>
+
+
+              <div
+                style="
+                  display:flex;
+                  gap:5px;
+                  overflow-x:auto;
+                  margin-top:6px;
+                  padding-bottom:3px;
+                "
+              >
+                ${recentResultsHTML}
+              </div>
+            `
+            : ""
+        }
+
       </div>
 
-    </div>
+    </details>
   `;
 }
-
 
 async function showNFLCombinedProps(
   index
