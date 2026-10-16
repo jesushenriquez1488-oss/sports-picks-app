@@ -12239,7 +12239,10 @@ const NFL_PROP_LINE_MARKET_MAP = {
     "receptions",
 
   player_reception_yds:
-    "receiving_yards"
+    "receiving_yards",
+
+  player_anytime_td:
+    "touchdowns"
 };
 
 
@@ -16229,23 +16232,338 @@ const getNFLPropHistoricalValue = (
 
 
   if (
-    market ===
-    "player_reception_yds"
-  ) {
-    const value =
-      Number(
-        gameLog?.receiving?.yards
-      );
+  market ===
+  "player_reception_yds"
+) {
+  const value =
+    Number(
+      gameLog?.receiving?.yards
+    );
 
-    return Number.isFinite(value)
-      ? value
-      : null;
+  return Number.isFinite(value)
+    ? value
+    : null;
+}
+
+
+if (
+  market ===
+  "player_anytime_td"
+) {
+
+  const rushingTD =
+    Number(
+      gameLog
+        ?.rushing
+        ?.touchdowns
+    );
+
+
+  const receivingTD =
+    Number(
+      gameLog
+        ?.receiving
+        ?.touchdowns
+    );
+
+
+  if (
+    !Number.isFinite(
+      rushingTD
+    ) &&
+    !Number.isFinite(
+      receivingTD
+    )
+  ) {
+    return null;
   }
 
 
-  return null;
-};
+  return (
+    (
+      Number.isFinite(
+        rushingTD
+      )
+        ? rushingTD
+        : 0
+    ) +
+    (
+      Number.isFinite(
+        receivingTD
+      )
+        ? receivingTD
+        : 0
+    )
+  );
+}
 
+
+return null;
+};
+// ============================================================
+// NFL ANYTIME TD — HISTORICAL PROFILE
+// ============================================================
+
+function buildNFLAnytimeTDHistoricalProfile(
+  logs = []
+) {
+
+  const games =
+    (
+      Array.isArray(logs)
+        ? logs
+        : []
+    )
+      .map(
+        log => {
+
+          const touchdowns =
+            getNFLPropHistoricalValue(
+              log,
+              "player_anytime_td"
+            );
+
+
+          if (
+            !Number.isFinite(
+              touchdowns
+            )
+          ) {
+            return null;
+          }
+
+
+          return {
+            touchdowns,
+            hit:
+              touchdowns >= 1
+          };
+        }
+      )
+      .filter(Boolean)
+      .slice(0, 10);
+
+
+  if (!games.length) {
+
+    return {
+      available: false,
+      games: 0
+    };
+  }
+
+
+  const buildWindow =
+    size => {
+
+      const sample =
+        games.slice(
+          0,
+          Math.min(
+            size,
+            games.length
+          )
+        );
+
+
+      const hits =
+        sample.filter(
+          game =>
+            game.hit
+        ).length;
+
+
+      const totalTD =
+        sample.reduce(
+          (
+            sum,
+            game
+          ) =>
+            sum +
+            game.touchdowns,
+          0
+        );
+
+
+      return {
+        games:
+          sample.length,
+
+        hits,
+
+        misses:
+          sample.length -
+          hits,
+
+        hitRate:
+          sample.length
+            ? Number(
+                (
+                  (
+                    hits /
+                    sample.length
+                  ) *
+                  100
+                ).toFixed(1)
+              )
+            : null,
+
+        touchdowns:
+          totalTD,
+
+        tdPerGame:
+          sample.length
+            ? Number(
+                (
+                  totalTD /
+                  sample.length
+                ).toFixed(3)
+              )
+            : null
+      };
+    };
+
+
+  /*
+   * Recency weighting:
+   *
+   * Juego más reciente = 1.00
+   * cada juego anterior pierde 10%.
+   *
+   * Esto NO inventa touchdowns.
+   * Solo da más importancia al rol
+   * y producción más reciente.
+   */
+  let weightSum = 0;
+  let weightedTD = 0;
+  let weightedHits = 0;
+
+
+  games.forEach(
+    (
+      game,
+      index
+    ) => {
+
+      const weight =
+        Math.pow(
+          0.90,
+          index
+        );
+
+
+      weightSum +=
+        weight;
+
+
+      weightedTD +=
+        game.touchdowns *
+        weight;
+
+
+      weightedHits +=
+        (
+          game.hit
+            ? 1
+            : 0
+        ) *
+        weight;
+    }
+  );
+
+
+  const weightedTDRate =
+    weightSum > 0
+      ? weightedTD /
+        weightSum
+      : null;
+
+
+  const weightedHitRate =
+    weightSum > 0
+      ? (
+          weightedHits /
+          weightSum
+        ) *
+        100
+      : null;
+
+
+  /*
+   * Poisson:
+   *
+   * P(anotar >= 1 TD)
+   * = 1 - e^(-lambda)
+   *
+   * Por ahora lambda es únicamente
+   * la tasa histórica ponderada.
+   *
+   * Después aplicaremos:
+   * - Role Factor
+   * - Team Scoring Factor
+   */
+  const baseProbability =
+    Number.isFinite(
+      weightedTDRate
+    )
+      ? (
+          1 -
+          Math.exp(
+            -weightedTDRate
+          )
+        ) *
+        100
+      : null;
+
+
+  return {
+
+    available:
+      true,
+
+    games:
+      games.length,
+
+    last3:
+      buildWindow(3),
+
+    last5:
+      buildWindow(5),
+
+    last10:
+      buildWindow(10),
+
+    weightedTDRate:
+      Number.isFinite(
+        weightedTDRate
+      )
+        ? Number(
+            weightedTDRate
+              .toFixed(4)
+          )
+        : null,
+
+    weightedHitRate:
+      Number.isFinite(
+        weightedHitRate
+      )
+        ? Number(
+            weightedHitRate
+              .toFixed(1)
+          )
+        : null,
+
+    baseProbability:
+      Number.isFinite(
+        baseProbability
+      )
+        ? Number(
+            baseProbability
+              .toFixed(1)
+          )
+        : null
+  };
+}
 
 const buildNFLPropHistoricalCoverage = ({
   logs = [],
