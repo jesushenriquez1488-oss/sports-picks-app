@@ -9940,6 +9940,523 @@ const matchedLines =
   };
 }
 // ============================================================
+// NFL COMBINED PROPS — MARKET PROBABILITY / NO-VIG
+// EXPERIMENTAL / SHADOW ONLY
+// ============================================================
+
+function nflCombinedAmericanOddsToProbability(
+  americanOdds
+) {
+
+  const odds =
+    Number(
+      americanOdds
+    );
+
+
+  if (
+    !Number.isFinite(odds) ||
+    odds === 0
+  ) {
+    return null;
+  }
+
+
+  const probability =
+    odds < 0
+      ? (
+          Math.abs(odds) /
+          (
+            Math.abs(odds) +
+            100
+          )
+        )
+      : (
+          100 /
+          (
+            odds +
+            100
+          )
+        );
+
+
+  return Number(
+    (
+      probability *
+      100
+    ).toFixed(2)
+  );
+}
+
+
+// ============================================================
+// QUITAR VIG DEL MERCADO OVER / UNDER
+// ============================================================
+
+function buildNFLCombinedNoVigMarket({
+  overOdds,
+  underOdds,
+  side
+}) {
+
+  const targetSide =
+    String(
+      side || ""
+    )
+      .trim()
+      .toUpperCase();
+
+
+  if (
+    targetSide !== "OVER" &&
+    targetSide !== "UNDER"
+  ) {
+    return null;
+  }
+
+
+  const overImplied =
+    nflCombinedAmericanOddsToProbability(
+      overOdds
+    );
+
+
+  const underImplied =
+    nflCombinedAmericanOddsToProbability(
+      underOdds
+    );
+
+
+  const selectedOdds =
+    targetSide === "OVER"
+      ? Number(overOdds)
+      : Number(underOdds);
+
+
+  const selectedRawImplied =
+    targetSide === "OVER"
+      ? overImplied
+      : underImplied;
+
+
+  /*
+   * Si tenemos los dos lados,
+   * eliminamos el vig normalizando.
+   */
+  if (
+    Number.isFinite(overImplied) &&
+    Number.isFinite(underImplied)
+  ) {
+
+    const totalImplied =
+      overImplied +
+      underImplied;
+
+
+    if (
+      totalImplied > 0
+    ) {
+
+      const overNoVig =
+        Number(
+          (
+            (
+              overImplied /
+              totalImplied
+            ) *
+            100
+          ).toFixed(2)
+        );
+
+
+      const underNoVig =
+        Number(
+          (
+            (
+              underImplied /
+              totalImplied
+            ) *
+            100
+          ).toFixed(2)
+        );
+
+
+      return {
+
+        available:
+          true,
+
+        method:
+          "two_way_no_vig",
+
+        selectedSide:
+          targetSide,
+
+        selectedOdds:
+          Number.isFinite(
+            selectedOdds
+          )
+            ? selectedOdds
+            : null,
+
+        rawImpliedProbability:
+          selectedRawImplied,
+
+        fairProbability:
+          targetSide === "OVER"
+            ? overNoVig
+            : underNoVig,
+
+        over: {
+          odds:
+            Number(overOdds),
+
+          rawImpliedProbability:
+            overImplied,
+
+          noVigProbability:
+            overNoVig
+        },
+
+        under: {
+          odds:
+            Number(underOdds),
+
+          rawImpliedProbability:
+            underImplied,
+
+          noVigProbability:
+            underNoVig
+        },
+
+        marketHold:
+          Number(
+            (
+              totalImplied -
+              100
+            ).toFixed(2)
+          )
+      };
+    }
+  }
+
+
+  /*
+   * Fallback:
+   * si solo tenemos el precio del lado elegido,
+   * podemos mostrar break-even crudo,
+   * pero NO decir que es probabilidad fair.
+   */
+  if (
+    Number.isFinite(
+      selectedRawImplied
+    )
+  ) {
+
+    return {
+
+      available:
+        true,
+
+      method:
+        "raw_implied_only",
+
+      selectedSide:
+        targetSide,
+
+      selectedOdds:
+        Number.isFinite(
+          selectedOdds
+        )
+          ? selectedOdds
+          : null,
+
+      rawImpliedProbability:
+        selectedRawImplied,
+
+      fairProbability:
+        null,
+
+      over: {
+        odds:
+          Number.isFinite(
+            Number(overOdds)
+          )
+            ? Number(overOdds)
+            : null,
+
+        rawImpliedProbability:
+          overImplied,
+
+        noVigProbability:
+          null
+      },
+
+      under: {
+        odds:
+          Number.isFinite(
+            Number(underOdds)
+          )
+            ? Number(underOdds)
+            : null,
+
+        rawImpliedProbability:
+          underImplied,
+
+        noVigProbability:
+          null
+      },
+
+      marketHold:
+        null
+    };
+  }
+
+
+  return {
+    available:
+      false,
+
+    method:
+      null,
+
+    selectedSide:
+      targetSide,
+
+    selectedOdds:
+      null,
+
+    rawImpliedProbability:
+      null,
+
+    fairProbability:
+      null
+  };
+}
+
+
+// ============================================================
+// NFL COMBINED — MODEL VS MARKET
+// ============================================================
+
+function buildNFLCombinedMarketComparison({
+  predictiveProbability,
+  liveMarket,
+  side
+}) {
+
+  const targetSide =
+    String(
+      side || ""
+    )
+      .trim()
+      .toUpperCase();
+
+
+  const modelProbability =
+    Number(
+      predictiveProbability
+        ?.probability
+    );
+
+
+  if (
+    predictiveProbability
+      ?.available !== true ||
+    !Number.isFinite(
+      modelProbability
+    ) ||
+    (
+      targetSide !== "OVER" &&
+      targetSide !== "UNDER"
+    )
+  ) {
+
+    return {
+
+      available:
+        false,
+
+      reason:
+        "predictive_probability_unavailable",
+
+      recommendationEligible:
+        false
+    };
+  }
+
+
+  const market =
+    buildNFLCombinedNoVigMarket({
+
+      overOdds:
+        liveMarket
+          ?.overOdds,
+
+      underOdds:
+        liveMarket
+          ?.underOdds,
+
+      side:
+        targetSide
+    });
+
+
+  if (
+    !market?.available
+  ) {
+
+    return {
+
+      available:
+        false,
+
+      reason:
+        "market_probability_unavailable",
+
+      modelProbability,
+
+      recommendationEligible:
+        false
+    };
+  }
+
+
+  const fairProbability =
+    Number(
+      market
+        ?.fairProbability
+    );
+
+
+  const rawImpliedProbability =
+    Number(
+      market
+        ?.rawImpliedProbability
+    );
+
+
+  const modelVsFairEdge =
+    Number.isFinite(
+      fairProbability
+    )
+      ? Number(
+          (
+            modelProbability -
+            fairProbability
+          ).toFixed(2)
+        )
+      : null;
+
+
+  const modelVsRawEdge =
+    Number.isFinite(
+      rawImpliedProbability
+    )
+      ? Number(
+          (
+            modelProbability -
+            rawImpliedProbability
+          ).toFixed(2)
+        )
+      : null;
+
+
+  return {
+
+    available:
+      true,
+
+    experimental:
+      true,
+
+    calibrated:
+      predictiveProbability
+        ?.calibrated === true,
+
+    recommendationEligible:
+      predictiveProbability
+        ?.calibrated === true,
+
+    bookmaker:
+      liveMarket
+        ?.bookmaker ||
+      null,
+
+    side:
+      targetSide,
+
+    line:
+      Number.isFinite(
+        Number(
+          liveMarket
+            ?.line
+        )
+      )
+        ? Number(
+            liveMarket.line
+          )
+        : null,
+
+    selectedOdds:
+      market
+        .selectedOdds,
+
+    modelProbability:
+      Number(
+        modelProbability
+          .toFixed(2)
+      ),
+
+    rawImpliedProbability:
+      market
+        .rawImpliedProbability,
+
+    fairMarketProbability:
+      market
+        .fairProbability,
+
+    modelVsMarketEdge:
+      modelVsFairEdge,
+
+    modelVsRawBreakEvenEdge:
+      modelVsRawEdge,
+
+    marketHold:
+      market
+        .marketHold,
+
+    marketMethod:
+      market
+        .method,
+
+    over:
+      market
+        .over ||
+      null,
+
+    under:
+      market
+        .under ||
+      null,
+
+    /*
+     * EV permanece bloqueado.
+     *
+     * Primero debemos validar/calibrar
+     * predictiveProbability en Shadow Mode.
+     */
+    ev:
+      null,
+
+    evStatus:
+      predictiveProbability
+        ?.calibrated === true
+        ? "ready_for_ev_model"
+        : "blocked_until_calibrated"
+  };
+}
+// ============================================================
 // NFL COMBINED PROPS — PREDICTIVE DISTRIBUTION
 // EXPERIMENTAL / SHADOW ONLY
 //
@@ -11102,6 +11619,29 @@ const predictiveProbability =
           effectiveSide
       })
     : null;
+  const marketComparison =
+  predictiveProbability
+    ?.available === true &&
+  liveMarket
+    ? buildNFLCombinedMarketComparison({
+
+        predictiveProbability,
+
+        liveMarket,
+
+        side:
+          effectiveSide
+      })
+    : {
+        available:
+          false,
+
+        reason:
+          "predictive_or_market_unavailable",
+
+        recommendationEligible:
+          false
+      };
   // =========================
   // RESPONSE
   // =========================
@@ -11157,11 +11697,13 @@ const predictiveProbability =
         sample.length
     },
 
-    summary,
+  summary,
 
 historicalCoverage,
 
 predictiveProbability,
+
+marketComparison,
 
 requestedLine:
   line,
