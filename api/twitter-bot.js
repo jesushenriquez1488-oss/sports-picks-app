@@ -4,7 +4,6 @@
 // The link to cashedgeapp.com lives in the profile bio.
 
 import crypto from "crypto";
-import { ImageResponse } from "@vercel/og";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -278,6 +277,7 @@ function recordImage(rec) {
 }
 
 async function renderPng(element) {
+  const { ImageResponse } = await import("@vercel/og");
   const img = new ImageResponse(element, { width: IMG_W, height: IMG_H });
   return Buffer.from(await img.arrayBuffer());
 }
