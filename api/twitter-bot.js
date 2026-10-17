@@ -102,13 +102,19 @@ function sportOf(p) {
 // ── Data ───────────────────────────────────────────────────────────────────
 // Season record = Premium picks only (same rule as the landing page)
 async function getPremiumRecord() {
-  const wins = await sbCount("is_premium=eq.true&result=ilike.win");
-  const losses = await sbCount("is_premium=eq.true&result=ilike.loss");
+  // Same source as the landing page: sport_record_summary
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/sport_record_summary?select=sport,total_wins,total_losses`,
+    { headers: sbHeaders }
+  );
+  const rows = await res.json();
+  if (!res.ok || !Array.isArray(rows)) throw new Error(`Supabase: ${JSON.stringify(rows)}`);
+  const wins = rows.reduce((s, r) => s + (Number(r.total_wins) || 0), 0);
+  const losses = rows.reduce((s, r) => s + (Number(r.total_losses) || 0), 0);
   const total = wins + losses;
   const pct = total > 0 ? ((wins / total) * 100).toFixed(1) : null;
   return { wins, losses, pct };
 }
-
 async function getYesterdayPremium() {
   const d = chicagoDate(-1);
   return sbSelect(`select=*&is_premium=eq.true&${DATE_COL}=eq.${d}&or=(result.ilike.win,result.ilike.loss,result.ilike.push)`);
