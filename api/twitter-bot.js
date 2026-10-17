@@ -352,7 +352,7 @@ async function buildReceipts() {
   const word = r === "win" ? "✅ WIN" : r === "loss" ? "❌ LOSS" : "➖ PUSH";
   const score = p.final_score ? `\nFinal: ${p.final_score}` : "";
   return {
-    text: `Yesterday's Free Premium Play: ${pickLabel(p)} ${word}${score}\n\nPosted before the game. Wins and losses, no deleted tweets.\n\nToday's free play drops at noon CT.`,
+    text: `${r === "win" ? "Called it. ✅" : r === "loss" ? "Missed this one. ❌" : "Push. ➖"}\n\nYesterday's Free Premium Play: ${pickLabel(p)} ${word}${score}\n\nPosted before the game. Every result goes public, wins AND losses.\n\n🆓 Today's free play drops at 12 PM CT 🔔\n\n#${SPORT_TAG[sportOf(p)] || "Sports"}Picks #SportsBetting`,
     image: freeResultImage(p),
     cardDate: chicagoDate(-1) // real CashEdge card of yesterday's free play
   };
@@ -363,7 +363,7 @@ async function buildFreePick() {
   if (!p) return null;
   const s = sportOf(p);
   return {
-    text: `${SPORT_EMOJI[s] || "🎯"} Free Premium Play of the day: ${pickLabel(p)}\n\n${gameLabel(p)}\n\nOne Premium pick on us. The rest of today's board + real-time line movement: link in bio.\n\n#${SPORT_TAG[s] || "Sports"}Picks`,
+    text: `🆓 FREE PREMIUM PLAY\n\n${SPORT_EMOJI[s] || "🎯"} ${pickLabel(p)}\n${gameLabel(p)}\n\nOne of today\'s Premium picks, free. The rest are locked in the app with live line movement and sharp money alerts.\n\nResult posted tomorrow, win or lose.\n🔗 Link in bio\n\n#${SPORT_TAG[s] || "Sports"}Picks #SportsBetting`,
     image: freePickImage(p),
     pickId: p.id,
     cardDate: chicagoDate(0) // real CashEdge card of today's free play
@@ -375,7 +375,7 @@ async function buildTeaser() {
   if (count === 0) return null;
   const rec = await getPremiumRecord();
   return {
-    text: `🔒 ${count} Premium ${count === 1 ? "pick" : "picks"} on today's board.\n\nSee where the line is moving before you bet. First month $34.99, link in bio.\n\n21+ | Gamble responsibly`,
+    text: `🔒 ${count} Premium ${count === 1 ? "pick" : "picks"} on today's board.\n\nThe line already moved on some of them. Premium shows you where the sharp money went, every line move in real time, and advanced player props.\n\n🔗 Link in bio · First month $34.99\n\n#SportsBetting #SportsPicks\n21+ | Gamble responsibly`,
     image: teaserImage(count, rec)
   };
 }
@@ -384,7 +384,7 @@ async function buildRecord() {
   const rec = await getPremiumRecord();
   if (rec.wins + rec.losses === 0) return null;
   return {
-    text: `📊 CashEdge Premium record: ${rec.wins}-${rec.losses} (${rec.pct}%)\n\nEvery Premium pick graded and public.\n\nCashEdge provides statistical analysis, not betting advice. 21+`,
+    text: `📊 ${rec.wins}-${rec.losses} (${rec.pct}%)\n\nThat's the CashEdge Premium record. Every pick graded publicly. No deleted losses, no cherry-picking.\n\n🆓 Free Premium Play every day at 12 PM CT. Turn on notifications 🔔\n\n#SportsBetting\n21+ | Statistical analysis, not betting advice`,
     image: recordImage(rec)
   };
 }
@@ -461,7 +461,7 @@ function ring(conf) {
       }
     },
     h("div", { display: "flex", flexDirection: "column", alignItems: "center" },
-      h("div", { display: "flex", fontSize: 30, color: "#ff8a1f", fontWeight: 800 }, `${conf.toFixed(1)}%`),
+      h("div", { display: "flex", fontSize: 25, color: "#ff8a1f", fontWeight: 800 }, `${conf.toFixed(1)}%`),
       h("div", { display: "flex", fontSize: 13, color: C.muted, letterSpacing: 1 }, "PROB.")
     )
   );
