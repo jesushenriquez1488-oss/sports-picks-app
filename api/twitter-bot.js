@@ -353,7 +353,8 @@ async function buildReceipts() {
   const score = p.final_score ? `\nFinal: ${p.final_score}` : "";
   return {
     text: `Yesterday's Free Premium Play: ${pickLabel(p)} ${word}${score}\n\nPosted before the game. Wins and losses, no deleted tweets.\n\nToday's free play drops at noon CT.`,
-    image: freeResultImage(p)
+    image: freeResultImage(p),
+    cardDate: chicagoDate(-1) // real CashEdge card of yesterday's free play
   };
 }
 
@@ -364,7 +365,8 @@ async function buildFreePick() {
   return {
     text: `${SPORT_EMOJI[s] || "🎯"} Free Premium Play of the day: ${pickLabel(p)}\n\n${gameLabel(p)}\n\nOne Premium pick on us. The rest of today's board + real-time line movement: link in bio.\n\n#${SPORT_TAG[s] || "Sports"}Picks`,
     image: freePickImage(p),
-    pickId: p.id
+    pickId: p.id,
+    cardDate: chicagoDate(0) // real CashEdge card of today's free play
   };
 }
 
@@ -389,6 +391,45 @@ async function buildRecord() {
 
 const BUILDERS = { morning: buildReceipts, pick: buildFreePick, teaser: buildTeaser, results: buildRecord };
 
+// ── Real CashEdge card: screenshot of x-card.html with headless Chromium ──
+const SITE = "https://www.cashedgeapp.com";
+
+async function screenshotCard(date) {
+  const chromium = (await import("@sparticuz/chromium")).default;
+  const puppeteer = (await import("puppeteer-core")).default;
+
+  const browser = await puppeteer.launch({
+    args: chromium.args,
+    defaultViewport: { width: 600, height: 900, deviceScaleFactor: 2 },
+    executablePath: await chromium.executablePath(),
+    headless: true
+  });
+
+  try {
+    const page = await browser.newPage();
+    await page.goto(`${SITE}/x-card.html?date=${date}`, { waitUntil: "networkidle0", timeout: 30000 });
+    await page.waitForFunction("window.__CARD_READY === true || !!window.__CARD_ERROR", { timeout: 20000 });
+    const err = await page.evaluate(() => window.__CARD_ERROR || null);
+    if (err) throw new Error(`x-card: ${err}`);
+    const el = await page.$("#xshot");
+    return Buffer.from(await el.screenshot({ type: "png" }));
+  } finally {
+    await browser.close();
+  }
+}
+
+// Real card when the post has one; generated image otherwise (or if the screenshot fails)
+async function makeImage(post) {
+  if (post.cardDate) {
+    try {
+      return await screenshotCard(post.cardDate);
+    } catch (e) {
+      console.error("Card screenshot failed, using generated image:", e);
+    }
+  }
+  return renderPng(post.image);
+}
+
 // ── Handler ────────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   const { type, dry, img } = req.query;
@@ -400,11 +441,14 @@ export default async function handler(req, res) {
   try {
     const post = await build();
 
+    // The free play must be saved BEFORE the screenshot: x-card.html only serves saved picks
+    if (post?.pickId) await saveFreePlay(post.pickId);
+
     // Preview (posts nothing): &dry=1 shows the text, &dry=1&img=1 shows the image
     if (dry === "1") {
       if (img === "1") {
         if (!post) return res.status(200).json({ ok: true, type, preview: null });
-        const png = await renderPng(post.image);
+        const png = await makeImage(post);
         res.setHeader("Content-Type", "image/png");
         res.setHeader("Cache-Control", "no-store");
         return res.status(200).send(png);
@@ -421,13 +465,12 @@ export default async function handler(req, res) {
     // If the image fails, still post the text so the day isn't lost
     let mediaId = null;
     try {
-      mediaId = await uploadImage(await renderPng(post.image));
+      mediaId = await uploadImage(await makeImage(post));
     } catch (e) {
       console.error("Image failed, posting text only:", e);
     }
 
     const tweet = await postTweet(post.text, mediaId);
-    if (post.pickId) await saveFreePlay(post.pickId); // so tomorrow's 9 AM post knows which pick it was
     return res.status(200).json({ ok: true, type, withImage: !!mediaId, tweet });
   } catch (error) {
     console.error("Twitter bot error:", error);
