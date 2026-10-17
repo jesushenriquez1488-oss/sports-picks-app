@@ -1106,3 +1106,4 @@ if (!forceRun && chicagoHour !== 8) {
     });
   }
 };
+module.exports.buildDisplayPayload = buildDisplayPayload;
