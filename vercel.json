@@ -1,4 +1,7 @@
 {
+  "functions": {
+    "api/twitter-bot.js": { "memory": 1769, "maxDuration": 60 }
+  },
   "crons": [
     { "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=0&force=true", "schedule": "0 11 * * *" },
     { "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=4&force=true", "schedule": "5 11 * * *" },
