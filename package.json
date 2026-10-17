@@ -4,8 +4,6 @@
     "micro": "^9.3.4",
     "@supabase/supabase-js": "^2.45.4",
     "@apple/app-store-server-library": "^3.1.0",
-    "@vercel/og": "0.6.8",
-    "@sparticuz/chromium": "131.0.1",
-    "puppeteer-core": "23.11.1"
+    "@vercel/og": "0.6.8"
   }
 }
