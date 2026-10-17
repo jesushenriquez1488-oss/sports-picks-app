@@ -589,3 +589,10 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: error.message });
   }
 }
+
+// Shared with /api/telegram-bot.js (same data, same images)
+export {
+  sbSelect, chicagoDate, prettyDate, gameLabel, pickLabel, sportOf, getPremiumRecord,
+  h, frame, badge, sportChip, renderPng, getCardData, premiumCardImage,
+  C, SPORT_TAG, SPORT_EMOJI, TABLE, DATE_COL
+};
