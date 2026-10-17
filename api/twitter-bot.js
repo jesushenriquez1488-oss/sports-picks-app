@@ -119,7 +119,10 @@ function gameLabel(p) {
   return p.matchup || "";
 }
 function pickLabel(p) {
-  return p.pick || p.display_pick || p.selection || p.play || "";
+  const pick = p.pick || "";
+  // Totals are saved as just "Over"/"Under": add the line (e.g. "Under 156.5")
+  if (/^(over|under)$/i.test(pick) && p.line != null) return `${pick} ${p.line}`;
+  return pick;
 }
 function sportOf(p) {
   return String(p.sport || p.type || "").toLowerCase();
@@ -136,13 +139,28 @@ async function getPremiumRecord() {
   return { wins, losses, pct, bySport: rows };
 }
 
-async function getYesterdayPremium() {
-  return sbSelect(TABLE,
-    `select=*&is_premium=eq.true&${DATE_COL}=eq.${chicagoDate(-1)}&or=(result.ilike.win,result.ilike.loss,result.ilike.push)`);
+// The Free Premium Play posted yesterday (saved in x_free_plays when it was tweeted)
+async function getYesterdayFreePlay() {
+  const saved = await sbSelect("x_free_plays", `select=pick_id&post_date=eq.${chicagoDate(-1)}&limit=1`);
+  if (!saved[0]) return null;
+  const rows = await sbSelect(TABLE, `select=*&id=eq.${saved[0].pick_id}&limit=1`);
+  const p = rows[0];
+  if (!p || !/^(win|loss|push)$/i.test(p.result)) return null; // not graded yet → don't post
+  return p;
 }
 
+async function saveFreePlay(pickId) {
+  await fetch(`${SUPABASE_URL}/rest/v1/x_free_plays`, {
+    method: "POST",
+    headers: { ...sbHeaders, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates" },
+    body: JSON.stringify({ post_date: chicagoDate(0), pick_id: pickId })
+  });
+}
+
+// Free Premium Play: one of today's Premium picks, still pending, lowest confidence
 async function getTodayFreePick() {
-  const rows = await sbSelect(TABLE, `select=*&is_premium=eq.false&${DATE_COL}=eq.${chicagoDate(0)}&limit=20`);
+  const rows = await sbSelect(TABLE,
+    `select=*&is_premium=eq.true&${DATE_COL}=eq.${chicagoDate(0)}&result=ilike.pending&order=confidence.asc&limit=20`);
   return rows.find(p => pickLabel(p) && gameLabel(p)) || null;
 }
 
@@ -210,7 +228,10 @@ function receiptsImage(picks, w, l) {
         backgroundColor: C.card, borderRadius: 14, border: `1px solid ${C.line}`
       },
         sportChip(sportOf(p)),
-        h("div", { display: "flex", flexGrow: 1, fontSize: 28, color: C.white, fontWeight: 700 }, pickLabel(p).slice(0, 48)),
+        h("div", { display: "flex", flexDirection: "column", flexGrow: 1 },
+          h("div", { display: "flex", fontSize: 28, color: C.white, fontWeight: 800 }, pickLabel(p).slice(0, 40)),
+          h("div", { display: "flex", fontSize: 18, color: C.muted, marginTop: 2 }, gameLabel(p).slice(0, 60))
+        ),
         badge(p.result)
       )),
       picks.length > 5 ? h("div", { display: "flex", fontSize: 22, color: C.muted }, `+${picks.length - 5} more`) : null
@@ -218,9 +239,34 @@ function receiptsImage(picks, w, l) {
   );
 }
 
+function freeResultImage(p) {
+  const s = sportOf(p);
+  const r = String(p.result).toLowerCase();
+  const color = C[r] || C.muted;
+  const word = r === "win" ? "WIN" : r === "loss" ? "LOSS" : "PUSH";
+  return frame(`YESTERDAY · ${prettyDate(-1)}`,
+    h("div", { display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1 },
+      h("div", { display: "flex", fontSize: 28, color: C.muted, fontWeight: 800, letterSpacing: 3 }, "FREE PREMIUM PLAY"),
+      h("div", { display: "flex", alignItems: "center", marginTop: 18 },
+        sportChip(s),
+        h("div", { display: "flex", fontSize: 30, color: C.muted, fontWeight: 500 }, gameLabel(p).slice(0, 52))
+      ),
+      h("div", { display: "flex", alignItems: "center", marginTop: 22 },
+        h("div", { display: "flex", fontSize: 76, color: C.white, fontWeight: 800 }, pickLabel(p).slice(0, 26)),
+        h("div", {
+          display: "flex", marginLeft: 32, padding: "10px 28px", borderRadius: 14,
+          backgroundColor: color, color: C.bg, fontSize: 52, fontWeight: 800
+        }, word)
+      ),
+      p.final_score ? h("div", { display: "flex", fontSize: 26, color: C.muted, marginTop: 22 },
+        `Final: ${String(p.final_score).slice(0, 70)}`) : null
+    )
+  );
+}
+
 function freePickImage(p) {
   const s = sportOf(p);
-  return frame(`FREE PICK · ${prettyDate(0)}`,
+  return frame(`FREE PREMIUM PLAY · ${prettyDate(0)}`,
     h("div", { display: "flex", flexDirection: "column", justifyContent: "center", flexGrow: 1 },
       h("div", { display: "flex", marginBottom: 22 }, sportChip(s)),
       h("div", { display: "flex", fontSize: 40, color: C.muted, fontWeight: 700 }, gameLabel(p).slice(0, 60)),
@@ -297,15 +343,17 @@ async function renderPng(element) {
   const img = new ImageResponse(element, { width: IMG_W, height: IMG_H, fonts });
   return Buffer.from(await img.arrayBuffer());
 }
+
 // ── Post builders: return { text, image } or null when there is nothing honest to say ─
 async function buildReceipts() {
-  const picks = await getYesterdayPremium();
-  if (picks.length === 0) return null;
-  const w = picks.filter(p => /^win$/i.test(p.result)).length;
-  const l = picks.filter(p => /^loss$/i.test(p.result)).length;
+  const p = await getYesterdayFreePlay();
+  if (!p) return null;
+  const r = String(p.result).toLowerCase();
+  const word = r === "win" ? "✅ WIN" : r === "loss" ? "❌ LOSS" : "➖ PUSH";
+  const score = p.final_score ? `\nFinal: ${p.final_score}` : "";
   return {
-    text: `Yesterday's CashEdge Premium picks: ${w}-${l}\n\nEvery pick posted before the game. Wins and losses, no deleted tweets.`,
-    image: receiptsImage(picks, w, l)
+    text: `Yesterday's Free Premium Play: ${pickLabel(p)} ${word}${score}\n\nPosted before the game. Wins and losses, no deleted tweets.\n\nToday's free play drops at noon CT.`,
+    image: freeResultImage(p)
   };
 }
 
@@ -314,8 +362,9 @@ async function buildFreePick() {
   if (!p) return null;
   const s = sportOf(p);
   return {
-    text: `${SPORT_EMOJI[s] || "🎯"} Free pick of the day: ${pickLabel(p)}\n\n${gameLabel(p)}\n\nPremium picks + real-time line movement: link in bio.\n\n#${SPORT_TAG[s] || "Sports"}Picks`,
-    image: freePickImage(p)
+    text: `${SPORT_EMOJI[s] || "🎯"} Free Premium Play of the day: ${pickLabel(p)}\n\n${gameLabel(p)}\n\nOne Premium pick on us. The rest of today's board + real-time line movement: link in bio.\n\n#${SPORT_TAG[s] || "Sports"}Picks`,
+    image: freePickImage(p),
+    pickId: p.id
   };
 }
 
@@ -378,6 +427,7 @@ export default async function handler(req, res) {
     }
 
     const tweet = await postTweet(post.text, mediaId);
+    if (post.pickId) await saveFreePlay(post.pickId); // so tomorrow's 9 AM post knows which pick it was
     return res.status(200).json({ ok: true, type, withImage: !!mediaId, tweet });
   } catch (error) {
     console.error("Twitter bot error:", error);
