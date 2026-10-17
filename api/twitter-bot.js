@@ -159,7 +159,7 @@ function h(type, style, ...children) {
 function frame(kicker, ...body) {
   return h("div", {
     width: IMG_W, height: IMG_H, display: "flex", flexDirection: "column",
-    backgroundColor: C.bg, padding: "48px 60px", fontFamily: "sans-serif",
+    backgroundColor: C.bg, padding: "48px 60px", fontFamily: "Inter",
     backgroundImage: "radial-gradient(circle at 0% 100%, rgba(0,255,231,0.18), transparent 45%), radial-gradient(circle at 100% 0%, rgba(124,60,255,0.25), transparent 45%)"
   },
     h("div", { display: "flex", justifyContent: "space-between", alignItems: "center" },
@@ -276,12 +276,27 @@ function recordImage(rec) {
   );
 }
 
-async function renderPng(element) {
-  const { ImageResponse } = await import("@vercel/og");
-  const img = new ImageResponse(element, { width: IMG_W, height: IMG_H });
-  return Buffer.from(await img.arrayBuffer());
+let FONTS = null;
+async function loadFonts() {
+  if (FONTS) return FONTS;
+  const base = "https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.8/files";
+  const [regular, bold] = await Promise.all([
+    fetch(`${base}/inter-latin-500-normal.woff`).then(r => r.arrayBuffer()),
+    fetch(`${base}/inter-latin-800-normal.woff`).then(r => r.arrayBuffer())
+  ]);
+  FONTS = [
+    { name: "Inter", data: regular, weight: 500, style: "normal" },
+    { name: "Inter", data: bold, weight: 800, style: "normal" }
+  ];
+  return FONTS;
 }
 
+async function renderPng(element) {
+  const { ImageResponse } = await import("@vercel/og");
+  const fonts = await loadFonts();
+  const img = new ImageResponse(element, { width: IMG_W, height: IMG_H, fonts });
+  return Buffer.from(await img.arrayBuffer());
+}
 // ── Post builders: return { text, image } or null when there is nothing honest to say ─
 async function buildReceipts() {
   const picks = await getYesterdayPremium();
