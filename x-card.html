@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>CashEdge Card</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    html, body {
+      margin: 0;
+      background: #020814 !important;
+    }
+    /* Only our card is visible, whatever script.js tries to show */
+    body > *:not(#xshot) {
+      display: none !important;
+    }
+    #xshot {
+      width: 600px;
+      box-sizing: border-box;
+      padding: 28px 28px 22px;
+      font-family: Arial, sans-serif;
+      background:
+        radial-gradient(circle at 0% 100%, rgba(0,255,231,.14), transparent 45%),
+        radial-gradient(circle at 100% 0%, rgba(124,60,255,.20), transparent 45%),
+        #020814;
+    }
+    .x-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .x-brand {
+      color: #fff;
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+    }
+    .x-brand span { color: #00ffe7; }
+    .x-kicker {
+      color: #00ffe7;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 1.6px;
+    }
+    .x-line {
+      width: 160px;
+      height: 4px;
+      margin: 8px 0 18px;
+      background: linear-gradient(90deg, #00ffe7, #7c3cff);
+    }
+    .x-today {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #080e1a;
+      border: 1px solid #00ffe755;
+      border-radius: 11px;
+      padding: 11px 14px;
+      margin-bottom: 10px;
+      color: #d0dcec;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .x-today b {
+      padding: 6px 11px;
+      border-radius: 20px;
+      background: #00ffe714;
+      border: 1px solid #00ffe766;
+      color: #00ffe7;
+      font-size: 12px;
+      letter-spacing: .08em;
+    }
+    .x-foot {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 16px;
+      color: #6f84a3;
+      font-size: 11px;
+    }
+    /* Landing buttons that make no sense in a picture */
+    #xcard button { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div id="xshot">
+  <div class="x-top">
+    <div class="x-brand">Cash<span>Edge</span></div>
+    <div class="x-kicker" id="xkicker">FREE PREMIUM PLAY</div>
+  </div>
+  <div class="x-line"></div>
+  <div id="xcard"></div>
+  <div class="x-foot">
+    <span>cashedgeapp.com</span>
+    <span>21+ | Gamble responsibly | 1-800-MY-RESET</span>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="script.js"></script>
+<script>
+(async function () {
+  const wrap = document.getElementById("xcard");
+  try {
+    const date = new URLSearchParams(location.search).get("date");
+    const res = await fetch("/api/x-card-data?date=" + encodeURIComponent(date || ""));
+    const data = await res.json();
+    if (!res.ok || !data.featured) throw new Error(data.error || "No data");
+
+    const f = data.featured;
+    const sport = String(f.sport || "").toLowerCase();
+
+    if (sport === "mlb") wrap.innerHTML = ceRenderFeaturedMLB(f);
+    else if (["nba", "wnba", "ncaab"].includes(sport)) wrap.innerHTML = ceRenderFeaturedBasketball(f);
+    else if (["nfl", "ncaaf"].includes(sport)) wrap.innerHTML = ceRenderFeaturedFootball(f);
+    else throw new Error("Unsupported sport");
+
+    const graded = ["win", "loss", "push"].includes(f.result);
+    if (!graded) {
+      // Game not played yet: replace the WIN/LOSS strip with a "today" strip
+      const header = wrap.firstElementChild;
+      if (header) {
+        header.outerHTML =
+          '<div class="x-today"><span>' +
+          ceFeaturedEsc(ceFeaturedDateLabel(f.game_date || f.sourceGameDate)) +
+          ' · BEFORE THE GAME</span><b>FREE TODAY</b></div>';
+      }
+    } else {
+      document.getElementById("xkicker").textContent = "FREE PREMIUM PLAY · RESULT";
+    }
+
+    window.__CARD_READY = true;
+  } catch (e) {
+    wrap.innerHTML = "";
+    window.__CARD_ERROR = String(e.message || e);
+  }
+})();
+</script>
+</body>
+</html>
