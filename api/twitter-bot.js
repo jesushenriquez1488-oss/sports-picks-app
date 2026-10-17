@@ -191,7 +191,7 @@ function frame(kicker, ...body) {
       backgroundImage: `linear-gradient(90deg, ${C.cyan}, ${C.purple})` }),
     h("div", { display: "flex", flexDirection: "column", flexGrow: 1, marginTop: 28 }, ...body),
     h("div", { display: "flex", justifyContent: "space-between", fontSize: 18, color: C.muted },
-      h("span", {}, "cashedgeapp.com"),
+      h("span", { color: C.cyan, fontWeight: 800 }, "📲 Free alerts on Telegram: t.me/Cashedgeapp"),
       h("span", {}, "21+ | Gamble responsibly | 1-800-MY-RESET")
     )
   );
@@ -352,7 +352,7 @@ async function buildReceipts() {
   const word = r === "win" ? "✅ WIN" : r === "loss" ? "❌ LOSS" : "➖ PUSH";
   const score = p.final_score ? `\nFinal: ${p.final_score}` : "";
   return {
-    text: `${r === "win" ? "Called it. ✅" : r === "loss" ? "Missed this one. ❌" : "Push. ➖"}\n\nYesterday's Free Premium Play: ${pickLabel(p)} ${word}${score}\n\nPosted before the game. Every result goes public, wins AND losses.\n\n🆓 Today's free play drops at 12 PM CT 🔔\n\n#${SPORT_TAG[sportOf(p)] || "Sports"}Picks #SportsBetting`,
+    text: `${r === "win" ? "Called it. ✅" : r === "loss" ? "Missed this one. ❌" : "Push. ➖"}\n\nYesterday's Free Premium Play: ${pickLabel(p)} ${word}${score}\n\nPosted before the game. Every result goes public, wins AND losses.\n\n🆓 Today's free play drops at 12 PM CT\n📲 Get it first on our Telegram → link in bio\n\n#${SPORT_TAG[sportOf(p)] || "Sports"}Picks #SportsBetting`,
     image: freeResultImage(p),
     cardDate: chicagoDate(-1) // real CashEdge card of yesterday's free play
   };
@@ -363,7 +363,7 @@ async function buildFreePick() {
   if (!p) return null;
   const s = sportOf(p);
   return {
-    text: `🆓 FREE PREMIUM PLAY\n\n${SPORT_EMOJI[s] || "🎯"} ${pickLabel(p)}\n${gameLabel(p)}\n\nOne of today\'s Premium picks, free. The rest are locked in the app with live line movement and sharp money alerts.\n\nResult posted tomorrow, win or lose.\n🔗 Link in bio\n\n#${SPORT_TAG[s] || "Sports"}Picks #SportsBetting`,
+    text: `🆓 FREE PREMIUM PLAY\n\n${SPORT_EMOJI[s] || "🎯"} ${pickLabel(p)}\n${gameLabel(p)}\n\nOne of today\'s Premium picks, free. The rest are locked in the app with live line movement and sharp money alerts.\n\nResult posted tomorrow, win or lose.\n\n📲 Line-move alerts FREE on our Telegram → link in bio\n\n#${SPORT_TAG[s] || "Sports"}Picks #SportsBetting`,
     image: freePickImage(p),
     pickId: p.id,
     cardDate: chicagoDate(0) // real CashEdge card of today's free play
@@ -384,7 +384,7 @@ async function buildRecord() {
   const rec = await getPremiumRecord();
   if (rec.wins + rec.losses === 0) return null;
   return {
-    text: `📊 ${rec.wins}-${rec.losses} (${rec.pct}%)\n\nThat's the CashEdge Premium record. Every pick graded publicly. No deleted losses, no cherry-picking.\n\n🆓 Free Premium Play every day at 12 PM CT. Turn on notifications 🔔\n\n#SportsBetting\n21+ | Statistical analysis, not betting advice`,
+    text: `📊 ${rec.wins}-${rec.losses} (${rec.pct}%)\n\nThat's the CashEdge Premium record. Every pick graded publicly. No deleted losses, no cherry-picking.\n\n🆓 Free Premium Play every day at 12 PM CT\n📲 Daily alerts free on our Telegram → link in bio\n\n#SportsBetting\n21+ | Statistical analysis, not betting advice`,
     image: recordImage(rec)
   };
 }
