@@ -391,40 +391,152 @@ async function buildRecord() {
 
 const BUILDERS = { morning: buildReceipts, pick: buildFreePick, teaser: buildTeaser, results: buildRecord };
 
-// ── Real CashEdge card: screenshot of x-card.html with headless Chromium ──
+// ── CashEdge Premium card (same design and data as the landing's real Premium card) ──
 const SITE = "https://www.cashedgeapp.com";
 
-async function screenshotCard(date) {
-  const chromium = (await import("@sparticuz/chromium")).default;
-  const puppeteer = (await import("puppeteer-core")).default;
-
-  const browser = await puppeteer.launch({
-    args: chromium.args,
-    defaultViewport: { width: 600, height: 900, deviceScaleFactor: 2 },
-    executablePath: await chromium.executablePath(),
-    headless: true
-  });
-
-  try {
-    const page = await browser.newPage();
-    await page.goto(`${SITE}/x-card.html?date=${date}`, { waitUntil: "networkidle0", timeout: 30000 });
-    await page.waitForFunction("window.__CARD_READY === true || !!window.__CARD_ERROR", { timeout: 20000 });
-    const err = await page.evaluate(() => window.__CARD_ERROR || null);
-    if (err) throw new Error(`x-card: ${err}`);
-    const el = await page.$("#xshot");
-    return Buffer.from(await el.screenshot({ type: "png" }));
-  } finally {
-    await browser.close();
-  }
+async function getCardData(date) {
+  const res = await fetch(`${SITE}/api/x-card-data?date=${date}`);
+  const data = await res.json();
+  if (!res.ok || !data.featured) throw new Error(`x-card-data: ${data.error || res.status}`);
+  return data.featured;
 }
 
-// Real card when the post has one; generated image otherwise (or if the screenshot fails)
+function num(v, fb = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fb;
+}
+function shortTeam(t = "") {
+  const parts = String(t).trim().split(/\s+/);
+  return (parts[parts.length - 1] || t).toUpperCase();
+}
+function longDate(ymd) {
+  const [y, m, d] = String(ymd || "").split("-").map(Number);
+  if (!y) return "";
+  return new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })
+    .format(new Date(Date.UTC(y, m - 1, d)));
+}
+
+// Pulls the same numbers each landing renderer shows
+function cardNumbers(f) {
+  const sport = String(f.sport || "").toLowerCase();
+  const pr = f.analysis?.premium || {};
+  const away = f.away_team || "";
+  const home = f.home_team || "";
+
+  let pick = String(pr.pick || pr.recommendedCards?.[0]?.play || f.pick || "").trim();
+  if (/^(over|under)$/i.test(pick) && Number.isFinite(Number(f.line))) pick += ` ${f.line}`;
+
+  let a, b, total, edge, odds, conf;
+  if (sport === "mlb") {
+    const card = pr.recommendedCards?.[0] || {};
+    a = num(pr.expectedRunsA); b = num(pr.expectedRunsB); total = num(pr.projectedTotal);
+    edge = Number.isFinite(Number(pr.totalEdge)) ? num(pr.totalEdge) : total - num(pr.totalLine, f.line);
+    odds = num(card.odds_american, f.odds_american);
+    conf = num(card.percentage, f.confidence);
+  } else if (sport === "nfl" || sport === "ncaaf") {
+    const ps = pr.projectedScore || {};
+    a = num(ps[away]); b = num(ps[home]); total = num(pr.projectedTotal);
+    edge = num(pr.mainEdge); odds = num(pr.odds_american, f.odds_american); conf = num(pr.confidence, f.confidence);
+  } else {
+    a = num(pr.projA); b = num(pr.projB); total = num(pr.totalProj);
+    edge = num(pr.mainEdge); odds = num(pr.odds_american, f.odds_american); conf = num(pr.confidence, f.confidence);
+  }
+  return { sport, away, home, pick, a, b, total, edge, odds, conf };
+}
+
+function ring(conf) {
+  const r = 52;
+  const c = 2 * Math.PI * r;
+  const filled = Math.max(0, Math.min(100, conf)) / 100 * c;
+  return h("div", { display: "flex", position: "relative", width: 132, height: 132, alignItems: "center", justifyContent: "center" },
+    {
+      type: "svg",
+      props: {
+        width: 132, height: 132, viewBox: "0 0 132 132", style: { position: "absolute", top: 0, left: 0 },
+        children: [
+          { type: "circle", props: { cx: 66, cy: 66, r, fill: "none", stroke: "#1c2740", strokeWidth: 9 } },
+          { type: "circle", props: { cx: 66, cy: 66, r, fill: "none", stroke: "#ff8a1f", strokeWidth: 9,
+            strokeLinecap: "round", strokeDasharray: `${filled} ${c}`, transform: "rotate(-90 66 66)" } }
+        ]
+      }
+    },
+    h("div", { display: "flex", flexDirection: "column", alignItems: "center" },
+      h("div", { display: "flex", fontSize: 30, color: "#ff8a1f", fontWeight: 800 }, `${conf.toFixed(1)}%`),
+      h("div", { display: "flex", fontSize: 13, color: C.muted, letterSpacing: 1 }, "PROB.")
+    )
+  );
+}
+
+function statBox(label, value) {
+  return h("div", {
+    display: "flex", flexDirection: "column", alignItems: "center", flexGrow: 1, flexBasis: 0,
+    padding: "14px 8px", marginRight: 12, borderRadius: 12, backgroundColor: "#121a2e"
+  },
+    h("div", { display: "flex", fontSize: 15, color: C.cyan, fontWeight: 800, letterSpacing: 1 }, label),
+    h("div", { display: "flex", fontSize: 30, color: C.white, fontWeight: 800, marginTop: 6 }, value)
+  );
+}
+
+function premiumCardImage(f) {
+  const n = cardNumbers(f);
+  const result = String(f.result || "").toLowerCase();
+  const graded = ["win", "loss", "push"].includes(result);
+  const stripColor = !graded ? C.cyan : result === "win" ? C.cyan : result === "loss" ? "#ff5566" : C.muted;
+  const stripText = !graded
+    ? `${longDate(f.game_date || f.sourceGameDate)} · BEFORE THE GAME`
+    : `${longDate(f.sourceGameDate || f.game_date)} · FINAL · ${String(f.finalScore || f.final_score || "").slice(0, 60)}`;
+  const stripBadge = !graded ? "FREE TODAY" : result === "win" ? "WIN" : result === "loss" ? "LOSS" : "PUSH";
+  const sportLabel = n.sport === "ncaaf" ? "NCAAF" : n.sport === "ncaab" ? "NCAAB" : n.sport.toUpperCase();
+
+  return frame(graded ? "FREE PREMIUM PLAY · RESULT" : "FREE PREMIUM PLAY",
+    // strip
+    h("div", {
+      display: "flex", justifyContent: "space-between", alignItems: "center",
+      padding: "12px 18px", borderRadius: 12, backgroundColor: "#080e1a", border: `1px solid ${stripColor}66`
+    },
+      h("div", { display: "flex", fontSize: 19, color: "#d0dcec", fontWeight: 800 }, stripText),
+      h("div", { display: "flex", padding: "7px 16px", borderRadius: 20, border: `2px solid ${stripColor}`,
+        color: stripColor, fontSize: 19, fontWeight: 800, letterSpacing: 1 }, stripBadge)
+    ),
+    // card
+    h("div", {
+      display: "flex", flexDirection: "column", marginTop: 14, padding: "20px 24px", borderRadius: 18,
+      border: "2px solid rgba(124,60,255,0.55)",
+      backgroundImage: "linear-gradient(135deg, #0d1426, #0a0f1e)"
+    },
+      h("div", { display: "flex", alignItems: "center" },
+        h("div", { display: "flex", alignItems: "center", padding: "7px 16px", borderRadius: 20,
+          border: "2px solid rgba(124,60,255,0.6)", backgroundColor: "rgba(124,60,255,0.15)" },
+          h("div", { display: "flex", width: 9, height: 9, borderRadius: 9, backgroundColor: C.cyan, marginRight: 10 }),
+          h("div", { display: "flex", fontSize: 16, color: C.white, fontWeight: 800, letterSpacing: 1.5 }, `PREMIUM PICK · ${sportLabel}`)
+        )
+      ),
+      h("div", { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 },
+        h("div", { display: "flex", flexDirection: "column", flexGrow: 1 },
+          h("div", { display: "flex", fontSize: 20, color: "#8899bb" }, `${n.away} vs ${n.home}`.slice(0, 60)),
+          h("div", { display: "flex", fontSize: 50, color: C.white, fontWeight: 800, marginTop: 6 }, n.pick.slice(0, 26)),
+          h("div", { display: "flex", fontSize: 19, color: "#a07cff", marginTop: 4 },
+            `Edge ${n.edge.toFixed(1)} · ${n.odds > 0 ? "+" : ""}${n.odds}`)
+        ),
+        ring(n.conf)
+      ),
+      h("div", { display: "flex", marginTop: 12, marginRight: -12 },
+        statBox(shortTeam(n.away), n.a.toFixed(1)),
+        statBox(shortTeam(n.home), n.b.toFixed(1)),
+        statBox("TOTAL MOD.", n.total.toFixed(1)),
+        statBox("EDGE", n.edge.toFixed(1))
+      )
+    )
+  );
+}
+
+// Premium card when the post has one; the simple generated image otherwise
 async function makeImage(post) {
   if (post.cardDate) {
     try {
-      return await screenshotCard(post.cardDate);
+      return await renderPng(premiumCardImage(await getCardData(post.cardDate)));
     } catch (e) {
-      console.error("Card screenshot failed, using generated image:", e);
+      console.error("Premium card failed, using simple image:", e);
     }
   }
   return renderPng(post.image);
