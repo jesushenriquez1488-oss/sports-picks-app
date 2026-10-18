@@ -155,10 +155,17 @@ function urgencyImage(count, bySport) {
 }
 
 // ── Posts by hour (Chicago). Return { png, caption } or null to skip ───────
-// 12 posts/day: 8 market · 9 winners · 10 cashed · 11 hot sport · 12 free play · 13 market
-// 14 money · 15 free play vs market · 16 urgency · 17 market · 18 high confidence · 20 market
+// Up to 17 posts/day (market slots skip when there's no honest story):
+// 7 market · 8 market · 9 winners · 10 cashed · 11 hot sport · 12 free play · 13 market · 14 money
+// 15 free play vs market · 16 urgency · 17 market · 18 high confidence · 19 market · 20 market
+// 21 market · 22 market · 23 market
 const SLOTS = {
+  7:  () => marketSlot(7,  ["bigmove", "money", "trap", "reverse"]),
   8:  () => marketSlot(8,  ["bigmove", "trap", "reverse", "money"]),
+  19: () => marketSlot(19, ["reverse", "money", "steam", "trap", "bigmove"]),
+  21: () => marketSlot(21, ["steam", "trap", "reverse", "money", "bigmove"]),
+  22: () => marketSlot(22, ["steam", "bigmove", "money", "reverse", "trap"]),
+  23: () => marketSlot(23, ["steam", "reverse", "money", "bigmove", "trap"]),
   13: () => marketSlot(13, ["reverse", "trap", "money", "bigmove"]),
   14: () => marketSlot(14, ["money", "reverse", "trap", "bigmove"]),
   15: () => marketSlot(15, ["freeplay", "steam", "reverse", "money"]),
