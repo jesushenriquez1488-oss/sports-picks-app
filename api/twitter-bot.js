@@ -399,7 +399,7 @@ async function buildMarket(set) {
   const s = await buildMarketStory("x", MARKET_SETS[set] || MARKET_SETS.a);
   if (!s) return null;
   return {
-    text: `${s.text}\n\n📲 Live line moves FREE on our Telegram → link in bio`,
+    text: s.text,
     png: s.png, log: { slot: `market-${set || "a"}`, templateId: s.templateId, gameId: s.gameId }
   };
 }
