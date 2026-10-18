@@ -1,6 +1,7 @@
 {
   "functions": {
-    "api/twitter-bot.js": { "memory": 1769, "maxDuration": 60 }
+    "api/twitter-bot.js": {"memory": 1769, "maxDuration": 60},
+    "api/telegram-bot.js": {"memory": 1769, "maxDuration": 60}
   },
   "crons": [
     { "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=0&force=true", "schedule": "0 11 * * *" },
@@ -38,76 +39,30 @@
     { "path": "/api/analyze-nba?mode=grade-pending", "schedule": "50 19 * * *" },
     { "path": "/api/analyze-mlb?mode=grade-pending", "schedule": "0 23 * * *" },
     { "path": "/api/analyze-nba?mode=grade-pending", "schedule": "10 23 * * *" },
-   {
-  "path": "/api/select-featured-pick",
-  "schedule": "15 13 * * *"
-},
-{
-  "path": "/api/select-featured-pick",
-  "schedule": "15 14 * * *"
-},
-{
-  "path": "/api/ncaaf-cron",
-  "schedule": "0-45 8 * * *"
-},
-{
-  "path": "/api/ncaaf-cron",
-  "schedule": "0-45 9 * * *"
-},
-    {
-  "path": "/api/nfl-cron",
-  "schedule": "30-45 8 * * *"
-},
-{
-  "path": "/api/nfl-cron",
-  "schedule": "30-45 9 * * *"
-},
-{
-  "path": "/api/process-market-notification-parents",
-  "schedule": "* * * * *"
-},
-{
-  "path": "/api/process-market-notification-deliveries",
-  "schedule": "* * * * *"
-},
-{
-  "path": "/api/nba-data?type=maintenance",
-  "schedule": "0 8 * * *"
-},
-    {
-  "path": "/api/internal/nfl-injury-cron?start=0",
-  "schedule": "0,10,20,30,40,50 * * * *"
-},
-{
-  "path": "/api/internal/nfl-injury-cron?start=8",
-  "schedule": "2,12,22,32,42,52 * * * *"
-},
-{
-  "path": "/api/internal/nfl-injury-cron?start=16",
-  "schedule": "4,14,24,34,44,54 * * * *"
-},
-
-{
-  "path": "/api/internal/nfl-injury-cron?start=24",
-  "schedule": "6,16,26,36,46,56 * * * *"
-},
-
-
-{
-  "path": "/api/internal/nfl-history-auto",
-  "schedule": "0 15 * * 1,3,4,5"
-},
-{
-  "path": "/api/internal/nfl-boxscore-auto",
-  "schedule": "15 15 * * 1,3,4,5"
-},
+    { "path": "/api/select-featured-pick", "schedule": "15 13 * * *" },
+    { "path": "/api/select-featured-pick", "schedule": "15 14 * * *" },
+    { "path": "/api/ncaaf-cron", "schedule": "0-45 8 * * *" },
+    { "path": "/api/ncaaf-cron", "schedule": "0-45 9 * * *" },
+    { "path": "/api/nfl-cron", "schedule": "30-45 8 * * *" },
+    { "path": "/api/nfl-cron", "schedule": "30-45 9 * * *" },
+    { "path": "/api/process-market-notification-parents", "schedule": "* * * * *" },
+    { "path": "/api/process-market-notification-deliveries", "schedule": "* * * * *" },
+    { "path": "/api/nba-data?type=maintenance", "schedule": "0 8 * * *" },
+    { "path": "/api/internal/nfl-injury-cron?start=0", "schedule": "0,10,20,30,40,50 * * * *" },
+    { "path": "/api/internal/nfl-injury-cron?start=8", "schedule": "2,12,22,32,42,52 * * * *" },
+    { "path": "/api/internal/nfl-injury-cron?start=16", "schedule": "4,14,24,34,44,54 * * * *" },
+    { "path": "/api/internal/nfl-injury-cron?start=24", "schedule": "6,16,26,36,46,56 * * * *" },
+    { "path": "/api/internal/nfl-history-auto", "schedule": "0 15 * * 1,3,4,5" },
+    { "path": "/api/internal/nfl-boxscore-auto", "schedule": "15 15 * * 1,3,4,5" },
     { "path": "/api/twitter-bot?type=morning", "schedule": "0 14 * * *" },
-{ "path": "/api/twitter-bot?type=pick",    "schedule": "0 17 * * *" },
-   { "path": "/api/twitter-bot?type=market&set=a", "schedule": "0 19 * * *" },
-   { "path": "/api/twitter-bot?type=market&set=b", "schedule": "0 21 * * *" },
-{ "path": "/api/twitter-bot?type=results", "schedule": "0 3 * * *" },
+    { "path": "/api/twitter-bot?type=market&set=a", "schedule": "0 15 * * *" },
+    { "path": "/api/twitter-bot?type=pick", "schedule": "0 17 * * *" },
+    { "path": "/api/twitter-bot?type=market&set=a", "schedule": "0 18 * * *" },
+    { "path": "/api/twitter-bot?type=market&set=b", "schedule": "0 19 * * *" },
+    { "path": "/api/twitter-bot?type=market&set=a", "schedule": "0 21 * * *" },
+    { "path": "/api/twitter-bot?type=market&set=b", "schedule": "0 23 * * *" },
+    { "path": "/api/twitter-bot?type=market&set=b", "schedule": "0 1 * * *" },
+    { "path": "/api/twitter-bot?type=results", "schedule": "0 3 * * *" },
     { "path": "/api/telegram-bot", "schedule": "5 * * * *" }
-
   ]
 }
-
