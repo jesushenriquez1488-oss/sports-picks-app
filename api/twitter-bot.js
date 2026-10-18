@@ -70,6 +70,20 @@ async function uploadImage(pngBuffer) {
   return id;
 }
 
+// X limit: 280 (emoji count as 2). Removes the least important blocks until the post fits:
+// first hashtags, then middle paragraphs. The hook (first block), the call to action and "21+" stay.
+const xLen = t => [...t].reduce((n, c) => n + (c.codePointAt(0) > 0x10FF ? 2 : 1), 0);
+function fitX(text, max = 280) {
+  if (!text || xLen(text) <= max) return text;
+  let parts = text.split("\n\n").filter(p => !/^#/.test(p.trim()));
+  if (xLen(parts.join("\n\n")) > max) parts = parts.map(p => /^21\+/.test(p) ? "21+" : p);
+  let i = parts.length - 3;
+  while (xLen(parts.join("\n\n")) > max && i >= 1) { parts.splice(i, 1); i--; }
+  let out = parts.join("\n\n");
+  while (xLen(out) > max) out = [...out].slice(0, -2).join("");
+  return out;
+}
+
 async function postTweet(text, mediaId) {
   const url = "https://api.x.com/2/tweets";
   const body = mediaId ? { text, media: { media_ids: [mediaId] } } : { text };
@@ -581,7 +595,7 @@ export default async function handler(req, res) {
         res.setHeader("Cache-Control", "no-store");
         return res.status(200).send(png);
       }
-      return res.status(200).json({ ok: true, type, preview: post?.text || null });
+      return res.status(200).json({ ok: true, type, preview: fitX(post?.text) || null, length: xLen(fitX(post?.text) || "") });
     }
 
     // Real posting: only Vercel Cron (sends Authorization: Bearer CRON_SECRET)
@@ -598,7 +612,7 @@ export default async function handler(req, res) {
       console.error("Image failed, posting text only:", e);
     }
 
-    const tweet = await postTweet(post.text, mediaId);
+    const tweet = await postTweet(fitX(post.text), mediaId);
     if (post.log) {
       const { logPost } = await import("./_social-stories.js");
       await logPost("x", post.log.slot, post.log.templateId, post.log.gameId);
