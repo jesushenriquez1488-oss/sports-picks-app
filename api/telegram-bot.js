@@ -32,6 +32,30 @@ async function sendPhoto(png, caption) {
   return data.result?.message_id;
 }
 
+// Native Telegram poll (anonymous, works in channels)
+async function sendPoll(question, options) {
+  const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendPoll`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: TG_CHANNEL, question, options: options.map(o => ({ text: o })), is_anonymous: true })
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(`Telegram poll: ${JSON.stringify(data)}`);
+}
+
+const esc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+// Market story (story engine) → Telegram caption: first line in bold
+async function marketSlot(slot, types) {
+  const { buildMarketStory } = await import("./_social-stories.js");
+  const s = await buildMarketStory("telegram", types);
+  if (!s) return null;
+  const [first, ...rest] = s.text.split("\n");
+  return {
+    png: s.png, poll: s.poll, log: { slot, templateId: s.templateId, gameId: s.gameId },
+    caption: `<b>${esc(first)}</b>\n${esc(rest.join("\n"))}`
+  };
+}
+
 function chicagoHour() {
   return Number(new Intl.DateTimeFormat("en-US", { timeZone: TZ, hour: "2-digit", hour12: false }).format(new Date()));
 }
@@ -131,7 +155,16 @@ function urgencyImage(count, bySport) {
 }
 
 // ── Posts by hour (Chicago). Return { png, caption } or null to skip ───────
+// 12 posts/day: 8 market · 9 winners · 10 cashed · 11 hot sport · 12 free play · 13 market
+// 14 money · 15 free play vs market · 16 urgency · 17 market · 18 high confidence · 20 market
 const SLOTS = {
+  8:  () => marketSlot(8,  ["bigmove", "trap", "reverse", "money"]),
+  13: () => marketSlot(13, ["reverse", "trap", "money", "bigmove"]),
+  14: () => marketSlot(14, ["money", "reverse", "trap", "bigmove"]),
+  15: () => marketSlot(15, ["freeplay", "steam", "reverse", "money"]),
+  17: () => marketSlot(17, ["steam", "reverse", "trap", "money", "bigmove"]),
+  20: () => marketSlot(20, ["steam", "bigmove", "reverse", "trap", "money"]),
+
   // 9 AM — yesterday's winners (only if it was a good day)
   9: async () => {
     const graded = await yesterdayGraded();
@@ -224,7 +257,7 @@ export default async function handler(req, res) {
         res.setHeader("Cache-Control", "no-store");
         return res.status(200).send(post.png);
       }
-      return res.status(200).json({ ok: true, hour, caption: post.caption });
+      return res.status(200).json({ ok: true, hour, template: post.log?.templateId, caption: post.caption, poll: post.poll });
     }
 
     if (req.headers["authorization"] !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -233,7 +266,12 @@ export default async function handler(req, res) {
     if (!post) return res.status(200).json({ ok: true, hour, skipped: "No good data" });
 
     const id = await sendPhoto(post.png, post.caption);
-    return res.status(200).json({ ok: true, hour, messageId: id });
+    if (post.poll) await sendPoll(post.poll.question, post.poll.options).catch(e => console.error(e));
+    if (post.log) {
+      const { logPost } = await import("./_social-stories.js");
+      await logPost("telegram", post.log.slot, post.log.templateId, post.log.gameId);
+    }
+    return res.status(200).json({ ok: true, hour, messageId: id, template: post.log?.templateId });
   } catch (error) {
     console.error("Telegram bot error:", error);
     return res.status(500).json({ error: error.message });
