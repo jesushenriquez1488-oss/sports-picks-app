@@ -389,7 +389,22 @@ async function buildRecord() {
   };
 }
 
-const BUILDERS = { morning: buildReceipts, pick: buildFreePick, teaser: buildTeaser, results: buildRecord };
+// Market stories (story engine): ?type=market&set=a (2 PM CT) · ?type=market&set=b (4 PM CT)
+const MARKET_SETS = {
+  a: ["reverse", "money", "trap", "bigmove"],
+  b: ["steam", "freeplay", "trap", "reverse", "money", "bigmove"]
+};
+async function buildMarket(set) {
+  const { buildMarketStory } = await import("./_social-stories.js");
+  const s = await buildMarketStory("x", MARKET_SETS[set] || MARKET_SETS.a);
+  if (!s) return null;
+  return {
+    text: `${s.text}\n\n📲 Live line moves FREE on our Telegram → link in bio`,
+    png: s.png, log: { slot: `market-${set || "a"}`, templateId: s.templateId, gameId: s.gameId }
+  };
+}
+
+const BUILDERS = { morning: buildReceipts, pick: buildFreePick, teaser: buildTeaser, results: buildRecord, market: buildMarket };
 
 // ── CashEdge Premium card (same design and data as the landing's real Premium card) ──
 const SITE = "https://www.cashedgeapp.com";
@@ -532,6 +547,7 @@ function premiumCardImage(f) {
 
 // Premium card when the post has one; the simple generated image otherwise
 async function makeImage(post) {
+  if (post.png) return post.png;
   if (post.cardDate) {
     try {
       return await renderPng(premiumCardImage(await getCardData(post.cardDate)));
@@ -544,14 +560,14 @@ async function makeImage(post) {
 
 // ── Handler ────────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
-  const { type, dry, img } = req.query;
+  const { type, dry, img, set } = req.query;
   const build = BUILDERS[type];
   if (!build) {
-    return res.status(400).json({ error: "Invalid type. Use: morning, pick, teaser, results" });
+    return res.status(400).json({ error: "Invalid type. Use: morning, pick, teaser, results, market" });
   }
 
   try {
-    const post = await build();
+    const post = await build(set);
 
     // The free play must be saved BEFORE the screenshot: x-card.html only serves saved picks
     if (post?.pickId) await saveFreePlay(post.pickId);
@@ -583,6 +599,10 @@ export default async function handler(req, res) {
     }
 
     const tweet = await postTweet(post.text, mediaId);
+    if (post.log) {
+      const { logPost } = await import("./_social-stories.js");
+      await logPost("x", post.log.slot, post.log.templateId, post.log.gameId);
+    }
     return res.status(200).json({ ok: true, type, withImage: !!mediaId, tweet });
   } catch (error) {
     console.error("Twitter bot error:", error);
