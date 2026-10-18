@@ -280,7 +280,7 @@ function shell(tag, tagColor, glowA, glowB, ...body) {
     ),
     h("div", { display: "flex", flexDirection: "column", flexGrow: 1, marginTop: 18 }, ...body),
     h("div", { display: "flex", justifyContent: "space-between", fontSize: 17 },
-      h("span", { color: COL.cyan, fontWeight: 800 }, "📲 Free alerts on Telegram: t.me/Cashedgeapp"),
+      h("span", { color: COL.cyan, fontWeight: 800 }, "FREE ALERTS ON TELEGRAM  →  t.me/Cashedgeapp"),
       h("span", { color: COL.muted }, "21+ | Gamble responsibly | 1-800-MY-RESET"))
   );
 }
@@ -355,11 +355,13 @@ function arcPath(cx, cy, r, pct) {
   return `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${x.toFixed(1)} ${y.toFixed(1)}`;
 }
 function dTrap(s, v) {
+  const h0 = v.head?.[0] || "TRAP", h1 = v.head?.[1] || "ALERT?";
+  const len = Math.max(h0.length, h1.length), big = len > 10 ? 74 : len > 6 ? 84 : 112; // long headline → smaller so it fits in 2 lines
   return shell(v.tag || "TRAP WATCH", COL.orange, COL.orange, COL.red,
     h("div", { display: "flex", justifyContent: "space-between", flexGrow: 1 },
       h("div", { display: "flex", flexDirection: "column", width: 640 },
-        h("div", { display: "flex", fontSize: 112, fontWeight: 800, color: COL.orange, lineHeight: 1 }, v.head?.[0] || "TRAP"),
-        h("div", { display: "flex", fontSize: 112, fontWeight: 800, color: COL.white, lineHeight: 1.05 }, v.head?.[1] || "ALERT?"),
+        h("div", { display: "flex", fontSize: big, fontWeight: 800, color: COL.orange, lineHeight: 1 }, h0),
+        h("div", { display: "flex", fontSize: big, fontWeight: 800, color: COL.white, lineHeight: 1.05 }, h1),
         sub(`${s.matchup}  ·  ${s.sportTag}`),
         h("div", { display: "flex", fontSize: 27, fontWeight: 800, color: COL.white, marginTop: 18 }, `${s.pubTickets}% of the public is on ${s.sideLabel}.`),
         h("div", { display: "flex", fontSize: 27, fontWeight: 800, color: COL.white, marginTop: 6 }, `The line hasn't moved in ${s.frozenH} hours.`),
@@ -376,7 +378,10 @@ function dTrap(s, v) {
             h("div", { display: "flex", fontSize: 17, fontWeight: 800, color: COL.muted }, `PUBLIC ON ${short(s.sideLabel).toUpperCase()}`))),
         card({ marginTop: 18, width: 340, border: `2px solid ${COL.orange}` },
           h("div", { display: "flex", fontSize: 30, fontWeight: 800, color: COL.white }, `LINE  ${fmtLine(s.newLine, s.total)}`),
-          h("div", { display: "flex", fontSize: 21, fontWeight: 800, color: COL.orange }, `FROZEN · ${s.frozenH}h ${s.frozenM}m`))))
+          h("div", { display: "flex", fontSize: 21, fontWeight: 800, color: COL.orange }, `FROZEN · ${s.frozenH}h ${s.frozenM}m`)),
+        h("div", { display: "flex", flexDirection: "column", marginTop: 16, width: 340 },
+          label("WHERE THE SHARP MONEY IS", COL.purple),
+          h("div", { display: "flex", marginTop: 8 }, redacted(340, 52, "🔒 PREMIUM ONLY")))))
   );
 }
 
@@ -431,20 +436,21 @@ function dPoll(s, v) {
   const opts = v.options(s);
   const colors = [COL.cyan, COL.purple, COL.orange];
   return shell(v.tag || "YOUR CALL", COL.cyan, COL.cyan, COL.purple,
-    title(...(v.head || ["WHAT WOULD", "YOU DO?"]), COL.cyan, 58),
+    title(...(v.head || ["WHAT WOULD", "YOU DO?"]), COL.cyan, 76),
     h("div", { display: "flex", fontSize: 24, color: COL.white, marginTop: 10 }, v.setup(s)),
     h("div", { display: "flex", marginTop: 20 },
       h("div", { display: "flex", flexDirection: "column", width: 700 },
-        ...opts.map((o, i) => h("div", { display: "flex", alignItems: "center", height: 70, marginBottom: 14, borderRadius: 16,
+        ...opts.map((o, i) => h("div", { display: "flex", alignItems: "center", height: 84, marginBottom: 14, borderRadius: 18,
           backgroundColor: COL.card, border: `2px solid ${colors[i]}`, padding: "0 12px" },
-          h("div", { display: "flex", width: 48, height: 48, borderRadius: 12, backgroundColor: colors[i], alignItems: "center", justifyContent: "center",
-            fontSize: 30, fontWeight: 800, color: COL.bg }, "ABC"[i]),
-          h("div", { display: "flex", fontSize: 30, fontWeight: 800, color: COL.white, marginLeft: 20 }, o)))),
+          h("div", { display: "flex", width: 58, height: 58, borderRadius: 14, backgroundColor: colors[i], alignItems: "center", justifyContent: "center",
+            fontSize: 34, fontWeight: 800, color: COL.bg }, "ABC"[i]),
+          h("div", { display: "flex", fontSize: 34, fontWeight: 800, color: COL.white, marginLeft: 22 }, o)))),
       card({ marginLeft: 30, flexGrow: 1, border: `2px solid ${COL.purple}`, backgroundColor: "#0e101a" },
         label("OUR READ", COL.purple),
         h("div", { display: "flex", marginTop: 14 }, redacted(300, 60, "🔒 LOCKED")),
         h("div", { display: "flex", fontSize: 22, color: COL.muted, marginTop: 18 }, "Inside the app"),
-        h("div", { display: "flex", fontSize: 30, fontWeight: 800, color: COL.white }, "before kickoff")))
+        h("div", { display: "flex", fontSize: 30, fontWeight: 800, color: COL.white }, "before kickoff"),
+        h("div", { display: "flex", fontSize: 22, fontWeight: 800, color: COL.cyan, marginTop: 22 }, "👇 Vote below")))
   );
 }
 
