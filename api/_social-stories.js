@@ -550,6 +550,34 @@ add("fp5", "freeplay", "freeplay", s => `👀 ${s.matchup}\n\nOur free play: ${s
 export const TEMPLATE_COUNT = T.length;
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 4b. CALLS TO ACTION — closing line that sends people to the app (rotates)
+// ═══════════════════════════════════════════════════════════════════════════
+const CTA = {
+  telegram: [
+    "⏳ By the time you read this, the line may already be gone. Premium members got it the second it happened. Don't be late next time 👇",
+    "🔒 The money %, the sharp side and our read are all waiting inside CashEdge. Tap the button and see the full picture before kickoff 👇",
+    "🚫 Stop betting blind. See what the sportsbooks are doing BEFORE you place your bet. Unlock Premium 👇",
+    "📲 Download CashEdge and turn on alerts. The next move like this goes to members first, in real time.",
+    "💸 Every line move. Every betting split. Every sharp alert. Live, all day. That's Premium. First month $34.99 👇",
+    "👀 You just saw ONE game. Members are watching the whole board right now. Unlock it 👇",
+    "⚡ The public bets the name. Members bet the movement. Get on the right side: tap below 👇",
+    "🎯 You're one tap away from seeing where the real money is going today 👇",
+    "⏰ Lines don't wait. Members get the alert, you get the leftovers. Fix that today 👇",
+    "🔓 Want to know what happens next on this game? It's already inside the app 👇"
+  ],
+  x: [
+    "⏳ By the time you read this, the line may be gone. Premium members got it first.\n📲 CashEdge → link in bio",
+    "🔒 The money %, the sharp side and our read are inside CashEdge.\n📲 Link in bio",
+    "🚫 Stop betting blind. See what the books are doing before you bet.\n📲 CashEdge → link in bio",
+    "💸 Every line move, every split, every alert. Live.\n📲 Premium → link in bio",
+    "👀 That's ONE game. Members are watching the whole board.\n📲 Link in bio",
+    "⚡ The public bets the name. Members bet the movement.\n📲 CashEdge → link in bio",
+    "⏰ Lines don't wait. Members get the alert first.\n📲 Free alerts on Telegram + Premium app → link in bio"
+  ]
+};
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+// ═══════════════════════════════════════════════════════════════════════════
 // 5. ENGINE: pick the best story + a template not used recently
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -605,7 +633,7 @@ export async function buildMarketStory(channel, types, { exclude = [] } = {}) {
     const element = DESIGNS[tpl.design](story, tpl.v);
     return {
       templateId: tpl.id, type, gameId: story.gameId,
-      text: tpl.text(story) + "\n\n21+ | Gamble responsibly",
+      text: `${tpl.text(story)}\n\n${pick(CTA[channel] || CTA.telegram)}\n\n21+ | Gamble responsibly`,
       png: await renderPng(element),
       poll: tpl.design === "poll" ? { question: "What do you do?", options: tpl.v.options(story) } : null
     };
