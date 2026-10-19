@@ -1,3 +1,4 @@
+
 "use strict";
 
 const crypto = require("crypto");
@@ -5,7 +6,8 @@ const crypto = require("crypto");
 const PREFIX = "[learning-capture]";
 
 const ENABLED =
-  String(process.env.LEARNING_ENABLED || "").toLowerCase() === "true";
+  String(process.env.LEARNING_ENABLED || "")
+    .toLowerCase() === "true";
 
 const URL =
   String(process.env.LEARNING_SUPABASE_URL || "")
@@ -13,11 +15,12 @@ const URL =
     .replace(/\/+$/, "");
 
 const KEY =
-  String(process.env.LEARNING_SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  String(
+    process.env.LEARNING_SUPABASE_SERVICE_ROLE_KEY || ""
+  ).trim();
 
 const TIMEOUT_MS = 5000;
 const HEAD_PAGE_SIZE = 1000;
-
 
 // ============================================================
 // IN-MEMORY STATE
@@ -41,7 +44,6 @@ const hydrationPromises = {
 
 let warnedMissingConfig = false;
 
-
 // ============================================================
 // HELPERS
 // ============================================================
@@ -50,20 +52,13 @@ function txt(value) {
   if (value === null || value === undefined) {
     return null;
   }
-
-  const output = String(value).trim();
-  return output || null;
+  return String(value).trim() || null;
 }
-
 
 function low(value) {
-  const output = txt(value);
-
-  return output
-    ? output.toLowerCase()
-    : null;
+  const valueText = txt(value);
+  return valueText ? valueText.toLowerCase() : null;
 }
-
 
 function num(value) {
   if (
@@ -75,26 +70,16 @@ function num(value) {
   }
 
   const output = Number(value);
-
-  return Number.isFinite(output)
-    ? output
-    : null;
+  return Number.isFinite(output) ? output : null;
 }
-
 
 function int(value) {
   const output = num(value);
-
-  return output === null
-    ? null
-    : Math.trunc(output);
+  return output === null ? null : Math.trunc(output);
 }
 
-
 function ts(value) {
-  if (!value) {
-    return null;
-  }
+  if (!value) return null;
 
   const output = new Date(value);
 
@@ -102,7 +87,6 @@ function ts(value) {
     ? null
     : output.toISOString();
 }
-
 
 function bool(value) {
   return (
@@ -113,31 +97,25 @@ function bool(value) {
   );
 }
 
-
 function hash(...parts) {
   return crypto
     .createHash("sha256")
     .update(
-      parts
-        .map(value => String(value ?? "∅"))
-        .join("|")
+      parts.map(
+        value => String(value ?? "∅")
+      ).join("|")
     )
     .digest("hex");
 }
 
-
 // ============================================================
-// SAFETY / FEATURE FLAG
+// FEATURE FLAG / SAFETY
 // ============================================================
 
 function active() {
-  if (!ENABLED) {
-    return false;
-  }
+  if (!ENABLED) return false;
 
-  if (URL && KEY) {
-    return true;
-  }
+  if (URL && KEY) return true;
 
   if (!warnedMissingConfig) {
     warnedMissingConfig = true;
@@ -150,20 +128,17 @@ function active() {
   return false;
 }
 
-
 // ============================================================
-// SAFE HTTP
+// SUPABASE REQUEST
 // ============================================================
 
 async function request(path, options = {}) {
-  const controller =
-    new AbortController();
+  const controller = new AbortController();
 
-  const timer =
-    setTimeout(
-      () => controller.abort(),
-      TIMEOUT_MS
-    );
+  const timer = setTimeout(
+    () => controller.abort(),
+    TIMEOUT_MS
+  );
 
   timer.unref?.();
 
@@ -172,38 +147,33 @@ async function request(path, options = {}) {
       `${URL}/rest/v1/${path}`,
       {
         ...options,
-
         headers: {
           apikey: KEY,
           Authorization: `Bearer ${KEY}`,
           ...(options.headers || {})
         },
-
         signal: controller.signal
       }
     );
-
   } finally {
     clearTimeout(timer);
   }
 }
 
-
 // ============================================================
-// IDENTITIES / SIGNATURES
+// IDENTITIES AND SIGNATURES
 // ============================================================
 
 function marketIdentity(row) {
-  return (
-    `${row.sport}|` +
-    `${row.cashedge_game_id}|` +
-    `${row.provider}|` +
-    `${row.sportsbook_key}|` +
-    `${row.market_type}|` +
-    `${row.selection_key}`
-  );
+  return [
+    row.sport,
+    row.cashedge_game_id,
+    row.provider,
+    row.sportsbook_key,
+    row.market_type,
+    row.selection_key
+  ].join("|");
 }
-
 
 function marketSignature(row) {
   return hash(
@@ -212,16 +182,14 @@ function marketSignature(row) {
   );
 }
 
-
 function cashEdgeIdentity(row) {
-  return (
-    `${row.sport}|` +
-    `${row.cashedge_game_id}|` +
-    `${row.market_type}|` +
-    `${row.selection_key || ""}`
-  );
+  return [
+    row.sport,
+    row.cashedge_game_id,
+    row.market_type,
+    row.selection_key || ""
+  ].join("|");
 }
-
 
 function cashEdgeSignature(row) {
   return hash(
@@ -239,16 +207,15 @@ function cashEdgeSignature(row) {
 }
 
 function splitIdentity(row) {
-  return (
-    `${row.sport}|` +
-    `${row.cashedge_game_id}|` +
-    `${row.provider}|` +
-    `${row.split_source_key}|` +
-    `${row.market_type}|` +
-    `${row.selection_key}`
-  );
+  return [
+    row.sport,
+    row.cashedge_game_id,
+    row.provider,
+    row.split_source_key,
+    row.market_type,
+    row.selection_key
+  ].join("|");
 }
-
 
 function splitSignature(row) {
   return hash(
@@ -258,48 +225,26 @@ function splitSignature(row) {
     row.tickets_pct
   );
 }
+
 // ============================================================
-// MARKET NORMALIZATION
+// NORMALIZE MARKET
 // ============================================================
 
 function normalizeMarket(input = {}) {
   const row = {
-
-    cashedge_game_id:
-      txt(input.cashedge_game_id),
-
-    sport:
-      low(input.sport),
-
-    provider:
-      low(input.provider),
-
-    provider_event_id:
-      txt(input.provider_event_id),
-
-    sportsbook_key:
-      low(input.sportsbook_key),
-
-    market_type:
-      low(input.market_type),
-
-    selection_key:
-      low(input.selection_key),
-
-    line:
-      num(input.line),
-
-    price_american:
-      int(input.price_american),
-
-    provider_timestamp:
-      ts(input.provider_timestamp),
-
+    cashedge_game_id: txt(input.cashedge_game_id),
+    sport: low(input.sport),
+    provider: low(input.provider),
+    provider_event_id: txt(input.provider_event_id),
+    sportsbook_key: low(input.sportsbook_key),
+    market_type: low(input.market_type),
+    selection_key: low(input.selection_key),
+    line: num(input.line),
+    price_american: int(input.price_american),
+    provider_timestamp: ts(input.provider_timestamp),
     observed_at:
-      ts(input.observed_at) ||
-      new Date().toISOString()
+      ts(input.observed_at) || new Date().toISOString()
   };
-
 
   if (
     !row.cashedge_game_id ||
@@ -313,85 +258,42 @@ function normalizeMarket(input = {}) {
     return null;
   }
 
-
-  const identity =
-    marketIdentity(row);
-
-  const signature =
-    marketSignature(row);
-
-
-  row.dedupe_key =
-    hash(
-      "market",
-      identity,
-      signature,
-      row.provider_timestamp ||
-        row.observed_at
-    );
-
+  row.dedupe_key = hash(
+    "market",
+    marketIdentity(row),
+    marketSignature(row),
+    row.provider_timestamp || row.observed_at
+  );
 
   return row;
 }
 
-
 // ============================================================
-// CASHEDGE NORMALIZATION
+// NORMALIZE CASHEDGE
 // ============================================================
 
 function normalizeCashEdge(input = {}) {
   const row = {
-
-    cashedge_game_id:
-      txt(input.cashedge_game_id),
-
-    sport:
-      low(input.sport),
-
-    market_type:
-      low(input.market_type),
-
-    selection_key:
-      low(input.selection_key),
-
-    pick_text:
-      txt(input.pick_text),
-
-    line:
-      num(input.line),
-
-    price_american:
-      int(input.price_american),
-
-    projection:
-      num(input.projection),
-
-    edge:
-      num(input.edge),
-
-    confidence:
-      num(input.confidence),
-
-    is_premium:
-      bool(input.is_premium),
-
-    is_primary:
-      bool(input.is_primary),
-
+    cashedge_game_id: txt(input.cashedge_game_id),
+    sport: low(input.sport),
+    market_type: low(input.market_type),
+    selection_key: low(input.selection_key),
+    pick_text: txt(input.pick_text),
+    line: num(input.line),
+    price_american: int(input.price_american),
+    projection: num(input.projection),
+    edge: num(input.edge),
+    confidence: num(input.confidence),
+    is_premium: bool(input.is_premium),
+    is_primary: bool(input.is_primary),
     projected_home_score:
       num(input.projected_home_score),
-
     projected_away_score:
       num(input.projected_away_score),
-
-    source_updated_at:
-      ts(input.source_updated_at),
-
+    source_updated_at: ts(input.source_updated_at),
     observed_at:
-      ts(input.observed_at) ||
-      new Date().toISOString()
+      ts(input.observed_at) || new Date().toISOString()
   };
-
 
   if (
     !row.cashedge_game_id ||
@@ -401,72 +303,36 @@ function normalizeCashEdge(input = {}) {
     return null;
   }
 
-
-  const identity =
-    cashEdgeIdentity(row);
-
-  const signature =
-    cashEdgeSignature(row);
-
-
-  row.dedupe_key =
-    hash(
-      "cashedge",
-      identity,
-      signature,
-      row.source_updated_at ||
-        row.observed_at
-    );
-
+  row.dedupe_key = hash(
+    "cashedge",
+    cashEdgeIdentity(row),
+    cashEdgeSignature(row),
+    row.source_updated_at || row.observed_at
+  );
 
   return row;
 }
+
 // ============================================================
-// SPLIT NORMALIZATION
+// NORMALIZE SPLITS
 // ============================================================
 
 function normalizeSplit(input = {}) {
-
   const row = {
-
-    cashedge_game_id:
-      txt(input.cashedge_game_id),
-
-    sport:
-      low(input.sport),
-
-    provider:
-      low(input.provider),
-
-    split_source_key:
-      low(input.split_source_key),
-
-    market_type:
-      low(input.market_type),
-
-    selection_key:
-      low(input.selection_key),
-
-    line:
-      num(input.line),
-
-    price_american:
-      int(input.price_american),
-
-    money_pct:
-      num(input.money_pct),
-
-    tickets_pct:
-      num(input.tickets_pct),
-
-    provider_timestamp:
-      ts(input.provider_timestamp),
-
+    cashedge_game_id: txt(input.cashedge_game_id),
+    sport: low(input.sport),
+    provider: low(input.provider),
+    split_source_key: low(input.split_source_key),
+    market_type: low(input.market_type),
+    selection_key: low(input.selection_key),
+    line: num(input.line),
+    price_american: int(input.price_american),
+    money_pct: num(input.money_pct),
+    tickets_pct: num(input.tickets_pct),
+    provider_timestamp: ts(input.provider_timestamp),
     observed_at:
-      ts(input.observed_at) ||
-      new Date().toISOString()
+      ts(input.observed_at) || new Date().toISOString()
   };
-
 
   if (
     !row.cashedge_game_id ||
@@ -481,11 +347,6 @@ function normalizeSplit(input = {}) {
     return null;
   }
 
-
-  /*
-   * Invalid provider percentages must never enter
-   * Learning history.
-   */
   if (
     row.money_pct < 0 ||
     row.money_pct > 100 ||
@@ -495,94 +356,59 @@ function normalizeSplit(input = {}) {
     return null;
   }
 
-
-  const identity =
-    splitIdentity(row);
-
-  const signature =
-    splitSignature(row);
-
-
-  row.dedupe_key =
-    hash(
-      "split",
-      identity,
-      signature,
-      row.provider_timestamp ||
-        row.observed_at
-    );
-
+  row.dedupe_key = hash(
+    "split",
+    splitIdentity(row),
+    splitSignature(row),
+    row.provider_timestamp || row.observed_at
+  );
 
   return row;
 }
 
 // ============================================================
-// DURABLE HEAD CACHE
+// HYDRATE DURABLE HEAD CACHE
 // ============================================================
 
-async function loadHeads(
-  streamType,
-  cache
-) {
+async function loadHeads(streamType, cache) {
   let start = 0;
 
   try {
-
     while (true) {
+      const end = start + HEAD_PAGE_SIZE - 1;
 
-      const end =
-        start +
-        HEAD_PAGE_SIZE -
-        1;
+      const path =
+        "learning_capture_heads" +
+        "?select=identity_key,signature" +
+        `&stream_type=eq.${encodeURIComponent(streamType)}` +
+        "&order=identity_key.asc";
 
-
-      const response =
-        await request(
-          `learning_capture_heads?select=identity_key,signature&stream_type=eq.${encodeURIComponent(streamType)}&order=identity_key.asc`,
-          {
-            method:
-              "GET",
-
-            headers: {
-              Range:
-                `${start}-${end}`,
-
-              "Range-Unit":
-                "items"
-            }
-          }
-        );
-
+      const response = await request(path, {
+        method: "GET",
+        headers: {
+          Range: `${start}-${end}`,
+          "Range-Unit": "items"
+        }
+      });
 
       if (!response.ok) {
-
-        const detail =
-          (
-            await response.text()
-          ).slice(
-            0,
-            300
-          );
-
+        const detail = (
+          await response.text()
+        ).slice(0, 300);
 
         console.error(
-          `${PREFIX} head load failed (${streamType}) HTTP ${response.status}: ${detail}`
+          `${PREFIX} head load failed (${streamType}) ` +
+          `HTTP ${response.status}: ${detail}`
         );
 
         return false;
       }
 
-
-      const rows =
-        await response
-          .json()
-          .catch(
-            () => null
-          );
-
+      const rows = await response.json().catch(
+        () => null
+      );
 
       if (!Array.isArray(rows)) {
-
         console.error(
           `${PREFIX} head load failed (${streamType}): invalid response`
         );
@@ -590,316 +416,200 @@ async function loadHeads(
         return false;
       }
 
+      for (const row of rows) {
+        const identityKey = txt(row?.identity_key);
+        const signature = txt(row?.signature);
 
-      for (
-        const row
-        of rows
-      ) {
-
-        const identityKey =
-          txt(
-            row?.identity_key
-          );
-
-        const signature =
-          txt(
-            row?.signature
-          );
-
-
-        if (
-          identityKey &&
-          signature
-        ) {
-
-          cache.set(
-            identityKey,
-            signature
-          );
+        if (identityKey && signature) {
+          cache.set(identityKey, signature);
         }
       }
 
-
-      if (
-        rows.length <
-        HEAD_PAGE_SIZE
-      ) {
+      if (rows.length < HEAD_PAGE_SIZE) {
         break;
       }
 
-
-      start +=
-        HEAD_PAGE_SIZE;
+      start += HEAD_PAGE_SIZE;
     }
 
-
     return true;
-
   } catch (error) {
-
     console.error(
-      `${PREFIX} head load failed (${streamType}): ${error?.message || error}`
+      `${PREFIX} head load failed (${streamType}): ` +
+      `${error?.message || error}`
     );
 
     return false;
   }
 }
-
 
 // ============================================================
 // SAFE HYDRATION
 // ============================================================
 
-async function ensureHydrated(
-  streamType,
-  cache
-) {
+async function ensureHydrated(streamType, cache) {
+  if (!active()) return false;
 
-  if (!active()) {
-    return false;
-  }
-
-
-  if (
-    hydrated[streamType] ===
-    true
-  ) {
+  if (hydrated[streamType] === true) {
     return true;
   }
 
-
-  if (
-    hydrationPromises[
-      streamType
-    ]
-  ) {
-
-    return hydrationPromises[
-      streamType
-    ];
+  if (hydrationPromises[streamType]) {
+    return hydrationPromises[streamType];
   }
 
+  hydrationPromises[streamType] = (async () => {
+    const ok = await loadHeads(streamType, cache);
 
-  hydrationPromises[
-    streamType
-  ] =
-    (async () => {
+    if (ok) {
+      hydrated[streamType] = true;
+    }
 
-      const ok =
-        await loadHeads(
-          streamType,
-          cache
-        );
-
-
-      if (ok) {
-        hydrated[
-          streamType
-        ] =
-          true;
-      }
-
-
-      return ok;
-    })();
-
+    return ok;
+  })();
 
   try {
-
-    return await hydrationPromises[
-      streamType
-    ];
-
+    return await hydrationPromises[streamType];
   } finally {
-
-    if (
-      hydrated[
-        streamType
-      ] !== true
-    ) {
-
-      hydrationPromises[
-        streamType
-      ] =
-        null;
+    if (hydrated[streamType] !== true) {
+      hydrationPromises[streamType] = null;
     }
   }
 }
 
-
 // ============================================================
-// PERSIST LAST STATE
+// PERSIST DURABLE HEADS
 // ============================================================
 
-async function upsertHeads(
-  streamType,
-  pending
-) {
-
+async function upsertHeads(streamType, pending) {
   if (!pending.size) {
     return true;
   }
 
+  const now = new Date().toISOString();
 
-  const now =
-    new Date()
-      .toISOString();
-
-
-  const rows =
-    Array.from(
-      pending,
-      (
-        [
-          identity_key,
-          signature
-        ]
-      ) => ({
-        stream_type:
-          streamType,
-
-        identity_key,
-
-        signature,
-
-        updated_at:
-          now
-      })
-    );
-
+  const rows = Array.from(
+    pending,
+    ([identity_key, signature]) => ({
+      stream_type: streamType,
+      identity_key,
+      signature,
+      updated_at: now
+    })
+  );
 
   try {
-
-    const response =
-      await request(
-        "learning_capture_heads?on_conflict=stream_type%2Cidentity_key",
-        {
-          method:
-            "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-
-            Prefer:
-              "resolution=merge-duplicates,return=minimal"
-          },
-
-          body:
-            JSON.stringify(
-              rows
-            )
-        }
-      );
-
+    const response = await request(
+      "learning_capture_heads" +
+      "?on_conflict=stream_type%2Cidentity_key",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Prefer:
+            "resolution=merge-duplicates,return=minimal"
+        },
+        body: JSON.stringify(rows)
+      }
+    );
 
     if (response.ok) {
       return true;
     }
 
-
-    const detail =
-      (
-        await response.text()
-      ).slice(
-        0,
-        300
-      );
-
+    const detail = (
+      await response.text()
+    ).slice(0, 300);
 
     console.error(
-      `${PREFIX} head update failed (${streamType}) HTTP ${response.status}: ${detail}`
+      `${PREFIX} head update failed (${streamType}) ` +
+      `HTTP ${response.status}: ${detail}`
     );
-
 
     return false;
-
   } catch (error) {
-
     console.error(
-      `${PREFIX} head update failed (${streamType}): ${error?.message || error}`
+      `${PREFIX} head update failed (${streamType}): ` +
+      `${error?.message || error}`
     );
-
 
     return false;
   }
 }
-
 
 // ============================================================
 // HISTORY WRITE
 // ============================================================
+// Market/CashEdge retain the original write behavior.
+// Splits use return=representation to verify inserted rows.
+// ============================================================
 
 async function insertRows(
   table,
-  rows
+  rows,
+  verifyCount = false
 ) {
-
-  if (
-    !rows.length ||
-    !active()
-  ) {
+  if (!rows.length || !active()) {
     return false;
   }
 
-
   try {
+    const response = await request(
+      `${table}?on_conflict=dedupe_key`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Prefer: verifyCount
+            ? "resolution=ignore-duplicates,return=representation"
+            : "resolution=ignore-duplicates,return=minimal"
+        },
+        body: JSON.stringify(rows)
+      }
+    );
 
-    const response =
-      await request(
-        `${table}?on_conflict=dedupe_key`,
-        {
-          method:
-            "POST",
+    if (!response.ok) {
+      const detail = (
+        await response.text()
+      ).slice(0, 300);
 
-          headers: {
-            "Content-Type":
-              "application/json",
-
-            Prefer:
-              "resolution=ignore-duplicates,return=minimal"
-          },
-
-          body:
-            JSON.stringify(
-              rows
-            )
-        }
+      console.error(
+        `${PREFIX} ${table} write failed ` +
+        `HTTP ${response.status}: ${detail}`
       );
 
+      return false;
+    }
 
-    if (response.ok) {
+    if (!verifyCount) {
       return true;
     }
 
+    const inserted = await response.json().catch(
+      () => null
+    );
 
-    const detail =
-      (
-        await response.text()
-      ).slice(
-        0,
-        300
+    if (!Array.isArray(inserted)) {
+      console.error(
+        `${PREFIX} split write: unexpected representation`
       );
 
+      return false;
+    }
 
-    console.error(
-      `${PREFIX} ${table} write failed HTTP ${response.status}: ${detail}`
-    );
-
-
-    return false;
-
+    return {
+      inserted: inserted.length,
+      insertedRows: inserted
+    };
   } catch (error) {
-
     console.error(
-      `${PREFIX} ${table} write failed: ${error?.message || error}`
+      `${PREFIX} ${table} write failed: ` +
+      `${error?.message || error}`
     );
-
 
     return false;
   }
 }
-
 
 // ============================================================
 // GENERIC CAPTURE
@@ -914,11 +624,8 @@ async function capture({
   signature,
   cache
 }) {
-
   try {
-
     if (!active()) {
-
       return {
         ok: true,
         written: 0,
@@ -926,164 +633,150 @@ async function capture({
       };
     }
 
-
-    const ready =
-      await ensureHydrated(
-        streamType,
-        cache
-      );
-
+    const ready = await ensureHydrated(
+      streamType,
+      cache
+    );
 
     if (!ready) {
-
       return {
         ok: false,
         written: 0,
-        reason:
-          "head_cache_unavailable"
+        reason: "head_cache_unavailable"
       };
     }
 
+    const rows = [];
+    const pending = new Map();
+    const pendingRows = new Map();
 
-    const rows =
-      [];
+    const inputRows = Array.isArray(inputs)
+      ? inputs
+      : [inputs];
 
-    const pending =
-      new Map();
-
-
-    for (
-      const input
-      of Array.isArray(inputs)
-        ? inputs
-        : [inputs]
-    ) {
-
-      const row =
-        normalize(
-          input
-        );
-
+    for (const input of inputRows) {
+      const row = normalize(input);
 
       if (!row) {
         continue;
       }
 
+      const id = identity(row);
+      const sig = signature(row);
 
-      const id =
-        identity(
-          row
-        );
+      const previous = pending.has(id)
+        ? pending.get(id)
+        : cache.get(id);
 
-      const sig =
-        signature(
-          row
-        );
-
-
-      const previous =
-        pending.has(
-          id
-        )
-          ? pending.get(
-              id
-            )
-          : cache.get(
-              id
-            );
-
-
-      if (
-        previous ===
-        sig
-      ) {
+      if (previous === sig) {
         continue;
       }
 
-
-      pending.set(
-        id,
-        sig
-      );
-
-
-      rows.push(
-        row
-      );
+      pending.set(id, sig);
+      pendingRows.set(id, row);
+      rows.push(row);
     }
 
-
-    if (
-      !rows.length
-    ) {
-
+    if (!rows.length) {
       return {
         ok: true,
         written: 0
       };
     }
 
+    const verifySplit = streamType === "split";
 
-    const historyOk =
-      await insertRows(
-        table,
-        rows
-      );
+    const historyResult = await insertRows(
+      table,
+      rows,
+      verifySplit
+    );
 
-
-    if (!historyOk) {
-
+    if (!historyResult) {
       return {
         ok: false,
         written: 0
       };
     }
 
+    // ========================================================
+    // SPLIT DIAGNOSTICS
+    // ========================================================
 
-    /*
-     * History succeeded.
-     * Update RAM immediately so a temporary
-     * head-write problem cannot create spam
-     * while this worker remains alive.
-     */
-    for (
-      const [
-        id,
-        sig
-      ]
-      of pending
-    ) {
+    if (verifySplit) {
+      const inserted = historyResult.inserted;
+      const ignored = rows.length - inserted;
 
-      cache.set(
-        id,
-        sig
+      const confirmedPending = new Map();
+
+      const insertedKeys = new Set(
+        historyResult.insertedRows
+          .map(row => row.dedupe_key)
+          .filter(Boolean)
       );
+
+      for (const [id, row] of pendingRows) {
+        if (insertedKeys.has(row.dedupe_key)) {
+          confirmedPending.set(
+            id,
+            signature(row)
+          );
+        }
+      }
+
+      // Only confirmed inserts advance the split head cache.
+      for (const [id, sig] of confirmedPending) {
+        cache.set(id, sig);
+      }
+
+      const headOk = confirmedPending.size
+        ? await upsertHeads(
+            streamType,
+            confirmedPending
+          )
+        : true;
+
+      console.log(
+        `${PREFIX} split persistence: ` +
+        `attempted=${rows.length}, ` +
+        `inserted=${inserted}, ` +
+        `ignored=${ignored}, ` +
+        `heads_updated=${headOk}`
+      );
+
+      return {
+        ok: true,
+        written: inserted,
+        attempted: rows.length,
+        inserted,
+        ignored,
+        head_persisted: headOk
+      };
     }
 
+    // ========================================================
+    // ORIGINAL MARKET / CASHEDGE BEHAVIOR
+    // ========================================================
 
-    const headOk =
-      await upsertHeads(
-        streamType,
-        pending
-      );
+    for (const [id, sig] of pending) {
+      cache.set(id, sig);
+    }
 
+    const headOk = await upsertHeads(
+      streamType,
+      pending
+    );
 
     return {
       ok: true,
-
-      written:
-        rows.length,
-
-      head_persisted:
-        headOk
+      written: rows.length,
+      head_persisted: headOk
     };
-
   } catch (error) {
-
     console.error(
-      `${PREFIX} capture failed (${streamType}): ${error?.message || error}`
+      `${PREFIX} capture failed (${streamType}): ` +
+      `${error?.message || error}`
     );
-
 
     return {
       ok: false,
@@ -1092,68 +785,44 @@ async function capture({
   }
 }
 
-
 // ============================================================
-// PUBLIC API
+// INITIALIZATION
 // ============================================================
 
 async function initialize() {
-
   try {
-
     if (!active()) {
-
       return {
         ok: true,
         disabled: true
       };
     }
 
-const [
-  marketReady,
-  cashEdgeReady,
-  splitReady
-] =
-  await Promise.all([
-    ensureHydrated(
-      "market",
-      lastMarket
-    ),
-
-    ensureHydrated(
-      "cashedge",
-      lastCashEdge
-    ),
-
-    ensureHydrated(
-      "split",
-      lastSplit
-    )
-  ]);
-
+    const [
+      marketReady,
+      cashEdgeReady,
+      splitReady
+    ] = await Promise.all([
+      ensureHydrated("market", lastMarket),
+      ensureHydrated("cashedge", lastCashEdge),
+      ensureHydrated("split", lastSplit)
+    ]);
 
     return {
-  ok:
-    marketReady &&
-    cashEdgeReady &&
-    splitReady,
+      ok:
+        marketReady &&
+        cashEdgeReady &&
+        splitReady,
 
-  market_ready:
-    marketReady,
-
-  cashedge_ready:
-    cashEdgeReady,
-
-  split_ready:
-    splitReady
-};
-
+      market_ready: marketReady,
+      cashedge_ready: cashEdgeReady,
+      split_ready: splitReady
+    };
   } catch (error) {
-
     console.error(
-      `${PREFIX} initialize failed: ${error?.message || error}`
+      `${PREFIX} initialize failed: ` +
+      `${error?.message || error}`
     );
-
 
     return {
       ok: false,
@@ -1164,122 +833,68 @@ const [
   }
 }
 
+// ============================================================
+// MARKET CAPTURE
+// ============================================================
 
-function captureMarketStates(
-  inputs
-) {
-
+function captureMarketStates(inputs) {
   return capture({
-
     inputs,
-
-    streamType:
-      "market",
-
-    table:
-      "learning_market_states",
-
-    normalize:
-      normalizeMarket,
-
-    identity:
-      marketIdentity,
-
-    signature:
-      marketSignature,
-
-    cache:
-      lastMarket
+    streamType: "market",
+    table: "learning_market_states",
+    normalize: normalizeMarket,
+    identity: marketIdentity,
+    signature: marketSignature,
+    cache: lastMarket
   });
 }
 
+// ============================================================
+// CASHEDGE CAPTURE
+// ============================================================
 
-function captureCashEdgeStates(
-  inputs
-) {
-
+function captureCashEdgeStates(inputs) {
   return capture({
-
     inputs,
-
-    streamType:
-      "cashedge",
-
-    table:
-      "learning_cashedge_states",
-
-    normalize:
-      normalizeCashEdge,
-
-    identity:
-      cashEdgeIdentity,
-
-    signature:
-      cashEdgeSignature,
-
-    cache:
-      lastCashEdge
+    streamType: "cashedge",
+    table: "learning_cashedge_states",
+    normalize: normalizeCashEdge,
+    identity: cashEdgeIdentity,
+    signature: cashEdgeSignature,
+    cache: lastCashEdge
   });
 }
 
-function captureSplitStates(
-  inputs
-) {
+// ============================================================
+// SPLIT CAPTURE
+// ============================================================
 
+function captureSplitStates(inputs) {
   return capture({
-
     inputs,
-
-    streamType:
-      "split",
-
-    table:
-      "learning_split_states",
-
-    normalize:
-      normalizeSplit,
-
-    identity:
-      splitIdentity,
-
-    signature:
-      splitSignature,
-
-    cache:
-      lastSplit
+    streamType: "split",
+    table: "learning_split_states",
+    normalize: normalizeSplit,
+    identity: splitIdentity,
+    signature: splitSignature,
+    cache: lastSplit
   });
 }
+
+// ============================================================
+// STATUS
+// ============================================================
+
 function getStatus() {
-
   return {
-
-    enabled:
-      ENABLED,
-
-    configured:
-      Boolean(
-        URL &&
-        KEY
-      ),
-
-    active:
-      ENABLED &&
-      Boolean(
-        URL &&
-        KEY
-      ),
-
-    market_hydrated:
-      hydrated.market,
-
-    cashedge_hydrated:
-  hydrated.cashedge,
-
-split_hydrated:
-  hydrated.split
+    enabled: ENABLED,
+    configured: Boolean(URL && KEY),
+    active: ENABLED && Boolean(URL && KEY),
+    market_hydrated: hydrated.market,
+    cashedge_hydrated: hydrated.cashedge,
+    split_hydrated: hydrated.split
   };
 }
-
 
 // ============================================================
 // EXPORTS
