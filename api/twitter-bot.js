@@ -23,9 +23,10 @@ const SPORT_TAG = { nba: "NBA", wnba: "WNBA", ncaab: "CBB", mlb: "MLB", nfl: "NF
 
 // Brand
 const C = {
-  bg: "#020814", card: "#0a1424", line: "#16243a",
-  cyan: "#00ffe7", purple: "#7c3cff", white: "#f0f6ff", muted: "#8a9ab5",
-  win: "#22e58a", loss: "#ff5a6e", push: "#8a9ab5"
+  bg: "#020814", card: "#071426", line: "#16243a",
+  cyan: "#00ffe7", green: "#39ff6a", purple: "#b48cff", gold: "#ffc850",
+  white: "#f0f6ff", muted: "#8a9ab5",
+  win: "#39ff6a", loss: "#ff5a6e", push: "#8a9ab5"
 };
 const IMG_W = 1200;
 const IMG_H = 675;
@@ -188,25 +189,60 @@ function h(type, style, ...children) {
   return { type, props: { style, children: kids.length === 1 ? kids[0] : kids } };
 }
 
+// "Quantum math" backdrop: grid, wave functions and a node network (deterministic per seed)
+function quantumBg(seed = 7) {
+  let s = seed + 11;
+  const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+  const kids = [];
+  for (let x = 0; x <= IMG_W; x += 60) kids.push({ type: "line", props: { x1: x, y1: 0, x2: x, y2: IMG_H, stroke: C.green, strokeOpacity: 0.05 } });
+  for (let y = 0; y <= IMG_H; y += 60) kids.push({ type: "line", props: { x1: 0, y1: y, x2: IMG_W, y2: y, stroke: C.green, strokeOpacity: 0.05 } });
+  for (let k = 0; k < 4; k++) {
+    const amp = 25 + rnd() * 60, per = 220 + rnd() * 320, y0 = 90 + rnd() * (IMG_H - 180), ph = rnd() * 6.28;
+    let d = "";
+    for (let x = 0; x <= IMG_W; x += 15) d += `${x === 0 ? "M" : "L"}${x},${(y0 + amp * Math.sin(x / per * 6.28 + ph)).toFixed(1)} `;
+    kids.push({ type: "path", props: { d, fill: "none", stroke: k % 2 ? C.cyan : C.green, strokeOpacity: 0.18, strokeWidth: 1.5 } });
+  }
+  const nodes = Array.from({ length: 18 }, () => [rnd() * IMG_W, rnd() * IMG_H]);
+  nodes.forEach(([x, y], i) => {
+    const nx = nodes[i + 1];
+    if (nx && Math.abs(nx[0] - x) + Math.abs(nx[1] - y) < 450) {
+      kids.push({ type: "line", props: { x1: x, y1: y, x2: nx[0], y2: nx[1], stroke: C.green, strokeOpacity: 0.14 } });
+    }
+    kids.push({ type: "circle", props: { cx: x, cy: y, r: 2 + rnd() * 2, fill: C.green, fillOpacity: 0.5 } });
+  });
+  return { type: "svg", props: { width: IMG_W, height: IMG_H, viewBox: `0 0 ${IMG_W} ${IMG_H}`,
+    style: { position: "absolute", top: 0, left: 0 }, children: kids } };
+}
+
+const FORMULAS = [
+  ["P(edge) = Σ p(x | λ)", 40, 128], ["E[v] = p(o − 1) − (1 − p)", 760, 96], ["σ² = Σ (x − μ)² / n", 60, 560],
+  ["Δline = Σ w · Δbook", 820, 530], ["z = (μ − line) / σ", 430, 612]
+];
+
 function frame(kicker, ...body) {
   return h("div", {
-    width: IMG_W, height: IMG_H, display: "flex", flexDirection: "column",
-    backgroundColor: C.bg, padding: "48px 60px", fontFamily: "Inter",
-    backgroundImage: "radial-gradient(circle at 0% 100%, rgba(0,255,231,0.18), transparent 45%), radial-gradient(circle at 100% 0%, rgba(124,60,255,0.25), transparent 45%)"
+    width: IMG_W, height: IMG_H, display: "flex", flexDirection: "column", position: "relative",
+    backgroundColor: C.bg, padding: "42px 56px", fontFamily: "Inter, InterGreek",
+    backgroundImage: "radial-gradient(circle at 50% 35%, rgba(57,255,106,0.20), rgba(2,8,20,0) 60%)"
   },
+    quantumBg(String(kicker).length),
+    ...FORMULAS.map(([t, left, top], i) => h("div", {
+      position: "absolute", display: "flex", left, top, fontSize: 18, fontWeight: 500,
+      color: i % 2 ? C.cyan : C.green, opacity: 0.16
+    }, t)),
     h("div", { display: "flex", justifyContent: "space-between", alignItems: "center" },
-      h("div", { display: "flex", fontSize: 34, fontWeight: 800 },
+      h("div", { display: "flex", fontSize: 36, fontWeight: 900 },
         h("span", { color: C.white }, "Cash"),
-        h("span", { color: C.cyan }, "Edge")
+        h("span", { color: C.green }, "Edge")
       ),
-      h("div", { display: "flex", fontSize: 22, color: C.cyan, letterSpacing: 3, fontWeight: 700 }, kicker)
+      h("div", { display: "flex", fontSize: 20, color: C.green, letterSpacing: 4, fontWeight: 800 }, kicker)
     ),
-    h("div", { display: "flex", width: 220, height: 6, marginTop: 14,
-      backgroundImage: `linear-gradient(90deg, ${C.cyan}, ${C.purple})` }),
-    h("div", { display: "flex", flexDirection: "column", flexGrow: 1, marginTop: 28 }, ...body),
-    h("div", { display: "flex", justifyContent: "space-between", fontSize: 18, color: C.muted },
-      h("span", { color: C.cyan, fontWeight: 800 }, "📲 Free alerts on Telegram: t.me/Cashedgeapp"),
-      h("span", {}, "21+ | Gamble responsibly | 1-800-MY-RESET")
+    h("div", { display: "flex", width: 220, height: 5, marginTop: 12,
+      backgroundImage: `linear-gradient(90deg, ${C.green}, ${C.cyan})` }),
+    h("div", { display: "flex", flexDirection: "column", flexGrow: 1, marginTop: 22 }, ...body),
+    h("div", { display: "flex", justifyContent: "space-between", fontSize: 17, color: C.muted },
+      h("span", { color: C.green, fontWeight: 800 }, "📲 Free alerts on Telegram: t.me/Cashedgeapp"),
+      h("span", {}, "21+ | Not betting advice | 1-800-MY-RESET")
     )
   );
 }
@@ -340,13 +376,17 @@ let FONTS = null;
 async function loadFonts() {
   if (FONTS) return FONTS;
   const base = "https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.8/files";
-  const [regular, bold] = await Promise.all([
+  const [regular, bold, black, greek] = await Promise.all([
     fetch(`${base}/inter-latin-500-normal.woff`).then(r => r.arrayBuffer()),
-    fetch(`${base}/inter-latin-800-normal.woff`).then(r => r.arrayBuffer())
+    fetch(`${base}/inter-latin-800-normal.woff`).then(r => r.arrayBuffer()),
+    fetch(`${base}/inter-latin-900-normal.woff`).then(r => r.arrayBuffer()),
+    fetch(`${base}/inter-greek-500-normal.woff`).then(r => r.arrayBuffer())
   ]);
   FONTS = [
     { name: "Inter", data: regular, weight: 500, style: "normal" },
-    { name: "Inter", data: bold, weight: 800, style: "normal" }
+    { name: "Inter", data: bold, weight: 800, style: "normal" },
+    { name: "Inter", data: black, weight: 900, style: "normal" },
+    { name: "InterGreek", data: greek, weight: 500, style: "normal" }
   ];
   return FONTS;
 }
@@ -474,35 +514,36 @@ function cardNumbers(f) {
 }
 
 function ring(conf) {
-  const r = 52;
+  const r = 62;
   const c = 2 * Math.PI * r;
   const filled = Math.max(0, Math.min(100, conf)) / 100 * c;
-  return h("div", { display: "flex", position: "relative", width: 132, height: 132, alignItems: "center", justifyContent: "center" },
+  return h("div", { display: "flex", position: "relative", width: 156, height: 156, alignItems: "center", justifyContent: "center" },
     {
       type: "svg",
       props: {
-        width: 132, height: 132, viewBox: "0 0 132 132", style: { position: "absolute", top: 0, left: 0 },
+        width: 156, height: 156, viewBox: "0 0 156 156", style: { position: "absolute", top: 0, left: 0 },
         children: [
-          { type: "circle", props: { cx: 66, cy: 66, r, fill: "none", stroke: "#1c2740", strokeWidth: 9 } },
-          { type: "circle", props: { cx: 66, cy: 66, r, fill: "none", stroke: "#ff8a1f", strokeWidth: 9,
-            strokeLinecap: "round", strokeDasharray: `${filled} ${c}`, transform: "rotate(-90 66 66)" } }
+          { type: "circle", props: { cx: 78, cy: 78, r, fill: "none", stroke: "rgba(255,200,80,0.18)", strokeWidth: 10 } },
+          { type: "circle", props: { cx: 78, cy: 78, r, fill: "none", stroke: C.gold, strokeWidth: 10,
+            strokeLinecap: "round", strokeDasharray: `${filled} ${c}`, transform: "rotate(-90 78 78)" } }
         ]
       }
     },
     h("div", { display: "flex", flexDirection: "column", alignItems: "center" },
-      h("div", { display: "flex", fontSize: 25, color: "#ff8a1f", fontWeight: 800 }, `${conf.toFixed(1)}%`),
-      h("div", { display: "flex", fontSize: 13, color: C.muted, letterSpacing: 1 }, "PROB.")
+      h("div", { display: "flex", fontSize: 38, color: C.gold, fontWeight: 900 }, `${conf.toFixed(0)}%`),
+      h("div", { display: "flex", fontSize: 12, color: C.muted, letterSpacing: 2 }, "CONFIDENCE")
     )
   );
 }
 
-function statBox(label, value) {
+function bigBox(label, value, color = C.white, grow = 1, highlight = false) {
   return h("div", {
-    display: "flex", flexDirection: "column", alignItems: "center", flexGrow: 1, flexBasis: 0,
-    padding: "14px 8px", marginRight: 12, borderRadius: 12, backgroundColor: "#121a2e"
+    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+    flexGrow: grow, flexBasis: 0, padding: "16px 10px", marginRight: 12, borderRadius: 16,
+    backgroundColor: C.card, border: `2px solid ${highlight ? C.purple : C.line}`
   },
-    h("div", { display: "flex", fontSize: 15, color: C.cyan, fontWeight: 800, letterSpacing: 1 }, label),
-    h("div", { display: "flex", fontSize: 30, color: C.white, fontWeight: 800, marginTop: 6 }, value)
+    h("div", { display: "flex", fontSize: 16, color: C.muted, fontWeight: 800, letterSpacing: 2 }, label),
+    h("div", { display: "flex", fontSize: 44, color, fontWeight: 900, marginTop: 6 }, value)
   );
 }
 
@@ -510,51 +551,45 @@ function premiumCardImage(f) {
   const n = cardNumbers(f);
   const result = String(f.result || "").toLowerCase();
   const graded = ["win", "loss", "push"].includes(result);
-  const stripColor = !graded ? C.cyan : result === "win" ? C.cyan : result === "loss" ? "#ff5566" : C.muted;
+  const stripColor = !graded ? C.green : result === "win" ? C.green : result === "loss" ? C.loss : C.muted;
   const stripText = !graded
     ? `${longDate(f.game_date || f.sourceGameDate)} · BEFORE THE GAME`
     : `${longDate(f.sourceGameDate || f.game_date)} · FINAL · ${String(f.finalScore || f.final_score || "").slice(0, 60)}`;
   const stripBadge = !graded ? "FREE TODAY" : result === "win" ? "WIN" : result === "loss" ? "LOSS" : "PUSH";
   const sportLabel = n.sport === "ncaaf" ? "NCAAF" : n.sport === "ncaab" ? "NCAAB" : n.sport.toUpperCase();
+  const market = Number(f.line);
+  const isTotal = /^(over|under)/i.test(n.pick) && Number.isFinite(market);
+  const oddsTxt = n.odds ? `${n.odds > 0 ? "+" : ""}${n.odds}` : "—";
 
   return frame(graded ? "FREE PREMIUM PLAY · RESULT" : "FREE PREMIUM PLAY",
-    // strip
+    // date strip
     h("div", {
       display: "flex", justifyContent: "space-between", alignItems: "center",
-      padding: "12px 18px", borderRadius: 12, backgroundColor: "#080e1a", border: `1px solid ${stripColor}66`
+      padding: "10px 18px", borderRadius: 12, backgroundColor: "rgba(2,8,20,0.85)", border: `1px solid ${stripColor}88`
     },
       h("div", { display: "flex", fontSize: 19, color: "#d0dcec", fontWeight: 800 }, stripText),
-      h("div", { display: "flex", padding: "7px 16px", borderRadius: 20, border: `2px solid ${stripColor}`,
-        color: stripColor, fontSize: 19, fontWeight: 800, letterSpacing: 1 }, stripBadge)
+      h("div", { display: "flex", padding: "6px 16px", borderRadius: 20, border: `2px solid ${stripColor}`,
+        color: stripColor, fontSize: 19, fontWeight: 900, letterSpacing: 1 }, stripBadge)
     ),
-    // card
+    // the pick
     h("div", {
-      display: "flex", flexDirection: "column", marginTop: 14, padding: "20px 24px", borderRadius: 18,
-      border: "2px solid rgba(124,60,255,0.55)",
-      backgroundImage: "linear-gradient(135deg, #0d1426, #0a0f1e)"
+      display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16,
+      padding: "18px 26px", borderRadius: 20, border: `2px solid ${C.gold}66`,
+      backgroundImage: "linear-gradient(90deg, rgba(0,255,231,0.16), rgba(7,20,38,0.85))"
     },
-      h("div", { display: "flex", alignItems: "center" },
-        h("div", { display: "flex", alignItems: "center", padding: "7px 16px", borderRadius: 20,
-          border: "2px solid rgba(124,60,255,0.6)", backgroundColor: "rgba(124,60,255,0.15)" },
-          h("div", { display: "flex", width: 9, height: 9, borderRadius: 9, backgroundColor: C.cyan, marginRight: 10 }),
-          h("div", { display: "flex", fontSize: 16, color: C.white, fontWeight: 800, letterSpacing: 1.5 }, `PREMIUM PICK · ${sportLabel}`)
-        )
+      h("div", { display: "flex", flexDirection: "column" },
+        h("div", { display: "flex", fontSize: 20, color: C.gold, fontWeight: 900, letterSpacing: 2 }, `PREMIUM PICK · ${sportLabel}`),
+        h("div", { display: "flex", fontSize: 22, color: C.muted, marginTop: 6 }, `${n.away} vs ${n.home}`.slice(0, 56)),
+        h("div", { display: "flex", fontSize: 76, color: C.white, fontWeight: 900, marginTop: 4, lineHeight: 1 }, n.pick.slice(0, 22))
       ),
-      h("div", { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 },
-        h("div", { display: "flex", flexDirection: "column", flexGrow: 1 },
-          h("div", { display: "flex", fontSize: 20, color: "#8899bb" }, `${n.away} vs ${n.home}`.slice(0, 60)),
-          h("div", { display: "flex", fontSize: 50, color: C.white, fontWeight: 800, marginTop: 6 }, n.pick.slice(0, 26)),
-          h("div", { display: "flex", fontSize: 19, color: "#a07cff", marginTop: 4 },
-            `Edge ${n.edge.toFixed(1)} · ${n.odds > 0 ? "+" : ""}${n.odds}`)
-        ),
-        ring(n.conf)
-      ),
-      h("div", { display: "flex", marginTop: 12, marginRight: -12 },
-        statBox(shortTeam(n.away), n.a.toFixed(1)),
-        statBox(shortTeam(n.home), n.b.toFixed(1)),
-        statBox("TOTAL MOD.", n.total.toFixed(1)),
-        statBox("EDGE", n.edge.toFixed(1))
-      )
+      ring(n.conf)
+    ),
+    // the numbers
+    h("div", { display: "flex", marginTop: 14, marginRight: -12 },
+      bigBox("PROJECTED SCORE", `${n.a.toFixed(1)} - ${n.b.toFixed(1)}`, C.white, 1.6),
+      isTotal ? bigBox("MARKET", market.toFixed(1), C.gold) : bigBox("ODDS", oddsTxt, C.gold),
+      bigBox("MODEL", n.total.toFixed(1), C.cyan),
+      bigBox("EDGE", `${n.edge > 0 ? "+" : ""}${n.edge.toFixed(1)}`, C.purple, 1, true)
     )
   );
 }
@@ -627,6 +662,6 @@ export default async function handler(req, res) {
 // Shared with /api/telegram-bot.js (same data, same images)
 export {
   sbSelect, chicagoDate, prettyDate, gameLabel, pickLabel, sportOf, getPremiumRecord,
-  h, frame, badge, sportChip, renderPng, getCardData, premiumCardImage,
+  h, frame, badge, sportChip, renderPng, getCardData, premiumCardImage, quantumBg,
   C, SPORT_TAG, SPORT_EMOJI, TABLE, DATE_COL
 };
