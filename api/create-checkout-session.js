@@ -7,6 +7,9 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// Cupón por defecto que ve todo el mundo (precio de entrada)
+const DEFAULT_COUPON = "pLxcYNG7";
+
 function parseCookies(cookieHeader = "") {
   return cookieHeader.split(";").reduce((cookies, item) => {
     const separatorIndex = item.indexOf("=");
@@ -89,59 +92,59 @@ module.exports = async function handler(req, res) {
       process.env.STRIPE_SECRET_KEY
     );
 
-   const {
-  promoCode = "",
-  action = "checkout",
-  advertisingConsent = "denied",
+    const {
+      promoCode = "",
+      action = "checkout",
+      advertisingConsent = "denied",
 
-  // TikTok
-  ttclid = ""
-} = req.body || {};
+      // TikTok
+      ttclid = ""
+    } = req.body || {};
 
-/*
- * =========================
- * AUTHENTICATION
- * =========================
- */
+    /*
+     * =========================
+     * AUTHENTICATION
+     * =========================
+     */
 
-const authHeader =
-  String(
-    req.headers.authorization || ""
-  );
+    const authHeader =
+      String(
+        req.headers.authorization || ""
+      );
 
-const token =
-  authHeader.startsWith("Bearer ")
-    ? authHeader.slice(7)
-    : null;
+    const token =
+      authHeader.startsWith("Bearer ")
+        ? authHeader.slice(7)
+        : null;
 
-if (!token) {
-  return res.status(401).json({
-    error: "Unauthorized"
-  });
-}
+    if (!token) {
+      return res.status(401).json({
+        error: "Unauthorized"
+      });
+    }
 
-const {
-  data: authData,
-  error: authError
-} =
-  await supabaseAdmin.auth.getUser(
-    token
-  );
+    const {
+      data: authData,
+      error: authError
+    } =
+      await supabaseAdmin.auth.getUser(
+        token
+      );
 
-if (
-  authError ||
-  !authData?.user?.id
-) {
-  return res.status(401).json({
-    error: "Unauthorized"
-  });
-}
+    if (
+      authError ||
+      !authData?.user?.id
+    ) {
+      return res.status(401).json({
+        error: "Unauthorized"
+      });
+    }
 
-const userId =
-  authData.user.id;
+    const userId =
+      authData.user.id;
 
-const email =
-  authData.user.email || "";
+    const email =
+      authData.user.email || "";
 
     const hasAdvertisingConsent =
       advertisingConsent === "granted";
@@ -202,6 +205,47 @@ const email =
       });
     }
 
+    /*
+     * =========================
+     * PROMO CODE (EDGE1999, etc.)
+     * Si el usuario trae un código válido, ese código
+     * REEMPLAZA el cupón por defecto. Si no trae código,
+     * se usa el cupón por defecto como siempre.
+     * =========================
+     */
+
+    let checkoutDiscount = {
+      coupon: DEFAULT_COUPON
+    };
+
+    if (cleanPromoCode) {
+      const found =
+        await stripe.promotionCodes.list({
+          code: cleanPromoCode,
+          active: true,
+          limit: 1
+        });
+
+      const promo = found.data[0];
+
+      if (!promo) {
+        return res.status(400).json({
+          error:
+            "This promo code is invalid or expired."
+        });
+      }
+
+      checkoutDiscount = {
+        promotion_code: promo.id
+      };
+
+      console.log(
+        "PROMO CODE APPLIED:",
+        cleanPromoCode,
+        promo.id
+      );
+    }
+
     const baseMetadata = {
       userId: String(userId),
       email: String(email || ""),
@@ -257,17 +301,6 @@ const email =
       const ttp =
         cookies._ttp || "";
 
-      /*
-       * TikTok añade ttclid a la URL
-       * cuando el usuario llega desde
-       * un anuncio.
-       *
-       * Primero usamos el valor que
-       * venga desde el frontend.
-       * Si no existe, intentamos
-       * recuperarlo del Referer.
-       */
-
       const eventSourceUrl =
         req.headers.referer ||
         APP_URL;
@@ -300,69 +333,24 @@ const email =
       trackingMetadata = {
         ...baseMetadata,
 
-        /*
-         * Meta deduplication
-         */
         metaEventId,
-
-        /*
-         * TikTok deduplication
-         */
         tiktokEventId,
 
         eventSourceUrl:
           String(eventSourceUrl),
 
         ...(clientIpAddress
-          ? {
-              clientIpAddress:
-                String(
-                  clientIpAddress
-                )
-            }
+          ? { clientIpAddress: String(clientIpAddress) }
           : {}),
 
         ...(clientUserAgent
-          ? {
-              clientUserAgent:
-                String(
-                  clientUserAgent
-                )
-            }
+          ? { clientUserAgent: String(clientUserAgent) }
           : {}),
 
-        /*
-         * Meta attribution
-         */
-        ...(fbp
-          ? {
-              fbp: String(fbp)
-            }
-          : {}),
-
-        ...(fbc
-          ? {
-              fbc: String(fbc)
-            }
-          : {}),
-
-        /*
-         * TikTok attribution
-         */
-        ...(ttp
-          ? {
-              ttp: String(ttp)
-            }
-          : {}),
-
-        ...(finalTtclid
-          ? {
-              ttclid:
-                String(
-                  finalTtclid
-                )
-            }
-          : {})
+        ...(fbp ? { fbp: String(fbp) } : {}),
+        ...(fbc ? { fbc: String(fbc) } : {}),
+        ...(ttp ? { ttp: String(ttp) } : {}),
+        ...(finalTtclid ? { ttclid: String(finalTtclid) } : {})
       };
     }
 
@@ -379,22 +367,19 @@ const email =
         client_reference_id:
           userId,
 
-      line_items: [
-  {
-    price:
-      "price_1UIEGZJxhhhzBuV9nUIRlBdE",
-    quantity: 1
-  }
-],
+        line_items: [
+          {
+            price:
+              "price_1UIEGZJxhhhzBuV9nUIRlBdE",
+            quantity: 1
+          }
+        ],
 
-discounts: [
-  {
-    coupon:
-      "pLxcYNG7"
-  }
-],
+        discounts: [
+          checkoutDiscount
+        ],
 
-success_url:
+        success_url:
           `${APP_URL}?success=true` +
           `&session_id={CHECKOUT_SESSION_ID}` +
 
