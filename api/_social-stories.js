@@ -8,15 +8,15 @@
 // - Show WHAT happened, never WHAT TO DO. The money side / CashEdge read is always hidden.
 // - Nothing is invented: if the data doesn't support a story, the post is skipped.
 
-import { sbSelect, chicagoDate, h, renderPng, C, SPORT_TAG } from "./twitter-bot.js";
+import { sbSelect, chicagoDate, h, renderPng, C, SPORT_TAG, quantumBg } from "./twitter-bot.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const TZ = "America/Chicago";
 
 const COL = {
-  bg: "#020814", card: "#0a1222", line: "#1a2840", white: "#f0f6ff", muted: "#8c9bb4",
-  cyan: "#00ffe7", purple: "#7c3cff", red: "#ff465f", orange: "#ff8a1f", green: "#22e58a"
+  bg: "#020814", card: "#071426", line: "#16243a", white: "#f0f6ff", muted: "#8c9bb4",
+  cyan: "#00ffe7", purple: "#b48cff", red: "#ff465f", orange: "#ff8a1f", green: "#39ff6a"
 };
 const W = 1200, HGT = 675;
 
@@ -110,7 +110,20 @@ async function loadKickoffs() {
   return { map, rows };
 }
 
-const notStarted = (kick, id) => { const t = kick.get(id); return !t || Date.parse(t) > Date.now() + 10 * 60000; };
+// Only TODAY's games (Chicago), and only before kickoff.
+// Uses the real kickoff from the odds feed; falls back to the date inside the game id.
+const chiDay = iso => new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(iso));
+const isToday = (kick, id) => {
+  const t = kick.get(id);
+  if (t) return chiDay(t) === chicagoDate(0);
+  const g = parseGameIdRaw(id);
+  return !!g && g.date === chicagoDate(0);
+};
+const notStarted = (kick, id) => {
+  if (!isToday(kick, id)) return false;
+  const t = kick.get(id);
+  return !t || Date.parse(t) > Date.now() + 10 * 60000;
+};
 const startsIn = (kick, id) => {
   const t = kick.get(id); if (!t) return null;
   const m = (Date.parse(t) - Date.now()) / 60000; if (m <= 0) return null;
@@ -266,22 +279,25 @@ async function detectFreePlayMarket() {
 
 function shell(tag, tagColor, glowA, glowB, ...body) {
   return h("div", {
-    width: W, height: HGT, display: "flex", flexDirection: "column", padding: "34px 50px 30px",
-    backgroundColor: COL.bg, fontFamily: "Inter",
-    backgroundImage: `radial-gradient(circle at 5% 95%, ${glowA}44, transparent 45%), radial-gradient(circle at 95% 5%, ${glowB}55, transparent 45%)`
+    width: W, height: HGT, display: "flex", flexDirection: "column", position: "relative",
+    padding: "34px 50px 30px", backgroundColor: COL.bg, fontFamily: "Inter, InterGreek",
+    backgroundImage: `radial-gradient(circle at 50% 35%, rgba(57,255,106,0.16), rgba(2,8,20,0) 60%), radial-gradient(circle at 95% 5%, ${glowB}44, rgba(2,8,20,0) 45%)`
   },
+    quantumBg(String(tag).length + 3),
     h("div", { display: "flex", justifyContent: "space-between", alignItems: "center" },
-      h("div", { display: "flex", fontSize: 30, fontWeight: 800 },
-        h("span", { color: COL.white }, "Cash"), h("span", { color: COL.cyan }, "Edge")),
+      h("div", { display: "flex", fontSize: 32, fontWeight: 900 },
+        h("span", { color: COL.white }, "Cash"), h("span", { color: COL.green }, "Edge")),
       h("div", { display: "flex", alignItems: "center", padding: "8px 18px", borderRadius: 22,
         border: `2px solid ${tagColor}`, backgroundColor: `${tagColor}22` },
         h("div", { display: "flex", width: 12, height: 12, borderRadius: 12, backgroundColor: tagColor, marginRight: 10 }),
         h("div", { display: "flex", fontSize: 18, fontWeight: 800, color: tagColor, letterSpacing: 1.5 }, tag))
     ),
-    h("div", { display: "flex", flexDirection: "column", flexGrow: 1, marginTop: 18 }, ...body),
+    h("div", { display: "flex", width: 200, height: 5, marginTop: 10,
+      backgroundImage: `linear-gradient(90deg, ${COL.green}, ${COL.cyan})` }),
+    h("div", { display: "flex", flexDirection: "column", flexGrow: 1, marginTop: 16 }, ...body),
     h("div", { display: "flex", justifyContent: "space-between", fontSize: 17 },
-      h("span", { color: COL.cyan, fontWeight: 800 }, "FREE ALERTS ON TELEGRAM  →  t.me/Cashedgeapp"),
-      h("span", { color: COL.muted }, "21+ | Gamble responsibly | 1-800-MY-RESET"))
+      h("span", { color: COL.green, fontWeight: 800 }, "FREE ALERTS ON TELEGRAM  →  t.me/Cashedgeapp"),
+      h("span", { color: COL.muted }, "21+ | Not betting advice | 1-800-MY-RESET"))
   );
 }
 
