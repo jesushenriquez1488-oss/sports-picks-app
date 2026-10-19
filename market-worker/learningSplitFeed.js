@@ -1,265 +1,111 @@
+
 "use strict";
 
-const PREFIX =
-  "[learning-split-feed]";
-
-const CAPTURE_CHUNK_SIZE =
-  500;
-
+const PREFIX = "[learning-split-feed]";
+const CAPTURE_CHUNK_SIZE = 500;
 
 // ============================================================
 // HELPERS
 // ============================================================
 
 function txt(value) {
-
-  if (
-    value === null ||
-    value === undefined
-  ) {
-    return null;
-  }
-
-  const output =
-    String(value).trim();
-
-  return output || null;
+  if (value === null || value === undefined) return null;
+  return String(value).trim() || null;
 }
-
 
 function num(value) {
-
-  if (
-    value === null ||
-    value === undefined ||
-    value === ""
-  ) {
-    return null;
-  }
-
-  const output =
-    Number(value);
-
-  return Number.isFinite(output)
-    ? output
-    : null;
+  if (value === null || value === undefined || value === "") return null;
+  const result = Number(value);
+  return Number.isFinite(result) ? result : null;
 }
-
 
 function normalize(value) {
-
-  return String(
-    value || ""
-  )
+  return String(value || "")
     .normalize("NFD")
-    .replace(
-      /[\u0300-\u036f]/g,
-      ""
-    )
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(
-      /&/g,
-      " and "
-    )
-    .replace(
-      /[^a-z0-9]+/g,
-      " "
-    )
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
     .trim()
-    .replace(
-      /\s+/g,
-      " "
-    );
+    .replace(/\s+/g, " ");
 }
 
+// ============================================================
+// SPLIT EVENT DATE
+// ============================================================
 
-function splitEventDate(
-  event
-) {
+function splitEventDate(event) {
+  const eventId = txt(event?.event_id);
+  if (!eventId) return null;
 
-  const eventId =
-    txt(
-      event?.event_id
-    );
+  const match = eventId.match(/^(\d{4})(\d{2})(\d{2})/);
+  if (!match) return null;
 
+  const [, year, month, day] = match;
+  const result = `${year}-${month}-${day}`;
 
-  if (!eventId) {
-    return null;
-  }
-
-
-  const match =
-    eventId.match(
-      /^(\d{4})(\d{2})(\d{2})/
-    );
-
-
-  if (!match) {
-    return null;
-  }
-
-
-  const [
-    ,
-    year,
-    month,
-    day
-  ] = match;
-
-
-  const output =
-    `${year}-${month}-${day}`;
-
-
-  const parsed =
-    Date.parse(
-      `${output}T12:00:00Z`
-    );
-
-
-  return Number.isFinite(parsed)
-    ? output
+  return Number.isFinite(Date.parse(`${result}T12:00:00Z`))
+    ? result
     : null;
 }
 
+function normalizeSourceKey(value) {
+  const key = normalize(value);
 
-function normalizeSourceKey(
-  value
-) {
-
-  const key =
-    normalize(value);
-
-
-  if (
-    key === "dk"
-  ) {
-    return "draftkings";
-  }
-
-
-  if (
-    key === "fd"
-  ) {
-    return "fanduel";
-  }
-
+  if (key === "dk") return "draftkings";
+  if (key === "fd") return "fanduel";
 
   return key;
 }
 
-
 // ============================================================
 // EVENT IDENTITY
-//
-// Used ONLY to detect ambiguous doubleheaders.
-//
-// If OWLS sends two split records for the same:
-//
-// sport + date + away + home
-//
-// we skip them instead of guessing.
 // ============================================================
 
-function splitGameIdentity({
-  sport,
-  event
-}) {
+function splitGameIdentity({ sport, event }) {
+  const date = splitEventDate(event);
+  if (!date) return null;
 
-  const eventDate =
-    splitEventDate(
-      event
-    );
+  const away = normalize(event?.away_team);
+  const home = normalize(event?.home_team);
 
+  if (!sport || !away || !home) return null;
 
-  if (!eventDate) {
-    return null;
-  }
-
-
-  const away =
-    normalize(
-      event?.away_team
-    );
-
-
-  const home =
-    normalize(
-      event?.home_team
-    );
-
-
-  if (
-    !sport ||
-    !away ||
-    !home
-  ) {
-    return null;
-  }
-
-
-  return [
-    normalize(sport),
-    eventDate,
-    away,
-    home
-  ].join("|");
+  return [normalize(sport), date, away, home].join("|");
 }
 
-
 // ============================================================
-// STATE BUILDER
+// DEDUPLICATE STATES
 // ============================================================
 
-function pushState(
-  map,
-  state
-) {
-
+function pushState(map, state) {
   if (
     !state?.cashedge_game_id ||
     !state?.sport ||
     !state?.provider ||
     !state?.split_source_key ||
     !state?.market_type ||
-    !state?.selection_key
+    !state?.selection_key ||
+    !Number.isFinite(state.money_pct) ||
+    !Number.isFinite(state.tickets_pct)
   ) {
     return;
   }
 
+  const identity = [
+    state.sport,
+    state.cashedge_game_id,
+    state.provider,
+    state.split_source_key,
+    state.market_type,
+    state.selection_key
+  ].join("|");
 
-  if (
-    !Number.isFinite(
-      state.money_pct
-    ) ||
-    !Number.isFinite(
-      state.tickets_pct
-    )
-  ) {
-    return;
-  }
-
-
-  const identity =
-    [
-      state.sport,
-      state.cashedge_game_id,
-      state.provider,
-      state.split_source_key,
-      state.market_type,
-      state.selection_key
-    ].join("|");
-
-
-  map.set(
-    identity,
-    state
-  );
+  map.set(identity, state);
 }
 
-
 // ============================================================
-// BUILD STATES FROM ONE SPLIT SOURCE
+// BUILD STATES
 // ============================================================
 
 function buildSourceStates({
@@ -270,381 +116,177 @@ function buildSourceStates({
   observedAt,
   normalizeSelectionKey
 }) {
+  const states = [];
 
-  const states =
-    [];
-
-
-  const sourceKey =
-    normalizeSourceKey(
-      providerSplit?.book
-    );
-
-
-  if (!sourceKey) {
-    return states;
-  }
-
+  const sourceKey = normalizeSourceKey(providerSplit?.book);
+  if (!sourceKey) return states;
 
   const selectionNormalizer =
-    typeof normalizeSelectionKey ===
-      "function"
+    typeof normalizeSelectionKey === "function"
       ? normalizeSelectionKey
       : normalize;
 
+  const away = selectionNormalizer(event?.away_team);
+  const home = selectionNormalizer(event?.home_team);
 
-  const awaySelection =
-    selectionNormalizer(
-      event?.away_team
-    );
-
-
-  const homeSelection =
-    selectionNormalizer(
-      event?.home_team
-    );
-
-
-  if (
-    !awaySelection ||
-    !homeSelection
-  ) {
-    return states;
-  }
-
+  if (!away || !home) return states;
 
   const base = {
-    cashedge_game_id:
-      tracked.cashedge_game_id,
-
-    sport:
-      normalize(sport),
-
-    provider:
-      "owls",
-
-    split_source_key:
-      sourceKey,
-
-    provider_timestamp:
-      null,
-
-    observed_at:
-      observedAt
+    cashedge_game_id: tracked.cashedge_game_id,
+    sport: normalize(sport),
+    provider: "owls",
+    split_source_key: sourceKey,
+    provider_timestamp: null,
+    observed_at: observedAt
   };
-
 
   // ==========================================================
   // SPREAD
   // ==========================================================
 
-  const spread =
-    providerSplit?.spread;
-
+  const spread = providerSplit?.spread;
 
   if (spread) {
+    const awayLine = num(spread.away_line);
+    const awayMoney = num(spread.away_handle_pct);
+    const awayTickets = num(spread.away_bets_pct);
 
-    const awayLine =
-      num(
-        spread.away_line
-      );
-
-    const homeLine =
-      num(
-        spread.home_line
-      );
-
-    const awayMoney =
-      num(
-        spread.away_handle_pct
-      );
-
-    const awayTickets =
-      num(
-        spread.away_bets_pct
-      );
-
-    const homeMoney =
-      num(
-        spread.home_handle_pct
-      );
-
-    const homeTickets =
-      num(
-        spread.home_bets_pct
-      );
-
+    const homeLine = num(spread.home_line);
+    const homeMoney = num(spread.home_handle_pct);
+    const homeTickets = num(spread.home_bets_pct);
 
     if (
       awayLine !== null &&
       awayMoney !== null &&
       awayTickets !== null
     ) {
-
       states.push({
         ...base,
-
-        market_type:
-          "spread",
-
-        selection_key:
-          awaySelection,
-
-        line:
-          awayLine,
-
-        price_american:
-          null,
-
-        money_pct:
-          awayMoney,
-
-        tickets_pct:
-          awayTickets
+        market_type: "spread",
+        selection_key: away,
+        line: awayLine,
+        price_american: null,
+        money_pct: awayMoney,
+        tickets_pct: awayTickets
       });
     }
-
 
     if (
       homeLine !== null &&
       homeMoney !== null &&
       homeTickets !== null
     ) {
-
       states.push({
         ...base,
-
-        market_type:
-          "spread",
-
-        selection_key:
-          homeSelection,
-
-        line:
-          homeLine,
-
-        price_american:
-          null,
-
-        money_pct:
-          homeMoney,
-
-        tickets_pct:
-          homeTickets
+        market_type: "spread",
+        selection_key: home,
+        line: homeLine,
+        price_american: null,
+        money_pct: homeMoney,
+        tickets_pct: homeTickets
       });
     }
   }
-
 
   // ==========================================================
   // TOTAL
   // ==========================================================
 
-  const total =
-    providerSplit?.total;
-
+  const total = providerSplit?.total;
 
   if (total) {
-
-    const totalLine =
-      num(
-        total.line
-      );
-
-    const overMoney =
-      num(
-        total.over_handle_pct
-      );
-
-    const overTickets =
-      num(
-        total.over_bets_pct
-      );
-
-    const underMoney =
-      num(
-        total.under_handle_pct
-      );
-
-    const underTickets =
-      num(
-        total.under_bets_pct
-      );
-
+    const line = num(total.line);
+    const overMoney = num(total.over_handle_pct);
+    const overTickets = num(total.over_bets_pct);
+    const underMoney = num(total.under_handle_pct);
+    const underTickets = num(total.under_bets_pct);
 
     if (
-      totalLine !== null &&
+      line !== null &&
       overMoney !== null &&
       overTickets !== null
     ) {
-
       states.push({
         ...base,
-
-        market_type:
-          "total",
-
-        selection_key:
-          "over",
-
-        line:
-          totalLine,
-
-        price_american:
-          null,
-
-        money_pct:
-          overMoney,
-
-        tickets_pct:
-          overTickets
+        market_type: "total",
+        selection_key: "over",
+        line,
+        price_american: null,
+        money_pct: overMoney,
+        tickets_pct: overTickets
       });
     }
 
-
     if (
-      totalLine !== null &&
+      line !== null &&
       underMoney !== null &&
       underTickets !== null
     ) {
-
       states.push({
         ...base,
-
-        market_type:
-          "total",
-
-        selection_key:
-          "under",
-
-        line:
-          totalLine,
-
-        price_american:
-          null,
-
-        money_pct:
-          underMoney,
-
-        tickets_pct:
-          underTickets
+        market_type: "total",
+        selection_key: "under",
+        line,
+        price_american: null,
+        money_pct: underMoney,
+        tickets_pct: underTickets
       });
     }
   }
-
 
   // ==========================================================
   // MONEYLINE
   // ==========================================================
 
-  const moneyline =
-    providerSplit?.moneyline;
+  const ml = providerSplit?.moneyline;
 
+  if (ml) {
+    const awayPrice = num(ml.away_price);
+    const awayMoney = num(ml.away_handle_pct);
+    const awayTickets = num(ml.away_bets_pct);
 
-  if (moneyline) {
-
-    const awayPrice =
-      num(
-        moneyline.away_price
-      );
-
-    const awayMoney =
-      num(
-        moneyline.away_handle_pct
-      );
-
-    const awayTickets =
-      num(
-        moneyline.away_bets_pct
-      );
-
-    const homePrice =
-      num(
-        moneyline.home_price
-      );
-
-    const homeMoney =
-      num(
-        moneyline.home_handle_pct
-      );
-
-    const homeTickets =
-      num(
-        moneyline.home_bets_pct
-      );
-
+    const homePrice = num(ml.home_price);
+    const homeMoney = num(ml.home_handle_pct);
+    const homeTickets = num(ml.home_bets_pct);
 
     if (
       awayPrice !== null &&
       awayMoney !== null &&
       awayTickets !== null
     ) {
-
       states.push({
         ...base,
-
-        market_type:
-          "moneyline",
-
-        selection_key:
-          awaySelection,
-
-        line:
-          null,
-
-        price_american:
-          Math.round(
-            awayPrice
-          ),
-
-        money_pct:
-          awayMoney,
-
-        tickets_pct:
-          awayTickets
+        market_type: "moneyline",
+        selection_key: away,
+        line: null,
+        price_american: Math.round(awayPrice),
+        money_pct: awayMoney,
+        tickets_pct: awayTickets
       });
     }
-
 
     if (
       homePrice !== null &&
       homeMoney !== null &&
       homeTickets !== null
     ) {
-
       states.push({
         ...base,
-
-        market_type:
-          "moneyline",
-
-        selection_key:
-          homeSelection,
-
-        line:
-          null,
-
-        price_american:
-          Math.round(
-            homePrice
-          ),
-
-        money_pct:
-          homeMoney,
-
-        tickets_pct:
-          homeTickets
+        market_type: "moneyline",
+        selection_key: home,
+        line: null,
+        price_american: Math.round(homePrice),
+        money_pct: homeMoney,
+        tickets_pct: homeTickets
       });
     }
   }
 
-
   return states;
 }
 
-
 // ============================================================
-// CAPTURE ONE SPORT SPLIT BOARD
+// CAPTURE SPLIT BOARD
 // ============================================================
 
 async function captureSplitBoard({
@@ -654,372 +296,207 @@ async function captureSplitBoard({
   resolveGame,
   normalizeSelectionKey
 }) {
-
   if (
     !learningCapture ||
-    typeof learningCapture
-      .captureSplitStates !==
-      "function" ||
-    typeof learningCapture
-      .getStatus !==
-      "function" ||
-    typeof resolveGame !==
-      "function"
+    typeof learningCapture.captureSplitStates !== "function" ||
+    typeof learningCapture.getStatus !== "function" ||
+    typeof resolveGame !== "function"
   ) {
-
     return {
       ok: false,
       written: 0,
-      reason:
-        "split_dependencies_unavailable"
+      reason: "split_dependencies_unavailable"
     };
   }
 
-
-  const status =
-    learningCapture
-      .getStatus();
-
-
-  if (
-    status?.active !== true
-  ) {
-
+  if (learningCapture.getStatus()?.active !== true) {
     return {
       ok: true,
       written: 0,
       skipped: true,
-      reason:
-        "learning_disabled"
+      reason: "learning_disabled"
     };
   }
 
+  const list = Array.isArray(events) ? events : [];
+  const identityCounts = new Map();
 
-  const list =
-    Array.isArray(
-      events
-    )
-      ? events
-      : [];
+  for (const event of list) {
+    const identity = splitGameIdentity({ sport, event });
 
-
-  /*
-   * Count identical sport/date/team combinations.
-   *
-   * Example:
-   * Cubs @ Red Sox Game 1
-   * Cubs @ Red Sox Game 2
-   *
-   * Both become ambiguous because Splits gives us
-   * no kickoff time.
-   */
-  const identityCounts =
-    new Map();
-
-
-  for (
-    const event
-    of list
-  ) {
-
-    const identity =
-      splitGameIdentity({
-        sport,
-        event
-      });
-
-
-    if (!identity) {
-      continue;
+    if (identity) {
+      identityCounts.set(
+        identity,
+        (identityCounts.get(identity) || 0) + 1
+      );
     }
-
-
-    identityCounts.set(
-      identity,
-      (
-        identityCounts.get(
-          identity
-        ) ||
-        0
-      ) +
-      1
-    );
   }
 
+  const stateMap = new Map();
 
-  const stateMap =
-    new Map();
+  let matchedEvents = 0;
+  let ambiguousEvents = 0;
+  let unmatchedEvents = 0;
 
+  // NEW DIAGNOSTIC COUNTERS
+  let invalidEventIds = 0;
+  let resolverMisses = 0;
+  let emptySources = 0;
 
-  let matchedEvents =
-    0;
+  const observedAt = new Date().toISOString();
 
-  let ambiguousEvents =
-    0;
+  for (const event of list) {
+    const identity = splitGameIdentity({ sport, event });
 
-  let unmatchedEvents =
-    0;
-
-
-  const observedAt =
-    new Date()
-      .toISOString();
-
-
-  for (
-    const event
-    of list
-  ) {
-
-    const identity =
-      splitGameIdentity({
-        sport,
-        event
-      });
-
-
-    /*
-     * No trustworthy date in event_id.
-     */
     if (!identity) {
-
-      unmatchedEvents +=
-        1;
-
+      unmatchedEvents++;
+      invalidEventIds++;
       continue;
     }
 
-
-    /*
-     * Doubleheader or another duplicate team/date event.
-     *
-     * Never guess.
-     */
-    if (
-      (
-        identityCounts.get(
-          identity
-        ) ||
-        0
-      ) !== 1
-    ) {
-
-      ambiguousEvents +=
-        1;
-
+    if ((identityCounts.get(identity) || 0) !== 1) {
+      ambiguousEvents++;
       continue;
     }
 
-
-    const eventDate =
-      splitEventDate(
-        event
-      );
-
-
-    let tracked =
-      null;
-
+    const eventDate = splitEventDate(event);
+    let tracked = null;
 
     try {
-
-      tracked =
-        resolveGame({
-          sport,
-          event,
-          eventDate
-        });
-
+      tracked = resolveGame({
+        sport,
+        event,
+        eventDate
+      });
     } catch (error) {
-
       console.error(
         `${PREFIX} resolver failed: ${error?.message || error}`
       );
-
       continue;
     }
 
-
-    if (
-      !tracked
-        ?.cashedge_game_id
-    ) {
-
-      unmatchedEvents +=
-        1;
-
+    if (!tracked?.cashedge_game_id) {
+      unmatchedEvents++;
+      resolverMisses++;
       continue;
     }
 
+    matchedEvents++;
 
-    matchedEvents +=
-      1;
+    const sources = Array.isArray(event?.splits)
+      ? event.splits
+      : [];
 
+    if (!sources.length) {
+      emptySources++;
+    }
 
-    const sources =
-      Array.isArray(
-        event?.splits
-      )
-        ? event.splits
-        : [];
+    for (const providerSplit of sources) {
+      const states = buildSourceStates({
+        sport,
+        tracked,
+        event,
+        providerSplit,
+        observedAt,
+        normalizeSelectionKey
+      });
 
-
-    for (
-      const providerSplit
-      of sources
-    ) {
-
-      const states =
-        buildSourceStates({
-          sport,
-          tracked,
-          event,
-          providerSplit,
-          observedAt,
-          normalizeSelectionKey
-        });
-
-
-      for (
-        const state
-        of states
-      ) {
-
-        pushState(
-          stateMap,
-          state
-        );
+      for (const state of states) {
+        pushState(stateMap, state);
       }
     }
   }
 
-
-  const states =
-    Array.from(
-      stateMap.values()
-    );
-
-
-  let written =
-    0;
-
+  const states = Array.from(stateMap.values());
+  let written = 0;
 
   for (
     let index = 0;
     index < states.length;
-    index +=
-      CAPTURE_CHUNK_SIZE
+    index += CAPTURE_CHUNK_SIZE
   ) {
+    const chunk = states.slice(
+      index,
+      index + CAPTURE_CHUNK_SIZE
+    );
 
-    const chunk =
-      states.slice(
-        index,
-        index +
-          CAPTURE_CHUNK_SIZE
-      );
+    const result = await learningCapture.captureSplitStates(chunk);
 
-
-    const result =
-      await learningCapture
-        .captureSplitStates(
-          chunk
-        );
-
-
-    if (
-      result?.ok !== true
-    ) {
-
+    if (result?.ok !== true) {
       return {
         ok: false,
         matchedEvents,
         ambiguousEvents,
         unmatchedEvents,
-        states:
-          states.length,
-        written
+        invalidEventIds,
+        resolverMisses,
+        emptySources,
+        states: states.length,
+        written,
+        reason: "capture_failed"
       };
     }
 
-
-    written +=
-      Number(
-        result.written ||
-        0
-      );
+    written += Number(result.written || 0);
   }
-
 
   return {
     ok: true,
     matchedEvents,
     ambiguousEvents,
     unmatchedEvents,
-    states:
-      states.length,
+    invalidEventIds,
+    resolverMisses,
+    emptySources,
+    states: states.length,
     written
   };
 }
 
-
 // ============================================================
-// SAFE WRAPPER
+// SAFE WRAPPER + DIAGNOSTICS
 // ============================================================
 
-async function captureSplitBoardSafe(
-  args
-) {
-
+async function captureSplitBoardSafe(args) {
   try {
+    const result = await captureSplitBoard(args);
 
-    const result =
-      await captureSplitBoard(
-        args
-      );
+    const list = Array.isArray(args?.events)
+      ? args.events
+      : [];
 
+    const sample = list[0] || null;
+    const sampleId = txt(sample?.event_id);
 
-    if (
-      result?.ok === true &&
-      Number(
-        result.written ||
-        0
-      ) > 0
-    ) {
+    // IMPORTANT:
+    // ALWAYS LOG THE RESULT, EVEN IF WRITTEN IS ZERO.
 
-      console.log(
-        `${PREFIX} sport: ${String(
-          args?.sport || ""
-        )}, matched: ${Number(
-          result.matchedEvents || 0
-        )}, ambiguous: ${Number(
-          result.ambiguousEvents || 0
-        )}, states: ${Number(
-          result.states || 0
-        )}, written: ${Number(
-          result.written || 0
-        )}`
-      );
+    console.log(
+      `${PREFIX} diagnostic sport=${String(args?.sport || "")}, ` +
+      `events=${list.length}, ` +
+      `matched=${Number(result?.matchedEvents || 0)}, ` +
+      `ambiguous=${Number(result?.ambiguousEvents || 0)}, ` +
+      `unmatched=${Number(result?.unmatchedEvents || 0)}, ` +
+      `invalid_ids=${Number(result?.invalidEventIds || 0)}, ` +
+      `resolver_misses=${Number(result?.resolverMisses || 0)}, ` +
+      `empty_sources=${Number(result?.emptySources || 0)}, ` +
+      `states=${Number(result?.states || 0)}, ` +
+      `written=${Number(result?.written || 0)}, ` +
+      `ok=${result?.ok === true}, ` +
+      `reason=${String(result?.reason || "none")}, ` +
+      `sample_event_id=${JSON.stringify(sampleId?.slice(0, 80) || null)}, ` +
+      `sample_date=${splitEventDate(sample) || "null"}`
+    );
+
+    if (result?.ok !== true) {
+      console.error(`${PREFIX} capture unsuccessful`);
     }
-
-
-    if (
-      result?.ok !== true
-    ) {
-
-      console.error(
-        `${PREFIX} capture unsuccessful`
-      );
-    }
-
 
     return result;
-
   } catch (error) {
-
     console.error(
       `${PREFIX} failed: ${error?.message || error}`
     );
-
 
     return {
       ok: false,
@@ -1027,7 +504,6 @@ async function captureSplitBoardSafe(
     };
   }
 }
-
 
 // ============================================================
 // EXPORTS
