@@ -2129,8 +2129,8 @@ jobs:
           if-no-files-found: warn
           retention-days: 1
 
-  real-shadow:
-  
+   real-shadow:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     name: NBA NFL Real Data Shadow
 
     needs: fantasy-tests
