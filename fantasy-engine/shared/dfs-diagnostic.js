@@ -268,11 +268,21 @@ async function auditDfsFeed({
     row.scope === "multi_event"
   );
 
-  const classic = matching.filter(row =>
-    String(row.style || "")
-      .toLowerCase()
-      .includes("classic")
-  );
+ const classic = matching.filter(row => {
+  const style = String(row.style || "")
+    .trim()
+    .toLowerCase();
+
+  if (platform === "draftkings") {
+    return style === "classic";
+  }
+
+  if (platform === "fanduel") {
+    return style === "full roster";
+  }
+
+  return false;
+});
 
   // No seleccionar concursos especiales
   // como si fueran Classic.
