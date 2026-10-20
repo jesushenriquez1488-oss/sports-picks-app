@@ -38947,6 +38947,7 @@ function renderNBAPlayerPropCard(
 
 
   const playerPhoto =
+    prop?.photoUrl ||
     getNBAPlayerPhotoURL(
       prop?.athleteId
     );
@@ -40051,7 +40052,8 @@ function showNBAPropPlayer(
     );
 
 
-  const playerPhoto =
+   const playerPhoto =
+    prop?.photoUrl ||
     getNBAPlayerPhotoURL(
       prop?.athleteId
     );
