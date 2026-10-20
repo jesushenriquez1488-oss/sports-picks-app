@@ -1944,8 +1944,8 @@ jobs:
               flush=True
           )
           PY
-
   nba-goat-live:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     name: NBA GOAT Full Slate Verification
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -1971,7 +1971,11 @@ jobs:
           const {
             fetchFullDfsDraftables
           } = require("./fantasy-engine/shared/dfs-diagnostic");
+          const fs = require("node:fs");
 
+          fs.mkdirSync("fantasy-slate-data", {
+            recursive: true
+          });
           const slates = [
             {
               platform: "draftkings",
@@ -2037,8 +2041,29 @@ jobs:
                   ),
                   excludedSample: data.excluded.slice(0, 5)
                 };
-
                 results.push(summary);
+
+                const filename =
+                  `fantasy-slate-data/nba-${slate.platform}-${slate.slateId}.json`;
+
+                fs.writeFileSync(
+                  filename,
+                  JSON.stringify({
+                    sport: "nba",
+                    platform: slate.platform,
+                    slateId: slate.slateId,
+                    capturedAt: new Date().toISOString(),
+                    complete: data.complete,
+                    pages: data.pages,
+                    players: data.players,
+                    excluded: data.excluded,
+                    salaryConflicts: data.salaryConflicts
+                  }, null, 2)
+                );
+
+                console.log(
+                  `Saved ${data.players.length} players to ${filename}`
+                );
 
                 console.log(
                   JSON.stringify(summary, null, 2)
@@ -2089,13 +2114,20 @@ jobs:
             );
           }
 
-          main().catch(error => {
+                   main().catch(error => {
             console.error(error.message);
             process.exitCode = 1;
           });
           NODE
 
- 
+      - name: Save NBA slate artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cashedge-nba-real-slates
+          path: fantasy-slate-data/*.json
+          if-no-files-found: warn
+          retention-days: 1
 
   real-shadow:
     if: ${{ github.event_name == 'workflow_dispatch' }}
