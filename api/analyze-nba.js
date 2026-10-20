@@ -1469,15 +1469,13 @@ function nbaPropHitWindow(
       );
 
 
-  const selected =
-    Number.isFinite(
-      Number(limit)
-    )
-      ? source.slice(
+   const selected =
+    limit === null || limit === undefined
+      ? source
+      : source.slice(
           0,
           Number(limit)
-        )
-      : source;
+        );
 
 
   let hits =
@@ -3690,48 +3688,66 @@ function calculateNBAPropV3({
     );
 
 
+  // HISTORIAL VISUAL: últimos partidos reales
+  // Permite combinar temporada actual y anterior.
+  // NO modifica proyecciones ni Confidence.
+
+  const displayRows = projectionPool
+    .filter(row =>
+      Number(row.minutes) > 0 &&
+      Number.isFinite(
+        nbaPropStatValue(row, market)
+      )
+    )
+    .sort((a, b) =>
+      new Date(b.game_date) -
+      new Date(a.game_date)
+    );
+
+  // SEASON: exclusivamente temporada actual
+  const displayCurrentSeasonRows =
+    displayRows.filter(
+      row =>
+        Number(row.season) === currentSeason
+    );
+
   const hitRates = {
 
-    last3:
-      nbaPropHitWindow(
-        currentStatRows,
-        market,
-        propLine,
-        side,
-        3
-      ),
+    last3: nbaPropHitWindow(
+      displayRows,
+      market,
+      propLine,
+      side,
+      3
+    ),
 
-    last5:
-      nbaPropHitWindow(
-        currentStatRows,
-        market,
-        propLine,
-        side,
-        5
-      ),
+    last5: nbaPropHitWindow(
+      displayRows,
+      market,
+      propLine,
+      side,
+      5
+    ),
 
-    last10:
-      nbaPropHitWindow(
-        currentStatRows,
-        market,
-        propLine,
-        side,
-        10
-      ),
+    last10: nbaPropHitWindow(
+      displayRows,
+      market,
+      propLine,
+      side,
+      10
+    ),
 
-    season:
-      nbaPropHitWindow(
-        currentStatRows,
-        market,
-        propLine,
-        side,
-        null
-      )
+    season: nbaPropHitWindow(
+      displayCurrentSeasonRows,
+      market,
+      propLine,
+      side,
+      null
+    )
 
   };
-
 const recentGames =
-  currentStatRows
+  displayRows
     .slice(
       0,
       10
@@ -4932,39 +4948,52 @@ async function handleNBAPlayerProps(
         await response.json();
 
 
-      return (
-        data
-          ?.athletes ||
-        []
+            return (
+        Array.isArray(data?.athletes)
+          ? data.athletes
+          : []
       )
-        .flatMap(
-          group =>
-            group.items ||
-            []
+        .flatMap(group =>
+          Array.isArray(group?.items)
+            ? group.items
+            : [group]
         )
-        .map(
-          athlete => ({
+        .map(item => {
 
-            id:
-              athlete.id,
+          const athlete =
+            item?.athlete || item;
 
-            displayName:
-              String(
-                athlete
-                  .displayName ||
-                ""
-              ),
+          const headshot =
+            athlete?.headshot;
+
+          return {
+            id: athlete?.id || null,
+
+            displayName: String(
+              athlete?.displayName ||
+              athlete?.fullName ||
+              ""
+            ),
 
             position:
-              athlete
-                ?.position
-                ?.abbreviation ||
-              athlete
-                ?.position
-                ?.name ||
-              null
+              athlete?.position?.abbreviation ||
+              athlete?.position?.name ||
+              null,
 
-          })
+            photoUrl:
+              typeof headshot === "string"
+                ? headshot
+                : (
+                    headshot?.href ||
+                    headshot?.url ||
+                    null
+                  )
+          };
+
+        })
+        .filter(player =>
+          player.id &&
+          player.displayName
         );
 
     } catch {
@@ -5503,8 +5532,11 @@ async function handleNBAPlayerProps(
 
     modeledLines.push({
 
-      athleteId:
+           athleteId:
         espnAthleteId,
+
+      photoUrl:
+        rosterPlayer?.photoUrl || null,
 
       bdlPlayerId,
 
