@@ -322,7 +322,244 @@ async function loadFantasySlate({
   };
 }
 
+
+/**
+ * Conecta jugadores DFS NBA con reportes de lesiones.
+ *
+ * injurySnapshots debe provenir de una consulta
+ * confiable del servidor a nba_live_injury_state.
+ *
+ * No hace consultas ni modifica bases de datos.
+ * No cambia los gameId originales del slate.
+ */
+function prepareNBAInjuryShadowPlayers({
+  slate,
+  injurySnapshots = [],
+  cutoffAt
+} = {}) {
+  if (
+    slate?.sport !== "nba" ||
+    !Array.isArray(slate.events) ||
+    !Array.isArray(slate.draftables) ||
+    !Array.isArray(injurySnapshots)
+  ) {
+    throw new Error(
+      "Slate NBA o snapshots invalidos"
+    );
+  }
+
+  const cutoff = Date.parse(cutoffAt || "");
+
+  if (!Number.isFinite(cutoff)) {
+    throw new Error("cutoffAt invalido");
+  }
+
+  const id = value =>
+    value === undefined || value === null
+      ? ""
+      : String(value).trim();
+
+  // Determinar los equipos de cada evento DFS.
+
+  const teamsByEvent = new Map();
+
+  for (const entry of slate.draftables) {
+    if (
+      entry.entityType !== "player" ||
+      !id(entry.eventId) ||
+      !id(entry.teamId)
+    ) {
+      continue;
+    }
+
+    const eventId = id(entry.eventId);
+
+    if (!teamsByEvent.has(eventId)) {
+      teamsByEvent.set(eventId, new Set());
+    }
+
+    teamsByEvent
+      .get(eventId)
+      .add(id(entry.teamId));
+  }
+
+  const matches = new Map();
+
+  // Tolerancia ante diferencias de horarios
+  // entre proveedores. Requiere ademas
+  // coincidencia exacta de ambos equipos.
+
+  const MAX_TIME_GAP =
+    12 * 60 * 60 * 1000;
+
+  for (const event of slate.events) {
+    const eventId = id(event.id);
+    const teams = teamsByEvent.get(eventId);
+    const start = Date.parse(
+      event.startsAt || ""
+    );
+
+    if (
+      !eventId ||
+      teams?.size !== 2 ||
+      !Number.isFinite(start)
+    ) {
+      continue;
+    }
+
+    const candidates = injurySnapshots.filter(
+      snapshot => {
+        const gameTime = Date.parse(
+          snapshot?.game_time || ""
+        );
+
+        const checkedAt = Date.parse(
+          snapshot?.checked_at || ""
+        );
+
+        if (
+          !id(snapshot?.game_id) ||
+          !Number.isFinite(gameTime) ||
+          !Number.isFinite(checkedAt) ||
+          checkedAt > cutoff ||
+          checkedAt >= start ||
+          Math.abs(gameTime - start) >
+            MAX_TIME_GAP
+        ) {
+          return false;
+        }
+
+        return (
+          teams.has(
+            id(snapshot.away_team_id)
+          ) &&
+          teams.has(
+            id(snapshot.home_team_id)
+          ) &&
+          id(snapshot.away_team_id) !==
+            id(snapshot.home_team_id) &&
+          Array.isArray(snapshot.injuries)
+        );
+      }
+    );
+
+    // Si aparecen partidos distintos para
+    // el mismo evento, no asumir coincidencia.
+
+    const uniqueGames = new Set(
+      candidates.map(row =>
+        id(row.game_id)
+      )
+    );
+
+    if (uniqueGames.size !== 1) {
+      continue;
+    }
+
+    // Usar el reporte disponible mas reciente
+    // anterior al cutoff.
+
+    candidates.sort(
+      (a, b) =>
+        Date.parse(b.checked_at) -
+        Date.parse(a.checked_at)
+    );
+
+    matches.set(eventId, {
+      teams,
+      snapshot: candidates[0]
+    });
+  }
+
+  // Un jugador puede ocupar varios roster slots.
+  // Solo debe pasar una vez al proyector.
+
+  const players = new Map();
+  const rejected = new Set();
+
+  for (const entry of slate.draftables) {
+    if (
+      entry.entityType !== "player" ||
+      !id(entry.playerId) ||
+      !id(entry.teamId)
+    ) {
+      continue;
+    }
+
+    const playerId = id(entry.playerId);
+
+    if (rejected.has(playerId)) {
+      continue;
+    }
+
+    const eventId = id(entry.eventId);
+    const match = matches.get(eventId);
+
+    const linked =
+      match?.teams.has(id(entry.teamId))
+        ? match.snapshot
+        : null;
+
+    const candidate = {
+      id: playerId,
+      name: entry.name || null,
+
+      teamId: id(entry.teamId),
+      eventId: eventId || null,
+
+      // ID compatible con injury-context.js.
+      // Null significa que no se verifico.
+
+      gameId: linked
+        ? id(linked.game_id)
+        : null,
+
+      injurySnapshot: linked || null,
+
+      dfsStatus: entry.status ?? null
+    };
+
+    if (players.has(playerId)) {
+      const original = players.get(playerId);
+
+      if (
+        original.eventId !==
+          candidate.eventId ||
+        original.teamId !==
+          candidate.teamId
+      ) {
+        // Identidad contradictoria.
+        // Excluir antes que mezclar partidos.
+
+        players.delete(playerId);
+        rejected.add(playerId);
+      }
+
+    } else {
+      players.set(playerId, candidate);
+    }
+  }
+
+  const list = [
+    ...players.values()
+  ];
+
+  return {
+    players: list,
+
+    matchedPlayers: list.filter(
+      row => row.gameId !== null
+    ).length,
+
+    unverifiedPlayers: list.filter(
+      row => row.gameId === null
+    ).length
+  };
+}
+
 module.exports = {
   listFantasySlates,
-  loadFantasySlate
+  loadFantasySlate,
+  prepareNBAInjuryShadowPlayers
 };
+
