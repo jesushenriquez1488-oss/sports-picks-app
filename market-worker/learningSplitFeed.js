@@ -9,14 +9,27 @@ const CAPTURE_CHUNK_SIZE = 500;
 // ============================================================
 
 function txt(value) {
-  if (value === null || value === undefined) return null;
+  if (value === null || value === undefined) {
+    return null;
+  }
+
   return String(value).trim() || null;
 }
 
 function num(value) {
-  if (value === null || value === undefined || value === "") return null;
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return null;
+  }
+
   const result = Number(value);
-  return Number.isFinite(result) ? result : null;
+
+  return Number.isFinite(result)
+    ? result
+    : null;
 }
 
 function normalize(value) {
@@ -32,50 +45,101 @@ function normalize(value) {
 
 // ============================================================
 // SPLIT EVENT DATE
+//
+// FIX:
+// OWLS event_id format:
+// nfl:Away Team@Home Team-20261020
+//
+// Also supports legacy YYYYMMDD-prefixed IDs.
+//
+// Validates actual calendar dates.
 // ============================================================
 
 function splitEventDate(event) {
   const eventId = txt(event?.event_id);
-  if (!eventId) return null;
 
-  const match = eventId.match(/^(\d{4})(\d{2})(\d{2})/);
-  if (!match) return null;
+  if (!eventId) {
+    return null;
+  }
+
+  const match =
+    eventId.match(/-(\d{4})(\d{2})(\d{2})$/) ||
+    eventId.match(/^(\d{4})(\d{2})(\d{2})/);
+
+  if (!match) {
+    return null;
+  }
 
   const [, year, month, day] = match;
+
   const result = `${year}-${month}-${day}`;
 
-  return Number.isFinite(Date.parse(`${result}T12:00:00Z`))
-    ? result
-    : null;
+  const parsed = new Date(
+    `${result}T12:00:00Z`
+  );
+
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  if (
+    parsed.toISOString().slice(0, 10) !== result
+  ) {
+    return null;
+  }
+
+  return result;
 }
+
+// ============================================================
+// NORMALIZE SPORTSBOOK
+// ============================================================
 
 function normalizeSourceKey(value) {
   const key = normalize(value);
 
-  if (key === "dk") return "draftkings";
-  if (key === "fd") return "fanduel";
+  if (key === "dk") {
+    return "draftkings";
+  }
+
+  if (key === "fd") {
+    return "fanduel";
+  }
 
   return key;
 }
 
 // ============================================================
 // EVENT IDENTITY
+//
+// Detect duplicate same-day games.
+// Never guess which doubleheader belongs to a split.
 // ============================================================
 
 function splitGameIdentity({ sport, event }) {
   const date = splitEventDate(event);
-  if (!date) return null;
+
+  if (!date) {
+    return null;
+  }
 
   const away = normalize(event?.away_team);
   const home = normalize(event?.home_team);
 
-  if (!sport || !away || !home) return null;
+  if (!sport || !away || !home) {
+    return null;
+  }
 
-  return [normalize(sport), date, away, home].join("|");
+  return [
+    normalize(sport),
+    date,
+    away,
+    home
+  ].join("|");
 }
 
 // ============================================================
-// DEDUPLICATE STATES
+// STATE DEDUPLICATION
 // ============================================================
 
 function pushState(map, state) {
@@ -105,7 +169,7 @@ function pushState(map, state) {
 }
 
 // ============================================================
-// BUILD STATES
+// BUILD STATES FROM OWLS
 // ============================================================
 
 function buildSourceStates({
@@ -118,18 +182,30 @@ function buildSourceStates({
 }) {
   const states = [];
 
-  const sourceKey = normalizeSourceKey(providerSplit?.book);
-  if (!sourceKey) return states;
+  const sourceKey = normalizeSourceKey(
+    providerSplit?.book
+  );
+
+  if (!sourceKey) {
+    return states;
+  }
 
   const selectionNormalizer =
     typeof normalizeSelectionKey === "function"
       ? normalizeSelectionKey
       : normalize;
 
-  const away = selectionNormalizer(event?.away_team);
-  const home = selectionNormalizer(event?.home_team);
+  const away = selectionNormalizer(
+    event?.away_team
+  );
 
-  if (!away || !home) return states;
+  const home = selectionNormalizer(
+    event?.home_team
+  );
+
+  if (!away || !home) {
+    return states;
+  }
 
   const base = {
     cashedge_game_id: tracked.cashedge_game_id,
@@ -147,13 +223,29 @@ function buildSourceStates({
   const spread = providerSplit?.spread;
 
   if (spread) {
-    const awayLine = num(spread.away_line);
-    const awayMoney = num(spread.away_handle_pct);
-    const awayTickets = num(spread.away_bets_pct);
+    const awayLine = num(
+      spread.away_line
+    );
 
-    const homeLine = num(spread.home_line);
-    const homeMoney = num(spread.home_handle_pct);
-    const homeTickets = num(spread.home_bets_pct);
+    const awayMoney = num(
+      spread.away_handle_pct
+    );
+
+    const awayTickets = num(
+      spread.away_bets_pct
+    );
+
+    const homeLine = num(
+      spread.home_line
+    );
+
+    const homeMoney = num(
+      spread.home_handle_pct
+    );
+
+    const homeTickets = num(
+      spread.home_bets_pct
+    );
 
     if (
       awayLine !== null &&
@@ -195,11 +287,25 @@ function buildSourceStates({
   const total = providerSplit?.total;
 
   if (total) {
-    const line = num(total.line);
-    const overMoney = num(total.over_handle_pct);
-    const overTickets = num(total.over_bets_pct);
-    const underMoney = num(total.under_handle_pct);
-    const underTickets = num(total.under_bets_pct);
+    const line = num(
+      total.line
+    );
+
+    const overMoney = num(
+      total.over_handle_pct
+    );
+
+    const overTickets = num(
+      total.over_bets_pct
+    );
+
+    const underMoney = num(
+      total.under_handle_pct
+    );
+
+    const underTickets = num(
+      total.under_bets_pct
+    );
 
     if (
       line !== null &&
@@ -238,16 +344,32 @@ function buildSourceStates({
   // MONEYLINE
   // ==========================================================
 
-  const ml = providerSplit?.moneyline;
+  const moneyline = providerSplit?.moneyline;
 
-  if (ml) {
-    const awayPrice = num(ml.away_price);
-    const awayMoney = num(ml.away_handle_pct);
-    const awayTickets = num(ml.away_bets_pct);
+  if (moneyline) {
+    const awayPrice = num(
+      moneyline.away_price
+    );
 
-    const homePrice = num(ml.home_price);
-    const homeMoney = num(ml.home_handle_pct);
-    const homeTickets = num(ml.home_bets_pct);
+    const awayMoney = num(
+      moneyline.away_handle_pct
+    );
+
+    const awayTickets = num(
+      moneyline.away_bets_pct
+    );
+
+    const homePrice = num(
+      moneyline.home_price
+    );
+
+    const homeMoney = num(
+      moneyline.home_handle_pct
+    );
+
+    const homeTickets = num(
+      moneyline.home_bets_pct
+    );
 
     if (
       awayPrice !== null &&
@@ -286,7 +408,7 @@ function buildSourceStates({
 }
 
 // ============================================================
-// CAPTURE SPLIT BOARD
+// CAPTURE ONE SPORT SPLIT BOARD
 // ============================================================
 
 async function captureSplitBoard({
@@ -298,8 +420,10 @@ async function captureSplitBoard({
 }) {
   if (
     !learningCapture ||
-    typeof learningCapture.captureSplitStates !== "function" ||
-    typeof learningCapture.getStatus !== "function" ||
+    typeof learningCapture.captureSplitStates !==
+      "function" ||
+    typeof learningCapture.getStatus !==
+      "function" ||
     typeof resolveGame !== "function"
   ) {
     return {
@@ -309,7 +433,9 @@ async function captureSplitBoard({
     };
   }
 
-  if (learningCapture.getStatus()?.active !== true) {
+  const status = learningCapture.getStatus();
+
+  if (status?.active !== true) {
     return {
       ok: true,
       written: 0,
@@ -318,18 +444,30 @@ async function captureSplitBoard({
     };
   }
 
-  const list = Array.isArray(events) ? events : [];
+  const list = Array.isArray(events)
+    ? events
+    : [];
+
+  // ==========================================================
+  // COUNT EVENT IDENTITIES
+  // ==========================================================
+
   const identityCounts = new Map();
 
   for (const event of list) {
-    const identity = splitGameIdentity({ sport, event });
+    const identity = splitGameIdentity({
+      sport,
+      event
+    });
 
-    if (identity) {
-      identityCounts.set(
-        identity,
-        (identityCounts.get(identity) || 0) + 1
-      );
+    if (!identity) {
+      continue;
     }
+
+    identityCounts.set(
+      identity,
+      (identityCounts.get(identity) || 0) + 1
+    );
   }
 
   const stateMap = new Map();
@@ -338,15 +476,25 @@ async function captureSplitBoard({
   let ambiguousEvents = 0;
   let unmatchedEvents = 0;
 
-  // NEW DIAGNOSTIC COUNTERS
+  // ==========================================================
+  // DIAGNOSTIC COUNTERS
+  // ==========================================================
+
   let invalidEventIds = 0;
   let resolverMisses = 0;
   let emptySources = 0;
 
   const observedAt = new Date().toISOString();
 
+  // ==========================================================
+  // PROCESS EVENTS
+  // ==========================================================
+
   for (const event of list) {
-    const identity = splitGameIdentity({ sport, event });
+    const identity = splitGameIdentity({
+      sport,
+      event
+    });
 
     if (!identity) {
       unmatchedEvents++;
@@ -354,12 +502,16 @@ async function captureSplitBoard({
       continue;
     }
 
-    if ((identityCounts.get(identity) || 0) !== 1) {
+    // Doubleheaders remain protected.
+    if (
+      (identityCounts.get(identity) || 0) !== 1
+    ) {
       ambiguousEvents++;
       continue;
     }
 
     const eventDate = splitEventDate(event);
+
     let tracked = null;
 
     try {
@@ -370,8 +522,10 @@ async function captureSplitBoard({
       });
     } catch (error) {
       console.error(
-        `${PREFIX} resolver failed: ${error?.message || error}`
+        `${PREFIX} resolver failed: ` +
+        `${error?.message || error}`
       );
+
       continue;
     }
 
@@ -383,7 +537,9 @@ async function captureSplitBoard({
 
     matchedEvents++;
 
-    const sources = Array.isArray(event?.splits)
+    const sources = Array.isArray(
+      event?.splits
+    )
       ? event.splits
       : [];
 
@@ -407,7 +563,14 @@ async function captureSplitBoard({
     }
   }
 
-  const states = Array.from(stateMap.values());
+  // ==========================================================
+  // PERSIST STATES
+  // ==========================================================
+
+  const states = Array.from(
+    stateMap.values()
+  );
+
   let written = 0;
 
   for (
@@ -420,7 +583,10 @@ async function captureSplitBoard({
       index + CAPTURE_CHUNK_SIZE
     );
 
-    const result = await learningCapture.captureSplitStates(chunk);
+    const result =
+      await learningCapture.captureSplitStates(
+        chunk
+      );
 
     if (result?.ok !== true) {
       return {
@@ -454,7 +620,7 @@ async function captureSplitBoard({
 }
 
 // ============================================================
-// SAFE WRAPPER + DIAGNOSTICS
+// SAFE WRAPPER + DIAGNOSTIC LOGS
 // ============================================================
 
 async function captureSplitBoardSafe(args) {
@@ -466,13 +632,16 @@ async function captureSplitBoardSafe(args) {
       : [];
 
     const sample = list[0] || null;
-    const sampleId = txt(sample?.event_id);
 
-    // IMPORTANT:
-    // ALWAYS LOG THE RESULT, EVEN IF WRITTEN IS ZERO.
+    const sampleId = txt(
+      sample?.event_id
+    );
+
+    // Always report, including zero writes.
 
     console.log(
-      `${PREFIX} diagnostic sport=${String(args?.sport || "")}, ` +
+      `${PREFIX} diagnostic ` +
+      `sport=${String(args?.sport || "")}, ` +
       `events=${list.length}, ` +
       `matched=${Number(result?.matchedEvents || 0)}, ` +
       `ambiguous=${Number(result?.ambiguousEvents || 0)}, ` +
@@ -484,12 +653,16 @@ async function captureSplitBoardSafe(args) {
       `written=${Number(result?.written || 0)}, ` +
       `ok=${result?.ok === true}, ` +
       `reason=${String(result?.reason || "none")}, ` +
-      `sample_event_id=${JSON.stringify(sampleId?.slice(0, 80) || null)}, ` +
+      `sample_event_id=${JSON.stringify(
+        sampleId?.slice(0, 80) || null
+      )}, ` +
       `sample_date=${splitEventDate(sample) || "null"}`
     );
 
     if (result?.ok !== true) {
-      console.error(`${PREFIX} capture unsuccessful`);
+      console.error(
+        `${PREFIX} capture unsuccessful`
+      );
     }
 
     return result;
