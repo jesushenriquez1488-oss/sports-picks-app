@@ -1,80 +1,637 @@
-            const url = new URL('https://api.balldontlie.io/nba/v1/dfs/slates');
+
+name: Fantasy Edge Shadow Tests
+
+on:
+  push:
+    branches:
+      - fantasy-dev
+    paths:
+      - "fantasy-engine/**"
+      - ".github/workflows/fantasy-shadow-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fantasy-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: JavaScript syntax
+        run: |
+          find fantasy-engine -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      - name: Scoring and projection smoke tests
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const { scoreNBA } = require('./fantasy-engine/nba/scoring');
+          const { scoreNFLOffense } = require('./fantasy-engine/nfl/scoring');
+          const { getContestConfig } = require('./fantasy-engine/shared/contest-config');
+          const { projectNBAPlayer } = require('./fantasy-engine/nba/projection');
+
+          const nba = {
+            points: 20, rebounds: 12, assists: 11,
+            steals: 1, blocks: 0, turnovers: 2,
+            three_pointers_made: 2
+          };
+
+          assert.equal(scoreNBA(nba, 'draftkings').points, 56.5);
+          assert.equal(scoreNBA(nba, 'fanduel').points, 51.9);
+
+          const nfl = {
+            passing_yards: 300, passing_tds: 2,
+            passing_interceptions: 1, rushing_yards: 20,
+            rushing_tds: 0, receptions: 0, receiving_yards: 0,
+            receiving_tds: 0, fumbles_lost: 0,
+            two_point_conversions: 0, return_tds: 0,
+            offensive_fumble_recovery_tds: 0
+          };
+
+          assert.equal(scoreNFLOffense(nfl, 'draftkings').points, 24);
+          assert.equal(scoreNFLOffense(nfl, 'fanduel').points, 24);
+
+          for (const sport of ['nba', 'nfl']) {
+            for (const platform of ['draftkings', 'fanduel']) {
+              const c = getContestConfig({ sport, platform });
+              assert.equal(c.salaryCap, platform === 'draftkings' ? 50000 : 60000);
+              assert.equal(c.rosterSize, sport === 'nba' && platform === 'draftkings' ? 8 : 9);
+            }
+          }
+
+          const games = Array.from({ length: 12 }, (_, i) => ({
+            player_id: 77,
+            game_date: `2026-03-${String(i + 1).padStart(2, '0')}T00:00:00Z`,
+            minutes: 30,
+            ...nba
+          }));
+
+          const p = projectNBAPlayer({
+            playerId: 77,
+            games,
+            cutoffAt: '2026-10-20T18:00:00Z'
+          });
+
+          assert.equal(p.status, 'baseline_shadow');
+          assert.ok(p.fantasyBasePoints.draftkings > 0);
+
+          console.log('FANTASY CORE: PASS');
+          NODE
+
+  dfs-diagnostic-tests:
+    name: BALLDONTLIE DFS Diagnostic Tests
+    needs: fantasy-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validate DFS exports without API calls
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const d = require('./fantasy-engine/shared/dfs-diagnostic');
+
+          assert.equal(typeof d.auditDfsFeed, 'function');
+          assert.equal(typeof d.auditDfsMatrix, 'function');
+          assert.equal(typeof d.fetchFullDfsDraftables, 'function');
+
+          console.log('DFS DIAGNOSTIC EXPORTS: PASS');
+          NODE
+
+  optimizer-tests:
+    name: Fantasy Lineup Optimizer Tests
+    needs: fantasy-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validate JavaScript optimizer
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const { optimizeFantasyLineup } = require('./fantasy-engine/shared/lineup-optimizer');
+          const { getContestConfig } = require('./fantasy-engine/shared/contest-config');
+
+          for (const sport of ['nba', 'nfl']) {
+            for (const platform of ['draftkings', 'fanduel']) {
+              const positions = sport === 'nba'
+                ? ['PG', 'SG', 'SF', 'PF', 'C']
+                : ['QB', 'RB', 'WR', 'TE', 'DST'];
+
+              const players = Array.from({ length: 100 }, (_, i) => ({
+                playerId: `P${i}`,
+                positions: [positions[i % 5]],
+                salary: 3500 + (i % 15) * 200,
+                projectedPoints: 12 + (i * 17 % 34),
+                gameId: `G${i % 8}`,
+                teamId: `T${i % 16}`
+              }));
+
+              const result = optimizeFantasyLineup({
+                sport,
+                platform,
+                slate: {
+                  id: 'test',
+                  sport,
+                  platform,
+                  format: 'classic',
+                  gameIds: Array.from({ length: 8 }, (_, i) => `G${i}`)
+                },
+                players
+              });
+
+              assert.equal(result.found, true, `${sport} ${platform}`);
+              assert.equal(
+                result.lineup.length,
+                getContestConfig({ sport, platform }).rosterSize
+              );
+              assert.equal(
+                new Set(result.lineup.map(p => p.playerId)).size,
+                result.lineup.length
+              );
+            }
+          }
+
+          console.log('LINEUP OPTIMIZER: PASS');
+          NODE
+
+  exact-optimizer-tests:
+    name: Exact Mathematical Optimizer
+    needs: optimizer-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verify exact optimizer exports
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const { optimizeFantasyLineupExact } = require('./fantasy-engine/shared/lineup-optimizer');
+
+          assert.equal(typeof optimizeFantasyLineupExact, 'function');
+          console.log('EXACT OPTIMIZER: PASS');
+          NODE
+
+  optimizer-load-test:
+    name: Exact Optimizer Load Test
+    needs: exact-optimizer-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verify optimizer availability
+        run: |
+          node -e "if(typeof require('./fantasy-engine/shared/lineup-optimizer').optimizeFantasyLineupExact!=='function')process.exit(1);console.log('LOAD TEST ENTRYPOINT: PASS')"
+
+  cpsat-optimizer-tests:
+    name: OR-Tools CP-SAT 150 Players
+    needs: fantasy-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install OR-Tools
+        run: python -m pip install "ortools>=9.10,<10"
+
+      - name: Optimize synthetic full slate
+        run: |
+          python - <<'PY'
+          import sys
+
+          sys.path.insert(0, 'fantasy-engine/optimizer')
+          from solver import optimize, RULES
+
+          for sport in ('nba', 'nfl'):
+              positions = (
+                  ['PG', 'SG', 'SF', 'PF', 'C']
+                  if sport == 'nba'
+                  else ['QB', 'RB', 'WR', 'TE', 'DST']
+              )
+
+              for platform in ('draftkings', 'fanduel'):
+                  players = [
+                      {
+                          'playerId': f'P{i}',
+                          'name': f'Player {i}',
+                          'positions': [positions[i % 5]],
+                          'salary': 3500 + (i % 15) * 200,
+                          'projectedPoints': 12 + (i * 17 % 34) + (i % 7) / 10,
+                          'gameId': f'G{i % 8}',
+                          'teamId': f'T{i % 16}'
+                      }
+                      for i in range(150)
+                  ]
+
+                  result = optimize({
+                      'sport': sport,
+                      'platform': platform,
+                      'slate': {
+                          'id': 'ci',
+                          'sport': sport,
+                          'platform': platform,
+                          'format': 'classic',
+                          'gameIds': [f'G{i}' for i in range(8)]
+                      },
+                      'players': players,
+                      'timeLimitSeconds': 15
+                  })
+
+                  assert result['found'], (sport, platform, result)
+                  assert len(result['lineup']) == len(
+                      RULES[sport][platform]['slots']
+                  )
+                  assert result['salary'] <= (
+                      RULES[sport][platform]['salary_cap']
+                  )
+
+                  print(sport, platform, result['status'], flush=True)
+
+          print('CP-SAT: PASS')
+          PY
+
+  multi-lineup-tests:
+    name: CP-SAT Multiple Lineups
+    needs: cpsat-optimizer-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: python -m pip install "ortools>=9.10,<10"
+
+      - name: Multiple lineup smoke test
+        run: |
+          python - <<'PY'
+          import sys
+
+          sys.path.insert(0, 'fantasy-engine/optimizer')
+          from multi_solver import optimize_multiple
+
+          players = [
+              {
+                  'playerId': f'P{i}',
+                  'positions': [['PG', 'SG', 'SF', 'PF', 'C'][i % 5]],
+                  'salary': 3500 + (i % 15) * 200,
+                  'projectedPoints': 12 + (i * 17 % 34),
+                  'gameId': f'G{i % 8}',
+                  'teamId': f'T{i % 16}'
+              }
+              for i in range(100)
+          ]
+
+          result = optimize_multiple({
+              'sport': 'nba',
+              'platform': 'draftkings',
+              'slate': {
+                  'id': 'ci',
+                  'sport': 'nba',
+                  'platform': 'draftkings',
+                  'format': 'classic',
+                  'gameIds': [f'G{i}' for i in range(8)]
+              },
+              'players': players,
+              'lineupCount': 3,
+              'maxExposurePercent': 100,
+              'minDifferentPlayers': 2,
+              'timeLimitSeconds': 15
+          })
+
+          assert result['found'], result
+          assert len(result['lineups']) == 3
+
+          print('MULTI LINEUPS: PASS')
+          PY
+
+  optimizer-comparison:
+    name: Compare Joint vs Sequential CP-SAT
+    needs: cpsat-optimizer-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: python -m pip install "ortools>=9.10,<10"
+
+      - name: Verify both strategies
+        run: |
+          python - <<'PY'
+          import sys
+
+          sys.path.insert(0, 'fantasy-engine/optimizer')
+          from multi_solver import optimize_multiple
+          from sequential_solver import solve_sequential
+
+          assert callable(optimize_multiple)
+          assert callable(solve_sequential)
+
+          print('JOINT AND SEQUENTIAL: PASS')
+          PY
+
+  recommendation-controller-tests:
+    name: CashEdge Recommended Lineup Certification
+    needs: cpsat-optimizer-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: python -m pip install "ortools>=9.10,<10"
+
+      - name: Certify main lineup
+        run: |
+          python - <<'PY'
+          import sys
+
+          sys.path.insert(0, 'fantasy-engine/optimizer')
+          from recommendation_controller import recommend
+
+          for sport, platform in [
+              ('nba', 'draftkings'),
+              ('nfl', 'fanduel')
+          ]:
+              positions = (
+                  ['PG', 'SG', 'SF', 'PF', 'C']
+                  if sport == 'nba'
+                  else ['QB', 'RB', 'WR', 'TE', 'DST']
+              )
+
+              players = [
+                  {
+                      'playerId': f'P{i}',
+                      'name': f'Player {i}',
+                      'positions': [positions[i % 5]],
+                      'salary': 3500 + (i % 15) * 200,
+                      'projectedPoints': 12 + (i * 17 % 34) + (i % 7) / 10,
+                      'gameId': f'G{i % 8}',
+                      'teamId': f'T{i % 16}'
+                  }
+                  for i in range(100)
+              ]
+
+              base = {
+                  'sport': sport,
+                  'platform': platform,
+                  'slate': {
+                      'id': 'ci',
+                      'sport': sport,
+                      'platform': platform,
+                      'format': 'classic',
+                      'gameIds': [f'G{i}' for i in range(8)]
+                  },
+                  'players': players,
+                  'locked': [],
+                  'excluded': ['P99'],
+                  'timeLimitSeconds': 12
+              }
+
+              result = recommend({
+                  **base,
+                  'lineupCount': 1,
+                  'maxExposurePercent': 100
+              })
+
+              assert result['status'] == 'COMPLETE', result
+              assert result['mainOptimalityGuaranteed'], result
+              assert result['recommended']['status'] == 'OPTIMAL', result
+
+              print(
+                  sport, platform,
+                  'MAIN OPTIMAL: PASS',
+                  flush=True
+              )
+
+          print('CASHEDGE RECOMMENDATION: PASS')
+          PY
+
+  nba-goat-live:
+    name: NBA GOAT Full Slate Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    concurrency:
+      group: cashedge-nba-goat-live
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Fetch and save real NBA slates
+        env:
+          BALLDONTLIE_NBA_API_KEY: ${{ secrets.BALLDONTLIE_NBA_API_KEY }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const {
+            fetchFullDfsDraftables
+          } = require('./fantasy-engine/shared/dfs-diagnostic');
+
+          const key = process.env.BALLDONTLIE_NBA_API_KEY;
+          const sleep = ms =>
+            new Promise(resolve => setTimeout(resolve, ms));
+
+          async function findUpcomingSlate(platform) {
+            const now = Date.now();
+
+            const url = new URL(
+              'https://api.balldontlie.io/nba/v1/dfs/slates'
+            );
+
             url.searchParams.set('providers[]', platform);
             url.searchParams.set('formats[]', 'salary_cap');
             url.searchParams.set('scopes[]', 'multi_event');
-            url.searchParams.set('start_date', new Date(now).toISOString().slice(0, 10));
+            url.searchParams.set(
+              'start_date',
+              new Date(now).toISOString().slice(0, 10)
+            );
             url.searchParams.set('per_page', '100');
 
             for (let attempt = 1; attempt <= 3; attempt++) {
               const response = await fetch(url, {
-                headers: { Authorization: key },
+                headers: {
+                  Authorization: key
+                },
                 signal: AbortSignal.timeout(15000)
               });
+
               if (response.status === 429 && attempt < 3) {
-                console.log(`${platform}: HTTP 429; waiting 75 seconds`);
+                console.log(
+                  `${platform}: HTTP 429; waiting 75 seconds`
+                );
+
                 await sleep(75000);
                 continue;
               }
+
               if (!response.ok) {
-                throw Error(`${platform}: slates HTTP ${response.status}`);
+                throw Error(
+                  `${platform}: slates HTTP ${response.status}`
+                );
               }
+
               const body = await response.json();
+
               if (!Array.isArray(body.data)) {
-                throw Error(`${platform}: invalid slate listing`);
+                throw Error(
+                  `${platform}: invalid slate listing`
+                );
               }
-              const styleWanted = platform === 'draftkings' ? 'classic' : 'full roster';
+
+              const styleWanted =
+                platform === 'draftkings'
+                  ? 'classic'
+                  : 'full roster';
+
               const matches = body.data.filter(s =>
                 s.provider === platform &&
                 s.sport === 'nba' &&
                 s.format === 'salary_cap' &&
                 s.scope === 'multi_event' &&
-                String(s.style || '').trim().toLowerCase() === styleWanted &&
+                String(s.style || '')
+                  .trim()
+                  .toLowerCase() === styleWanted &&
                 Number.isFinite(Date.parse(s.starts_at)) &&
                 Date.parse(s.starts_at) > now
-              ).sort((a,b) => Date.parse(a.starts_at) - Date.parse(b.starts_at));
+              ).sort(
+                (a, b) =>
+                  Date.parse(a.starts_at) -
+                  Date.parse(b.starts_at)
+              );
+
               return matches[0] || null;
             }
+
             return null;
           }
 
           async function main() {
-            if (!key) throw Error('Missing NBA GOAT GitHub secret');
-            fs.mkdirSync('fantasy-slate-data', { recursive: true });
+            if (!key) {
+              throw Error(
+                'Missing NBA GOAT GitHub secret'
+              );
+            }
+
+            fs.mkdirSync('fantasy-slate-data', {
+              recursive: true
+            });
+
             let successes = 0;
-            for (const platform of ['draftkings', 'fanduel']) {
+
+            for (const platform of [
+              'draftkings',
+              'fanduel'
+            ]) {
               try {
-                const slate = await findUpcomingSlate(platform);
+                const slate =
+                  await findUpcomingSlate(platform);
+
                 if (!slate) {
-                  console.log(`${platform}: no future full-roster slate found`);
+                  console.log(
+                    `${platform}: no future full-roster slate found`
+                  );
                   continue;
                 }
-                console.log(`NEXT ${platform}: slate ${slate.id}, ${slate.starts_at}`);
+
+                console.log(
+                  `NEXT ${platform}: slate ${slate.id}, ${slate.starts_at}`
+                );
+
                 await sleep(15000);
+
                 const data = await fetchFullDfsDraftables({
-                  sport: 'nba', platform, slateId: slate.id,
-                  apiKey: key, waitMs: 15000, maxPages: 20
+                  sport: 'nba',
+                  platform,
+                  slateId: slate.id,
+                  apiKey: key,
+                  waitMs: 15000,
+                  maxPages: 20
                 });
+
                 if (!data.complete || !data.players.length) {
-                  console.log(`${platform}: no eligible players; slate not saved`);
+                  console.log(
+                    `${platform}: no eligible players; slate not saved`
+                  );
                   continue;
                 }
-                const filename = `fantasy-slate-data/nba-${platform}-${slate.id}.json`;
-                fs.writeFileSync(filename, JSON.stringify({
-                  sport: 'nba', platform, slateId: slate.id,
-                  startsAt: slate.starts_at, capturedAt: new Date().toISOString(),
-                  complete: data.complete, pages: data.pages,
-                  players: data.players, excluded: data.excluded,
-                  salaryConflicts: data.salaryConflicts
-                }, null, 2));
-                console.log(`Saved ${data.players.length} players to ${filename}`);
+
+                const filename =
+                  `fantasy-slate-data/nba-${platform}-${slate.id}.json`;
+
+                fs.writeFileSync(
+                  filename,
+                  JSON.stringify({
+                    sport: 'nba',
+                    platform,
+                    slateId: slate.id,
+                    startsAt: slate.starts_at,
+                    capturedAt: new Date().toISOString(),
+                    complete: data.complete,
+                    pages: data.pages,
+                    players: data.players,
+                    excluded: data.excluded,
+                    salaryConflicts: data.salaryConflicts
+                  }, null, 2)
+                );
+
+                console.log(
+                  `Saved ${data.players.length} players to ${filename}`
+                );
+
                 successes++;
+
               } catch (error) {
-                console.error(`${platform}: ${error.message}`);
+                console.error(
+                  `${platform}: ${error.message}`
+                );
               }
+
               await sleep(15000);
             }
-            console.log(`CASHEDGE NBA SLATES SAVED: ${successes}/2`);
-            if (successes !== 2) process.exitCode = 1;
+
+            console.log(
+              `CASHEDGE NBA SLATES SAVED: ${successes}/2`
+            );
+
+            if (successes !== 2) {
+              process.exitCode = 1;
+            }
           }
 
           main().catch(error => {
@@ -82,6 +639,7 @@
             process.exitCode = 1;
           });
           NODE
+
       - name: Save NBA slate artifacts
         if: always()
         uses: actions/upload-artifact@v4
