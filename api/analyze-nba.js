@@ -10008,7 +10008,26 @@ const awayProjectionAfterPace =
 const homeProjectionAfterPace =
   nbaPaceAdjustment
     .homeProjection;
-  let awayRest;
+
+// Impacto real de PACE antes de REST y lesiones.
+// Solo se utiliza para explicar la proyección.
+// No modifica el cálculo.
+
+const nbaPaceScoringImpact =
+  selectedLeague === "nba" &&
+  nbaPaceAdjustment.applied === true
+    ? {
+        awayPoints:
+          awayProjectionAfterPace -
+          awayProjectionAfterBpi,
+
+        homePoints:
+          homeProjectionAfterPace -
+          homeProjectionAfterBpi
+      }
+    : null;
+
+let awayRest;
 let homeRest;
 
 
@@ -10952,7 +10971,7 @@ card: {
 
   context: {
 
-    pace: {
+        pace: {
 
       applied:
         nbaPaceAdjustment
@@ -10962,7 +10981,10 @@ card: {
       expectedPace:
         nbaPaceAdjustment
           .expectedPace ??
-        null
+        null,
+
+      scoringImpact:
+        nbaPaceScoringImpact
     },
 
     rest: {
