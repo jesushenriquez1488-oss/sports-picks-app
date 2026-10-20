@@ -11034,7 +11034,47 @@ card: {
             homeTeam,
             homeInjuries
           ),
+        // Reporte completo, sin filtrar por impacto
+        nbaInjuryReport:
+          selectedLeague === "nba"
+            ? {
+                available: Array.isArray(
+                  nbaLiveInjuryState?.injuries
+                ),
+                checkedAt:
+                  nbaLiveInjuryState?.checked_at || null,
 
+                away: (nbaLiveInjuryState?.injuries || [])
+                  .filter(p =>
+                    String(p.team_id) ===
+                    String(nbaLiveInjuryState?.away_team_id)
+                  )
+                  .map(p => ({
+                    playerId: String(p.player_id || ""),
+                    name: String(p.player_name || "Unknown player"),
+                    status: String(p.status || "unknown")
+                  })),
+
+                home: (nbaLiveInjuryState?.injuries || [])
+                  .filter(p =>
+                    String(p.team_id) ===
+                    String(nbaLiveInjuryState?.home_team_id)
+                  )
+                  .map(p => ({
+                    playerId: String(p.player_id || ""),
+                    name: String(p.player_name || "Unknown player"),
+                    status: String(p.status || "unknown")
+                  }))
+              }
+            : null,
+
+        nbaPaceBaselines:
+          selectedLeague === "nba"
+            ? {
+                away: awayPaceProfile?.effectivePace ?? null,
+                home: homePaceProfile?.effectivePace ?? null
+              }
+            : null,
         awayRecentForm:
           buildRecentForm(
             awayAll,
