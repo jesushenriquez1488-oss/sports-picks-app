@@ -2706,51 +2706,101 @@ const logoUrl = getNBATeamLogoURL(teamName);
   `;
 }
 
-window.toggleNBAInjuryRows = function(group, button) {
-  const rows = Array.from(
-    document.querySelectorAll(
-      `[data-nba-injury-extra="${group}"]`
-    )
-  ).slice(3);
+window.toggleNBAInjuryReport = function(id, button) {
+  const block = document.getElementById(id);
 
-  const expand = rows.some(el =>
-    el.hidden || el.style.display === "none"
-  );
+  if (!block) return;
 
-  rows.forEach(el => {
-    el.hidden = !expand;
-    el.style.display = expand ? "flex" : "none";
-  });
+  const isClosed =
+    block.style.display === "none";
 
-  button.textContent = expand
-    ? "Show Less ▴"
-    : "View All ▾";
+  block.style.display =
+    isClosed ? "block" : "none";
+
+  button.textContent =
+    isClosed ? "VIEW LESS" : "VIEW ALL";
 };
 
-function nbaPaceExplanation(pace, baselines) {
-  if (pace === null) {
-    return "Pace data unavailable. No tempo advantage claimed.";
+function nbaPaceExplanation(pace, baselines, pick) {
+  const expected = nbaCardNumber(pace);
+  const away = nbaCardNumber(baselines?.away);
+  const home = nbaCardNumber(baselines?.home);
+
+  const usual =
+    away !== null && away > 0 &&
+    home !== null && home > 0
+      ? (away + home) / 2
+      : null;
+
+  const story = {
+    expected: expected !== null && expected > 0
+      ? expected.toFixed(1) : "—",
+    usual: usual !== null ? usual.toFixed(1) : "—",
+    difference: "NO COMPARISON",
+    status: "PACE DATA",
+    accent: "#9eb0c8",
+    explanation: "Pace estimates possessions per team. Each possession is another opportunity to score.",
+    pickNote: ""
+  };
+
+  if (expected === null || expected <= 0) {
+    story.explanation =
+      "The model has not provided a verified pace estimate for this game.";
+    return story;
   }
 
-  const away = Number(baselines?.away);
-  const home = Number(baselines?.home);
-
-  if (!(away > 0 && home > 0)) {
-    return `Expected ${pace.toFixed(1)} possessions per team. Pace measures scoring opportunities, but a comparison against normal team tempo is unavailable.`;
+  if (usual === null) {
+    story.explanation =
+      `CashEdge expects ${expected.toFixed(1)} possessions per team. The teams' usual pace is unavailable, so a faster or slower game cannot be confirmed.`;
+    return story;
   }
 
-  const normal = (away + home) / 2;
-  const difference = pace - normal;
+  const difference = expected - usual;
+
+  story.difference =
+    `${difference > 0 ? "+" : ""}${difference.toFixed(1)} possessions vs baseline`;
+
+  const isUnder = /\bunder\b/i.test(String(pick || ""));
+  const isOver = /\bover\b/i.test(String(pick || ""));
 
   if (difference <= -1) {
-    return `Expected ${pace.toFixed(1)} possessions versus a typical ${normal.toFixed(1)}. A more controlled, slower game is projected, creating fewer scoring opportunities.`;
+    story.status = "SLOWER GAME";
+    story.accent = "#00ffe7";
+
+    story.explanation =
+      `CashEdge projects ${Math.abs(difference).toFixed(1)} fewer possessions per team than their blended usual pace. That means fewer trips on offense and generally fewer chances to score.`;
+
+    story.pickNote = isUnder
+      ? "This tempo supports the UNDER direction, although pace alone does not determine the final total."
+      : isOver
+        ? "This slower tempo works against an OVER; other scoring factors would need to make up the difference."
+        : "Tempo can influence scoring volume, but does not by itself determine who covers the spread.";
+
+  } else if (difference >= 1) {
+    story.status = "FASTER GAME";
+    story.accent = "#f5c451";
+
+    story.explanation =
+      `CashEdge projects ${difference.toFixed(1)} more possessions per team than their blended usual pace. More offensive trips create more potential scoring opportunities.`;
+
+    story.pickNote = isOver
+      ? "This tempo supports the OVER direction, but scoring efficiency also matters."
+      : isUnder
+        ? "This faster tempo works against an UNDER; other factors must explain the lower model total."
+        : "More possessions affect scoring volume, but do not by themselves determine the spread winner.";
+
+  } else {
+    story.status = "NORMAL TEMPO";
+    story.accent = "#9eb0c8";
+
+    story.explanation =
+      "The predicted possession count is close to these teams' blended usual pace. Tempo is not a major difference from their baseline in this matchup.";
+
+    story.pickNote =
+      "The model's advantage must be explained mainly by factors other than a pace difference.";
   }
 
-  if (difference >= 1) {
-    return `Expected ${pace.toFixed(1)} possessions versus a typical ${normal.toFixed(1)}. A faster game is projected, creating more scoring opportunities.`;
-  }
-
-  return `Expected ${pace.toFixed(1)} possessions, close to the teams' usual ${normal.toFixed(1)}. Tempo is not expected to be a major factor.`;
+  return story;
 }
 
 function nbaRestExplanation(note) {
@@ -3161,9 +3211,10 @@ function renderNBAMobileCard({
         Number(injuryHome.defenseImpact || 0)
       : null;
 
-  const paceStory = nbaPaceExplanation(
+   const paceStory = nbaPaceExplanation(
     pace,
-    premium?.nbaPaceBaselines
+    premium?.nbaPaceBaselines,
+    displayPick
   );
 
   const scoreComparison =
@@ -3500,146 +3551,126 @@ function renderNBAMobileCard({
 
 
 
-            <div class="ce-nba-reasons">
+                 <div class="ce-nba-reasons">
 
         <div class="ce-nba-section-title">
           WHY CASHEDGE LIKES IT
         </div>
 
+        <div style="padding-top:12px;">
 
-        <div class="ce-nba-reason">
-
-          <div class="ce-nba-reason-icon">
-            ⚡
-          </div>
-
-          <div>
-
-            <strong>
-              PACE
+          <div style="
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:8px;
+            flex-wrap:wrap;
+          ">
+            <strong style="color:#fff;font-size:12px;">
+              ⚡ PACE & POSSESSIONS
             </strong>
 
-            <p>
-                            ${sanitize(paceStory)}
-            </p>
-
+            <span style="
+              font-size:9px;
+              font-weight:850;
+              color:${paceStory.accent};
+            ">
+              ${paceStory.status}
+            </span>
           </div>
 
-        </div>
+          <div style="
+            display:grid;
+            grid-template-columns:repeat(2,minmax(0,1fr));
+            gap:8px;
+            margin-top:10px;
+          ">
 
-
-        <div class="ce-nba-reason">
-
-          <div class="ce-nba-reason-icon">
-            🌙
-          </div>
-
-          <div>
-
-            <strong>
-              REST
-            </strong>
-
-            <p>
-              ${sanitize(
-                nbaShortName(
-                  awayTeam
-                )
-              )}:
-                          ${sanitize(nbaRestExplanation(awayRest))}
-
-              <br>
-
-              ${sanitize(
-                nbaShortName(
-                  homeTeam
-                )
-              )}:
-                          ${sanitize(nbaRestExplanation(homeRest))}
-            </p>
-
-          </div>
-
-        </div>
-
-
-       
-        ${
-          awayForm ||
-          homeForm
-            ? `
-              <div class="ce-nba-reason">
-
-                <div class="ce-nba-reason-icon">
-                  📈
-                </div>
-
-                <div>
-
-                  <strong>
-                    RECENT FORM
-                  </strong>
-
-                  <p>
-
-                    ${
-                      awayForm
-                        ? `
-                          ${sanitize(
-                            nbaShortName(
-                              awayTeam
-                            )
-                          )}:
-                          ${sanitize(
-                            awayForm.record
-                          )}
-                          ·
-                          ${Number(
-                            awayForm.avgPoints
-                          ).toFixed(1)}
-                          PPG
-                        `
-                        : ""
-                    }
-
-                    ${
-                      awayForm &&
-                      homeForm
-                        ? "<br>"
-                        : ""
-                    }
-
-                    ${
-                      homeForm
-                        ? `
-                          ${sanitize(
-                            nbaShortName(
-                              homeTeam
-                            )
-                          )}:
-                          ${sanitize(
-                            homeForm.record
-                          )}
-                          ·
-                          ${Number(
-                            homeForm.avgPoints
-                          ).toFixed(1)}
-                          PPG
-                        `
-                        : ""
-                    }
-
-                  </p>
-
-                </div>
-
+            <div style="
+              background:#0a2030;
+              border:1px solid #193650;
+              border-radius:9px;
+              padding:10px;
+            ">
+              <div style="color:#91a6bd;font-size:9px;">
+                EXPECTED PACE
               </div>
-            `
-            : ""
-               }
+
+              <strong style="
+                display:block;
+                margin-top:4px;
+                font-size:22px;
+                color:#00ffe7;
+              ">
+                ${paceStory.expected}
+              </strong>
+
+              <small style="color:#91a6bd;font-size:9px;">
+                possessions / team
+              </small>
+            </div>
+
+            <div style="
+              background:#0a2030;
+              border:1px solid #193650;
+              border-radius:9px;
+              padding:10px;
+            ">
+              <div style="color:#91a6bd;font-size:9px;">
+                USUAL TEAM PACE
+              </div>
+
+              <strong style="
+                display:block;
+                margin-top:4px;
+                font-size:22px;
+                color:#fff;
+              ">
+                ${paceStory.usual}
+              </strong>
+
+              <small style="color:#91a6bd;font-size:9px;">
+                blended baseline
+              </small>
+            </div>
+
+          </div>
+
+          <div style="
+            margin-top:9px;
+            color:${paceStory.accent};
+            font-size:11px;
+            font-weight:850;
+          ">
+            ${paceStory.difference}
+          </div>
+
+          <p style="
+            margin:7px 0 0;
+            color:#c4d2e2;
+            font-size:11px;
+            line-height:1.55;
+          ">
+            ${sanitize(paceStory.explanation)}
+          </p>
+
+          ${paceStory.pickNote ? `
+            <p style="
+              margin:8px 0 0;
+              padding:8px 10px;
+              border-left:2px solid ${paceStory.accent};
+              background:#0a2030;
+              color:#dce7ef;
+              font-size:10px;
+              line-height:1.5;
+            ">
+              ${sanitize(paceStory.pickNote)}
+            </p>
+          ` : ""}
+
+        </div>
 
       </div>
-
       <!-- INJURY REPORT -->
       <div style="
         background:#071624;
