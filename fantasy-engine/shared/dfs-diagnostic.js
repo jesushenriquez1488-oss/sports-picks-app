@@ -1,9 +1,13 @@
 
 "use strict";
 
-// Fantasy Edge — Diagnostico DFS
-// Solo lectura. No modifica Supabase.
-// Para ejecutar en un servicio Fantasy aislado.
+// CASHEDGE FANTASY EDGE — DFS DIAGNOSTIC V2
+// NBA + NFL | DraftKings + FanDuel
+//
+// Solo lectura.
+// Maximo 3 solicitudes por combinacion.
+// Regulador compartido de solicitudes.
+// No consulta Supabase ni modifica produccion.
 
 const {
   getContestConfig
@@ -11,332 +15,589 @@ const {
 
 const BASE = "https://api.balldontlie.io";
 
-const SPORTS = new Set(["nba", "nfl"]);
+const SPORTS = ["nba", "nfl"];
+const PLATFORMS = ["draftkings", "fanduel"];
 
-const PLATFORMS = new Set([
-  "draftkings",
-  "fanduel"
-]);
+// Durante el trial: 5 requests/min.
+// Dejamos 15 segundos entre inicios de peticion.
+// Este regulador se comparte dentro del proceso.
 
-const pause = ms =>
+const MIN_REQUEST_INTERVAL_MS = 15000;
+
+let requestQueue = Promise.resolve();
+let lastRequestStarted = 0;
+
+const sleep = ms =>
   new Promise(resolve => setTimeout(resolve, ms));
+
+const asId = value =>
+  value === null || value === undefined
+    ? ""
+    : String(value).trim();
+
+const asNumber = value => {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
+function apiKeyFor(sport, supplied) {
+  const key = supplied ||
+    process.env[
+      sport === "nba"
+        ? "BALLDONTLIE_NBA_API_KEY"
+        : "BALLDONTLIE_NFL_API_KEY"
+    ] ||
+    process.env.BALLDONTLIE_API_KEY;
+
+  if (!key) {
+    throw new Error(
+      `Falta API key BALLDONTLIE para ${sport}`
+    );
+  }
+
+  return key;
+}
+
+// Regula las peticiones de las cuatro plataformas.
+// No coordina otros procesos ni aplicaciones que
+// compartan la misma clave API.
+
+async function reserveRequest(minIntervalMs) {
+  let release;
+
+  const previous = requestQueue;
+
+  requestQueue = new Promise(resolve => {
+    release = resolve;
+  });
+
+  await previous;
+
+  try {
+    const remaining = Math.max(
+      0,
+      minIntervalMs -
+        (Date.now() - lastRequestStarted)
+    );
+
+    if (remaining) {
+      await sleep(remaining);
+    }
+
+    lastRequestStarted = Date.now();
+  } finally {
+    release();
+  }
+}
+
+async function getDFS({
+  sport,
+  path,
+  params = {},
+  key,
+  fetchFn,
+  waitMs
+}) {
+  await reserveRequest(
+    Math.max(MIN_REQUEST_INTERVAL_MS, waitMs)
+  );
+
+  const url = new URL(
+    `${BASE}/${sport}/v1/dfs/${path}`
+  );
+
+  for (const [name, value] of Object.entries(params)) {
+    if (
+      value !== null &&
+      value !== undefined &&
+      value !== ""
+    ) {
+      url.searchParams.append(name, String(value));
+    }
+  }
+
+  const controller = new AbortController();
+
+  const timeout = setTimeout(
+    () => controller.abort(),
+    15000
+  );
+
+  try {
+    const response = await fetchFn(url.toString(), {
+      headers: { Authorization: key },
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `BALLDONTLIE ${sport} DFS HTTP ${response.status}` +
+        (
+          response.status === 429
+            ? " — limite de solicitudes"
+            : response.status === 401 ||
+              response.status === 403
+              ? " — comprobar acceso GOAT"
+              : ""
+        )
+      );
+    }
+
+    const body = await response.json();
+
+    if (!body || !Array.isArray(body.data) &&
+        !(body.data && typeof body.data === "object")) {
+      throw new Error(
+        `Respuesta ${sport} DFS sin data valida`
+      );
+    }
+
+    return body;
+
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 async function auditDfsFeed({
   sport,
   platform,
-  startDate = new Date().toISOString().slice(0, 10),
+  startDate,
+  season,
+  week,
   waitMs = 15000,
   fetchFn = fetch,
   apiKey
 } = {}) {
+  sport = String(sport || "").toLowerCase();
+  platform = String(platform || "").toLowerCase();
 
   if (
-    !SPORTS.has(sport) ||
-    !PLATFORMS.has(platform)
+    !SPORTS.includes(sport) ||
+    !PLATFORMS.includes(platform)
   ) {
     throw new Error(
       "Deporte o plataforma invalidos"
     );
   }
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
-    throw new Error(
-      "Fecha invalida. Usa YYYY-MM-DD"
-    );
+  if (
+    startDate !== undefined &&
+    !/^\d{4}-\d{2}-\d{2}$/.test(startDate)
+  ) {
+    throw new Error("startDate invalida");
   }
 
   if (
     !Number.isInteger(waitMs) ||
     waitMs < 0
   ) {
-    throw new Error("Espera invalida");
+    throw new Error("waitMs invalido");
   }
 
-  const key =
-    apiKey ||
-    (
-      sport === "nba"
-        ? process.env.BALLDONTLIE_NBA_API_KEY
-        : process.env.BALLDONTLIE_NFL_API_KEY
-    ) ||
-    process.env.BALLDONTLIE_API_KEY;
-
-  if (!key) {
-    throw new Error(
-      `Falta API key para ${sport}`
-    );
+  if (
+    season !== undefined &&
+    (!Number.isInteger(season) ||
+      season < 2020 ||
+      season > 2100)
+  ) {
+    throw new Error("season invalida");
   }
+
+  if (
+    week !== undefined &&
+    (!Number.isInteger(week) ||
+      week < 1 ||
+      week > 22)
+  ) {
+    throw new Error("week invalida");
+  }
+
+  const key = apiKeyFor(sport, apiKey);
 
   let requests = 0;
 
-  async function get(path, params = {}) {
-
-    if (requests > 0) {
-      await pause(waitMs);
-    }
-
+  const get = async (path, params = {}) => {
     requests++;
 
-    const url = new URL(
-      `${BASE}/${sport}/v1/dfs/${path}`
-    );
+    return getDFS({
+      sport,
+      path,
+      params,
+      key,
+      fetchFn,
+      waitMs
+    });
+  };
 
-    for (
-      const [name, value]
-      of Object.entries(params)
-    ) {
-      url.searchParams.set(
-        name,
-        String(value)
-      );
-    }
+  // NFL puede buscar por temporada/semana.
+  // NBA puede buscar por fecha.
+  // Sin filtros temporales no se presupone
+  // que el primer slate sea el deseado.
 
-    const controller = new AbortController();
-
-    const timeout = setTimeout(
-      () => controller.abort(),
-      15000
-    );
-
-    try {
-
-      const response = await fetchFn(
-        url.toString(),
-        {
-          headers: {
-            Authorization: key
-          },
-          signal: controller.signal
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          `BALLDONTLIE ${sport} HTTP ${response.status}` +
-          (
-            response.status === 429
-              ? ": limite de peticiones"
-              : ""
-          )
-        );
-      }
-
-      return await response.json();
-
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
-  // 1. Buscar slates Classic disponibles.
-  // Solo una pagina para limitar peticiones.
-
-  const listed = await get("slates", {
+  const filters = {
     "providers[]": platform,
     "formats[]": "salary_cap",
     "scopes[]": "multi_event",
-    active: true,
-    start_date: startDate,
     per_page: 100
-  });
+  };
 
-  if (!Array.isArray(listed?.data)) {
-    throw new Error(
-      "Lista DFS sin data valida"
-    );
+  if (sport === "nfl" && season && week) {
+    filters.season = season;
+    filters.week = week;
+  } else if (startDate) {
+    filters.start_date = startDate;
   }
 
-  const choices = listed.data.filter(row =>
+  // Solicitud 1: listado de slates.
+  const listed = await get("slates", filters);
+
+  if (!Array.isArray(listed.data)) {
+    throw new Error("Listado de slates invalido");
+  }
+
+  const matching = listed.data.filter(row =>
+    row &&
     row.provider === platform &&
     row.sport === sport &&
     row.format === "salary_cap" &&
-    row.scope === "multi_event" &&
+    row.scope === "multi_event"
+  );
+
+  const classic = matching.filter(row =>
     String(row.style || "")
       .toLowerCase()
       .includes("classic")
   );
 
-  if (!choices.length) {
+  // No seleccionar concursos especiales
+  // como si fueran Classic.
+
+  if (!classic.length) {
     return {
-      ok: true,
-      accessConfirmed: true,
-      slateAvailable: false,
       sport,
       platform,
-      startDate,
-      returnedSlates: listed.data.length,
-      morePages:
-        listed?.meta?.next_cursor != null,
-      requests
+      accessConfirmed: true,
+      classicSlateFound: false,
+      requests,
+      slatesReturned: listed.data.length,
+      matchingSlates: matching.length,
+      stylesFound: [
+        ...new Set(
+          matching.map(row => row.style || null)
+        )
+      ],
+      hasMoreSlatePages:
+        listed.meta?.next_cursor != null,
+      note:
+        "Sin slate Classic confirmado en la primera pagina"
     };
   }
 
-  choices.sort((a, b) =>
+  classic.sort((a, b) =>
     String(a.starts_at || "")
-      .localeCompare(
-        String(b.starts_at || "")
-      )
+      .localeCompare(String(b.starts_at || ""))
   );
 
-  const chosen = choices[0];
+  const chosen = classic[0];
 
-  // 2. Consultar partidos y posiciones.
-
-  const detailResult = await get(
+  // Solicitud 2: detalle del concurso.
+  const detailResponse = await get(
     `slates/${encodeURIComponent(chosen.id)}`
   );
 
-  const detail = detailResult?.data;
+  const detail = detailResponse.data;
 
   if (
-    String(detail?.id) !== String(chosen.id) ||
-    detail?.provider !== platform ||
-    detail?.sport !== sport ||
-    !Array.isArray(detail?.events) ||
-    !Array.isArray(detail?.roster_slots)
+    !detail ||
+    Array.isArray(detail) ||
+    String(detail.id) !== String(chosen.id) ||
+    detail.provider !== platform ||
+    detail.sport !== sport ||
+    !Array.isArray(detail.events) ||
+    !Array.isArray(detail.roster_slots)
   ) {
     throw new Error(
-      "Detalle DFS inconsistente o incompleto"
+      "Detalle de slate incompleto o inconsistente"
     );
   }
 
-  // 3. Consultar primera pagina de salarios.
-
-  const draftablesResult = await get(
+  // Solicitud 3: primera pagina de salarios.
+  const draftableResponse = await get(
     "draftables",
     {
       "slate_ids[]": chosen.id,
-      per_page: 100,
-      active: true
+      per_page: 100
     }
   );
 
-  if (!Array.isArray(draftablesResult?.data)) {
-    throw new Error(
-      "Draftables DFS sin data valida"
-    );
+  if (!Array.isArray(draftableResponse.data)) {
+    throw new Error("Draftables invalidos");
   }
 
-  const entries = draftablesResult.data;
+  const rows = draftableResponse.data;
 
-  const expected = getContestConfig({
+  const config = getContestConfig({
     sport,
     platform
   });
 
-  const requiredSlots = detail.roster_slots
-    .filter(slot => slot.active !== false)
-    .reduce(
-      (sum, slot) =>
-        sum + Number(slot.required_count || 0),
-      0
-    );
+  const activeSlots = detail.roster_slots.filter(
+    row => row.active !== false
+  );
 
-  const entities = new Set();
-  const missingSalary = [];
-  const orphanSlotIds = new Set();
+  const rosterSize = activeSlots.reduce(
+    (total, slot) =>
+      total + (
+        asNumber(slot.required_count) || 0
+      ),
+    0
+  );
 
-  const slots = new Set(
-    detail.roster_slots.map(
-      slot => String(slot.id)
+  const knownSlots = new Set(
+    detail.roster_slots.map(row =>
+      asId(row.id)
     )
   );
 
-  for (const entry of entries) {
+  const entities = new Map();
+  const salaryByEntity = new Map();
 
-    const identity =
-      entry.entity_type === "team"
-        ? `team:${entry.team_id ?? entry.id}`
-        : `player:${entry.player_id ?? entry.id}`;
+  let teamEntries = 0;
+  let playerEntries = 0;
+  let unknownEntities = 0;
+  let missingSalaries = 0;
+  let missingPlayerIds = 0;
+  let missingTeamIds = 0;
+  let missingGameIds = 0;
+  let invalidSlotReferences = 0;
 
-    entities.add(identity);
+  for (const row of rows) {
+    const type = String(
+      row.entity_type || ""
+    ).toLowerCase();
+
+    if (type === "team") {
+      teamEntries++;
+    } else if (type === "player") {
+      playerEntries++;
+    } else {
+      unknownEntities++;
+    }
+
+    const identity = type === "team"
+      ? `team:${asId(row.team_id || row.id)}`
+      : type === "player"
+        ? `player:${asId(row.player_id || row.id)}`
+        : `unknown:${asId(row.id)}`;
+
+    entities.set(identity, true);
 
     if (
-      entry.salary == null ||
-      !Number.isFinite(Number(entry.salary))
+      type === "player" &&
+      !asId(row.player_id)
     ) {
-      missingSalary.push(entry.id);
+      missingPlayerIds++;
+    }
+
+    if (!asId(row.team_id)) {
+      missingTeamIds++;
+    }
+
+    if (!asId(row.game_id) &&
+        !asId(row.slate_event_id)) {
+      missingGameIds++;
+    }
+
+    const salary = asNumber(row.salary);
+
+    if (
+      salary === null ||
+      salary <= 0
+    ) {
+      missingSalaries++;
+    } else {
+      if (!salaryByEntity.has(identity)) {
+        salaryByEntity.set(identity, new Set());
+      }
+
+      salaryByEntity.get(identity).add(salary);
     }
 
     if (
-      !slots.has(
-        String(entry.roster_slot_id)
+      !knownSlots.has(
+        asId(row.roster_slot_id)
       )
     ) {
-      orphanSlotIds.add(
-        String(entry.roster_slot_id)
-      );
+      invalidSlotReferences++;
     }
   }
 
+  const salaryConflicts = [
+    ...salaryByEntity.entries()
+  ].filter(([, salaries]) =>
+    salaries.size > 1
+  ).map(([identity, salaries]) => ({
+    identity,
+    salaries: [...salaries]
+  }));
+
   return {
-    ok: true,
-    accessConfirmed: true,
-    slateAvailable: true,
     sport,
     platform,
-    startDate,
+
+    accessConfirmed: true,
+    classicSlateFound: true,
+    requests,
 
     slate: {
       id: detail.id,
+      provider: detail.provider,
       style: detail.style,
       startsAt: detail.starts_at,
+      format: detail.format,
+      scope: detail.scope,
+      salaryCap: asNumber(detail.salary_cap),
+      rosterSize,
       eventCount: detail.events.length,
-      salaryCap: detail.salary_cap,
-      rosterSize: requiredSlots,
       lateSwap: detail.allow_late_swap
     },
 
     checks: {
       salaryCapMatchesClassic:
-        Number(detail.salary_cap) ===
-        expected.salaryCap,
+        asNumber(detail.salary_cap) ===
+        config.salaryCap,
 
       rosterSizeMatchesClassic:
-        requiredSlots === expected.rosterSize,
+        rosterSize === config.rosterSize,
 
-      hasRealEvents:
+      eventsAvailable:
         detail.events.length > 0,
 
-      hasSalaryData:
-        entries.some(
-          entry => Number(entry.salary) > 0
+      hasPositiveSalaries:
+        rows.some(row =>
+          asNumber(row.salary) > 0
         ),
 
-      invalidRosterSlotReferences:
-        [...orphanSlotIds]
+      invalidSlotReferences
     },
 
-    draftablesFirstPage:
-      entries.length,
+    firstPage: {
+      draftables: rows.length,
+      uniqueEntities: entities.size,
+      playerEntries,
+      teamEntries,
+      unknownEntities,
+      missingSalaries,
+      missingPlayerIds,
+      missingTeamIds,
+      missingGameIds,
+      salaryConflicts
+    },
 
-    uniqueEntitiesFirstPage:
-      entities.size,
-
-    missingSalaryFirstPage:
-      missingSalary.length,
-
-    moreDraftablePages:
-      draftablesResult?.meta?.next_cursor != null,
-
-    sample: entries.slice(0, 4).map(
-      entry => ({
-        id: entry.id,
-        name: entry.display_name,
-        entityType: entry.entity_type,
-        position: entry.position,
-        salary: entry.salary,
-        rosterSlotId: entry.roster_slot_id
+    eventSample: detail.events.slice(0, 3).map(
+      event => ({
+        id: event.id ?? null,
+        gameId: event.game_id ?? null,
+        startsAt: event.starts_at ?? null,
+        keys: Object.keys(event)
       })
     ),
 
-    requests,
+    draftableSample: rows.slice(0, 5).map(
+      row => ({
+        id: row.id ?? null,
+        playerId: row.player_id ?? null,
+        teamId: row.team_id ?? null,
+        gameId: row.game_id ?? null,
+        eventId: row.slate_event_id ?? null,
+        entityType: row.entity_type ?? null,
+        name: row.display_name ?? null,
+        position: row.position ?? null,
+        salary: row.salary ?? null,
+        rosterSlotId: row.roster_slot_id ?? null
+      })
+    ),
+
+    draftableFields:
+      rows.length ? Object.keys(rows[0]) : [],
+
+    moreDraftablePages:
+      draftableResponse.meta?.next_cursor != null,
+
+    moreSlatePages:
+      listed.meta?.next_cursor != null,
 
     note:
-      "Muestra inicial: no confirma cobertura total ni reglas de puntuacion"
+      "Diagnostico de primera pagina. " +
+      "No certifica cobertura total, identidades, " +
+      "reglas especiales ni proyecciones."
+  };
+}
+
+// Ejecuta las cuatro combinaciones de forma
+// secuencial, con el mismo regulador de peticiones.
+
+async function auditDfsMatrix({
+  startDate,
+  nflSeason,
+  nflWeek,
+  waitMs = 15000,
+  fetchFn = fetch,
+  nbaApiKey,
+  nflApiKey
+} = {}) {
+  const results = [];
+
+  for (const sport of SPORTS) {
+    for (const platform of PLATFORMS) {
+      try {
+        const result = await auditDfsFeed({
+          sport,
+          platform,
+          startDate,
+          season:
+            sport === "nfl"
+              ? nflSeason
+              : undefined,
+          week:
+            sport === "nfl"
+              ? nflWeek
+              : undefined,
+          waitMs,
+          fetchFn,
+          apiKey:
+            sport === "nba"
+              ? nbaApiKey
+              : nflApiKey
+        });
+
+        results.push(result);
+
+      } catch (error) {
+        results.push({
+          sport,
+          platform,
+          accessConfirmed: false,
+          error: error.message
+        });
+      }
+    }
+  }
+
+  return {
+    mode: "fantasy_dfs_diagnostic",
+    readOnly: true,
+    combinationsChecked: results.length,
+    results
   };
 }
 
 module.exports = {
-  auditDfsFeed
+  auditDfsFeed,
+  auditDfsMatrix
 };
