@@ -1,0 +1,9898 @@
+{
+  "sport": "nba",
+  "platform": "draftkings",
+  "slateId": 77583,
+  "startsAt": "2026-10-21T23:00:00.000Z",
+  "capturedAt": "2026-10-20T23:40:57.164Z",
+  "complete": true,
+  "pages": 13,
+  "players": [
+    {
+      "playerId": "132",
+      "name": "Luka Doncic",
+      "teamId": 14,
+      "team": "LAL",
+      "gameId": 21717859,
+      "salary": 11000,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32643911,
+        32643912,
+        32643913
+      ],
+      "salaryVariants": [
+        11000
+      ]
+    },
+    {
+      "playerId": "15",
+      "name": "Giannis Antetokounmpo",
+      "teamId": 16,
+      "team": "MIA",
+      "gameId": 21717858,
+      "salary": 10000,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32643914,
+        32643915,
+        32643916
+      ],
+      "salaryVariants": [
+        10000
+      ]
+    },
+    {
+      "playerId": "1057262088",
+      "name": "Cooper Flagg",
+      "teamId": 7,
+      "team": "DAL",
+      "gameId": 21717929,
+      "salary": 9200,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32643917,
+        32643918,
+        32643919,
+        32643920,
+        32643921
+      ],
+      "salaryVariants": [
+        9200
+      ]
+    },
+    {
+      "playerId": "17896040",
+      "name": "Jalen Johnson",
+      "teamId": 1,
+      "team": "ATL",
+      "gameId": 21717922,
+      "salary": 9000,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32643922,
+        32643923,
+        32643924
+      ],
+      "salaryVariants": [
+        9000
+      ]
+    },
+    {
+      "playerId": "17896062",
+      "name": "Alperen Sengun",
+      "teamId": 11,
+      "team": "HOU",
+      "gameId": 21717929,
+      "salary": 8900,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32643925,
+        32643926,
+        32643927,
+        32643928
+      ],
+      "salaryVariants": [
+        8900
+      ]
+    },
+    {
+      "playerId": "3547238",
+      "name": "Anthony Edwards",
+      "teamId": 18,
+      "team": "MIN",
+      "gameId": 21717858,
+      "salary": 8800,
+      "status": "None",
+      "positions": [
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32643929,
+        32643930,
+        32643931
+      ],
+      "salaryVariants": [
+        8800
+      ]
+    },
+    {
+      "playerId": "38017683",
+      "name": "Paolo Banchero",
+      "teamId": 22,
+      "team": "ORL",
+      "gameId": 21717922,
+      "salary": 8700,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32643932,
+        32643933,
+        32643934
+      ],
+      "salaryVariants": [
+        8700
+      ]
+    },
+    {
+      "playerId": "17896065",
+      "name": "Josh Giddey",
+      "teamId": 5,
+      "team": "CHI",
+      "gameId": 21717926,
+      "salary": 8600,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32643935,
+        32643936,
+        32643937
+      ],
+      "salaryVariants": [
+        8600
+      ]
+    },
+    {
+      "playerId": "4",
+      "name": "Bam Adebayo",
+      "teamId": 16,
+      "team": "MIA",
+      "gameId": 21717858,
+      "salary": 8500,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32643938,
+        32643939
+      ],
+      "salaryVariants": [
+        8500
+      ]
+    },
+    {
+      "playerId": "3547245",
+      "name": "Tyrese Haliburton",
+      "teamId": 12,
+      "team": "IND",
+      "gameId": 21717928,
+      "salary": 8400,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32643940,
+        32643941,
+        32643942
+      ],
+      "salaryVariants": [
+        8400
+      ]
+    },
+    {
+      "playerId": "17896055",
+      "name": "Scottie Barnes",
+      "teamId": 28,
+      "team": "TOR",
+      "gameId": 21717926,
+      "salary": 8300,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32643943,
+        32643944,
+        32643945,
+        32643946
+      ],
+      "salaryVariants": [
+        8300
+      ]
+    },
+    {
+      "playerId": "3547242",
+      "name": "Deni Avdija",
+      "teamId": 25,
+      "team": "POR",
+      "gameId": 21717930,
+      "salary": 8200,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32643947,
+        32643948,
+        32643949,
+        32643950
+      ],
+      "salaryVariants": [
+        8200
+      ]
+    },
+    {
+      "playerId": "57",
+      "name": "Devin Booker",
+      "teamId": 24,
+      "team": "PHX",
+      "gameId": 21717930,
+      "salary": 8100,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32643951,
+        32643952,
+        32643953,
+        32643954
+      ],
+      "salaryVariants": [
+        8100
+      ]
+    },
+    {
+      "playerId": "17553995",
+      "name": "Austin Reaves",
+      "teamId": 14,
+      "team": "LAL",
+      "gameId": 21717859,
+      "salary": 8000,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32643955,
+        32643956,
+        32643957,
+        32643958
+      ],
+      "salaryVariants": [
+        8000
+      ]
+    },
+    {
+      "playerId": "3547239",
+      "name": "LaMelo Ball",
+      "teamId": 18,
+      "team": "MIN",
+      "gameId": 21717858,
+      "salary": 7900,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32643959,
+        32643960,
+        32643961
+      ],
+      "salaryVariants": [
+        7900
+      ]
+    },
+    {
+      "playerId": "490",
+      "name": "Trae Young",
+      "teamId": 30,
+      "team": "WAS",
+      "gameId": 21717923,
+      "salary": 7800,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32643962,
+        32643963,
+        32643964
+      ],
+      "salaryVariants": [
+        7800
+      ]
+    },
+    {
+      "playerId": "406",
+      "name": "Domantas Sabonis",
+      "teamId": 26,
+      "team": "SAC",
+      "gameId": 21717931,
+      "salary": 7700,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32643965,
+        32643966
+      ],
+      "salaryVariants": [
+        7700
+      ]
+    },
+    {
+      "playerId": "140",
+      "name": "Kevin Durant",
+      "teamId": 11,
+      "team": "HOU",
+      "gameId": 21717929,
+      "salary": 7700,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32643967,
+        32643968,
+        32643969
+      ],
+      "salaryVariants": [
+        7700
+      ]
+    },
+    {
+      "playerId": "56677825",
+      "name": "Amen Thompson",
+      "teamId": 11,
+      "team": "HOU",
+      "gameId": 21717929,
+      "salary": 7700,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32643970,
+        32643971,
+        32643972,
+        32643973
+      ],
+      "salaryVariants": [
+        7700
+      ]
+    },
+    {
+      "playerId": "117",
+      "name": "Anthony Davis",
+      "teamId": 30,
+      "team": "WAS",
+      "gameId": 21717923,
+      "salary": 7600,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32643974,
+        32643975,
+        32643976
+      ],
+      "salaryVariants": [
+        7600
+      ]
+    },
+    {
+      "playerId": "38017705",
+      "name": "Walker Kessler",
+      "teamId": 14,
+      "team": "LAL",
+      "gameId": 21717859,
+      "salary": 7600,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32643977,
+        32643978
+      ],
+      "salaryVariants": [
+        7600
+      ]
+    },
+    {
+      "playerId": "115",
+      "name": "Stephen Curry",
+      "teamId": 10,
+      "team": "GSW",
+      "gameId": 21717859,
+      "salary": 7500,
+      "status": "Q",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32643979,
+        32643980,
+        32643981
+      ],
+      "salaryVariants": [
+        7500
+      ]
+    },
+    {
+      "playerId": "56677823",
+      "name": "Brandon Miller",
+      "teamId": 4,
+      "team": "CHA",
+      "gameId": 21717924,
+      "salary": 7500,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32643982,
+        32643983,
+        32643984
+      ],
+      "salaryVariants": [
+        7500
+      ]
+    },
+    {
+      "playerId": "274",
+      "name": "Kawhi Leonard",
+      "teamId": 28,
+      "team": "TOR",
+      "gameId": 21717926,
+      "salary": 7400,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32643985,
+        32643986,
+        32643987
+      ],
+      "salaryVariants": [
+        7400
+      ]
+    },
+    {
+      "playerId": "416",
+      "name": "Pascal Siakam",
+      "teamId": 12,
+      "team": "IND",
+      "gameId": 21717928,
+      "salary": 7400,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32643988,
+        32643989,
+        32643990
+      ],
+      "salaryVariants": [
+        7400
+      ]
+    },
+    {
+      "playerId": "1091339280",
+      "name": "Cameron Boozer",
+      "teamId": 15,
+      "team": "MEM",
+      "gameId": 21717927,
+      "salary": 7300,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32643991,
+        32643992,
+        32643993
+      ],
+      "salaryVariants": [
+        7300
+      ]
+    },
+    {
+      "playerId": "1028025344",
+      "name": "Donovan Clingan",
+      "teamId": 25,
+      "team": "POR",
+      "gameId": 21717930,
+      "salary": 7300,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32643994,
+        32643995
+      ],
+      "salaryVariants": [
+        7300
+      ]
+    },
+    {
+      "playerId": "297",
+      "name": "Lauri Markkanen",
+      "teamId": 29,
+      "team": "UTA",
+      "gameId": 21717927,
+      "salary": 7200,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32643996,
+        32643997,
+        32643998,
+        32643999
+      ],
+      "salaryVariants": [
+        7200
+      ]
+    },
+    {
+      "playerId": "18677986",
+      "name": "Trey Murphy III",
+      "teamId": 19,
+      "team": "NOP",
+      "gameId": 21717928,
+      "salary": 7200,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644000,
+        32644001,
+        32644002,
+        32644003
+      ],
+      "salaryVariants": [
+        7200
+      ]
+    },
+    {
+      "playerId": "493",
+      "name": "Ivica Zubac",
+      "teamId": 12,
+      "team": "IND",
+      "gameId": 21717928,
+      "salary": 7200,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644004,
+        32644005
+      ],
+      "salaryVariants": [
+        7200
+      ]
+    },
+    {
+      "playerId": "56677834",
+      "name": "Keyonte George",
+      "teamId": 29,
+      "team": "UTA",
+      "gameId": 21717927,
+      "salary": 7100,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644006,
+        32644007,
+        32644008
+      ],
+      "salaryVariants": [
+        7100
+      ]
+    },
+    {
+      "playerId": "387",
+      "name": "Julius Randle",
+      "teamId": 3,
+      "team": "BKN",
+      "gameId": 21717924,
+      "salary": 7100,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644009,
+        32644010,
+        32644011
+      ],
+      "salaryVariants": [
+        7100
+      ]
+    },
+    {
+      "playerId": "666581",
+      "name": "Darius Garland",
+      "teamId": 13,
+      "team": "LAC",
+      "gameId": 21717931,
+      "salary": 7000,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644012,
+        32644013,
+        32644014
+      ],
+      "salaryVariants": [
+        7000
+      ]
+    },
+    {
+      "playerId": "666633",
+      "name": "Tyler Herro",
+      "teamId": 17,
+      "team": "MIL",
+      "gameId": 21717923,
+      "salary": 7000,
+      "status": "None",
+      "positions": [
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644015,
+        32644016,
+        32644017
+      ],
+      "salaryVariants": [
+        7000
+      ]
+    },
+    {
+      "playerId": "375",
+      "name": "Michael Porter Jr.",
+      "teamId": 3,
+      "team": "BKN",
+      "gameId": 21717924,
+      "salary": 7000,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644018,
+        32644019,
+        32644020
+      ],
+      "salaryVariants": [
+        7000
+      ]
+    },
+    {
+      "playerId": "1091343852",
+      "name": "Caleb Wilson",
+      "teamId": 5,
+      "team": "CHI",
+      "gameId": 21717926,
+      "salary": 7000,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644021,
+        32644022,
+        32644023
+      ],
+      "salaryVariants": [
+        7000
+      ]
+    },
+    {
+      "playerId": "17896026",
+      "name": "Franz Wagner",
+      "teamId": 22,
+      "team": "ORL",
+      "gameId": 21717922,
+      "salary": 6900,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644024,
+        32644025,
+        32644026
+      ],
+      "salaryVariants": [
+        6900
+      ]
+    },
+    {
+      "playerId": "334",
+      "name": "Dejounte Murray",
+      "teamId": 19,
+      "team": "NOP",
+      "gameId": 21717928,
+      "salary": 6900,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644027,
+        32644028,
+        32644029
+      ],
+      "salaryVariants": [
+        6900
+      ]
+    },
+    {
+      "playerId": "1091338860",
+      "name": "Darius Acuff Jr.",
+      "teamId": 26,
+      "team": "SAC",
+      "gameId": 21717931,
+      "salary": 6900,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644030,
+        32644031,
+        32644032,
+        32644033
+      ],
+      "salaryVariants": [
+        6900
+      ]
+    },
+    {
+      "playerId": "1028029127",
+      "name": "Kel'el Ware",
+      "teamId": 17,
+      "team": "MIL",
+      "gameId": 21717923,
+      "salary": 6900,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644034,
+        32644035,
+        32644036,
+        32644037
+      ],
+      "salaryVariants": [
+        6900
+      ]
+    },
+    {
+      "playerId": "228",
+      "name": "Kyrie Irving",
+      "teamId": 7,
+      "team": "DAL",
+      "gameId": 21717929,
+      "salary": 6800,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644038,
+        32644039,
+        32644040
+      ],
+      "salaryVariants": [
+        6800
+      ]
+    },
+    {
+      "playerId": "667378",
+      "name": "Naz Reid",
+      "teamId": 4,
+      "team": "CHA",
+      "gameId": 21717924,
+      "salary": 6800,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644044,
+        32644045,
+        32644046,
+        32644047
+      ],
+      "salaryVariants": [
+        6800
+      ]
+    },
+    {
+      "playerId": "3547244",
+      "name": "Onyeka Okongwu",
+      "teamId": 1,
+      "team": "ATL",
+      "gameId": 21717922,
+      "salary": 6700,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644048,
+        32644049
+      ],
+      "salaryVariants": [
+        6700
+      ]
+    },
+    {
+      "playerId": "666969",
+      "name": "Zion Williamson",
+      "teamId": 19,
+      "team": "NOP",
+      "gameId": 21717928,
+      "salary": 6700,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644050,
+        32644051,
+        32644052
+      ],
+      "salaryVariants": [
+        6700
+      ]
+    },
+    {
+      "playerId": "1028025177",
+      "name": "Matas Buzelis",
+      "teamId": 5,
+      "team": "CHI",
+      "gameId": 21717926,
+      "salary": 6600,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644056,
+        32644057,
+        32644058,
+        32644059
+      ],
+      "salaryVariants": [
+        6600
+      ]
+    },
+    {
+      "playerId": "1028028405",
+      "name": "Alexandre Sarr",
+      "teamId": 30,
+      "team": "WAS",
+      "gameId": 21717923,
+      "salary": 6600,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644060,
+        32644061
+      ],
+      "salaryVariants": [
+        6600
+      ]
+    },
+    {
+      "playerId": "666786",
+      "name": "Ja Morant",
+      "teamId": 25,
+      "team": "POR",
+      "gameId": 21717930,
+      "salary": 6600,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644062,
+        32644063,
+        32644064,
+        32644065
+      ],
+      "salaryVariants": [
+        6600
+      ]
+    },
+    {
+      "playerId": "1028025754",
+      "name": "Zach Edey",
+      "teamId": 15,
+      "team": "MEM",
+      "gameId": 21717927,
+      "salary": 6500,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644066,
+        32644067
+      ],
+      "salaryVariants": [
+        6500
+      ]
+    },
+    {
+      "playerId": "278",
+      "name": "Damian Lillard",
+      "teamId": 25,
+      "team": "POR",
+      "gameId": 21717930,
+      "salary": 6500,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644068,
+        32644069,
+        32644070,
+        32644071
+      ],
+      "salaryVariants": [
+        6500
+      ]
+    },
+    {
+      "playerId": "231",
+      "name": "Jaren Jackson Jr.",
+      "teamId": 29,
+      "team": "UTA",
+      "gameId": 21717927,
+      "salary": 6400,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644072,
+        32644073,
+        32644074,
+        32644075
+      ],
+      "salaryVariants": [
+        6400
+      ]
+    },
+    {
+      "playerId": "3547287",
+      "name": "Desmond Bane",
+      "teamId": 22,
+      "team": "ORL",
+      "gameId": 21717922,
+      "salary": 6400,
+      "status": "None",
+      "positions": [
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644076,
+        32644077,
+        32644078
+      ],
+      "salaryVariants": [
+        6400
+      ]
+    },
+    {
+      "playerId": "666400",
+      "name": "Nickeil Alexander-Walker",
+      "teamId": 1,
+      "team": "ATL",
+      "gameId": 21717922,
+      "salary": 6400,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644079,
+        32644080,
+        32644081,
+        32644082
+      ],
+      "salaryVariants": [
+        6400
+      ]
+    },
+    {
+      "playerId": "38017712",
+      "name": "Ryan Rollins",
+      "teamId": 17,
+      "team": "MIL",
+      "gameId": 21717923,
+      "salary": 6300,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644083,
+        32644084,
+        32644085
+      ],
+      "salaryVariants": [
+        6300
+      ]
+    },
+    {
+      "playerId": "17895966",
+      "name": "Jalen Green",
+      "teamId": 24,
+      "team": "PHX",
+      "gameId": 21717930,
+      "salary": 6300,
+      "status": "None",
+      "positions": [
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644086,
+        32644087,
+        32644088
+      ],
+      "salaryVariants": [
+        6300
+      ]
+    },
+    {
+      "playerId": "62",
+      "name": "Miles Bridges",
+      "teamId": 24,
+      "team": "PHX",
+      "gameId": 21717930,
+      "salary": 6300,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644089,
+        32644090,
+        32644091
+      ],
+      "salaryVariants": [
+        6300
+      ]
+    },
+    {
+      "playerId": "1057274415",
+      "name": "Derik Queen",
+      "teamId": 19,
+      "team": "NOP",
+      "gameId": 21717928,
+      "salary": 6300,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644092,
+        32644093,
+        32644094,
+        32644095
+      ],
+      "salaryVariants": [
+        6300
+      ]
+    },
+    {
+      "playerId": "38017677",
+      "name": "Dyson Daniels",
+      "teamId": 1,
+      "team": "ATL",
+      "gameId": 21717922,
+      "salary": 6100,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644096,
+        32644097,
+        32644098,
+        32644099,
+        32644100
+      ],
+      "salaryVariants": [
+        6100
+      ]
+    },
+    {
+      "playerId": "176",
+      "name": "Rudy Gobert",
+      "teamId": 18,
+      "team": "MIN",
+      "gameId": 21717858,
+      "salary": 6200,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644101,
+        32644102
+      ],
+      "salaryVariants": [
+        6200
+      ]
+    },
+    {
+      "playerId": "268",
+      "name": "Zach LaVine",
+      "teamId": 26,
+      "team": "SAC",
+      "gameId": 21717931,
+      "salary": 6200,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644103,
+        32644104,
+        32644105,
+        32644106,
+        32644107
+      ],
+      "salaryVariants": [
+        6200
+      ]
+    },
+    {
+      "playerId": "1091351802",
+      "name": "Yaxel Lendeborg",
+      "teamId": 10,
+      "team": "GSW",
+      "gameId": 21717859,
+      "salary": 6300,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644108,
+        32644109,
+        32644110,
+        32644111
+      ],
+      "salaryVariants": [
+        6300
+      ]
+    },
+    {
+      "playerId": "666423",
+      "name": "RJ Barrett",
+      "teamId": 28,
+      "team": "TOR",
+      "gameId": 21717926,
+      "salary": 6100,
+      "status": "None",
+      "positions": [
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644112,
+        32644113,
+        32644114
+      ],
+      "salaryVariants": [
+        6100
+      ]
+    },
+    {
+      "playerId": "1091342427",
+      "name": "Darryn Peterson",
+      "teamId": 29,
+      "team": "UTA",
+      "gameId": 21717927,
+      "salary": 6100,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644115,
+        32644116,
+        32644117,
+        32644118
+      ],
+      "salaryVariants": [
+        6100
+      ]
+    },
+    {
+      "playerId": "666676",
+      "name": "Ty Jerome",
+      "teamId": 15,
+      "team": "MEM",
+      "gameId": 21717927,
+      "salary": 6100,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644119,
+        32644120,
+        32644121,
+        32644122
+      ],
+      "salaryVariants": [
+        6100
+      ]
+    },
+    {
+      "playerId": "3547259",
+      "name": "Jaden McDaniels",
+      "teamId": 18,
+      "team": "MIN",
+      "gameId": 21717858,
+      "salary": 6100,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644123,
+        32644124,
+        32644125
+      ],
+      "salaryVariants": [
+        6100
+      ]
+    },
+    {
+      "playerId": "1057266649",
+      "name": "Cedric Coward",
+      "teamId": 15,
+      "team": "MEM",
+      "gameId": 21717927,
+      "salary": 6000,
+      "status": "None",
+      "positions": [
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644126,
+        32644127,
+        32644128
+      ],
+      "salaryVariants": [
+        6000
+      ]
+    },
+    {
+      "playerId": "3547269",
+      "name": "Immanuel Quickley",
+      "teamId": 28,
+      "team": "TOR",
+      "gameId": 21717926,
+      "salary": 6000,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644129,
+        32644130,
+        32644131
+      ],
+      "salaryVariants": [
+        6000
+      ]
+    },
+    {
+      "playerId": "38017684",
+      "name": "Jabari Smith Jr.",
+      "teamId": 11,
+      "team": "HOU",
+      "gameId": 21717929,
+      "salary": 6000,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644136,
+        32644137,
+        32644138,
+        32644139
+      ],
+      "salaryVariants": [
+        6000
+      ]
+    },
+    {
+      "playerId": "56677858",
+      "name": "Brandin Podziemski",
+      "teamId": 10,
+      "team": "GSW",
+      "gameId": 21717859,
+      "salary": 5900,
+      "status": "Q",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644143,
+        32644144,
+        32644145,
+        32644146
+      ],
+      "salaryVariants": [
+        5900
+      ]
+    },
+    {
+      "playerId": "38017688",
+      "name": "Keegan Murray",
+      "teamId": 26,
+      "team": "SAC",
+      "gameId": 21717931,
+      "salary": 5900,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644147,
+        32644148,
+        32644149
+      ],
+      "salaryVariants": [
+        5900
+      ]
+    },
+    {
+      "playerId": "56677785",
+      "name": "Jaime Jaquez Jr.",
+      "teamId": 17,
+      "team": "MIL",
+      "gameId": 21717923,
+      "salary": 5900,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644150,
+        32644151,
+        32644152
+      ],
+      "salaryVariants": [
+        5900
+      ]
+    },
+    {
+      "playerId": "303",
+      "name": "CJ McCollum",
+      "teamId": 1,
+      "team": "ATL",
+      "gameId": 21717922,
+      "salary": 5800,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644157,
+        32644158,
+        32644159
+      ],
+      "salaryVariants": [
+        5800
+      ]
+    },
+    {
+      "playerId": "380",
+      "name": "Norman Powell",
+      "teamId": 5,
+      "team": "CHI",
+      "gameId": 21717926,
+      "salary": 5800,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644160,
+        32644161,
+        32644162,
+        32644163,
+        32644164
+      ],
+      "salaryVariants": [
+        5800
+      ]
+    },
+    {
+      "playerId": "458",
+      "name": "Fred VanVleet",
+      "teamId": 11,
+      "team": "HOU",
+      "gameId": 21717929,
+      "salary": 5800,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644165,
+        32644166,
+        32644167
+      ],
+      "salaryVariants": [
+        5800
+      ]
+    },
+    {
+      "playerId": "1057268940",
+      "name": "Collin Murray-Boyles",
+      "teamId": 28,
+      "team": "TOR",
+      "gameId": 21717926,
+      "salary": 5800,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644168,
+        32644169,
+        32644170,
+        32644171
+      ],
+      "salaryVariants": [
+        5800
+      ]
+    },
+    {
+      "playerId": "85",
+      "name": "Wendell Carter Jr.",
+      "teamId": 22,
+      "team": "ORL",
+      "gameId": 21717922,
+      "salary": 5800,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644172,
+        32644173
+      ],
+      "salaryVariants": [
+        5800
+      ]
+    },
+    {
+      "playerId": "17896038",
+      "name": "Day'Ron Sharpe",
+      "teamId": 3,
+      "team": "BKN",
+      "gameId": 21717924,
+      "salary": 5700,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644174,
+        32644175
+      ],
+      "salaryVariants": [
+        5700
+      ]
+    },
+    {
+      "playerId": "1057268513",
+      "name": "Khaman Maluach",
+      "teamId": 24,
+      "team": "PHX",
+      "gameId": 21717930,
+      "salary": 5700,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644176,
+        32644177
+      ],
+      "salaryVariants": [
+        5700
+      ]
+    },
+    {
+      "playerId": "475",
+      "name": "Andrew Wiggins",
+      "teamId": 16,
+      "team": "MIA",
+      "gameId": 21717858,
+      "salary": 5700,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644178,
+        32644179,
+        32644180,
+        32644181
+      ],
+      "salaryVariants": [
+        5700
+      ]
+    },
+    {
+      "playerId": "452",
+      "name": "Myles Turner",
+      "teamId": 17,
+      "team": "MIL",
+      "gameId": 21717923,
+      "salary": 5700,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644182,
+        32644183
+      ],
+      "salaryVariants": [
+        5700
+      ]
+    },
+    {
+      "playerId": "38017507",
+      "name": "Andrew Nembhard",
+      "teamId": 12,
+      "team": "IND",
+      "gameId": 21717928,
+      "salary": 5700,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644184,
+        32644185,
+        32644186,
+        32644187
+      ],
+      "salaryVariants": [
+        5700
+      ]
+    },
+    {
+      "playerId": "1057267077",
+      "name": "Jeremiah Fears",
+      "teamId": 19,
+      "team": "NOP",
+      "gameId": 21717928,
+      "salary": 5700,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644188,
+        32644189,
+        32644190,
+        32644191
+      ],
+      "salaryVariants": [
+        5700
+      ]
+    },
+    {
+      "playerId": "17896073",
+      "name": "Jalen Suggs",
+      "teamId": 22,
+      "team": "ORL",
+      "gameId": 21717922,
+      "salary": 5600,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644192,
+        32644193,
+        32644194
+      ],
+      "salaryVariants": [
+        5600
+      ]
+    },
+    {
+      "playerId": "66",
+      "name": "Dillon Brooks",
+      "teamId": 24,
+      "team": "PHX",
+      "gameId": 21717930,
+      "salary": 5600,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644195,
+        32644196,
+        32644197
+      ],
+      "salaryVariants": [
+        5600
+      ]
+    },
+    {
+      "playerId": "17895983",
+      "name": "Ayo Dosunmu",
+      "teamId": 18,
+      "team": "MIN",
+      "gameId": 21717858,
+      "salary": 5500,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644206,
+        32644207,
+        32644208,
+        32644209,
+        32644210
+      ],
+      "salaryVariants": [
+        5500
+      ]
+    },
+    {
+      "playerId": "1057266813",
+      "name": "Egor Demin",
+      "teamId": 3,
+      "team": "BKN",
+      "gameId": 21717924,
+      "salary": 5500,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644211,
+        32644212,
+        32644213,
+        32644214
+      ],
+      "salaryVariants": [
+        5500
+      ]
+    },
+    {
+      "playerId": "1091343544",
+      "name": "Keaton Wagler",
+      "teamId": 13,
+      "team": "LAC",
+      "gameId": 21717931,
+      "salary": 5500,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644215,
+        32644216,
+        32644217,
+        32644218
+      ],
+      "salaryVariants": [
+        5500
+      ]
+    },
+    {
+      "playerId": "373",
+      "name": "Jakob Poeltl",
+      "teamId": 28,
+      "team": "TOR",
+      "gameId": 21717926,
+      "salary": 5500,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644219,
+        32644220
+      ],
+      "salaryVariants": [
+        5500
+      ]
+    },
+    {
+      "playerId": "3547256",
+      "name": "Saddiq Bey",
+      "teamId": 19,
+      "team": "NOP",
+      "gameId": 21717928,
+      "salary": 5500,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644221,
+        32644222,
+        32644223,
+        32644224
+      ],
+      "salaryVariants": [
+        5500
+      ]
+    },
+    {
+      "playerId": "38017656",
+      "name": "Scotty Pippen Jr.",
+      "teamId": 15,
+      "team": "MEM",
+      "gameId": 21717927,
+      "salary": 5500,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644225,
+        32644226,
+        32644227
+      ],
+      "salaryVariants": [
+        5500
+      ]
+    },
+    {
+      "playerId": "1028026060",
+      "name": "Kyshawn George",
+      "teamId": 30,
+      "team": "WAS",
+      "gameId": 21717923,
+      "salary": 5500,
+      "status": "None",
+      "positions": [
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644228,
+        32644229,
+        32644230
+      ],
+      "salaryVariants": [
+        5500
+      ]
+    },
+    {
+      "playerId": "666609",
+      "name": "Rui Hachimura",
+      "teamId": 13,
+      "team": "LAC",
+      "gameId": 21717931,
+      "salary": 5400,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644233,
+        32644234,
+        32644235,
+        32644236
+      ],
+      "salaryVariants": [
+        5400
+      ]
+    },
+    {
+      "playerId": "214",
+      "name": "Jrue Holiday",
+      "teamId": 25,
+      "team": "POR",
+      "gameId": 21717930,
+      "salary": 5400,
+      "status": "Q",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644241,
+        32644242,
+        32644243,
+        32644244,
+        32644245
+      ],
+      "salaryVariants": [
+        5400
+      ]
+    },
+    {
+      "playerId": "666577",
+      "name": "Daniel Gafford",
+      "teamId": 7,
+      "team": "DAL",
+      "gameId": 21717929,
+      "salary": 5400,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644246,
+        32644247
+      ],
+      "salaryVariants": [
+        5400
+      ]
+    },
+    {
+      "playerId": "17553994",
+      "name": "Davion Mitchell",
+      "teamId": 16,
+      "team": "MIA",
+      "gameId": 21717858,
+      "salary": 5300,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644248,
+        32644249,
+        32644250
+      ],
+      "salaryVariants": [
+        5300
+      ]
+    },
+    {
+      "playerId": "56677850",
+      "name": "Toumani Camara",
+      "teamId": 25,
+      "team": "POR",
+      "gameId": 21717930,
+      "salary": 5300,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644251,
+        32644252,
+        32644253
+      ],
+      "salaryVariants": [
+        5300
+      ]
+    },
+    {
+      "playerId": "1028028519",
+      "name": "Reed Sheppard",
+      "teamId": 11,
+      "team": "HOU",
+      "gameId": 21717929,
+      "salary": 5300,
+      "status": "None",
+      "positions": [
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644257,
+        32644258,
+        32644259
+      ],
+      "salaryVariants": [
+        5300
+      ]
+    },
+    {
+      "playerId": "460",
+      "name": "Nikola Vucevic",
+      "teamId": 22,
+      "team": "ORL",
+      "gameId": 21717922,
+      "salary": 5300,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644260,
+        32644261
+      ],
+      "salaryVariants": [
+        5300
+      ]
+    },
+    {
+      "playerId": "17553979",
+      "name": "Jonathan Kuminga",
+      "teamId": 18,
+      "team": "MIN",
+      "gameId": 21717858,
+      "salary": 5200,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644262,
+        32644263,
+        32644264,
+        32644265
+      ],
+      "salaryVariants": [
+        5200
+      ]
+    },
+    {
+      "playerId": "313",
+      "name": "De'Anthony Melton",
+      "teamId": 10,
+      "team": "GSW",
+      "gameId": 21717859,
+      "salary": 5200,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644266,
+        32644267,
+        32644268,
+        32644269
+      ],
+      "salaryVariants": [
+        5200
+      ]
+    },
+    {
+      "playerId": "1091339436",
+      "name": "Mikel Brown Jr.",
+      "teamId": 3,
+      "team": "BKN",
+      "gameId": 21717924,
+      "salary": 5200,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644270,
+        32644271,
+        32644272,
+        32644273
+      ],
+      "salaryVariants": [
+        5200
+      ]
+    },
+    {
+      "playerId": "1028027567",
+      "name": "Yves Missi",
+      "teamId": 19,
+      "team": "NOP",
+      "gameId": 21717928,
+      "salary": 5200,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644274,
+        32644275
+      ],
+      "salaryVariants": [
+        5200
+      ]
+    },
+    {
+      "playerId": "38017727",
+      "name": "Collin Gillespie",
+      "teamId": 24,
+      "team": "PHX",
+      "gameId": 21717930,
+      "salary": 5100,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644276,
+        32644277,
+        32644278
+      ],
+      "salaryVariants": [
+        5100
+      ]
+    },
+    {
+      "playerId": "1028035794",
+      "name": "Kyle Filipowski",
+      "teamId": 29,
+      "team": "UTA",
+      "gameId": 21717927,
+      "salary": 5100,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644279,
+        32644280,
+        32644281,
+        32644282
+      ],
+      "salaryVariants": [
+        5100
+      ]
+    },
+    {
+      "playerId": "17895858",
+      "name": "Quentin Grimes",
+      "teamId": 14,
+      "team": "LAL",
+      "gameId": 21717859,
+      "salary": 5100,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644283,
+        32644284,
+        32644285,
+        32644286,
+        32644287
+      ],
+      "salaryVariants": [
+        5100
+      ]
+    },
+    {
+      "playerId": "3547264",
+      "name": "Jalen Smith",
+      "teamId": 5,
+      "team": "CHI",
+      "gameId": 21717926,
+      "salary": 5000,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644288,
+        32644289
+      ],
+      "salaryVariants": [
+        5000
+      ]
+    },
+    {
+      "playerId": "324",
+      "name": "Malik Monk",
+      "teamId": 26,
+      "team": "SAC",
+      "gameId": 21717931,
+      "salary": 5000,
+      "status": "Q",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644290,
+        32644291,
+        32644292,
+        32644293
+      ],
+      "salaryVariants": [
+        5000
+      ]
+    },
+    {
+      "playerId": "666656",
+      "name": "De'Andre Hunter",
+      "teamId": 26,
+      "team": "SAC",
+      "gameId": 21717931,
+      "salary": 5000,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644294,
+        32644295,
+        32644296,
+        32644297
+      ],
+      "salaryVariants": [
+        5000
+      ]
+    },
+    {
+      "playerId": "1028036515",
+      "name": "Oso Ighodaro",
+      "teamId": 24,
+      "team": "PHX",
+      "gameId": 21717930,
+      "salary": 5000,
+      "status": "Q",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644298,
+        32644299
+      ],
+      "salaryVariants": [
+        5000
+      ]
+    },
+    {
+      "playerId": "57875092",
+      "name": "Gui Santos",
+      "teamId": 10,
+      "team": "GSW",
+      "gameId": 21717859,
+      "salary": 4900,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644302,
+        32644303,
+        32644304,
+        32644305
+      ],
+      "salaryVariants": [
+        4900
+      ]
+    },
+    {
+      "playerId": "377",
+      "name": "Bobby Portis",
+      "teamId": 16,
+      "team": "MIA",
+      "gameId": 21717858,
+      "salary": 4900,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644309,
+        32644310,
+        32644311,
+        32644312
+      ],
+      "salaryVariants": [
+        4900
+      ]
+    },
+    {
+      "playerId": "1091341156",
+      "name": "Morez Johnson",
+      "teamId": 7,
+      "team": "DAL",
+      "gameId": 21717929,
+      "salary": 4900,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644313,
+        32644314,
+        32644315
+      ],
+      "salaryVariants": [
+        4900
+      ]
+    },
+    {
+      "playerId": "1057271099",
+      "name": "Joan Beringer",
+      "teamId": 18,
+      "team": "MIN",
+      "gameId": 21717858,
+      "salary": 4900,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644316,
+        32644317
+      ],
+      "salaryVariants": [
+        4900
+      ]
+    },
+    {
+      "playerId": "1057279594",
+      "name": "Will Riley",
+      "teamId": 30,
+      "team": "WAS",
+      "gameId": 21717923,
+      "salary": 4900,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644318,
+        32644319,
+        32644320,
+        32644321,
+        32644322
+      ],
+      "salaryVariants": [
+        4900
+      ]
+    },
+    {
+      "playerId": "247",
+      "name": "Derrick Jones Jr.",
+      "teamId": 13,
+      "team": "LAC",
+      "gameId": 21717931,
+      "salary": 4800,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644323,
+        32644324,
+        32644325,
+        32644326
+      ],
+      "salaryVariants": [
+        4800
+      ]
+    },
+    {
+      "playerId": "1057276634",
+      "name": "Nique Clifford",
+      "teamId": 26,
+      "team": "SAC",
+      "gameId": 21717931,
+      "salary": 4800,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644327,
+        32644328,
+        32644329,
+        32644330,
+        32644331
+      ],
+      "salaryVariants": [
+        4800
+      ]
+    },
+    {
+      "playerId": "56677747",
+      "name": "Scoot Henderson",
+      "teamId": 25,
+      "team": "POR",
+      "gameId": 21717930,
+      "salary": 4800,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644332,
+        32644333,
+        32644334,
+        32644335
+      ],
+      "salaryVariants": [
+        4800
+      ]
+    },
+    {
+      "playerId": "3547274",
+      "name": "Tre Jones",
+      "teamId": 5,
+      "team": "CHI",
+      "gameId": 21717926,
+      "salary": 4800,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644336,
+        32644337,
+        32644338,
+        32644339
+      ],
+      "salaryVariants": [
+        4800
+      ]
+    },
+    {
+      "playerId": "1028038426",
+      "name": "Jamal Shead",
+      "teamId": 28,
+      "team": "TOR",
+      "gameId": 21717926,
+      "salary": 4800,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644340,
+        32644341,
+        32644342,
+        32644343
+      ],
+      "salaryVariants": [
+        4800
+      ]
+    },
+    {
+      "playerId": "38017725",
+      "name": "Moussa Diabate",
+      "teamId": 4,
+      "team": "CHA",
+      "gameId": 21717924,
+      "salary": 4800,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644344,
+        32644345
+      ],
+      "salaryVariants": [
+        4800
+      ]
+    },
+    {
+      "playerId": "38017695",
+      "name": "Tari Eason",
+      "teamId": 11,
+      "team": "HOU",
+      "gameId": 21717929,
+      "salary": 4800,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644346,
+        32644347,
+        32644348,
+        32644349
+      ],
+      "salaryVariants": [
+        4800
+      ]
+    },
+    {
+      "playerId": "56677844",
+      "name": "Bilal Coulibaly",
+      "teamId": 30,
+      "team": "WAS",
+      "gameId": 21717923,
+      "salary": 4800,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644350,
+        32644351,
+        32644352
+      ],
+      "salaryVariants": [
+        4800
+      ]
+    },
+    {
+      "playerId": "22",
+      "name": "Deandre Ayton",
+      "teamId": 30,
+      "team": "WAS",
+      "gameId": 21717923,
+      "salary": 4800,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644353,
+        32644354
+      ],
+      "salaryVariants": [
+        4800
+      ]
+    },
+    {
+      "playerId": "3547293",
+      "name": "Naji Marshall",
+      "teamId": 7,
+      "team": "DAL",
+      "gameId": 21717929,
+      "salary": 4800,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644355,
+        32644356,
+        32644357
+      ],
+      "salaryVariants": [
+        4800
+      ]
+    },
+    {
+      "playerId": "443",
+      "name": "Klay Thompson",
+      "teamId": 16,
+      "team": "MIA",
+      "gameId": 21717858,
+      "salary": 4800,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644358,
+        32644359,
+        32644360,
+        32644361,
+        32644362
+      ],
+      "salaryVariants": [
+        4800
+      ]
+    },
+    {
+      "playerId": "1091349754",
+      "name": "Brayden Burries",
+      "teamId": 17,
+      "team": "MIL",
+      "gameId": 21717923,
+      "salary": 4800,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644363,
+        32644364,
+        32644365,
+        32644366
+      ],
+      "salaryVariants": [
+        4800
+      ]
+    },
+    {
+      "playerId": "17896035",
+      "name": "Isaiah Jackson",
+      "teamId": 13,
+      "team": "LAC",
+      "gameId": 21717931,
+      "salary": 4700,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644367,
+        32644368
+      ],
+      "salaryVariants": [
+        4700
+      ]
+    },
+    {
+      "playerId": "3547249",
+      "name": "Precious Achiuwa",
+      "teamId": 26,
+      "team": "SAC",
+      "gameId": 21717931,
+      "salary": 4700,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644369,
+        32644370,
+        32644371,
+        32644372
+      ],
+      "salaryVariants": [
+        4700
+      ]
+    },
+    {
+      "playerId": "17896024",
+      "name": "Herbert Jones",
+      "teamId": 19,
+      "team": "NOP",
+      "gameId": 21717928,
+      "salary": 4700,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644373,
+        32644374,
+        32644375
+      ],
+      "salaryVariants": [
+        4700
+      ]
+    },
+    {
+      "playerId": "1028025362",
+      "name": "Isaiah Collier",
+      "teamId": 29,
+      "team": "UTA",
+      "gameId": 21717927,
+      "salary": 4700,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644376,
+        32644377,
+        32644378
+      ],
+      "salaryVariants": [
+        4700
+      ]
+    },
+    {
+      "playerId": "360",
+      "name": "Kelly Oubre Jr.",
+      "teamId": 12,
+      "team": "IND",
+      "gameId": 21717928,
+      "salary": 4700,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644379,
+        32644380,
+        32644381,
+        32644382,
+        32644383
+      ],
+      "salaryVariants": [
+        4700
+      ]
+    },
+    {
+      "playerId": "219",
+      "name": "Al Horford",
+      "teamId": 10,
+      "team": "GSW",
+      "gameId": 21717859,
+      "salary": 4700,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644388,
+        32644389
+      ],
+      "salaryVariants": [
+        4700
+      ]
+    },
+    {
+      "playerId": "1057262985",
+      "name": "Tre Johnson",
+      "teamId": 30,
+      "team": "WAS",
+      "gameId": 21717923,
+      "salary": 4700,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644390,
+        32644391,
+        32644392,
+        32644393
+      ],
+      "salaryVariants": [
+        4700
+      ]
+    },
+    {
+      "playerId": "283",
+      "name": "Brook Lopez",
+      "teamId": 13,
+      "team": "LAC",
+      "gameId": 21717931,
+      "salary": 4600,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644396,
+        32644397
+      ],
+      "salaryVariants": [
+        4600
+      ]
+    },
+    {
+      "playerId": "1028028244",
+      "name": "Zaccharie Risacher",
+      "teamId": 7,
+      "team": "DAL",
+      "gameId": 21717929,
+      "salary": 4600,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644398,
+        32644399,
+        32644400,
+        32644401,
+        32644402
+      ],
+      "salaryVariants": [
+        4600
+      ]
+    },
+    {
+      "playerId": "56677782",
+      "name": "Leonard Miller",
+      "teamId": 5,
+      "team": "CHI",
+      "gameId": 21717926,
+      "salary": 4600,
+      "status": "Q",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644403,
+        32644404,
+        32644405,
+        32644406
+      ],
+      "salaryVariants": [
+        4600
+      ]
+    },
+    {
+      "playerId": "185",
+      "name": "Draymond Green",
+      "teamId": 10,
+      "team": "GSW",
+      "gameId": 21717859,
+      "salary": 4500,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644407,
+        32644408,
+        32644409,
+        32644410
+      ],
+      "salaryVariants": [
+        4500
+      ]
+    },
+    {
+      "playerId": "38017697",
+      "name": "Max Christie",
+      "teamId": 7,
+      "team": "DAL",
+      "gameId": 21717929,
+      "salary": 4500,
+      "status": "None",
+      "positions": [
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644411,
+        32644412,
+        32644413
+      ],
+      "salaryVariants": [
+        4500
+      ]
+    },
+    {
+      "playerId": "265",
+      "name": "Kyle Kuzma",
+      "teamId": 17,
+      "team": "MIL",
+      "gameId": 21717923,
+      "salary": 4500,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644414,
+        32644415,
+        32644416
+      ],
+      "salaryVariants": [
+        4500
+      ]
+    },
+    {
+      "playerId": "17896059",
+      "name": "Sandro Mamukelashvili",
+      "teamId": 14,
+      "team": "LAL",
+      "gameId": 21717859,
+      "salary": 4500,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644417,
+        32644418,
+        32644419,
+        32644420
+      ],
+      "salaryVariants": [
+        4500
+      ]
+    },
+    {
+      "playerId": "1028029111",
+      "name": "Ja'Kobe Walter",
+      "teamId": 28,
+      "team": "TOR",
+      "gameId": 21717926,
+      "salary": 4500,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644421,
+        32644422,
+        32644423,
+        32644424
+      ],
+      "salaryVariants": [
+        4500
+      ]
+    },
+    {
+      "playerId": "56677832",
+      "name": "Jarace Walker",
+      "teamId": 12,
+      "team": "IND",
+      "gameId": 21717928,
+      "salary": 4500,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644425,
+        32644426,
+        32644427
+      ],
+      "salaryVariants": [
+        4500
+      ]
+    },
+    {
+      "playerId": "3",
+      "name": "Steven Adams",
+      "teamId": 11,
+      "team": "HOU",
+      "gameId": 21717929,
+      "salary": 4500,
+      "status": "Q",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644428,
+        32644429
+      ],
+      "salaryVariants": [
+        4500
+      ]
+    },
+    {
+      "playerId": "315",
+      "name": "Khris Middleton",
+      "teamId": 30,
+      "team": "WAS",
+      "gameId": 21717923,
+      "salary": 4500,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644430,
+        32644431,
+        32644432,
+        32644433
+      ],
+      "salaryVariants": [
+        4500
+      ]
+    },
+    {
+      "playerId": "413",
+      "name": "Collin Sexton",
+      "teamId": 14,
+      "team": "LAL",
+      "gameId": 21717859,
+      "salary": 4400,
+      "status": "Q",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644437,
+        32644438,
+        32644439,
+        32644440
+      ],
+      "salaryVariants": [
+        4400
+      ]
+    },
+    {
+      "playerId": "420",
+      "name": "Marcus Smart",
+      "teamId": 11,
+      "team": "HOU",
+      "gameId": 21717929,
+      "salary": 4400,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644444,
+        32644445,
+        32644446,
+        32644447
+      ],
+      "salaryVariants": [
+        4400
+      ]
+    },
+    {
+      "playerId": "1028039105",
+      "name": "Jaylen Wells",
+      "teamId": 15,
+      "team": "MEM",
+      "gameId": 21717927,
+      "salary": 4300,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644450,
+        32644451,
+        32644452
+      ],
+      "salaryVariants": [
+        4300
+      ]
+    },
+    {
+      "playerId": "8",
+      "name": "Grayson Allen",
+      "teamId": 4,
+      "team": "CHA",
+      "gameId": 21717924,
+      "salary": 4300,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644453,
+        32644454,
+        32644455,
+        32644456,
+        32644457
+      ],
+      "salaryVariants": [
+        4300
+      ]
+    },
+    {
+      "playerId": "1028025497",
+      "name": "Tristan da Silva",
+      "teamId": 22,
+      "team": "ORL",
+      "gameId": 21717922,
+      "salary": 4300,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644458,
+        32644459,
+        32644460,
+        32644461
+      ],
+      "salaryVariants": [
+        4300
+      ]
+    },
+    {
+      "playerId": "666626",
+      "name": "Jaxson Hayes",
+      "teamId": 29,
+      "team": "UTA",
+      "gameId": 21717927,
+      "salary": 4300,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644462,
+        32644463
+      ],
+      "salaryVariants": [
+        4300
+      ]
+    },
+    {
+      "playerId": "56677843",
+      "name": "Noah Clowney",
+      "teamId": 3,
+      "team": "BKN",
+      "gameId": 21717924,
+      "salary": 4300,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644464,
+        32644465,
+        32644466,
+        32644467
+      ],
+      "salaryVariants": [
+        4300
+      ]
+    },
+    {
+      "playerId": "476",
+      "name": "Robert Williams",
+      "teamId": 25,
+      "team": "POR",
+      "gameId": 21717930,
+      "salary": 4300,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644468,
+        32644469,
+        32644470,
+        32644471
+      ],
+      "salaryVariants": [
+        4300
+      ]
+    },
+    {
+      "playerId": "3547282",
+      "name": "Nick Richards",
+      "teamId": 16,
+      "team": "MIA",
+      "gameId": 21717858,
+      "salary": 4300,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644472,
+        32644473
+      ],
+      "salaryVariants": [
+        4300
+      ]
+    },
+    {
+      "playerId": "3547267",
+      "name": "Isaiah Stewart",
+      "teamId": 15,
+      "team": "MEM",
+      "gameId": 21717927,
+      "salary": 4300,
+      "status": "Q",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644474,
+        32644475,
+        32644476,
+        32644477
+      ],
+      "salaryVariants": [
+        4300
+      ]
+    },
+    {
+      "playerId": "1057384362",
+      "name": "Ryan Kalkbrenner",
+      "teamId": 4,
+      "team": "CHA",
+      "gameId": 21717924,
+      "salary": 4200,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644478,
+        32644479
+      ],
+      "salaryVariants": [
+        4200
+      ]
+    },
+    {
+      "playerId": "1057272939",
+      "name": "Kasparas Jakucionis",
+      "teamId": 17,
+      "team": "MIL",
+      "gameId": 21717923,
+      "salary": 4200,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644480,
+        32644481,
+        32644482
+      ],
+      "salaryVariants": [
+        4200
+      ]
+    },
+    {
+      "playerId": "1028036986",
+      "name": "Pelle Larsson",
+      "teamId": 16,
+      "team": "MIA",
+      "gameId": 21717858,
+      "salary": 4100,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644487,
+        32644488,
+        32644489,
+        32644490,
+        32644491
+      ],
+      "salaryVariants": [
+        4100
+      ]
+    },
+    {
+      "playerId": "1091353463",
+      "name": "Hannes Steinbach",
+      "teamId": 4,
+      "team": "CHA",
+      "gameId": 21717924,
+      "salary": 4100,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644492,
+        32644493
+      ],
+      "salaryVariants": [
+        4100
+      ]
+    },
+    {
+      "playerId": "56677842",
+      "name": "Brice Sensabaugh",
+      "teamId": 29,
+      "team": "UTA",
+      "gameId": 21717927,
+      "salary": 4100,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644494,
+        32644495,
+        32644496,
+        32644497,
+        32644498
+      ],
+      "salaryVariants": [
+        4100
+      ]
+    },
+    {
+      "playerId": "1091350193",
+      "name": "Sergio de Larrea",
+      "teamId": 7,
+      "team": "DAL",
+      "gameId": 21717929,
+      "salary": 4000,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644503,
+        32644504,
+        32644505
+      ],
+      "salaryVariants": [
+        4000
+      ]
+    },
+    {
+      "playerId": "17896045",
+      "name": "Corey Kispert",
+      "teamId": 1,
+      "team": "ATL",
+      "gameId": 21717922,
+      "salary": 4000,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644512,
+        32644513,
+        32644514,
+        32644515,
+        32644516
+      ],
+      "salaryVariants": [
+        4000
+      ]
+    },
+    {
+      "playerId": "17896039",
+      "name": "Justin Champagnie",
+      "teamId": 30,
+      "team": "WAS",
+      "gameId": 21717923,
+      "salary": 4000,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644517,
+        32644518,
+        32644519
+      ],
+      "salaryVariants": [
+        4000
+      ]
+    },
+    {
+      "playerId": "38017686",
+      "name": "Bennedict Mathurin",
+      "teamId": 19,
+      "team": "NOP",
+      "gameId": 21717928,
+      "salary": 4000,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644520,
+        32644521,
+        32644522,
+        32644523,
+        32644524
+      ],
+      "salaryVariants": [
+        4000
+      ]
+    },
+    {
+      "playerId": "17896103",
+      "name": "Jay Huff",
+      "teamId": 12,
+      "team": "IND",
+      "gameId": 21717928,
+      "salary": 4000,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644525,
+        32644526
+      ],
+      "salaryVariants": [
+        4000
+      ]
+    },
+    {
+      "playerId": "191",
+      "name": "Tim Hardaway Jr.",
+      "teamId": 16,
+      "team": "MIA",
+      "gameId": 21717858,
+      "salary": 3900,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644531,
+        32644532,
+        32644533,
+        32644534,
+        32644535
+      ],
+      "salaryVariants": [
+        3900
+      ]
+    },
+    {
+      "playerId": "666541",
+      "name": "Luguentz Dort",
+      "teamId": 1,
+      "team": "ATL",
+      "gameId": 21717922,
+      "salary": 3900,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644536,
+        32644537,
+        32644538,
+        32644539,
+        32644540
+      ],
+      "salaryVariants": [
+        3900
+      ]
+    },
+    {
+      "playerId": "182",
+      "name": "Jerami Grant",
+      "teamId": 15,
+      "team": "MEM",
+      "gameId": 21717927,
+      "salary": 3900,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644541,
+        32644542,
+        32644543
+      ],
+      "salaryVariants": [
+        3900
+      ]
+    },
+    {
+      "playerId": "102",
+      "name": "Zach Collins",
+      "teamId": 5,
+      "team": "CHI",
+      "gameId": 21717926,
+      "salary": 3900,
+      "status": "Q",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644544,
+        32644545
+      ],
+      "salaryVariants": [
+        3900
+      ]
+    },
+    {
+      "playerId": "254",
+      "name": "Luke Kennard",
+      "teamId": 24,
+      "team": "PHX",
+      "gameId": 21717930,
+      "salary": 3900,
+      "status": "Q",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644546,
+        32644547,
+        32644548,
+        32644549
+      ],
+      "salaryVariants": [
+        3900
+      ]
+    },
+    {
+      "playerId": "38017716",
+      "name": "Ousmane Dieng",
+      "teamId": 17,
+      "team": "MIL",
+      "gameId": 21717923,
+      "salary": 3900,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644550,
+        32644551,
+        32644552,
+        32644553
+      ],
+      "salaryVariants": [
+        3900
+      ]
+    },
+    {
+      "playerId": "1091349196",
+      "name": "Nate Ament",
+      "teamId": 17,
+      "team": "MIL",
+      "gameId": 21717923,
+      "salary": 3900,
+      "status": "Q",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644557,
+        32644558,
+        32644559
+      ],
+      "salaryVariants": [
+        3900
+      ]
+    },
+    {
+      "playerId": "1028026717",
+      "name": "AJ Johnson",
+      "teamId": 19,
+      "team": "NOP",
+      "gameId": 21717928,
+      "salary": 3800,
+      "status": "None",
+      "positions": [
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644560,
+        32644561,
+        32644562
+      ],
+      "salaryVariants": [
+        3800
+      ]
+    },
+    {
+      "playerId": "1057396055",
+      "name": "Kobe Sanders",
+      "teamId": 13,
+      "team": "LAC",
+      "gameId": 21717931,
+      "salary": 3800,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644563,
+        32644564,
+        32644565,
+        32644566,
+        32644567
+      ],
+      "salaryVariants": [
+        3800
+      ]
+    },
+    {
+      "playerId": "2189",
+      "name": "Gary Payton II",
+      "teamId": 10,
+      "team": "GSW",
+      "gameId": 21717859,
+      "salary": 3800,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644568,
+        32644569,
+        32644570,
+        32644571,
+        32644572
+      ],
+      "salaryVariants": [
+        3800
+      ]
+    },
+    {
+      "playerId": "1028025723",
+      "name": "Ryan Dunn",
+      "teamId": 24,
+      "team": "PHX",
+      "gameId": 21717930,
+      "salary": 3800,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644573,
+        32644574,
+        32644575
+      ],
+      "salaryVariants": [
+        3800
+      ]
+    },
+    {
+      "playerId": "1091349831",
+      "name": "Cameron Carr",
+      "teamId": 14,
+      "team": "LAL",
+      "gameId": 21717859,
+      "salary": 3800,
+      "status": "Q",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644580,
+        32644581,
+        32644582,
+        32644583,
+        32644584
+      ],
+      "salaryVariants": [
+        3800
+      ]
+    },
+    {
+      "playerId": "56677799",
+      "name": "Trayce Jackson-Davis",
+      "teamId": 28,
+      "team": "TOR",
+      "gameId": 21717926,
+      "salary": 3800,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644590,
+        32644591
+      ],
+      "salaryVariants": [
+        3800
+      ]
+    },
+    {
+      "playerId": "1091362981",
+      "name": "Koa Peat",
+      "teamId": 24,
+      "team": "PHX",
+      "gameId": 21717930,
+      "salary": 3700,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644592,
+        32644593,
+        32644594,
+        32644595
+      ],
+      "salaryVariants": [
+        3700
+      ]
+    },
+    {
+      "playerId": "139",
+      "name": "Kris Dunn",
+      "teamId": 13,
+      "team": "LAC",
+      "gameId": 21717931,
+      "salary": 3700,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644596,
+        32644597,
+        32644598
+      ],
+      "salaryVariants": [
+        3700
+      ]
+    },
+    {
+      "playerId": "409",
+      "name": "Dennis Schroder",
+      "teamId": 4,
+      "team": "CHA",
+      "gameId": 21717924,
+      "salary": 3700,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644599,
+        32644600,
+        32644601
+      ],
+      "salaryVariants": [
+        3700
+      ]
+    },
+    {
+      "playerId": "38017728",
+      "name": "Jake LaRavia",
+      "teamId": 14,
+      "team": "LAL",
+      "gameId": 21717859,
+      "salary": 3700,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644602,
+        32644603,
+        32644604
+      ],
+      "salaryVariants": [
+        3700
+      ]
+    },
+    {
+      "playerId": "1057275262",
+      "name": "Nolan Traore",
+      "teamId": 3,
+      "team": "BKN",
+      "gameId": 21717924,
+      "salary": 3700,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644605,
+        32644606,
+        32644607
+      ],
+      "salaryVariants": [
+        3700
+      ]
+    },
+    {
+      "playerId": "1028047928",
+      "name": "Quinten Post",
+      "teamId": 15,
+      "team": "MEM",
+      "gameId": 21717927,
+      "salary": 3700,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644608,
+        32644609
+      ],
+      "salaryVariants": [
+        3700
+      ]
+    },
+    {
+      "playerId": "1091463429",
+      "name": "Ryan Conwell",
+      "teamId": 16,
+      "team": "MIA",
+      "gameId": 21717858,
+      "salary": 3600,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644615,
+        32644616,
+        32644617,
+        32644618
+      ],
+      "salaryVariants": [
+        3600
+      ]
+    },
+    {
+      "playerId": "3547243",
+      "name": "Obi Toppin",
+      "teamId": 12,
+      "team": "IND",
+      "gameId": 21717928,
+      "salary": 3600,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644619,
+        32644620,
+        32644621
+      ],
+      "salaryVariants": [
+        3600
+      ]
+    },
+    {
+      "playerId": "17896078",
+      "name": "Aaron Wiggins",
+      "teamId": 1,
+      "team": "ATL",
+      "gameId": 21717922,
+      "salary": 3600,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644622,
+        32644623,
+        32644624,
+        32644625
+      ],
+      "salaryVariants": [
+        3600
+      ]
+    },
+    {
+      "playerId": "3089",
+      "name": "Gary Trent Jr.",
+      "teamId": 17,
+      "team": "MIL",
+      "gameId": 21717923,
+      "salary": 3600,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644626,
+        32644627,
+        32644628,
+        32644629,
+        32644630
+      ],
+      "salaryVariants": [
+        3600
+      ]
+    },
+    {
+      "playerId": "1028048549",
+      "name": "Cam Spencer",
+      "teamId": 15,
+      "team": "MEM",
+      "gameId": 21717927,
+      "salary": 3600,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644631,
+        32644632,
+        32644633,
+        32644634
+      ],
+      "salaryVariants": [
+        3600
+      ]
+    },
+    {
+      "playerId": "17895854",
+      "name": "Charles Bassey",
+      "teamId": 10,
+      "team": "GSW",
+      "gameId": 21717859,
+      "salary": 3600,
+      "status": "Q",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644635,
+        32644636
+      ],
+      "salaryVariants": [
+        3600
+      ]
+    },
+    {
+      "playerId": "666743",
+      "name": "Terance Mann",
+      "teamId": 3,
+      "team": "BKN",
+      "gameId": 21717924,
+      "salary": 3600,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644637,
+        32644638,
+        32644639,
+        32644640,
+        32644641
+      ],
+      "salaryVariants": [
+        3600
+      ]
+    },
+    {
+      "playerId": "56677828",
+      "name": "Gradey Dick",
+      "teamId": 13,
+      "team": "LAC",
+      "gameId": 21717931,
+      "salary": 3500,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644647,
+        32644648,
+        32644649,
+        32644650,
+        32644651
+      ],
+      "salaryVariants": [
+        3500
+      ]
+    },
+    {
+      "playerId": "351",
+      "name": "Royce O'Neale",
+      "teamId": 4,
+      "team": "CHA",
+      "gameId": 21717924,
+      "salary": 3500,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644652,
+        32644653,
+        32644654,
+        32644655
+      ],
+      "salaryVariants": [
+        3500
+      ]
+    },
+    {
+      "playerId": "38017696",
+      "name": "Nikola Jovic",
+      "teamId": 16,
+      "team": "MIA",
+      "gameId": 21717858,
+      "salary": 3500,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644656,
+        32644657
+      ],
+      "salaryVariants": [
+        3500
+      ]
+    },
+    {
+      "playerId": "666442",
+      "name": "Goga Bitadze",
+      "teamId": 22,
+      "team": "ORL",
+      "gameId": 21717922,
+      "salary": 3500,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644658,
+        32644659
+      ],
+      "salaryVariants": [
+        3500
+      ]
+    },
+    {
+      "playerId": "1057280779",
+      "name": "Danny Wolf",
+      "teamId": 3,
+      "team": "BKN",
+      "gameId": 21717924,
+      "salary": 3500,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644660,
+        32644661,
+        32644662,
+        32644663
+      ],
+      "salaryVariants": [
+        3500
+      ]
+    },
+    {
+      "playerId": "1057395872",
+      "name": "Will Richard",
+      "teamId": 10,
+      "team": "GSW",
+      "gameId": 21717859,
+      "salary": 3500,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644664,
+        32644665,
+        32644666,
+        32644667,
+        32644668
+      ],
+      "salaryVariants": [
+        3500
+      ]
+    },
+    {
+      "playerId": "340",
+      "name": "Larry Nance Jr.",
+      "teamId": 12,
+      "team": "IND",
+      "gameId": 21717928,
+      "salary": 3500,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644669,
+        32644670
+      ],
+      "salaryVariants": [
+        3500
+      ]
+    },
+    {
+      "playerId": "1059753274",
+      "name": "Malachi Smith",
+      "teamId": 28,
+      "team": "TOR",
+      "gameId": 21717926,
+      "salary": 3500,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644671,
+        32644672,
+        32644673,
+        32644674
+      ],
+      "salaryVariants": [
+        3500
+      ]
+    },
+    {
+      "playerId": "1028028501",
+      "name": "Terrence Shannon Jr.",
+      "teamId": 18,
+      "team": "MIN",
+      "gameId": 21717858,
+      "salary": 3400,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644681,
+        32644682,
+        32644683,
+        32644684,
+        32644685
+      ],
+      "salaryVariants": [
+        3400
+      ]
+    },
+    {
+      "playerId": "277",
+      "name": "Caris LeVert",
+      "teamId": 17,
+      "team": "MIL",
+      "gameId": 21717923,
+      "salary": 3400,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644686,
+        32644687,
+        32644688
+      ],
+      "salaryVariants": [
+        3400
+      ]
+    },
+    {
+      "playerId": "19465326",
+      "name": "Jock Landale",
+      "teamId": 1,
+      "team": "ATL",
+      "gameId": 21717922,
+      "salary": 3400,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644689,
+        32644690
+      ],
+      "salaryVariants": [
+        3400
+      ]
+    },
+    {
+      "playerId": "18678058",
+      "name": "Jordan Goodwin",
+      "teamId": 24,
+      "team": "PHX",
+      "gameId": 21717930,
+      "salary": 3400,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644691,
+        32644692,
+        32644693,
+        32644694,
+        32644695
+      ],
+      "salaryVariants": [
+        3400
+      ]
+    },
+    {
+      "playerId": "1057279425",
+      "name": "Drake Powell",
+      "teamId": 3,
+      "team": "BKN",
+      "gameId": 21717924,
+      "salary": 3400,
+      "status": "None",
+      "positions": [
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644696,
+        32644697,
+        32644698
+      ],
+      "salaryVariants": [
+        3400
+      ]
+    },
+    {
+      "playerId": "666923",
+      "name": "Matisse Thybulle",
+      "teamId": 14,
+      "team": "LAL",
+      "gameId": 21717859,
+      "salary": 3400,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644699,
+        32644700,
+        32644701,
+        32644702
+      ],
+      "salaryVariants": [
+        3400
+      ]
+    },
+    {
+      "playerId": "666848",
+      "name": "Jordan Poole",
+      "teamId": 19,
+      "team": "NOP",
+      "gameId": 21717928,
+      "salary": 3400,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644703,
+        32644704,
+        32644705
+      ],
+      "salaryVariants": [
+        3400
+      ]
+    },
+    {
+      "playerId": "38017739",
+      "name": "Simone Fontecchio",
+      "teamId": 16,
+      "team": "MIA",
+      "gameId": 21717858,
+      "salary": 3400,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644706,
+        32644707,
+        32644708,
+        32644709
+      ],
+      "salaryVariants": [
+        3400
+      ]
+    },
+    {
+      "playerId": "1091353537",
+      "name": "Dailyn Swain",
+      "teamId": 5,
+      "team": "CHI",
+      "gameId": 21717926,
+      "salary": 3400,
+      "status": "Q",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644710,
+        32644711,
+        32644712,
+        32644713
+      ],
+      "salaryVariants": [
+        3400
+      ]
+    },
+    {
+      "playerId": "338",
+      "name": "Svi Mykhailiuk",
+      "teamId": 29,
+      "team": "UTA",
+      "gameId": 21717927,
+      "salary": 3400,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644714,
+        32644715,
+        32644716,
+        32644717,
+        32644718
+      ],
+      "salaryVariants": [
+        3400
+      ]
+    },
+    {
+      "playerId": "53",
+      "name": "Bogdan Bogdanovic",
+      "teamId": 11,
+      "team": "HOU",
+      "gameId": 21717929,
+      "salary": 3400,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644719,
+        32644720,
+        32644721,
+        32644722,
+        32644723
+      ],
+      "salaryVariants": [
+        3400
+      ]
+    },
+    {
+      "playerId": "1091361855",
+      "name": "Alex Karaban",
+      "teamId": 26,
+      "team": "SAC",
+      "gameId": 21717931,
+      "salary": 3400,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644724,
+        32644725,
+        32644726,
+        32644727
+      ],
+      "salaryVariants": [
+        3400
+      ]
+    },
+    {
+      "playerId": "158",
+      "name": "Dorian Finney-Smith",
+      "teamId": 1,
+      "team": "ATL",
+      "gameId": 21717922,
+      "salary": 3400,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644728,
+        32644729,
+        32644730,
+        32644731
+      ],
+      "salaryVariants": [
+        3400
+      ]
+    },
+    {
+      "playerId": "1091340263",
+      "name": "Kingston Flemings",
+      "teamId": 1,
+      "team": "ATL",
+      "gameId": 21717922,
+      "salary": 3300,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644737,
+        32644738,
+        32644739
+      ],
+      "salaryVariants": [
+        3300
+      ]
+    },
+    {
+      "playerId": "462",
+      "name": "Moritz Wagner",
+      "teamId": 3,
+      "team": "BKN",
+      "gameId": 21717924,
+      "salary": 3300,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644740,
+        32644741
+      ],
+      "salaryVariants": [
+        3300
+      ]
+    },
+    {
+      "playerId": "1057384156",
+      "name": "Sion James",
+      "teamId": 4,
+      "team": "CHA",
+      "gameId": 21717924,
+      "salary": 3300,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644742,
+        32644743,
+        32644744,
+        32644745,
+        32644746
+      ],
+      "salaryVariants": [
+        3300
+      ]
+    },
+    {
+      "playerId": "56677859",
+      "name": "Olivier-Maxence Prosper",
+      "teamId": 15,
+      "team": "MEM",
+      "gameId": 21717927,
+      "salary": 3300,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644747,
+        32644748
+      ],
+      "salaryVariants": [
+        3300
+      ]
+    },
+    {
+      "playerId": "17896027",
+      "name": "Ziaire Williams",
+      "teamId": 14,
+      "team": "LAL",
+      "gameId": 21717859,
+      "salary": 3300,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644749,
+        32644750,
+        32644751,
+        32644752,
+        32644753
+      ],
+      "salaryVariants": [
+        3300
+      ]
+    },
+    {
+      "playerId": "56677861",
+      "name": "Ben Sheppard",
+      "teamId": 12,
+      "team": "IND",
+      "gameId": 21717928,
+      "salary": 3300,
+      "status": "None",
+      "positions": [
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644754,
+        32644755,
+        32644756
+      ],
+      "salaryVariants": [
+        3300
+      ]
+    },
+    {
+      "playerId": "356",
+      "name": "Josh Okogie",
+      "teamId": 29,
+      "team": "UTA",
+      "gameId": 21717927,
+      "salary": 3300,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644757,
+        32644758,
+        32644759,
+        32644760,
+        32644761
+      ],
+      "salaryVariants": [
+        3300
+      ]
+    },
+    {
+      "playerId": "1028245777",
+      "name": "Karlo Matkovic",
+      "teamId": 19,
+      "team": "NOP",
+      "gameId": 21717928,
+      "salary": 3300,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644762,
+        32644763,
+        32644764,
+        32644765
+      ],
+      "salaryVariants": [
+        3300
+      ]
+    },
+    {
+      "playerId": "56677817",
+      "name": "Sidy Cissoko",
+      "teamId": 25,
+      "team": "POR",
+      "gameId": 21717930,
+      "salary": 3300,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644766,
+        32644767,
+        32644768,
+        32644769
+      ],
+      "salaryVariants": [
+        3300
+      ]
+    },
+    {
+      "playerId": "1057845382",
+      "name": "Moussa Cisse",
+      "teamId": 7,
+      "team": "DAL",
+      "gameId": 21717929,
+      "salary": 3300,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644770,
+        32644771
+      ],
+      "salaryVariants": [
+        3300
+      ]
+    },
+    {
+      "playerId": "1057272081",
+      "name": "Noa Essengue",
+      "teamId": 5,
+      "team": "CHI",
+      "gameId": 21717926,
+      "salary": 3300,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644774,
+        32644775,
+        32644776
+      ],
+      "salaryVariants": [
+        3300
+      ]
+    },
+    {
+      "playerId": "83",
+      "name": "Clint Capela",
+      "teamId": 11,
+      "team": "HOU",
+      "gameId": 21717929,
+      "salary": 3300,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644777,
+        32644778
+      ],
+      "salaryVariants": [
+        3300
+      ]
+    },
+    {
+      "playerId": "1028243201",
+      "name": "Jamison Battle",
+      "teamId": 28,
+      "team": "TOR",
+      "gameId": 21717926,
+      "salary": 3300,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644779,
+        32644780,
+        32644781
+      ],
+      "salaryVariants": [
+        3300
+      ]
+    },
+    {
+      "playerId": "56677792",
+      "name": "Marcus Sasser",
+      "teamId": 7,
+      "team": "DAL",
+      "gameId": 21717929,
+      "salary": 3200,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644782,
+        32644783,
+        32644784,
+        32644785
+      ],
+      "salaryVariants": [
+        3200
+      ]
+    },
+    {
+      "playerId": "38017714",
+      "name": "Keon Ellis",
+      "teamId": 3,
+      "team": "BKN",
+      "gameId": 21717924,
+      "salary": 3200,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644786,
+        32644787,
+        32644788,
+        32644789,
+        32644790
+      ],
+      "salaryVariants": [
+        3200
+      ]
+    },
+    {
+      "playerId": "282",
+      "name": "Kevon Looney",
+      "teamId": 14,
+      "team": "LAL",
+      "gameId": 21717859,
+      "salary": 3200,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644791,
+        32644792
+      ],
+      "salaryVariants": [
+        3200
+      ]
+    },
+    {
+      "playerId": "12",
+      "name": "Kyle Anderson",
+      "teamId": 28,
+      "team": "TOR",
+      "gameId": 21717926,
+      "salary": 3200,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644793,
+        32644794,
+        32644795
+      ],
+      "salaryVariants": [
+        3200
+      ]
+    },
+    {
+      "playerId": "3547247",
+      "name": "Isaac Okoro",
+      "teamId": 5,
+      "team": "CHI",
+      "gameId": 21717926,
+      "salary": 3200,
+      "status": "Q",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644796,
+        32644797,
+        32644798,
+        32644799,
+        32644800
+      ],
+      "salaryVariants": [
+        3200
+      ]
+    },
+    {
+      "playerId": "3547248",
+      "name": "Patrick Williams",
+      "teamId": 5,
+      "team": "CHI",
+      "gameId": 21717926,
+      "salary": 3200,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644801,
+        32644802,
+        32644803
+      ],
+      "salaryVariants": [
+        3200
+      ]
+    },
+    {
+      "playerId": "56677824",
+      "name": "Taylor Hendricks",
+      "teamId": 15,
+      "team": "MEM",
+      "gameId": 21717927,
+      "salary": 3200,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644804,
+        32644805,
+        32644806,
+        32644807
+      ],
+      "salaryVariants": [
+        3200
+      ]
+    },
+    {
+      "playerId": "4197387",
+      "name": "Vit Krejci",
+      "teamId": 25,
+      "team": "POR",
+      "gameId": 21717930,
+      "salary": 3200,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644808,
+        32644809,
+        32644810
+      ],
+      "salaryVariants": [
+        3200
+      ]
+    },
+    {
+      "playerId": "457",
+      "name": "Jarred Vanderbilt",
+      "teamId": 14,
+      "team": "LAL",
+      "gameId": 21717859,
+      "salary": 3100,
+      "status": "Q",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644811,
+        32644812,
+        32644813
+      ],
+      "salaryVariants": [
+        3100
+      ]
+    },
+    {
+      "playerId": "1057279760",
+      "name": "Ben Saraf",
+      "teamId": 3,
+      "team": "BKN",
+      "gameId": 21717924,
+      "salary": 3100,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644814,
+        32644815,
+        32644816
+      ],
+      "salaryVariants": [
+        3100
+      ]
+    },
+    {
+      "playerId": "1057396260",
+      "name": "Javon Small",
+      "teamId": 15,
+      "team": "MEM",
+      "gameId": 21717927,
+      "salary": 3100,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644817,
+        32644818,
+        32644819,
+        32644820
+      ],
+      "salaryVariants": [
+        3100
+      ]
+    },
+    {
+      "playerId": "1091350801",
+      "name": "Allen Graves",
+      "teamId": 28,
+      "team": "TOR",
+      "gameId": 21717926,
+      "salary": 3100,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644821,
+        32644822,
+        32644823,
+        32644824
+      ],
+      "salaryVariants": [
+        3100
+      ]
+    },
+    {
+      "playerId": "38017734",
+      "name": "Jamal Cain",
+      "teamId": 22,
+      "team": "ORL",
+      "gameId": 21717922,
+      "salary": 3100,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644825,
+        32644826,
+        32644827,
+        32644828,
+        32644829
+      ],
+      "salaryVariants": [
+        3100
+      ]
+    },
+    {
+      "playerId": "1028029291",
+      "name": "Cody Williams",
+      "teamId": 18,
+      "team": "MIN",
+      "gameId": 21717858,
+      "salary": 3100,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644830,
+        32644831,
+        32644832,
+        32644833
+      ],
+      "salaryVariants": [
+        3100
+      ]
+    },
+    {
+      "playerId": "1091349204",
+      "name": "Christian Anderson",
+      "teamId": 4,
+      "team": "CHA",
+      "gameId": 21717924,
+      "salary": 3100,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644834,
+        32644835,
+        32644836
+      ],
+      "salaryVariants": [
+        3100
+      ]
+    },
+    {
+      "playerId": "1091907371",
+      "name": "Jaylin Sellers",
+      "teamId": 5,
+      "team": "CHI",
+      "gameId": 21717926,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644837,
+        32644838,
+        32644839
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1028265620",
+      "name": "Malevy Leons",
+      "teamId": 10,
+      "team": "GSW",
+      "gameId": 21717859,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644840,
+        32644841,
+        32644842,
+        32644843
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1091463885",
+      "name": "Isaiah Evans",
+      "teamId": 18,
+      "team": "MIN",
+      "gameId": 21717858,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644844,
+        32644845,
+        32644846,
+        32644847
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "56677857",
+      "name": "Julian Phillips",
+      "teamId": 11,
+      "team": "HOU",
+      "gameId": 21717929,
+      "salary": 3000,
+      "status": "Q",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644848,
+        32644849,
+        32644850,
+        32644851
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1091361657",
+      "name": "Joshua Jefferson",
+      "teamId": 3,
+      "team": "BKN",
+      "gameId": 21717924,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644855,
+        32644856,
+        32644857
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1059875475",
+      "name": "Grant Nelson",
+      "teamId": 3,
+      "team": "BKN",
+      "gameId": 21717924,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644858,
+        32644859
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "56677866",
+      "name": "Leaky Black",
+      "teamId": 26,
+      "team": "SAC",
+      "gameId": 21717931,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644862,
+        32644863,
+        32644864
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "17896063",
+      "name": "Jericho Sims",
+      "teamId": 17,
+      "team": "MIL",
+      "gameId": 21717923,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644865,
+        32644866
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "44477085",
+      "name": "Quenton Jackson",
+      "teamId": 12,
+      "team": "IND",
+      "gameId": 21717928,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644867,
+        32644868,
+        32644869,
+        32644870
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "38017715",
+      "name": "Josh Minott",
+      "teamId": 3,
+      "team": "BKN",
+      "gameId": 21717924,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644871,
+        32644872,
+        32644873
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1091351869",
+      "name": "Karim Lopez",
+      "teamId": 15,
+      "team": "MEM",
+      "gameId": 21717927,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644880,
+        32644881,
+        32644882
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1028112004",
+      "name": "Zyon Pullin",
+      "teamId": 18,
+      "team": "MIN",
+      "gameId": 21717858,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644886,
+        32644887,
+        32644888
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1028246478",
+      "name": "Daeqwon Plowden",
+      "teamId": 26,
+      "team": "SAC",
+      "gameId": 21717931,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644889,
+        32644890,
+        32644891,
+        32644892,
+        32644893
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "3547302",
+      "name": "Anthony Gill",
+      "teamId": 30,
+      "team": "WAS",
+      "gameId": 21717923,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644894,
+        32644895,
+        32644896,
+        32644897
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "290",
+      "name": "Trey Lyles",
+      "teamId": 18,
+      "team": "MIN",
+      "gameId": 21717858,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644898,
+        32644899,
+        32644900
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1028271147",
+      "name": "Alex Morales",
+      "teamId": 22,
+      "team": "ORL",
+      "gameId": 21717922,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644901,
+        32644902,
+        32644903
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1057847504",
+      "name": "Chris Manon",
+      "teamId": 14,
+      "team": "LAL",
+      "gameId": 21717859,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644904,
+        32644905,
+        32644906
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1091465991",
+      "name": "Felix Okpara",
+      "teamId": 30,
+      "team": "WAS",
+      "gameId": 21717923,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644907,
+        32644908
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1091475805",
+      "name": "Nick Martinelli",
+      "teamId": 13,
+      "team": "LAC",
+      "gameId": 21717931,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644912,
+        32644913,
+        32644914,
+        32644915
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1091350401",
+      "name": "Zuby Ejiofor",
+      "teamId": 1,
+      "team": "ATL",
+      "gameId": 21717922,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644916,
+        32644917,
+        32644918,
+        32644919
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "56783340",
+      "name": "Duop Reath",
+      "teamId": 24,
+      "team": "PHX",
+      "gameId": 21717930,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644920,
+        32644921
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1060111739",
+      "name": "Julian Reese",
+      "teamId": 19,
+      "team": "NOP",
+      "gameId": 21717928,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644922,
+        32644923,
+        32644924
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1057394959",
+      "name": "Jahmai Mashack",
+      "teamId": 15,
+      "team": "MEM",
+      "gameId": 21717927,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644925,
+        32644926,
+        32644927,
+        32644928
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "56677862",
+      "name": "Jalen Slawson",
+      "teamId": 12,
+      "team": "IND",
+      "gameId": 21717928,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644929,
+        32644930,
+        32644931,
+        32644932
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "56677778",
+      "name": "Oscar Tshiebwe",
+      "teamId": 11,
+      "team": "HOU",
+      "gameId": 21717929,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644933,
+        32644934
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "56677849",
+      "name": "Kobe Brown",
+      "teamId": 12,
+      "team": "IND",
+      "gameId": 21717928,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644935,
+        32644936,
+        32644937,
+        32644938
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "19465584",
+      "name": "Micah Potter",
+      "teamId": 25,
+      "team": "POR",
+      "gameId": 21717930,
+      "salary": 3000,
+      "status": "Q",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644943,
+        32644944,
+        32644945,
+        32644946
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "56677722",
+      "name": "Jalen Wilson",
+      "teamId": 1,
+      "team": "ATL",
+      "gameId": 21717922,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644947,
+        32644948,
+        32644949
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1057389374",
+      "name": "Kam Jones",
+      "teamId": 17,
+      "team": "MIL",
+      "gameId": 21717923,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644950,
+        32644951,
+        32644952
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1028266882",
+      "name": "Cormac Ryan",
+      "teamId": 17,
+      "team": "MIL",
+      "gameId": 21717923,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644953,
+        32644954,
+        32644955
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1028218679",
+      "name": "Branden Carlson",
+      "teamId": 25,
+      "team": "POR",
+      "gameId": 21717930,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644959,
+        32644960
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1057846840",
+      "name": "Chaney Johnson",
+      "teamId": 3,
+      "team": "BKN",
+      "gameId": 21717924,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644961,
+        32644962
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "38017679",
+      "name": "Jaden Hardy",
+      "teamId": 14,
+      "team": "LAL",
+      "gameId": 21717859,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644963,
+        32644964,
+        32644965
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "250",
+      "name": "DeAndre Jordan",
+      "teamId": 19,
+      "team": "NOP",
+      "gameId": 21717928,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644966,
+        32644967
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1028028379",
+      "name": "Tidjane Salaun",
+      "teamId": 4,
+      "team": "CHA",
+      "gameId": 21717924,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644968,
+        32644969,
+        32644970
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1057394921",
+      "name": "Bogoljub Markovic",
+      "teamId": 17,
+      "team": "MIL",
+      "gameId": 21717923,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644971,
+        32644972,
+        32644973,
+        32644974
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1057386376",
+      "name": "Adou Thiero",
+      "teamId": 14,
+      "team": "LAL",
+      "gameId": 21717859,
+      "salary": 3000,
+      "status": "Q",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644975,
+        32644976,
+        32644977,
+        32644978
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "38017708",
+      "name": "Bryce McGowens",
+      "teamId": 19,
+      "team": "NOP",
+      "gameId": 21717928,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644979,
+        32644980,
+        32644981
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "56677738",
+      "name": "Colin Castleton",
+      "teamId": 22,
+      "team": "ORL",
+      "gameId": 21717922,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32644982,
+        32644983
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "87",
+      "name": "Jevon Carter",
+      "teamId": 22,
+      "team": "ORL",
+      "gameId": 21717922,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644984,
+        32644985,
+        32644986
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1057279571",
+      "name": "Jase Richardson",
+      "teamId": 22,
+      "team": "ORL",
+      "gameId": 21717922,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644987,
+        32644988,
+        32644989,
+        32644990
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1091906694",
+      "name": "AK Okereke",
+      "teamId": 14,
+      "team": "LAL",
+      "gameId": 21717859,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32644991,
+        32644992,
+        32644993
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1028046517",
+      "name": "Bronny James",
+      "teamId": 14,
+      "team": "LAL",
+      "gameId": 21717859,
+      "salary": 3000,
+      "status": "Q",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644994,
+        32644995,
+        32644996
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "17896036",
+      "name": "Tre Mann",
+      "teamId": 30,
+      "team": "WAS",
+      "gameId": 21717923,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32644997,
+        32644998,
+        32644999
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1028203324",
+      "name": "Reece Beekman",
+      "teamId": 30,
+      "team": "WAS",
+      "gameId": 21717923,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32645000,
+        32645001,
+        32645002
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "3547301",
+      "name": "Jae'Sean Tate",
+      "teamId": 11,
+      "team": "HOU",
+      "gameId": 21717929,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32645003,
+        32645004,
+        32645005,
+        32645006
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1028203948",
+      "name": "Isaiah Crawford",
+      "teamId": 11,
+      "team": "HOU",
+      "gameId": 21717929,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32645007,
+        32645008,
+        32645009,
+        32645010
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1091467104",
+      "name": "Bruce Thornton",
+      "teamId": 11,
+      "team": "HOU",
+      "gameId": 21717929,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32645011,
+        32645012,
+        32645013
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1057396603",
+      "name": "John Tonje",
+      "teamId": 25,
+      "team": "POR",
+      "gameId": 21717930,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32645014,
+        32645015,
+        32645016
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1076658911",
+      "name": "Jayson Kent",
+      "teamId": 25,
+      "team": "POR",
+      "gameId": 21717930,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32645017,
+        32645018,
+        32645019
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1057849685",
+      "name": "Chris Youngblood",
+      "teamId": 25,
+      "team": "POR",
+      "gameId": 21717930,
+      "salary": 3000,
+      "status": "Q",
+      "positions": [
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32645020,
+        32645021,
+        32645022
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "17896058",
+      "name": "Trendon Watford",
+      "teamId": 19,
+      "team": "NOP",
+      "gameId": 21717928,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32645023,
+        32645024,
+        32645025
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1091481720",
+      "name": "Jaron Pierre Jr.",
+      "teamId": 19,
+      "team": "NOP",
+      "gameId": 21717928,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32645026,
+        32645027,
+        32645028,
+        32645029,
+        32645030
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1028125584",
+      "name": "Keshad Johnson",
+      "teamId": 16,
+      "team": "MIA",
+      "gameId": 21717858,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32645031,
+        32645032,
+        32645033
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1091904403",
+      "name": "Tre Donaldson",
+      "teamId": 16,
+      "team": "MIA",
+      "gameId": 21717858,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32645034,
+        32645035,
+        32645036
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1057846206",
+      "name": "Vladislav Goldin",
+      "teamId": 16,
+      "team": "MIA",
+      "gameId": 21717858,
+      "salary": 3000,
+      "status": "Q",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32645037,
+        32645038
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1057846109",
+      "name": "Myron Gardner",
+      "teamId": 16,
+      "team": "MIA",
+      "gameId": 21717858,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32645039,
+        32645040,
+        32645041,
+        32645042,
+        32645043
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "56677791",
+      "name": "Kris Murray",
+      "teamId": 15,
+      "team": "MEM",
+      "gameId": 21717927,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32645044,
+        32645045,
+        32645046
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1098740501",
+      "name": "Carson Cooper",
+      "teamId": 15,
+      "team": "MEM",
+      "gameId": 21717927,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32645047,
+        32645048
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1091465658",
+      "name": "Baba Miller",
+      "teamId": 13,
+      "team": "LAC",
+      "gameId": 21717931,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32645052,
+        32645053,
+        32645054,
+        32645055
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1092116264",
+      "name": "Michael Ajayi",
+      "teamId": 4,
+      "team": "CHA",
+      "gameId": 21717924,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32645056,
+        32645057,
+        32645058
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1057278805",
+      "name": "Liam McNeeley",
+      "teamId": 4,
+      "team": "CHA",
+      "gameId": 21717924,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SG",
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339297",
+        "339301",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32645059,
+        32645060,
+        32645061,
+        32645062,
+        32645063
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1028244692",
+      "name": "PJ Hall",
+      "teamId": 4,
+      "team": "CHA",
+      "gameId": 21717924,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32645064,
+        32645065
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1057279093",
+      "name": "Asa Newell",
+      "teamId": 1,
+      "team": "ATL",
+      "gameId": 21717922,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32645066,
+        32645067,
+        32645068,
+        32645069
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1028274126",
+      "name": "RayJ Dennis",
+      "teamId": 1,
+      "team": "ATL",
+      "gameId": 21717922,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32645070,
+        32645071,
+        32645072
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1057846172",
+      "name": "Keshon Gilbert",
+      "teamId": 1,
+      "team": "ATL",
+      "gameId": 21717922,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32645073,
+        32645074,
+        32645075,
+        32645076
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "56677837",
+      "name": "Jordan Hawkins",
+      "teamId": 5,
+      "team": "CHI",
+      "gameId": 21717926,
+      "salary": 3000,
+      "status": "Q",
+      "positions": [
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32645083,
+        32645084,
+        32645085
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "210",
+      "name": "Buddy Hield",
+      "teamId": 5,
+      "team": "CHI",
+      "gameId": 21717926,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32645086,
+        32645087,
+        32645088
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1091903404",
+      "name": "Tobe Awaka",
+      "teamId": 5,
+      "team": "CHI",
+      "gameId": 21717926,
+      "salary": 3000,
+      "status": "Q",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32645089,
+        32645090
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1091465199",
+      "name": "Tobi Lawal",
+      "teamId": 7,
+      "team": "DAL",
+      "gameId": 21717929,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32645097,
+        32645098,
+        32645099
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "56677839",
+      "name": "Jett Howard",
+      "teamId": 7,
+      "team": "DAL",
+      "gameId": 21717929,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32645100,
+        32645101,
+        32645102
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "44477062",
+      "name": "Jamaree Bouyea",
+      "teamId": 24,
+      "team": "PHX",
+      "gameId": 21717930,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32645103,
+        32645104,
+        32645105
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "795959473",
+      "name": "Pat Spencer",
+      "teamId": 24,
+      "team": "PHX",
+      "gameId": 21717930,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32645106,
+        32645107,
+        32645108,
+        32645109
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1057383369",
+      "name": "Rasheer Fleming",
+      "teamId": 24,
+      "team": "PHX",
+      "gameId": 21717930,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SF",
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32645110,
+        32645111,
+        32645112,
+        32645113
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1091466792",
+      "name": "Braden Smith",
+      "teamId": 12,
+      "team": "IND",
+      "gameId": 21717928,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32645114,
+        32645115,
+        32645116
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "56677851",
+      "name": "Jaylen Clark",
+      "teamId": 18,
+      "team": "MIN",
+      "gameId": 21717858,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32645122,
+        32645123,
+        32645124
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1046672580",
+      "name": "Drew Timme",
+      "teamId": 24,
+      "team": "PHX",
+      "gameId": 21717930,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32645125,
+        32645126
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1057397172",
+      "name": "Rocco Zikarsky",
+      "teamId": 18,
+      "team": "MIN",
+      "gameId": 21717858,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32645127,
+        32645128
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "3547258",
+      "name": "Josh Green",
+      "teamId": 29,
+      "team": "UTA",
+      "gameId": 21717927,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32645129,
+        32645130,
+        32645131
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "28",
+      "name": "Mo Bamba",
+      "teamId": 29,
+      "team": "UTA",
+      "gameId": 21717927,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32645132,
+        32645133
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1028046464",
+      "name": "Harrison Ingram",
+      "teamId": 29,
+      "team": "UTA",
+      "gameId": 21717927,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SF"
+      ],
+      "rosterSlotIds": [
+        "339297",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32645134,
+        32645135,
+        32645136
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1028037494",
+      "name": "Jonathan Mogbo",
+      "teamId": 26,
+      "team": "SAC",
+      "gameId": 21717931,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32645139,
+        32645140
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1091466685",
+      "name": "Emanuel Sharp",
+      "teamId": 26,
+      "team": "SAC",
+      "gameId": 21717931,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32645141,
+        32645142,
+        32645143
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1097894227",
+      "name": "Graham Ike",
+      "teamId": 10,
+      "team": "GSW",
+      "gameId": 21717859,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339299",
+        "339302"
+      ],
+      "draftableIds": [
+        32645144,
+        32645145
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1092732494",
+      "name": "Arthur Kaluma",
+      "teamId": 14,
+      "team": "LAL",
+      "gameId": 21717859,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PF"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32645146,
+        32645147,
+        32645148
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1092195008",
+      "name": "Quadir Copeland",
+      "teamId": 11,
+      "team": "HOU",
+      "gameId": 21717929,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32645149,
+        32645150,
+        32645151
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1094002723",
+      "name": "Malik Dia",
+      "teamId": 19,
+      "team": "NOP",
+      "gameId": 21717928,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PF",
+        "C"
+      ],
+      "rosterSlotIds": [
+        "339298",
+        "339299",
+        "339300",
+        "339302"
+      ],
+      "draftableIds": [
+        32645152,
+        32645153,
+        32645154,
+        32645155
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1028035215",
+      "name": "Cam Christie",
+      "teamId": 13,
+      "team": "LAC",
+      "gameId": 21717931,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32645159,
+        32645160,
+        32645161
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "56677582",
+      "name": "Jalen Pickett",
+      "teamId": 13,
+      "team": "LAC",
+      "gameId": 21717931,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32645162,
+        32645163,
+        32645164
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1091463018",
+      "name": "Jaden Bradley",
+      "teamId": 28,
+      "team": "TOR",
+      "gameId": 21717926,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "PG",
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339295",
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32645168,
+        32645169,
+        32645170,
+        32645171
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    },
+    {
+      "playerId": "1057389862",
+      "name": "Alijah Martin",
+      "teamId": 28,
+      "team": "TOR",
+      "gameId": 21717926,
+      "salary": 3000,
+      "status": "None",
+      "positions": [
+        "SG"
+      ],
+      "rosterSlotIds": [
+        "339296",
+        "339301",
+        "339302"
+      ],
+      "draftableIds": [
+        32645172,
+        32645173,
+        32645174
+      ],
+      "salaryVariants": [
+        3000
+      ]
+    }
+  ],
+  "excluded": [
+    {
+      "draftableId": 32644041,
+      "playerId": 1057263194,
+      "name": "Kon Knueppel",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644042,
+      "playerId": 1057263194,
+      "name": "Kon Knueppel",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644043,
+      "playerId": 1057263194,
+      "name": "Kon Knueppel",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644053,
+      "playerId": 1091340077,
+      "name": "AJ Dybantsa",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644054,
+      "playerId": 1091340077,
+      "name": "AJ Dybantsa",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644055,
+      "playerId": 1091340077,
+      "name": "AJ Dybantsa",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644132,
+      "playerId": 666956,
+      "name": "Coby White",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644133,
+      "playerId": 666956,
+      "name": "Coby White",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644134,
+      "playerId": 666956,
+      "name": "Coby White",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644135,
+      "playerId": 666956,
+      "name": "Coby White",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644140,
+      "playerId": 79,
+      "name": "Jimmy Butler",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644141,
+      "playerId": 79,
+      "name": "Jimmy Butler",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644142,
+      "playerId": 79,
+      "name": "Jimmy Butler",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644153,
+      "playerId": 349,
+      "name": "Jusuf Nurkic",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644154,
+      "playerId": 349,
+      "name": "Jusuf Nurkic",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644155,
+      "playerId": null,
+      "name": "Nic Claxton",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644156,
+      "playerId": null,
+      "name": "Nic Claxton",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644198,
+      "playerId": null,
+      "name": "Ace Bailey",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644199,
+      "playerId": null,
+      "name": "Ace Bailey",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644200,
+      "playerId": null,
+      "name": "Ace Bailey",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644201,
+      "playerId": null,
+      "name": "Ace Bailey",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644202,
+      "playerId": null,
+      "name": "Ace Bailey",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644203,
+      "playerId": 227,
+      "name": "Brandon Ingram",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644204,
+      "playerId": 227,
+      "name": "Brandon Ingram",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644205,
+      "playerId": 227,
+      "name": "Brandon Ingram",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644231,
+      "playerId": 1057390745,
+      "name": "Maxime Raynaud",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644232,
+      "playerId": 1057390745,
+      "name": "Maxime Raynaud",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644237,
+      "playerId": 56677827,
+      "name": "Anthony Black",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644238,
+      "playerId": 56677827,
+      "name": "Anthony Black",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644239,
+      "playerId": 56677827,
+      "name": "Anthony Black",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644240,
+      "playerId": 56677827,
+      "name": "Anthony Black",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644254,
+      "playerId": null,
+      "name": "PJ Washington",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644255,
+      "playerId": null,
+      "name": "PJ Washington",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644256,
+      "playerId": null,
+      "name": "PJ Washington",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644300,
+      "playerId": 378,
+      "name": "Kristaps Porzingis",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644301,
+      "playerId": 378,
+      "name": "Kristaps Porzingis",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644306,
+      "playerId": 3547250,
+      "name": "Aaron Nesmith",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644307,
+      "playerId": 3547250,
+      "name": "Aaron Nesmith",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644308,
+      "playerId": 3547250,
+      "name": "Aaron Nesmith",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644384,
+      "playerId": 17896067,
+      "name": "Santi Aldama",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644385,
+      "playerId": 17896067,
+      "name": "Santi Aldama",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644386,
+      "playerId": 17896067,
+      "name": "Santi Aldama",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644387,
+      "playerId": 17896067,
+      "name": "Santi Aldama",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644394,
+      "playerId": 38017698,
+      "name": "Mark Williams",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644395,
+      "playerId": 38017698,
+      "name": "Mark Williams",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644434,
+      "playerId": 131,
+      "name": "Donte DiVincenzo",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644435,
+      "playerId": 131,
+      "name": "Donte DiVincenzo",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644436,
+      "playerId": 131,
+      "name": "Donte DiVincenzo",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644441,
+      "playerId": 304,
+      "name": "T.J. McConnell",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644442,
+      "playerId": 304,
+      "name": "T.J. McConnell",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644443,
+      "playerId": 304,
+      "name": "T.J. McConnell",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644448,
+      "playerId": 56677840,
+      "name": "Dereck Lively II",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644449,
+      "playerId": 56677840,
+      "name": "Dereck Lively II",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644483,
+      "playerId": 37,
+      "name": "Bradley Beal",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644484,
+      "playerId": 37,
+      "name": "Bradley Beal",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644485,
+      "playerId": 37,
+      "name": "Bradley Beal",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644486,
+      "playerId": 37,
+      "name": "Bradley Beal",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644499,
+      "playerId": null,
+      "name": "Bub Carrington",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644500,
+      "playerId": null,
+      "name": "Bub Carrington",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644501,
+      "playerId": null,
+      "name": "Bub Carrington",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644502,
+      "playerId": null,
+      "name": "Bub Carrington",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644506,
+      "playerId": null,
+      "name": "Georges Niang",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644507,
+      "playerId": null,
+      "name": "Georges Niang",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644508,
+      "playerId": null,
+      "name": "Georges Niang",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644509,
+      "playerId": null,
+      "name": "Bones Hyland",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644510,
+      "playerId": null,
+      "name": "Bones Hyland",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644511,
+      "playerId": null,
+      "name": "Bones Hyland",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644527,
+      "playerId": 1057845274,
+      "name": "Dylan Cardwell",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644528,
+      "playerId": 1057845274,
+      "name": "Dylan Cardwell",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644529,
+      "playerId": 1057845274,
+      "name": "Dylan Cardwell",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644530,
+      "playerId": 1057845274,
+      "name": "Dylan Cardwell",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644554,
+      "playerId": null,
+      "name": "Brandon Williams",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644555,
+      "playerId": null,
+      "name": "Brandon Williams",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644556,
+      "playerId": null,
+      "name": "Brandon Williams",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644576,
+      "playerId": null,
+      "name": "Gregory Jackson",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644577,
+      "playerId": null,
+      "name": "Gregory Jackson",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644578,
+      "playerId": null,
+      "name": "Gregory Jackson",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644579,
+      "playerId": null,
+      "name": "Gregory Jackson",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644585,
+      "playerId": 666908,
+      "name": "Max Strus",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644586,
+      "playerId": 666908,
+      "name": "Max Strus",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644587,
+      "playerId": 666908,
+      "name": "Max Strus",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644588,
+      "playerId": 1016384149,
+      "name": "Tristan Vukcevic",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644589,
+      "playerId": 1016384149,
+      "name": "Tristan Vukcevic",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644610,
+      "playerId": 38017690,
+      "name": "Shaedon Sharpe",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644611,
+      "playerId": 38017690,
+      "name": "Shaedon Sharpe",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644612,
+      "playerId": 38017690,
+      "name": "Shaedon Sharpe",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644613,
+      "playerId": 38017690,
+      "name": "Shaedon Sharpe",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644614,
+      "playerId": 38017690,
+      "name": "Shaedon Sharpe",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644642,
+      "playerId": 1057279105,
+      "name": "Yanic Konan Niederhauser",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644643,
+      "playerId": 1057279105,
+      "name": "Yanic Konan Niederhauser",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644644,
+      "playerId": 1057385481,
+      "name": "Noah Penda",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644645,
+      "playerId": 1057385481,
+      "name": "Noah Penda",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644646,
+      "playerId": 1057385481,
+      "name": "Noah Penda",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644675,
+      "playerId": 666965,
+      "name": "Grant Williams",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644676,
+      "playerId": 666965,
+      "name": "Grant Williams",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644677,
+      "playerId": 666965,
+      "name": "Grant Williams",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644678,
+      "playerId": 666747,
+      "name": "Caleb Martin",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644679,
+      "playerId": 666747,
+      "name": "Caleb Martin",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644680,
+      "playerId": 666747,
+      "name": "Caleb Martin",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644732,
+      "playerId": null,
+      "name": "AJ Green",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644733,
+      "playerId": null,
+      "name": "AJ Green",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644734,
+      "playerId": null,
+      "name": "AJ Green",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644735,
+      "playerId": null,
+      "name": "AJ Green",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644736,
+      "playerId": null,
+      "name": "AJ Green",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644772,
+      "playerId": null,
+      "name": "Yang Hansen",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644773,
+      "playerId": null,
+      "name": "Yang Hansen",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644852,
+      "playerId": 1057391756,
+      "name": "Jamir Watkins",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644853,
+      "playerId": 1057391756,
+      "name": "Jamir Watkins",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644854,
+      "playerId": 1057391756,
+      "name": "Jamir Watkins",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644860,
+      "playerId": 1091465870,
+      "name": "Izaiyah Nelson",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644861,
+      "playerId": 1091465870,
+      "name": "Izaiyah Nelson",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644874,
+      "playerId": 1091462892,
+      "name": "Tyler Bilodeau",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644875,
+      "playerId": 1091462892,
+      "name": "Tyler Bilodeau",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644876,
+      "playerId": 1091462892,
+      "name": "Tyler Bilodeau",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644877,
+      "playerId": 229,
+      "name": "Jonathan Isaac",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644878,
+      "playerId": 229,
+      "name": "Jonathan Isaac",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644879,
+      "playerId": 229,
+      "name": "Jonathan Isaac",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644883,
+      "playerId": 1092116681,
+      "name": "Kylan Boswell",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644884,
+      "playerId": 1092116681,
+      "name": "Kylan Boswell",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644885,
+      "playerId": 1092116681,
+      "name": "Kylan Boswell",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644909,
+      "playerId": null,
+      "name": "Dru Smith",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644910,
+      "playerId": null,
+      "name": "Dru Smith",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644911,
+      "playerId": null,
+      "name": "Dru Smith",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644939,
+      "playerId": 1028214958,
+      "name": "Blake Hinson",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644940,
+      "playerId": 1028214958,
+      "name": "Blake Hinson",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644941,
+      "playerId": 1028214958,
+      "name": "Blake Hinson",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644942,
+      "playerId": 1028214958,
+      "name": "Blake Hinson",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644956,
+      "playerId": 1028203085,
+      "name": "Trey Alexander",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644957,
+      "playerId": 1028203085,
+      "name": "Trey Alexander",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32644958,
+      "playerId": 1028203085,
+      "name": "Trey Alexander",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645049,
+      "playerId": 56677856,
+      "name": "Jordan Miller",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645050,
+      "playerId": 56677856,
+      "name": "Jordan Miller",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645051,
+      "playerId": 56677856,
+      "name": "Jordan Miller",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645077,
+      "playerId": 1091477603,
+      "name": "Henri Veesaar",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645078,
+      "playerId": 1091477603,
+      "name": "Henri Veesaar",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645079,
+      "playerId": 56677806,
+      "name": "Mouhamed Gueye",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645080,
+      "playerId": 56677806,
+      "name": "Mouhamed Gueye",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645081,
+      "playerId": 56677806,
+      "name": "Mouhamed Gueye",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645082,
+      "playerId": 56677806,
+      "name": "Mouhamed Gueye",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645091,
+      "playerId": null,
+      "name": "L.J. Cryer",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645092,
+      "playerId": null,
+      "name": "L.J. Cryer",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645093,
+      "playerId": null,
+      "name": "L.J. Cryer",
+      "status": "None",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645094,
+      "playerId": 17553992,
+      "name": "Moses Moody",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645095,
+      "playerId": 17553992,
+      "name": "Moses Moody",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645096,
+      "playerId": 17553992,
+      "name": "Moses Moody",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645117,
+      "playerId": 1028035897,
+      "name": "Johnny Furphy",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645118,
+      "playerId": 1028035897,
+      "name": "Johnny Furphy",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645119,
+      "playerId": 1028035897,
+      "name": "Johnny Furphy",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645120,
+      "playerId": 1028035897,
+      "name": "Johnny Furphy",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645121,
+      "playerId": 1028035897,
+      "name": "Johnny Furphy",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645137,
+      "playerId": 60,
+      "name": "Tony Bradley",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645138,
+      "playerId": 60,
+      "name": "Tony Bradley",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645156,
+      "playerId": 1092199635,
+      "name": "Tarik Biberovic",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645157,
+      "playerId": 1092199635,
+      "name": "Tarik Biberovic",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645158,
+      "playerId": 1092199635,
+      "name": "Tarik Biberovic",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645165,
+      "playerId": 417,
+      "name": "Ben Simmons",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645166,
+      "playerId": 417,
+      "name": "Ben Simmons",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645167,
+      "playerId": 417,
+      "name": "Ben Simmons",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645175,
+      "playerId": 1092199652,
+      "name": "Nate Bittle",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    },
+    {
+      "draftableId": 32645176,
+      "playerId": 1092199652,
+      "name": "Nate Bittle",
+      "status": "OUT",
+      "active": true,
+      "disabled": false
+    }
+  ],
+  "salaryConflicts": []
+}
