@@ -436,6 +436,187 @@ jobs:
           console.log("NBA INJURY BRIDGE: OK");
           NODE
 
+  dfs-diagnostic-tests:
+    name: BALLDONTLIE DFS Diagnostic Tests
+    needs: fantasy-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Checkout fantasy-dev
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Test DFS diagnostic with mock API
+        run: |
+          node <<'NODE'
+          const assert = require("node:assert/strict");
+
+          const {
+            auditDfsFeed,
+            auditDfsMatrix
+          } = require("./fantasy-engine/shared/dfs-diagnostic");
+
+          const slots = [
+            "PG", "SG", "SF", "PF",
+            "C", "G", "F", "UTIL"
+          ];
+
+          let calls = [];
+
+          async function fakeFetch(url, options) {
+            const u = new URL(url);
+
+            calls.push({
+              path: u.pathname,
+              provider: u.searchParams.get("providers[]"),
+              auth: options.headers.Authorization
+            });
+
+            const response = data => ({
+              ok: true,
+              status: 200,
+              json: async () => data
+            });
+
+            if (u.pathname.endsWith("/dfs/slates")) {
+              return response({
+                data: [{
+                  id: 123,
+                  sport: "nba",
+                  provider: "draftkings",
+                  format: "salary_cap",
+                  scope: "multi_event",
+                  style: "classic",
+                  starts_at: "2026-10-21T23:00:00Z"
+                }],
+                meta: { next_cursor: null }
+              });
+            }
+
+            if (u.pathname.endsWith("/dfs/slates/123")) {
+              return response({
+                data: {
+                  id: 123,
+                  sport: "nba",
+                  provider: "draftkings",
+                  format: "salary_cap",
+                  scope: "multi_event",
+                  style: "classic",
+                  salary_cap: 50000,
+                  starts_at: "2026-10-21T23:00:00Z",
+                  events: [{
+                    id: 50,
+                    game_id: 900,
+                    starts_at: "2026-10-21T23:00:00Z"
+                  }],
+                  roster_slots: slots.map((name, i) => ({
+                    id: i + 1,
+                    name,
+                    required_count: 1,
+                    active: true
+                  }))
+                }
+              });
+            }
+
+            if (u.pathname.endsWith("/dfs/draftables")) {
+              return response({
+                data: [
+                  {
+                    id: 1,
+                    entity_type: "player",
+                    player_id: 77,
+                    team_id: 2,
+                    game_id: 900,
+                    slate_event_id: 50,
+                    display_name: "Test Player",
+                    position: "PG",
+                    salary: 7500,
+                    roster_slot_id: 1
+                  },
+                  {
+                    id: 2,
+                    entity_type: "player",
+                    player_id: 77,
+                    team_id: 2,
+                    game_id: 900,
+                    slate_event_id: 50,
+                    display_name: "Test Player",
+                    position: "PG",
+                    salary: 7600,
+                    roster_slot_id: 6
+                  }
+                ],
+                meta: { next_cursor: null }
+              });
+            }
+
+            throw new Error("Unexpected endpoint: " + u.pathname);
+          }
+
+          async function main() {
+            const result = await auditDfsFeed({
+              sport: "nba",
+              platform: "draftkings",
+              startDate: "2026-10-21",
+              apiKey: "TEST_ONLY_KEY",
+              fetchFn: fakeFetch
+            });
+
+            assert.equal(result.accessConfirmed, true);
+            assert.equal(result.classicSlateFound, true);
+            assert.equal(result.requests, 3);
+            assert.equal(result.slate.salaryCap, 50000);
+            assert.equal(result.slate.rosterSize, 8);
+
+            assert.equal(
+              result.checks.salaryCapMatchesClassic,
+              true
+            );
+
+            assert.equal(
+              result.checks.rosterSizeMatchesClassic,
+              true
+            );
+
+            assert.equal(result.firstPage.draftables, 2);
+            assert.equal(result.firstPage.uniqueEntities, 1);
+            assert.equal(
+              result.firstPage.salaryConflicts.length,
+              1
+            );
+
+            assert.equal(calls.length, 3);
+
+            assert.ok(
+              calls.every(call =>
+                call.auth === "TEST_ONLY_KEY"
+              )
+            );
+
+            console.log("NBA DFS MOCK: PASS");
+            console.log("SALARY CONFLICT DETECTION: PASS");
+            console.log("SLATE AND ROSTER VALIDATION: PASS");
+            console.log("REQUEST COUNT: 3");
+
+            // Comprobar que la matriz exportada existe.
+            assert.equal(typeof auditDfsMatrix, "function");
+
+            console.log("DFS MATRIX EXPORT: PASS");
+            console.log("DFS DIAGNOSTIC TESTS PASSED");
+          }
+
+          main().catch(error => {
+            console.error(error);
+            process.exitCode = 1;
+          });
+          NODE
+
   optimizer-tests:
     name: Fantasy Lineup Optimizer Tests
     needs: fantasy-tests
