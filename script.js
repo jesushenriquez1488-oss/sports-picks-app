@@ -39190,7 +39190,15 @@ ensureNBAMobileStyles();
       "
     >
 
-      <div class="ps-sticky-bar">
+          <div class="ps-sticky-bar">
+
+        <button
+          type="button"
+          class="ps-back-analysis-btn"
+          onclick="closeNBAPlayerProps(${index})"
+        >
+          ← BACK TO ANALYSIS
+        </button>
 
         <div class="ps-sticky-game">
 
@@ -40265,20 +40273,27 @@ function showNBAPropPlayer(
 
   container.innerHTML = `
 
-    <button
+       <button
       type="button"
       class="ps-back-analysis-btn"
-      onclick="showNBAPlayerPropsCategory(
-        ${index},
-        '${returnCategory}'
-      )"
+      onclick="
+        showNBAPlayerPropsCategory(
+          ${index},
+          '${returnCategory}'
+        );
+        document.getElementById(
+          'nbaPlayerPropsView${index}'
+        )?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      "
       style="
         margin-bottom:12px;
       "
     >
-      ← BACK
+      ← BACK TO LIST
     </button>
-
 
     <div class="nba-prop-detail-header">
 
@@ -40648,7 +40663,65 @@ function showNBAPropPlayer(
 
   `;
 }
+// ============================================
+// NBA PLAYER PROPS — NAVEGACION INDEPENDIENTE
+// ============================================
 
+function prepareNBAPlayerPropsViews(index) {
+
+  const result = document.getElementById(`result${index}`);
+  const box = document.getElementById(`nbaProps${index}`);
+
+  if (!result || !box) return null;
+
+  let analysis = document.getElementById(`nbaAnalysisView${index}`);
+  let props = document.getElementById(`nbaPlayerPropsView${index}`);
+
+  if (!analysis || !props) {
+
+    analysis = document.createElement("div");
+    analysis.id = `nbaAnalysisView${index}`;
+
+    props = document.createElement("div");
+    props.id = `nbaPlayerPropsView${index}`;
+    props.style.display = "none";
+
+    while (result.firstChild) {
+      analysis.appendChild(result.firstChild);
+    }
+
+    result.appendChild(analysis);
+    result.appendChild(props);
+  }
+
+  if (box.parentNode !== props) {
+    props.appendChild(box);
+  }
+
+  return { analysis, props, box };
+}
+
+
+// REGRESAR AL ANALISIS NBA
+function closeNBAPlayerProps(index) {
+
+  const analysis = document.getElementById(`nbaAnalysisView${index}`);
+  const props = document.getElementById(`nbaPlayerPropsView${index}`);
+
+  if (!analysis || !props) return;
+
+  props.style.display = "none";
+  analysis.style.display = "block";
+
+  requestAnimationFrame(() => {
+    analysis.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+  });
+}
+
+window.closeNBAPlayerProps = closeNBAPlayerProps;
 // ============================================================
 // MAIN OPEN / TOGGLE
 // ============================================================
@@ -40670,6 +40743,25 @@ async function toggleNBAPlayerProps(
     return;
   }
 
+  const views = prepareNBAPlayerPropsViews(index);
+
+  if (!views) return;
+
+  // Ocultar el análisis del partido
+  views.analysis.style.display = "none";
+
+  // Mostrar Player Props como vista independiente
+  views.props.style.display = "block";
+
+  box.style.display = "block";
+
+  requestAnimationFrame(() => {
+    views.props.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+  });
+
 
   /*
    * Existing loaded panel:
@@ -40680,16 +40772,7 @@ async function toggleNBAPlayerProps(
   "true"
 ) {
 
-  if (
-    box.style.display !==
-    "none"
-  ) {
-
-    box.style.display =
-      "none";
-
-    return;
-  }
+ 
 
 
   const currentState =
@@ -40743,7 +40826,7 @@ async function toggleNBAPlayerProps(
     !sessionData
       ?.session
   ) {
-
+    closeNBAPlayerProps(index);
     alert(
       "Debes iniciar sesión."
     );
@@ -40757,8 +40840,15 @@ async function toggleNBAPlayerProps(
     !isPremiumUser
   ) {
 
-    box.innerHTML =
-      cePlayerPropsLockedHTML();
+        box.innerHTML = `
+      <button
+        type="button"
+        class="ps-back-analysis-btn"
+        onclick="closeNBAPlayerProps(${index})"
+      >
+        ← BACK TO ANALYSIS
+      </button>
+    ` + cePlayerPropsLockedHTML();
 
     box.dataset.loaded =
       "true";
