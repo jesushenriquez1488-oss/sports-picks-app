@@ -3216,7 +3216,155 @@ function renderNBAMobileCard({
     premium?.nbaPaceBaselines,
     displayPick
   );
+  // ============================================
+  // NBA — EFECTO REAL DE PACE SOBRE EL MARCADOR
+  // ============================================
 
+  const paceScoringImpact =
+    premium?.card?.context?.pace?.scoringImpact ||
+    card?.context?.pace?.scoringImpact ||
+    null;
+
+  if (
+    paceScoringImpact &&
+    paceStory &&
+    typeof paceStory === "object" &&
+    Number.isFinite(Number(paceScoringImpact.awayPoints)) &&
+    Number.isFinite(Number(paceScoringImpact.homePoints))
+  ) {
+
+    const awayChange =
+      Number(paceScoringImpact.awayPoints);
+
+    const homeChange =
+      Number(paceScoringImpact.homePoints);
+
+    const totalChange =
+      awayChange + homeChange;
+
+    const signed = n =>
+      `${n > 0 ? "+" : ""}${n.toFixed(1)}`;
+
+    let explanation =
+      `PACE IMPACT ON SCORE: ` +
+      `${nbaShortName(awayTeam)} ${signed(awayChange)} pts; ` +
+      `${nbaShortName(homeTeam)} ${signed(homeChange)} pts. ` +
+      `Together, this changes the projected total by ` +
+      `${signed(totalChange)} points. `;
+
+    if (marketType === "SPREAD") {
+
+      const pickedTeam =
+        premium?.card?.pickTeam ||
+        card?.pickTeam ||
+        null;
+
+      const selectedSide =
+        pickedTeam === awayTeam ? "away" :
+        pickedTeam === homeTeam ? "home" :
+        null;
+
+      if (selectedSide) {
+
+        const marginChange =
+          selectedSide === "away"
+            ? awayChange - homeChange
+            : homeChange - awayChange;
+
+        const teamLabel =
+          nbaShortName(pickedTeam);
+
+        if (Math.abs(marginChange) < 0.05) {
+
+          explanation +=
+            `PACE barely changes ${teamLabel}'s ` +
+            `projected scoring margin. `;
+
+        } else if (marginChange > 0) {
+
+          explanation +=
+            `Because the scoring adjustments differ, ` +
+            `PACE increases ${teamLabel}'s projected ` +
+            `margin by ${marginChange.toFixed(1)} points, ` +
+            `strengthening its spread position. `;
+
+        } else {
+
+          explanation +=
+            `Because the scoring adjustments differ, ` +
+            `PACE reduces ${teamLabel}'s projected ` +
+            `margin by ${Math.abs(marginChange).toFixed(1)} points, ` +
+            `working against its spread position. `;
+
+        }
+
+        const selectedSpread =
+          selectedSide === "away"
+            ? currentAwaySpread
+            : currentHomeSpread;
+
+        if (
+          selectedSpread !== null &&
+          projAway !== null &&
+          projHome !== null
+        ) {
+
+          const finalMargin =
+            selectedSide === "away"
+              ? projAway - projHome
+              : projHome - projAway;
+
+          const coverWithPace =
+            finalMargin + selectedSpread;
+
+          const coverWithoutPace =
+            coverWithPace - marginChange;
+
+          explanation +=
+            `Holding the other adjustments constant, ` +
+            `the model's spread cushion moves from ` +
+            `${signed(coverWithoutPace)} to ` +
+            `${signed(coverWithPace)} points after PACE. `;
+        }
+      }
+
+    } else if (marketType === "TOTAL") {
+
+      const under =
+        /\bunder\b/i.test(displayPick);
+
+      const over =
+        /\bover\b/i.test(displayPick);
+
+      if (Math.abs(totalChange) < 0.05) {
+
+        explanation +=
+          `PACE has almost no effect on the total. `;
+
+      } else if (
+        (under && totalChange < 0) ||
+        (over && totalChange > 0)
+      ) {
+
+        explanation +=
+          `This adjustment directly supports ` +
+          `the recommended total direction. `;
+
+      } else if (under || over) {
+
+        explanation +=
+          `This adjustment works against ` +
+          `the recommended total direction. `;
+
+      }
+    }
+
+    explanation +=
+      `The final projected score already includes ` +
+      `PACE, rest and injury adjustments.`;
+
+    paceStory.pickNote = explanation;
+  }
   const scoreComparison =
     marketType === "TOTAL"
       ? `MODEL TOTAL: ${
