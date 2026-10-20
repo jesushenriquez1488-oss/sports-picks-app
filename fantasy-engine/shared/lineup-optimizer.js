@@ -504,6 +504,455 @@ function optimizeFantasyLineup({
   };
 }
 
+
+/**
+ * CASHEDGE — EXACT LINEUP OPTIMIZER
+ *
+ * Branch and Bound.
+ * Sin dependencias externas.
+ * Solo calculos, sin consultas ni escrituras.
+ *
+ * optimalityGuaranteed solo es true cuando
+ * se ha completado la demostracion matematica.
+ */
+function optimizeFantasyLineupExact({
+  sport,
+  platform,
+  slate,
+  players,
+  locked = [],
+  excluded = [],
+  maxNodes = 2000000
+} = {}) {
+  const config = getContestConfig({
+    sport,
+    platform
+  });
+
+  if (
+    !slate?.id ||
+    slate.sport !== config.sport ||
+    slate.platform !== config.platform ||
+    slate.format !== "classic" ||
+    !Array.isArray(slate.gameIds) ||
+    !slate.gameIds.length
+  ) {
+    throw new Error(
+      "Se requiere slate Classic valido"
+    );
+  }
+
+  if (!Array.isArray(players)) {
+    throw new Error("Lista de jugadores invalida");
+  }
+
+  if (
+    !Number.isSafeInteger(maxNodes) ||
+    maxNodes < 1
+  ) {
+    throw new Error("maxNodes invalido");
+  }
+
+  if (
+    !Array.isArray(locked) ||
+    !Array.isArray(excluded)
+  ) {
+    throw new Error("Bloqueos invalidos");
+  }
+
+  const lockedIds = new Set(locked.map(id));
+  const excludedIds = new Set(excluded.map(id));
+
+  if (
+    lockedIds.has("") ||
+    excludedIds.has("") ||
+    [...lockedIds].some(playerId =>
+      excludedIds.has(playerId)
+    )
+  ) {
+    throw new Error(
+      "Bloqueos y exclusiones incompatibles"
+    );
+  }
+
+  const games = new Set(
+    slate.gameIds.map(id)
+  );
+
+  const poolMap = new Map();
+
+  for (const raw of players) {
+    const playerId = id(
+      raw?.playerId ?? raw?.id
+    );
+
+    if (
+      !playerId ||
+      excludedIds.has(playerId)
+    ) {
+      continue;
+    }
+
+    if (
+      raw.disabled === true ||
+      raw.status === "out_injury" ||
+      raw.injuryStatus === "out"
+    ) {
+      continue;
+    }
+
+    const salary = Number(raw.salary);
+    const points = Number(raw.projectedPoints);
+    const gameId = id(raw.gameId);
+    const positions = positionsOf(raw).sort();
+
+    if (
+      !Number.isInteger(salary) ||
+      salary <= 0 ||
+      salary > config.salaryCap ||
+      raw.projectedPoints == null ||
+      !Number.isFinite(points) ||
+      points < 0 ||
+      !games.has(gameId) ||
+      !positions.length
+    ) {
+      continue;
+    }
+
+    const candidate = {
+      playerId,
+      gameId,
+      teamId: id(raw.teamId) || null,
+      name: raw.name || null,
+      salary,
+      projectedPoints: points,
+      positions
+    };
+
+    if (poolMap.has(playerId)) {
+      const previous = poolMap.get(playerId);
+
+      if (
+        previous.salary !== candidate.salary ||
+        previous.gameId !== candidate.gameId ||
+        previous.teamId !== candidate.teamId ||
+        previous.projectedPoints !==
+          candidate.projectedPoints ||
+        previous.positions.join(",") !==
+          candidate.positions.join(",")
+      ) {
+        throw new Error(
+          "Datos contradictorios: " + playerId
+        );
+      }
+
+      continue;
+    }
+
+    poolMap.set(playerId, candidate);
+  }
+
+  if (
+    lockedIds.size > config.rosterSize ||
+    [...lockedIds].some(playerId =>
+      !poolMap.has(playerId)
+    )
+  ) {
+    throw new Error(
+      "Jugadores bloqueados no disponibles"
+    );
+  }
+
+  const slots = config.slots.map(slot => ({
+    ...slot,
+    candidates: [...poolMap.values()]
+      .filter(player =>
+        player.positions.some(position =>
+          slot.eligiblePositions.includes(position)
+        )
+      )
+      .sort((a, b) =>
+        b.projectedPoints - a.projectedPoints ||
+        a.salary - b.salary
+      )
+  }));
+
+  // Resolver primero los slots mas dificiles.
+  // Esto solo cambia el orden de exploracion:
+  // no elimina combinaciones validas.
+
+  slots.sort((a, b) =>
+    a.candidates.length - b.candidates.length
+  );
+
+  const base = {
+    found: false,
+    mode: "shadow",
+    sport: config.sport,
+    platform: config.platform,
+    format: config.format,
+    contestVerified: false,
+    readyForPublication: false,
+    optimalityGuaranteed: false,
+    nodesVisited: 0,
+    nodeLimitReached: false,
+    lineup: []
+  };
+
+  if (
+    slots.some(slot =>
+      !slot.candidates.length
+    )
+  ) {
+    return {
+      ...base,
+      reason: "no_eligible_players",
+      provenInfeasible: true,
+      optimalityGuaranteed: true
+    };
+  }
+
+  // Mantener enteros para comparar puntuaciones
+  // sin problemas de precision decimal.
+
+  const SCALE = 10000;
+
+  for (const player of poolMap.values()) {
+    player.scoreUnits = Math.round(
+      player.projectedPoints * SCALE
+    );
+  }
+
+  let best = null;
+  let nodesVisited = 0;
+  let limitReached = false;
+
+  const used = new Set();
+  const selected = [];
+
+  function search(index, salary, score) {
+    if (limitReached) {
+      return;
+    }
+
+    if (nodesVisited >= maxNodes) {
+      limitReached = true;
+      return;
+    }
+
+    nodesVisited++;
+
+    if (index === slots.length) {
+      if (
+        [...lockedIds].some(
+          playerId => !used.has(playerId)
+        )
+      ) {
+        return;
+      }
+
+      if (
+        !best ||
+        score > best.score ||
+        (
+          score === best.score &&
+          salary < best.salary
+        )
+      ) {
+        best = {
+          score,
+          salary,
+          selected: [...selected]
+        };
+      }
+
+      return;
+    }
+
+    const remaining = slots.slice(index);
+
+    // Poda 1: todos los jugadores bloqueados
+    // deben poder ocupar algun slot restante.
+
+    const pending = [...lockedIds].filter(
+      playerId => !used.has(playerId)
+    );
+
+    if (pending.length > remaining.length) {
+      return;
+    }
+
+    for (const playerId of pending) {
+      if (
+        !remaining.some(slot =>
+          slot.candidates.some(player =>
+            player.playerId === playerId
+          )
+        )
+      ) {
+        return;
+      }
+    }
+
+    // Poda 2: presupuesto minimo teorico.
+    // Se permite reutilizar jugadores en esta
+    // cota para que nunca sobreestime el minimo.
+
+    let minimumCost = 0;
+    let maximumScore = score;
+
+    for (const slot of remaining) {
+      const available = slot.candidates.filter(
+        player =>
+          !used.has(player.playerId)
+      );
+
+      if (!available.length) {
+        return;
+      }
+
+      minimumCost += Math.min(
+        ...available.map(player =>
+          player.salary
+        )
+      );
+
+      // Poda 3: cota superior de puntos.
+      // Permitir repeticiones en esta cota la
+      // hace optimista, nunca demasiado baja.
+
+      maximumScore += Math.max(
+        ...available.map(player =>
+          player.scoreUnits
+        )
+      );
+    }
+
+    if (
+      salary + minimumCost >
+      config.salaryCap
+    ) {
+      return;
+    }
+
+    if (
+      best &&
+      maximumScore < best.score
+    ) {
+      return;
+    }
+
+    const slot = slots[index];
+
+    for (const player of slot.candidates) {
+      if (
+        used.has(player.playerId) ||
+        salary + player.salary >
+          config.salaryCap
+      ) {
+        continue;
+      }
+
+      // Si quedan exactamente tantos slots
+      // como jugadores obligatorios, todos
+      // los elegidos deben ser bloqueados.
+
+      if (
+        pending.length === remaining.length &&
+        !lockedIds.has(player.playerId)
+      ) {
+        continue;
+      }
+
+      used.add(player.playerId);
+
+      selected.push({
+        slot: slot.id,
+        playerId: player.playerId,
+        gameId: player.gameId,
+        teamId: player.teamId,
+        name: player.name,
+        salary: player.salary,
+        positions: player.positions,
+        projectedPoints: player.projectedPoints
+      });
+
+      search(
+        index + 1,
+        salary + player.salary,
+        score + player.scoreUnits
+      );
+
+      selected.pop();
+      used.delete(player.playerId);
+
+      if (limitReached) {
+        return;
+      }
+    }
+  }
+
+  search(0, 0, 0);
+
+  if (!best) {
+    return {
+      ...base,
+      reason: limitReached
+        ? "search_limit_reached"
+        : "no_valid_lineup",
+      provenInfeasible: !limitReached,
+      optimalityGuaranteed: !limitReached,
+      nodesVisited,
+      nodeLimitReached: limitReached
+    };
+  }
+
+  const lineup = best.selected.sort(
+    (a, b) =>
+      config.slots.findIndex(slot =>
+        slot.id === a.slot
+      ) -
+      config.slots.findIndex(slot =>
+        slot.id === b.slot
+      )
+  );
+
+  const validation = validateClassicLineup({
+    sport,
+    platform,
+    slate,
+    lineup
+  });
+
+  if (!validation.structurallyValid) {
+    throw new Error(
+      "Error interno del optimizador exacto: " +
+      validation.errors.join(", ")
+    );
+  }
+
+  return {
+    ...base,
+    found: true,
+    reason: limitReached
+      ? "best_found_not_proven"
+      : "optimal_solution_proven",
+    projectedPoints:
+      Math.round(best.score / SCALE * 100) / 100,
+    salary: best.salary,
+    salaryCap: config.salaryCap,
+    remainingSalary:
+      config.salaryCap - best.salary,
+    optimalityGuaranteed: !limitReached,
+    provenInfeasible: false,
+    nodesVisited,
+    nodeLimitReached: limitReached,
+    lineup
+  };
+}
+
 module.exports = {
-  optimizeFantasyLineup
+  optimizeFantasyLineup,
+  optimizeFantasyLineupExact
 };
+
