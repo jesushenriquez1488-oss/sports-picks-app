@@ -1946,6 +1946,156 @@ jobs:
           PY
 
   nba-goat-live:
+    name: NBA GOAT Full Slate Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    concurrency:
+      group: cashedge-nba-goat-live
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout fantasy-dev
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Fetch complete NBA DraftKings and FanDuel slates
+        env:
+          BALLDONTLIE_NBA_API_KEY: ${{ secrets.BALLDONTLIE_NBA_API_KEY }}
+        run: |
+          node <<'NODE'
+          const {
+            fetchFullDfsDraftables
+          } = require("./fantasy-engine/shared/dfs-diagnostic");
+
+          const slates = [
+            {
+              platform: "draftkings",
+              slateId: 57446
+            },
+            {
+              platform: "fanduel",
+              slateId: 63077
+            }
+          ];
+
+          async function main() {
+            if (!process.env.BALLDONTLIE_NBA_API_KEY) {
+              throw new Error("NBA GOAT API key missing");
+            }
+
+            const results = [];
+
+            for (const slate of slates) {
+              console.log(
+                `FETCHING NBA ${slate.platform.toUpperCase()} ` +
+                `SLATE ${slate.slateId}`
+              );
+
+              try {
+                const data = await fetchFullDfsDraftables({
+                  sport: "nba",
+                  platform: slate.platform,
+                  slateId: slate.slateId,
+                  apiKey: process.env.BALLDONTLIE_NBA_API_KEY,
+                  waitMs: 15000,
+                  maxPages: 20
+                });
+
+                const missingIds = data.players.filter(
+                  p => !p.playerId
+                );
+
+                const missingPositions = data.players.filter(
+                  p => !p.positions.length
+                );
+
+                const summary = {
+                  platform: data.platform,
+                  slateId: data.slateId,
+                  complete: data.complete,
+                  pages: data.pages,
+                  rawDraftables: data.rawDraftableCount,
+                  uniquePlayers: data.uniquePlayerCount,
+                  excludedEntries: data.excludedEntryCount,
+                  salaryConflicts: data.salaryConflicts,
+                  missingPlayerIds: missingIds.length,
+                  missingPositions: missingPositions.length,
+                  playerSample: data.players.slice(0, 5).map(
+                    player => ({
+                      playerId: player.playerId,
+                      name: player.name,
+                      team: player.team,
+                      salary: player.salary,
+                      positions: player.positions,
+                      rosterSlotIds: player.rosterSlotIds
+                    })
+                  ),
+                  excludedSample: data.excluded.slice(0, 5)
+                };
+
+                results.push(summary);
+
+                console.log(
+                  JSON.stringify(summary, null, 2)
+                );
+
+              } catch (error) {
+                console.error(
+                  `${slate.platform}: ${error.message}`
+                );
+
+                results.push({
+                  platform: slate.platform,
+                  slateId: slate.slateId,
+                  complete: false,
+                  error: error.message
+                });
+              }
+            }
+
+            console.log("\n=== CASHEDGE NBA DFS SUMMARY ===");
+
+            console.log(
+              JSON.stringify(results.map(r => ({
+                platform: r.platform,
+                slateId: r.slateId,
+                complete: r.complete,
+                pages: r.pages ?? null,
+                uniquePlayers: r.uniquePlayers ?? null,
+                excludedEntries: r.excludedEntries ?? null,
+                error: r.error ?? null
+              })), null, 2)
+            );
+
+            if (
+              results.length !== 2 ||
+              results.some(r =>
+                !r.complete ||
+                !Number.isInteger(r.uniquePlayers) ||
+                r.uniquePlayers === 0
+              )
+            ) {
+              process.exitCode = 1;
+              return;
+            }
+
+            console.log(
+              "CASHEDGE NBA FULL SLATE FETCH PASSED"
+            );
+          }
+
+          main().catch(error => {
+            console.error(error.message);
+            process.exitCode = 1;
+          });
+          NODE
+
+  nba-goat-live:
     name: NBA GOAT Real DFS Diagnostic
     runs-on: ubuntu-latest
     timeout-minutes: 5
