@@ -94,6 +94,7 @@ async function reserveRequest(minIntervalMs) {
   }
 }
 
+
 async function getDFS({
   sport,
   path,
@@ -102,10 +103,6 @@ async function getDFS({
   fetchFn,
   waitMs
 }) {
-  await reserveRequest(
-    Math.max(MIN_REQUEST_INTERVAL_MS, waitMs)
-  );
-
   const url = new URL(
     `${BASE}/${sport}/v1/dfs/${path}`
   );
@@ -120,46 +117,100 @@ async function getDFS({
     }
   }
 
-  const controller = new AbortController();
+  const maxAttempts = 3;
 
-  const timeout = setTimeout(
-    () => controller.abort(),
-    15000
-  );
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    await reserveRequest(
+      Math.max(MIN_REQUEST_INTERVAL_MS, waitMs)
+    );
 
-  try {
-    const response = await fetchFn(url.toString(), {
-      headers: { Authorization: key },
-      signal: controller.signal
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      15000
+    );
+
+    let response;
+
+    try {
+      response = await fetchFn(url.toString(), {
+        headers: {
+          Authorization: key
+        },
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    if (response.status === 429) {
+      if (attempt === maxAttempts) {
+        throw new Error(
+          `BALLDONTLIE ${sport} HTTP 429: ` +
+          "limite agotado tras 3 intentos"
+        );
+      }
+
+      const retryHeader =
+        response.headers?.get?.("retry-after");
+
+      let retrySeconds = Number(retryHeader);
+
+      if (
+        !retryHeader ||
+        !Number.isFinite(retrySeconds)
+      ) {
+        const retryDate = Date.parse(
+          retryHeader || ""
+        );
+
+        retrySeconds = Number.isFinite(retryDate)
+          ? (retryDate - Date.now()) / 1000
+          : 75;
+      }
+
+      const delay = Math.max(
+        75000,
+        Math.min(
+          180000,
+          Math.ceil(retrySeconds * 1000)
+        )
+      );
+
+      console.log(
+        `NBA GOAT rate limit: esperando ` +
+        `${Math.round(delay / 1000)} segundos ` +
+        `antes del intento ${attempt + 1}`
+      );
+
+      await sleep(delay);
+      continue;
+    }
 
     if (!response.ok) {
       throw new Error(
-        `BALLDONTLIE ${sport} DFS HTTP ${response.status}` +
-        (
-          response.status === 429
-            ? " — limite de solicitudes"
-            : response.status === 401 ||
-              response.status === 403
-              ? " — comprobar acceso GOAT"
-              : ""
-        )
+        `BALLDONTLIE ${sport} DFS HTTP ${response.status}`
       );
     }
 
     const body = await response.json();
 
-    if (!body || !Array.isArray(body.data) &&
-        !(body.data && typeof body.data === "object")) {
+    if (
+      !body ||
+      (
+        !Array.isArray(body.data) &&
+        !(
+          body.data &&
+          typeof body.data === "object"
+        )
+      )
+    ) {
       throw new Error(
         `Respuesta ${sport} DFS sin data valida`
       );
     }
 
     return body;
-
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
