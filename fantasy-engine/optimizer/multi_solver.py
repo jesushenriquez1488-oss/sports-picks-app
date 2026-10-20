@@ -311,26 +311,7 @@ def optimize_multiple(payload):
 
             model.Add(y[k, pid] == 1)
 
-    # SIMETRIA: ordenar alineaciones por puntuacion.
-    # Permutar los numeros de alineacion no cambia
-    # la solucion ni el objetivo matematico.
-    # Esta restriccion conserva el optimo global.
-
-    lineup_scores = []
-
-    for k in range(count):
-        score_expression = sum(
-            pool[pid]["scoreUnits"] * var
-            for (lineup, pid), var in y.items()
-            if lineup == k
-        )
-
-        lineup_scores.append(score_expression)
-
-    for k in range(count - 1):
-        model.Add(
-            lineup_scores[k] >= lineup_scores[k + 1]
-        )
+ 
 
     # Exposicion maxima entre todas las alineaciones.
 
