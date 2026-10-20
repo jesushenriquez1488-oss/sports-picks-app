@@ -257,10 +257,23 @@ function projectNFLPlayer({
         return false;
       }
 
-      return INPUT_FIELDS.every(field =>
-        numeric(game[field]) !== null &&
-        numeric(game[field]) >= 0
-      );
+      return INPUT_FIELDS.every(field => {
+        const value = numeric(game[field]);
+
+        if (value === null) {
+          return false;
+        }
+
+        if (
+          field === "rushing_yards" ||
+          field === "receiving_yards"
+        ) {
+          return true;
+        }
+
+        return value >= 0;
+      });
+
     })
     .sort(
       (a, b) =>
