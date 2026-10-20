@@ -843,6 +843,97 @@ jobs:
           );
           NODE
 
+  optimizer-load-test:
+    name: Exact Optimizer Load Test
+    needs: exact-optimizer-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout fantasy-dev
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Benchmark 150 players
+        run: |
+          node <<'NODE'
+          const {
+            optimizeFantasyLineupExact
+          } = require("./fantasy-engine/shared/lineup-optimizer");
+
+          const groups = {
+            nba: ["PG", "SG", "SF", "PF", "C"],
+            nfl: ["QB", "RB", "WR", "TE", "DST"]
+          };
+
+          for (const sport of ["nba", "nfl"]) {
+            for (const platform of ["draftkings", "fanduel"]) {
+              const players = Array.from(
+                { length: 150 },
+                (_, i) => ({
+                  playerId: `P${i}`,
+                  position: groups[sport][i % 5],
+                  salary: 3500 + (i % 15) * 300,
+                  projectedPoints:
+                    10 + (i * 17 % 35) + (i % 7) / 10,
+                  gameId: `G${i % 8}`,
+                  teamId: `T${i % 16}`
+                })
+              );
+
+              const start = performance.now();
+
+              const result = optimizeFantasyLineupExact({
+                sport,
+                platform,
+                slate: {
+                  id: "load-test",
+                  sport,
+                  platform,
+                  format: "classic",
+                  gameIds: Array.from(
+                    { length: 8 },
+                    (_, i) => `G${i}`
+                  )
+                },
+                players,
+                maxNodes: 2000000
+              });
+
+              const elapsed = Math.round(
+                performance.now() - start
+              );
+
+              console.log(JSON.stringify({
+                sport,
+                platform,
+                candidates: players.length,
+                milliseconds: elapsed,
+                nodesVisited: result.nodesVisited,
+                found: result.found,
+                optimalityGuaranteed:
+                  result.optimalityGuaranteed,
+                nodeLimitReached:
+                  result.nodeLimitReached,
+                projectedPoints:
+                  result.projectedPoints ?? null
+              }));
+
+              if (!result.found) {
+                console.log(
+                  "WARNING: no complete lineup found"
+                );
+              }
+            }
+          }
+
+          console.log("LOAD TEST COMPLETE");
+          NODE
+
  
   real-shadow:
     if: ${{ github.event_name == 'workflow_dispatch' }}
