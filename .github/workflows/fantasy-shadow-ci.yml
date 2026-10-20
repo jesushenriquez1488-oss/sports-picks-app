@@ -2130,7 +2130,7 @@ jobs:
           retention-days: 1
 
   real-shadow:
-    if: ${{ github.event_name == 'workflow_dispatch' }}
+  
     name: NBA NFL Real Data Shadow
 
     needs: fantasy-tests
