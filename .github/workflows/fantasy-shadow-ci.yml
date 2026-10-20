@@ -1945,6 +1945,110 @@ jobs:
           )
           PY
 
+  nba-goat-live:
+    name: NBA GOAT Real DFS Diagnostic
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout fantasy-dev
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Test NBA GOAT DraftKings and FanDuel
+        env:
+          BALLDONTLIE_NBA_API_KEY: ${{ secrets.BALLDONTLIE_NBA_API_KEY }}
+        run: |
+          node <<'NODE'
+          const {
+            auditDfsFeed
+          } = require("./fantasy-engine/shared/dfs-diagnostic");
+
+          async function main() {
+            if (!process.env.BALLDONTLIE_NBA_API_KEY) {
+              throw new Error(
+                "Falta BALLDONTLIE_NBA_API_KEY en GitHub Secrets"
+              );
+            }
+
+            const results = [];
+
+            for (const platform of [
+              "draftkings",
+              "fanduel"
+            ]) {
+              console.log(
+                `Checking NBA ${platform}...`
+              );
+
+              try {
+                const result = await auditDfsFeed({
+                  sport: "nba",
+                  platform,
+                  startDate: "2026-10-21",
+                  apiKey:
+                    process.env.BALLDONTLIE_NBA_API_KEY,
+                  waitMs: 15000
+                });
+
+                results.push(result);
+
+                console.log(JSON.stringify(
+                  result,
+                  null,
+                  2
+                ));
+
+              } catch (error) {
+                results.push({
+                  platform,
+                  error: error.message
+                });
+
+                console.error(
+                  `${platform}: ${error.message}`
+                );
+              }
+            }
+
+            console.log(
+              "NBA GOAT DIAGNOSTIC COMPLETE"
+            );
+
+            console.log(
+              JSON.stringify({
+                summary: results.map(r => ({
+                  platform: r.platform,
+                  accessConfirmed:
+                    r.accessConfirmed ?? false,
+                  classicSlateFound:
+                    r.classicSlateFound ?? false,
+                  requests: r.requests ?? null,
+                  error: r.error ?? null
+                }))
+              }, null, 2)
+            );
+
+            if (
+              results.some(
+                r => r.error ||
+                !r.accessConfirmed
+              )
+            ) {
+              process.exitCode = 1;
+            }
+          }
+
+          main().catch(error => {
+            console.error(error.message);
+            process.exitCode = 1;
+          });
+          NODE
+
   real-shadow:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     name: NBA NFL Real Data Shadow
