@@ -35,10 +35,9 @@ async function run() {
     await db
       .from("nba_player_game_stats")
       .select("player_id,player_name")
-      .eq("season", 2025)
-      .gte("game_date", "2026-01-01")
       .order("game_date", { ascending: false })
       .limit(120);
+
 
   if (nbaError) {
     throw new Error(
