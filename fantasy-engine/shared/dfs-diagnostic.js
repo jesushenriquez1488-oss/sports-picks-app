@@ -772,14 +772,27 @@ async function fetchFullDfsDraftables({
     const playerId = asId(row.player_id);
     const salary = asNumber(row.salary);
 
-    const valid =
-      row.entity_type === "player" &&
-      playerId &&
-      salary !== null &&
-      salary > 0 &&
-      row.active !== false &&
-      row.is_disabled !== true;
+  const status = String(row.status ?? "")
+  .trim()
+  .toLowerCase();
 
+const unavailableStatuses = new Set([
+  "out",
+  "o",
+  "inactive",
+  "suspended",
+  "doubtful",
+  "d"
+]);
+
+const valid =
+  row.entity_type === "player" &&
+  Boolean(playerId) &&
+  salary !== null &&
+  salary > 0 &&
+  row.active !== false &&
+  row.is_disabled !== true &&
+  !unavailableStatuses.has(status);
     if (!valid) {
       excluded.push({
         draftableId: row.id,
