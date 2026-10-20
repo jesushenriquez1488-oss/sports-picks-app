@@ -277,8 +277,170 @@ jobs:
           });
           NODE
 
+      - name: Test NBA injury bridge
+        run: |
+          node <<'NODE'
+          const assert = require("node:assert/strict");
+
+          const {
+            prepareNBAInjuryShadowPlayers
+          } = require("./fantasy-engine/shared/dfs-provider");
+
+          const {
+            buildNBAInjuryContext
+          } = require("./fantasy-engine/nba/injury-context");
+
+          const cutoffAt = "2026-10-20T18:00:00Z";
+
+          // Partido y jugadores simulados.
+          // Identificadores compatibles con NBA.
+
+          const slate = {
+            sport: "nba",
+            events: [{
+              id: 51,
+              startsAt: "2026-10-20T23:00:00Z"
+            }],
+            draftables: [
+              {
+                entityType: "player",
+                eventId: 51,
+                playerId: 383,
+                teamId: 9,
+                name: "Jugador A"
+              },
+              {
+                entityType: "player",
+                eventId: 51,
+                playerId: 44,
+                teamId: 9,
+                name: "Jugador B"
+              },
+              {
+                entityType: "player",
+                eventId: 51,
+                playerId: 42,
+                teamId: 2,
+                name: "Jugador C"
+              },
+              {
+                entityType: "player",
+                eventId: 51,
+                playerId: 45,
+                teamId: 2,
+                name: "Jugador D"
+              },
+              {
+                entityType: "player",
+                eventId: 51,
+                playerId: 383,
+                teamId: 9,
+                name: "Jugador A"
+              }
+            ]
+          };
+
+          const snapshot = {
+            game_id: "nba-test-Boston-Detroit",
+            away_team_id: 2,
+            home_team_id: 9,
+            game_time: "2026-10-20T23:00:00Z",
+            checked_at: "2026-10-20T16:00:00Z",
+            provider: "balldontlie",
+            injuries: [
+              {
+                player_id: "383",
+                team_id: "9",
+                status: "out"
+              },
+              {
+                player_id: "42",
+                team_id: "2",
+                status: "day-to-day"
+              }
+            ]
+          };
+
+          const linked =
+            prepareNBAInjuryShadowPlayers({
+              slate,
+              injurySnapshots: [snapshot],
+              cutoffAt
+            });
+
+          assert.equal(linked.players.length, 4);
+          assert.equal(linked.matchedPlayers, 4);
+          assert.equal(linked.unverifiedPlayers, 0);
+
+          const checkPlayer = (playerId, teamId) =>
+            buildNBAInjuryContext({
+              snapshot,
+              cutoffAt,
+              playerId,
+              teamId
+            });
+
+          // Confirmado OUT.
+
+          const out = checkPlayer("383", "9");
+
+          assert.equal(out.usable, true);
+          assert.equal(out.playerStatus, "out");
+
+          // Compañero del lesionado.
+
+          const teammate = checkPlayer("44", "9");
+
+          assert.equal(
+            teammate.ruledOutTeammates.length,
+            1
+          );
+
+          // Jugador incierto.
+
+          const uncertain = checkPlayer("42", "2");
+
+          assert.equal(
+            uncertain.playerStatus,
+            "uncertain"
+          );
+
+          // Reporte posterior a la prediccion.
+
+          const future =
+            prepareNBAInjuryShadowPlayers({
+              slate,
+              cutoffAt,
+              injurySnapshots: [{
+                ...snapshot,
+                checked_at: "2026-10-20T19:00:00Z"
+              }]
+            });
+
+          assert.equal(future.matchedPlayers, 0);
+
+          // Equipos incorrectos.
+
+          const mismatch =
+            prepareNBAInjuryShadowPlayers({
+              slate,
+              cutoffAt,
+              injurySnapshots: [{
+                ...snapshot,
+                home_team_id: 99
+              }]
+            });
+
+          assert.equal(mismatch.matchedPlayers, 0);
+
+          console.log("NBA INJURY BRIDGE: OK");
+          NODE
+
+ 
   real-shadow:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     name: NBA NFL Real Data Shadow
+
     needs: fantasy-tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
