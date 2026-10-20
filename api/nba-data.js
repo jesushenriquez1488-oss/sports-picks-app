@@ -2260,13 +2260,15 @@ async function backfillNBAFantasyHistory(season) {
     };
   }
 
+ 
   const dates = [
     ...new Set(
       pending
         .map(row => getNBACalendarDate(row.game_date))
         .filter(Boolean)
     )
-  ].sort().slice(0, 2);
+  ].sort().slice(0, 5);
+
 
   const selectedDates = new Set(dates);
 
