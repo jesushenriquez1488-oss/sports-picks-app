@@ -436,6 +436,195 @@ jobs:
           console.log("NBA INJURY BRIDGE: OK");
           NODE
 
+  optimizer-tests:
+    name: Fantasy Lineup Optimizer Tests
+    needs: fantasy-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout fantasy-dev
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Test lineup optimizer
+        run: |
+          node <<'NODE'
+          const assert = require("node:assert/strict");
+
+          const {
+            optimizeFantasyLineup
+          } = require("./fantasy-engine/shared/lineup-optimizer");
+
+          const {
+            getContestConfig,
+            validateClassicLineup
+          } = require("./fantasy-engine/shared/contest-config");
+
+          function makePool(sport) {
+            const positions = sport === "nba"
+              ? [
+                  "PG", "PG", "PG",
+                  "SG", "SG", "SG",
+                  "SF", "SF", "SF",
+                  "PF", "PF", "PF",
+                  "C", "C"
+                ]
+              : [
+                  "QB", "QB",
+                  "RB", "RB", "RB",
+                  "WR", "WR", "WR", "WR",
+                  "TE", "TE",
+                  "DST", "DST"
+                ];
+
+            return positions.map((position, i) => ({
+              playerId: `P${i + 1}`,
+              name: `Test Player ${i + 1}`,
+              position,
+              teamId: `T${i % 6}`,
+              gameId: `G${i % 3}`,
+              salary: 4500,
+              projectedPoints: 15 + i
+            }));
+          }
+
+          for (const sport of ["nba", "nfl"]) {
+            for (const platform of ["draftkings", "fanduel"]) {
+
+              const config = getContestConfig({
+                sport,
+                platform
+              });
+
+              const slate = {
+                id: "test-slate",
+                sport,
+                platform,
+                format: "classic",
+                gameIds: ["G0", "G1", "G2"]
+              };
+
+              const players = makePool(sport);
+
+              const run = options =>
+                optimizeFantasyLineup({
+                  sport,
+                  platform,
+                  slate,
+                  players,
+                  ...options
+                });
+
+              // Alineacion completa.
+
+              const result = run();
+
+              assert.equal(result.found, true);
+              assert.equal(result.mode, "shadow");
+              assert.equal(result.contestVerified, false);
+              assert.equal(result.readyForPublication, false);
+              assert.equal(result.optimalityGuaranteed, false);
+
+              assert.equal(
+                result.lineup.length,
+                config.rosterSize
+              );
+
+              assert.ok(
+                result.salary <= config.salaryCap
+              );
+
+              const ids = result.lineup.map(
+                p => p.playerId
+              );
+
+              assert.equal(
+                new Set(ids).size,
+                config.rosterSize
+              );
+
+              const validation = validateClassicLineup({
+                sport,
+                platform,
+                slate,
+                lineup: result.lineup
+              });
+
+              assert.equal(
+                validation.structurallyValid,
+                true
+              );
+
+              // Bloquear un jugador.
+
+              const lockedId = "P1";
+
+              const locked = run({
+                locked: [lockedId]
+              });
+
+              assert.equal(locked.found, true);
+
+              assert.ok(
+                locked.lineup.some(
+                  p => p.playerId === lockedId
+                )
+              );
+
+              // Excluir un jugador.
+
+              const excluded = run({
+                excluded: [lockedId]
+              });
+
+              assert.equal(excluded.found, true);
+
+              assert.ok(
+                excluded.lineup.every(
+                  p => p.playerId !== lockedId
+                )
+              );
+
+              // Bloqueo y exclusion simultaneos.
+
+              assert.throws(
+                () => run({
+                  locked: [lockedId],
+                  excluded: [lockedId]
+                }),
+                /bloqueado y excluido/
+              );
+
+              // Presupuesto insuficiente.
+
+              const expensive = run({
+                players: players.map(p => ({
+                  ...p,
+                  salary: config.salaryCap
+                }))
+              });
+
+              assert.equal(
+                expensive.found,
+                false
+              );
+
+              console.log(
+                `OK ${sport.toUpperCase()} ${platform}`
+              );
+            }
+          }
+
+          console.log(
+            "FANTASY LINEUP OPTIMIZER: ALL TESTS PASSED"
+          );
+          NODE
+
  
   real-shadow:
     if: ${{ github.event_name == 'workflow_dispatch' }}
