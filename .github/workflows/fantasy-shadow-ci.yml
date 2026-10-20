@@ -1945,7 +1945,7 @@ jobs:
           )
           PY
   nba-goat-live:
-    if: ${{ github.event_name == 'workflow_dispatch' }}
+ 
     name: NBA GOAT Full Slate Verification
     runs-on: ubuntu-latest
     timeout-minutes: 20
