@@ -935,6 +935,160 @@ jobs:
           NODE
 
  
+  cpsat-optimizer-tests:
+    name: OR-Tools CP-SAT 150 Players
+    needs: fantasy-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout fantasy-dev
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install OR-Tools
+        run: |
+          python -m pip install "ortools>=9.10,<10"
+
+      - name: Benchmark CP-SAT optimizer
+        run: |
+          python - <<'PY'
+          import sys
+          import time
+          import random
+
+          sys.path.insert(
+              0, "fantasy-engine/optimizer"
+          )
+
+          from solver import optimize, RULES
+
+          for sport in ("nba", "nfl"):
+              for platform in (
+                  "draftkings",
+                  "fanduel"
+              ):
+                  rng = random.Random(20261020)
+
+                  positions = (
+                      ["PG", "SG", "SF", "PF", "C"]
+                      if sport == "nba"
+                      else ["QB", "RB", "WR", "TE", "DST"]
+                  )
+
+                  players = []
+
+                  for i in range(150):
+                      players.append({
+                          "playerId": f"P{i}",
+                          "name": f"Player {i}",
+                          "positions": [
+                              positions[i % 5]
+                          ],
+                          "salary": rng.randrange(
+                              3500, 8501, 100
+                          ),
+                          "projectedPoints": round(
+                              rng.uniform(10, 48), 2
+                          ),
+                          "gameId": f"G{i % 8}",
+                          "teamId": f"T{i % 16}",
+                      })
+
+                  payload = {
+                      "sport": sport,
+                      "platform": platform,
+                      "slate": {
+                          "id": "cpsat-load-test",
+                          "sport": sport,
+                          "platform": platform,
+                          "format": "classic",
+                          "gameIds": [
+                              f"G{i}" for i in range(8)
+                          ],
+                      },
+                      "players": players,
+                      "timeLimitSeconds": 15,
+                  }
+
+                  start = time.perf_counter()
+                  result = optimize(payload)
+                  elapsed = (
+                      time.perf_counter() - start
+                  )
+
+                  print(
+                      f"{sport.upper()} "
+                      f"{platform.upper()}",
+                      flush=True
+                  )
+                  print(
+                      f"Status: {result['status']}",
+                      flush=True
+                  )
+                  print(
+                      f"Optimal proven: "
+                      f"{result['optimalityGuaranteed']}",
+                      flush=True
+                  )
+                  print(
+                      f"Time: {elapsed:.3f}s",
+                      flush=True
+                  )
+
+                  assert result["found"], (
+                      f"No lineup: {sport} "
+                      f"{platform}: {result}"
+                  )
+
+                  config = RULES[sport][platform]
+
+                  assert len(result["lineup"]) == len(
+                      config["slots"]
+                  )
+
+                  assert result["salary"] <= (
+                      config["salary_cap"]
+                  )
+
+                  ids = [
+                      p["playerId"]
+                      for p in result["lineup"]
+                  ]
+
+                  assert len(ids) == len(set(ids))
+
+                  for player in result["lineup"]:
+                      assert set(
+                          player["positions"]
+                      ).intersection(
+                          config["slots"][
+                              player["slot"]
+                          ]
+                      )
+
+                  assert result["status"] in (
+                      "OPTIMAL", "FEASIBLE"
+                  )
+
+                  print(
+                      f"Projected: "
+                      f"{result['projectedPoints']}",
+                      flush=True
+                  )
+                  print(
+                      f"Salary: ${result['salary']}",
+                      flush=True
+                  )
+                  print("---------------------")
+
+          print("CP-SAT LOAD TEST COMPLETE")
+          PY
+
   real-shadow:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     name: NBA NFL Real Data Shadow
