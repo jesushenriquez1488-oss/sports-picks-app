@@ -1302,6 +1302,236 @@ jobs:
           )
           PY
 
+  optimizer-comparison:
+    name: Compare Joint vs Sequential CP-SAT
+    needs: cpsat-optimizer-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout fantasy-dev
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install OR-Tools
+        run: |
+          python -m pip install "ortools>=9.10,<10"
+
+      - name: Compare multi-lineup strategies
+        run: |
+          python - <<'PY'
+          import sys
+          import time
+          import json
+          from collections import Counter
+
+          sys.path.insert(
+              0, "fantasy-engine/optimizer"
+          )
+
+          from multi_solver import optimize_multiple
+          from sequential_solver import solve_sequential
+          from solver import RULES
+
+          def build_players(sport):
+              positions = (
+                  ["PG", "SG", "SF", "PF", "C"]
+                  if sport == "nba"
+                  else ["QB", "RB", "WR", "TE", "DST"]
+              )
+
+              return [
+                  {
+                      "playerId": f"P{i}",
+                      "name": f"Player {i}",
+                      "positions": [positions[i % 5]],
+                      "salary": 3500 + (i * 137 % 30) * 100,
+                      "projectedPoints": round(
+                          12 + (i * 19 % 36)
+                          + (i % 5) * 0.13, 2
+                      ),
+                      "gameId": f"G{i % 8}",
+                      "teamId": f"T{i % 16}"
+                  }
+                  for i in range(100)
+              ]
+
+          def verify(result, payload):
+              count = payload["lineupCount"]
+
+              if len(result["lineups"]) != count:
+                  return False
+
+              rules = RULES[
+                  payload["sport"]
+              ][payload["platform"]]
+
+              slots = rules["slots"]
+              exposure = Counter()
+              previous = []
+
+              for lineup in result["lineups"]:
+                  players = lineup["players"]
+                  ids = [p["playerId"] for p in players]
+
+                  if (
+                      len(players) != len(slots)
+                      or len(ids) != len(set(ids))
+                      or lineup["salary"] >
+                         rules["salary_cap"]
+                      or {p["slot"] for p in players}
+                         != set(slots)
+                  ):
+                      return False
+
+                  for player in players:
+                      if not (
+                          set(player["positions"])
+                          & set(slots[player["slot"]])
+                      ):
+                          return False
+
+                      exposure[player["playerId"]] += 1
+
+                  selected = set(ids)
+
+                  if any(
+                      len(selected - old) <
+                      payload["minDifferentPlayers"]
+                      for old in previous
+                  ):
+                      return False
+
+                  previous.append(selected)
+
+              maximum = (
+                  count *
+                  payload["maxExposurePercent"]
+                  // 100
+              )
+
+              return all(
+                  occurrences <= maximum
+                  for occurrences in exposure.values()
+              )
+
+          cases = [
+              ("nba", "draftkings", 3),
+              ("nba", "fanduel", 5),
+              ("nfl", "draftkings", 5),
+              ("nfl", "fanduel", 10),
+          ]
+
+          for sport, platform, count in cases:
+              payload = {
+                  "sport": sport,
+                  "platform": platform,
+                  "slate": {
+                      "id": "strategy-comparison",
+                      "sport": sport,
+                      "platform": platform,
+                      "format": "classic",
+                      "gameIds": [
+                          f"G{i}" for i in range(8)
+                      ]
+                  },
+                  "players": build_players(sport),
+                  "lineupCount": count,
+                  "maxExposurePercent": (
+                      100 if count == 3 else 60
+                  ),
+                  "minDifferentPlayers": 2,
+                  "locked": [],
+                  "excluded": ["P99"],
+              }
+
+              joint_input = {
+                  **payload,
+                  "timeLimitSeconds": 10,
+              }
+
+              sequential_input = {
+                  **payload,
+                  "timeLimitSeconds": 2,
+              }
+
+              start = time.perf_counter()
+              joint = optimize_multiple(joint_input)
+              joint_elapsed = time.perf_counter() - start
+
+              start = time.perf_counter()
+              sequential = solve_sequential(
+                  sequential_input
+              )
+              seq_elapsed = time.perf_counter() - start
+
+              joint_valid = (
+                  joint.get("found") is True
+                  and verify(joint, payload)
+              )
+
+              seq_valid = (
+                  sequential.get("found") is True
+                  and verify(sequential, payload)
+              )
+
+              report = {
+                  "sport": sport,
+                  "platform": platform,
+                  "lineupCount": count,
+                  "joint": {
+                      "status": joint["status"],
+                      "valid": joint_valid,
+                      "optimalProven":
+                          joint["optimalityGuaranteed"],
+                      "seconds": round(
+                          joint_elapsed, 3
+                      ),
+                      "totalPoints":
+                          joint.get("totalProjectedPoints")
+                  },
+                  "sequential": {
+                      "status": sequential["status"],
+                      "valid": seq_valid,
+                      "allStepsOptimal":
+                          sequential["allStepOptimal"],
+                      "globalOptimalProven":
+                          sequential[
+                              "globalOptimalityGuaranteed"
+                          ],
+                      "seconds": round(
+                          seq_elapsed, 3
+                      ),
+                      "totalPoints":
+                          sequential["totalProjectedPoints"]
+                  }
+              }
+
+              print(
+                  json.dumps(report, indent=2),
+                  flush=True
+              )
+
+              assert joint_valid, (
+                  "Conjunto invalido: "
+                  + sport + " " + platform
+              )
+
+              assert seq_valid, (
+                  "Secuencial invalido: "
+                  + sport + " " + platform
+              )
+
+          print(
+              "OPTIMIZER COMPARISON COMPLETE",
+              flush=True
+          )
+          PY
+
   real-shadow:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     name: NBA NFL Real Data Shadow
