@@ -658,7 +658,217 @@ async function auditDfsMatrix({
   };
 }
 
+
+async function fetchFullDfsDraftables({
+  sport,
+  platform,
+  slateId,
+  apiKey,
+  fetchFn = fetch,
+  waitMs = 15000,
+  maxPages = 20
+} = {}) {
+  if (
+    !SPORTS.includes(sport) ||
+    !PLATFORMS.includes(platform)
+  ) {
+    throw new Error("Sport/platform invalidos");
+  }
+
+  if (!asId(slateId)) {
+    throw new Error("Falta slateId");
+  }
+
+  if (
+    !Number.isInteger(maxPages) ||
+    maxPages < 1 ||
+    maxPages > 50
+  ) {
+    throw new Error("maxPages invalido");
+  }
+
+  const key = apiKeyFor(sport, apiKey);
+
+  const allEntries = [];
+  const seenDraftableIds = new Set();
+  const seenCursors = new Set();
+
+  let cursor = null;
+  let pages = 0;
+
+  while (pages < maxPages) {
+    const params = {
+      "slate_ids[]": slateId,
+      per_page: 100
+    };
+
+    if (cursor) {
+      params.cursor = cursor;
+    }
+
+    const response = await getDFS({
+      sport,
+      path: "draftables",
+      params,
+      key,
+      fetchFn,
+      waitMs
+    });
+
+    if (!Array.isArray(response.data)) {
+      throw new Error("Pagina de draftables invalida");
+    }
+
+    pages++;
+
+    for (const row of response.data) {
+      if (asId(row.slate_id) !== asId(slateId)) {
+        throw new Error(
+          "Draftable pertenece a otro slate"
+        );
+      }
+
+      const id = asId(row.id);
+
+      if (!id) {
+        throw new Error("Draftable sin ID");
+      }
+
+      if (seenDraftableIds.has(id)) {
+        continue;
+      }
+
+      seenDraftableIds.add(id);
+      allEntries.push(row);
+    }
+
+    const nextCursor = response.meta?.next_cursor;
+
+    if (nextCursor === null || nextCursor === undefined ||
+        nextCursor === "") {
+      cursor = null;
+      break;
+    }
+
+    cursor = String(nextCursor);
+
+    if (seenCursors.has(cursor)) {
+      throw new Error("Cursor DFS repetido");
+    }
+
+    seenCursors.add(cursor);
+  }
+
+  if (cursor) {
+    throw new Error(
+      `Slate incompleto: maxPages=${maxPages}`
+    );
+  }
+
+  const players = new Map();
+  const excluded = [];
+
+  for (const row of allEntries) {
+    const playerId = asId(row.player_id);
+    const salary = asNumber(row.salary);
+
+    const valid =
+      row.entity_type === "player" &&
+      playerId &&
+      salary !== null &&
+      salary > 0 &&
+      row.active !== false &&
+      row.is_disabled !== true;
+
+    if (!valid) {
+      excluded.push({
+        draftableId: row.id,
+        playerId: row.player_id ?? null,
+        name: row.display_name ?? null,
+        status: row.status ?? null,
+        active: row.active ?? null,
+        disabled: row.is_disabled ?? null
+      });
+      continue;
+    }
+
+    const keyId = playerId;
+
+    if (!players.has(keyId)) {
+      players.set(keyId, {
+        playerId,
+        name: row.display_name,
+        teamId: row.team_id,
+        team: row.team_abbreviation,
+        gameId: row.game_id,
+        salary,
+        status: row.status ?? null,
+        positions: new Set(),
+        rosterSlotIds: new Set(),
+        draftableIds: [],
+        salaryVariants: new Set()
+      });
+    }
+
+    const player = players.get(keyId);
+
+    player.draftableIds.push(row.id);
+    player.salaryVariants.add(salary);
+
+    for (
+      const position of String(row.position || "")
+        .split("/")
+        .map(x => x.trim())
+        .filter(Boolean)
+    ) {
+      player.positions.add(position);
+    }
+
+    player.rosterSlotIds.add(
+      String(row.roster_slot_id)
+    );
+  }
+
+  const normalizedPlayers = [
+    ...players.values()
+  ].map(player => ({
+    ...player,
+    positions: [...player.positions],
+    rosterSlotIds: [...player.rosterSlotIds],
+    salaryVariants: [...player.salaryVariants]
+  }));
+
+  const salaryConflicts = normalizedPlayers
+    .filter(player =>
+      player.salaryVariants.length > 1
+    )
+    .map(player => ({
+      playerId: player.playerId,
+      name: player.name,
+      salaries: player.salaryVariants
+    }));
+
+  return {
+    sport,
+    platform,
+    slateId,
+    complete: true,
+    pages,
+    rawDraftableCount: allEntries.length,
+    uniquePlayerCount: normalizedPlayers.length,
+    excludedEntryCount: excluded.length,
+    excluded,
+    salaryConflicts,
+    players: normalizedPlayers,
+    note:
+      "Lista completa de registros recuperados. " +
+      "La elegibilidad final requiere validar " +
+      "roster slots, estados y reglas del concurso."
+  };
+}
+
 module.exports = {
   auditDfsFeed,
-  auditDfsMatrix
+  auditDfsMatrix,
+  fetchFullDfsDraftables
 };
