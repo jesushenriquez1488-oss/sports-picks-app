@@ -1,0 +1,278 @@
+
+name: Fantasy Edge Shadow Tests
+
+on:
+  push:
+    branches:
+      - fantasy-dev
+    paths:
+      - "fantasy-engine/**"
+      - ".github/workflows/fantasy-shadow-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fantasy-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout fantasy-dev
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check JavaScript syntax
+        run: |
+          find fantasy-engine -type f -name '*.js' -print0 |
+            xargs -0 -n1 node --check
+
+      - name: Test NBA NFL and simulations
+        run: |
+          node <<'NODE'
+          const assert = require("node:assert/strict");
+
+          const { scoreNBA } =
+            require("./fantasy-engine/nba/scoring");
+
+          const { scoreNFLOffense } =
+            require("./fantasy-engine/nfl/scoring");
+
+          const { simulateFantasySlate } =
+            require("./fantasy-engine/shared/simulator");
+
+          const { getContestConfig } =
+            require("./fantasy-engine/shared/contest-config");
+
+          const { runFantasyShadowPreview } =
+            require("./fantasy-engine/shared/shadow-preview");
+
+          const nbaStats = {
+            points: 20,
+            rebounds: 12,
+            assists: 11,
+            steals: 1,
+            blocks: 0,
+            turnovers: 2,
+            three_pointers_made: 2
+          };
+
+          assert.equal(
+            scoreNBA(nbaStats, "draftkings").points,
+            56.5
+          );
+
+          assert.equal(
+            scoreNBA(nbaStats, "fanduel").points,
+            51.9
+          );
+
+          const nflStats = {
+            passing_yards: 300,
+            passing_tds: 2,
+            passing_interceptions: 1,
+            rushing_yards: 20,
+            rushing_tds: 0,
+            receptions: 0,
+            receiving_yards: 0,
+            receiving_tds: 0,
+            fumbles_lost: 0,
+            two_point_conversions: 0,
+            return_tds: 0,
+            offensive_fumble_recovery_tds: 0
+          };
+
+          for (const platform of ["draftkings", "fanduel"]) {
+            assert.equal(
+              scoreNFLOffense(nflStats, platform).points,
+              24
+            );
+          }
+
+          for (const sport of ["nba", "nfl"]) {
+            for (const platform of ["draftkings", "fanduel"]) {
+              const config = getContestConfig({
+                sport,
+                platform
+              });
+
+              assert.equal(
+                config.salaryCap,
+                platform === "draftkings" ? 50000 : 60000
+              );
+
+              assert.equal(
+                config.rosterSize,
+                sport === "nba" && platform === "draftkings"
+                  ? 8
+                  : 9
+              );
+            }
+          }
+
+          const nbaHistory = Array.from(
+            { length: 12 },
+            (_, i) => ({
+              game_id: i + 1,
+              player_id: 77,
+              game_date:
+                `2026-01-${String(i + 1).padStart(2, "0")}T00:00:00Z`,
+              minutes: 30,
+              ...nbaStats
+            })
+          );
+
+          const nflLogs = Array.from(
+            { length: 8 },
+            (_, i) => ({
+              gameId: String(i + 100),
+              date:
+                `2026-09-${String(i + 10).padStart(2, "0")}T00:00:00Z`,
+              passing: {
+                attempts: 30,
+                yards: 250,
+                touchdowns: 2,
+                interceptions: 1
+              },
+              rushing: {
+                attempts: 3,
+                yards: 15,
+                touchdowns: 0
+              },
+              receiving: {
+                targets: 0,
+                receptions: 0,
+                yards: 0,
+                touchdowns: 0
+              }
+            })
+          );
+
+          const mockDb = {
+            from() {
+              return {
+                filters: {},
+                select() { return this; },
+                eq(key, value) {
+                  this.filters[key] = value;
+                  return this;
+                },
+                in() { return this; },
+                lt() { return this; },
+                order() { return this; },
+                async limit() {
+                  return {
+                    data: nbaHistory,
+                    error: null
+                  };
+                },
+                async maybeSingle() {
+                  return {
+                    data: this.filters.season === 2026
+                      ? { stats_json: { logs: nflLogs } }
+                      : null,
+                    error: null
+                  };
+                }
+              };
+            }
+          };
+
+          async function testPreviews() {
+            const cutoffAt = "2026-10-20T18:00:00Z";
+
+            const nba = await runFantasyShadowPreview({
+              db: mockDb,
+              sport: "nba",
+              platform: "draftkings",
+              cutoffAt,
+              players: [{ id: 77 }]
+            });
+
+            const nfl = await runFantasyShadowPreview({
+              db: mockDb,
+              sport: "nfl",
+              platform: "fanduel",
+              cutoffAt,
+              players: [{
+                id: "900",
+                position: "QB"
+              }]
+            });
+
+            assert.equal(nba.counts.projected, 1);
+            assert.equal(nfl.counts.projected, 1);
+
+            assert.equal(nba.counts.errors, 0);
+            assert.equal(nfl.counts.errors, 0);
+
+            assert.equal(
+              nfl.results[0].fantasyBasePoints,
+              null
+            );
+
+            console.log("OK: NBA y NFL shadow preview");
+          }
+
+          function testSimulations() {
+            const options = {
+              platform: "draftkings",
+              players: [{ id: "A" }, { id: "B" }],
+              lineups: [{
+                id: "lineup-1",
+                playerIds: ["A", "B"]
+              }],
+              iterations: 10000,
+              seed: "fantasy-ci-test",
+              scoreStats: scoreNBA,
+              generateScenario({ random }) {
+                const variation = random() < 0.5 ? 5 : 0;
+
+                return {
+                  A: {
+                    ...nbaStats,
+                    points: nbaStats.points + variation
+                  },
+                  B: {
+                    ...nbaStats,
+                    points: nbaStats.points + variation
+                  }
+                };
+              }
+            };
+
+            const first = simulateFantasySlate(options);
+            const second = simulateFantasySlate(options);
+
+            assert.deepEqual(first, second);
+            assert.equal(first.iterations, 10000);
+
+            assert.ok(
+              first.lineups[0].p90 >
+              first.lineups[0].p10
+            );
+
+            assert.ok(
+              Math.abs(
+                first.lineups[0].standardDeviation -
+                2 * first.players[0].standardDeviation
+              ) < 0.03
+            );
+
+            console.log("OK: 10000 escenarios reproducibles");
+          }
+
+          (async () => {
+            await testPreviews();
+            testSimulations();
+            console.log("FANTASY EDGE: TESTS PASSED");
+          })().catch(error => {
+            console.error(error);
+            process.exitCode = 1;
+          });
+          NODE
