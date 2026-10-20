@@ -365,6 +365,207 @@ function projectNBAPlayer({
   };
 }
 
+
+function projectNBASlatePlayers({
+  platform,
+  slateId,
+  players,
+  historicalGames,
+  identityLinks,
+  cutoffAt,
+  contextByPlayer = {}
+} = {}) {
+  if (!["draftkings", "fanduel"].includes(platform)) {
+    throw new Error("Plataforma Fantasy invalida");
+  }
+
+  if (
+    !slateId ||
+    !Array.isArray(players) ||
+    !Array.isArray(historicalGames) ||
+    !Array.isArray(identityLinks)
+  ) {
+    throw new Error(
+      "Faltan datos del slate, historiales o identidades"
+    );
+  }
+
+  const links = new Map();
+
+  // No inferir identidades por nombre.
+  // Requerir una correspondencia verificada.
+
+  for (const link of identityLinks) {
+    if (
+      link.platform !== platform ||
+      link.verified !== true ||
+      !link.source ||
+      !link.dfsPlayerId ||
+      !link.historicalPlayerId
+    ) {
+      continue;
+    }
+
+    const key = String(link.dfsPlayerId);
+
+    if (links.has(key)) {
+      throw new Error(
+        "Identidad DFS duplicada: " + key
+      );
+    }
+
+    links.set(key, link);
+  }
+
+  const results = [];
+  const excluded = [];
+
+  const unavailable = new Set([
+    "out",
+    "o",
+    "inactive",
+    "suspended",
+    "doubtful",
+    "d"
+  ]);
+
+  const seenPlayers = new Set();
+
+  for (const player of players) {
+    const dfsId = String(player.playerId || "");
+
+    if (!dfsId || seenPlayers.has(dfsId)) {
+      excluded.push({
+        playerId: dfsId || null,
+        name: player.name || null,
+        reason: "missing_or_duplicate_dfs_id"
+      });
+      continue;
+    }
+
+    seenPlayers.add(dfsId);
+
+    const salary = number(player.salary);
+
+    const status = String(
+      player.status ?? ""
+    ).trim().toLowerCase();
+
+    if (
+      salary === null ||
+      salary <= 0 ||
+      unavailable.has(status)
+    ) {
+      excluded.push({
+        playerId: dfsId,
+        name: player.name || null,
+        reason: "unavailable_or_invalid_salary"
+      });
+      continue;
+    }
+
+    const link = links.get(dfsId);
+
+    if (!link) {
+      excluded.push({
+        playerId: dfsId,
+        name: player.name || null,
+        reason: "identity_not_verified"
+      });
+      continue;
+    }
+
+    // Si los dos registros identifican equipo,
+    // una discrepancia bloquea la proyeccion.
+
+    if (
+      link.teamId != null &&
+      player.teamId != null &&
+      String(link.teamId) !==
+        String(player.teamId)
+    ) {
+      excluded.push({
+        playerId: dfsId,
+        name: player.name || null,
+        reason: "team_identity_mismatch"
+      });
+      continue;
+    }
+
+    const historicalId = String(
+      link.historicalPlayerId
+    );
+
+    const projection = projectNBAPlayer({
+      playerId: historicalId,
+      games: historicalGames,
+      cutoffAt,
+      context: contextByPlayer[historicalId] || {}
+    });
+
+    if (
+      projection.status !== "baseline_shadow" ||
+      !projection.fantasyBasePoints ||
+      number(
+        projection.fantasyBasePoints[platform]
+      ) === null
+    ) {
+      excluded.push({
+        playerId: dfsId,
+        name: player.name || null,
+        reason: projection.status
+      });
+      continue;
+    }
+
+    results.push({
+      playerId: dfsId,
+      historicalPlayerId: historicalId,
+      name: player.name || null,
+      teamId: player.teamId ?? null,
+      team: player.team ?? null,
+      gameId: player.gameId ?? null,
+      salary,
+      positions: Array.isArray(player.positions)
+        ? player.positions
+        : [],
+      rosterSlotIds: Array.isArray(
+        player.rosterSlotIds
+      )
+        ? player.rosterSlotIds
+        : [],
+      projectedPoints:
+        projection.fantasyBasePoints[platform],
+      expectedMinutes: projection.expectedMinutes,
+      gamesAvailable: projection.gamesAvailable,
+      identitySource: link.source,
+      projectionStatus: "baseline_shadow",
+      readyForOptimization: false
+    });
+  }
+
+  return {
+    sport: "nba",
+    platform,
+    slateId: String(slateId),
+    cutoffAt,
+    playersReceived: players.length,
+    projectedCount: results.length,
+    excludedCount: excluded.length,
+    players: results,
+    excluded,
+    readyForOptimization: false,
+    limitations: [
+      "Identidades historicas requieren verificacion",
+      "Proyecciones todavia no calibradas",
+      "Bonos probabilisticos pendientes",
+      "Slate y posiciones requieren validacion final"
+    ]
+  };
+}
+
 module.exports = {
-  projectNBAPlayer
+  projectNBAPlayer,
+  projectNBASlatePlayers
 };
+
