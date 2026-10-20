@@ -276,3 +276,29 @@ jobs:
             process.exitCode = 1;
           });
           NODE
+
+  real-shadow:
+    name: NBA NFL Real Data Shadow
+    needs: fantasy-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout fantasy-dev
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Supabase client
+        run: |
+          npm install --prefix fantasy-engine --no-save --package-lock=false --ignore-scripts --no-audit --no-fund @supabase/supabase-js@2
+
+      - name: Run NBA NFL real shadow test
+        env:
+          FANTASY_SUPABASE_URL: ${{ secrets.FANTASY_SUPABASE_URL }}
+          FANTASY_SUPABASE_ANON_KEY: ${{ secrets.FANTASY_SUPABASE_ANON_KEY }}
+        run: |
+          node fantasy-engine/tests/real-shadow.js
