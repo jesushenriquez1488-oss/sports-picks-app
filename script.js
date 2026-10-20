@@ -2321,7 +2321,240 @@ function ensureNBAMobileStyles() {
   );
 }
 
+function nbaPtsDelta(n) {
+  const v = Number(n);
+  return Number.isFinite(v)
+    ? `${v > 0 ? "+" : ""}${v.toFixed(1)} pts`
+    : "Not quantified";
+}
 
+function nbaImpactTeamHTML(team, data) {
+  if (!data) {
+    return `<div style="padding:12px;color:#9eb0c8">
+      ${sanitize(team)}: impact unavailable
+    </div>`;
+  }
+
+  const offense = Number(data.offenseImpact || 0);
+  const defense = Number(data.defenseImpact || 0);
+
+  const players = (Array.isArray(data.players) ? data.players : [])
+    .filter(p =>
+      Math.abs(Number(p.offenseImpact || 0)) +
+      Math.abs(Number(p.defenseImpact || 0)) > 0.05
+    )
+    .sort((a, b) =>
+      Math.abs(Number(b.offenseImpact || 0)) +
+      Math.abs(Number(b.defenseImpact || 0)) -
+      Math.abs(Number(a.offenseImpact || 0)) -
+      Math.abs(Number(a.defenseImpact || 0))
+    );
+
+  const playerRows = players.slice(0, 3).map(p => `
+    <div style="margin-top:5px;font-size:9px;color:#b5c7d5">
+      ${sanitize(p.playerName)}:
+      ${nbaPtsDelta(
+        Number(p.offenseImpact || 0) +
+        Number(p.defenseImpact || 0)
+      )}
+    </div>
+  `).join("");
+
+  return `
+    <div style="
+      background:#0a2030;
+      border:1px solid #193650;
+      border-radius:11px;
+      padding:12px;
+      min-width:0;
+    ">
+      <strong style="font-size:11px;color:white">
+        ${sanitize(team)}
+      </strong>
+
+      <div style="
+        font-size:18px;
+        color:#00ffe7;
+        font-weight:900;
+        margin:6px 0;
+      ">
+        ${nbaPtsDelta(offense + defense)}
+      </div>
+
+      <div style="font-size:9px;color:#9eb0c8">
+        Net effect on game total
+      </div>
+
+      <div style="font-size:9px;color:#b5c7d5;margin-top:8px">
+        Offense: ${nbaPtsDelta(offense)}
+      </div>
+
+      <div style="font-size:9px;color:#b5c7d5">
+        Opponent scoring: ${nbaPtsDelta(defense)}
+      </div>
+
+      ${playerRows || `
+        <div style="font-size:9px;color:#8498b5;margin-top:8px">
+          No measurable injury adjustment
+        </div>
+      `}
+    </div>
+  `;
+}
+
+function nbaInjuryListHTML(team, key, report, impact, index) {
+  const code = `nba-inj-${index}-${key}`;
+
+  if (!report?.available) {
+    return `<div style="padding:12px;color:#9eb0c8">
+      ${sanitize(team)}: injury report unavailable
+    </div>`;
+  }
+
+  const injuries = Array.isArray(report[key]) ? report[key] : [];
+  const modeled = Array.isArray(impact?.players) ? impact.players : [];
+
+  const rows = injuries.map((p, i) => {
+    const model = modeled.find(m =>
+      String(m.playerId) === String(p.playerId)
+    );
+
+    const delta = model
+      ? nbaPtsDelta(
+          Number(model.offenseImpact || 0) +
+          Number(model.defenseImpact || 0)
+        )
+      : "Not quantified";
+
+    return `
+      <div
+        data-nba-injury-extra="${code}"
+        ${i >= 3 ? "hidden" : ""}
+        style="
+          display:${i >= 3 ? "none" : "flex"};
+          justify-content:space-between;
+          gap:8px;
+          padding:8px 0;
+          border-bottom:1px solid #143047;
+        "
+      >
+        <div>
+          <strong style="color:white;font-size:10px">
+            ${sanitize(p.name)}
+          </strong>
+          <div style="font-size:8px;color:#9eb0c8">
+            ${sanitize(p.status)}
+          </div>
+        </div>
+        <span style="font-size:9px;color:#00e9df;text-align:right">
+          ${delta}
+        </span>
+      </div>
+    `;
+  }).join("");
+
+  return `
+    <div style="
+      background:#0a2030;
+      border:1px solid #193650;
+      border-radius:11px;
+      padding:11px;
+      min-width:0;
+    ">
+      <strong style="color:white;font-size:11px">
+        ${sanitize(team)} · ${injuries.length}
+      </strong>
+
+      ${rows || `
+        <p style="font-size:9px;color:#9eb0c8">
+          No players in the current report.
+        </p>
+      `}
+
+      ${injuries.length > 3 ? `
+        <button
+          type="button"
+          onclick="toggleNBAInjuryRows('${code}',this)"
+          style="
+            border:0;
+            background:transparent;
+            color:#00e9df;
+            font-size:10px;
+            margin-top:8px;
+            cursor:pointer;
+          "
+        >
+          View All (${injuries.length}) ▾
+        </button>
+      ` : ""}
+    </div>
+  `;
+}
+
+window.toggleNBAInjuryRows = function(group, button) {
+  const rows = Array.from(
+    document.querySelectorAll(
+      `[data-nba-injury-extra="${group}"]`
+    )
+  ).slice(3);
+
+  const expand = rows.some(el =>
+    el.hidden || el.style.display === "none"
+  );
+
+  rows.forEach(el => {
+    el.hidden = !expand;
+    el.style.display = expand ? "flex" : "none";
+  });
+
+  button.textContent = expand
+    ? "Show Less ▴"
+    : "View All ▾";
+};
+
+function nbaPaceExplanation(pace, baselines) {
+  if (pace === null) {
+    return "Pace data unavailable. No tempo advantage claimed.";
+  }
+
+  const away = Number(baselines?.away);
+  const home = Number(baselines?.home);
+
+  if (!(away > 0 && home > 0)) {
+    return `Expected ${pace.toFixed(1)} possessions per team. Pace measures scoring opportunities, but a comparison against normal team tempo is unavailable.`;
+  }
+
+  const normal = (away + home) / 2;
+  const difference = pace - normal;
+
+  if (difference <= -1) {
+    return `Expected ${pace.toFixed(1)} possessions versus a typical ${normal.toFixed(1)}. A more controlled, slower game is projected, creating fewer scoring opportunities.`;
+  }
+
+  if (difference >= 1) {
+    return `Expected ${pace.toFixed(1)} possessions versus a typical ${normal.toFixed(1)}. A faster game is projected, creating more scoring opportunities.`;
+  }
+
+  return `Expected ${pace.toFixed(1)} possessions, close to the teams' usual ${normal.toFixed(1)}. Tempo is not expected to be a major factor.`;
+}
+
+function nbaRestExplanation(note) {
+  const value = String(note || "");
+
+  if (!value || /not available|no rest adjustment|no disponible/i.test(value)) {
+    return "Schedule information is insufficient to identify a rest advantage.";
+  }
+
+  if (/back.to.back|segundo partido/i.test(value)) {
+    return `${value} Short rest may reduce energy and efficiency.`;
+  }
+
+  if (/buen descanso|extra rest|well.rested/i.test(value)) {
+    return `${value} Extra recovery may help sustain performance.`;
+  }
+
+  return value;
+}
 // ============================================================
 // NBA NORMAL MOBILE CARD
 // ============================================================
@@ -2690,7 +2923,42 @@ function renderNBAMobileCard({
       )
     )
       .toUpperCase();
+    const injuryContext =
+    premium?.card?.context?.injuries ||
+    card?.context?.injuries ||
+    data?.public?.context?.injuries ||
+    null;
 
+  const injuryReport =
+    premium?.nbaInjuryReport || null;
+
+  const injuryAway =
+    injuryContext?.away || null;
+
+  const injuryHome =
+    injuryContext?.home || null;
+
+  const totalInjuryDelta =
+    injuryAway && injuryHome
+      ? Number(injuryAway.offenseImpact || 0) +
+        Number(injuryAway.defenseImpact || 0) +
+        Number(injuryHome.offenseImpact || 0) +
+        Number(injuryHome.defenseImpact || 0)
+      : null;
+
+  const paceStory = nbaPaceExplanation(
+    pace,
+    premium?.nbaPaceBaselines
+  );
+
+  const scoreComparison =
+    marketType === "TOTAL"
+      ? `MODEL TOTAL: ${
+          projTotal !== null
+            ? projTotal.toFixed(1)
+            : "—"
+        } · SPORTSBOOK: ${totalLine ?? "—"}`
+      : `MODEL MARGIN: ${marginText} · SPORTSBOOK: ${spreadText}`;
 
   return `
     <div class="ce-nba-v4">
@@ -2955,84 +3223,71 @@ function renderNBAMobileCard({
 
           </div>
 
+               </div>
+
+        <div style="
+          text-align:center;
+          margin-top:10px;
+          padding:10px 5px 2px;
+          border-top:1px solid #193650;
+          color:#00ffe7;
+          font-size:11px;
+          font-weight:850;
+        ">
+          ${sanitize(scoreComparison)}
         </div>
 
       </div>
 
 
-      <div class="ce-nba-market-grid">
 
-        <div class="ce-nba-mini-box">
+            <div style="
+        background:#071624;
+        border:1px solid #193650;
+        border-radius:12px;
+        padding:12px;
+        margin-top:10px;
+      ">
 
-          <small>
-            SPORTSBOOK SPREAD
-          </small>
-
-          <strong>
-            ${sanitize(
-              spreadText
-            )}
-          </strong>
-
+        <div class="ce-nba-section-title">
+          INJURY IMPACT
         </div>
 
+        <div style="
+          display:grid;
+          grid-template-columns:repeat(
+            auto-fit,
+            minmax(min(100%,240px),1fr)
+          );
+          gap:8px;
+          margin-top:10px;
+        ">
+          ${nbaImpactTeamHTML(awayTeam, injuryAway)}
+          ${nbaImpactTeamHTML(homeTeam, injuryHome)}
+        </div>
 
-        <div class="ce-nba-mini-box">
-
-          <small>
-            SPORTSBOOK TOTAL
-          </small>
-
-          <strong>
+        <div style="
+          margin-top:10px;
+          padding-top:10px;
+          border-top:1px solid #193650;
+          color:#c8d8e8;
+          font-size:10px;
+        ">
+          TOTAL INJURY ADJUSTMENT:
+          <strong style="color:#00ffe7">
             ${
-              totalLine !==
-                null
-                ? totalLine
-                : "—"
+              totalInjuryDelta === null
+                ? "Not quantified"
+                : nbaPtsDelta(totalInjuryDelta)
             }
           </strong>
-
-        </div>
-
-
-        <div class="ce-nba-mini-box">
-
-          <small>
-            MODEL MARGIN
-          </small>
-
-          <strong>
-            ${sanitize(
-              marginText
-            )}
-          </strong>
-
-        </div>
-
-
-        <div class="ce-nba-mini-box">
-
-          <small>
-            PROJECTED TOTAL
-          </small>
-
-          <strong>
-            ${
-              projTotal !==
-                null
-                ? projTotal.toFixed(
-                    1
-                  )
-                : "—"
-            }
-          </strong>
-
         </div>
 
       </div>
 
 
-      <div class="ce-nba-reasons">
+
+            <div class="ce-nba-reasons">
 
         <div class="ce-nba-section-title">
           WHY CASHEDGE LIKES IT
@@ -3052,11 +3307,7 @@ function renderNBAMobileCard({
             </strong>
 
             <p>
-              ${
-                pace !== null
-                  ? `Expected pace: ${pace.toFixed(1)}`
-                  : "No major pace adjustment."
-              }
+                            ${sanitize(paceStory)}
             </p>
 
           </div>
@@ -3082,9 +3333,7 @@ function renderNBAMobileCard({
                   awayTeam
                 )
               )}:
-              ${sanitize(
-                awayRest
-              )}
+                          ${sanitize(nbaRestExplanation(awayRest))}
 
               <br>
 
@@ -3093,9 +3342,7 @@ function renderNBAMobileCard({
                   homeTeam
                 )
               )}:
-              ${sanitize(
-                homeRest
-              )}
+                          ${sanitize(nbaRestExplanation(homeRest))}
             </p>
 
           </div>
@@ -3103,35 +3350,7 @@ function renderNBAMobileCard({
         </div>
 
 
-        <div class="ce-nba-reason">
-
-          <div class="ce-nba-reason-icon">
-            ✚
-          </div>
-
-          <div>
-
-            <strong>
-              INJURIES
-            </strong>
-
-            <p>
-              ${sanitize(
-                awayInjury
-              )}
-
-              <br>
-
-              ${sanitize(
-                homeInjury
-              )}
-            </p>
-
-          </div>
-
-        </div>
-
-
+       
         ${
           awayForm ||
           homeForm
@@ -3204,7 +3423,50 @@ function renderNBAMobileCard({
               </div>
             `
             : ""
-        }
+               }
+
+      </div>
+
+      <!-- INJURY REPORT -->
+      <div style="
+        background:#071624;
+        border:1px solid #193650;
+        border-radius:12px;
+        padding:12px;
+        margin-top:10px;
+      ">
+
+        <div class="ce-nba-section-title">
+          INJURY REPORT
+        </div>
+
+        <div style="
+          display:grid;
+          grid-template-columns:repeat(
+            auto-fit,
+            minmax(min(100%,240px),1fr)
+          );
+          gap:8px;
+          margin-top:10px;
+        ">
+
+          ${nbaInjuryListHTML(
+            awayTeam,
+            "away",
+            injuryReport,
+            injuryAway,
+            index
+          )}
+
+          ${nbaInjuryListHTML(
+            homeTeam,
+            "home",
+            injuryReport,
+            injuryHome,
+            index
+          )}
+
+        </div>
 
       </div>
 
@@ -3248,6 +3510,22 @@ function renderNBAMobileCard({
       <button
         type="button"
         class="ce-nba-props-button"
+                style="
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          width:100%;
+          padding:12px 16px;
+          margin-top:11px;
+          background:#081724;
+          border:1px solid #197e81;
+          border-radius:12px;
+          color:#ffffff;
+          font-size:11px;
+          font-weight:850;
+          box-shadow:none;
+          cursor:pointer;
+        "
         onclick="toggleNBAPlayerProps(
           ${index},
           '${escapeText(
@@ -3259,7 +3537,11 @@ function renderNBAMobileCard({
           this
         )"
       >
-        ⚡ VIEW PLAYER PROPS ›
+         <span>PLAYER PROPS</span>
+
+        <span style="color:#00ffe7">
+          EXPLORE ›
+        </span>
       </button>
 
 
@@ -20532,12 +20814,25 @@ function generateBasketHighlight(premium, awayTeam, homeTeam) {
   const restGood = t => /buen descanso|well rested/i.test(t || "");
   const awayB2B = restB2B(premium.awayRestNote), homeB2B = restB2B(premium.homeRestNote);
   const awayRested = restGood(premium.awayRestNote), homeRested = restGood(premium.homeRestNote);
-  const injNames = note => {
-    const t = String(note || "");
-    return /no se (reportan|pudieron)|no key absences|could not read/i.test(t) ? "" : t;
-   };
-  const awayInj = injNames(premium.awayInjuryNote);
-  const homeInj = injNames(premium.homeInjuryNote);
+  const injuryModel =
+    premium?.card?.context?.injuries || null;
+
+  const getOffensiveInjuries = teamSide => {
+    const players = injuryModel?.[teamSide]?.players;
+
+    if (!Array.isArray(players)) return "";
+
+    return players
+      .filter(p => Number(p.offenseImpact) < -0.05)
+      .slice(0, 3)
+      .map(p =>
+        `${String(p.playerName || "Player")} (${String(p.status || "reported")})`
+      )
+      .join(", ");
+  };
+
+  const awayInj = getOffensiveInjuries("away");
+  const homeInj = getOffensiveInjuries("home");
   const pickedInj = pickedAway ? awayInj : homeInj;
   const fadedInj = pickedAway ? homeInj : awayInj;
   const pickedB2B = pickedAway ? awayB2B : homeB2B;
@@ -20596,7 +20891,7 @@ function generateBasketHighlight(premium, awayTeam, homeTeam) {
 
     // 5. Lesiones del rival
     args.push({ cond: !!fadedInj, mag: 4, text:
-      `${fadedTeam} comes in compromised: ${fadedInj}. That's production the line hasn't fully discounted.`
+         `${fadedTeam}'s modeled offensive absences include ${fadedInj}. Their estimated effects are already included in the projected score.`
     });
 
     // 6. Ventaja de descanso
@@ -20628,7 +20923,7 @@ function generateBasketHighlight(premium, awayTeam, homeTeam) {
       `${awayB2B && homeB2B ? "Both teams are" : `${awayB2B ? awayTeam : homeTeam} is`} on a back-to-back — tired legs historically drag totals down.`
     });
     args.push({ cond: isUnder && !!(awayInj || homeInj), mag: 2.5, text:
-      `Key offensive pieces are out or limited${awayInj ? ` for ${awayTeam} (${awayInj})` : ""}${awayInj && homeInj ? " and" : ""}${homeInj ? ` for ${homeTeam} (${homeInj})` : ""}, capping the ceiling.`
+           `The injury model includes offensive reductions${awayInj ? ` for ${awayTeam} (${awayInj})` : ""}${awayInj && homeInj ? " and" : ""}${homeInj ? ` for ${homeTeam} (${homeInj})` : ""}. These adjustments are included in the projected score.`
     });
     args.push({ cond: isOver && awayRested && homeRested, mag: 2, text:
       `Both teams come in fully rested — fresh legs favor pace and efficiency.`
@@ -20639,7 +20934,7 @@ function generateBasketHighlight(premium, awayTeam, homeTeam) {
 
   // Caveat en contra (nunca como argumento)
   let risk = "";
-  if (isSpread && pickedInj) risk = `The one caveat: ${pickedTeam}'s own injury report (${pickedInj}) — already priced into the projection, and the edge held.`;
+   if (isSpread && pickedInj) risk = `One factor to monitor: ${pickedTeam}'s modeled offensive absences (${pickedInj}). Their estimated impact is included in the projected score.`;
   else if (isSpread && pickedB2B && !fadedB2B) risk = `The one caveat: ${pickedTeam} plays on short rest — the model factored the fatigue and the edge survived it.`;
   else if (isOver && (awayB2B || homeB2B)) risk = `The one caveat: ${awayB2B ? awayTeam : homeTeam} is on short rest — even so, the projected total cleared the line comfortably.`;
 
