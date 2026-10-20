@@ -2112,7 +2112,7 @@ jobs:
             );
           }
 
-                   main().catch(error => {
+           main().catch(error => {
             console.error(error.message);
             process.exitCode = 1;
           });
@@ -2127,9 +2127,10 @@ jobs:
           if-no-files-found: warn
           retention-days: 1
 
-    real-shadow:
+     real-shadow:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     name: NBA NFL Real Data Shadow
+    
     needs: fantasy-tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
