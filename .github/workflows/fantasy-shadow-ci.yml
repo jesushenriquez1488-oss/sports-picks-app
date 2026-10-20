@@ -625,6 +625,224 @@ jobs:
           );
           NODE
 
+  exact-optimizer-tests:
+    name: Exact Mathematical Optimizer
+    needs: optimizer-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout fantasy-dev
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Test exact optimization
+        run: |
+          node <<'NODE'
+          const assert = require("node:assert/strict");
+
+          const {
+            optimizeFantasyLineupExact
+          } = require("./fantasy-engine/shared/lineup-optimizer");
+
+          const {
+            getContestConfig,
+            validateClassicLineup
+          } = require("./fantasy-engine/shared/contest-config");
+
+          for (const sport of ["nba", "nfl"]) {
+            for (const platform of ["draftkings", "fanduel"]) {
+
+              const config = getContestConfig({
+                sport,
+                platform
+              });
+
+              const slate = {
+                id: "exact-test",
+                sport,
+                platform,
+                format: "classic",
+                gameIds: ["G1", "G2"]
+              };
+
+              // Crear una alineacion de referencia
+              // con todas las posiciones cubiertas.
+
+              const basePositions = sport === "nba"
+                ? platform === "draftkings"
+                  ? ["PG", "SG", "SF", "PF",
+                     "C", "PG", "SF", "C"]
+                  : ["PG", "PG", "SG", "SG",
+                     "SF", "SF", "PF", "PF", "C"]
+                : ["QB", "RB", "RB", "WR",
+                   "WR", "WR", "TE", "RB", "DST"];
+
+              const players = basePositions.map(
+                (position, i) => ({
+                  playerId: `BASE${i}`,
+                  name: `Base ${i}`,
+                  positions: [position],
+                  salary: 4500,
+                  projectedPoints: 20 + i,
+                  gameId: i % 2 ? "G1" : "G2",
+                  teamId: `TEAM${i % 4}`
+                })
+              );
+
+              const baseTotal = players.reduce(
+                (sum, p) => sum + p.projectedPoints,
+                0
+              );
+
+              // Alternativa mas barata pero
+              // con menor proyeccion.
+
+              players.push({
+                playerId: "EXTRA",
+                positions: ["PG"].filter(
+                  () => sport === "nba"
+                ).concat(
+                  sport === "nfl" ? ["QB"] : []
+                ),
+                salary: 4000,
+                projectedPoints: 5,
+                gameId: "G1",
+                teamId: "EXTRA_TEAM"
+              });
+
+              const run = options =>
+                optimizeFantasyLineupExact({
+                  sport,
+                  platform,
+                  slate,
+                  players,
+                  maxNodes: 2000000,
+                  ...options
+                });
+
+              // Debe demostrar la mejor solucion,
+              // no solamente encontrar una.
+
+              const result = run();
+
+              assert.equal(result.found, true);
+              assert.equal(
+                result.optimalityGuaranteed,
+                true
+              );
+              assert.equal(
+                result.nodeLimitReached,
+                false
+              );
+              assert.equal(
+                result.lineup.length,
+                config.rosterSize
+              );
+              assert.equal(
+                result.projectedPoints,
+                baseTotal
+              );
+
+              assert.ok(
+                result.lineup.every(
+                  p => p.playerId !== "EXTRA"
+                )
+              );
+
+              assert.equal(
+                validateClassicLineup({
+                  sport,
+                  platform,
+                  slate,
+                  lineup: result.lineup
+                }).structurallyValid,
+                true
+              );
+
+              // Jugador obligatorio.
+
+              const locked = run({
+                locked: ["EXTRA"]
+              });
+
+              assert.equal(locked.found, true);
+              assert.equal(
+                locked.optimalityGuaranteed,
+                true
+              );
+
+              assert.ok(
+                locked.lineup.some(
+                  p => p.playerId === "EXTRA"
+                )
+              );
+
+              // Exclusion del jugador alternativo.
+
+              const excluded = run({
+                excluded: ["EXTRA"]
+              });
+
+              assert.equal(excluded.found, true);
+              assert.equal(
+                excluded.optimalityGuaranteed,
+                true
+              );
+
+              assert.equal(
+                excluded.projectedPoints,
+                baseTotal
+              );
+
+              // Si la busqueda se interrumpe,
+              // NO puede afirmar optimalidad.
+
+              const interrupted = run({
+                maxNodes: 1
+              });
+
+              assert.equal(
+                interrupted.optimalityGuaranteed,
+                false
+              );
+
+              assert.equal(
+                interrupted.nodeLimitReached,
+                true
+              );
+
+              // Sin jugadores suficientes,
+              // demostrar que no hay alineacion.
+
+              const impossible = run({
+                players: players.slice(0, 2)
+              });
+
+              assert.equal(impossible.found, false);
+              assert.equal(
+                impossible.provenInfeasible,
+                true
+              );
+
+              console.log(
+                `EXACT OK: ${sport.toUpperCase()} ${platform}`
+              );
+              console.log(
+                `Nodes visited: ${result.nodesVisited}`
+              );
+            }
+          }
+
+          console.log(
+            "EXACT OPTIMIZER: ALL TESTS PASSED"
+          );
+          NODE
+
  
   real-shadow:
     if: ${{ github.event_name == 'workflow_dispatch' }}
