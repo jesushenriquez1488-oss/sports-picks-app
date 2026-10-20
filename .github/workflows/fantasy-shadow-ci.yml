@@ -425,13 +425,118 @@ jobs:
 
             let successes = 0;
 
-            const slates = [
-              { platform: 'draftkings', slateId: 57446 },
-              { platform: 'fanduel', slateId: 63077 }
-            ];
+           
+const slates = [];
 
-            for (const { platform, slateId } of slates) {
-              console.log(`FETCHING NBA ${platform} SLATE ${slateId}`);
+async function findUpcomingSlate(platform) {
+  const now = Date.now();
+
+  const url = new URL(
+    "https://api.balldontlie.io/nba/v1/dfs/slates"
+  );
+
+  url.searchParams.set("providers[]", platform);
+  url.searchParams.set("formats[]", "salary_cap");
+  url.searchParams.set("scopes[]", "multi_event");
+  url.searchParams.set(
+    "start_date",
+    new Date(now).toISOString().slice(0, 10)
+  );
+  url.searchParams.set("per_page", "100");
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization:
+        process.env.BALLDONTLIE_NBA_API_KEY
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `${platform} slate listing HTTP ${response.status}`
+    );
+  }
+
+  const body = await response.json();
+
+  if (!Array.isArray(body.data)) {
+    throw new Error(
+      `${platform}: respuesta de slates invalida`
+    );
+  }
+
+  const candidates = body.data
+    .filter(slate => {
+      const style = String(
+        slate.style || ""
+      ).toLowerCase();
+
+      const expectedStyle =
+        platform === "draftkings"
+          ? "classic"
+          : "full roster";
+
+      return (
+        slate.provider === platform &&
+        slate.sport === "nba" &&
+        slate.format === "salary_cap" &&
+        slate.scope === "multi_event" &&
+        style === expectedStyle &&
+        Number.isFinite(Date.parse(slate.starts_at)) &&
+        Date.parse(slate.starts_at) > now
+      );
+    })
+    .sort(
+      (a, b) =>
+        Date.parse(a.starts_at) -
+        Date.parse(b.starts_at)
+    );
+
+  if (!candidates.length) {
+    throw new Error(
+      `${platform}: no hay un slate futuro de ` +
+      `plantilla completa en la primera pagina`
+    );
+  }
+
+  return {
+    platform,
+    slateId: candidates[0].id,
+    startsAt: candidates[0].starts_at
+  };
+}
+
+
+            
+for (const platform of ["draftkings", "fanduel"]) {
+  let slateId;
+
+  try {
+    const selected = await findUpcomingSlate(platform);
+
+    slateId = selected.slateId;
+
+    console.log(
+      `NEXT NBA ${platform}: ` +
+      `SLATE ${slateId}, ` +
+      `START ${selected.startsAt}`
+    );
+
+    // Espaciar el listado y la descarga.
+    await new Promise(resolve =>
+      setTimeout(resolve, 15000)
+    );
+  } catch (error) {
+    console.error(
+      `${platform} discovery: ${error.message}`
+    );
+    continue;
+  }
+
+  console.log(
+    `FETCHING NBA ${platform} SLATE ${slateId}`
+  );
+
 
               try {
                 const result = await fetchFullDfsDraftables({
