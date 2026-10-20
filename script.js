@@ -2402,91 +2402,306 @@ function nbaImpactTeamHTML(team, data) {
   `;
 }
 
-function nbaInjuryListHTML(team, key, report, impact, index) {
-  const code = `nba-inj-${index}-${key}`;
+function nbaInjuryListHTML(
+  teamName,
+  side,
+  injuryReport,
+  injuryImpact,
+  index
+) {
+  const reportTeam =
+    injuryReport?.[side] || [];
 
-  if (!report?.available) {
-    return `<div style="padding:12px;color:#9eb0c8">
-      ${sanitize(team)}: injury report unavailable
-    </div>`;
-  }
+  const shown =
+    reportTeam.slice(0, 3);
 
-  const injuries = Array.isArray(report[key]) ? report[key] : [];
-  const modeled = Array.isArray(impact?.players) ? impact.players : [];
+  const hidden =
+    reportTeam.slice(3);
 
-  const rows = injuries.map((p, i) => {
-    const model = modeled.find(m =>
-      String(m.playerId) === String(p.playerId)
-    );
+  const hiddenCount =
+    hidden.length;
 
-    const delta = model
-      ? nbaPtsDelta(
-          Number(model.offenseImpact || 0) +
-          Number(model.defenseImpact || 0)
-        )
-      : "Not quantified";
+  const hasMore =
+    hiddenCount > 0;
 
-    return `
-      <div
-        data-nba-injury-extra="${code}"
-        ${i >= 3 ? "hidden" : ""}
-        style="
-          display:${i >= 3 ? "none" : "flex"};
-          justify-content:space-between;
-          gap:8px;
-          padding:8px 0;
-          border-bottom:1px solid #143047;
-        "
-      >
-        <div>
-          <strong style="color:white;font-size:10px">
-            ${sanitize(p.name)}
-          </strong>
-          <div style="font-size:8px;color:#9eb0c8">
-            ${sanitize(p.status)}
-          </div>
-        </div>
-        <span style="font-size:9px;color:#00e9df;text-align:right">
-          ${delta}
-        </span>
-      </div>
-    `;
-  }).join("");
+  const impactPlayers =
+    Array.isArray(injuryImpact?.players)
+      ? injuryImpact.players
+      : [];
+
+  const impactByName = new Map(
+    impactPlayers.map(player => [
+      String(player.playerName || "").toLowerCase().trim(),
+      player
+    ])
+  );
+
+const logoUrl = getNBATeamLogoURL(teamName);
+
+  const hiddenId =
+    `nba-injury-extra-${index}-${side}`;
 
   return `
     <div style="
-      background:#0a2030;
+      background:#0a1a2a;
       border:1px solid #193650;
-      border-radius:11px;
-      padding:11px;
+      border-radius:14px;
+      padding:10px;
       min-width:0;
     ">
-      <strong style="color:white;font-size:11px">
-        ${sanitize(team)} · ${injuries.length}
-      </strong>
 
-      ${rows || `
-        <p style="font-size:9px;color:#9eb0c8">
-          No players in the current report.
-        </p>
-      `}
+      <div style="
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:8px;
+        margin-bottom:8px;
+      ">
 
-      ${injuries.length > 3 ? `
-        <button
-          type="button"
-          onclick="toggleNBAInjuryRows('${code}',this)"
-          style="
-            border:0;
-            background:transparent;
-            color:#00e9df;
-            font-size:10px;
-            margin-top:8px;
-            cursor:pointer;
-          "
-        >
-          View All (${injuries.length}) ▾
-        </button>
-      ` : ""}
+        <div style="
+          display:flex;
+          align-items:center;
+          gap:8px;
+          min-width:0;
+        ">
+          ${
+            logoUrl
+              ? `
+                <img
+                  src="${logoUrl}"
+                  alt="${teamName}"
+                  style="
+                    width:24px;
+                    height:24px;
+                    object-fit:contain;
+                    flex:0 0 auto;
+                  "
+                />
+              `
+              : ""
+          }
+
+          <div style="
+            min-width:0;
+            display:flex;
+            align-items:center;
+            gap:6px;
+            flex-wrap:wrap;
+          ">
+            <div style="
+              color:#ffffff;
+              font-size:13px;
+              font-weight:800;
+              line-height:1.1;
+              white-space:nowrap;
+              overflow:hidden;
+              text-overflow:ellipsis;
+              max-width:100%;
+            ">
+              ${teamName}
+            </div>
+
+            <div style="
+              color:#8ea3b8;
+              font-size:11px;
+              font-weight:700;
+              line-height:1;
+            ">
+              ${reportTeam.length}
+            </div>
+          </div>
+        </div>
+
+        ${
+          Number(injuryImpact?.netTotal || 0) !== 0
+            ? `
+              <div style="
+                color:#19f5e5;
+                font-size:11px;
+                font-weight:800;
+                white-space:nowrap;
+                flex:0 0 auto;
+              ">
+                ${Number(injuryImpact.netTotal || 0).toFixed(1)} pts
+              </div>
+            `
+            : ""
+        }
+      </div>
+
+      ${
+        shown.length
+          ? shown.map((player, playerIndex) => {
+              const impact =
+                impactByName.get(
+                  String(player.name || "")
+                    .toLowerCase()
+                    .trim()
+                ) || null;
+
+              const playerImpact =
+                Number(impact?.offenseImpact || 0) +
+                Number(impact?.defenseImpact || 0);
+
+              const divider =
+                playerIndex < shown.length - 1 || hasMore
+                  ? `border-bottom:1px solid rgba(120,170,210,0.14);`
+                  : "";
+
+              return `
+                <div style="
+                  display:flex;
+                  align-items:flex-start;
+                  justify-content:space-between;
+                  gap:8px;
+                  padding:7px 0;
+                  ${divider}
+                ">
+                  <div style="
+                    min-width:0;
+                    flex:1;
+                  ">
+                    <div style="
+                      color:#ffffff;
+                      font-size:12px;
+                      font-weight:700;
+                      line-height:1.2;
+                      white-space:nowrap;
+                      overflow:hidden;
+                      text-overflow:ellipsis;
+                    ">
+                      ${player.name}
+                    </div>
+
+                    <div style="
+                      color:#8ea3b8;
+                      font-size:10px;
+                      line-height:1.2;
+                      margin-top:2px;
+                      text-transform:capitalize;
+                    ">
+                      ${String(player.status || "unknown")}
+                    </div>
+                  </div>
+
+                  <div style="
+                    flex:0 0 auto;
+                    color:${playerImpact !== 0 ? "#19f5e5" : "#7f93a8"};
+                    font-size:11px;
+                    font-weight:800;
+                    white-space:nowrap;
+                    line-height:1.2;
+                    padding-top:1px;
+                  ">
+                    ${playerImpact !== 0 ? `${playerImpact.toFixed(1)} pts` : "—"}
+                  </div>
+                </div>
+              `;
+            }).join("")
+          : `
+            <div style="
+              color:#8ea3b8;
+              font-size:11px;
+              line-height:1.35;
+              padding:2px 0 0;
+            ">
+              No reported injuries
+            </div>
+          `
+      }
+
+      ${
+        hasMore
+          ? `
+            <div id="${hiddenId}" style="display:none;">
+              ${hidden.map((player, playerIndex) => {
+                const impact =
+                  impactByName.get(
+                    String(player.name || "")
+                      .toLowerCase()
+                      .trim()
+                  ) || null;
+
+                const playerImpact =
+                  Number(impact?.offenseImpact || 0) +
+                  Number(impact?.defenseImpact || 0);
+
+                const divider =
+                  playerIndex < hidden.length - 1
+                    ? `border-bottom:1px solid rgba(120,170,210,0.14);`
+                    : "";
+
+                return `
+                  <div style="
+                    display:flex;
+                    align-items:flex-start;
+                    justify-content:space-between;
+                    gap:8px;
+                    padding:7px 0;
+                    ${divider}
+                  ">
+                    <div style="
+                      min-width:0;
+                      flex:1;
+                    ">
+                      <div style="
+                        color:#ffffff;
+                        font-size:12px;
+                        font-weight:700;
+                        line-height:1.2;
+                        white-space:nowrap;
+                        overflow:hidden;
+                        text-overflow:ellipsis;
+                      ">
+                        ${player.name}
+                      </div>
+
+                      <div style="
+                        color:#8ea3b8;
+                        font-size:10px;
+                        line-height:1.2;
+                        margin-top:2px;
+                        text-transform:capitalize;
+                      ">
+                        ${String(player.status || "unknown")}
+                      </div>
+                    </div>
+
+                    <div style="
+                      flex:0 0 auto;
+                      color:${playerImpact !== 0 ? "#19f5e5" : "#7f93a8"};
+                      font-size:11px;
+                      font-weight:800;
+                      white-space:nowrap;
+                      line-height:1.2;
+                      padding-top:1px;
+                    ">
+                      ${playerImpact !== 0 ? `${playerImpact.toFixed(1)} pts` : "—"}
+                    </div>
+                  </div>
+                `;
+              }).join("")}
+            </div>
+
+            <button
+              type="button"
+              onclick="toggleNBAInjuryReport('${hiddenId}', this)"
+              style="
+                margin-top:6px;
+                border:none;
+                background:transparent;
+                color:#19f5e5;
+                font-size:10px;
+                font-weight:800;
+                padding:0;
+                cursor:pointer;
+              "
+            >
+              VIEW ALL
+            </button>
+          `
+          : ""
+      }
     </div>
   `;
 }
@@ -3253,14 +3468,12 @@ function renderNBAMobileCard({
           INJURY IMPACT
         </div>
 
-        <div style="
+               <div style="
           display:grid;
-          grid-template-columns:repeat(
-            auto-fit,
-            minmax(min(100%,240px),1fr)
-          );
+          grid-template-columns:repeat(2,minmax(0,1fr));
           gap:8px;
           margin-top:10px;
+          align-items:start;
         ">
           ${nbaImpactTeamHTML(awayTeam, injuryAway)}
           ${nbaImpactTeamHTML(homeTeam, injuryHome)}
