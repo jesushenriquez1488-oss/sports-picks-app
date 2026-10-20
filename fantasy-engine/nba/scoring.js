@@ -61,8 +61,9 @@ function scoreNBA(stats, platform) {
       stl * 2 +
       blk * 2 -
       tov * 0.5 +
-      (doubleDouble ? 1.5 : 0) +
-      (tripleDouble ? 3 : 0);
+
+      (tripleDouble ? 3 : doubleDouble ? 1.5 : 0);
+
 
   } else {
     points =
