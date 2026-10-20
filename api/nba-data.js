@@ -2070,12 +2070,32 @@ function buildNBAPlayerGameRows(
       )
     ),
 
+ 
   three_pointers_made:
     Math.round(
       nbaStatNumber(
         stat?.fg3m
       )
     ),
+
+  steals:
+    stat?.stl == null
+      ? null
+      : Math.round(nbaStatNumber(stat.stl)),
+
+  blocks:
+    stat?.blk == null
+      ? null
+      : Math.round(nbaStatNumber(stat.blk)),
+
+  turnovers:
+    (stat?.turnover ?? stat?.tov) == null
+      ? null
+      : Math.round(
+          nbaStatNumber(
+            stat?.turnover ?? stat?.tov
+          )
+        ),
 
   synced_at:
     new Date()
