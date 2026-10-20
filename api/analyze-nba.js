@@ -9482,6 +9482,14 @@ const marketUnchanged =
 // más de 30 minutos.
 if (
   existing?.analysis_json &&
+  (
+    selectedLeague !== "nba" ||
+    existing.analysis_json.noPlay === true ||
+    (
+      existing.analysis_json.premium?.nbaInjuryReport &&
+      existing.analysis_json.premium?.nbaPaceBaselines
+    )
+  ) &&
   marketUnchanged &&
   injuryStateUnchanged &&
   !forceRefresh &&
@@ -10522,7 +10530,66 @@ const risk = isPremiumPick ? "Bajo" : "Medio";
           ? "UNDER"
           : null;
 
+    // =============================================
+    // NBA INJURY REPORT — SOLO PRESENTACION
+    // =============================================
 
+    const nbaReportRows =
+      selectedLeague === "nba" &&
+      Array.isArray(nbaLiveInjuryState?.injuries)
+        ? nbaLiveInjuryState.injuries
+        : null;
+
+    const nbaReportForTeam = teamId =>
+      nbaReportRows === null || teamId == null
+        ? []
+        : nbaReportRows
+            .filter(p =>
+              String(p?.team_id) === String(teamId)
+            )
+            .map(p => ({
+              playerId:
+                p?.player_id != null
+                  ? String(p.player_id)
+                  : "",
+
+              name:
+                String(
+                  p?.player_name || "Unknown player"
+                ),
+
+              status:
+                String(
+                  p?.status || "unknown"
+                )
+            }))
+            .sort((a, b) =>
+              getNBAInjuryStatusWeight(b.status) -
+              getNBAInjuryStatusWeight(a.status)
+            );
+
+    const nbaInjuryReport =
+      selectedLeague === "nba"
+        ? {
+            available:
+              nbaReportRows !== null &&
+              nbaLiveInjuryState?.away_team_id != null &&
+              nbaLiveInjuryState?.home_team_id != null,
+
+            checkedAt:
+              nbaLiveInjuryState?.checked_at || null,
+
+            away:
+              nbaReportForTeam(
+                nbaLiveInjuryState?.away_team_id
+              ),
+
+            home:
+              nbaReportForTeam(
+                nbaLiveInjuryState?.home_team_id
+              )
+          }
+        : null;
     const fullAnalysis = {
 
       locked:
@@ -11034,39 +11101,7 @@ card: {
             homeTeam,
             homeInjuries
           ),
-        // Reporte completo, sin filtrar por impacto
-        nbaInjuryReport:
-          selectedLeague === "nba"
-            ? {
-                available: Array.isArray(
-                  nbaLiveInjuryState?.injuries
-                ),
-                checkedAt:
-                  nbaLiveInjuryState?.checked_at || null,
-
-                away: (nbaLiveInjuryState?.injuries || [])
-                  .filter(p =>
-                    String(p.team_id) ===
-                    String(nbaLiveInjuryState?.away_team_id)
-                  )
-                  .map(p => ({
-                    playerId: String(p.player_id || ""),
-                    name: String(p.player_name || "Unknown player"),
-                    status: String(p.status || "unknown")
-                  })),
-
-                home: (nbaLiveInjuryState?.injuries || [])
-                  .filter(p =>
-                    String(p.team_id) ===
-                    String(nbaLiveInjuryState?.home_team_id)
-                  )
-                  .map(p => ({
-                    playerId: String(p.player_id || ""),
-                    name: String(p.player_name || "Unknown player"),
-                    status: String(p.status || "unknown")
-                  }))
-              }
-            : null,
+               nbaInjuryReport,
 
         nbaPaceBaselines:
           selectedLeague === "nba"
