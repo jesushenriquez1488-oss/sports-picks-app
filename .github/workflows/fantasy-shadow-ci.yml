@@ -1532,6 +1532,238 @@ jobs:
           )
           PY
 
+  recommendation-controller-tests:
+    name: CashEdge Recommended Lineup Certification
+    needs: cpsat-optimizer-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout fantasy-dev
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install OR-Tools
+        run: |
+          python -m pip install "ortools>=9.10,<10"
+
+      - name: Test primary and alternative lineups
+        run: |
+          python - <<'PY'
+          import sys
+          from collections import Counter
+
+          sys.path.insert(
+              0, "fantasy-engine/optimizer"
+          )
+
+          from solver import optimize, RULES
+          from recommendation_controller import recommend
+
+          def make_players(sport):
+              positions = (
+                  ["PG", "SG", "SF", "PF", "C"]
+                  if sport == "nba"
+                  else ["QB", "RB", "WR", "TE", "DST"]
+              )
+
+              return [
+                  {
+                      "playerId": f"P{i}",
+                      "name": f"Player {i}",
+                      "positions": [positions[i % 5]],
+                      "salary": 3500 + (i % 15) * 200,
+                      "projectedPoints": round(
+                          12 + (i * 17 % 34)
+                          + (i % 7) / 10, 2
+                      ),
+                      "gameId": f"G{i % 8}",
+                      "teamId": f"T{i % 16}"
+                  }
+                  for i in range(100)
+              ]
+
+          def run_case(sport, platform):
+              players = make_players(sport)
+
+              slate = {
+                  "id": "certification-test",
+                  "sport": sport,
+                  "platform": platform,
+                  "format": "classic",
+                  "gameIds": [
+                      f"G{i}" for i in range(8)
+                  ]
+              }
+
+              base = {
+                  "sport": sport,
+                  "platform": platform,
+                  "slate": slate,
+                  "players": players,
+                  "locked": [],
+                  "excluded": ["P99"],
+                  "timeLimitSeconds": 12
+              }
+
+              # Solucion matematica individual.
+              direct = optimize(base)
+
+              assert direct["status"] == "OPTIMAL"
+              assert direct["found"]
+
+              expected = {
+                  p["playerId"]
+                  for p in direct["lineup"]
+              }
+
+              # Controlador con una sola alineacion.
+              single = recommend({
+                  **base,
+                  "lineupCount": 1,
+                  "maxExposurePercent": 100
+              })
+
+              assert single["status"] == "COMPLETE"
+              assert single["mainOptimalityGuaranteed"]
+
+              # Puede haber empates optimos.
+              # Verificamos valor objetivo y
+              # validez, no IDs necesariamente.
+              assert abs(
+                  single["recommended"]["projectedPoints"]
+                  - direct["projectedPoints"]
+              ) < 0.0001
+
+              print(
+                  f"{sport.upper()} {platform.upper()}",
+                  flush=True
+              )
+              print(
+                  "MAIN OPTIMAL: PASS",
+                  flush=True
+              )
+
+              # Misma principal con 3 alineaciones.
+              multi = recommend({
+                  **base,
+                  "lineupCount": 3,
+                  "maxExposurePercent": 100,
+                  "minDifferentPlayers": 2
+              })
+
+              assert multi["mainOptimalityGuaranteed"]
+              assert multi["recommended"]["status"] == "OPTIMAL"
+
+              main_ids = {
+                  p["playerId"]
+                  for p in multi["recommended"]["players"]
+              }
+
+              assert main_ids == expected
+
+              assert abs(
+                  multi["recommended"]["projectedPoints"]
+                  - direct["projectedPoints"]
+              ) < 0.0001
+
+              assert multi["status"] == "COMPLETE"
+              assert len(multi["alternatives"]) == 2
+
+              print(
+                  "MAIN UNCHANGED: PASS",
+                  flush=True
+              )
+
+              # Verificar alternativas.
+              rules = RULES[sport][platform]
+              all_lineups = [
+                  multi["recommended"],
+                  *multi["alternatives"]
+              ]
+
+              seen_lineups = []
+              appearances = Counter()
+
+              for lineup in all_lineups:
+                  chosen = lineup["players"]
+                  ids = [p["playerId"] for p in chosen]
+
+                  assert len(chosen) == len(rules["slots"])
+                  assert len(ids) == len(set(ids))
+                  assert lineup["salary"] <= rules["salary_cap"]
+
+                  assert {
+                      p["slot"] for p in chosen
+                  } == set(rules["slots"])
+
+                  for p in chosen:
+                      assert set(
+                          p["positions"]
+                      ) & set(
+                          rules["slots"][p["slot"]]
+                      )
+                      appearances[p["playerId"]] += 1
+
+                  current = set(ids)
+
+                  for previous in seen_lineups:
+                      assert len(
+                          current - previous
+                      ) >= 2
+
+                  seen_lineups.append(current)
+
+              assert len(seen_lineups) == 3
+
+              print(
+                  "ALTERNATIVES VALID: PASS",
+                  flush=True
+              )
+
+              # Exposicion al 60%:
+              # 3 alineaciones = maximo 1
+              # aparicion por jugador.
+              limited = recommend({
+                  **base,
+                  "lineupCount": 3,
+                  "maxExposurePercent": 60,
+                  "minDifferentPlayers": 2
+              })
+
+              assert limited["mainOptimalityGuaranteed"]
+              assert limited["status"] == "COMPLETE"
+              assert limited["maxAppearances"] == 1
+
+              assert {
+                  p["playerId"]
+                  for p in limited["recommended"]["players"]
+              } == expected
+
+              assert all(
+                  row["appearances"] <= 1
+                  for row in limited["playerExposure"]
+              )
+
+              print(
+                  "EXPOSURE 60%: PASS",
+                  flush=True
+              )
+              print("-------------------------", flush=True)
+
+          run_case("nba", "draftkings")
+          run_case("nfl", "fanduel")
+
+          print(
+              "CASHEDGE RECOMMENDATION TESTS PASSED",
+              flush=True
+          )
+          PY
+
   real-shadow:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     name: NBA NFL Real Data Shadow
