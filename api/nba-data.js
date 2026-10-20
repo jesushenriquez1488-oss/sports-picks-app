@@ -462,9 +462,48 @@ if (
       ...result
     });
 }
+      
 // ======================================================
 // NBA PLAYER HISTORY BACKFILL
 // ======================================================
+
+if (type === "backfill-fantasy-nba") {
+  if (!isInternal) {
+    return res.status(401).json({
+      ok: false,
+      error: "Unauthorized fantasy backfill"
+    });
+  }
+
+  if (!process.env.BALLDONTLIE_API_KEY) {
+    return res.status(500).json({
+      ok: false,
+      error: "BALLDONTLIE_API_KEY no configurada"
+    });
+  }
+
+  const requestedSeason = Number(
+    req.query.season || 2025
+  );
+
+  if (!isValidSeason(requestedSeason)) {
+    return res.status(400).json({
+      ok: false,
+      error: "Temporada NBA invalida"
+    });
+  }
+
+  const result = await backfillNBAFantasyHistory(
+    requestedSeason
+  );
+
+  return res.status(200).json({
+    ok: true,
+    mode: "backfill-fantasy-nba",
+    season: requestedSeason,
+    ...result
+  });
+}
 
 if (
   type === "sync-player-stats"
@@ -2189,6 +2228,147 @@ async function saveNBAPlayerGameRows(
   return saved;
 }
 
+
+async function backfillNBAFantasyHistory(season) {
+  const { data: pending, error } =
+    await supabaseAdmin
+      .from("nba_player_game_stats")
+      .select("game_id,player_id,game_date")
+      .eq("season", season)
+      .or(
+        "three_pointers_made.is.null," +
+        "steals.is.null," +
+        "blocks.is.null," +
+        "turnovers.is.null"
+      )
+      .order("game_date", { ascending: true })
+      .order("game_id", { ascending: true })
+      .limit(1000);
+
+  if (error) {
+    throw new Error(
+      `Fantasy NBA pending: ${error.message}`
+    );
+  }
+
+  if (!pending?.length) {
+    return {
+      completed: true,
+      datesProcessed: [],
+      rowsUpdated: 0,
+      pendingInFirstPage: 0
+    };
+  }
+
+  const dates = [
+    ...new Set(
+      pending
+        .map(row => getNBACalendarDate(row.game_date))
+        .filter(Boolean)
+    )
+  ].sort().slice(0, 2);
+
+  const selectedDates = new Set(dates);
+
+  const targetRows = pending.filter(row =>
+    selectedDates.has(
+      getNBACalendarDate(row.game_date)
+    )
+  );
+
+  const targetKeys = new Set(
+    targetRows.map(row =>
+      `${Number(row.game_id)}:${Number(row.player_id)}`
+    )
+  );
+
+  const updates = new Map();
+
+  const nullableStat = value => {
+    if (
+      value === null ||
+      value === undefined ||
+      value === ""
+    ) {
+      return null;
+    }
+
+    const number = Number(value);
+
+    return Number.isFinite(number)
+      ? Math.round(number)
+      : null;
+  };
+
+  for (const date of dates) {
+    const stats = await getNBAPlayerStatsForDate(date);
+
+    for (const stat of stats) {
+      const gameId = Number(stat?.game?.id);
+      const playerId = Number(stat?.player?.id);
+      const key = `${gameId}:${playerId}`;
+
+      if (!targetKeys.has(key)) {
+        continue;
+      }
+
+      updates.set(key, {
+        game_id: gameId,
+        player_id: playerId,
+        three_pointers_made:
+          nullableStat(stat?.fg3m),
+        steals:
+          nullableStat(stat?.stl),
+        blocks:
+          nullableStat(stat?.blk),
+        turnovers:
+          nullableStat(stat?.turnover ?? stat?.tov)
+      });
+    }
+  }
+
+  const rows = Array.from(updates.values());
+
+  if (!rows.length) {
+    throw new Error(
+      "Fantasy NBA: sin jugadores coincidentes"
+    );
+  }
+
+  let rowsUpdated = 0;
+
+  for (let i = 0; i < rows.length; i += 200) {
+    const chunk = rows.slice(i, i + 200);
+
+    const { data, error: updateError } =
+      await supabaseAdmin.rpc(
+        "update_nba_fantasy_history",
+        { p_rows: chunk }
+      );
+
+    if (updateError) {
+      throw new Error(
+        `Fantasy NBA update: ${updateError.message}`
+      );
+    }
+
+    rowsUpdated += Number(data || 0);
+  }
+
+  if (rowsUpdated === 0) {
+    throw new Error(
+      "Fantasy NBA: ningun registro actualizado; revisar campos de BALLDONTLIE"
+    );
+  }
+
+  return {
+    completed: false,
+    datesProcessed: dates,
+    playersMatched: rows.length,
+    rowsUpdated,
+    pendingInFirstPage: pending.length
+  };
+}
 
 // ============================================================
 // HISTORICAL PLAYER STATS BACKFILL
