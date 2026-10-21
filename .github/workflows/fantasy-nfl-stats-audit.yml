@@ -1,0 +1,174 @@
+
+name: Fantasy NFL - Audit Real Statistics
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-nflverse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Audit NFLverse 2025 and 2026
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import csv
+          import io
+          import urllib.request
+          from collections import Counter
+
+          BASE = (
+              "https://github.com/nflverse/"
+              "nflverse-data/releases/download/"
+              "stats_player/stats_player_week_{}.csv"
+          )
+
+          REQUIRED = [
+              "player_id",
+              "player_name",
+              "season",
+              "week",
+              "position",
+              "passing_yards",
+              "passing_tds",
+              "passing_interceptions",
+              "rushing_yards",
+              "rushing_tds",
+              "receptions",
+              "receiving_yards",
+              "receiving_tds",
+              "sack_fumbles_lost",
+              "rushing_fumbles_lost",
+              "receiving_fumbles_lost",
+              "passing_2pt_conversions",
+              "rushing_2pt_conversions",
+              "receiving_2pt_conversions",
+              "special_teams_tds",
+          ]
+
+          OPTIONAL = [
+              "offensive_fumble_recovery_tds",
+              "return_tds",
+              "fantasy_points",
+              "fantasy_points_ppr",
+              "team",
+              "recent_team",
+              "season_type",
+          ]
+
+          def is_nonzero(value):
+              try:
+                  return float(value) != 0
+              except (ValueError, TypeError):
+                  return False
+
+          for season in (2025, 2026):
+              url = BASE.format(season)
+
+              print("\n" + "=" * 65)
+              print("NFL FANTASY AUDIT - SEASON", season)
+              print("=" * 65)
+              print("SOURCE:", url)
+
+              request = urllib.request.Request(
+                  url,
+                  headers={
+                      "User-Agent": "CashEdge-Fantasy-Audit/1.0"
+                  }
+              )
+
+              try:
+                  with urllib.request.urlopen(
+                      request,
+                      timeout=90
+                  ) as response:
+                      content = response.read().decode(
+                          "utf-8-sig"
+                      )
+              except Exception as error:
+                  raise RuntimeError(
+                      f"Failed to fetch {season}: {error}"
+                  )
+
+              reader = csv.DictReader(
+                  io.StringIO(content)
+              )
+
+              fields = set(reader.fieldnames or [])
+              rows = list(reader)
+
+              print("ROWS:", len(rows))
+              print("TOTAL COLUMNS:", len(fields))
+
+              missing = [
+                  field for field in REQUIRED
+                  if field not in fields
+              ]
+
+              print("\nREQUIRED FIELD COVERAGE:")
+
+              for field in REQUIRED:
+                  if field not in fields:
+                      print(f"MISSING | {field}")
+                      continue
+
+                  populated = sum(
+                      row.get(field) not in ("", None)
+                      for row in rows
+                  )
+
+                  nonzero = sum(
+                      is_nonzero(row.get(field))
+                      for row in rows
+                  )
+
+                  print(
+                      f"FOUND | {field} | "
+                      f"populated={populated} | "
+                      f"nonzero={nonzero}"
+                  )
+
+              print("\nOPTIONAL FIELD COVERAGE:")
+
+              for field in OPTIONAL:
+                  print(
+                      ("FOUND" if field in fields
+                       else "MISSING") +
+                      " | " + field
+                  )
+
+              print("\nPLAYER POSITIONS:")
+
+              if "position" in fields:
+                  counts = Counter(
+                      row.get("position") or "UNKNOWN"
+                      for row in rows
+                  )
+                  print(dict(counts.most_common(15)))
+
+              print("\nSEASON TYPES:")
+
+              if "season_type" in fields:
+                  print(dict(Counter(
+                      row.get("season_type") or "UNKNOWN"
+                      for row in rows
+                  )))
+
+              print("\nRESULT:")
+              print("Rows:", len(rows))
+              print("Missing required:", missing)
+              print("Read only: YES")
+              print("Supabase writes: ZERO")
+
+              if not rows:
+                  raise RuntimeError(
+                      f"No player stats for season {season}"
+                  )
+
+          print("\nAUDIT COMPLETE")
+          PY
