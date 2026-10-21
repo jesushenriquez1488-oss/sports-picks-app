@@ -1,0 +1,402 @@
+
+name: CashEdge NBA Optimal Lineups
+
+on:
+  push:
+    branches:
+      - fantasy-dev
+    paths:
+      - ".github/workflows/fantasy-nba-optimal-lineups.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  nba-optimal-lineups:
+    name: NBA DraftKings CP-SAT Shadow
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout fantasy-dev
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CP-SAT
+        run: |
+          python -m pip install ortools==9.14.6206
+
+      - name: Get existing NBA projections
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          RUN_ID="$(
+            gh run list \
+              --workflow fantasy-nba-real-projections.yml \
+              --branch fantasy-dev \
+              --status success \
+              --limit 10 \
+              --json databaseId \
+              --jq '.[0].databaseId'
+          )"
+
+          if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
+            echo "No successful NBA projection run found"
+            exit 1
+          fi
+
+          echo "Reading existing projection run: $RUN_ID"
+
+          mkdir -p fantasy-shadow-input
+
+          gh run download "$RUN_ID" \
+            --name cashedge-nba-77583-projections \
+            --dir fantasy-shadow-input
+
+          test -f \
+            fantasy-shadow-input/nba-77583-report.json
+
+      - name: Optimize real NBA slate
+        run: |
+          python <<'PY'
+          import json
+          import math
+          import sys
+          from pathlib import Path
+
+          ROOT = Path("fantasy-engine")
+          OPTIMIZER = ROOT / "optimizer"
+          REPORT = Path(
+              "fantasy-shadow-input/nba-77583-report.json"
+          )
+          OUTPUT_DIR = Path("fantasy-shadow-results")
+          OUTPUT_DIR.mkdir(
+              parents=True,
+              exist_ok=True
+          )
+
+          sys.path.insert(
+              0,
+              str(OPTIMIZER.resolve())
+          )
+
+          from recommendation_controller import recommend
+
+          data = json.loads(
+              REPORT.read_text(encoding="utf-8")
+          )
+
+          if data.get("sport") != "nba":
+              raise RuntimeError("Invalid sport")
+
+          if data.get("platform") != "draftkings":
+              raise RuntimeError("Invalid platform")
+
+          if str(data.get("slateId")) != "77583":
+              raise RuntimeError("Invalid slate")
+
+          if data.get("mode") != "shadow":
+              raise RuntimeError("Shadow mode required")
+
+          totals = data.get("totals") or {}
+
+          if totals.get("playersReceived") != 329:
+              raise RuntimeError(
+                  "Unexpected original player count"
+              )
+
+          if totals.get("projected") != 263:
+              raise RuntimeError(
+                  "Unexpected projection count"
+              )
+
+          players = data.get("players")
+
+          if not isinstance(players, list):
+              raise RuntimeError(
+                  "Projection player list missing"
+              )
+
+          if len(players) != 263:
+              raise RuntimeError(
+                  "Incomplete projection report"
+              )
+
+          seen = set()
+          clean = []
+          game_ids = set()
+
+          for player in players:
+              if not isinstance(player, dict):
+                  raise RuntimeError(
+                      "Invalid player record"
+                  )
+
+              pid = str(
+                  player.get("playerId") or ""
+              ).strip()
+
+              game_id = str(
+                  player.get("gameId") or ""
+              ).strip()
+
+              salary = player.get("salary")
+              points = player.get("projectedPoints")
+              positions = player.get("positions")
+
+              if not pid or pid in seen:
+                  raise RuntimeError(
+                      "Duplicate or missing player ID"
+                  )
+
+              seen.add(pid)
+
+              if not game_id:
+                  raise RuntimeError(
+                      "Missing game ID: " + pid
+                  )
+
+              if (
+                  type(salary) is not int
+                  or salary <= 0
+                  or salary > 50000
+              ):
+                  raise RuntimeError(
+                      "Invalid salary: " + pid
+                  )
+
+              if (
+                  not isinstance(points, (int, float))
+                  or isinstance(points, bool)
+                  or not math.isfinite(points)
+                  or points < 0
+              ):
+                  raise RuntimeError(
+                      "Invalid projected points: " + pid
+                  )
+
+              if (
+                  not isinstance(positions, list)
+                  or not positions
+              ):
+                  raise RuntimeError(
+                      "Invalid positions: " + pid
+                  )
+
+              if player.get("identityVerified") is not True:
+                  raise RuntimeError(
+                      "Identity not verified: " + pid
+                  )
+
+              if player.get("projectionStatus") != \
+                      "baseline_shadow":
+                  raise RuntimeError(
+                      "Unexpected projection status: " + pid
+                  )
+
+              # Conservamos los valores originales.
+              # No inventamos roles ni alteramos minutos.
+              #
+              # Los jugadores cuestionables siguen
+              # identificados como Q en modo Shadow.
+
+              clean.append({
+                  "playerId": pid,
+                  "name": player.get("name"),
+                  "teamId": player.get("teamId"),
+                  "team": player.get("team"),
+                  "gameId": game_id,
+                  "salary": salary,
+                  "positions": positions,
+                  "injuryStatus":
+                      player.get("injuryStatus"),
+                  "projectedPoints": points
+              })
+
+              game_ids.add(game_id)
+
+          payload = {
+              "sport": "nba",
+              "platform": "draftkings",
+              "slate": {
+                  "id": "77583",
+                  "sport": "nba",
+                  "platform": "draftkings",
+                  "format": "classic",
+                  "gameIds": sorted(game_ids)
+              },
+              "players": clean,
+              "lineupCount": 10,
+              "minDifferentPlayers": 2,
+              "maxExposurePercent": 100,
+              "timeLimitSeconds": 120,
+              "locked": [],
+              "excluded": []
+          }
+
+          print("=== CASHEDGE NBA OPTIMIZER ===")
+          print("Slate:", "77583")
+          print("Platform:", "DraftKings")
+          print("Players:", len(clean))
+          print("Games:", len(game_ids))
+          print("Budget:", "$50,000")
+          print("Requested lineups:", 10)
+          print("Mode: SHADOW")
+
+          result = recommend(payload)
+
+          # Este proceso es experimental.
+          # Nunca publicamos una alineacion aqui.
+
+          result["readyForPublication"] = False
+          result["sourceSlateId"] = "77583"
+          result["sourceCutoffAt"] = data.get("cutoffAt")
+          result["projectionMode"] = "baseline_shadow"
+
+          output = (
+              OUTPUT_DIR /
+              "nba-77583-optimal-lineups.json"
+          )
+
+          output.write_text(
+              json.dumps(
+                  result,
+                  indent=2,
+                  ensure_ascii=False
+              ),
+              encoding="utf-8"
+          )
+
+          print()
+          print("=== SOLVER RESULT ===")
+          print("Status:", result.get("status"))
+          print(
+              "Main solver:",
+              result.get("mainSolverStatus", "see recommended")
+          )
+          print(
+              "Main certified:",
+              result.get("mainOptimalityGuaranteed")
+          )
+
+          main = result.get("recommended")
+
+          if (
+              not main
+              or main.get("status") != "OPTIMAL"
+              or result.get("mainOptimalityGuaranteed")
+                  is not True
+          ):
+              print(
+                  "Main lineup was not certified OPTIMAL."
+              )
+              print(
+                  "No recommended lineup accepted."
+              )
+              raise RuntimeError(
+                  "CP-SAT did not certify the primary lineup"
+              )
+
+          lineup = main.get("players", [])
+
+          expected_slots = {
+              "PG", "SG", "SF", "PF",
+              "C", "G", "F", "UTIL"
+          }
+
+          received_slots = {
+              player.get("slot")
+              for player in lineup
+          }
+
+          ids = {
+              str(player.get("playerId"))
+              for player in lineup
+          }
+
+          calculated_salary = sum(
+              player["salary"]
+              for player in lineup
+          )
+
+          if (
+              len(lineup) != 8
+              or len(ids) != 8
+              or received_slots != expected_slots
+              or calculated_salary > 50000
+              or calculated_salary != main.get("salary")
+          ):
+              raise RuntimeError(
+                  "Invalid primary lineup"
+              )
+
+          print()
+          print("=== CASHEDGE RECOMMENDED #1 ===")
+          print("CERTIFICATION: OPTIMAL")
+          print(
+              "Projected points:",
+              main.get("projectedPoints")
+          )
+          print(
+              "Salary:",
+              main.get("salary")
+          )
+          print(
+              "Remaining:",
+              main.get("remainingSalary")
+          )
+
+          for player in lineup:
+              print(
+                  "{:<5} {:<27} ${:<6} {:>7} pts".format(
+                      str(player.get("slot")),
+                      str(player.get("name", ""))[:27],
+                      player.get("salary", 0),
+                      player.get("projectedPoints", 0)
+                  )
+              )
+
+          print()
+          print("=== ALTERNATIVE LINEUPS ===")
+
+          alternatives = result.get("alternatives", [])
+
+          for alternative in alternatives:
+              print(
+                  "#{} | {} pts | ${} | {} players".format(
+                      alternative.get("number"),
+                      alternative.get("projectedPoints"),
+                      alternative.get("salary"),
+                      len(alternative.get("players", []))
+                  )
+              )
+
+          print()
+          print(
+              "Generated:",
+              result.get("generatedLineups", 1)
+          )
+          print(
+              "Alternative solver:",
+              result.get("alternativeSolverStatus")
+          )
+          print("No database writes")
+          print("No recommendations published")
+          print("SHADOW ONLY")
+          PY
+
+      - name: Save optimal lineups
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cashedge-nba-77583-optimal-lineups
+          path: fantasy-shadow-results/*.json
+          if-no-files-found: warn
+          retention-days: 7
