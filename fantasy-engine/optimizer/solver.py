@@ -38,15 +38,15 @@ RULES = {
         "fanduel": {
             "salary_cap": 60000,
             "slots": {
-                "PG1": ["PG"],
-                "PG2": ["PG"],
-                "SG1": ["SG"],
-                "SG2": ["SG"],
-                "SF1": ["SF"],
-                "SF2": ["SF"],
-                "PF1": ["PF"],
-                "PF2": ["PF"],
+                "PG": ["PG"],
+                "SG": ["SG"],
+                "SF": ["SF"],
+                "PF": ["PF"],
                 "C": ["C"],
+                "G/F": ["PG", "SG", "SF", "PF"],
+                "F/C": ["SF", "PF", "C"],
+                "UTIL1": ["PG", "SG", "SF", "PF", "C"],
+                "UTIL2": ["PG", "SG", "SF", "PF", "C"],
             },
         },
     },
@@ -100,7 +100,9 @@ def positions_of(player):
     positions = set()
 
     for item in raw:
-        for position in re.split(r"[/,]", str(item).upper()):
+        for position in re.split(
+            r"[/,]", str(item).upper()
+        ):
             position = position.strip()
 
             if position in ("DEF", "D"):
@@ -157,7 +159,9 @@ def optimize(payload):
         sport not in RULES
         or platform not in RULES[sport]
     ):
-        raise ValueError("Deporte o plataforma invalida")
+        raise ValueError(
+            "Deporte o plataforma invalida"
+        )
 
     config = RULES[sport][platform]
 
@@ -177,9 +181,13 @@ def optimize(payload):
     game_ids = slate.get("gameIds")
 
     if not isinstance(game_ids, list) or not game_ids:
-        raise ValueError("Partidos del slate faltantes")
+        raise ValueError(
+            "Partidos del slate faltantes"
+        )
 
-    allowed_games = set(map(normalized_id, game_ids))
+    allowed_games = set(
+        map(normalized_id, game_ids)
+    )
 
     if "" in allowed_games:
         raise ValueError("Game ID invalido")
@@ -195,7 +203,10 @@ def optimize(payload):
     locked = payload.get("locked", [])
     excluded = payload.get("excluded", [])
 
-    if not isinstance(locked, list) or not isinstance(excluded, list):
+    if (
+        not isinstance(locked, list)
+        or not isinstance(excluded, list)
+    ):
         raise ValueError("Bloqueos invalidos")
 
     locked_ids = set(map(normalized_id, locked))
@@ -206,19 +217,25 @@ def optimize(payload):
         or "" in excluded_ids
         or locked_ids & excluded_ids
     ):
-        raise ValueError("Bloqueos y exclusiones incompatibles")
+        raise ValueError(
+            "Bloqueos y exclusiones incompatibles"
+        )
 
     slots = config["slots"]
 
     if len(locked_ids) > len(slots):
-        raise ValueError("Demasiados jugadores bloqueados")
+        raise ValueError(
+            "Demasiados jugadores bloqueados"
+        )
 
     time_limit = float(
         payload.get("timeLimitSeconds", 15)
     )
 
     if not 0.1 <= time_limit <= 120:
-        raise ValueError("Limite de tiempo invalido")
+        raise ValueError(
+            "Limite de tiempo invalido"
+        )
 
     pool = {}
 
@@ -230,7 +247,10 @@ def optimize(payload):
             raw.get("playerId", raw.get("id"))
         )
 
-        if not player_id or player_id in excluded_ids:
+        if (
+            not player_id
+            or player_id in excluded_ids
+        ):
             continue
 
         if (
@@ -253,10 +273,17 @@ def optimize(payload):
                 raw.get("projectedPoints")
             )
 
-        except (ValueError, TypeError, ArithmeticError):
+        except (
+            ValueError,
+            TypeError,
+            ArithmeticError,
+        ):
             continue
 
-        game_id = normalized_id(raw.get("gameId"))
+        game_id = normalized_id(
+            raw.get("gameId")
+        )
+
         positions = positions_of(raw)
 
         if (
@@ -270,7 +297,9 @@ def optimize(payload):
         player = {
             "playerId": player_id,
             "name": raw.get("name"),
-            "teamId": normalized_id(raw.get("teamId")),
+            "teamId": normalized_id(
+                raw.get("teamId")
+            ),
             "gameId": game_id,
             "salary": salary,
             "scoreUnits": points,
@@ -282,8 +311,9 @@ def optimize(payload):
 
             if previous != player:
                 raise ValueError(
-                    "Jugador duplicado con datos contradictorios: "
-                    + player_id
+                    "Jugador duplicado con datos "
+                    "contradictorios: " +
+                    player_id
                 )
 
             continue
@@ -292,7 +322,8 @@ def optimize(payload):
 
     if not locked_ids.issubset(pool):
         raise ValueError(
-            "Jugador bloqueado ausente o sin datos validos"
+            "Jugador bloqueado ausente "
+            "o sin datos validos"
         )
 
     if len(pool) < len(slots):
@@ -305,24 +336,26 @@ def optimize(payload):
 
     model = cp_model.CpModel()
 
-    # Variable binaria por jugador y slot elegible.
     assignments = {}
 
     for player_id, player in pool.items():
         for slot_id, eligible in slots.items():
 
-            if set(player["positions"]) & set(eligible):
+            if (
+                set(player["positions"])
+                & set(eligible)
+            ):
                 assignments[(player_id, slot_id)] = (
                     model.NewBoolVar(
                         f"assign_{len(assignments)}"
                     )
                 )
 
-    # Cada posicion debe estar ocupada.
     for slot_id in slots:
         choices = [
             var
-            for (pid, sid), var in assignments.items()
+            for (pid, sid), var
+            in assignments.items()
             if sid == slot_id
         ]
 
@@ -336,11 +369,11 @@ def optimize(payload):
 
         model.Add(sum(choices) == 1)
 
-    # Un jugador no puede ocupar dos posiciones.
     for player_id in pool:
         choices = [
             var
-            for (pid, _), var in assignments.items()
+            for (pid, _), var
+            in assignments.items()
             if pid == player_id
         ]
 
@@ -358,29 +391,30 @@ def optimize(payload):
 
             model.Add(sum(choices) == 1)
 
-    # Presupuesto total.
     model.Add(
         sum(
             pool[pid]["salary"] * var
-            for (pid, _), var in assignments.items()
+            for (pid, _), var
+            in assignments.items()
         ) <= config["salary_cap"]
     )
 
-    # Maximizar puntos Fantasy proyectados.
     model.Maximize(
         sum(
             pool[pid]["scoreUnits"] * var
-            for (pid, _), var in assignments.items()
+            for (pid, _), var
+            in assignments.items()
         )
     )
 
     solver = cp_model.CpSolver()
 
-    solver.parameters.max_time_in_seconds = time_limit
+    solver.parameters.max_time_in_seconds = (
+        time_limit
+    )
     solver.parameters.num_search_workers = 4
 
     status_code = solver.Solve(model)
-
     status = solver.StatusName(status_code)
 
     if status_code not in (
@@ -389,8 +423,11 @@ def optimize(payload):
     ):
         result = empty_result(
             status,
-            "no_solution_or_proof" if status != "INFEASIBLE"
-            else "no_valid_lineup",
+            (
+                "no_solution_or_proof"
+                if status != "INFEASIBLE"
+                else "no_valid_lineup"
+            ),
             sport,
             platform,
         )
@@ -403,7 +440,9 @@ def optimize(payload):
 
     lineup = []
 
-    for (player_id, slot_id), var in assignments.items():
+    for (player_id, slot_id), var in (
+        assignments.items()
+    ):
         if solver.Value(var) != 1:
             continue
 
@@ -425,10 +464,14 @@ def optimize(payload):
     slot_order = list(slots)
 
     lineup.sort(
-        key=lambda row: slot_order.index(row["slot"])
+        key=lambda row: slot_order.index(
+            row["slot"]
+        )
     )
 
-    salary = sum(row["salary"] for row in lineup)
+    salary = sum(
+        row["salary"] for row in lineup
+    )
 
     score = sum(
         pool[row["playerId"]]["scoreUnits"]
@@ -437,13 +480,17 @@ def optimize(payload):
 
     if (
         len(lineup) != len(slots)
-        or len({row["playerId"] for row in lineup}) != len(slots)
+        or len({
+            row["playerId"] for row in lineup
+        }) != len(slots)
         or salary > config["salary_cap"]
-        or not locked_ids.issubset(
-            {row["playerId"] for row in lineup}
-        )
+        or not locked_ids.issubset({
+            row["playerId"] for row in lineup
+        })
     ):
-        raise RuntimeError("Solucion interna invalida")
+        raise RuntimeError(
+            "Solucion interna invalida"
+        )
 
     return {
         "found": True,
@@ -453,13 +500,19 @@ def optimize(payload):
         "format": "classic",
         "solver": "ortools-cp-sat",
         "status": status,
-        "optimalityGuaranteed": status_code == cp_model.OPTIMAL,
+        "optimalityGuaranteed": (
+            status_code == cp_model.OPTIMAL
+        ),
         "contestVerified": False,
         "readyForPublication": False,
-        "projectedPoints": score / SCORE_SCALE,
+        "projectedPoints": (
+            score / SCORE_SCALE
+        ),
         "salary": salary,
         "salaryCap": config["salary_cap"],
-        "remainingSalary": config["salary_cap"] - salary,
+        "remainingSalary": (
+            config["salary_cap"] - salary
+        ),
         "wallTimeSeconds": round(
             solver.WallTime(), 4
         ),
@@ -470,9 +523,7 @@ def optimize(payload):
 if __name__ == "__main__":
     try:
         payload = json.load(sys.stdin)
-
         result = optimize(payload)
-
         print(json.dumps(result))
 
     except Exception as error:
@@ -484,5 +535,4 @@ if __name__ == "__main__":
                 "readyForPublication": False,
             })
         )
-
         sys.exit(1)
