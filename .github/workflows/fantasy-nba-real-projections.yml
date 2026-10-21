@@ -1,0 +1,305 @@
+
+name: CashEdge NBA Real Projections
+
+on:
+  push:
+    branches:
+      - fantasy-dev
+    paths:
+      - ".github/workflows/fantasy-nba-real-projections.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  nba-real-projections:
+    name: NBA DraftKings Real Shadow
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout fantasy-dev
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Supabase client
+        run: |
+          npm install --prefix fantasy-engine \
+            --no-save \
+            --package-lock=false \
+            --ignore-scripts \
+            --no-audit \
+            --no-fund \
+            @supabase/supabase-js@2
+
+      - name: Calculate NBA real projections
+        env:
+          FANTASY_SUPABASE_URL: ${{ secrets.FANTASY_SUPABASE_URL }}
+          FANTASY_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.FANTASY_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node <<'NODE'
+          "use strict";
+
+          const fs = require("node:fs");
+          const path = require("node:path");
+
+          const {
+            createClient
+          } = require(
+            "./fantasy-engine/node_modules/@supabase/supabase-js"
+          );
+
+          const {
+            projectRealNBASlate
+          } = require(
+            "./fantasy-engine/nba/slate-history"
+          );
+
+          async function main() {
+            const url =
+              process.env.FANTASY_SUPABASE_URL;
+
+            const key =
+              process.env.FANTASY_SUPABASE_SERVICE_ROLE_KEY;
+
+            if (!url || !key) {
+              throw new Error(
+                "Missing Fantasy Supabase server secrets"
+              );
+            }
+
+            const slatePath = path.resolve(
+              "fantasy-engine/data/nba-draftkings-77583.json"
+            );
+
+            if (!fs.existsSync(slatePath)) {
+              throw new Error(
+                "Slate JSON not found: " + slatePath
+              );
+            }
+
+            const slate = JSON.parse(
+              fs.readFileSync(slatePath, "utf8")
+            );
+
+            if (
+              slate.sport !== "nba" ||
+              slate.platform !== "draftkings" ||
+              String(slate.slateId) !== "77583" ||
+              slate.complete !== true ||
+              !Array.isArray(slate.players) ||
+              slate.players.length !== 329
+            ) {
+              throw new Error(
+                "Slate 77583 failed integrity checks"
+              );
+            }
+
+            const db = createClient(url, key, {
+              auth: {
+                persistSession: false,
+                autoRefreshToken: false
+              },
+              global: {
+                headers: {
+                  "X-Client-Info":
+                    "cashedge-fantasy-shadow"
+                }
+              }
+            });
+
+            // Usamos el momento en que se capturo
+            // el slate, antes de los partidos.
+            //
+            // Nunca usamos resultados posteriores.
+
+            const cutoffAt = slate.capturedAt;
+
+            if (
+              !cutoffAt ||
+              !Number.isFinite(Date.parse(cutoffAt)) ||
+              Date.parse(cutoffAt) >=
+                Date.parse(slate.startsAt)
+            ) {
+              throw new Error(
+                "Invalid historical cutoff"
+              );
+            }
+
+            console.log(
+              "=== CASHEDGE NBA REAL SHADOW ==="
+            );
+
+            console.log(
+              "Slate:", slate.slateId
+            );
+
+            console.log(
+              "Platform:", slate.platform
+            );
+
+            console.log(
+              "Players received:", slate.players.length
+            );
+
+            console.log(
+              "Cutoff:", cutoffAt
+            );
+
+            const result = await projectRealNBASlate({
+              db,
+              slate,
+              cutoffAt
+            });
+
+            console.log(
+              "\n=== HISTORY AND PROJECTION COVERAGE ==="
+            );
+
+            console.log(
+              JSON.stringify(result.totals, null, 2)
+            );
+
+            const reasons = {};
+
+            for (const player of result.excluded) {
+              const reason =
+                player.reason || "unknown";
+
+              reasons[reason] =
+                (reasons[reason] || 0) + 1;
+            }
+
+            console.log(
+              "\n=== EXCLUSION REASONS ==="
+            );
+
+            console.log(
+              JSON.stringify(reasons, null, 2)
+            );
+
+            console.log(
+              "\n=== TOP 15 PROJECTED POINTS ==="
+            );
+
+            const ranked = [...result.players]
+              .sort(
+                (a, b) =>
+                  b.projectedPoints -
+                  a.projectedPoints
+              );
+
+            for (const player of ranked.slice(0, 15)) {
+              console.log(
+                JSON.stringify({
+                  name: player.name,
+                  playerId: player.playerId,
+                  team: player.team,
+                  salary: player.salary,
+                  positions: player.positions,
+                  expectedMinutes:
+                    player.expectedMinutes,
+                  projectedPoints:
+                    player.projectedPoints,
+                  gamesAvailable:
+                    player.gamesAvailable,
+                  injuryStatus:
+                    player.injuryStatus
+                })
+              );
+            }
+
+            console.log(
+              "\n=== IDENTITY MISMATCH SAMPLE ==="
+            );
+
+            for (
+              const player of result.excluded
+                .filter(p =>
+                  p.reason === "player_name_mismatch"
+                )
+                .slice(0, 15)
+            ) {
+              console.log(
+                JSON.stringify(player)
+              );
+            }
+
+            if (
+              result.totals.playersReceived !== 329 ||
+              result.totals.projected +
+                result.totals.excluded !== 329
+            ) {
+              throw new Error(
+                "Projection accounting mismatch"
+              );
+            }
+
+            if (
+              result.readyForOptimization !== false ||
+              result.readyForPublication !== false
+            ) {
+              throw new Error(
+                "Shadow safety protection failed"
+              );
+            }
+
+            fs.mkdirSync(
+              "fantasy-shadow-results",
+              { recursive: true }
+            );
+
+            const report = {
+              sport: "nba",
+              platform: "draftkings",
+              slateId: String(slate.slateId),
+              cutoffAt,
+              mode: "shadow",
+              totals: result.totals,
+              exclusionReasons: reasons,
+              players: result.players,
+              excluded: result.excluded,
+              readyForOptimization: false,
+              readyForPublication: false
+            };
+
+            fs.writeFileSync(
+              "fantasy-shadow-results/nba-77583-report.json",
+              JSON.stringify(report, null, 2)
+            );
+
+            console.log(
+              "\nCASHEDGE NBA REAL SHADOW COMPLETED"
+            );
+
+            console.log(
+              "No database writes performed"
+            );
+
+            console.log(
+              "No recommendations published"
+            );
+          }
+
+          main().catch(error => {
+            console.error(
+              "NBA REAL SHADOW ERROR:",
+              error.message
+            );
+
+            process.exitCode = 1;
+          });
+          NODE
+
+      - name: Save shadow projection report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cashedge-nba-77583-projections
+          path: fantasy-shadow-results/*.json
+          if-no-files-found: warn
+          retention-days: 7
