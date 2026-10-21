@@ -41,11 +41,18 @@ function prepareHistory(games, platform, kickoff) {
 
   const seen = new Set();
 
+ 
   return games
     .filter(game => {
-      if (!game || !game.gameId || !game.gameDate) {
+      if (
+        !game ||
+        game.complete !== true ||
+        !game.gameId ||
+        !game.gameDate
+      ) {
         return false;
       }
+
 
       const date = Date.parse(game.gameDate);
 
