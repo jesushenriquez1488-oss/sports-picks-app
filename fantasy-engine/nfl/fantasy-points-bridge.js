@@ -301,12 +301,14 @@ function projectNFLFantasyPoints({
     expectedDKBonuses
   );
 
-  // FanDuel: half PPR, -2 lost fumble,
-  // no yardage bonuses.
+ 
+  // FanDuel: half PPR, -2 lost fumble.
+  // Incluye bonos esperados por yardas.
   const fanduel = round(
     common +
     stats.receptions * 0.5 -
-    rare.fumbles_lost * 2
+    rare.fumbles_lost * 2 +
+    expectedDKBonuses
   );
 
   return {
