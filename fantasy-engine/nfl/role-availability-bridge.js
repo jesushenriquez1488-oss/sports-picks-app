@@ -164,6 +164,98 @@ function indexUniqueCrosswalk(rows) {
   return { index, conflicts };
 }
 
+const NFL_TEAM_NAMES = {
+  ARIZONACARDINALS: "ARI",
+  ATLANTAFALCONS: "ATL",
+  BALTIMORERAVENS: "BAL",
+  BUFFALOBILLS: "BUF",
+  CAROLINAPANTHERS: "CAR",
+  CHICAGOBEARS: "CHI",
+  CINCINNATIBENGALS: "CIN",
+  CLEVELANDBROWNS: "CLE",
+  DALLASCOWBOYS: "DAL",
+  DENVERBRONCOS: "DEN",
+  DETROITLIONS: "DET",
+  GREENBAYPACKERS: "GB",
+  HOUSTONTEXANS: "HOU",
+  INDIANAPOLISCOLTS: "IND",
+  JACKSONVILLEJAGUARS: "JAX",
+  KANSASCITYCHIEFS: "KC",
+  LASVEGASRAIDERS: "LV",
+  LOSANGELESCHARGERS: "LAC",
+  LOSANGELESRAMS: "LAR",
+  MIAMIDOLPHINS: "MIA",
+  MINNESOTAVIKINGS: "MIN",
+  NEWENGLANDPATRIOTS: "NE",
+  NEWORLEANSSAINTS: "NO",
+  NEWYORKGIANTS: "NYG",
+  NEWYORKJETS: "NYJ",
+  PHILADELPHIAEAGLES: "PHI",
+  PITTSBURGHSTEELERS: "PIT",
+  SANFRANCISCO49ERS: "SF",
+  SEATTLESEAHAWKS: "SEA",
+  TAMPABAYBUCCANEERS: "TB",
+  TENNESSEETITANS: "TEN",
+  WASHINGTONCOMMANDERS: "WAS"
+};
+
+function normalizedText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+}
+
+function normalizedTeam(value) {
+  const code = normalizedText(value);
+
+  const aliases = {
+    LA: "LAR",
+    JAC: "JAX",
+    WSH: "WAS"
+  };
+
+  const canonical = aliases[code] || code;
+
+  if (
+    Object.values(NFL_TEAM_NAMES).includes(canonical)
+  ) {
+    return canonical;
+  }
+
+  return NFL_TEAM_NAMES[canonical] || null;
+}
+
+function normalizedPosition(value) {
+  const code = normalizedText(value);
+
+  const positions = {
+    QB: "QB",
+    QUARTERBACK: "QB",
+    RB: "RB",
+    RUNNINGBACK: "RB",
+    WR: "WR",
+    WIDERECEIVER: "WR",
+    TE: "TE",
+    TIGHTEND: "TE"
+  };
+
+  return positions[code] || null;
+}
+
+function injuryIdentityKey(name, team, position) {
+  const n = normalizedText(name);
+  const t = normalizedTeam(team);
+  const p = normalizedPosition(position);
+
+  if (!n || !t || !p) {
+    return null;
+  }
+
+  return `${n}|${t}|${p}`;
+}
+
 function inspectPlayer({
   player,
   crosswalk,
@@ -195,10 +287,46 @@ function inspectPlayer({
     Number(row.offense_snaps) > 0
   );
 
+ 
   const apiId = id(link?.api_sports_player_id);
 
-  const injuryRows = (injuries.get(apiId) || [])
+  const identityKey = injuryIdentityKey(
+    player.name,
+    player.team,
+    player.position
+  );
+
+  const fallbackRows = identityKey
+    ? injuries.get(`name:${identityKey}`) || []
+    : [];
+
+  const uniqueFallbackIds = new Set(
+    fallbackRows
+      .map(row => id(row.api_sports_player_id))
+      .filter(Boolean)
+  );
+
+  // Nunca asociar dos IDs diferentes al
+  // mismo jugador de manera arbitraria.
+  const validFallback =
+    uniqueFallbackIds.size === 1;
+
+  const injuryMatchMethod = apiId
+    ? "crosswalk"
+    : validFallback
+      ? "exact_identity"
+      : "unmatched";
+
+  const selectedInjuries = apiId
+    ? injuries.get(apiId) || []
+    : validFallback
+      ? fallbackRows
+      : [];
+
+  
+  const injuryRows = selectedInjuries
     .filter(row => {
+
       const observed = dateMs(
         row.last_seen_at || row.updated_at
       );
@@ -253,7 +381,10 @@ function inspectPlayer({
     gsisPlayerId: gsis,
     dfsPlayerId: id(player.dfsPlayerId),
     salary: player.salary,
+  
     hasCrosswalk: Boolean(link),
+    injuryMatchMethod,
+
     recentGamesWithSnaps: positive.length,
     medianOffenseSnaps: median(
       positive.map(row => Number(row.offense_snaps))
@@ -300,10 +431,12 @@ async function main() {
           `gte.${HISTORY_START}`
       }
     ),
+    
     readAll(
       "nfl_injury_state",
-      "api_sports_player_id,normalized_status,raw_status,active,last_seen_at,updated_at"
+      "api_sports_player_id,player_name,team_name,position,normalized_status,raw_status,active,last_seen_at,updated_at"
     )
+
   ]);
 
   const { index: crosswalk, conflicts } =
@@ -318,18 +451,37 @@ async function main() {
     snaps.get(key).push(row);
   }
 
+ 
   const injuries = new Map();
 
   for (const row of injuryRows) {
-    const key = id(row.api_sports_player_id);
+    const playerId = id(row.api_sports_player_id);
 
-    if (!key) continue;
+    if (playerId) {
+      if (!injuries.has(playerId)) {
+        injuries.set(playerId, []);
+      }
 
-    if (!injuries.has(key)) {
-      injuries.set(key, []);
+      injuries.get(playerId).push(row);
     }
 
-    injuries.get(key).push(row);
+    const identityKey = injuryIdentityKey(
+      row.player_name,
+      row.team_name,
+      row.position
+    );
+
+    if (!identityKey || !playerId) {
+      continue;
+    }
+
+    const nameKey = `name:${identityKey}`;
+
+    if (!injuries.has(nameKey)) {
+      injuries.set(nameKey, []);
+    }
+
+    injuries.get(nameKey).push(row);
   }
 
   console.log("===== NFL ROLE DATA =====");
@@ -378,12 +530,22 @@ async function main() {
       `\n===== ${platform.toUpperCase()} ROLE =====`
     );
 
+   
     console.log("Matched DFS:", players.length);
 
     console.log(
       "Crosswalk available:",
       count(p => p.hasCrosswalk)
     );
+
+    console.log(
+      "Exact identity injury matches:",
+      count(
+        p => p.injuryMatchMethod === "exact_identity"
+      )
+    );
+
+
 
     console.log(
       "Recent snap evidence:",
