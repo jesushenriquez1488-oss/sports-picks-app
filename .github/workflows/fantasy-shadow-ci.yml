@@ -671,11 +671,11 @@ jobs:
           FANTASY_SUPABASE_ANON_KEY: ${{ secrets.FANTASY_SUPABASE_ANON_KEY }}
         run: node fantasy-engine/tests/real-shadow.js
         
-  nfl-stats-audit:
+    nfl-stats-audit:
     name: NFLverse Fantasy Statistics Audit
-    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+  
 
     steps:
       - name: Verify real NFLverse data
