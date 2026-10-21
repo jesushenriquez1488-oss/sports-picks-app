@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   fanduel-slate:
-    name: Identify Real FanDuel Full Roster
+    name: Capture FanDuel Full Roster
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -28,15 +28,16 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Inspect FanDuel slates
+      - name: Capture real FanDuel roster
         env:
           BALLDONTLIE_NBA_API_KEY: ${{ secrets.BALLDONTLIE_NBA_API_KEY }}
-          FANTASY_DATE: "2026-10-21"
         run: |
           node <<'NODE'
           "use strict";
 
           const fs = require("node:fs");
+
+          const SLATE_ID = 78196;
 
           const API =
             "https://api.balldontlie.io/nba/v1/dfs";
@@ -44,35 +45,26 @@ jobs:
           const key =
             process.env.BALLDONTLIE_NBA_API_KEY;
 
-          const date =
-            process.env.FANTASY_DATE;
-
           if (!key) {
-            throw new Error(
-              "BALLDONTLIE_NBA_API_KEY missing"
-            );
+            throw new Error("Missing NBA API key");
           }
+
+          const sleep = ms =>
+            new Promise(resolve => setTimeout(resolve, ms));
 
           async function request(path, params = {}) {
             const url = new URL(API + path);
 
-            for (const [name, value] of
-              Object.entries(params)) {
+            for (const [name, value] of Object.entries(params)) {
               url.searchParams.append(name, value);
             }
 
-            for (let attempt = 0;
-              attempt < 4;
-              attempt++) {
-
-              const response = await fetch(
-                url.toString(),
-                {
-                  headers: {
-                    Authorization: key
-                  }
+            for (let attempt = 0; attempt < 4; attempt++) {
+              const response = await fetch(url, {
+                headers: {
+                  Authorization: key
                 }
-              );
+              });
 
               if (
                 response.status === 429 ||
@@ -80,25 +72,19 @@ jobs:
               ) {
                 if (attempt === 3) {
                   throw new Error(
-                    "API HTTP " + response.status
+                    "BALLDONTLIE HTTP " + response.status
                   );
                 }
 
-                await new Promise(resolve =>
-                  setTimeout(
-                    resolve,
-                    1500 * (attempt + 1)
-                  )
-                );
-
+                await sleep(1500 * (attempt + 1));
                 continue;
               }
 
               if (!response.ok) {
                 throw new Error(
-                  "API HTTP " +
+                  "BALLDONTLIE HTTP " +
                   response.status +
-                  " at " + path
+                  " " + path
                 );
               }
 
@@ -106,10 +92,9 @@ jobs:
             }
           }
 
-          async function listAll(path, params) {
-            const items = [];
-            const seen = new Set();
-
+          async function allPages(path, params) {
+            const records = [];
+            const cursors = new Set();
             let cursor = null;
 
             for (let page = 0; page < 100; page++) {
@@ -122,181 +107,267 @@ jobs:
                 query.cursor = String(cursor);
               }
 
-              const response = await request(
-                path,
-                query
-              );
+              const result = await request(path, query);
 
-              if (!Array.isArray(response.data)) {
-                throw new Error(
-                  "Invalid paginated response"
-                );
+              if (!Array.isArray(result.data)) {
+                throw new Error("Invalid API data");
               }
 
-              items.push(...response.data);
+              records.push(...result.data);
 
-              const next =
-                response.meta?.next_cursor;
+              const next = result.meta?.next_cursor;
 
-              if (
-                next === null ||
-                next === undefined
-              ) {
-                return items;
+              if (next === null || next === undefined) {
+                return records;
               }
 
-              if (seen.has(String(next))) {
-                throw new Error(
-                  "Repeated cursor"
-                );
+              if (cursors.has(String(next))) {
+                throw new Error("Repeated cursor");
               }
 
-              seen.add(String(next));
+              cursors.add(String(next));
               cursor = next;
             }
 
-            throw new Error(
-              "Pagination exceeded 100 pages"
-            );
+            throw new Error("Pagination limit exceeded");
           }
 
-          function rosterSlots(slate) {
+          function getSlots(slate) {
             return (slate.roster_slots || [])
-              .filter(slot =>
-                slot.active !== false
-              )
+              .filter(slot => slot.active !== false)
               .map(slot => ({
-                id: slot.id,
-                name: slot.name,
-                count: slot.required_count,
-                active: slot.active
+                id: String(slot.id),
+                name: String(slot.name).toUpperCase(),
+                count: Number(slot.required_count)
               }));
           }
 
-          function isClassicFullRoster(slate) {
-            const slots = rosterSlots(slate);
-            const counts = {};
+          function verifySlate(slate) {
+            const required = [
+              "PG", "SG", "SF", "PF", "C",
+              "G/F", "F/C", "UTIL", "UTIL"
+            ].sort();
 
-            for (const slot of slots) {
-              const name = String(
-                slot.name || ""
-              ).trim().toUpperCase();
+            const actual = getSlots(slate)
+              .flatMap(slot =>
+                Array(slot.count).fill(slot.name)
+              )
+              .sort();
 
-              counts[name] =
-                (counts[name] || 0) +
-                Number(slot.count || 0);
+            if (
+              Number(slate.id) !== SLATE_ID ||
+              slate.provider !== "fanduel" ||
+              slate.format !== "salary_cap" ||
+              slate.style !== "Full Roster" ||
+              Number(slate.salary_cap) !== 60000 ||
+              actual.length !== 9 ||
+              JSON.stringify(actual) !==
+                JSON.stringify(required)
+            ) {
+              throw new Error(
+                "Slate roster verification failed: " +
+                JSON.stringify({
+                  id: slate.id,
+                  style: slate.style,
+                  salaryCap: slate.salary_cap,
+                  actual
+                })
+              );
             }
 
-            return (
-              Number(slate.salary_cap) === 60000 &&
-              counts.PG === 2 &&
-              counts.SG === 2 &&
-              counts.SF === 2 &&
-              counts.PF === 2 &&
-              counts.C === 1 &&
-              Object.keys(counts).length === 5
-            );
+            if (
+              !Array.isArray(slate.events) ||
+              slate.events.filter(e => e.active !== false)
+                .length !== 11
+            ) {
+              throw new Error(
+                "Expected 11 active games"
+              );
+            }
           }
 
           async function main() {
             console.log(
-              "=== CASHEDGE FANDUEL DISCOVERY ==="
+              "=== FANDUEL NBA FULL ROSTER ==="
             );
 
-            console.log("Date:", date);
+            const detail = await request(
+              "/slates/" + SLATE_ID
+            );
 
-            // No aplicar restricciones prematuras
-            // de formato y scope.
-            const slates = await listAll(
-              "/slates",
+            const slate = detail.data;
+
+            if (!slate) {
+              throw new Error("Missing slate detail");
+            }
+
+            verifySlate(slate);
+
+            const entries = await allPages(
+              "/draftables",
               {
-                "providers[]": "fanduel",
-                start_date: date,
-                end_date: date
+                "slate_ids[]": String(SLATE_ID)
               }
             );
 
-            console.log(
-              "FANDUEL SLATES FOUND:",
-              slates.length
+            const eventIds = new Set(
+              slate.events
+                .filter(e => e.active !== false)
+                .map(e => String(e.id))
             );
 
-            const reports = [];
-            const details = [];
+            const slotIds = new Set(
+              getSlots(slate).map(s => s.id)
+            );
 
-            for (const item of slates) {
-              const response = await request(
-                "/slates/" + item.id
-              );
+            const byPlayer = new Map();
+            const excluded = [];
+            const missingIds = [];
 
-              const slate = response.data;
+            for (const entry of entries) {
+              if (
+                entry.active === false ||
+                entry.is_disabled === true ||
+                entry.entity_type !== "player" ||
+                !eventIds.has(
+                  String(entry.slate_event_id)
+                ) ||
+                !slotIds.has(
+                  String(entry.roster_slot_id)
+                )
+              ) {
+                continue;
+              }
 
-              if (!slate) {
+              if (
+                entry.player_id == null ||
+                entry.team_id == null ||
+                entry.game_id == null
+              ) {
+                missingIds.push({
+                  draftableId: entry.id,
+                  player: entry.display_name
+                });
+
+                continue;
+              }
+
+              const status = String(
+                entry.status || ""
+              ).trim().toLowerCase();
+
+              if (
+                ["o", "out", "inactive", "ir", "suspended"]
+                  .includes(status)
+              ) {
+                excluded.push({
+                  player: entry.display_name,
+                  reason: "provider_out"
+                });
+
+                continue;
+              }
+
+              const salary = Number(entry.salary);
+
+              if (
+                !Number.isFinite(salary) ||
+                salary <= 0
+              ) {
+                continue;
+              }
+
+              const playerId =
+                String(entry.player_id);
+
+              const position =
+                String(entry.position || "")
+                  .trim().toUpperCase();
+
+              if (
+                !["PG", "SG", "SF", "PF", "C"]
+                  .includes(position)
+              ) {
+                continue;
+              }
+
+              const previous =
+                byPlayer.get(playerId);
+
+              if (!previous) {
+                byPlayer.set(playerId, {
+                  playerId,
+                  name: entry.display_name ||
+                    [
+                      entry.first_name,
+                      entry.last_name
+                    ].filter(Boolean).join(" "),
+                  teamId: String(entry.team_id),
+                  gameId: String(entry.game_id),
+                  salary,
+                  positions: [position],
+                  team: entry.team_abbreviation,
+                  providerStatus: entry.status,
+                  draftableIds: [String(entry.id)]
+                });
+
+                continue;
+              }
+
+              if (
+                previous.salary !== salary ||
+                previous.teamId !==
+                  String(entry.team_id) ||
+                previous.gameId !==
+                  String(entry.game_id)
+              ) {
                 throw new Error(
-                  "Missing detail for slate " +
-                  item.id
+                  "Conflicting player records: " +
+                  playerId +
+                  ". Preserve raw entries before optimizing."
                 );
               }
 
-              details.push(slate);
+              if (!previous.positions.includes(position)) {
+                previous.positions.push(position);
+              }
 
-              const report = {
-                id: slate.id,
-                provider: slate.provider,
-                format: slate.format,
-                scope: slate.scope,
-                style: slate.style,
-                status: slate.status,
-                active: slate.active,
-                salaryCap: slate.salary_cap,
-                eventCount: slate.event_count,
-                startsAt: slate.starts_at,
-                rosterSlots: rosterSlots(slate),
-                events: (
-                  slate.events || []
-                ).map(event => ({
-                  id: event.id,
-                  gameId: event.game_id,
-                  name: event.name,
-                  active: event.active
-                })),
-                verifiedFullRoster:
-                  isClassicFullRoster(slate)
-              };
-
-              reports.push(report);
-
-              console.log(
-                "\n=== FANDUEL SLATE " +
-                slate.id + " ==="
-              );
-
-              console.log(
-                JSON.stringify(report, null, 2)
+              previous.draftableIds.push(
+                String(entry.id)
               );
             }
 
-            const verified = reports.filter(
-              row => row.verifiedFullRoster
-            );
+            const players = [...byPlayer.values()];
 
-            console.log(
-              "\n=== VERIFIED FULL ROSTER ==="
-            );
+            if (players.length < 50) {
+              throw new Error(
+                "Incomplete player pool: " +
+                players.length
+              );
+            }
 
-            console.log(
-              JSON.stringify(
-                verified.map(row => ({
-                  slateId: row.id,
-                  games: row.events.length,
-                  salaryCap: row.salaryCap,
-                  slots: row.rosterSlots,
-                  startsAt: row.startsAt
-                })),
-                null,
-                2
-              )
-            );
+            const capturedAt =
+              new Date().toISOString();
+
+            const output = {
+              sport: "nba",
+              platform: "fanduel",
+              slateId: String(SLATE_ID),
+              format: "full_roster",
+              mode: "shadow",
+              complete: true,
+              capturedAt,
+              startsAt: slate.starts_at,
+              salaryCap: Number(slate.salary_cap),
+              rosterSlots: getSlots(slate),
+              games: slate.events.filter(
+                e => e.active !== false
+              ),
+              players,
+              excluded,
+              missingIds,
+              source: "balldontlie"
+            };
 
             fs.mkdirSync(
               "fantasy-fanduel-results",
@@ -304,48 +375,52 @@ jobs:
             );
 
             fs.writeFileSync(
-              "fantasy-fanduel-results/fanduel-discovery.json",
-              JSON.stringify(
-                {
-                  date,
-                  discovered: reports.length,
-                  verified: verified.length,
-                  slates: reports
-                },
-                null,
-                2
-              )
+              "fantasy-fanduel-results/fanduel-78196.json",
+              JSON.stringify(output, null, 2)
             );
 
             console.log(
-              "\n=== FINAL STATUS ==="
+              "\n=== VERIFIED FANDUEL SLATE ==="
             );
 
             console.log(
-              "Discovery: PASS"
+              JSON.stringify({
+                slateId: output.slateId,
+                salaryCap: output.salaryCap,
+                rosterSlots: output.rosterSlots.map(
+                  slot => slot.name
+                ),
+                games: output.games.length,
+                rawDraftables: entries.length,
+                eligiblePlayers: players.length,
+                excludedOut: excluded.length,
+                missingIds: missingIds.length,
+                capturedAt
+              }, null, 2)
             );
 
             console.log(
-              "Full Roster candidates:",
-              verified.length
+              "\n=== FIRST 10 PLAYERS ==="
             );
 
-            console.log(
-              "No CSV required"
-            );
+            for (const player of players.slice(0, 10)) {
+              console.log(JSON.stringify({
+                name: player.name,
+                team: player.team,
+                salary: player.salary,
+                positions: player.positions
+              }));
+            }
 
-            console.log(
-              "No database changes"
-            );
-
-            console.log(
-              "Mode: SHADOW"
-            );
+            console.log("\nFINAL STATUS: PASS");
+            console.log("Mode: SHADOW");
+            console.log("No database changes");
+            console.log("No publication");
           }
 
           main().catch(error => {
             console.error(
-              "FANDUEL ERROR:",
+              "FANDUEL CAPTURE ERROR:",
               error.message
             );
 
@@ -353,11 +428,11 @@ jobs:
           });
           NODE
 
-      - name: Save FanDuel discovery
+      - name: Save real FanDuel data
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cashedge-fanduel-discovery
+          name: cashedge-nba-fanduel-78196
           path: fantasy-fanduel-results/*.json
           if-no-files-found: warn
           retention-days: 7
