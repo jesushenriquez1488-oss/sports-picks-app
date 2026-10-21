@@ -1,12 +1,15 @@
 
 name: CashEdge NBA Injury Shadow
 
+
 on:
   push:
     branches:
       - fantasy-dev
     paths:
       - ".github/workflows/fantasy-nba-injury-shadow.yml"
+      - "fantasy-engine/nba/injury-slate-bridge.js"
+
 
 permissions:
   contents: read
