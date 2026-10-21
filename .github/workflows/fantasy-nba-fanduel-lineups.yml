@@ -100,8 +100,15 @@ jobs:
           );
 
           const REQUIRED = [
-            "PG", "SG", "SF", "PF", "C",
-            "G/F", "F/C", "UTIL", "UTIL"
+            "PG",
+            "SG",
+            "SF",
+            "PF",
+            "C",
+            "G/F",
+            "F/C",
+            "UTIL",
+            "UTIL"
           ].sort();
 
           const OUT = new Set([
@@ -111,15 +118,47 @@ jobs:
             "suspended"
           ]);
 
-          const readJson = path =>
-            JSON.parse(
+          function readJson(path) {
+            return JSON.parse(
               fs.readFileSync(path, "utf8")
             );
+          }
+
+          function validId(value) {
+            return (
+              value !== null &&
+              value !== undefined &&
+              String(value).trim() !== "" &&
+              String(value) !== "null" &&
+              String(value) !== "undefined"
+            );
+          }
+
+          function uniqueIds(values) {
+            return [
+              ...new Set(
+                values
+                  .filter(validId)
+                  .map(value => String(value).trim())
+              )
+            ];
+          }
 
           function validateSlate(slate) {
+            if (
+              !slate ||
+              !Array.isArray(slate.rosterSlots) ||
+              !Array.isArray(slate.games) ||
+              !Array.isArray(slate.players)
+            ) {
+              throw new Error(
+                "Invalid FanDuel slate structure"
+              );
+            }
+
             const slots = slate.rosterSlots
               .flatMap(slot =>
-                Array(slot.count).fill(
+                Array(Number(slot.count)).fill(
                   String(slot.name).toUpperCase()
                 )
               )
@@ -162,9 +201,8 @@ jobs:
                 !Number.isFinite(Number(player.salary)) ||
                 Number(player.salary) <= 0 ||
                 !Array.isArray(player.positions) ||
-                player.positions.length < 1 ||
-                !player.gameId ||
-                !player.teamId
+                player.positions.length === 0 ||
+                !validId(player.teamId)
               ) {
                 throw new Error(
                   "Invalid FanDuel player: " + id
@@ -205,6 +243,10 @@ jobs:
             const teamsByGame = new Map();
 
             for (const player of slate.players) {
+              if (!validId(player.gameId)) {
+                continue;
+              }
+
               const game = String(player.gameId);
 
               if (!teamsByGame.has(game)) {
@@ -262,9 +304,7 @@ jobs:
 
                 chosen.add(gameId);
 
-                for (const injury of
-                  snapshot.injuries) {
-
+                for (const injury of snapshot.injuries) {
                   if (
                     OUT.has(
                       String(injury.status || "")
@@ -374,22 +414,77 @@ jobs:
               );
             }
 
-            const gameIds = [
-              ...new Set(
-                slate.games.map(
-                  event => String(event.gameId)
-                )
-              )
-            ];
+            // BALLDONTLIE entrega dos identificadores:
+            //
+            // 1. slate.events[].id:
+            //    identificador del evento DFS.
+            //
+            // 2. slate.events[].gameId:
+            //    identificador del partido NBA.
+            //
+            // Los jugadores pueden tener gameId
+            // distinto o no incluirlo.
+            //
+            // Inspeccionamos los valores reales
+            // sin inventar partidos.
 
-            if (gameIds.length !== 11) {
+            const eventIds = uniqueIds(
+              slate.games.map(
+                event => event.id
+              )
+            );
+
+            const eventGameIds = uniqueIds(
+              slate.games.map(
+                event => event.gameId
+              )
+            );
+
+            const playerGameIds = uniqueIds(
+              projected.players.map(
+                player => player.gameId
+              )
+            );
+
+            console.log(
+              "=== FANDUEL GAME ID CHECK ==="
+            );
+
+            console.log(
+              JSON.stringify({
+                slateEvents: slate.games.length,
+                eventIds,
+                eventGameIds,
+                projectedGameIds: playerGameIds
+              }, null, 2)
+            );
+
+            if (eventIds.length !== 11) {
               throw new Error(
-                "Invalid game pool"
+                "Incomplete slate event IDs"
+              );
+            }
+
+            // Si los jugadores tienen sus gameId
+            // reales, esos son los que se
+            // utilizan para el optimizador.
+            //
+            // Si el API los omite en los jugadores,
+            // no se fabrican identificadores.
+
+            const finalGameIds =
+              playerGameIds.length > 0
+                ? playerGameIds
+                : eventGameIds;
+
+            if (finalGameIds.length < 2) {
+              throw new Error(
+                "Insufficient verified FanDuel game IDs"
               );
             }
 
             const allowedGames =
-              new Set(gameIds);
+              new Set(finalGameIds);
 
             const optimizerPlayers =
               players.map(player => ({
@@ -398,8 +493,9 @@ jobs:
                 name: player.name,
                 teamId:
                   String(player.teamId),
-                gameId:
-                  String(player.gameId),
+                gameId: validId(player.gameId)
+                  ? String(player.gameId)
+                  : null,
                 salary: Number(player.salary),
                 positions: player.positions,
                 projectedPoints:
@@ -408,6 +504,7 @@ jobs:
 
             for (const player of optimizerPlayers) {
               if (
+                !validId(player.gameId) ||
                 !allowedGames.has(player.gameId) ||
                 !Number.isFinite(
                   player.projectedPoints
@@ -429,7 +526,7 @@ jobs:
                 sport: "nba",
                 platform: "fanduel",
                 format: "classic",
-                gameIds
+                gameIds: finalGameIds
               },
               players: optimizerPlayers,
               lineupCount: 10,
@@ -485,6 +582,10 @@ jobs:
                   injuryState.out.size,
                 injuryGamesMatched:
                   injuryState.matchedGames,
+                eventIds:
+                  eventIds.length,
+                gameIds:
+                  finalGameIds.length,
                 scoringPlatform:
                   "fanduel",
                 salaryCap: 60000,
@@ -499,6 +600,7 @@ jobs:
               "FANDUEL PROJECTION ERROR:",
               error.message
             );
+
             process.exitCode = 1;
           });
           NODE
@@ -525,8 +627,15 @@ jobs:
           )
 
           expected_slots = {
-              "PG", "SG", "SF", "PF", "C",
-              "G/F", "F/C", "UTIL1", "UTIL2"
+              "PG",
+              "SG",
+              "SF",
+              "PF",
+              "C",
+              "G/F",
+              "F/C",
+              "UTIL1",
+              "UTIL2"
           }
 
           config = RULES["nba"]["fanduel"]
@@ -543,7 +652,11 @@ jobs:
           result = recommend(payload)
 
           (folder / "lineups.json").write_text(
-              json.dumps(result, indent=2, default=str)
+              json.dumps(
+                  result,
+                  indent=2,
+                  default=str
+              )
           )
 
           if result.get("status") != "COMPLETE":
@@ -579,23 +692,26 @@ jobs:
               )
 
           for index, lineup in enumerate(
-              lineups, start=1
+              lineups,
+              start=1
           ):
-              players = lineup.get("players") or []
+              players = (
+                  lineup.get("players") or []
+              )
 
               ids = [
-                  str(p["playerId"])
-                  for p in players
+                  str(player["playerId"])
+                  for player in players
               ]
 
               slots = [
-                  p["slot"]
-                  for p in players
+                  player["slot"]
+                  for player in players
               ]
 
               salary = sum(
-                  int(p["salary"])
-                  for p in players
+                  int(player["salary"])
+                  for player in players
               )
 
               if (
@@ -630,7 +746,9 @@ jobs:
 
               print(
                   "Projected points:",
-                  lineup.get("projectedPoints"),
+                  lineup.get(
+                      "projectedPoints"
+                  ),
                   flush=True
               )
 
@@ -638,8 +756,12 @@ jobs:
                   print(
                       player["slot"],
                       player["name"],
-                      "$" + str(player["salary"]),
-                      player["projectedPoints"],
+                      "$" + str(
+                          player["salary"]
+                      ),
+                      player[
+                          "projectedPoints"
+                      ],
                       flush=True
                   )
 
