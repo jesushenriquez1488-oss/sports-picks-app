@@ -2,16 +2,21 @@
 "use strict";
 
 // CASHEDGE FANTASY EDGE
-// NBA TEAMMATE ABSENCE IMPACT
+// NBA TEAMMATE ABSENCE IMPACT V2
+//
+// DraftKings y FanDuel.
 //
 // Calcula diferencias historicas con/sin
-// un companero, a partir de partidos reales.
+// un companero usando partidos reales.
 //
 // NO consulta APIs.
 // NO escribe en Supabase.
 // NO modifica proyecciones directamente.
 // NO supone que ausencia = lesion.
 // NO inventa minutos ni roles.
+//
+// Conserva los pesos y condiciones
+// historicas originales.
 
 const {
   scoreNBA
@@ -19,6 +24,11 @@ const {
 
 const MIN_SAMPLE_GAMES = 4;
 const MAX_HISTORY_GAMES = 60;
+
+const SUPPORTED_PLATFORMS = new Set([
+  "draftkings",
+  "fanduel"
+]);
 
 const REQUIRED_STATS = [
   "points",
@@ -98,8 +108,27 @@ function validGame(row, cutoffAt) {
   });
 }
 
-function average(rows) {
+function fantasyField(platform) {
+  if (platform === "draftkings") {
+    return "fantasyDK";
+  }
+
+  if (platform === "fanduel") {
+    return "fantasyFD";
+  }
+
+  throw new Error(
+    "NBA teammate impact: invalid platform"
+  );
+}
+
+function average(
+  rows,
+  platform = "draftkings"
+) {
   if (!rows.length) return null;
+
+  const field = fantasyField(platform);
 
   const result = {
     games: rows.length,
@@ -107,16 +136,19 @@ function average(rows) {
     points: 0,
     rebounds: 0,
     assists: 0,
-    fantasyDK: 0
+    [field]: 0
   };
 
   for (const row of rows) {
     const fantasy = scoreNBA(
       row,
-      "draftkings"
+      platform
     );
 
-    if (!fantasy.complete) {
+    if (
+      !fantasy.complete ||
+      !Number.isFinite(fantasy.points)
+    ) {
       throw new Error(
         "Incomplete historical Fantasy stats"
       );
@@ -126,18 +158,19 @@ function average(rows) {
     result.points += Number(row.points);
     result.rebounds += Number(row.rebounds);
     result.assists += Number(row.assists);
-    result.fantasyDK += fantasy.points;
+
+    result[field] += fantasy.points;
   }
 
-  for (const field of [
+  for (const name of [
     "minutes",
     "points",
     "rebounds",
     "assists",
-    "fantasyDK"
+    field
   ]) {
-    result[field] = round(
-      result[field] / rows.length
+    result[name] = round(
+      result[name] / rows.length
     );
   }
 
@@ -165,29 +198,23 @@ function dedupeGames(rows) {
 }
 
 /**
- * Evalua el impacto historico de que un
- * companero no participe.
+ * Evalua el impacto historico de que
+ * un companero no participe.
  *
  * targetGames:
- *   Partidos historicos del jugador evaluado.
+ *   Partidos historicos del jugador.
  *
  * teammateGames:
  *   Partidos historicos del companero.
  *
  * teamGames:
- *   Partidos del equipo con cobertura verificada.
- *   Cada elemento:
- *   {
- *     gameId,
- *     teamId,
- *     playersRecorded
- *   }
+ *   Partidos con cobertura verificada.
  *
- * Ambos historiales deben corresponder
- * al mismo equipo en cada encuentro evaluado.
+ * La ausencia historica no significa
+ * necesariamente que hubiera una lesion.
  *
- * La ausencia en el registro significa
- * "no participo", no confirma una lesion.
+ * El resultado es solo una señal.
+ * Este modulo no aplica ajustes.
  */
 function evaluateTeammateImpact({
   playerId,
@@ -222,11 +249,13 @@ function evaluateTeammateImpact({
     );
   }
 
-  if (platform !== "draftkings") {
+  if (!SUPPORTED_PLATFORMS.has(platform)) {
     throw new Error(
-      "NBA teammate impact: DraftKings only"
+      "NBA teammate impact: invalid platform"
     );
   }
+
+  const field = fantasyField(platform);
 
   const eligibleTeamGames = new Map();
 
@@ -284,8 +313,15 @@ function evaluateTeammateImpact({
     }
   }
 
-  const withStats = average(withTeammate);
-  const withoutStats = average(withoutTeammate);
+  const withStats = average(
+    withTeammate,
+    platform
+  );
+
+  const withoutStats = average(
+    withoutTeammate,
+    platform
+  );
 
   const weight = sampleWeight(
     withoutTeammate.length
@@ -339,25 +375,22 @@ function evaluateTeammateImpact({
       withoutStats.assists -
       withStats.assists
     ),
-    fantasyDK: round(
-      withoutStats.fantasyDK -
-      withStats.fantasyDK
+    [field]: round(
+      withoutStats[field] -
+      withStats[field]
     )
   };
 
-  // Promedio ponderado reciente que representa
-  // la mezcla actual de juegos con y sin el
-  // companero dentro del historial.
+  // Comparacion contra el promedio ponderado
+  // de los ultimos 20 juegos.
   //
-  // Comparar contra esta referencia evita
-  // sumar de nuevo el beneficio ya incluido
-  // en la proyeccion historica.
-  //
-  // El resultado es una sugerencia experimental
-  // independiente, NO un ajuste aplicado.
+  // Mantiene la ponderacion historica V2.
+  // Usa scoreNBA con la plataforma correcta.
 
-  const baseline = cleanTarget
-    .slice(0, 20);
+  const baseline = cleanTarget.slice(
+    0,
+    20
+  );
 
   let numerator = 0;
   let denominator = 0;
@@ -368,8 +401,17 @@ function evaluateTeammateImpact({
 
     const fantasy = scoreNBA(
       row,
-      "draftkings"
+      platform
     );
+
+    if (
+      !fantasy.complete ||
+      !Number.isFinite(fantasy.points)
+    ) {
+      throw new Error(
+        "Incomplete historical baseline stats"
+      );
+    }
 
     numerator +=
       fantasy.points * weightRecent;
@@ -387,7 +429,7 @@ function evaluateTeammateImpact({
       ? 0
       : round(
           (
-            withoutStats.fantasyDK -
+            withoutStats[field] -
             weightedBaseline
           ) * weight
         );
