@@ -1,0 +1,61 @@
+
+name: CashEdge NFL First Shadow Lineup
+
+on:
+  push:
+    branches:
+      - fantasy-dev
+    paths:
+      - ".github/workflows/fantasy-nfl-first-lineup.yml"
+      - "fantasy-engine/nfl/nfl-first-lineup-shadow.js"
+
+permissions:
+  contents: read
+
+jobs:
+  first-nfl-lineup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas pyarrow requests ortools
+
+      - name: Check syntax
+        run: |
+          node --check fantasy-engine/nfl/nfl-first-lineup-shadow.js
+
+      - name: Prepare DST history
+        run: |
+          python fantasy-engine/nfl/dst-stats-bridge.py
+
+      - name: Generate first NFL shadow lineups
+        env:
+          BALLDONTLIE_NFL_API_KEY: ${{ secrets.BALLDONTLIE_NBA_API_KEY }}
+          SUPABASE_URL: ${{ secrets.FANTASY_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.FANTASY_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node fantasy-engine/nfl/nfl-first-lineup-shadow.js
+
+      - name: Confirm isolation
+        run: |
+          echo "Technical simulation only"
+          echo "No Supabase writes"
+          echo "No production deployment"
+          echo "Availability not confirmed"
+          echo "Ready for publication: FALSE"
