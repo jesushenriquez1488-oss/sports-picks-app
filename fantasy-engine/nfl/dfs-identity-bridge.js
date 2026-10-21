@@ -79,7 +79,10 @@ function buildNFLDFSIdentityBridge({ slate, byPlayer }) {
     ).trim().toUpperCase();
 
     const team = teamCode(recent.team);
-    const name = normalizeName(recent.player_name);
+        const name = normalizeName(
+      recent.player_display_name ||
+      recent.player_name
+    );
 
     if (!POSITIONS.has(pos) || !team || !name) {
       continue;
