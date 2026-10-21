@@ -15,8 +15,9 @@ const SCHEDULE_URL =
   "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv";
 
 const REQUIRED = [
-  "player_id",
+   "player_id",
   "player_name",
+  "player_display_name",
   "position",
   "team",
   "season",
@@ -235,7 +236,11 @@ function normalizeWeeklyPlayer(
   return {
     // GSIS ID: no asumir que es el ID DFS.
     player_id: playerId,
-    player_name: row.player_name,
+        player_name:
+      row.player_display_name?.trim() ||
+      row.player_name,
+    player_display_name:
+      row.player_display_name?.trim() || null,
     position,
     team,
     game_id: row.game_id,
