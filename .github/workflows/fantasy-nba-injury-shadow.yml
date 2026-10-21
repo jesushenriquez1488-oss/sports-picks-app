@@ -1,0 +1,310 @@
+
+name: CashEdge NBA Injury Shadow
+
+on:
+  push:
+    branches:
+      - fantasy-dev
+    paths:
+      - ".github/workflows/fantasy-nba-injury-shadow.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  nba-injury-shadow:
+    name: NBA Real Injury Impact
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout fantasy-dev
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Supabase client
+        run: |
+          npm install --prefix fantasy-engine \
+            --no-save \
+            --package-lock=false \
+            --ignore-scripts \
+            --no-audit \
+            --no-fund \
+            @supabase/supabase-js@2
+
+      - name: Test injury impact on real NBA slate
+        env:
+          FANTASY_SUPABASE_URL: ${{ secrets.FANTASY_SUPABASE_URL }}
+          FANTASY_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.FANTASY_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node <<'NODE'
+          "use strict";
+
+          const fs = require("node:fs");
+
+          const {
+            createClient
+          } = require(
+            "./fantasy-engine/node_modules/@supabase/supabase-js"
+          );
+
+          const {
+            projectNBAWithInjuries
+          } = require(
+            "./fantasy-engine/nba/injury-slate-bridge"
+          );
+
+          async function main() {
+            const url =
+              process.env.FANTASY_SUPABASE_URL;
+
+            const key =
+              process.env.FANTASY_SUPABASE_SERVICE_ROLE_KEY;
+
+            if (!url || !key) {
+              throw new Error(
+                "Missing Supabase server secrets"
+              );
+            }
+
+            const slate = JSON.parse(
+              fs.readFileSync(
+                "fantasy-engine/data/nba-draftkings-77583.json",
+                "utf8"
+              )
+            );
+
+            if (
+              slate.sport !== "nba" ||
+              slate.platform !== "draftkings" ||
+              String(slate.slateId) !== "77583" ||
+              slate.complete !== true ||
+              slate.players.length !== 329
+            ) {
+              throw new Error(
+                "Original DraftKings slate invalid"
+              );
+            }
+
+            // Usar el momento real de ejecucion.
+            // Nunca utilizar reportes futuros.
+            const cutoffAt = new Date().toISOString();
+
+            if (
+              Date.parse(cutoffAt) >=
+              Date.parse(slate.startsAt)
+            ) {
+              throw new Error(
+                "Slate already started; no pregame test"
+              );
+            }
+
+            const db = createClient(url, key, {
+              auth: {
+                persistSession: false,
+                autoRefreshToken: false
+              }
+            });
+
+            console.log(
+              "=== CASHEDGE NBA INJURY SHADOW ==="
+            );
+
+            console.log("Slate:", slate.slateId);
+            console.log("Players:", slate.players.length);
+            console.log("Cutoff:", cutoffAt);
+
+            const result = await projectNBAWithInjuries({
+              db,
+              slate,
+              cutoffAt
+            });
+
+            console.log(
+              "\n=== INJURY COVERAGE ==="
+            );
+
+            console.log(
+              JSON.stringify(
+                result.totals,
+                null,
+                2
+              )
+            );
+
+            console.log(
+              "Matched injury snapshots:",
+              result.injurySnapshotCount
+            );
+
+            const removed = result.excluded.filter(
+              p => p.reason === "confirmed_out"
+            );
+
+            console.log(
+              "\n=== CONFIRMED OUT REMOVED ==="
+            );
+
+            for (const player of removed) {
+              console.log(
+                player.name,
+                "| ID:",
+                player.playerId
+              );
+            }
+
+            console.log(
+              "\n=== INJURY IMPACT ADJUSTMENTS ==="
+            );
+
+            const audits = [...result.injuryAudit]
+              .sort(
+                (a, b) =>
+                  Math.abs(
+                    b.adjustedPoints - b.previousPoints
+                  ) -
+                  Math.abs(
+                    a.adjustedPoints - a.previousPoints
+                  )
+              );
+
+            for (const row of audits) {
+              console.log(
+                JSON.stringify({
+                  player: row.name,
+                  team: row.team,
+                  original: row.previousPoints,
+                  adjusted: row.adjustedPoints,
+                  difference: Number(
+                    (
+                      row.adjustedPoints -
+                      row.previousPoints
+                    ).toFixed(2)
+                  ),
+                  absentTeammateId:
+                    row.selectedSignal
+                      .absentPlayerId,
+                  gamesWith:
+                    row.selectedSignal.gamesWith,
+                  gamesWithout:
+                    row.selectedSignal.gamesWithout,
+                  sampleWeight:
+                    row.selectedSignal.weight,
+                  otherSignals:
+                    row.signalsConsidered - 1
+                })
+              );
+            }
+
+            console.log(
+              "\n=== UNCHANGED PROJECTIONS ==="
+            );
+
+            const reasons = {};
+
+            for (const player of result.players) {
+              if (player.injuryAdjustment !== 0) {
+                continue;
+              }
+
+              const reason =
+                player.injuryAdjustmentStatus ||
+                "unknown";
+
+              reasons[reason] =
+                (reasons[reason] || 0) + 1;
+            }
+
+            console.log(
+              JSON.stringify(reasons, null, 2)
+            );
+
+            const accounted =
+              result.players.length +
+              result.excluded.length;
+
+            if (accounted !== 329) {
+              throw new Error(
+                "Player accounting failed: " +
+                accounted
+              );
+            }
+
+            if (
+              result.readyForPublication !== false ||
+              result.readyForOptimization !== false
+            ) {
+              throw new Error(
+                "Shadow protections failed"
+              );
+            }
+
+            const adjustedIds = new Set();
+
+            for (const player of result.players) {
+              const playerId = String(player.playerId);
+
+              if (adjustedIds.has(playerId)) {
+                throw new Error(
+                  "Duplicate projected player"
+                );
+              }
+
+              adjustedIds.add(playerId);
+
+              if (
+                !Number.isFinite(
+                  player.projectedPoints
+                ) ||
+                player.projectedPoints < 0
+              ) {
+                throw new Error(
+                  "Invalid adjusted points: " +
+                  playerId
+                );
+              }
+            }
+
+            fs.mkdirSync(
+              "fantasy-injury-results",
+              { recursive: true }
+            );
+
+            fs.writeFileSync(
+              "fantasy-injury-results/nba-77583-injury-shadow.json",
+              JSON.stringify(result, null, 2)
+            );
+
+            console.log(
+              "\n=== FINAL STATUS ==="
+            );
+
+            console.log("PASS");
+            console.log("Read-only");
+            console.log("No publication");
+            console.log("No database changes");
+            console.log("No lineup changes");
+          }
+
+          main().catch(error => {
+            console.error(
+              "INJURY SHADOW ERROR:",
+              error.message
+            );
+
+            process.exitCode = 1;
+          });
+          NODE
+
+      - name: Save injury shadow report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cashedge-nba-injury-shadow
+          path: fantasy-injury-results/*.json
+          if-no-files-found: warn
+          retention-days: 7
