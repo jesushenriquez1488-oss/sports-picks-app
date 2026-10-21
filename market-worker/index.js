@@ -2631,6 +2631,43 @@ nextMap
 
   trackedGameMap =
     nextMap;
+  // ============================================================
+// NBA PERIODIC INJURY VERIFICATION
+//
+// Runs whenever tracked games are refreshed.
+// Existing refresh interval: 60 seconds.
+//
+// Completely independent of sportsbook changes.
+// Does not block Market Intelligence.
+// ============================================================
+
+try {
+
+  if (
+    nbaInjuryWatcher &&
+    typeof nbaInjuryWatcher.refreshScheduled ===
+      "function"
+  ) {
+
+    void nbaInjuryWatcher
+      .refreshScheduled(
+        getAllTrackedGames()
+      )
+      .catch(error => {
+
+        console.error(
+          `[nba-injury-watch] periodic scheduler failed: ${error?.message || error}`
+        );
+
+      });
+  }
+
+} catch (error) {
+
+  console.error(
+    `[nba-injury-watch] periodic dispatch failed: ${error?.message || error}`
+  );
+}
 /*
  * Learning game registry.
  *
