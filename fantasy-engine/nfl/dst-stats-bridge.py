@@ -786,11 +786,116 @@ def main():
             file=sys.stderr
         )
 
+
         print(
             "Unclassified:",
             dict(reasons),
             file=sys.stderr
         )
+
+        # Diagnostico limitado a 4 eventos por tipo.
+        # No cambia calculos ni resultados.
+
+        targets = {
+            "invalid_score_transition": [],
+            "scoring_event_unclassified": [],
+        }
+
+        seen_events = set()
+
+        for record in records:
+            for event in record["unclassifiedEvents"]:
+                reason = event["reason"]
+
+                if reason not in targets:
+                    continue
+
+                key = (
+                    record["gameId"],
+                    event["playId"],
+                    reason,
+                )
+
+                if key in seen_events:
+                    continue
+
+                seen_events.add(key)
+
+                if len(targets[reason]) < 4:
+                    targets[reason].append(key)
+
+        columns = [
+            "play_id",
+            "total_home_score",
+            "total_away_score",
+            "posteam",
+            "defteam",
+            "td_team",
+            "touchdown",
+            "field_goal_result",
+            "extra_point_result",
+            "two_point_conv_result",
+            "desc",
+        ]
+
+        print(
+            "\n===== DST SCORE DIAGNOSTICS =====",
+            file=sys.stderr
+        )
+
+        for reason, events in targets.items():
+            print(
+                f"\nREASON: {reason}",
+                file=sys.stderr
+            )
+
+            for game_id, play_id, _ in events:
+                game_rows = (
+                    frame.loc[
+                        frame["game_id"] == game_id
+                    ]
+                    .sort_values("play_id")
+                    .reset_index(drop=True)
+                )
+
+                matches = game_rows.index[
+                    game_rows["play_id"] == float(play_id)
+                ].tolist()
+
+                if not matches:
+                    continue
+
+                pos = matches[0]
+
+                print(
+                    f"\nGAME: {game_id} "
+                    f"PLAY: {play_id}",
+                    file=sys.stderr
+                )
+
+                for index in range(
+                    max(0, pos - 1),
+                    min(len(game_rows), pos + 2)
+                ):
+                    row = game_rows.iloc[index]
+
+                    detail = {
+                        key: (
+                            str(value(row, key))[:180]
+                            if value(row, key) is not None
+                            else None
+                        )
+                        for key in columns
+                    }
+
+                    print(
+                        "PREVIOUS" if index < pos else
+                        "CURRENT" if index == pos else
+                        "NEXT",
+                        json.dumps(detail),
+                        file=sys.stderr
+                    )
+
 
     output = {
         "mode": "SHADOW",
