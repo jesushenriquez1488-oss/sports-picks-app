@@ -1,0 +1,36 @@
+
+name: CashEdge NFL Fantasy Projection Audit
+
+on:
+  push:
+    branches:
+      - fantasy-dev
+    paths:
+      - ".github/workflows/fantasy-nfl-projections-audit.yml"
+      - "fantasy-engine/nfl/slate-projections.js"
+
+permissions:
+  contents: read
+
+jobs:
+  nfl-projections:
+    name: NFL Real Fantasy Points Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check syntax
+        run: node --check fantasy-engine/nfl/slate-projections.js
+
+      - name: Calculate real NFL Fantasy projections
+        env:
+          BALLDONTLIE_NFL_API_KEY: ${{ secrets.BALLDONTLIE_NFL_API_KEY || secrets.BALLDONTLIE_API_KEY || secrets.BALLDONTLIE_NBA_API_KEY }}
+        run: node fantasy-engine/nfl/slate-projections.js
