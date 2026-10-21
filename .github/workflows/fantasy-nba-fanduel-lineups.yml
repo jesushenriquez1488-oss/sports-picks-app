@@ -1,5 +1,5 @@
 
-name: CashEdge NBA FanDuel Lineups
+name: CashEdge NBA FanDuel Injury V3 Lineups
 
 on:
   workflow_dispatch:
@@ -15,10 +15,10 @@ permissions:
   actions: read
 
 jobs:
-  fanduel-lineups:
-    name: FanDuel NBA CP-SAT Shadow
+  fanduel-injury-v3:
+    name: FanDuel NBA Injury V3 CP-SAT
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
       - name: Checkout fantasy-dev
@@ -46,7 +46,7 @@ jobs:
 
           python -m pip install "ortools>=9.10,<10"
 
-      - name: Recover verified FanDuel slate
+      - name: Recover real FanDuel slate
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -69,19 +69,20 @@ jobs:
 
               if test -s \
                 fantasy-fanduel-input/fanduel-78196.json; then
+
                 FOUND=1
-                echo "Recovered slate from run $RUN_ID"
+                echo "Slate recovered from run $RUN_ID"
                 break
               fi
             fi
           done
 
           if test "$FOUND" -ne 1; then
-            echo "Verified FanDuel artifact not found"
+            echo "FanDuel slate artifact missing"
             exit 1
           fi
 
-      - name: Project real FanDuel NBA players
+      - name: Calculate FanDuel injury V3 projections
         env:
           FANTASY_SUPABASE_URL: ${{ secrets.FANTASY_SUPABASE_URL }}
           FANTASY_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.FANTASY_SUPABASE_SERVICE_ROLE_KEY }}
@@ -95,64 +96,42 @@ jobs:
             "./fantasy-engine/node_modules/@supabase/supabase-js"
           );
 
-          const { projectRealNBASlate } = require(
-            "./fantasy-engine/nba/slate-history"
+          const { projectNBAWithInjuries } = require(
+            "./fantasy-engine/nba/injury-slate-bridge"
           );
 
+          const { loadInjurySnapshots } = require(
+            "./fantasy-engine/nba/injury-slate-bridge"
+          );
+
+          const readJSON = file =>
+            JSON.parse(fs.readFileSync(file, "utf8"));
+
+          const asId = value =>
+            value === null || value === undefined
+              ? ""
+              : String(value).trim();
+
           const REQUIRED = [
-            "PG",
-            "SG",
-            "SF",
-            "PF",
-            "C",
-            "G/F",
-            "F/C",
-            "UTIL",
-            "UTIL"
+            "PG", "SG", "SF", "PF", "C",
+            "G/F", "F/C", "UTIL", "UTIL"
           ].sort();
-
-          const OUT = new Set([
-            "out",
-            "ruled out",
-            "inactive",
-            "suspended"
-          ]);
-
-          function readJson(path) {
-            return JSON.parse(
-              fs.readFileSync(path, "utf8")
-            );
-          }
-
-          function validId(value) {
-            return (
-              value !== null &&
-              value !== undefined &&
-              String(value).trim() !== "" &&
-              String(value) !== "null" &&
-              String(value) !== "undefined"
-            );
-          }
-
-          function uniqueIds(values) {
-            return [
-              ...new Set(
-                values
-                  .filter(validId)
-                  .map(value => String(value).trim())
-              )
-            ];
-          }
 
           function validateSlate(slate) {
             if (
               !slate ||
-              !Array.isArray(slate.rosterSlots) ||
+              slate.sport !== "nba" ||
+              slate.platform !== "fanduel" ||
+              String(slate.slateId) !== "78196" ||
+              slate.complete !== true ||
+              Number(slate.salaryCap) !== 60000 ||
               !Array.isArray(slate.games) ||
-              !Array.isArray(slate.players)
+              slate.games.length !== 11 ||
+              !Array.isArray(slate.players) ||
+              slate.players.length < 100
             ) {
               throw new Error(
-                "Invalid FanDuel slate structure"
+                "Invalid verified FanDuel slate"
               );
             }
 
@@ -165,18 +144,11 @@ jobs:
               .sort();
 
             if (
-              slate.sport !== "nba" ||
-              slate.platform !== "fanduel" ||
-              String(slate.slateId) !== "78196" ||
-              slate.complete !== true ||
-              Number(slate.salaryCap) !== 60000 ||
-              slate.games.length !== 11 ||
-              slate.players.length < 100 ||
               JSON.stringify(slots) !==
-                JSON.stringify(REQUIRED)
+              JSON.stringify(REQUIRED)
             ) {
               throw new Error(
-                "Real FanDuel slate validation failed"
+                "Incorrect FanDuel roster slots"
               );
             }
 
@@ -187,165 +159,90 @@ jobs:
                 Date.parse(slate.startsAt)
             ) {
               throw new Error(
-                "Invalid slate capture timestamp"
+                "Invalid slate timestamps"
               );
-            }
-
-            const ids = new Set();
-
-            for (const player of slate.players) {
-              const id = String(player.playerId);
-
-              if (
-                ids.has(id) ||
-                !Number.isFinite(Number(player.salary)) ||
-                Number(player.salary) <= 0 ||
-                !Array.isArray(player.positions) ||
-                player.positions.length === 0 ||
-                !validId(player.teamId)
-              ) {
-                throw new Error(
-                  "Invalid FanDuel player: " + id
-                );
-              }
-
-              ids.add(id);
             }
           }
 
-          async function getInjurySnapshots(db, cutoffAt) {
-            const { data, error } = await db
-              .from("nba_live_injury_state")
-              .select(
-                "away_team_id,home_team_id," +
-                "game_time,injuries,checked_at"
-              )
-              .lte("checked_at", cutoffAt)
-              .gt("game_time", cutoffAt)
-              .order("checked_at", {
-                ascending: false
+          function gameCoverage(slate, snapshots, cutoffAt) {
+            const games = new Map();
+
+            for (const player of slate.players) {
+              const id = asId(player.gameId);
+              const team = asId(player.teamId);
+
+              if (!id || !team) continue;
+
+              if (!games.has(id)) {
+                games.set(id, new Set());
+              }
+
+              games.get(id).add(team);
+            }
+
+            const diagnostics = [];
+
+            for (const [gameId, teams] of games) {
+              const gameTeams = [...teams];
+
+              const matching = snapshots.filter(snapshot => {
+                const medicalTeams = [
+                  asId(snapshot.away_team_id),
+                  asId(snapshot.home_team_id)
+                ];
+
+                return (
+                  teams.size === 2 &&
+                  gameTeams.every(team =>
+                    medicalTeams.includes(team)
+                  )
+                );
               });
 
-            if (error) {
-              throw new Error(
-                "Injury snapshots: " + error.message
-              );
+              const recent = matching.find(snapshot => {
+                const ageHours =
+                  (
+                    Date.parse(cutoffAt) -
+                    Date.parse(snapshot.checked_at)
+                  ) / 3600000;
+
+                return (
+                  ageHours >= 0 &&
+                  ageHours <= 12 &&
+                  Array.isArray(snapshot.injuries)
+                );
+              });
+
+              diagnostics.push({
+                gameId,
+                teams: gameTeams,
+                matchingSnapshots: matching.length,
+                freshSnapshot: Boolean(recent),
+                checkedAt: recent?.checked_at || null,
+                injuryCount:
+                  recent?.injuries?.length ?? 0
+              });
             }
 
-            return data || [];
-          }
-
-          function confirmedOutIds(
-            slate,
-            snapshots,
-            cutoffAt
-          ) {
-            const teamsByGame = new Map();
-
-            for (const player of slate.players) {
-              if (!validId(player.gameId)) {
-                continue;
-              }
-
-              const game = String(player.gameId);
-
-              if (!teamsByGame.has(game)) {
-                teamsByGame.set(game, new Set());
-              }
-
-              teamsByGame.get(game).add(
-                String(player.teamId)
-              );
-            }
-
-            const chosen = new Set();
-            const out = new Set();
-
-            for (const snapshot of snapshots) {
-              if (
-                !Array.isArray(snapshot.injuries) ||
-                !Number.isFinite(
-                  Date.parse(snapshot.checked_at)
-                )
-              ) {
-                continue;
-              }
-
-              const ageHours =
-                (
-                  Date.parse(cutoffAt) -
-                  Date.parse(snapshot.checked_at)
-                ) / 3600000;
-
-              if (
-                ageHours < 0 ||
-                ageHours > 12
-              ) {
-                continue;
-              }
-
-              const snapshotTeams = new Set([
-                String(snapshot.away_team_id),
-                String(snapshot.home_team_id)
-              ]);
-
-              for (const [gameId, teams]
-                of teamsByGame) {
-
-                if (
-                  chosen.has(gameId) ||
-                  teams.size !== 2 ||
-                  ![...teams].every(team =>
-                    snapshotTeams.has(team)
-                  )
-                ) {
-                  continue;
-                }
-
-                chosen.add(gameId);
-
-                for (const injury of snapshot.injuries) {
-                  if (
-                    OUT.has(
-                      String(injury.status || "")
-                        .toLowerCase()
-                        .trim()
-                    ) &&
-                    teams.has(
-                      String(injury.team_id)
-                    )
-                  ) {
-                    out.add(
-                      String(injury.player_id)
-                    );
-                  }
-                }
-              }
-            }
-
-            return {
-              out,
-              matchedGames: chosen.size
-            };
+            return diagnostics;
           }
 
           async function main() {
-            const slate = readJson(
+            const slate = readJSON(
               "fantasy-fanduel-input/fanduel-78196.json"
             );
 
             validateSlate(slate);
 
-            const cutoffAt =
-              new Date().toISOString();
+            const cutoffAt = new Date().toISOString();
 
             if (
               Date.parse(cutoffAt) >=
               Date.parse(slate.startsAt)
             ) {
               throw new Error(
-                "Pregame cutoff expired. " +
-                "Do not optimize a started slate."
+                "Pregame slate expired. " +
+                "Do not regenerate after games start."
               );
             }
 
@@ -357,7 +254,7 @@ jobs:
 
             if (!url || !key) {
               throw new Error(
-                "Missing Supabase server secrets"
+                "Missing Supabase server credentials"
               );
             }
 
@@ -368,154 +265,140 @@ jobs:
               }
             });
 
-            const projected =
-              await projectRealNBASlate({
+            console.log(
+              "=== NBA FANDUEL INJURY V3 ==="
+            );
+
+            console.log("Slate:", slate.slateId);
+            console.log("Players:", slate.players.length);
+            console.log("Cutoff:", cutoffAt);
+
+            const snapshots =
+              await loadInjurySnapshots(
+                db,
+                cutoffAt
+              );
+
+            const coverage = gameCoverage(
+              slate,
+              snapshots,
+              cutoffAt
+            );
+
+            console.log(
+              "\n=== INJURY COVERAGE AUDIT ==="
+            );
+
+            console.log(
+              JSON.stringify({
+                sourceSnapshots: snapshots.length,
+                matchedGames:
+                  coverage.filter(row =>
+                    row.matchingSnapshots > 0
+                  ).length,
+                freshGames:
+                  coverage.filter(row =>
+                    row.freshSnapshot
+                  ).length,
+                games: coverage
+              }, null, 2)
+            );
+
+            // Este puente ya aplica:
+            // - proyeccion FanDuel
+            // - historiales reales
+            // - lesionados confirmados OUT
+            // - impacto historico por minuto
+            // - minimo 4 juegos por condicion
+            // - señales contradictorias: sin ajuste
+            // - sin sumar multiples ausencias
+
+            const result =
+              await projectNBAWithInjuries({
                 db,
                 slate,
                 cutoffAt
               });
 
             if (
-              projected.platform !== "fanduel" ||
-              projected.mode !== "shadow" ||
-              projected.readyForPublication !== false ||
-              projected.players.length +
-                projected.excluded.length !==
-                slate.players.length
+              result.platform !== "fanduel" ||
+              result.scoringPlatform !== "fanduel" ||
+              result.mode !== "shadow" ||
+              result.readyForPublication !== false
             ) {
               throw new Error(
-                "FanDuel projection validation failed"
+                "Invalid V3 projection output"
               );
             }
 
-            const injurySnapshots =
-              await getInjurySnapshots(
-                db,
-                cutoffAt
-              );
-
-            const injuryState =
-              confirmedOutIds(
-                slate,
-                injurySnapshots,
-                cutoffAt
-              );
-
-            const players = projected.players
-              .filter(player =>
-                !injuryState.out.has(
-                  String(player.playerId)
-                )
-              );
-
-            if (players.length < 9) {
+            if (
+              result.players.length +
+              result.excluded.length !==
+              slate.players.length
+            ) {
               throw new Error(
-                "Insufficient available projections"
+                "Projection count mismatch"
               );
             }
 
-            // BALLDONTLIE entrega dos identificadores:
-            //
-            // 1. slate.events[].id:
-            //    identificador del evento DFS.
-            //
-            // 2. slate.events[].gameId:
-            //    identificador del partido NBA.
-            //
-            // Los jugadores pueden tener gameId
-            // distinto o no incluirlo.
-            //
-            // Inspeccionamos los valores reales
-            // sin inventar partidos.
-
-            const eventIds = uniqueIds(
-              slate.games.map(
-                event => event.id
+            const gameIds = [
+              ...new Set(
+                result.players
+                  .map(player => asId(player.gameId))
+                  .filter(Boolean)
               )
-            );
+            ];
 
-            const eventGameIds = uniqueIds(
-              slate.games.map(
-                event => event.gameId
-              )
-            );
-
-            const playerGameIds = uniqueIds(
-              projected.players.map(
-                player => player.gameId
-              )
-            );
-
-            console.log(
-              "=== FANDUEL GAME ID CHECK ==="
-            );
-
-            console.log(
-              JSON.stringify({
-                slateEvents: slate.games.length,
-                eventIds,
-                eventGameIds,
-                projectedGameIds: playerGameIds
-              }, null, 2)
-            );
-
-            if (eventIds.length !== 11) {
+            if (gameIds.length < 2) {
               throw new Error(
-                "Incomplete slate event IDs"
+                "Insufficient real game IDs"
               );
             }
 
-            // Si los jugadores tienen sus gameId
-            // reales, esos son los que se
-            // utilizan para el optimizador.
-            //
-            // Si el API los omite en los jugadores,
-            // no se fabrican identificadores.
-
-            const finalGameIds =
-              playerGameIds.length > 0
-                ? playerGameIds
-                : eventGameIds;
-
-            if (finalGameIds.length < 2) {
-              throw new Error(
-                "Insufficient verified FanDuel game IDs"
-              );
-            }
-
-            const allowedGames =
-              new Set(finalGameIds);
-
-            const optimizerPlayers =
-              players.map(player => ({
-                playerId:
-                  String(player.playerId),
+            const players = result.players.map(
+              player => ({
+                playerId: asId(player.playerId),
                 name: player.name,
-                teamId:
-                  String(player.teamId),
-                gameId: validId(player.gameId)
-                  ? String(player.gameId)
-                  : null,
+                teamId: asId(player.teamId),
+                gameId: asId(player.gameId),
                 salary: Number(player.salary),
                 positions: player.positions,
                 projectedPoints:
                   Number(player.projectedPoints)
-              }));
+              })
+            );
 
-            for (const player of optimizerPlayers) {
+            if (players.length < 9) {
+              throw new Error(
+                "Not enough eligible FanDuel players"
+              );
+            }
+
+            const allowed = new Set(gameIds);
+            const seen = new Set();
+
+            for (const player of players) {
               if (
-                !validId(player.gameId) ||
-                !allowedGames.has(player.gameId) ||
+                !player.playerId ||
+                seen.has(player.playerId) ||
+                !player.teamId ||
+                !allowed.has(player.gameId) ||
+                !Number.isFinite(player.salary) ||
+                player.salary <= 0 ||
                 !Number.isFinite(
                   player.projectedPoints
                 ) ||
-                player.projectedPoints <= 0
+                player.projectedPoints <= 0 ||
+                !Array.isArray(player.positions) ||
+                player.positions.length === 0
               ) {
                 throw new Error(
                   "Invalid optimizer player: " +
                   player.playerId
                 );
               }
+
+              seen.add(player.playerId);
             }
 
             const payload = {
@@ -526,9 +409,9 @@ jobs:
                 sport: "nba",
                 platform: "fanduel",
                 format: "classic",
-                gameIds: finalGameIds
+                gameIds
               },
-              players: optimizerPlayers,
+              players,
               lineupCount: 10,
               minDifferentPlayers: 2,
               maxExposurePercent: 100,
@@ -538,66 +421,79 @@ jobs:
             };
 
             fs.mkdirSync(
-              "fantasy-fanduel-lineups",
+              "fantasy-fanduel-v3-results",
               { recursive: true }
             );
 
             fs.writeFileSync(
-              "fantasy-fanduel-lineups/projections.json",
+              "fantasy-fanduel-v3-results/projections-v3.json",
+              JSON.stringify(result, null, 2)
+            );
+
+            fs.writeFileSync(
+              "fantasy-fanduel-v3-results/injury-coverage.json",
               JSON.stringify({
-                ...projected,
-                players,
-                confirmedOutIds: [
-                  ...injuryState.out
-                ],
-                matchedInjuryGames:
-                  injuryState.matchedGames,
-                scoringPlatform: "fanduel",
-                readyForPublication: false
+                slateId: slate.slateId,
+                cutoffAt,
+                coverage
               }, null, 2)
             );
 
             fs.writeFileSync(
-              "fantasy-fanduel-lineups/optimizer-input.json",
+              "fantasy-fanduel-v3-results/optimizer-input.json",
               JSON.stringify(payload, null, 2)
             );
 
             console.log(
-              "=== REAL FANDUEL PROJECTIONS ==="
+              "\n=== VERIFIED INJURY V3 RESULTS ==="
             );
 
             console.log(
               JSON.stringify({
-                slateId: slate.slateId,
-                cutoffAt,
-                originalPlayers:
-                  slate.players.length,
-                projected:
-                  projected.players.length,
-                eligibleForOptimization:
-                  players.length,
-                excludedByHistory:
-                  projected.excluded.length,
-                confirmedOutIds:
-                  injuryState.out.size,
-                injuryGamesMatched:
-                  injuryState.matchedGames,
-                eventIds:
-                  eventIds.length,
-                gameIds:
-                  finalGameIds.length,
-                scoringPlatform:
-                  "fanduel",
-                salaryCap: 60000,
-                rosterSize: 9,
-                mode: "shadow"
+                platform: result.platform,
+                slateId: result.slateId,
+                projected: result.players.length,
+                excluded: result.excluded.length,
+                removedConfirmedOut:
+                  result.totals.removedConfirmedOut,
+                injurySnapshotsMatched:
+                  result.injurySnapshotCount,
+                historicalSignals:
+                  result.totals
+                    .playersWithHistoricalSignals,
+                playersAdjusted:
+                  result.totals
+                    .playersWithInjuryAdjustments,
+                optimizerPlayers: players.length,
+                mode: result.mode
               }, null, 2)
+            );
+
+            console.log(
+              "\n=== INJURY PLAYER ADJUSTMENTS ==="
+            );
+
+            for (const row of
+              result.injuryAudit.slice(0, 30)) {
+              console.log(
+                JSON.stringify({
+                  player: row.name,
+                  before: row.previousPoints,
+                  after: row.adjustedPoints,
+                  difference: row.actualAdjustment,
+                  status: row.adjustmentStatus
+                })
+              );
+            }
+
+            console.log(
+              "\nFANDUEL V3 PROJECTIONS: PASS"
             );
           }
 
           main().catch(error => {
             console.error(
-              "FANDUEL PROJECTION ERROR:",
+              "FANDUEL V3 ERROR:",
               error.message
             );
 
@@ -605,7 +501,7 @@ jobs:
           });
           NODE
 
-      - name: Generate ten FanDuel lineups
+      - name: Generate ten FanDuel V3 lineups
         run: |
           python - <<'PY'
           import json
@@ -620,121 +516,118 @@ jobs:
           from recommendation_controller import recommend
           from solver import RULES
 
-          folder = Path("fantasy-fanduel-lineups")
+          folder = Path(
+              "fantasy-fanduel-v3-results"
+          )
 
           payload = json.loads(
               (folder / "optimizer-input.json").read_text()
           )
 
-          expected_slots = {
-              "PG",
-              "SG",
-              "SF",
-              "PF",
-              "C",
-              "G/F",
-              "F/C",
-              "UTIL1",
-              "UTIL2"
-          }
-
           config = RULES["nba"]["fanduel"]
 
-          assert config["salary_cap"] == 60000
-          assert set(config["slots"]) == expected_slots
-          assert len(config["slots"]) == 9
+          expected = {
+              "PG", "SG", "SF", "PF", "C",
+              "G/F", "F/C", "UTIL1", "UTIL2"
+          }
 
-          print(
-              "=== FANDUEL NBA CP-SAT ===",
-              flush=True
-          )
+          if (
+              config["salary_cap"] != 60000
+              or set(config["slots"]) != expected
+              or len(config["slots"]) != 9
+          ):
+              raise RuntimeError(
+                  "Incorrect FanDuel CP-SAT rules"
+              )
 
           result = recommend(payload)
 
-          (folder / "lineups.json").write_text(
-              json.dumps(
-                  result,
-                  indent=2,
-                  default=str
-              )
+          (folder / "lineups-v3.json").write_text(
+              json.dumps(result, indent=2, default=str)
           )
 
           if result.get("status") != "COMPLETE":
               raise RuntimeError(
-                  "Optimizer incomplete: " +
+                  "FanDuel optimization incomplete: " +
                   str(result.get("status"))
               )
 
-          main = result.get("recommended") or {}
+          primary = result.get("recommended") or {}
 
           if (
-              result.get(
-                  "mainOptimalityGuaranteed"
-              ) is not True
-              or main.get("status") != "OPTIMAL"
-              or main.get(
+              primary.get("status") != "OPTIMAL"
+              or primary.get(
                   "optimalityGuaranteed"
+              ) is not True
+              or result.get(
+                  "mainOptimalityGuaranteed"
               ) is not True
           ):
               raise RuntimeError(
-                  "Lineup #1 is not certified OPTIMAL"
+                  "Primary lineup not certified OPTIMAL"
               )
 
           lineups = [
-              main,
+              primary,
               *(result.get("alternatives") or [])
           ]
 
           if len(lineups) != 10:
               raise RuntimeError(
-                  "Expected 10 lineups; got " +
-                  str(len(lineups))
+                  "Expected exactly 10 lineups"
               )
+
+          print(
+              "=== FANDUEL V3 OPTIMAL LINEUPS ===",
+              flush=True
+          )
 
           for index, lineup in enumerate(
-              lineups,
-              start=1
+              lineups, start=1
           ):
-              players = (
-                  lineup.get("players") or []
-              )
+              players = lineup.get("players") or []
 
               ids = [
-                  str(player["playerId"])
-                  for player in players
+                  str(p["playerId"])
+                  for p in players
               ]
 
               slots = [
-                  player["slot"]
-                  for player in players
+                  p["slot"]
+                  for p in players
               ]
 
               salary = sum(
-                  int(player["salary"])
-                  for player in players
+                  int(p["salary"])
+                  for p in players
               )
 
               if (
                   len(players) != 9
                   or len(set(ids)) != 9
-                  or set(slots) != expected_slots
+                  or set(slots) != expected
                   or salary > 60000
               ):
                   raise RuntimeError(
-                      f"Invalid lineup #{index}"
+                      f"Invalid FanDuel lineup #{index}"
+                  )
+
+              if (
+                  index == 1 and
+                  lineup.get("status") != "OPTIMAL"
+              ):
+                  raise RuntimeError(
+                      "Lineup #1 is not OPTIMAL"
                   )
 
               print(
-                  f"\n=== FANDUEL LINEUP #{index} ===",
+                  f"\n=== LINEUP #{index} ===",
                   flush=True
               )
 
               print(
                   "Status:",
-                  lineup.get(
-                      "status",
-                      "FEASIBLE"
-                  ),
+                  lineup.get("status"),
                   flush=True
               )
 
@@ -746,9 +639,7 @@ jobs:
 
               print(
                   "Projected points:",
-                  lineup.get(
-                      "projectedPoints"
-                  ),
+                  lineup.get("projectedPoints"),
                   flush=True
               )
 
@@ -756,33 +647,31 @@ jobs:
                   print(
                       player["slot"],
                       player["name"],
-                      "$" + str(
-                          player["salary"]
-                      ),
-                      player[
-                          "projectedPoints"
-                      ],
+                      "$" + str(player["salary"]),
+                      player["projectedPoints"],
                       flush=True
                   )
 
           print(
-              "\n=== FINAL STATUS ===",
+              "\n=== FINAL FANDUEL NBA V3 ===",
               flush=True
           )
 
           print("PASS", flush=True)
-          print("Platform: FanDuel", flush=True)
           print("Lineups: 10", flush=True)
-          print("Primary: OPTIMAL", flush=True)
+          print("First lineup: OPTIMAL", flush=True)
+          print("Scoring: FanDuel", flush=True)
+          print("Injuries: V3", flush=True)
           print("Mode: SHADOW", flush=True)
+          print("No database writes", flush=True)
           print("No publication", flush=True)
           PY
 
-      - name: Save FanDuel lineup report
+      - name: Save FanDuel V3 shadow results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cashedge-nba-fanduel-lineups
-          path: fantasy-fanduel-lineups/*.json
+          name: cashedge-nba-fanduel-injury-v3
+          path: fantasy-fanduel-v3-results/*.json
           if-no-files-found: warn
           retention-days: 7
