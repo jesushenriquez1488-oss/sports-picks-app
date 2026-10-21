@@ -45,7 +45,7 @@ jobs:
 
       - name: Project real DraftKings and FanDuel DST
         env:
-          BALLDONTLIE_NFL_API_KEY: ${{ secrets.BALLDONTLIE_NFL_API_KEY || secrets.BALLDONTLIE_API_KEY }}
+          BALLDONTLIE_NFL_API_KEY: ${{ secrets.BALLDONTLIE_NFL_API_KEY || secrets.BALLDONTLIE_API_KEY || secrets.BALLDONTLIE_NBA_API_KEY }}
         run: |
           node fantasy-engine/nfl/dst-slate-bridge.js
 
