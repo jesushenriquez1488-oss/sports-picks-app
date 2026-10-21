@@ -175,37 +175,42 @@ jobs:
                   )
               );
 
+           
             for (const row of audits) {
+              const signals = Array.isArray(row.signals)
+                ? row.signals
+                : [];
+
               console.log(
                 JSON.stringify({
                   player: row.name,
                   team: row.team,
                   original: row.previousPoints,
                   adjusted: row.adjustedPoints,
-                  difference: Number(
-                    (
-                      row.adjustedPoints -
-                      row.previousPoints
-                    ).toFixed(2)
-                  ),
-                  absentTeammateId:
-                    row.selectedSignal
-                      .absentPlayerId,
-                  gamesWith:
-                    row.selectedSignal.gamesWith,
-                  gamesWithout:
-                    row.selectedSignal.gamesWithout,
-                  sampleWeight:
-                    row.selectedSignal.weight,
-                  otherSignals:
-                    row.signalsConsidered - 1
+                  difference: row.actualAdjustment,
+                  status: row.adjustmentStatus,
+                  signalsConsidered: row.signalsConsidered,
+                  signals: signals.map(signal => ({
+                    absentTeammateId:
+                      signal.absentPlayerId,
+                    gamesWith:
+                      signal.gamesWith,
+                    gamesWithout:
+                      signal.gamesWithout,
+                    sampleWeight:
+                      signal.sampleWeight,
+                    baselinePerMinute:
+                      signal.baselineFantasyPerMinute,
+                    withoutPerMinute:
+                      signal.withoutFantasyPerMinute,
+                    adjustment:
+                      signal.adjustment
+                  }))
                 })
               );
             }
 
-            console.log(
-              "\n=== UNCHANGED PROJECTIONS ==="
-            );
+
 
             const reasons = {};
 
