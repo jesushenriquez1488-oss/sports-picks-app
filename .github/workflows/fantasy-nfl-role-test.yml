@@ -1,0 +1,39 @@
+
+name: CashEdge NFL Role Integration
+
+on:
+  push:
+    branches:
+      - fantasy-dev
+    paths:
+      - ".github/workflows/fantasy-nfl-role-test.yml"
+      - "fantasy-engine/nfl/role-availability-bridge.js"
+
+permissions:
+  contents: read
+
+jobs:
+  nfl-role-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check role bridge syntax
+        run: |
+          node --check fantasy-engine/nfl/role-availability-bridge.js
+
+      - name: Integrate real NFL role and injury data
+        env:
+          BALLDONTLIE_NFL_API_KEY: ${{ secrets.BALLDONTLIE_NFL_API_KEY || secrets.BALLDONTLIE_API_KEY || secrets.BALLDONTLIE_NBA_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node fantasy-engine/nfl/role-availability-bridge.js
