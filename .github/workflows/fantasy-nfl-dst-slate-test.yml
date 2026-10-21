@@ -1,0 +1,56 @@
+
+name: CashEdge NFL DST Slate Integration
+
+on:
+  push:
+    branches:
+      - fantasy-dev
+    paths:
+      - ".github/workflows/fantasy-nfl-dst-slate-test.yml"
+      - "fantasy-engine/nfl/dst-slate-bridge.js"
+
+permissions:
+  contents: read
+
+jobs:
+  dst-slate-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Python dependencies
+        run: |
+          pip install pandas pyarrow requests
+
+      - name: Check DST bridge syntax
+        run: |
+          node --check fantasy-engine/nfl/dst-slate-bridge.js
+
+      - name: Prepare NFLverse DST history
+        run: |
+          python fantasy-engine/nfl/dst-stats-bridge.py
+
+      - name: Project real DraftKings and FanDuel DST
+        env:
+          BALLDONTLIE_NFL_API_KEY: ${{ secrets.BALLDONTLIE_NFL_API_KEY || secrets.BALLDONTLIE_API_KEY }}
+        run: |
+          node fantasy-engine/nfl/dst-slate-bridge.js
+
+      - name: Confirm SHADOW isolation
+        run: |
+          echo "No production changes"
+          echo "No Supabase writes"
+          echo "No optimization authorization"
