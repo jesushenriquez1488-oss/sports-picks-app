@@ -487,18 +487,41 @@ def rebuild_game(game_id, game):
         # total_*_score representa el marcador
         # al finalizar la jugada.
 
-        h = integer(
-            play,
-            "total_home_score"
+     
+        # Solo aceptamos movimientos del marcador
+        # en jugadas con un evento de anotacion.
+        # Timeouts, fin de cuarto y otras filas
+        # administrativas no deben alterar
+        # el marcador reconstruido.
+
+        scoring_event = (
+            is_td
+            or is_fg
+            or is_xp
+            or is_two
+            or is_safety
+            or is_conversion_return
         )
 
-        a = integer(
-            play,
-            "total_away_score"
-        )
+        if scoring_event:
+            h = integer(
+                play,
+                "total_home_score"
+            )
+
+            a = integer(
+                play,
+                "total_away_score"
+            )
+        else:
+            # Ignorar marcadores inconsistentes
+            # de jugadas sin evento de anotacion.
+            h = scores[home]
+            a = scores[away]
 
         scorer = None
         points = 0
+
 
         if h is not None and a is not None:
             dh = h - scores[home]
