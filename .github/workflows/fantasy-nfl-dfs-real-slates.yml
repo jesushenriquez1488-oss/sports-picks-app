@@ -1,0 +1,302 @@
+
+name: CashEdge NFL DFS Real Slate Audit
+
+on:
+  push:
+    branches:
+      - fantasy-dev
+    paths:
+      - ".github/workflows/fantasy-nfl-dfs-real-slates.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  nfl-dfs-slates:
+    name: NFL DraftKings and FanDuel Real Slates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Audit official NFL slates without database writes
+        env:
+          BALLDONTLIE_NFL_API_KEY: ${{ secrets.BALLDONTLIE_NFL_API_KEY }}
+          BALLDONTLIE_API_KEY: ${{ secrets.BALLDONTLIE_API_KEY }}
+          BALLDONTLIE_NBA_API_KEY: ${{ secrets.BALLDONTLIE_NBA_API_KEY }}
+        run: |
+          node <<'NODE'
+          "use strict";
+
+          const {
+            listFantasySlates,
+            loadFantasySlate
+          } = require('./fantasy-engine/shared/dfs-provider');
+
+          const key =
+            process.env.BALLDONTLIE_NFL_API_KEY ||
+            process.env.BALLDONTLIE_API_KEY ||
+            process.env.BALLDONTLIE_NBA_API_KEY;
+
+          const day = value =>
+            String(value || '').slice(0, 10);
+
+          const type = value =>
+            String(value || '').trim().toLowerCase();
+
+          const sleep = ms =>
+            new Promise(resolve => setTimeout(resolve, ms));
+
+          async function audit(platform) {
+            console.log(
+              '\n===== NFL ' + platform.toUpperCase() + ' ====='
+            );
+
+            const slates = await listFantasySlates({
+              sport: 'nfl',
+              platform,
+              startDate: '2026-10-22',
+              endDate: '2026-10-26',
+              apiKey: key
+            });
+
+            console.log('SLATES RETURNED:', slates.length);
+
+            const candidates = slates.filter(s =>
+              s.sport === 'nfl' &&
+              s.platform === platform &&
+              s.format === 'salary_cap' &&
+              s.scope === 'multi_event'
+            );
+
+            candidates.sort(
+              (a, b) =>
+                Number(b.eventCount || 0) -
+                Number(a.eventCount || 0)
+            );
+
+            for (const slate of candidates.slice(0, 15)) {
+              console.log('CANDIDATE:', JSON.stringify({
+                id: slate.id,
+                startsAt: slate.startsAt,
+                style: slate.style,
+                events: slate.eventCount,
+                cap: slate.salaryCap,
+                status: slate.status
+              }));
+            }
+
+            const sunday = candidates.filter(s =>
+              day(s.startsAt) === '2026-10-25'
+            );
+
+            const styleWanted =
+              platform === 'draftkings'
+                ? 'classic'
+                : 'full roster';
+
+            const slate =
+              sunday.find(s =>
+                type(s.style) === styleWanted
+              ) ||
+              sunday[0] ||
+              candidates[0];
+
+            if (!slate) {
+              throw new Error(
+                platform + ': no NFL salary-cap multi-event slate'
+              );
+            }
+
+            console.log('SELECTED:', JSON.stringify({
+              id: slate.id,
+              startsAt: slate.startsAt,
+              style: slate.style,
+              events: slate.eventCount
+            }));
+
+            const full = await loadFantasySlate({
+              sport: 'nfl',
+              platform,
+              slateId: slate.id,
+              apiKey: key
+            });
+
+            const valid = full.draftables.filter(d =>
+              d.active !== false &&
+              d.disabled !== true &&
+              Number.isFinite(d.salary) &&
+              d.salary > 0
+            );
+
+            const players = valid.filter(d =>
+              type(d.entityType) === 'player' &&
+              d.playerId != null
+            );
+
+            const dst = valid.filter(d =>
+              type(d.entityType) === 'team' ||
+              (
+                d.playerId == null &&
+                d.teamId != null &&
+                ['dst', 'def'].includes(type(d.position))
+              )
+            );
+
+            const uniquePlayers = new Set(
+              players.map(d => String(d.playerId))
+            );
+
+            const uniqueDST = new Set(
+              dst.map(d => String(d.teamId ?? d.id))
+            );
+
+            const byPosition = {};
+
+            for (const d of valid) {
+              const pos = String(d.position || '?');
+
+              byPosition[pos] =
+                (byPosition[pos] || 0) + 1;
+            }
+
+            console.log('CAP:', full.salaryCap);
+            console.log('EVENTS:', full.events.length);
+
+            console.log(
+              'REQUIRED SLOTS:',
+              JSON.stringify(
+                full.rosterSlots.map(s => ({
+                  name: s.name,
+                  requiredCount: s.requiredCount
+                }))
+              )
+            );
+
+            console.log(
+              'DRAFTABLE ROWS:',
+              full.draftables.length
+            );
+
+            console.log(
+              'VALID SALARY ROWS:',
+              valid.length
+            );
+
+            console.log(
+              'UNIQUE OFFENSIVE PLAYERS:',
+              uniquePlayers.size
+            );
+
+            console.log(
+              'UNIQUE DST TEAMS:',
+              uniqueDST.size
+            );
+
+            console.log(
+              'POSITION COUNTS:',
+              JSON.stringify(byPosition)
+            );
+
+            console.log(
+              'DST EXAMPLES:',
+              JSON.stringify(
+                dst.slice(0, 3).map(d => ({
+                  name: d.name,
+                  position: d.position,
+                  teamId: d.teamId,
+                  playerId: d.playerId,
+                  salary: d.salary,
+                  entityType: d.entityType
+                }))
+              )
+            );
+
+            console.log(
+              'PLAYER EXAMPLES:',
+              JSON.stringify(
+                players.slice(0, 3).map(d => ({
+                  name: d.name,
+                  playerId: d.playerId,
+                  team: d.team,
+                  salary: d.salary,
+                  position: d.position
+                }))
+              )
+            );
+
+            if (
+              !full.events.length ||
+              !full.rosterSlots.length ||
+              !uniquePlayers.size ||
+              !uniqueDST.size
+            ) {
+              throw new Error(
+                platform +
+                ': incomplete NFL slate or DST missing'
+              );
+            }
+
+            console.log(
+              platform.toUpperCase() +
+              ': REAL SLATE AUDIT PASS'
+            );
+          }
+
+          async function main() {
+            if (!key) {
+              throw new Error(
+                'No BALLDONTLIE API key in GitHub Secrets. ' +
+                'Set BALLDONTLIE_NFL_API_KEY.'
+              );
+            }
+
+            let failures = 0;
+
+            for (const platform of [
+              'draftkings',
+              'fanduel'
+            ]) {
+              try {
+                await audit(platform);
+              } catch (error) {
+                failures++;
+
+                console.error(
+                  platform.toUpperCase() + ':',
+                  error.message
+                );
+              }
+
+              await sleep(3000);
+            }
+
+            if (failures) {
+              throw new Error(
+                failures + ' NFL platform audit(s) failed'
+              );
+            }
+
+            console.log(
+              'NFL DFS BOTH PLATFORMS: PASS'
+            );
+
+            console.log(
+              'SUPABASE WRITES: ZERO'
+            );
+          }
+
+          main().catch(error => {
+            console.error(
+              'NFL DFS AUDIT ERROR:',
+              error.message
+            );
+
+            process.exitCode = 1;
+          });
+          NODE
