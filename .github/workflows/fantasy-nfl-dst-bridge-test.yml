@@ -1,0 +1,117 @@
+
+name: NFL Fantasy DST Bridge Test
+
+on:
+  push:
+    branches:
+      - fantasy-dev
+    paths:
+      - ".github/workflows/fantasy-nfl-dst-bridge-test.yml"
+      - "fantasy-engine/nfl/dst-stats-bridge.py"
+
+jobs:
+  dst-bridge-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout fantasy-dev
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas pyarrow requests
+
+      - name: Run DST statistics bridge
+        run: |
+          python fantasy-engine/nfl/dst-stats-bridge.py
+
+      - name: Audit reconstructed DST history
+        shell: python
+        run: |
+          import json
+          from collections import Counter
+
+          with open(
+              "dst-history-shadow.json",
+              encoding="utf-8"
+          ) as file:
+              data = json.load(file)
+
+          records = data.get("records", [])
+
+          assert data["mode"] == "SHADOW"
+          assert data["readyForOptimization"] is False
+          assert data["readyForPublication"] is False
+          assert len(records) > 0, "No DST records found"
+
+          seasons = Counter()
+          reasons = Counter()
+          incomplete = 0
+          missing_points = 0
+          missing_blocks = 0
+          duplicates = 0
+          seen = set()
+
+          for record in records:
+              seasons[record["season"]] += 1
+
+              key = (
+                  record["gameId"],
+                  record["team"]
+              )
+
+              if key in seen:
+                  duplicates += 1
+
+              seen.add(key)
+
+              if not record["complete"]:
+                  incomplete += 1
+
+              stats = record["stats"]
+
+              if stats["points_allowed"] is None:
+                  missing_points += 1
+
+              if stats["blocked_kicks"] is None:
+                  missing_blocks += 1
+
+              for event in record["unclassifiedEvents"]:
+                  reasons[event["reason"]] += 1
+
+          print("\n===== CASHEDGE DST AUDIT =====")
+          print("Total DST team-games:", len(records))
+          print("2025 records:", seasons[2025])
+          print("2026 records:", seasons[2026])
+          print("Duplicate team-games:", duplicates)
+          print("Incomplete records:", incomplete)
+          print("Missing points allowed:", missing_points)
+          print("Missing blocked kicks:", missing_blocks)
+
+          print("\nUnclassified events:")
+          for reason, count in sorted(reasons.items()):
+              print(f"{reason}: {count}")
+
+          print("\nSample DST records:")
+          for record in records[:4]:
+              print(
+                  record["gameId"],
+                  record["team"],
+                  record["stats"]
+              )
+
+          assert seasons[2025] > 0
+          assert seasons[2026] > 0
+          assert duplicates == 0, "Duplicate team-games"
+
+          print("\nDST BRIDGE EXTRACTION AUDIT PASSED")
+          print("Historical scoring NOT certified")
+          print("Projections NOT certified")
+          print("Optimization remains BLOCKED")
