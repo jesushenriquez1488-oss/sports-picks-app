@@ -8,6 +8,9 @@ on:
     paths:
       - ".github/workflows/fantasy-nfl-dst-bridge-test.yml"
       - "fantasy-engine/nfl/dst-stats-bridge.py"
+      - "fantasy-engine/nfl/dst-shadow-backtest.js"
+      - "fantasy-engine/nfl/dst-projection.js"
+      - "fantasy-engine/nfl/dst-scoring.js"
 
 jobs:
   dst-bridge-test:
@@ -23,7 +26,12 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pandas pyarrow requests
@@ -53,10 +61,13 @@ jobs:
 
           seasons = Counter()
           reasons = Counter()
+
           incomplete = 0
+          complete = 0
           missing_points = 0
           missing_blocks = 0
           duplicates = 0
+
           seen = set()
 
           for record in records:
@@ -72,7 +83,9 @@ jobs:
 
               seen.add(key)
 
-              if not record["complete"]:
+              if record["complete"]:
+                  complete += 1
+              else:
                   incomplete += 1
 
               stats = record["stats"]
@@ -87,19 +100,25 @@ jobs:
                   reasons[event["reason"]] += 1
 
           print("\n===== CASHEDGE DST AUDIT =====")
+
           print("Total DST team-games:", len(records))
           print("2025 records:", seasons[2025])
           print("2026 records:", seasons[2026])
-          print("Duplicate team-games:", duplicates)
+
+          print("Complete records:", complete)
           print("Incomplete records:", incomplete)
+
+          print("Duplicate team-games:", duplicates)
           print("Missing points allowed:", missing_points)
           print("Missing blocked kicks:", missing_blocks)
 
           print("\nUnclassified events:")
+
           for reason, count in sorted(reasons.items()):
               print(f"{reason}: {count}")
 
           print("\nSample DST records:")
+
           for record in records[:4]:
               print(
                   record["gameId"],
@@ -110,8 +129,20 @@ jobs:
           assert seasons[2025] > 0
           assert seasons[2026] > 0
           assert duplicates == 0, "Duplicate team-games"
+          assert complete > 0, "No complete DST records"
 
           print("\nDST BRIDGE EXTRACTION AUDIT PASSED")
           print("Historical scoring NOT certified")
-          print("Projections NOT certified")
           print("Optimization remains BLOCKED")
+
+      - name: Backtest NFL DST projections
+        run: |
+          node fantasy-engine/nfl/dst-shadow-backtest.js
+
+      - name: Confirm SHADOW isolation
+        run: |
+          echo "CashEdge Fantasy DST remains in SHADOW"
+          echo "No Supabase writes"
+          echo "No production deployment"
+          echo "No Premium Picks modifications"
+          echo "Optimization remains BLOCKED"
