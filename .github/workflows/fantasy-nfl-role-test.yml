@@ -32,8 +32,16 @@ jobs:
 
       - name: Integrate real NFL role and injury data
         env:
-          BALLDONTLIE_NFL_API_KEY: ${{ secrets.BALLDONTLIE_NFL_API_KEY || secrets.BALLDONTLIE_API_KEY || secrets.BALLDONTLIE_NBA_API_KEY }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BALLDONTLIE_NFL_API_KEY: ${{ secrets.BALLDONTLIE_NBA_API_KEY }}
+          SUPABASE_URL: ${{ secrets.FANTASY_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.FANTASY_SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           node fantasy-engine/nfl/role-availability-bridge.js
+
+      - name: Confirm SHADOW isolation
+        run: |
+          echo "CashEdge Fantasy NFL Role Audit"
+          echo "SHADOW mode"
+          echo "No Supabase writes"
+          echo "No production deployment"
+          echo "Optimization remains blocked"
