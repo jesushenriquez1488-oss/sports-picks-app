@@ -1,0 +1,35 @@
+
+name: CashEdge NFL Fantasy Identity Audit
+
+on:
+  push:
+    branches:
+      - fantasy-dev
+    paths:
+      - ".github/workflows/fantasy-nfl-identity-audit.yml"
+      - "fantasy-engine/nfl/dfs-identity-bridge.js"
+
+permissions:
+  contents: read
+
+jobs:
+  nfl-identity:
+    name: NFL DFS Player Identity Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check bridge syntax
+        run: node --check fantasy-engine/nfl/dfs-identity-bridge.js
+
+      - name: Match real DraftKings and FanDuel players
+        env:
+          BALLDONTLIE_NFL_API_KEY: ${{ secrets.BALLDONTLIE_NFL_API_KEY }}
+          BALLDONTLIE_API_KEY: ${{ secrets.BALLDONTLIE_API_KEY }}
+        run: node fantasy-engine/nfl/dfs-identity-bridge.js
