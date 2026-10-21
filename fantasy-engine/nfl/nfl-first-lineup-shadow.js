@@ -14,9 +14,16 @@ const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
 
+
 const {
-  loadNFLVerseHistory
+  loadNFLVerseHistory,
+  parseCSV
 } = require("./stats-bridge");
+
+const {
+  teamCode
+} = require("./dfs-identity-bridge");
+
 
 const {
   loadFantasySlate
@@ -103,6 +110,110 @@ async function readRows(table, select, filters = {}) {
   }
 
   throw new Error(`${table}: pagination limit`);
+}
+
+async function loadWeeklyRosterStatus() {
+  const url =
+    "https://github.com/nflverse/nflverse-data/" +
+    "releases/download/weekly_rosters/" +
+    "roster_weekly_2026.csv";
+
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(45000)
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `NFLverse roster HTTP ${response.status}`
+    );
+  }
+
+  const rows = parseCSV(
+    await response.text(),
+    [
+      "season",
+      "week",
+      "game_type",
+      "gsis_id",
+      "team",
+      "status"
+    ]
+  );
+
+  const latest = new Map();
+  const ambiguous = new Set();
+
+  // Snapshot de prueba del 21 de octubre.
+  // Solo semanas terminadas antes del corte.
+  const MAX_COMPLETED_WEEK = 6;
+
+  for (const row of rows) {
+    const gsis = ident(row.gsis_id);
+    const week = Number(row.week);
+
+    if (
+      Number(row.season) !== 2026 ||
+      String(row.game_type).toUpperCase() !== "REG" ||
+      !Number.isInteger(week) ||
+      week < 1 ||
+      week > MAX_COMPLETED_WEEK ||
+      !gsis
+    ) {
+      continue;
+    }
+
+    const candidate = {
+      week,
+      team: teamCode(row.team),
+      status: String(row.status || "")
+        .trim()
+        .toUpperCase()
+    };
+
+    const previous = latest.get(gsis);
+
+    if (!previous || week > previous.week) {
+      latest.set(gsis, candidate);
+      ambiguous.delete(gsis);
+    } else if (
+      week === previous.week &&
+      (
+        previous.team !== candidate.team ||
+        previous.status !== candidate.status
+      )
+    ) {
+      ambiguous.add(gsis);
+    }
+  }
+
+  if (!latest.size) {
+    throw new Error(
+      "NFLverse weekly roster returned no valid players"
+    );
+  }
+
+  return {
+    rowsRead: rows.length,
+    indexedPlayers: latest.size,
+    check(gsis, expectedTeam) {
+      const key = ident(gsis);
+      const record = latest.get(key);
+
+      if (
+        !record ||
+        ambiguous.has(key) ||
+        record.team !== teamCode(expectedTeam)
+      ) {
+        return "UNKNOWN";
+      }
+
+      return ["ACT", "ACTIVE"].includes(
+        record.status
+      )
+        ? "ACTIVE"
+        : "INACTIVE";
+    }
+  };
 }
 
 function buildEvidence(snaps, links, injuries) {
@@ -286,11 +397,24 @@ async function main() {
     throw new Error("Missing critical source data");
   }
 
+ 
   const evidence = buildEvidence(
     snaps,
     links,
     injuries
   );
+
+  const weeklyRoster =
+    await loadWeeklyRosterStatus();
+
+  console.log(
+    "WEEKLY ROSTER:",
+    JSON.stringify({
+      rowsRead: weeklyRoster.rowsRead,
+      indexedPlayers: weeklyRoster.indexedPlayers
+    })
+  );
+
 
   for (const [platform, slateId] of SLATES) {
     const slate = await loadFantasySlate({
@@ -347,16 +471,36 @@ async function main() {
       }
     }
 
+
     const exclusions = {
       noSnaps: 0,
       knownInjury: 0,
+      rosterInactive: 0,
+      rosterUnknown: 0,
       invalid: 0
     };
 
     const players = [];
 
+   
     for (const p of offense.projected) {
+      const rosterStatus = weeklyRoster.check(
+        p.gsisPlayerId,
+        p.team
+      );
+
+      if (rosterStatus !== "ACTIVE") {
+        if (rosterStatus === "INACTIVE") {
+          exclusions.rosterInactive++;
+        } else {
+          exclusions.rosterUnknown++;
+        }
+
+        continue;
+      }
+
       if (!evidence.hasSnaps(p.gsisPlayerId)) {
+
         exclusions.noSnaps++;
         continue;
       }
