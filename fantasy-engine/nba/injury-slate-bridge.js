@@ -2,25 +2,35 @@
 "use strict";
 
 // CASHEDGE FANTASY EDGE
-// NBA INJURY SLATE BRIDGE
+// NBA INJURY SLATE BRIDGE V2
 //
 // Solo lectura de Supabase.
-// No modifica la proyeccion base.
-// No escribe en la base de datos.
+// No altera la formula base de NBA.
+// No modifica Player Props ni Premium Picks.
+// No escribe en Supabase.
 // No publica recomendaciones.
-// Ajustes exclusivamente SHADOW.
+//
+// V2:
+// - Ajustes basados en produccion por minuto.
+// - Conserva los minutos esperados del modelo.
+// - Descuenta el efecto ya incluido en la base.
+// - Minimo 4 juegos por situacion.
+// - Evita sumar impactos simultaneos.
+// - Rechaza senales contradictorias.
+// - Excluye jugadores confirmados OUT.
+// - Mantiene todo en modo SHADOW.
 
 const {
   projectRealNBASlate
 } = require("./slate-history");
 
 const {
-  evaluateTeammateImpact
-} = require("./teammate-impact");
-
-const {
   buildNBAInjuryContext
 } = require("./injury-context");
+
+const {
+  evaluateTeammateImpact
+} = require("./teammate-impact");
 
 const STATS = [
   "points",
@@ -32,7 +42,7 @@ const STATS = [
   "three_pointers_made"
 ];
 
-const FIELDS = [
+const HISTORY_FIELDS = [
   "game_id",
   "season",
   "game_date",
@@ -43,33 +53,40 @@ const FIELDS = [
   ...STATS
 ].join(",");
 
-const OUT = new Set([
-  "out",
-  "ruled out",
-  "inactive",
-  "suspended"
-]);
-
 const PAGE_SIZE = 1000;
+const MIN_GAMES = 4;
+const MAX_GAMES = 60;
+const BASELINE_GAMES = 20;
 
-const id = value =>
+const asId = value =>
   value === null || value === undefined
     ? ""
-    : String(value);
+    : String(value).trim();
 
 const round = value =>
   Math.round(value * 100) / 100;
 
-function seasonRange(cutoffAt) {
+const validDate = value =>
+  typeof value === "string" &&
+  Number.isFinite(Date.parse(value));
+
+function getSeasons(cutoffAt) {
   const date = new Date(cutoffAt);
+
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth() + 1;
-  const current = month >= 9 ? year : year - 1;
 
-  return [current, current - 1];
+  const current = month >= 9
+    ? year
+    : year - 1;
+
+  return [
+    current,
+    current - 1
+  ];
 }
 
-function baseDK(row) {
+function baseFantasyPoints(row) {
   return (
     Number(row.points) +
     Number(row.rebounds) * 1.25 +
@@ -82,22 +99,134 @@ function baseDK(row) {
 }
 
 function validHistory(row, cutoffAt) {
-  const value = Date.parse(row.game_date);
-  const cutoff = Date.parse(cutoffAt);
+  if (
+    !row ||
+    !validDate(row.game_date) ||
+    !asId(row.game_id) ||
+    !asId(row.player_id) ||
+    !asId(row.team_id)
+  ) {
+    return false;
+  }
 
-  return (
-    Number.isFinite(value) &&
-    value < cutoff &&
-    row.game_date.slice(0, 10) !==
-      cutoffAt.slice(0, 10) &&
-    Number(row.minutes) >= 5 &&
-    STATS.every(field =>
-      row[field] !== null &&
-      row[field] !== undefined &&
-      Number.isFinite(Number(row[field])) &&
-      Number(row[field]) >= 0
-    )
+  if (
+    Date.parse(row.game_date) >=
+    Date.parse(cutoffAt)
+  ) {
+    return false;
+  }
+
+  // No incluir el dia del cutoff:
+  // evita utilizar estadisticas posteriores
+  // dentro de una prediccion pregame.
+  if (
+    row.game_date.slice(0, 10) ===
+    cutoffAt.slice(0, 10)
+  ) {
+    return false;
+  }
+
+  const minutes = Number(row.minutes);
+
+  if (
+    row.minutes === null ||
+    !Number.isFinite(minutes) ||
+    minutes < 5 ||
+    minutes > 48
+  ) {
+    return false;
+  }
+
+  return STATS.every(field =>
+    row[field] !== null &&
+    row[field] !== undefined &&
+    row[field] !== "" &&
+    Number.isFinite(Number(row[field])) &&
+    Number(row[field]) >= 0
   );
+}
+
+function sortRecent(rows) {
+  return [...rows].sort((a, b) => {
+    const dateDiff =
+      Date.parse(b.game_date) -
+      Date.parse(a.game_date);
+
+    if (dateDiff !== 0) {
+      return dateDiff;
+    }
+
+    return String(b.game_id)
+      .localeCompare(String(a.game_id));
+  });
+}
+
+// Produccion Fantasy por minuto.
+//
+// No estimamos un nuevo rol.
+// No aumentamos artificialmente minutos.
+//
+// Solo comparamos eficiencia historica.
+
+function fantasyRate(rows, weighted = false) {
+  if (!rows.length) {
+    return null;
+  }
+
+  let weightedPoints = 0;
+  let weightedMinutes = 0;
+
+  rows.forEach((row, index) => {
+    const weight = weighted
+      ? Math.pow(0.91, index)
+      : 1;
+
+    weightedPoints +=
+      baseFantasyPoints(row) * weight;
+
+    weightedMinutes +=
+      Number(row.minutes) * weight;
+  });
+
+  if (weightedMinutes <= 0) {
+    return null;
+  }
+
+  return weightedPoints / weightedMinutes;
+}
+
+function buildHistoryIndexes(rows) {
+  const byPlayer = new Map();
+  const teamGames = new Map();
+
+  for (const row of rows) {
+    const playerId = asId(row.player_id);
+    const gameId = asId(row.game_id);
+
+    if (!byPlayer.has(playerId)) {
+      byPlayer.set(playerId, []);
+    }
+
+    byPlayer.get(playerId).push(row);
+
+    if (!teamGames.has(gameId)) {
+      teamGames.set(gameId, new Set());
+    }
+
+    teamGames.get(gameId).add(playerId);
+  }
+
+  for (const [playerId, games] of byPlayer) {
+    byPlayer.set(
+      playerId,
+      sortRecent(games)
+    );
+  }
+
+  return {
+    byPlayer,
+    teamGames
+  };
 }
 
 async function loadTeamHistory(
@@ -111,9 +240,9 @@ async function loadTeamHistory(
   while (true) {
     const { data, error } = await db
       .from("nba_player_game_stats")
-      .select(FIELDS)
+      .select(HISTORY_FIELDS)
       .eq("team_id", Number(teamId))
-      .in("season", seasonRange(cutoffAt))
+      .in("season", getSeasons(cutoffAt))
       .lt(
         "game_date",
         cutoffAt.slice(0, 10)
@@ -131,14 +260,18 @@ async function loadTeamHistory(
 
     if (error) {
       throw new Error(
-        "NBA team history: " + error.message
+        "NBA team history: " +
+        error.message
       );
     }
 
     const rows = data || [];
+
     all.push(...rows);
 
-    if (rows.length < PAGE_SIZE) break;
+    if (rows.length < PAGE_SIZE) {
+      break;
+    }
 
     offset += PAGE_SIZE;
   }
@@ -172,89 +305,347 @@ async function loadInjurySnapshots(
   return data || [];
 }
 
-function weightedBase(rows) {
-  if (!rows.length) return null;
+function matchSnapshots(slate, snapshots) {
+  const teamsByGame = new Map();
 
-  let total = 0;
-  let weights = 0;
+  for (const player of slate.players) {
+    const gameId = asId(player.gameId);
+    const teamId = asId(player.teamId);
 
-  rows.forEach((row, index) => {
-    const weight = Math.pow(0.91, index);
-    total += baseDK(row) * weight;
-    weights += weight;
-  });
+    if (!gameId || !teamId) {
+      continue;
+    }
 
-  return total / weights;
+    if (!teamsByGame.has(gameId)) {
+      teamsByGame.set(gameId, new Set());
+    }
+
+    teamsByGame.get(gameId).add(teamId);
+  }
+
+  const result = new Map();
+
+  for (const snapshot of snapshots) {
+    if (!Array.isArray(snapshot.injuries)) {
+      continue;
+    }
+
+    const snapshotTeams = new Set([
+      asId(snapshot.away_team_id),
+      asId(snapshot.home_team_id)
+    ]);
+
+    if (
+      snapshotTeams.size !== 2 ||
+      snapshotTeams.has("")
+    ) {
+      continue;
+    }
+
+    for (const [gameId, teams] of teamsByGame) {
+      if (
+        teams.size !== 2 ||
+        result.has(gameId)
+      ) {
+        continue;
+      }
+
+      const matches = [...teams].every(
+        team => snapshotTeams.has(team)
+      );
+
+      if (matches) {
+        result.set(gameId, snapshot);
+      }
+    }
+  }
+
+  return result;
 }
 
-function computeBaseAdjustment({
-  targetRows,
-  absentId,
+// Calcula un impacto individual.
+//
+// Formula:
+//
+// Proyeccion base *
+// (tasa sin companero / tasa reciente - 1)
+// * peso de muestra
+//
+// La tasa reciente contiene la mezcla
+// real de partidos con y sin el companero.
+//
+// Asi evitamos sumar de nuevo toda la
+// diferencia historica con/sin.
+
+function calculateIndividualSignal({
+  player,
+  teammateId,
   teamId,
-  impact,
+  indexes,
   cutoffAt
 }) {
-  const eligible = targetRows
-    .filter(row =>
-      id(row.team_id) === id(teamId) &&
-      validHistory(row, cutoffAt)
-    )
-    .sort(
-      (a, b) =>
-        Date.parse(b.game_date) -
-        Date.parse(a.game_date)
-    )
-    .slice(0, 60);
+  const playerId = asId(player.playerId);
 
-  const recentBaseline =
-    weightedBase(eligible.slice(0, 20));
+  const targetGames =
+    indexes.byPlayer.get(playerId) || [];
+
+  const teammateGames =
+    indexes.byPlayer.get(teammateId) || [];
 
   if (
-    recentBaseline === null ||
-    !impact.evidenceSufficient
+    !targetGames.length ||
+    !teammateGames.length
   ) {
-    return 0;
-  }
-
-  // El modulo historico ya verifico
-  // que existen al menos cuatro partidos
-  // por situacion.
-  //
-  // Calculamos el ajuste sobre puntos BASE,
-  // sin incluir bonos DraftKings.
-
-  const absenceGameIds = new Set(
-    impact.absenceGameIds || []
-  );
-
-  // Si no contamos con IDs verificados,
-  // devolvemos cero: nunca inventamos
-  // el grupo de partidos.
-
-  if (!absenceGameIds.size) {
     return null;
   }
 
-  const without = eligible.filter(row =>
-    absenceGameIds.has(id(row.game_id))
-  );
+  const coverage = [
+    ...indexes.teamGames.entries()
+  ].map(([gameId, players]) => ({
+    gameId,
+    teamId,
+    playersRecorded: players.size
+  }));
 
-  if (without.length < 4) {
+  const impact = evaluateTeammateImpact({
+    playerId,
+    teammateId,
+    teamId,
+    targetGames,
+    teammateGames,
+    teamGames: coverage,
+    cutoffAt,
+    platform: "draftkings"
+  });
+
+  if (!impact.evidenceSufficient) {
     return null;
   }
 
-  const withoutAverage =
-    without.reduce(
-      (sum, row) => sum + baseDK(row),
-      0
-    ) / without.length;
-
-  return round(
-    (
-      withoutAverage -
-      recentBaseline
-    ) * impact.sampleWeight
+  const validTeamGames = new Set(
+    coverage
+      .filter(game =>
+        game.playersRecorded >= 8
+      )
+      .map(game => asId(game.gameId))
   );
+
+  const recentTarget = sortRecent(
+    targetGames.filter(row =>
+      asId(row.team_id) === teamId &&
+      validTeamGames.has(
+        asId(row.game_id)
+      ) &&
+      validHistory(row, cutoffAt)
+    )
+  ).slice(0, MAX_GAMES);
+
+  const playedTogether = new Set(
+    teammateGames
+      .filter(row =>
+        asId(row.team_id) === teamId &&
+        validHistory(row, cutoffAt)
+      )
+      .map(row => asId(row.game_id))
+  );
+
+  const without = recentTarget.filter(
+    row =>
+      !playedTogether.has(
+        asId(row.game_id)
+      )
+  );
+
+  const withTeammate = recentTarget.filter(
+    row =>
+      playedTogether.has(
+        asId(row.game_id)
+      )
+  );
+
+  if (
+    withTeammate.length < MIN_GAMES ||
+    without.length < MIN_GAMES
+  ) {
+    return null;
+  }
+
+  const recentBaseline = recentTarget.slice(
+    0,
+    BASELINE_GAMES
+  );
+
+  const baselineRate = fantasyRate(
+    recentBaseline,
+    true
+  );
+
+  const absenceRate = fantasyRate(
+    without
+  );
+
+  const withRate = fantasyRate(
+    withTeammate
+  );
+
+  if (
+    baselineRate === null ||
+    baselineRate <= 0 ||
+    absenceRate === null ||
+    withRate === null
+  ) {
+    return null;
+  }
+
+  const basePoints =
+    Number(player.projectedPoints);
+
+  if (
+    !Number.isFinite(basePoints) ||
+    basePoints < 0
+  ) {
+    return null;
+  }
+
+  const expectedMinutes =
+    Number(player.expectedMinutes);
+
+  if (
+    !Number.isFinite(expectedMinutes) ||
+    expectedMinutes <= 0
+  ) {
+    return null;
+  }
+
+  const weight = impact.sampleWeight;
+
+  const rateRatio =
+    absenceRate / baselineRate;
+
+  const adjustment = round(
+    basePoints *
+    (rateRatio - 1) *
+    weight
+  );
+
+  return {
+    absentPlayerId: teammateId,
+    gamesWith: withTeammate.length,
+    gamesWithout: without.length,
+    sampleWeight: weight,
+
+    expectedMinutes:
+      player.expectedMinutes,
+
+    baselineFantasyPerMinute:
+      round(baselineRate),
+
+    withFantasyPerMinute:
+      round(withRate),
+
+    withoutFantasyPerMinute:
+      round(absenceRate),
+
+    rateRatio:
+      round(rateRatio),
+
+    adjustment,
+
+    source:
+      "nba_player_game_stats",
+
+    method:
+      "per_minute_baseline_relative",
+
+    confirmedCurrentAbsence: true
+  };
+}
+
+// Cuando faltan varios companeros:
+//
+// - Nunca se suman los impactos.
+// - Si hay senales positivas y negativas,
+//   no suponemos cual domina.
+// - Si todas coinciden en direccion,
+//   usamos el promedio ponderado.
+//
+// No seleccionamos el valor mas extremo.
+
+function combineSignals(signals) {
+  const valid = signals.filter(
+    signal =>
+      Number.isFinite(signal.adjustment) &&
+      signal.adjustment !== 0
+  );
+
+  if (!valid.length) {
+    return {
+      adjustment: 0,
+      status: "no_measurable_impact",
+      selectedSignals: []
+    };
+  }
+
+  const positive = valid.some(
+    signal => signal.adjustment > 0
+  );
+
+  const negative = valid.some(
+    signal => signal.adjustment < 0
+  );
+
+  if (positive && negative) {
+    return {
+      adjustment: 0,
+      status: "conflicting_historical_signals",
+      selectedSignals: valid
+    };
+  }
+
+  if (valid.length === 1) {
+    return {
+      adjustment:
+        valid[0].adjustment,
+      status:
+        "single_historical_signal_shadow",
+      selectedSignals: valid
+    };
+  }
+
+  let weightedTotal = 0;
+  let totalWeight = 0;
+
+  for (const signal of valid) {
+    const evidenceWeight =
+      signal.sampleWeight *
+      Math.min(
+        signal.gamesWith,
+        signal.gamesWithout
+      );
+
+    weightedTotal +=
+      signal.adjustment *
+      evidenceWeight;
+
+    totalWeight += evidenceWeight;
+  }
+
+  if (totalWeight <= 0) {
+    return {
+      adjustment: 0,
+      status: "insufficient_combined_evidence",
+      selectedSignals: valid
+    };
+  }
+
+  return {
+    adjustment: round(
+      weightedTotal / totalWeight
+    ),
+    status:
+      "combined_historical_signals_shadow",
+    selectedSignals: valid
+  };
 }
 
 async function projectNBAWithInjuries({
@@ -272,9 +663,7 @@ async function projectNBAWithInjuries({
     );
   }
 
-  if (
-    !Number.isFinite(Date.parse(cutoffAt))
-  ) {
+  if (!validDate(cutoffAt)) {
     throw new Error(
       "Valid cutoffAt required"
     );
@@ -288,91 +677,60 @@ async function projectNBAWithInjuries({
   });
 
   const snapshots =
-    await loadInjurySnapshots(db, cutoffAt);
-
-  const snapshotByGame = new Map();
-
-  const gameTeams = new Map();
-
-  for (const player of slate.players) {
-    const gameId = id(player.gameId);
-
-    if (!gameTeams.has(gameId)) {
-      gameTeams.set(gameId, new Set());
-    }
-
-    gameTeams.get(gameId).add(
-      id(player.teamId)
+    await loadInjurySnapshots(
+      db,
+      cutoffAt
     );
-  }
 
-  for (const snapshot of snapshots) {
-    const pair = new Set([
-      id(snapshot.away_team_id),
-      id(snapshot.home_team_id)
-    ]);
-
-    if (
-      pair.size !== 2 ||
-      !Array.isArray(snapshot.injuries)
-    ) {
-      continue;
-    }
-
-    for (const [gameId, teams] of gameTeams) {
-      if (
-        teams.size === 2 &&
-        [...teams].every(team =>
-          pair.has(team)
-        ) &&
-        !snapshotByGame.has(gameId)
-      ) {
-        snapshotByGame.set(
-          gameId,
-          snapshot
-        );
-      }
-    }
-  }
+  const snapshotByGame =
+    matchSnapshots(
+      slate,
+      snapshots
+    );
 
   const historyCache = new Map();
 
-  async function teamHistory(teamId) {
-    const key = id(teamId);
+  async function getTeamIndexes(teamId) {
+    const key = asId(teamId);
 
     if (!historyCache.has(key)) {
+      const rows = await loadTeamHistory(
+        db,
+        key,
+        cutoffAt
+      );
+
       historyCache.set(
         key,
-        await loadTeamHistory(
-          db,
-          key,
-          cutoffAt
-        )
+        buildHistoryIndexes(rows)
       );
     }
 
     return historyCache.get(key);
   }
 
-  const adjusted = [];
+  const players = [];
   const removed = [];
-  const audits = [];
+  const injuryAudit = [];
 
   for (const player of base.players) {
-    const gameId = id(player.gameId);
-    const teamId = id(player.teamId);
+    const teamId = asId(player.teamId);
+    const gameId = asId(player.gameId);
 
     const snapshot =
       snapshotByGame.get(gameId);
 
+    const original =
+      player.projectedPoints;
+
     if (!snapshot) {
-      adjusted.push({
+      players.push({
         ...player,
-        baseProjectedPoints:
-          player.projectedPoints,
+        baseProjectedPoints: original,
         injuryAdjustment: 0,
         injuryAdjustmentStatus:
-          "no_verified_snapshot"
+          "no_verified_snapshot",
+        injuryImpactEvidence: []
       });
 
       continue;
@@ -387,22 +745,26 @@ async function projectNBAWithInjuries({
     });
 
     if (!context.usable) {
-      adjusted.push({
+      players.push({
         ...player,
-        baseProjectedPoints:
-          player.projectedPoints,
+        baseProjectedPoints: original,
         injuryAdjustment: 0,
         injuryAdjustmentStatus:
-          context.reason
+          context.reason,
+        injuryImpactEvidence: []
       });
 
       continue;
     }
 
+    // El reporte actual confirma que
+    // el jugador evaluado no jugara.
+
     if (context.playerStatus === "out") {
       removed.push({
         playerId: player.playerId,
         name: player.name,
+        team: player.team,
         reason: "confirmed_out",
         checkedAt: context.checkedAt
       });
@@ -410,257 +772,179 @@ async function projectNBAWithInjuries({
       continue;
     }
 
-    const absent = context.ruledOutTeammates;
+    const absentTeammates =
+      context.ruledOutTeammates;
 
-    if (!absent.length) {
-      adjusted.push({
+    if (!absentTeammates.length) {
+      players.push({
         ...player,
-        baseProjectedPoints:
-          player.projectedPoints,
+        baseProjectedPoints: original,
         injuryAdjustment: 0,
         injuryAdjustmentStatus:
-          "no_confirmed_absent_teammates"
+          "no_confirmed_absent_teammates",
+        injuryImpactEvidence: [],
+        injurySnapshotCheckedAt:
+          context.checkedAt
       });
 
       continue;
     }
 
-    const rows = await teamHistory(teamId);
-
-    const teamGames = new Map();
-    const byPlayer = new Map();
-
-    for (const row of rows) {
-      const gameKey = id(row.game_id);
-      const playerKey = id(row.player_id);
-
-      if (!teamGames.has(gameKey)) {
-        teamGames.set(
-          gameKey,
-          new Set()
-        );
-      }
-
-      teamGames.get(gameKey).add(
-        playerKey
-      );
-
-      if (!byPlayer.has(playerKey)) {
-        byPlayer.set(playerKey, []);
-      }
-
-      byPlayer.get(playerKey).push(row);
-    }
-
-    const coverage = [
-      ...teamGames.entries()
-    ].map(([historicalGameId, players]) => ({
-      gameId: historicalGameId,
-      teamId,
-      playersRecorded: players.size
-    }));
+    const indexes = await getTeamIndexes(
+      teamId
+    );
 
     const signals = [];
 
-    for (const teammate of absent) {
+    for (const teammate of absentTeammates) {
       const teammateId =
-        id(teammate.playerId);
-
-      const targetRows =
-        byPlayer.get(
-          id(player.playerId)
-        ) || [];
-
-      const teammateRows =
-        byPlayer.get(teammateId) || [];
-
-      // Si el jugador ausente no tiene
-      // historial en este mismo equipo,
-      // no extrapolamos el impacto.
-
-      if (!teammateRows.length) {
-        continue;
-      }
-
-      const impact = evaluateTeammateImpact({
-        playerId: player.playerId,
-        teammateId,
-        teamId,
-        targetGames: targetRows,
-        teammateGames: teammateRows,
-        teamGames: coverage,
-        cutoffAt
-      });
-
-      if (!impact.evidenceSufficient) {
-        continue;
-      }
-
-      // Identificamos partidos sin el
-      // compañero a partir de los registros
-      // completos del mismo equipo.
-
-      const targetRecent = targetRows
-        .filter(row =>
-          validHistory(row, cutoffAt) &&
-          (teamGames.get(id(row.game_id))
-            ?.size || 0) >= 8
-        )
-        .sort(
-          (a, b) =>
-            Date.parse(b.game_date) -
-            Date.parse(a.game_date)
-        )
-        .slice(0, 60);
-
-      const teammatePlayed = new Set(
-        teammateRows
-          .filter(row =>
-            validHistory(row, cutoffAt)
-          )
-          .map(row => id(row.game_id))
-      );
-
-      const absenceGameIds =
-        targetRecent
-          .filter(row =>
-            !teammatePlayed.has(
-              id(row.game_id)
-            )
-          )
-          .map(row => id(row.game_id));
-
-      const adjustment =
-        computeBaseAdjustment({
-          targetRows,
-          absentId: teammateId,
-          teamId,
-          impact: {
-            ...impact,
-            absenceGameIds
-          },
-          cutoffAt
-        });
+        asId(teammate.playerId);
 
       if (
-        adjustment === null ||
-        !Number.isFinite(adjustment)
+        !teammateId ||
+        teammateId ===
+          asId(player.playerId)
       ) {
         continue;
       }
 
-      signals.push({
-        absentPlayerId: teammateId,
-        gamesWith:
-          impact.withTeammate?.games || 0,
-        gamesWithout:
-          impact.withoutTeammate?.games || 0,
-        weight: impact.sampleWeight,
-        adjustment,
-        rawDifference:
-          impact.rawDifference?.fantasyDK,
-        source: "historical_team_games"
-      });
+      const signal =
+        calculateIndividualSignal({
+          player,
+          teammateId,
+          teamId,
+          indexes,
+          cutoffAt
+        });
+
+      if (signal) {
+        signals.push(signal);
+      }
     }
 
-    // Proteccion contra ajustes duplicados:
-    // si hay varias ausencias simultaneas,
-    // NO sumamos sus diferencias.
-    //
-    // Utilizamos la señal individual con
-    // mayor ajuste absoluto.
-    //
-    // El efecto combinado requerira una
-    // validacion historica independiente.
+    const combined =
+      combineSignals(signals);
 
-    signals.sort(
-      (a, b) =>
-        Math.abs(b.adjustment) -
-        Math.abs(a.adjustment)
-    );
-
-    const selected = signals[0] || null;
-
-    const change = selected
-      ? selected.adjustment
-      : 0;
-
-    const updatedPoints = round(
+    const adjustedPoints = round(
       Math.max(
         0,
-        player.projectedPoints + change
+        original +
+          combined.adjustment
       )
     );
 
-    const record = {
+    const actualAdjustment = round(
+      adjustedPoints - original
+    );
+
+    players.push({
       ...player,
+
       baseProjectedPoints:
-        player.projectedPoints,
-      projectedPoints: updatedPoints,
+        original,
+
+      projectedPoints:
+        adjustedPoints,
+
       injuryAdjustment:
-        round(
-          updatedPoints -
-          player.projectedPoints
-        ),
+        actualAdjustment,
+
       injuryAdjustmentStatus:
-        selected
-          ? "historical_signal_shadow"
-          : "insufficient_evidence",
-      injuryImpactEvidence: signals,
+        combined.status,
+
+      injuryImpactEvidence:
+        combined.selectedSignals,
+
+      injurySignalsEvaluated:
+        signals.length,
+
       injurySnapshotCheckedAt:
         context.checkedAt,
 
-      // No habilitar publicacion.
+      // Mantener SHADOW.
       readyForOptimization: false
-    };
+    });
 
-    adjusted.push(record);
-
-    if (selected) {
-      audits.push({
+    if (signals.length) {
+      injuryAudit.push({
         playerId: player.playerId,
         name: player.name,
         team: player.team,
+
         previousPoints:
-          player.projectedPoints,
-        adjustedPoints: updatedPoints,
-        selectedSignal: selected,
+          original,
+
+        adjustedPoints,
+
+        actualAdjustment,
+
+        adjustmentStatus:
+          combined.status,
+
         signalsConsidered:
-          signals.length
+          signals.length,
+
+        signals:
+          signals
       });
     }
   }
 
+  const adjustedCount = players.filter(
+    player =>
+      player.injuryAdjustment !== 0
+  ).length;
+
   return {
     ...base,
+
+    sport: "nba",
+    platform: "draftkings",
     mode: "shadow",
-    players: adjusted,
+
+    players,
+
     excluded: [
       ...base.excluded,
       ...removed
     ],
+
     totals: {
       ...base.totals,
-      projected: adjusted.length,
+
+      projected:
+        players.length,
+
       excluded:
         base.excluded.length +
         removed.length,
+
       removedConfirmedOut:
         removed.length,
+
       playersWithInjuryAdjustments:
-        audits.length
+        adjustedCount,
+
+      playersWithHistoricalSignals:
+        injuryAudit.length
     },
-    injuryAudit: audits,
+
+    injuryAudit,
+
     injurySnapshotCount:
       snapshotByGame.size,
+
     readyForOptimization: false,
     readyForPublication: false,
+
     limitations: [
       ...base.limitations,
-      "Injury effects are experimental",
-      "Historical non-participation does not prove injury",
-      "Multiple absences are not added together",
-      "Pregame statuses must be rechecked"
+      "Injury impact remains experimental",
+      "Historical non-participation is not proof of injury",
+      "Expected minutes are unchanged",
+      "Opposing signals produce no adjustment",
+      "Multiple absences are not summed",
+      "Pregame injury statuses require a fresh check"
     ]
   };
 }
@@ -668,5 +952,7 @@ async function projectNBAWithInjuries({
 module.exports = {
   projectNBAWithInjuries,
   loadTeamHistory,
-  loadInjurySnapshots
+  loadInjurySnapshots,
+  calculateIndividualSignal,
+  combineSignals
 };
