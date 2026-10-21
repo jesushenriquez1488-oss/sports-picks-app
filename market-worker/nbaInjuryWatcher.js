@@ -45,7 +45,33 @@ const BDL_TEAM_CACHE_MS =
 const MAX_CONCURRENT_GAME_CHECKS =
   2;
 
+// Periodic injury verification by time to tipoff.
+// Independent of sportsbook movements.
 
+const PERIODIC_CHECK_MINUTES = {
+  EARLY: 60,
+  SAME_DAY: 30,
+  CLOSE: 10,
+  FINAL: 5
+};
+
+function getPeriodicCheckIntervalMs(
+  minutesUntilGame
+) {
+  if (minutesUntilGame > 720) {
+    return PERIODIC_CHECK_MINUTES.EARLY * 60000;
+  }
+
+  if (minutesUntilGame > 180) {
+    return PERIODIC_CHECK_MINUTES.SAME_DAY * 60000;
+  }
+
+  if (minutesUntilGame > 30) {
+    return PERIODIC_CHECK_MINUTES.CLOSE * 60000;
+  }
+
+  return PERIODIC_CHECK_MINUTES.FINAL * 60000;
+}
 // ============================================================
 // HELPERS
 // ============================================================
@@ -1103,43 +1129,36 @@ function createNBAInjuryWatcher({
     // Identical repeated checks stay inside Railway.
     // ========================================================
 
-    if (
-      isBaseline ||
-      changed
-    ) {
+   // Every successful provider verification updates
+// checked_at in Supabase.
+//
+// Structural changes continue using the existing
+// reanalysis logic in market-worker/index.js.
 
-      fireSnapshotSafe({
+fireSnapshotSafe({
 
-        gameId,
+  gameId,
 
-        game,
+  game,
 
+  awayTeamId:
+    bdl.awayTeamId,
 
-        awayTeamId:
-          bdl.awayTeamId,
+  homeTeamId:
+    bdl.homeTeamId,
 
+  injuries:
+    normalized,
 
-        homeTeamId:
-          bdl.homeTeamId,
+  fingerprint,
 
+  isBaseline,
 
-        injuries:
-          normalized,
+  changed,
 
-
-        fingerprint,
-
-
-        isBaseline,
-
-
-        changed,
-
-
-        checkedAt:
-          nowIso
-      });
-    }
+  checkedAt:
+    nowIso
+});
 
 
     // ========================================================
@@ -1664,7 +1683,127 @@ function createNBAInjuryWatcher({
       );
     }
   }
+// ============================================================
+// NBA PERIODIC INJURY VERIFICATION
+//
+// Works independently of sportsbook changes.
+// Reuses existing provider, queue and persistence.
+//
+// Checks only pregame NBA events.
+// Never creates fake injuries.
+// Never triggers reanalysis by itself.
+// ============================================================
 
+const scheduledChecksInFlight =
+  new Set();
+
+async function refreshScheduled(games) {
+
+  if (
+    stopped ||
+    !Array.isArray(games)
+  ) {
+    return;
+  }
+
+  const now = Date.now();
+
+  const pending = [];
+
+  const seenGames = new Set();
+
+  for (const game of games) {
+
+    if (
+      cleanText(game?.sport) !== "nba"
+    ) {
+      continue;
+    }
+
+    const gameId = String(
+      game?.cashedge_game_id || ""
+    ).trim();
+
+    if (
+      !gameId ||
+      seenGames.has(gameId) ||
+      scheduledChecksInFlight.has(gameId)
+    ) {
+      continue;
+    }
+
+    seenGames.add(gameId);
+
+    const gameStartMs =
+      typeof getGameStartMs === "function"
+        ? getGameStartMs(game)
+        : Date.parse(game?.game_time);
+
+    if (
+      !Number.isFinite(gameStartMs) ||
+      gameStartMs <= now
+    ) {
+      continue;
+    }
+
+    const minutesUntilGame =
+      (gameStartMs - now) / 60000;
+
+    const intervalMs =
+      getPeriodicCheckIntervalMs(
+        minutesUntilGame
+      );
+
+    const lastSuccessfulCheck =
+      Date.parse(
+        gameStates.get(gameId)?.updatedAt || ""
+      );
+
+    const due =
+      !Number.isFinite(lastSuccessfulCheck) ||
+      now - lastSuccessfulCheck >= intervalMs;
+
+    if (!due) {
+      continue;
+    }
+
+    pending.push({
+      game,
+      gameId
+    });
+  }
+
+  if (!pending.length) {
+    return;
+  }
+
+  // Preserve the existing internal concurrency queue.
+  // Each game is checked against BALLDONTLIE using
+  // the same logic as market-triggered checks.
+
+  for (const item of pending) {
+
+    scheduledChecksInFlight.add(
+      item.gameId
+    );
+
+    void queueCheck(item.game)
+      .catch(error => {
+
+        logger.error(
+          `[nba-injury-watch] periodic check failed ${item.gameId}: ${error?.message || error}`
+        );
+
+      })
+      .finally(() => {
+
+        scheduledChecksInFlight.delete(
+          item.gameId
+        );
+
+      });
+  }
+}
 
   // ==========================================================
   // SHUTDOWN
@@ -1712,12 +1851,12 @@ function createNBAInjuryWatcher({
     }
   }
 
-
-  return {
-    ensureBaseline,
-    trigger,
-    shutdown
-  };
+return {
+  ensureBaseline,
+  trigger,
+  refreshScheduled,
+  shutdown
+};
 }
 
 
