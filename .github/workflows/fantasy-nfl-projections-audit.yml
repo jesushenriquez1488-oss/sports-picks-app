@@ -8,6 +8,7 @@ on:
     paths:
       - ".github/workflows/fantasy-nfl-projections-audit.yml"
       - "fantasy-engine/nfl/slate-projections.js"
+      - "fantasy-engine/nfl/fantasy-points-bridge.js"
 
 permissions:
   contents: read
@@ -28,9 +29,12 @@ jobs:
           node-version: "22"
 
       - name: Check syntax
-        run: node --check fantasy-engine/nfl/slate-projections.js
+        run: |
+          node --check fantasy-engine/nfl/slate-projections.js
+          node --check fantasy-engine/nfl/fantasy-points-bridge.js
 
       - name: Calculate real NFL Fantasy projections
         env:
           BALLDONTLIE_NFL_API_KEY: ${{ secrets.BALLDONTLIE_NFL_API_KEY || secrets.BALLDONTLIE_API_KEY || secrets.BALLDONTLIE_NBA_API_KEY }}
-        run: node fantasy-engine/nfl/slate-projections.js
+        run: |
+          node fantasy-engine/nfl/slate-projections.js
