@@ -3,18 +3,14 @@
 
 /**
  * CashEdge Fantasy Edge
- * NFL DST Historical Backtest
+ * NFL DST Distribution Backtest V2
  *
- * Evalua partidos NFL 2026 utilizando
- * exclusivamente historiales anteriores.
+ * Evalua la distribucion real de errores.
+ * Conserva el modelo 65/35 sin modificarlo.
  *
- * Compara:
- * 1. Modelo CashEdge 65/35
- * 2. Baseline historico de la defensa
- *
- * No modifica Supabase.
- * No publica recomendaciones.
- * No permite optimizacion.
+ * SHADOW ONLY.
+ * No escribe en Supabase.
+ * No modifica produccion.
  */
 
 const fs = require("fs");
@@ -32,29 +28,34 @@ const PLATFORMS = ["draftkings", "fanduel"];
 const MAX_GAMES = 8;
 const MIN_GAMES = 3;
 
+function round(n) {
+  return Math.round(n * 100) / 100;
+}
+
 function avg(values) {
-  if (!values.length) return null;
-
-  return values.reduce(
-    (sum, value) => sum + value,
-    0
-  ) / values.length;
+  return values.reduce((a, b) => a + b, 0)
+    / values.length;
 }
 
-function round(value) {
-  return Math.round(value * 100) / 100;
+function percentile(values, p) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const index = (sorted.length - 1) * p;
+  const low = Math.floor(index);
+  const high = Math.ceil(index);
+
+  return sorted[low] +
+    (sorted[high] - sorted[low]) * (index - low);
 }
 
-function historicalBaseline(history, platform, cutoff) {
-  const valid = history
-    .filter(game =>
-      game.complete === true &&
-      Date.parse(game.gameDate) < Date.parse(cutoff)
-    )
+function pct(count, total) {
+  return `${round(count * 100 / total)}%`;
+}
+
+function historicalBaseline(history, platform) {
+  const valid = [...history]
     .sort(
       (a, b) =>
-        Date.parse(b.gameDate) -
-        Date.parse(a.gameDate)
+        Date.parse(b.gameDate) - Date.parse(a.gameDate)
     )
     .slice(0, MAX_GAMES);
 
@@ -63,29 +64,162 @@ function historicalBaseline(history, platform, cutoff) {
   }
 
   let total = 0;
-  let totalWeight = 0;
+  let weightTotal = 0;
 
-  valid.forEach((game, index) => {
-    const score = scoreNFLDST(game.stats, platform);
+  for (let i = 0; i < valid.length; i++) {
+    const score = scoreNFLDST(
+      valid[i].stats,
+      platform
+    );
 
-    if (!score.complete) return;
+    if (!score.complete) return null;
 
-    const weight = valid.length - index;
-
+    const weight = valid.length - i;
     total += score.points * weight;
-    totalWeight += weight;
-  });
+    weightTotal += weight;
+  }
 
-  return totalWeight > 0
-    ? total / totalWeight
-    : null;
+  return total / weightTotal;
+}
+
+function report(platform, results, skipped) {
+  if (!results.length) {
+    throw new Error(
+      `No valid evaluations for ${platform}`
+    );
+  }
+
+  const n = results.length;
+  const errors = results.map(r => r.absError);
+
+  const mae = avg(errors);
+  const baselineMAE = avg(
+    results.map(r => Math.abs(r.baseline - r.actual))
+  );
+
+  const bias = avg(results.map(r => r.error));
+  const rmse = Math.sqrt(
+    avg(results.map(r => r.error ** 2))
+  );
+
+  const bands = [
+    ["0-2 points", e => e <= 2],
+    [">2-5 points", e => e > 2 && e <= 5],
+    [">5-8 points", e => e > 5 && e <= 8],
+    [">8-10 points", e => e > 8 && e <= 10],
+    [">10 points", e => e > 10]
+  ];
+
+  console.log(
+    `\n===== ${platform.toUpperCase()} =====`
+  );
+
+  console.log("Games evaluated:", n);
+  console.log("Skipped:", JSON.stringify(skipped));
+  console.log("CashEdge MAE:", round(mae));
+  console.log("Historical baseline MAE:", round(baselineMAE));
+  console.log("Bias:", round(bias));
+  console.log("RMSE:", round(rmse));
+
+  console.log(
+    "Model better than baseline:",
+    mae < baselineMAE
+  );
+
+  console.log("\n===== ERROR DISTRIBUTION =====");
+
+  for (const [label, test] of bands) {
+    const count = errors.filter(test).length;
+    console.log(
+      `${label}: ${count}/${n} (${pct(count, n)})`
+    );
+  }
+
+  const within5 = errors.filter(e => e <= 5).length;
+  const within10 = errors.filter(e => e <= 10).length;
+
+  console.log("\n===== ACCURACY SUMMARY =====");
+
+  console.log(
+    "Within +/-5:",
+    pct(within5, n)
+  );
+
+  console.log(
+    "Within +/-10:",
+    pct(within10, n)
+  );
+
+  console.log(
+    "Median absolute error:",
+    round(percentile(errors, 0.5))
+  );
+
+  console.log(
+    "90th percentile error:",
+    round(percentile(errors, 0.9))
+  );
+
+  console.log(
+    "Overestimated:",
+    results.filter(r => r.error > 0).length
+  );
+
+  console.log(
+    "Underestimated:",
+    results.filter(r => r.error < 0).length
+  );
+
+  console.log("\n===== PROJECTED SCORE GROUPS =====");
+
+  const groups = [
+    ["Below 5", r => r.projected < 5],
+    ["5 to <10", r =>
+      r.projected >= 5 && r.projected < 10
+    ],
+    ["10 or more", r => r.projected >= 10]
+  ];
+
+  for (const [label, test] of groups) {
+    const group = results.filter(test);
+
+    if (!group.length) {
+      console.log(`${label}: no observations`);
+      continue;
+    }
+
+    console.log(
+      `${label}: games=${group.length}, ` +
+      `MAE=${round(avg(group.map(r => r.absError)))}, ` +
+      `Bias=${round(avg(group.map(r => r.error)))}`
+    );
+  }
+
+  console.log("\n===== EXTREME ERRORS =====");
+
+  const extreme = results
+    .filter(r => r.absError > 10)
+    .sort((a, b) => b.absError - a.absError);
+
+  console.log(
+    "Errors above 10 points:",
+    extreme.length
+  );
+
+  for (const r of extreme.slice(0, 10)) {
+    console.log(
+      `${r.gameId} | ${r.team} | ` +
+      `Projected=${r.projected} | ` +
+      `Actual=${r.actual} | ` +
+      `AbsoluteError=${round(r.absError)}`
+    );
+  }
 }
 
 function main() {
   if (!fs.existsSync(FILE)) {
     throw new Error(
-      "Falta dst-history-shadow.json. " +
-      "Ejecuta primero dst-stats-bridge.py"
+      "Missing dst-history-shadow.json"
     );
   }
 
@@ -98,20 +232,16 @@ function main() {
     data.readyForOptimization !== false ||
     data.readyForPublication !== false
   ) {
-    throw new Error(
-      "El historial no esta protegido en SHADOW"
-    );
+    throw new Error("SHADOW protection failed");
   }
 
   const records = data.records || [];
 
   const targets = records.filter(
-    record =>
-      record.season === 2026 &&
-      record.complete === true
+    r => r.season === 2026 && r.complete === true
   );
 
-  console.log("\n===== NFL DST BACKTEST =====");
+  console.log("\n===== CASHEDGE DST ANALYSIS =====");
   console.log("Historical records:", records.length);
   console.log("2026 targets:", targets.length);
   console.log("Mode: SHADOW");
@@ -121,21 +251,27 @@ function main() {
     const skipped = {};
 
     for (const target of targets) {
-      // Excluye por completo los partidos
-      // jugados el mismo dia del encuentro.
       const cutoff =
         target.gameDate.slice(0, 10) +
         "T00:00:00Z";
 
-      const defenseGames = records.filter(
-        record => record.team === target.team
+      const cutoffTime = Date.parse(cutoff);
+
+      // No usar resultados del partido objetivo
+      // ni de partidos posteriores.
+
+      const previous = records.filter(r =>
+        r.complete === true &&
+        Number.isFinite(Date.parse(r.gameDate)) &&
+        Date.parse(r.gameDate) < cutoffTime
       );
 
-      // Partidos anteriores de defensas que
-      // enfrentaron a la ofensiva del rival.
-      const opponentGames = records.filter(
-        record =>
-          record.opponent === target.opponent
+      const defenseGames = previous.filter(
+        r => r.team === target.team
+      );
+
+      const opponentGames = previous.filter(
+        r => r.opponent === target.opponent
       );
 
       const projection = projectNFLDST({
@@ -147,17 +283,9 @@ function main() {
         opponentGames
       });
 
-      if (
-        !Number.isFinite(
-          projection.projectedPoints
-        )
-      ) {
-        const reason =
-          projection.status || "unknown";
-
-        skipped[reason] =
-          (skipped[reason] || 0) + 1;
-
+      if (!Number.isFinite(projection.projectedPoints)) {
+        const reason = projection.status || "unknown";
+        skipped[reason] = (skipped[reason] || 0) + 1;
         continue;
       }
 
@@ -166,127 +294,39 @@ function main() {
         platform
       );
 
-      if (!actual.complete) {
-        skipped.invalid_actual =
-          (skipped.invalid_actual || 0) + 1;
-        continue;
-      }
-
       const baseline = historicalBaseline(
         defenseGames,
-        platform,
-        cutoff
+        platform
       );
 
-      if (!Number.isFinite(baseline)) {
-        skipped.invalid_baseline =
-          (skipped.invalid_baseline || 0) + 1;
+      if (!actual.complete || !Number.isFinite(baseline)) {
+        skipped.invalid_score =
+          (skipped.invalid_score || 0) + 1;
         continue;
       }
+
+      const predicted = projection.projectedPoints;
+      const error = predicted - actual.points;
 
       results.push({
         gameId: target.gameId,
         team: target.team,
         opponent: target.opponent,
-        projected: projection.projectedPoints,
-        baseline: round(baseline),
+        projected: predicted,
         actual: actual.points,
-        error: round(
-          projection.projectedPoints -
-          actual.points
-        )
+        baseline,
+        error,
+        absError: Math.abs(error)
       });
     }
 
-    if (!results.length) {
-      throw new Error(
-        `No hay evaluaciones validas: ${platform}`
-      );
-    }
-
-    const modelMAE = avg(
-      results.map(
-        row => Math.abs(row.error)
-      )
-    );
-
-    const baselineMAE = avg(
-      results.map(
-        row => Math.abs(
-          row.baseline - row.actual
-        )
-      )
-    );
-
-    const bias = avg(
-      results.map(row => row.error)
-    );
-
-    const rmse = Math.sqrt(
-      avg(
-        results.map(
-          row => row.error ** 2
-        )
-      )
-    );
-
-    console.log(
-      `\n===== ${platform.toUpperCase()} =====`
-    );
-
-    console.log(
-      "Games evaluated:", results.length
-    );
-
-    console.log(
-      "Skipped:", JSON.stringify(skipped)
-    );
-
-    console.log(
-      "CashEdge MAE:", round(modelMAE)
-    );
-
-    console.log(
-      "Historical baseline MAE:",
-      round(baselineMAE)
-    );
-
-    console.log(
-      "Bias:", round(bias)
-    );
-
-    console.log(
-      "RMSE:", round(rmse)
-    );
-
-    console.log(
-      "Model better than baseline:",
-      modelMAE < baselineMAE
-    );
-
-    console.log("\nLargest errors:");
-
-    const worst = [...results]
-      .sort(
-        (a, b) =>
-          Math.abs(b.error) -
-          Math.abs(a.error)
-      )
-      .slice(0, 5);
-
-    for (const row of worst) {
-      console.log(
-        `${row.gameId} | ${row.team} | ` +
-        `Predicted: ${row.projected} | ` +
-        `Actual: ${row.actual} | ` +
-        `Error: ${row.error}`
-      );
-    }
+    report(platform, results, skipped);
   }
 
-  console.log("\nBACKTEST EXECUTED");
-  console.log("Results remain experimental");
+  console.log("\nDISTRIBUTION BACKTEST COMPLETE");
+  console.log("Scoring still requires external validation");
   console.log("Optimization remains BLOCKED");
+  console.log("No production changes");
 }
 
 main();
