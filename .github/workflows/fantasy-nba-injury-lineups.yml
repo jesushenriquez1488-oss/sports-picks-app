@@ -1,0 +1,335 @@
+
+name: CashEdge NBA Injury V2 Lineups
+
+on:
+  push:
+    branches:
+      - fantasy-dev
+    paths:
+      - ".github/workflows/fantasy-nba-injury-lineups.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  injury-lineups:
+    name: NBA DraftKings CP-SAT Injury V2
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout fantasy-dev
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          npm install --prefix fantasy-engine \
+            --no-save \
+            --package-lock=false \
+            --ignore-scripts \
+            --no-audit \
+            --no-fund \
+            @supabase/supabase-js@2
+
+          python -m pip install "ortools>=9.10,<10"
+
+      - name: Generate NBA Injury V2 projections
+        env:
+          FANTASY_SUPABASE_URL: ${{ secrets.FANTASY_SUPABASE_URL }}
+          FANTASY_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.FANTASY_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node <<'NODE'
+          "use strict";
+
+          const fs = require("node:fs");
+
+          const { createClient } = require(
+            "./fantasy-engine/node_modules/@supabase/supabase-js"
+          );
+
+          const { projectNBAWithInjuries } = require(
+            "./fantasy-engine/nba/injury-slate-bridge"
+          );
+
+          async function main() {
+            const slate = JSON.parse(
+              fs.readFileSync(
+                "fantasy-engine/data/nba-draftkings-77583.json",
+                "utf8"
+              )
+            );
+
+            if (
+              slate.sport !== "nba" ||
+              slate.platform !== "draftkings" ||
+              String(slate.slateId) !== "77583" ||
+              slate.complete !== true ||
+              slate.players.length !== 329
+            ) {
+              throw new Error(
+                "DraftKings slate verification failed"
+              );
+            }
+
+            const cutoffAt = new Date().toISOString();
+
+            if (
+              Date.parse(cutoffAt) >=
+              Date.parse(slate.startsAt)
+            ) {
+              throw new Error(
+                "Slate has started. Pregame optimization blocked."
+              );
+            }
+
+            const url =
+              process.env.FANTASY_SUPABASE_URL;
+
+            const key =
+              process.env.FANTASY_SUPABASE_SERVICE_ROLE_KEY;
+
+            if (!url || !key) {
+              throw new Error(
+                "Missing Supabase credentials"
+              );
+            }
+
+            const db = createClient(url, key, {
+              auth: {
+                persistSession: false,
+                autoRefreshToken: false
+              }
+            });
+
+            const result = await projectNBAWithInjuries({
+              db,
+              slate,
+              cutoffAt
+            });
+
+            if (
+              result.mode !== "shadow" ||
+              result.readyForPublication !== false ||
+              result.readyForOptimization !== false
+            ) {
+              throw new Error(
+                "Shadow safety verification failed"
+              );
+            }
+
+            if (
+              result.players.length +
+              result.excluded.length !==
+              slate.players.length
+            ) {
+              throw new Error(
+                "Player accounting mismatch"
+              );
+            }
+
+            const excludedIds = new Set(
+              result.excluded
+                .filter(p => p.reason === "confirmed_out")
+                .map(p => String(p.playerId))
+            );
+
+            const available = result.players.filter(
+              p =>
+                Number.isFinite(p.projectedPoints) &&
+                p.projectedPoints >= 0 &&
+                Number.isFinite(Number(p.salary)) &&
+                Number(p.salary) > 0 &&
+                Array.isArray(p.positions) &&
+                p.positions.length > 0 &&
+                !excludedIds.has(String(p.playerId))
+            );
+
+            if (available.length < 8) {
+              throw new Error(
+                "Insufficient eligible players"
+              );
+            }
+
+            fs.mkdirSync(
+              "fantasy-injury-lineups",
+              { recursive: true }
+            );
+
+            fs.writeFileSync(
+              "fantasy-injury-lineups/projections-v2.json",
+              JSON.stringify(result, null, 2)
+            );
+
+            const gameIds = [
+              ...new Set(
+                slate.players
+                  .map(p => p.gameId)
+                  .filter(Boolean)
+              )
+            ];
+
+            const payload = {
+              sport: "nba",
+              platform: "draftkings",
+              slate: {
+                id: String(slate.slateId),
+                sport: "nba",
+                platform: "draftkings",
+                format: "classic",
+                gameIds
+              },
+              players: available.map(p => ({
+                playerId: String(p.playerId),
+                name: p.name,
+                teamId: String(p.teamId),
+                gameId: String(p.gameId),
+                salary: Number(p.salary),
+                positions: p.positions,
+                projectedPoints: p.projectedPoints
+              })),
+              lineupCount: 10,
+              minDifferentPlayers: 2,
+              maxExposurePercent: 100,
+              timeLimitSeconds: 120,
+              locked: [],
+              excluded: []
+            };
+
+            fs.writeFileSync(
+              "fantasy-injury-lineups/optimizer-input.json",
+              JSON.stringify(payload, null, 2)
+            );
+
+            console.log(
+              "=== NBA INJURY V2 PROJECTIONS ==="
+            );
+
+            console.log(
+              JSON.stringify({
+                cutoffAt,
+                slateId: slate.slateId,
+                projected: result.players.length,
+                eligible: available.length,
+                confirmedOut:
+                  result.totals.removedConfirmedOut,
+                adjusted:
+                  result.totals.playersWithInjuryAdjustments,
+                historicalSignals:
+                  result.totals.playersWithHistoricalSignals,
+                injurySnapshots:
+                  result.injurySnapshotCount,
+                mode: "shadow"
+              }, null, 2)
+            );
+          }
+
+          main().catch(error => {
+            console.error(error);
+            process.exitCode = 1;
+          });
+          NODE
+
+      - name: Generate 10 certified CP-SAT lineups
+        run: |
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(
+              0,
+              "fantasy-engine/optimizer"
+          )
+
+          from recommendation_controller import recommend
+
+          folder = Path("fantasy-injury-lineups")
+
+          payload = json.loads(
+              (folder / "optimizer-input.json").read_text()
+          )
+
+          print(
+              "=== CASHEDGE NBA INJURY V2 CP-SAT ===",
+              flush=True
+          )
+
+          print(
+              "Eligible players:",
+              len(payload["players"]),
+              flush=True
+          )
+
+          result = recommend(payload)
+
+          (folder / "lineups-v2.json").write_text(
+              json.dumps(result, indent=2, default=str)
+          )
+
+          if result.get("status") != "COMPLETE":
+              raise RuntimeError(
+                  "Optimizer did not complete: "
+                  + str(result.get("status"))
+              )
+
+          if result.get("mainOptimalityGuaranteed") is not True:
+              raise RuntimeError(
+                  "Primary lineup not certified OPTIMAL"
+              )
+
+          main = result.get("recommended") or {}
+
+          if main.get("status") != "OPTIMAL":
+              raise RuntimeError(
+                  "Primary lineup status is not OPTIMAL"
+              )
+
+          print(
+              "PRIMARY LINEUP: OPTIMAL",
+              flush=True
+          )
+
+          print(
+              "=== FULL LINEUP RESULT ===",
+              flush=True
+          )
+
+          print(
+              json.dumps(
+                  result,
+                  indent=2,
+                  default=str
+              ),
+              flush=True
+          )
+
+          print(
+              "=== FINAL STATUS ===",
+              flush=True
+          )
+
+          print("PASS", flush=True)
+          print("Main lineup: OPTIMAL", flush=True)
+          print("Mode: SHADOW", flush=True)
+          print("No database changes", flush=True)
+          print("No production publication", flush=True)
+          PY
+
+      - name: Save Shadow lineup report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cashedge-nba-injury-v2-lineups
+          path: fantasy-injury-lineups/*.json
+          if-no-files-found: warn
+          retention-days: 7
