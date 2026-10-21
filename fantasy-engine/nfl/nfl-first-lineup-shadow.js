@@ -49,10 +49,17 @@ const HISTORY_FILE = path.resolve(
   "dst-history-shadow.json"
 );
 
+
 const SOLVER = path.resolve(
   __dirname,
   "../optimizer/solver.py"
 );
+
+const RECOMMENDATION_CONTROLLER = path.resolve(
+  __dirname,
+  "../optimizer/recommendation_controller.py"
+);
+
 
 const timestamp = value =>
   Date.parse(value || "");
@@ -309,10 +316,12 @@ function buildEvidence(snaps, links, injuries) {
   };
 }
 
-function runSolver(payload) {
+
+function runSolver(payload, solverPath = SOLVER) {
   const result = spawnSync(
     "python",
-    [SOLVER],
+    [solverPath],
+
     {
       input: JSON.stringify(payload),
       encoding: "utf8",
@@ -364,7 +373,9 @@ async function main() {
     await Promise.all([
       loadNFLVerseHistory({
         targetSeason: 2026,
-        targetWeek: 8,
+       
+targetWeek: 7,
+
         cutoffAt: CUTOFF
       }),
 
@@ -630,6 +641,83 @@ async function main() {
         `${row.projectedPoints} pts`
       );
     }
+
+    // Tres alineaciones de prueba.
+    // #1 mantiene la mejor combinacion certificada.
+    // #2 y #3 son alternativas independientes.
+    // No son recomendaciones publicables.
+
+    const portfolio = runSolver(
+      {
+        sport: "nfl",
+        platform,
+        slate: {
+          id: slate.id,
+          sport: "nfl",
+          platform,
+          format: "classic",
+          gameIds: [...allowedEvents]
+        },
+        players,
+        lineupCount: 3,
+        minDifferentPlayers: 2,
+        maxExposurePercent: 100,
+        timeLimitSeconds: 15
+      },
+      RECOMMENDATION_CONTROLLER
+    );
+
+    console.log(
+      "\nTHREE LINEUP PORTFOLIO:",
+      portfolio.status
+    );
+
+    console.log(
+      "Main optimal:",
+      portfolio.mainOptimalityGuaranteed
+    );
+
+    console.log(
+      "Alternative portfolio optimal:",
+      portfolio.alternativePortfolioOptimalityGuaranteed
+    );
+
+    console.log(
+      "Lineups generated:",
+      portfolio.generatedLineups || 0
+    );
+
+    if (portfolio.status === "COMPLETE") {
+      const lineups = [
+        portfolio.recommended,
+        ...(portfolio.alternatives || [])
+      ].filter(Boolean);
+
+      for (const lineup of lineups) {
+        console.log(
+          `\nLINEUP #${lineup.number} | ` +
+          `$${lineup.salary} | ` +
+          `${lineup.projectedPoints} pts`
+        );
+
+        for (const player of lineup.players) {
+          console.log(
+            `${player.slot}: ${player.name} | ` +
+            `$${player.salary} | ` +
+            `${player.projectedPoints} pts`
+          );
+        }
+      }
+    } else {
+      console.log(
+        "Portfolio not fully certified:",
+        portfolio.reason || portfolio.status
+      );
+    }
+
+    console.log(
+      "SHADOW PORTFOLIO — PUBLICATION BLOCKED"
+    );
 
     console.log(
       "AVAILABILITY NOT CONFIRMED"
