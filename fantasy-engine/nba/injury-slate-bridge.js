@@ -2,23 +2,13 @@
 "use strict";
 
 // CASHEDGE FANTASY EDGE
-// NBA INJURY SLATE BRIDGE V2
+// NBA INJURY SLATE BRIDGE V3
 //
+// DraftKings + FanDuel.
+// Conserva la metodologia V2.
 // Solo lectura de Supabase.
-// No altera la formula base de NBA.
-// No modifica Player Props ni Premium Picks.
-// No escribe en Supabase.
-// No publica recomendaciones.
-//
-// V2:
-// - Ajustes basados en produccion por minuto.
-// - Conserva los minutos esperados del modelo.
-// - Descuenta el efecto ya incluido en la base.
-// - Minimo 4 juegos por situacion.
-// - Evita sumar impactos simultaneos.
-// - Rechaza senales contradictorias.
-// - Excluye jugadores confirmados OUT.
-// - Mantiene todo en modo SHADOW.
+// No cambia minutos esperados.
+// No publica ni escribe resultados.
 
 const {
   projectRealNBASlate
@@ -72,7 +62,6 @@ const validDate = value =>
 
 function getSeasons(cutoffAt) {
   const date = new Date(cutoffAt);
-
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth() + 1;
 
@@ -80,21 +69,51 @@ function getSeasons(cutoffAt) {
     ? year
     : year - 1;
 
-  return [
-    current,
-    current - 1
-  ];
+  return [current, current - 1];
 }
 
-function baseFantasyPoints(row) {
-  return (
-    Number(row.points) +
-    Number(row.rebounds) * 1.25 +
-    Number(row.assists) * 1.5 +
-    Number(row.steals) * 2 +
-    Number(row.blocks) * 2 -
-    Number(row.turnovers) * 0.5 +
-    Number(row.three_pointers_made) * 0.5
+// Puntos base sin bonos DraftKings.
+// Los bonos NO se trasladan a FanDuel.
+
+function baseFantasyPoints(
+  row,
+  platform = "draftkings"
+) {
+  const points = Number(row.points);
+  const rebounds = Number(row.rebounds);
+  const assists = Number(row.assists);
+  const steals = Number(row.steals);
+  const blocks = Number(row.blocks);
+  const turnovers = Number(row.turnovers);
+  const threes = Number(
+    row.three_pointers_made
+  );
+
+  if (platform === "fanduel") {
+    return (
+      points +
+      rebounds * 1.2 +
+      assists * 1.5 +
+      steals * 3 +
+      blocks * 3 -
+      turnovers
+    );
+  }
+
+  if (platform === "draftkings") {
+    return (
+      points +
+      rebounds * 1.25 +
+      assists * 1.5 +
+      steals * 2 +
+      blocks * 2 -
+      turnovers * 0.5 +
+      threes * 0.5
+    );
+  }
+
+  throw new Error(
+    "Unsupported NBA fantasy platform"
   );
 }
 
@@ -116,9 +135,6 @@ function validHistory(row, cutoffAt) {
     return false;
   }
 
-  // No incluir el dia del cutoff:
-  // evita utilizar estadisticas posteriores
-  // dentro de una prediccion pregame.
   if (
     row.game_date.slice(0, 10) ===
     cutoffAt.slice(0, 10)
@@ -148,12 +164,12 @@ function validHistory(row, cutoffAt) {
 
 function sortRecent(rows) {
   return [...rows].sort((a, b) => {
-    const dateDiff =
+    const difference =
       Date.parse(b.game_date) -
       Date.parse(a.game_date);
 
-    if (dateDiff !== 0) {
-      return dateDiff;
+    if (difference !== 0) {
+      return difference;
     }
 
     return String(b.game_id)
@@ -161,17 +177,12 @@ function sortRecent(rows) {
   });
 }
 
-// Produccion Fantasy por minuto.
-//
-// No estimamos un nuevo rol.
-// No aumentamos artificialmente minutos.
-//
-// Solo comparamos eficiencia historica.
-
-function fantasyRate(rows, weighted = false) {
-  if (!rows.length) {
-    return null;
-  }
+function fantasyRate(
+  rows,
+  weighted = false,
+  platform = "draftkings"
+) {
+  if (!rows.length) return null;
 
   let weightedPoints = 0;
   let weightedMinutes = 0;
@@ -182,15 +193,14 @@ function fantasyRate(rows, weighted = false) {
       : 1;
 
     weightedPoints +=
-      baseFantasyPoints(row) * weight;
+      baseFantasyPoints(row, platform) *
+      weight;
 
     weightedMinutes +=
       Number(row.minutes) * weight;
   });
 
-  if (weightedMinutes <= 0) {
-    return null;
-  }
+  if (weightedMinutes <= 0) return null;
 
   return weightedPoints / weightedMinutes;
 }
@@ -216,17 +226,11 @@ function buildHistoryIndexes(rows) {
     teamGames.get(gameId).add(playerId);
   }
 
-  for (const [playerId, games] of byPlayer) {
-    byPlayer.set(
-      playerId,
-      sortRecent(games)
-    );
+  for (const [id, games] of byPlayer) {
+    byPlayer.set(id, sortRecent(games));
   }
 
-  return {
-    byPlayer,
-    teamGames
-  };
+  return { byPlayer, teamGames };
 }
 
 async function loadTeamHistory(
@@ -266,12 +270,9 @@ async function loadTeamHistory(
     }
 
     const rows = data || [];
-
     all.push(...rows);
 
-    if (rows.length < PAGE_SIZE) {
-      break;
-    }
+    if (rows.length < PAGE_SIZE) break;
 
     offset += PAGE_SIZE;
   }
@@ -305,6 +306,14 @@ async function loadInjurySnapshots(
   return data || [];
 }
 
+// Emparejamiento por los dos equipos.
+// No comparar ID de evento DFS con game_id
+// del reporte de lesiones.
+//
+// Para un mismo partido se prefiere
+// el reporte mas reciente, siempre que
+// sea valido para el momento del cutoff.
+
 function matchSnapshots(slate, snapshots) {
   const teamsByGame = new Map();
 
@@ -312,9 +321,7 @@ function matchSnapshots(slate, snapshots) {
     const gameId = asId(player.gameId);
     const teamId = asId(player.teamId);
 
-    if (!gameId || !teamId) {
-      continue;
-    }
+    if (!gameId || !teamId) continue;
 
     if (!teamsByGame.has(gameId)) {
       teamsByGame.set(gameId, new Set());
@@ -330,31 +337,33 @@ function matchSnapshots(slate, snapshots) {
       continue;
     }
 
-    const snapshotTeams = new Set([
+    const teams = new Set([
       asId(snapshot.away_team_id),
       asId(snapshot.home_team_id)
     ]);
 
     if (
-      snapshotTeams.size !== 2 ||
-      snapshotTeams.has("")
+      teams.size !== 2 ||
+      teams.has("")
     ) {
       continue;
     }
 
-    for (const [gameId, teams] of teamsByGame) {
+    for (const [gameId, gameTeams]
+      of teamsByGame) {
+
       if (
-        teams.size !== 2 ||
+        gameTeams.size !== 2 ||
         result.has(gameId)
       ) {
         continue;
       }
 
-      const matches = [...teams].every(
-        team => snapshotTeams.has(team)
+      const matched = [...gameTeams].every(
+        team => teams.has(team)
       );
 
-      if (matches) {
+      if (matched) {
         result.set(gameId, snapshot);
       }
     }
@@ -363,27 +372,30 @@ function matchSnapshots(slate, snapshots) {
   return result;
 }
 
-// Calcula un impacto individual.
+// Mismo ajuste V2:
+// base * (tasa sin companero /
+// tasa reciente - 1) * peso.
 //
-// Formula:
-//
-// Proyeccion base *
-// (tasa sin companero / tasa reciente - 1)
-// * peso de muestra
-//
-// La tasa reciente contiene la mezcla
-// real de partidos con y sin el companero.
-//
-// Asi evitamos sumar de nuevo toda la
-// diferencia historica con/sin.
+// Solo cambia la formula Fantasy
+// correspondiente a la plataforma.
 
 function calculateIndividualSignal({
   player,
   teammateId,
   teamId,
   indexes,
-  cutoffAt
+  cutoffAt,
+  platform = "draftkings"
 }) {
+  if (
+    platform !== "draftkings" &&
+    platform !== "fanduel"
+  ) {
+    throw new Error(
+      "Invalid injury scoring platform"
+    );
+  }
+
   const playerId = asId(player.playerId);
 
   const targetGames =
@@ -415,7 +427,7 @@ function calculateIndividualSignal({
     teammateGames,
     teamGames: coverage,
     cutoffAt,
-    platform: "draftkings"
+    platform
   });
 
   if (!impact.evidenceSufficient) {
@@ -477,15 +489,20 @@ function calculateIndividualSignal({
 
   const baselineRate = fantasyRate(
     recentBaseline,
-    true
+    true,
+    platform
   );
 
   const absenceRate = fantasyRate(
-    without
+    without,
+    false,
+    platform
   );
 
   const withRate = fantasyRate(
-    withTeammate
+    withTeammate,
+    false,
+    platform
   );
 
   if (
@@ -500,17 +517,12 @@ function calculateIndividualSignal({
   const basePoints =
     Number(player.projectedPoints);
 
-  if (
-    !Number.isFinite(basePoints) ||
-    basePoints < 0
-  ) {
-    return null;
-  }
-
   const expectedMinutes =
     Number(player.expectedMinutes);
 
   if (
+    !Number.isFinite(basePoints) ||
+    basePoints < 0 ||
     !Number.isFinite(expectedMinutes) ||
     expectedMinutes <= 0
   ) {
@@ -518,7 +530,6 @@ function calculateIndividualSignal({
   }
 
   const weight = impact.sampleWeight;
-
   const rateRatio =
     absenceRate / baselineRate;
 
@@ -533,7 +544,6 @@ function calculateIndividualSignal({
     gamesWith: withTeammate.length,
     gamesWithout: without.length,
     sampleWeight: weight,
-
     expectedMinutes:
       player.expectedMinutes,
 
@@ -546,30 +556,19 @@ function calculateIndividualSignal({
     withoutFantasyPerMinute:
       round(absenceRate),
 
-    rateRatio:
-      round(rateRatio),
-
+    rateRatio: round(rateRatio),
     adjustment,
+    platform,
 
-    source:
-      "nba_player_game_stats",
-
-    method:
-      "per_minute_baseline_relative",
-
+    source: "nba_player_game_stats",
+    method: "per_minute_baseline_relative",
     confirmedCurrentAbsence: true
   };
 }
 
-// Cuando faltan varios companeros:
-//
-// - Nunca se suman los impactos.
-// - Si hay senales positivas y negativas,
-//   no suponemos cual domina.
-// - Si todas coinciden en direccion,
-//   usamos el promedio ponderado.
-//
-// No seleccionamos el valor mas extremo.
+// Conserva la combinacion original V2:
+// no sumar impactos y no elegir
+// arbitrariamente la senal mayor.
 
 function combineSignals(signals) {
   const valid = signals.filter(
@@ -604,10 +603,8 @@ function combineSignals(signals) {
 
   if (valid.length === 1) {
     return {
-      adjustment:
-        valid[0].adjustment,
-      status:
-        "single_historical_signal_shadow",
+      adjustment: valid[0].adjustment,
+      status: "single_historical_signal_shadow",
       selectedSignals: valid
     };
   }
@@ -669,6 +666,20 @@ async function projectNBAWithInjuries({
     );
   }
 
+  const platform =
+    String(slate?.platform || "")
+      .trim()
+      .toLowerCase();
+
+  if (
+    platform !== "draftkings" &&
+    platform !== "fanduel"
+  ) {
+    throw new Error(
+      "NBA platform must be DraftKings or FanDuel"
+    );
+  }
+
   const base = await projectRealNBASlate({
     db,
     slate,
@@ -676,17 +687,21 @@ async function projectNBAWithInjuries({
     contextByPlayer
   });
 
-  const snapshots =
-    await loadInjurySnapshots(
-      db,
-      cutoffAt
+  if (base.platform !== platform) {
+    throw new Error(
+      "Projection platform mismatch"
     );
+  }
 
-  const snapshotByGame =
-    matchSnapshots(
-      slate,
-      snapshots
-    );
+  const snapshots = await loadInjurySnapshots(
+    db,
+    cutoffAt
+  );
+
+  const snapshotByGame = matchSnapshots(
+    slate,
+    snapshots
+  );
 
   const historyCache = new Map();
 
@@ -757,9 +772,6 @@ async function projectNBAWithInjuries({
       continue;
     }
 
-    // El reporte actual confirma que
-    // el jugador evaluado no jugara.
-
     if (context.playerStatus === "out") {
       removed.push({
         playerId: player.playerId,
@@ -814,7 +826,8 @@ async function projectNBAWithInjuries({
           teammateId,
           teamId,
           indexes,
-          cutoffAt
+          cutoffAt,
+          platform
         });
 
       if (signal) {
@@ -828,8 +841,7 @@ async function projectNBAWithInjuries({
     const adjustedPoints = round(
       Math.max(
         0,
-        original +
-          combined.adjustment
+        original + combined.adjustment
       )
     );
 
@@ -840,15 +852,10 @@ async function projectNBAWithInjuries({
     players.push({
       ...player,
 
-      baseProjectedPoints:
-        original,
+      baseProjectedPoints: original,
+      projectedPoints: adjustedPoints,
 
-      projectedPoints:
-        adjustedPoints,
-
-      injuryAdjustment:
-        actualAdjustment,
-
+      injuryAdjustment: actualAdjustment,
       injuryAdjustmentStatus:
         combined.status,
 
@@ -861,7 +868,7 @@ async function projectNBAWithInjuries({
       injurySnapshotCheckedAt:
         context.checkedAt,
 
-      // Mantener SHADOW.
+      scoringPlatform: platform,
       readyForOptimization: false
     });
 
@@ -870,12 +877,10 @@ async function projectNBAWithInjuries({
         playerId: player.playerId,
         name: player.name,
         team: player.team,
+        platform,
 
-        previousPoints:
-          original,
-
+        previousPoints: original,
         adjustedPoints,
-
         actualAdjustment,
 
         adjustmentStatus:
@@ -884,8 +889,7 @@ async function projectNBAWithInjuries({
         signalsConsidered:
           signals.length,
 
-        signals:
-          signals
+        signals
       });
     }
   }
@@ -899,7 +903,7 @@ async function projectNBAWithInjuries({
     ...base,
 
     sport: "nba",
-    platform: "draftkings",
+    platform,
     mode: "shadow",
 
     players,
@@ -912,8 +916,7 @@ async function projectNBAWithInjuries({
     totals: {
       ...base.totals,
 
-      projected:
-        players.length,
+      projected: players.length,
 
       excluded:
         base.excluded.length +
@@ -933,6 +936,11 @@ async function projectNBAWithInjuries({
 
     injurySnapshotCount:
       snapshotByGame.size,
+
+    injurySourceSnapshotCount:
+      snapshots.length,
+
+    scoringPlatform: platform,
 
     readyForOptimization: false,
     readyForPublication: false,
