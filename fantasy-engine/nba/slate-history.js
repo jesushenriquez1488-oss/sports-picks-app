@@ -4,15 +4,21 @@
 // CASHEDGE FANTASY EDGE
 // NBA REAL SLATE HISTORY BRIDGE
 //
+// DraftKings y FanDuel.
 // Solo lectura de Supabase.
-// No modifica Player Props ni Premium Picks.
-// No escribe en la base de datos.
+// No modifica Premium Picks ni Player Props.
+// No escribe en Supabase.
 // No publica recomendaciones.
-// No altera la formula de proyeccion.
+// No modifica la formula de proyeccion.
 
 const {
   projectNBAPlayer
 } = require("./projection");
+
+const SUPPORTED_PLATFORMS = new Set([
+  "draftkings",
+  "fanduel"
+]);
 
 const HISTORY_FIELDS = [
   "game_id",
@@ -111,7 +117,6 @@ async function loadBatch(db, ids, cutoffAt) {
       }
 
       const rows = data || [];
-
       all.push(...rows);
 
       if (rows.length < PAGE_SIZE) {
@@ -174,15 +179,6 @@ function checkIdentity(player, games) {
     };
   }
 
-  // No se aceptan identidades basadas
-  // exclusivamente en el mismo numero ID.
-  //
-  // Exigimos que el nombre actual coincida
-  // exactamente tras normalizacion.
-  //
-  // Una discrepancia se reporta para revision,
-  // nunca se corrige automaticamente.
-
   if (!historicalNames.includes(dfsName)) {
     return {
       verified: false,
@@ -205,6 +201,12 @@ function checkIdentity(player, games) {
   };
 }
 
+function getPlatform(slate) {
+  return String(
+    slate?.platform || ""
+  ).trim().toLowerCase();
+}
+
 async function projectRealNBASlate({
   db,
   slate,
@@ -217,15 +219,18 @@ async function projectRealNBASlate({
     );
   }
 
+  const platform = getPlatform(slate);
+
   if (
     !slate ||
     slate.sport !== "nba" ||
-    slate.platform !== "draftkings" ||
+    !SUPPORTED_PLATFORMS.has(platform) ||
     !slate.slateId ||
     !Array.isArray(slate.players)
   ) {
     throw new Error(
-      "Se requiere slate NBA DraftKings real"
+      "Se requiere slate real NBA " +
+      "DraftKings o FanDuel"
     );
   }
 
@@ -316,7 +321,7 @@ async function projectRealNBASlate({
     }
 
     identityLinks.push({
-      platform: "draftkings",
+      platform,
       dfsPlayerId: id,
       historicalPlayerId: id,
       verified: true,
@@ -325,7 +330,9 @@ async function projectRealNBASlate({
     });
 
     const status = String(
-      player.status ?? ""
+      player.status ??
+      player.providerStatus ??
+      ""
     ).trim().toLowerCase();
 
     if ([
@@ -334,7 +341,8 @@ async function projectRealNBASlate({
       "d",
       "doubtful",
       "inactive",
-      "suspended"
+      "suspended",
+      "ir"
     ].includes(status)) {
       excluded.push({
         playerId: id,
@@ -382,15 +390,22 @@ async function projectRealNBASlate({
       continue;
     }
 
+    const platformPoints =
+      projection.fantasyBasePoints?.[platform];
+
     if (
       projection.status !== "baseline_shadow" ||
-      !projection.fantasyBasePoints
+      !Number.isFinite(Number(platformPoints)) ||
+      Number(platformPoints) <= 0
     ) {
       excluded.push({
         playerId: id,
         name: player.name,
         gamesFound: games.length,
-        reason: projection.status
+        reason:
+          projection.status === "baseline_shadow"
+            ? "invalid_platform_points"
+            : projection.status
       });
 
       continue;
@@ -403,14 +418,19 @@ async function projectRealNBASlate({
       teamId: player.teamId ?? null,
       team: player.team ?? null,
       gameId: player.gameId ?? null,
+
       salary: Number(player.salary),
       positions: player.positions,
       rosterSlotIds:
         player.rosterSlotIds || [],
-      injuryStatus: player.status ?? null,
+
+      injuryStatus:
+        player.status ??
+        player.providerStatus ??
+        null,
 
       projectedPoints:
-        projection.fantasyBasePoints.draftkings,
+        Number(platformPoints),
 
       expectedMinutes:
         projection.expectedMinutes,
@@ -424,10 +444,9 @@ async function projectRealNBASlate({
       projectionStatus:
         projection.status,
 
+      scoringPlatform: platform,
       identityVerified: true,
 
-      // Se mantiene SHADOW.
-      // No activar optimizacion ni publicacion.
       readyForOptimization: false
     });
   }
@@ -442,7 +461,7 @@ async function projectRealNBASlate({
 
   return {
     sport: "nba",
-    platform: "draftkings",
+    platform,
     slateId: String(slate.slateId),
     cutoffAt,
     mode: "shadow",
@@ -457,7 +476,9 @@ async function projectRealNBASlate({
 
     limitations: [
       "Proyecciones iniciales no calibradas prospectivamente",
-      "Bonos DraftKings pendientes",
+      platform === "draftkings"
+        ? "Bonos DraftKings pendientes"
+        : "Puntuacion base FanDuel sin bonos DraftKings",
       "Estados de lesiones requieren verificacion pregame",
       "Reglas reales del slate pendientes de certificacion"
     ]
