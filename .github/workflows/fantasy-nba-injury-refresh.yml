@@ -1,0 +1,401 @@
+
+name: CashEdge NBA Injury Refresh
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches:
+      - fantasy-dev
+    paths:
+      - ".github/workflows/fantasy-nba-injury-refresh.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  injury-refresh:
+    name: Verify NBA Injury Freshness
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout fantasy-dev
+        uses: actions/checkout@v4
+        with:
+          ref: fantasy-dev
+
+      - name: Check live injuries and database
+        env:
+          BALLDONTLIE_NBA_API_KEY: ${{ secrets.BALLDONTLIE_NBA_API_KEY }}
+          FANTASY_SUPABASE_URL: ${{ secrets.FANTASY_SUPABASE_URL }}
+          FANTASY_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.FANTASY_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node <<'NODE'
+          "use strict";
+
+          const fs = require("node:fs");
+
+          const sleep = ms =>
+            new Promise(resolve => setTimeout(resolve, ms));
+
+          const required = [
+            "BALLDONTLIE_NBA_API_KEY",
+            "FANTASY_SUPABASE_URL",
+            "FANTASY_SUPABASE_SERVICE_ROLE_KEY"
+          ];
+
+          for (const name of required) {
+            if (!process.env[name]) {
+              throw new Error("Missing secret: " + name);
+            }
+          }
+
+          const checkedAt = new Date().toISOString();
+
+          const teamIds = [
+            1, 3, 4, 5, 7, 10, 11, 12,
+            13, 14, 15, 16, 17, 18, 19,
+            22, 24, 25, 26, 28, 29, 30
+          ];
+
+          async function request(url, headers) {
+            for (let attempt = 0; attempt < 4; attempt++) {
+              const response = await fetch(url, {
+                headers
+              });
+
+              if (
+                response.status === 429 ||
+                response.status >= 500
+              ) {
+                if (attempt === 3) {
+                  throw new Error(
+                    "HTTP " + response.status
+                  );
+                }
+
+                await sleep(1500 * (attempt + 1));
+                continue;
+              }
+
+              if (!response.ok) {
+                const body = (
+                  await response.text()
+                ).slice(0, 250);
+
+                throw new Error(
+                  "HTTP " + response.status +
+                  ": " + body
+                );
+              }
+
+              return response.json();
+            }
+          }
+
+          async function loadLiveInjuries() {
+            const all = [];
+            const cursors = new Set();
+            let cursor = null;
+
+            for (let page = 0; page < 100; page++) {
+              const url = new URL(
+                "https://api.balldontlie.io/v1/player_injuries"
+              );
+
+              url.searchParams.set("per_page", "100");
+
+              for (const teamId of teamIds) {
+                url.searchParams.append(
+                  "team_ids[]",
+                  String(teamId)
+                );
+              }
+
+              if (cursor !== null) {
+                url.searchParams.set(
+                  "cursor",
+                  String(cursor)
+                );
+              }
+
+              const response = await request(
+                url,
+                {
+                  Authorization:
+                    process.env.BALLDONTLIE_NBA_API_KEY
+                }
+              );
+
+              if (!Array.isArray(response.data)) {
+                throw new Error(
+                  "Invalid NBA injury response"
+                );
+              }
+
+              all.push(...response.data);
+
+              const next =
+                response.meta?.next_cursor;
+
+              if (next == null) break;
+
+              if (cursors.has(String(next))) {
+                throw new Error(
+                  "Repeated injury API cursor"
+                );
+              }
+
+              cursors.add(String(next));
+              cursor = next;
+
+              if (page === 99) {
+                throw new Error(
+                  "Injury pagination limit reached"
+                );
+              }
+            }
+
+            return all;
+          }
+
+          async function loadSavedInjuries() {
+            const base = process.env
+              .FANTASY_SUPABASE_URL
+              .replace(/\/$/, "");
+
+            const url = new URL(
+              base +
+              "/rest/v1/nba_live_injury_state"
+            );
+
+            url.searchParams.set(
+              "select",
+              "game_id,away_team_id,home_team_id," +
+              "game_time,checked_at,injuries"
+            );
+
+            url.searchParams.set(
+              "game_time",
+              "gt." + checkedAt
+            );
+
+            url.searchParams.set(
+              "order",
+              "checked_at.desc"
+            );
+
+            url.searchParams.set(
+              "limit",
+              "1000"
+            );
+
+            return request(url, {
+              apikey:
+                process.env
+                  .FANTASY_SUPABASE_SERVICE_ROLE_KEY,
+              Authorization:
+                "Bearer " +
+                process.env
+                  .FANTASY_SUPABASE_SERVICE_ROLE_KEY
+            });
+          }
+
+          function normalizeStatus(value) {
+            return String(value || "")
+              .trim()
+              .toLowerCase();
+          }
+
+          async function main() {
+            const [live, saved] = await Promise.all([
+              loadLiveInjuries(),
+              loadSavedInjuries()
+            ]);
+
+            if (!Array.isArray(saved)) {
+              throw new Error(
+                "Invalid saved injury records"
+              );
+            }
+
+            const byTeam = new Map(
+              teamIds.map(teamId => [
+                String(teamId),
+                []
+              ])
+            );
+
+            for (const item of live) {
+              const teamId = String(
+                item.player?.team_id ??
+                item.player?.team?.id ??
+                ""
+              );
+
+              if (!byTeam.has(teamId)) continue;
+
+              byTeam.get(teamId).push({
+                playerId:
+                  String(item.player?.id ?? ""),
+                name: [
+                  item.player?.first_name,
+                  item.player?.last_name
+                ].filter(Boolean).join(" "),
+                status: normalizeStatus(
+                  item.status
+                )
+              });
+            }
+
+            const games = [];
+
+            for (const record of saved) {
+              const savedTime = Date.parse(
+                record.checked_at
+              );
+
+              const hoursOld =
+                Number.isFinite(savedTime)
+                  ? (
+                      Date.parse(checkedAt) -
+                      savedTime
+                    ) / 3600000
+                  : null;
+
+              const teams = [
+                String(record.away_team_id),
+                String(record.home_team_id)
+              ];
+
+              games.push({
+                gameId: record.game_id,
+                teams,
+                gameTime: record.game_time,
+                lastSavedAt: record.checked_at,
+                hoursOld:
+                  hoursOld == null
+                    ? null
+                    : Math.round(hoursOld * 10) / 10,
+                fresh:
+                  hoursOld !== null &&
+                  hoursOld >= 0 &&
+                  hoursOld <= 12,
+                currentAPIInjuries:
+                  teams.reduce(
+                    (count, team) =>
+                      count +
+                      (byTeam.get(team)?.length || 0),
+                    0
+                  )
+              });
+            }
+
+            const report = {
+              checkedAt,
+              mode: "shadow_read_only",
+              liveInjuries: live.length,
+              teamsChecked: teamIds.length,
+              savedSnapshots: saved.length,
+              freshSavedSnapshots:
+                games.filter(g => g.fresh).length,
+              games
+            };
+
+            fs.mkdirSync(
+              "fantasy-nba-injury-audit",
+              { recursive: true }
+            );
+
+            fs.writeFileSync(
+              "fantasy-nba-injury-audit/report.json",
+              JSON.stringify(report, null, 2)
+            );
+
+            console.log(
+              "=== NBA LIVE INJURY SOURCE ==="
+            );
+
+            console.log(
+              "API injuries:",
+              live.length
+            );
+
+            console.log(
+              "NBA teams checked:",
+              teamIds.length
+            );
+
+            console.log(
+              "\n=== SUPABASE INJURY FRESHNESS ==="
+            );
+
+            console.log(
+              JSON.stringify({
+                checkedAt,
+                savedSnapshots: saved.length,
+                freshSnapshots:
+                  report.freshSavedSnapshots,
+                staleSnapshots:
+                  games.filter(g => !g.fresh).length
+              }, null, 2)
+            );
+
+            console.log(
+              "\n=== GAME DETAILS ==="
+            );
+
+            for (const game of games) {
+              console.log(
+                JSON.stringify(game)
+              );
+            }
+
+            console.log(
+              "\n=== DIAGNOSIS ==="
+            );
+
+            if (
+              live.length > 0 &&
+              games.some(game => !game.fresh)
+            ) {
+              console.log(
+                "Live NBA injury data is available, " +
+                "but saved snapshots are stale."
+              );
+            } else if (live.length === 0) {
+              console.log(
+                "No injury entries returned by API; " +
+                "verify provider response and coverage."
+              );
+            } else {
+              console.log(
+                "Saved snapshots appear fresh."
+              );
+            }
+
+            console.log("PASS");
+            console.log("No Supabase writes");
+            console.log("No changes to projections");
+            console.log("No publication");
+          }
+
+          main().catch(error => {
+            console.error(
+              "NBA INJURY AUDIT ERROR:",
+              error.message
+            );
+
+            process.exitCode = 1;
+          });
+          NODE
+
+      - name: Save injury audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cashedge-nba-injury-freshness
+          path: fantasy-nba-injury-audit/*.json
+          if-no-files-found: warn
+          retention-days: 7
