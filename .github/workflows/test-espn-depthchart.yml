@@ -10,6 +10,7 @@ on:
       - "fantasy-engine/espn-depthchart-probe.js"
       - "fantasy-engine/espn-depthchart-normalizer.js"
       - "fantasy-engine/espn-depthchart-league-audit.js"
+      - "fantasy-engine/espn-sarr-identity-check.js"
       - ".github/workflows/test-espn-depthchart.yml"
 
 jobs:
@@ -26,5 +27,5 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Run ESPN NBA League Audit
-        run: node fantasy-engine/espn-depthchart-league-audit.js
+      - name: Verify ESPN Alex Sarr Identity
+        run: node fantasy-engine/espn-sarr-identity-check.js
