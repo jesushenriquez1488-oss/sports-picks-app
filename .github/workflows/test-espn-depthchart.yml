@@ -3,6 +3,12 @@ name: Test ESPN NBA Depth Chart
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - fantasy-dev
+    paths:
+      - "fantasy-engine/espn-depthchart-probe.js"
+      - ".github/workflows/test-espn-depthchart.yml"
 
 jobs:
   test-espn:
