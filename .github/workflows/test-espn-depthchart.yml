@@ -11,12 +11,13 @@ on:
       - "fantasy-engine/espn-depthchart-normalizer.js"
       - "fantasy-engine/espn-depthchart-league-audit.js"
       - "fantasy-engine/espn-sarr-identity-check.js"
+      - "fantasy-engine/espn-nba-identity-audit.js"
       - ".github/workflows/test-espn-depthchart.yml"
 
 jobs:
   test-espn:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
@@ -27,5 +28,11 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Verify ESPN Alex Sarr Identity
-        run: node fantasy-engine/espn-sarr-identity-check.js
+      - name: Install Supabase client
+        run: npm install --no-save --no-package-lock @supabase/supabase-js
+
+      - name: Run NBA ESPN Identity Audit
+        env:
+          FANTASY_SUPABASE_URL: ${{ secrets.FANTASY_SUPABASE_URL }}
+          FANTASY_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.FANTASY_SUPABASE_SERVICE_ROLE_KEY }}
+        run: node fantasy-engine/espn-nba-identity-audit.js
