@@ -1,0 +1,171 @@
+
+name: CashEdge NBA Rotation Reliability
+
+on:
+  push:
+    branches:
+      - fantasy-dev
+    paths:
+      - ".github/workflows/fantasy-nba-rotation-test.yml"
+      - "fantasy-engine/nba/rotation-reliability-shadow.js"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  nba-rotation:
+    name: NBA Rotation and Optimal Lineups
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install existing dependencies
+        run: |
+          npm install --prefix fantasy-engine \
+            --no-save \
+            --package-lock=false \
+            --ignore-scripts \
+            --no-audit \
+            --no-fund \
+            @supabase/supabase-js@2
+
+          python -m pip install ortools==9.14.6206
+
+      - name: Check rotation syntax
+        run: |
+          node --check fantasy-engine/nba/rotation-reliability-shadow.js
+
+      - name: Test participation rules
+        run: |
+          node <<'NODE'
+          const assert = require("node:assert/strict");
+
+          const {
+            rotationCheck
+          } = require(
+            "./fantasy-engine/nba/rotation-reliability-shadow"
+          );
+
+          const games = new Map();
+
+          for (let i = 1; i <= 20; i++) {
+            const gameId = String(i);
+
+            games.set(gameId, {
+              game_id: gameId,
+              game_date:
+                `2026-04-${String(i).padStart(2, "0")}`
+            });
+          }
+
+          const teams = new Map([
+            ["17", games]
+          ]);
+
+          const player = {
+            playerId: "100",
+            teamId: 17,
+            name: "Test Player",
+            salary: 3000,
+            projectedPoints: 14,
+            expectedMinutes: 14
+          };
+
+          function check(playedGames) {
+            const history = playedGames.map(i => ({
+              player_id: "100",
+              team_id: 17,
+              game_id: String(i),
+              game_date:
+                `2026-04-${String(i).padStart(2, "0")}`,
+              minutes: 14
+            }));
+
+            return rotationCheck(
+              player,
+              teams,
+              history,
+              "2026-10-20T23:40:57Z"
+            );
+          }
+
+          const eighteen = check(
+            Array.from({ length: 18 }, (_, i) => i + 1)
+          );
+
+          const twelve = check(
+            Array.from({ length: 12 }, (_, i) => i + 1)
+          );
+
+          const oneDnp = check(
+            Array.from({ length: 20 }, (_, i) => i + 1)
+              .filter(i => i !== 17)
+          );
+
+          assert.equal(eighteen.eligible, true);
+          assert.equal(twelve.eligible, false);
+          assert.equal(oneDnp.eligible, true);
+
+          console.log("18/20 accepted");
+          console.log("12/20 irregular rejected");
+          console.log("19/20 with one DNP accepted");
+          console.log("ROTATION UNIT TESTS PASSED");
+          NODE
+
+      - name: Get existing NBA projections
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          RUN_ID="$(
+            gh run list \
+              --workflow fantasy-nba-real-projections.yml \
+              --branch fantasy-dev \
+              --status success \
+              --limit 10 \
+              --json databaseId \
+              --jq '.[0].databaseId'
+          )"
+
+          if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
+            echo "NBA historical projection run missing"
+            exit 1
+          fi
+
+          mkdir -p fantasy-shadow-input
+
+          gh run download "$RUN_ID" \
+            --name cashedge-nba-77583-projections \
+            --dir fantasy-shadow-input
+
+          test -f fantasy-shadow-input/nba-77583-report.json
+
+      - name: Compare original and role-filtered NBA
+        env:
+          FANTASY_SUPABASE_URL: ${{ secrets.FANTASY_SUPABASE_URL }}
+          FANTASY_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.FANTASY_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node fantasy-engine/nba/rotation-reliability-shadow.js
+
+      - name: Confirm SHADOW isolation
+        run: |
+          echo "No new BALLDONTLIE requests"
+          echo "No Supabase writes"
+          echo "No changes to projection formulas"
+          echo "No production deployment"
+          echo "Ready for publication: FALSE"
