@@ -20,15 +20,18 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Fantasy Development
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
-      - name: Install Supabase client
+      - name: Verify Node.js
+        run: node --version
+
+      - name: Install Supabase Client
         run: npm install --no-save --no-package-lock @supabase/supabase-js
 
       - name: Run NBA ESPN Identity Audit
