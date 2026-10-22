@@ -1,0 +1,408 @@
+{
+  "mode": "shadow",
+  "sample": "A",
+  "date": "2026-10-22",
+  "slateId": "80365",
+  "platform": "draftkings",
+  "model": "CONTEXT_EXPERIMENTAL_V1",
+  "origin": "GitHub Actions original log",
+  "immutable": true,
+  "readyForPublication": false,
+  "lineups": [
+    {
+      "rank": 1,
+      "projectedPoints": 316.1,
+      "salary": 50000,
+      "players": [
+        {
+          "slot": "PG",
+          "playerId": "3547254",
+          "name": "Tyrese Maxey",
+          "salary": 8000,
+          "projectedPoints": 49.53,
+          "teamId": "23",
+          "gameId": "21717860"
+        },
+        {
+          "slot": "SG",
+          "playerId": "1028037477",
+          "name": "Ajay Mitchell",
+          "salary": 4400,
+          "projectedPoints": 30.82,
+          "teamId": "21",
+          "gameId": "21717861"
+        },
+        {
+          "slot": "SF",
+          "playerId": "125",
+          "name": "DeMar DeRozan",
+          "salary": 4900,
+          "projectedPoints": 28.91,
+          "teamId": "8",
+          "gameId": "21717861"
+        },
+        {
+          "slot": "PF",
+          "playerId": "38017685",
+          "name": "Chet Holmgren",
+          "salary": 5800,
+          "projectedPoints": 38.86,
+          "teamId": "21",
+          "gameId": "21717861"
+        },
+        {
+          "slot": "C",
+          "playerId": "201",
+          "name": "Isaiah Hartenstein",
+          "salary": 4800,
+          "projectedPoints": 30.54,
+          "teamId": "21",
+          "gameId": "21717861"
+        },
+        {
+          "slot": "G",
+          "playerId": "1028028993",
+          "name": "Jaylon Tyson",
+          "salary": 3600,
+          "projectedPoints": 24.94,
+          "teamId": "6",
+          "gameId": "21717860"
+        },
+        {
+          "slot": "F",
+          "playerId": "70",
+          "name": "Jaylen Brown",
+          "salary": 7600,
+          "projectedPoints": 47.24,
+          "teamId": "23",
+          "gameId": "21717860"
+        },
+        {
+          "slot": "UTIL",
+          "playerId": "246",
+          "name": "Nikola Jokic",
+          "salary": 10900,
+          "projectedPoints": 65.26,
+          "teamId": "8",
+          "gameId": "21717861"
+        }
+      ]
+    },
+    {
+      "rank": 2,
+      "projectedPoints": 312.98,
+      "salary": 49800,
+      "players": [
+        {
+          "slot": "PG",
+          "playerId": "1057261935",
+          "name": "VJ Edgecombe",
+          "salary": 5700,
+          "projectedPoints": 32.54,
+          "teamId": "23",
+          "gameId": "21717860"
+        },
+        {
+          "slot": "SG",
+          "playerId": "1028037477",
+          "name": "Ajay Mitchell",
+          "salary": 4400,
+          "projectedPoints": 30.82,
+          "teamId": "21",
+          "gameId": "21717861"
+        },
+        {
+          "slot": "SF",
+          "playerId": "70",
+          "name": "Jaylen Brown",
+          "salary": 7600,
+          "projectedPoints": 47.24,
+          "teamId": "23",
+          "gameId": "21717860"
+        },
+        {
+          "slot": "PF",
+          "playerId": "38017685",
+          "name": "Chet Holmgren",
+          "salary": 5800,
+          "projectedPoints": 38.86,
+          "teamId": "21",
+          "gameId": "21717861"
+        },
+        {
+          "slot": "C",
+          "playerId": "201",
+          "name": "Isaiah Hartenstein",
+          "salary": 4800,
+          "projectedPoints": 30.54,
+          "teamId": "21",
+          "gameId": "21717861"
+        },
+        {
+          "slot": "G",
+          "playerId": "1028028993",
+          "name": "Jaylon Tyson",
+          "salary": 3600,
+          "projectedPoints": 24.94,
+          "teamId": "6",
+          "gameId": "21717860"
+        },
+        {
+          "slot": "F",
+          "playerId": "237",
+          "name": "LeBron James",
+          "salary": 7000,
+          "projectedPoints": 42.78,
+          "teamId": "23",
+          "gameId": "21717860"
+        },
+        {
+          "slot": "UTIL",
+          "playerId": "246",
+          "name": "Nikola Jokic",
+          "salary": 10900,
+          "projectedPoints": 65.26,
+          "teamId": "8",
+          "gameId": "21717861"
+        }
+      ]
+    },
+    {
+      "rank": 3,
+      "projectedPoints": 312.65,
+      "salary": 50000,
+      "players": [
+        {
+          "slot": "PG",
+          "playerId": "3547254",
+          "name": "Tyrese Maxey",
+          "salary": 8000,
+          "projectedPoints": 49.53,
+          "teamId": "23",
+          "gameId": "21717860"
+        },
+        {
+          "slot": "SG",
+          "playerId": "1028037477",
+          "name": "Ajay Mitchell",
+          "salary": 4400,
+          "projectedPoints": 30.82,
+          "teamId": "21",
+          "gameId": "21717861"
+        },
+        {
+          "slot": "SF",
+          "playerId": "1028028993",
+          "name": "Jaylon Tyson",
+          "salary": 3600,
+          "projectedPoints": 24.94,
+          "teamId": "6",
+          "gameId": "21717860"
+        },
+        {
+          "slot": "PF",
+          "playerId": "237",
+          "name": "LeBron James",
+          "salary": 7000,
+          "projectedPoints": 42.78,
+          "teamId": "23",
+          "gameId": "21717860"
+        },
+        {
+          "slot": "C",
+          "playerId": "201",
+          "name": "Isaiah Hartenstein",
+          "salary": 4800,
+          "projectedPoints": 30.54,
+          "teamId": "21",
+          "gameId": "21717861"
+        },
+        {
+          "slot": "G",
+          "playerId": "3547299",
+          "name": "Sam Merrill",
+          "salary": 3700,
+          "projectedPoints": 21.54,
+          "teamId": "6",
+          "gameId": "21717860"
+        },
+        {
+          "slot": "F",
+          "playerId": "70",
+          "name": "Jaylen Brown",
+          "salary": 7600,
+          "projectedPoints": 47.24,
+          "teamId": "23",
+          "gameId": "21717860"
+        },
+        {
+          "slot": "UTIL",
+          "playerId": "246",
+          "name": "Nikola Jokic",
+          "salary": 10900,
+          "projectedPoints": 65.26,
+          "teamId": "8",
+          "gameId": "21717861"
+        }
+      ]
+    },
+    {
+      "rank": 4,
+      "projectedPoints": 312.0,
+      "salary": 49600,
+      "players": [
+        {
+          "slot": "PG",
+          "playerId": "1028037477",
+          "name": "Ajay Mitchell",
+          "salary": 4400,
+          "projectedPoints": 30.82,
+          "teamId": "21",
+          "gameId": "21717861"
+        },
+        {
+          "slot": "SG",
+          "playerId": "125",
+          "name": "DeMar DeRozan",
+          "salary": 4900,
+          "projectedPoints": 28.91,
+          "teamId": "8",
+          "gameId": "21717861"
+        },
+        {
+          "slot": "SF",
+          "playerId": "70",
+          "name": "Jaylen Brown",
+          "salary": 7600,
+          "projectedPoints": 47.24,
+          "teamId": "23",
+          "gameId": "21717860"
+        },
+        {
+          "slot": "PF",
+          "playerId": "237",
+          "name": "LeBron James",
+          "salary": 7000,
+          "projectedPoints": 42.78,
+          "teamId": "23",
+          "gameId": "21717860"
+        },
+        {
+          "slot": "C",
+          "playerId": "201",
+          "name": "Isaiah Hartenstein",
+          "salary": 4800,
+          "projectedPoints": 30.54,
+          "teamId": "21",
+          "gameId": "21717861"
+        },
+        {
+          "slot": "G",
+          "playerId": "192",
+          "name": "James Harden",
+          "salary": 7100,
+          "projectedPoints": 43.32,
+          "teamId": "6",
+          "gameId": "21717860"
+        },
+        {
+          "slot": "F",
+          "playerId": "38017685",
+          "name": "Chet Holmgren",
+          "salary": 5800,
+          "projectedPoints": 38.86,
+          "teamId": "21",
+          "gameId": "21717861"
+        },
+        {
+          "slot": "UTIL",
+          "playerId": "3547254",
+          "name": "Tyrese Maxey",
+          "salary": 8000,
+          "projectedPoints": 49.53,
+          "teamId": "23",
+          "gameId": "21717860"
+        }
+      ]
+    },
+    {
+      "rank": 5,
+      "projectedPoints": 311.89,
+      "salary": 50000,
+      "players": [
+        {
+          "slot": "PG",
+          "playerId": "1028037477",
+          "name": "Ajay Mitchell",
+          "salary": 4400,
+          "projectedPoints": 30.82,
+          "teamId": "21",
+          "gameId": "21717861"
+        },
+        {
+          "slot": "SG",
+          "playerId": "1028028993",
+          "name": "Jaylon Tyson",
+          "salary": 3600,
+          "projectedPoints": 24.94,
+          "teamId": "6",
+          "gameId": "21717860"
+        },
+        {
+          "slot": "SF",
+          "playerId": "125",
+          "name": "DeMar DeRozan",
+          "salary": 4900,
+          "projectedPoints": 28.91,
+          "teamId": "8",
+          "gameId": "21717861"
+        },
+        {
+          "slot": "PF",
+          "playerId": "38017685",
+          "name": "Chet Holmgren",
+          "salary": 5800,
+          "projectedPoints": 38.86,
+          "teamId": "21",
+          "gameId": "21717861"
+        },
+        {
+          "slot": "C",
+          "playerId": "246",
+          "name": "Nikola Jokic",
+          "salary": 10900,
+          "projectedPoints": 65.26,
+          "teamId": "8",
+          "gameId": "21717861"
+        },
+        {
+          "slot": "G",
+          "playerId": "1057261935",
+          "name": "VJ Edgecombe",
+          "salary": 5700,
+          "projectedPoints": 32.54,
+          "teamId": "23",
+          "gameId": "21717860"
+        },
+        {
+          "slot": "F",
+          "playerId": "70",
+          "name": "Jaylen Brown",
+          "salary": 7600,
+          "projectedPoints": 47.24,
+          "teamId": "23",
+          "gameId": "21717860"
+        },
+        {
+          "slot": "UTIL",
+          "playerId": "192",
+          "name": "James Harden",
+          "salary": 7100,
+          "projectedPoints": 43.32,
+          "teamId": "6",
+          "gameId": "21717860"
+        }
+      ]
+    }
+  ]
+}
