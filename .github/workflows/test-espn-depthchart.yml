@@ -10,6 +10,7 @@ on:
       - "fantasy-engine/espn-depthchart-probe.js"
       - "fantasy-engine/espn-depthchart-normalizer.js"
       - "fantasy-engine/nba-identity-builder.js"
+      - "fantasy-engine/nba-rotation-context-builder.js"
       - ".github/workflows/test-espn-depthchart.yml"
 
 jobs:
@@ -35,10 +36,15 @@ jobs:
           FANTASY_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.FANTASY_SUPABASE_SERVICE_ROLE_KEY }}
         run: node fantasy-engine/nba-identity-builder.js
 
-      - name: Save NBA Identity Report
+      - name: Build NBA Rotation Context
+        run: node fantasy-engine/nba-rotation-context-builder.js
+
+      - name: Save NBA Shadow Reports
         uses: actions/upload-artifact@v4
         with:
-          name: nba-identity-shadow-report
-          path: fantasy-shadow-input/nba-identity-report.json
+          name: nba-rotation-shadow-reports
+          path: |
+            fantasy-shadow-input/nba-identity-report.json
+            fantasy-shadow-input/nba-rotation-context.json
           retention-days: 7
           if-no-files-found: error
