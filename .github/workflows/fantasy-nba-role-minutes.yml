@@ -7,10 +7,7 @@ on:
     branches:
       - fantasy-dev
     paths:
-      - "fantasy-engine/nba-role-minutes-shadow.js"
-      - "fantasy-engine/nba-fantasy-core-shadow.js"
-      - "fantasy-engine/nba-starter-gaps-audit.js"
-      - "fantasy-engine/nba-minutes-final-check-shadow.js"
+      - "fantasy-engine/nba-fantasy-integration-shadow.js"
       - ".github/workflows/fantasy-nba-role-minutes.yml"
 
 jobs:
@@ -61,16 +58,24 @@ jobs:
       - name: Final Role and Minutes Comparison
         run: node fantasy-engine/nba-minutes-final-check-shadow.js
 
+      - name: Recover Starter Historical Data
+        env:
+          FANTASY_SUPABASE_URL: ${{ secrets.FANTASY_SUPABASE_URL }}
+          FANTASY_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.FANTASY_SUPABASE_SERVICE_ROLE_KEY }}
+        run: node fantasy-engine/nba-fantasy-integration-shadow.js
+
       - name: Save Fantasy Reports
         uses: actions/upload-artifact@v4
         with:
           name: fantasy-nba-core-shadow
           path: |
+            fantasy-shadow-input/nba-identity-report.json
             fantasy-shadow-input/nba-rotation-context.json
             fantasy-shadow-input/nba-fantasy-history.json
             fantasy-shadow-input/nba-role-minutes-shadow.json
             fantasy-shadow-input/nba-fantasy-core-shadow.json
             fantasy-shadow-input/nba-starter-gaps-audit.json
             fantasy-shadow-input/nba-minutes-final-check-shadow.json
+            fantasy-shadow-input/nba-fantasy-integration-shadow.json
           retention-days: 7
           if-no-files-found: error
