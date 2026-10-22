@@ -1,0 +1,35 @@
+
+name: Fantasy NBA Stage Identities
+
+on:
+  workflow_dispatch:
+
+jobs:
+  stage-fantasy-identities:
+    if: github.ref == 'refs/heads/fantasy-dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout Fantasy Development
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Supabase Client
+        run: npm install --no-save --no-package-lock @supabase/supabase-js
+
+      - name: Rebuild Identity Report
+        env:
+          FANTASY_SUPABASE_URL: ${{ secrets.FANTASY_SUPABASE_URL }}
+          FANTASY_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.FANTASY_SUPABASE_SERVICE_ROLE_KEY }}
+        run: node fantasy-engine/nba-identity-builder.js
+
+      - name: Stage Fantasy Identities
+        env:
+          FANTASY_SUPABASE_URL: ${{ secrets.FANTASY_SUPABASE_URL }}
+          FANTASY_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.FANTASY_SUPABASE_SERVICE_ROLE_KEY }}
+        run: node fantasy-engine/nba-fantasy-stage-identities.js
