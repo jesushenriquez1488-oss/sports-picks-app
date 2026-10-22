@@ -9,6 +9,7 @@ on:
     paths:
       - "fantasy-engine/nba-role-minutes-shadow.js"
       - "fantasy-engine/nba-fantasy-core-shadow.js"
+      - "fantasy-engine/nba-starter-gaps-audit.js"
       - ".github/workflows/fantasy-nba-role-minutes.yml"
 
 jobs:
@@ -53,6 +54,9 @@ jobs:
       - name: Run Fantasy NBA Core V1
         run: node fantasy-engine/nba-fantasy-core-shadow.js
 
+      - name: Audit Missing Starting Players
+        run: node fantasy-engine/nba-starter-gaps-audit.js
+
       - name: Save Fantasy Reports
         uses: actions/upload-artifact@v4
         with:
@@ -62,5 +66,6 @@ jobs:
             fantasy-shadow-input/nba-fantasy-history.json
             fantasy-shadow-input/nba-role-minutes-shadow.json
             fantasy-shadow-input/nba-fantasy-core-shadow.json
+            fantasy-shadow-input/nba-starter-gaps-audit.json
           retention-days: 7
           if-no-files-found: error
