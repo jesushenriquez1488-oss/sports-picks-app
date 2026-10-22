@@ -1,0 +1,1487 @@
+{
+  "mode": "shadow",
+  "sample": "B",
+  "date": "2026-10-22",
+  "slateId": "80365",
+  "platform": "draftkings",
+  "model": "CONTEXT_V2_MATCHUP_SIMILAR_PLAYERS",
+  "immutable": true,
+  "readyForPublication": false,
+  "eligiblePlayers": 27,
+  "solverStatus": "FEASIBLE",
+  "lineups": [
+    {
+      "salary": 50000,
+      "projectedPoints": 317.55,
+      "firstListed": 5,
+      "players": [
+        {
+          "slot": "PG",
+          "playerId": "3547254",
+          "name": "Tyrese Maxey",
+          "salary": 8000,
+          "projectedPoints": 49.88,
+          "teamId": "23",
+          "gameId": "21717860",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "17553995",
+              "name": "Austin Reaves",
+              "similarity": 0.81
+            },
+            {
+              "playerId": "413",
+              "name": "Collin Sexton",
+              "similarity": 0.78
+            },
+            {
+              "playerId": "303",
+              "name": "CJ McCollum",
+              "similarity": 0.76
+            },
+            {
+              "playerId": "24489167",
+              "name": "Brandon Williams",
+              "similarity": 0.76
+            },
+            {
+              "playerId": "380",
+              "name": "Norman Powell",
+              "similarity": 0.71
+            },
+            {
+              "playerId": "666400",
+              "name": "Nickeil Alexander-Walker",
+              "similarity": 0.7
+            }
+          ]
+        },
+        {
+          "slot": "SG",
+          "playerId": "125",
+          "name": "DeMar DeRozan",
+          "salary": 4900,
+          "projectedPoints": 29.01,
+          "teamId": "8",
+          "gameId": "21717861",
+          "depthRank": 2,
+          "defenseExamples": [
+            {
+              "playerId": "61",
+              "name": "Mikal Bridges",
+              "similarity": 0.68
+            },
+            {
+              "playerId": "56677842",
+              "name": "Brice Sensabaugh",
+              "similarity": 0.68
+            }
+          ]
+        },
+        {
+          "slot": "SF",
+          "playerId": "1028028993",
+          "name": "Jaylon Tyson",
+          "salary": 3600,
+          "projectedPoints": 25.39,
+          "teamId": "6",
+          "gameId": "21717860",
+          "depthRank": 2,
+          "defenseExamples": [
+            {
+              "playerId": "200",
+              "name": "Tobias Harris",
+              "similarity": 0.94
+            },
+            {
+              "playerId": "17896103",
+              "name": "Jay Huff",
+              "similarity": 0.9
+            },
+            {
+              "playerId": "56677832",
+              "name": "Jarace Walker",
+              "similarity": 0.86
+            },
+            {
+              "playerId": "1028025177",
+              "name": "Matas Buzelis",
+              "similarity": 0.85
+            },
+            {
+              "playerId": "18",
+              "name": "OG Anunoby",
+              "similarity": 0.84
+            },
+            {
+              "playerId": "667378",
+              "name": "Naz Reid",
+              "similarity": 0.84
+            }
+          ]
+        },
+        {
+          "slot": "PF",
+          "playerId": "38017685",
+          "name": "Chet Holmgren",
+          "salary": 5800,
+          "projectedPoints": 38.57,
+          "teamId": "21",
+          "gameId": "21717861",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "24",
+              "name": "Marvin Bagley III",
+              "similarity": 0.86
+            },
+            {
+              "playerId": "666682",
+              "name": "Keldon Johnson",
+              "similarity": 0.83
+            },
+            {
+              "playerId": "56677830",
+              "name": "GG Jackson",
+              "similarity": 0.75
+            },
+            {
+              "playerId": "56677859",
+              "name": "Olivier-Maxence Prosper",
+              "similarity": 0.7
+            },
+            {
+              "playerId": "666950",
+              "name": "P.J. Washington",
+              "similarity": 0.69
+            },
+            {
+              "playerId": "56677778",
+              "name": "Oscar Tshiebwe",
+              "similarity": 0.68
+            }
+          ]
+        },
+        {
+          "slot": "C",
+          "playerId": "246",
+          "name": "Nikola Jokic",
+          "salary": 10900,
+          "projectedPoints": 65.2,
+          "teamId": "8",
+          "gameId": "21717861",
+          "depthRank": 1,
+          "defenseExamples": []
+        },
+        {
+          "slot": "G",
+          "playerId": "1028037477",
+          "name": "Ajay Mitchell",
+          "salary": 4400,
+          "projectedPoints": 29.92,
+          "teamId": "21",
+          "gameId": "21717861",
+          "depthRank": 2,
+          "defenseExamples": [
+            {
+              "playerId": "1028028519",
+              "name": "Reed Sheppard",
+              "similarity": 0.9
+            },
+            {
+              "playerId": "313",
+              "name": "De'Anthony Melton",
+              "similarity": 0.87
+            },
+            {
+              "playerId": "3547269",
+              "name": "Immanuel Quickley",
+              "similarity": 0.86
+            },
+            {
+              "playerId": "56677747",
+              "name": "Scoot Henderson",
+              "similarity": 0.85
+            },
+            {
+              "playerId": "1057262518",
+              "name": "Dylan Harper",
+              "similarity": 0.84
+            },
+            {
+              "playerId": "8",
+              "name": "Grayson Allen",
+              "similarity": 0.84
+            }
+          ]
+        },
+        {
+          "slot": "F",
+          "playerId": "70",
+          "name": "Jaylen Brown",
+          "salary": 7600,
+          "projectedPoints": 49.2,
+          "teamId": "23",
+          "gameId": "21717860",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "1057262088",
+              "name": "Cooper Flagg",
+              "similarity": 0.76
+            },
+            {
+              "playerId": "666969",
+              "name": "Zion Williamson",
+              "similarity": 0.75
+            },
+            {
+              "playerId": "38017683",
+              "name": "Paolo Banchero",
+              "similarity": 0.73
+            },
+            {
+              "playerId": "378",
+              "name": "Kristaps Porzingis",
+              "similarity": 0.72
+            },
+            {
+              "playerId": "3547243",
+              "name": "Obi Toppin",
+              "similarity": 0.69
+            }
+          ]
+        },
+        {
+          "slot": "UTIL",
+          "playerId": "201",
+          "name": "Isaiah Hartenstein",
+          "salary": 4800,
+          "projectedPoints": 30.38,
+          "teamId": "21",
+          "gameId": "21717861",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "1028025344",
+              "name": "Donovan Clingan",
+              "similarity": 0.66
+            },
+            {
+              "playerId": "1028035794",
+              "name": "Kyle Filipowski",
+              "similarity": 0.65
+            }
+          ]
+        }
+      ],
+      "rank": 1
+    },
+    {
+      "salary": 49800,
+      "projectedPoints": 314.59,
+      "firstListed": 6,
+      "players": [
+        {
+          "slot": "PG",
+          "playerId": "1028037477",
+          "name": "Ajay Mitchell",
+          "salary": 4400,
+          "projectedPoints": 29.92,
+          "teamId": "21",
+          "gameId": "21717861",
+          "depthRank": 2,
+          "defenseExamples": [
+            {
+              "playerId": "1028028519",
+              "name": "Reed Sheppard",
+              "similarity": 0.9
+            },
+            {
+              "playerId": "313",
+              "name": "De'Anthony Melton",
+              "similarity": 0.87
+            },
+            {
+              "playerId": "3547269",
+              "name": "Immanuel Quickley",
+              "similarity": 0.86
+            },
+            {
+              "playerId": "56677747",
+              "name": "Scoot Henderson",
+              "similarity": 0.85
+            },
+            {
+              "playerId": "1057262518",
+              "name": "Dylan Harper",
+              "similarity": 0.84
+            },
+            {
+              "playerId": "8",
+              "name": "Grayson Allen",
+              "similarity": 0.84
+            }
+          ]
+        },
+        {
+          "slot": "SG",
+          "playerId": "1028028993",
+          "name": "Jaylon Tyson",
+          "salary": 3600,
+          "projectedPoints": 25.39,
+          "teamId": "6",
+          "gameId": "21717860",
+          "depthRank": 2,
+          "defenseExamples": [
+            {
+              "playerId": "200",
+              "name": "Tobias Harris",
+              "similarity": 0.94
+            },
+            {
+              "playerId": "17896103",
+              "name": "Jay Huff",
+              "similarity": 0.9
+            },
+            {
+              "playerId": "56677832",
+              "name": "Jarace Walker",
+              "similarity": 0.86
+            },
+            {
+              "playerId": "1028025177",
+              "name": "Matas Buzelis",
+              "similarity": 0.85
+            },
+            {
+              "playerId": "18",
+              "name": "OG Anunoby",
+              "similarity": 0.84
+            },
+            {
+              "playerId": "667378",
+              "name": "Naz Reid",
+              "similarity": 0.84
+            }
+          ]
+        },
+        {
+          "slot": "SF",
+          "playerId": "70",
+          "name": "Jaylen Brown",
+          "salary": 7600,
+          "projectedPoints": 49.2,
+          "teamId": "23",
+          "gameId": "21717860",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "1057262088",
+              "name": "Cooper Flagg",
+              "similarity": 0.76
+            },
+            {
+              "playerId": "666969",
+              "name": "Zion Williamson",
+              "similarity": 0.75
+            },
+            {
+              "playerId": "38017683",
+              "name": "Paolo Banchero",
+              "similarity": 0.73
+            },
+            {
+              "playerId": "378",
+              "name": "Kristaps Porzingis",
+              "similarity": 0.72
+            },
+            {
+              "playerId": "3547243",
+              "name": "Obi Toppin",
+              "similarity": 0.69
+            }
+          ]
+        },
+        {
+          "slot": "PF",
+          "playerId": "38017685",
+          "name": "Chet Holmgren",
+          "salary": 5800,
+          "projectedPoints": 38.57,
+          "teamId": "21",
+          "gameId": "21717861",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "24",
+              "name": "Marvin Bagley III",
+              "similarity": 0.86
+            },
+            {
+              "playerId": "666682",
+              "name": "Keldon Johnson",
+              "similarity": 0.83
+            },
+            {
+              "playerId": "56677830",
+              "name": "GG Jackson",
+              "similarity": 0.75
+            },
+            {
+              "playerId": "56677859",
+              "name": "Olivier-Maxence Prosper",
+              "similarity": 0.7
+            },
+            {
+              "playerId": "666950",
+              "name": "P.J. Washington",
+              "similarity": 0.69
+            },
+            {
+              "playerId": "56677778",
+              "name": "Oscar Tshiebwe",
+              "similarity": 0.68
+            }
+          ]
+        },
+        {
+          "slot": "C",
+          "playerId": "201",
+          "name": "Isaiah Hartenstein",
+          "salary": 4800,
+          "projectedPoints": 30.38,
+          "teamId": "21",
+          "gameId": "21717861",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "1028025344",
+              "name": "Donovan Clingan",
+              "similarity": 0.66
+            },
+            {
+              "playerId": "1028035794",
+              "name": "Kyle Filipowski",
+              "similarity": 0.65
+            }
+          ]
+        },
+        {
+          "slot": "G",
+          "playerId": "1057261935",
+          "name": "VJ Edgecombe",
+          "salary": 5700,
+          "projectedPoints": 32.89,
+          "teamId": "23",
+          "gameId": "21717860",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "56677858",
+              "name": "Brandin Podziemski",
+              "similarity": 0.87
+            },
+            {
+              "playerId": "17895858",
+              "name": "Quentin Grimes",
+              "similarity": 0.87
+            },
+            {
+              "playerId": "1028036986",
+              "name": "Pelle Larsson",
+              "similarity": 0.86
+            },
+            {
+              "playerId": "475",
+              "name": "Andrew Wiggins",
+              "similarity": 0.82
+            },
+            {
+              "playerId": "313",
+              "name": "De'Anthony Melton",
+              "similarity": 0.81
+            },
+            {
+              "playerId": "1028025639",
+              "name": "Rob Dillingham",
+              "similarity": 0.8
+            }
+          ]
+        },
+        {
+          "slot": "F",
+          "playerId": "237",
+          "name": "LeBron James",
+          "salary": 7000,
+          "projectedPoints": 43.04,
+          "teamId": "23",
+          "gameId": "21717860",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "17896040",
+              "name": "Jalen Johnson",
+              "similarity": 0.77
+            },
+            {
+              "playerId": "1057262088",
+              "name": "Cooper Flagg",
+              "similarity": 0.77
+            },
+            {
+              "playerId": "38017683",
+              "name": "Paolo Banchero",
+              "similarity": 0.72
+            },
+            {
+              "playerId": "3547243",
+              "name": "Obi Toppin",
+              "similarity": 0.66
+            },
+            {
+              "playerId": "18677986",
+              "name": "Trey Murphy III",
+              "similarity": 0.66
+            },
+            {
+              "playerId": "666969",
+              "name": "Zion Williamson",
+              "similarity": 0.65
+            }
+          ]
+        },
+        {
+          "slot": "UTIL",
+          "playerId": "246",
+          "name": "Nikola Jokic",
+          "salary": 10900,
+          "projectedPoints": 65.2,
+          "teamId": "8",
+          "gameId": "21717861",
+          "depthRank": 1,
+          "defenseExamples": []
+        }
+      ],
+      "rank": 2
+    },
+    {
+      "salary": 50000,
+      "projectedPoints": 314.09,
+      "firstListed": 5,
+      "players": [
+        {
+          "slot": "PG",
+          "playerId": "3547254",
+          "name": "Tyrese Maxey",
+          "salary": 8000,
+          "projectedPoints": 49.88,
+          "teamId": "23",
+          "gameId": "21717860",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "17553995",
+              "name": "Austin Reaves",
+              "similarity": 0.81
+            },
+            {
+              "playerId": "413",
+              "name": "Collin Sexton",
+              "similarity": 0.78
+            },
+            {
+              "playerId": "303",
+              "name": "CJ McCollum",
+              "similarity": 0.76
+            },
+            {
+              "playerId": "24489167",
+              "name": "Brandon Williams",
+              "similarity": 0.76
+            },
+            {
+              "playerId": "380",
+              "name": "Norman Powell",
+              "similarity": 0.71
+            },
+            {
+              "playerId": "666400",
+              "name": "Nickeil Alexander-Walker",
+              "similarity": 0.7
+            }
+          ]
+        },
+        {
+          "slot": "SG",
+          "playerId": "1028037477",
+          "name": "Ajay Mitchell",
+          "salary": 4400,
+          "projectedPoints": 29.92,
+          "teamId": "21",
+          "gameId": "21717861",
+          "depthRank": 2,
+          "defenseExamples": [
+            {
+              "playerId": "1028028519",
+              "name": "Reed Sheppard",
+              "similarity": 0.9
+            },
+            {
+              "playerId": "313",
+              "name": "De'Anthony Melton",
+              "similarity": 0.87
+            },
+            {
+              "playerId": "3547269",
+              "name": "Immanuel Quickley",
+              "similarity": 0.86
+            },
+            {
+              "playerId": "56677747",
+              "name": "Scoot Henderson",
+              "similarity": 0.85
+            },
+            {
+              "playerId": "1057262518",
+              "name": "Dylan Harper",
+              "similarity": 0.84
+            },
+            {
+              "playerId": "8",
+              "name": "Grayson Allen",
+              "similarity": 0.84
+            }
+          ]
+        },
+        {
+          "slot": "SF",
+          "playerId": "70",
+          "name": "Jaylen Brown",
+          "salary": 7600,
+          "projectedPoints": 49.2,
+          "teamId": "23",
+          "gameId": "21717860",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "1057262088",
+              "name": "Cooper Flagg",
+              "similarity": 0.76
+            },
+            {
+              "playerId": "666969",
+              "name": "Zion Williamson",
+              "similarity": 0.75
+            },
+            {
+              "playerId": "38017683",
+              "name": "Paolo Banchero",
+              "similarity": 0.73
+            },
+            {
+              "playerId": "378",
+              "name": "Kristaps Porzingis",
+              "similarity": 0.72
+            },
+            {
+              "playerId": "3547243",
+              "name": "Obi Toppin",
+              "similarity": 0.69
+            }
+          ]
+        },
+        {
+          "slot": "PF",
+          "playerId": "237",
+          "name": "LeBron James",
+          "salary": 7000,
+          "projectedPoints": 43.04,
+          "teamId": "23",
+          "gameId": "21717860",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "17896040",
+              "name": "Jalen Johnson",
+              "similarity": 0.77
+            },
+            {
+              "playerId": "1057262088",
+              "name": "Cooper Flagg",
+              "similarity": 0.77
+            },
+            {
+              "playerId": "38017683",
+              "name": "Paolo Banchero",
+              "similarity": 0.72
+            },
+            {
+              "playerId": "3547243",
+              "name": "Obi Toppin",
+              "similarity": 0.66
+            },
+            {
+              "playerId": "18677986",
+              "name": "Trey Murphy III",
+              "similarity": 0.66
+            },
+            {
+              "playerId": "666969",
+              "name": "Zion Williamson",
+              "similarity": 0.65
+            }
+          ]
+        },
+        {
+          "slot": "C",
+          "playerId": "201",
+          "name": "Isaiah Hartenstein",
+          "salary": 4800,
+          "projectedPoints": 30.38,
+          "teamId": "21",
+          "gameId": "21717861",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "1028025344",
+              "name": "Donovan Clingan",
+              "similarity": 0.66
+            },
+            {
+              "playerId": "1028035794",
+              "name": "Kyle Filipowski",
+              "similarity": 0.65
+            }
+          ]
+        },
+        {
+          "slot": "G",
+          "playerId": "1028028993",
+          "name": "Jaylon Tyson",
+          "salary": 3600,
+          "projectedPoints": 25.39,
+          "teamId": "6",
+          "gameId": "21717860",
+          "depthRank": 2,
+          "defenseExamples": [
+            {
+              "playerId": "200",
+              "name": "Tobias Harris",
+              "similarity": 0.94
+            },
+            {
+              "playerId": "17896103",
+              "name": "Jay Huff",
+              "similarity": 0.9
+            },
+            {
+              "playerId": "56677832",
+              "name": "Jarace Walker",
+              "similarity": 0.86
+            },
+            {
+              "playerId": "1028025177",
+              "name": "Matas Buzelis",
+              "similarity": 0.85
+            },
+            {
+              "playerId": "18",
+              "name": "OG Anunoby",
+              "similarity": 0.84
+            },
+            {
+              "playerId": "667378",
+              "name": "Naz Reid",
+              "similarity": 0.84
+            }
+          ]
+        },
+        {
+          "slot": "F",
+          "playerId": "3547299",
+          "name": "Sam Merrill",
+          "salary": 3700,
+          "projectedPoints": 21.08,
+          "teamId": "6",
+          "gameId": "21717860",
+          "depthRank": 2,
+          "defenseExamples": [
+            {
+              "playerId": "397",
+              "name": "Duncan Robinson",
+              "similarity": 0.88
+            },
+            {
+              "playerId": "1057279594",
+              "name": "Will Riley",
+              "similarity": 0.87
+            },
+            {
+              "playerId": "61",
+              "name": "Mikal Bridges",
+              "similarity": 0.8
+            },
+            {
+              "playerId": "200",
+              "name": "Tobias Harris",
+              "similarity": 0.76
+            },
+            {
+              "playerId": "30",
+              "name": "Harrison Barnes",
+              "similarity": 0.75
+            },
+            {
+              "playerId": "666679",
+              "name": "Cameron Johnson",
+              "similarity": 0.75
+            }
+          ]
+        },
+        {
+          "slot": "UTIL",
+          "playerId": "246",
+          "name": "Nikola Jokic",
+          "salary": 10900,
+          "projectedPoints": 65.2,
+          "teamId": "8",
+          "gameId": "21717861",
+          "depthRank": 1,
+          "defenseExamples": []
+        }
+      ],
+      "rank": 3
+    },
+    {
+      "salary": 49800,
+      "projectedPoints": 313.25,
+      "firstListed": 6,
+      "players": [
+        {
+          "slot": "PG",
+          "playerId": "1028037477",
+          "name": "Ajay Mitchell",
+          "salary": 4400,
+          "projectedPoints": 29.92,
+          "teamId": "21",
+          "gameId": "21717861",
+          "depthRank": 2,
+          "defenseExamples": [
+            {
+              "playerId": "1028028519",
+              "name": "Reed Sheppard",
+              "similarity": 0.9
+            },
+            {
+              "playerId": "313",
+              "name": "De'Anthony Melton",
+              "similarity": 0.87
+            },
+            {
+              "playerId": "3547269",
+              "name": "Immanuel Quickley",
+              "similarity": 0.86
+            },
+            {
+              "playerId": "56677747",
+              "name": "Scoot Henderson",
+              "similarity": 0.85
+            },
+            {
+              "playerId": "1057262518",
+              "name": "Dylan Harper",
+              "similarity": 0.84
+            },
+            {
+              "playerId": "8",
+              "name": "Grayson Allen",
+              "similarity": 0.84
+            }
+          ]
+        },
+        {
+          "slot": "SG",
+          "playerId": "1028028993",
+          "name": "Jaylon Tyson",
+          "salary": 3600,
+          "projectedPoints": 25.39,
+          "teamId": "6",
+          "gameId": "21717860",
+          "depthRank": 2,
+          "defenseExamples": [
+            {
+              "playerId": "200",
+              "name": "Tobias Harris",
+              "similarity": 0.94
+            },
+            {
+              "playerId": "17896103",
+              "name": "Jay Huff",
+              "similarity": 0.9
+            },
+            {
+              "playerId": "56677832",
+              "name": "Jarace Walker",
+              "similarity": 0.86
+            },
+            {
+              "playerId": "1028025177",
+              "name": "Matas Buzelis",
+              "similarity": 0.85
+            },
+            {
+              "playerId": "18",
+              "name": "OG Anunoby",
+              "similarity": 0.84
+            },
+            {
+              "playerId": "667378",
+              "name": "Naz Reid",
+              "similarity": 0.84
+            }
+          ]
+        },
+        {
+          "slot": "SF",
+          "playerId": "70",
+          "name": "Jaylen Brown",
+          "salary": 7600,
+          "projectedPoints": 49.2,
+          "teamId": "23",
+          "gameId": "21717860",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "1057262088",
+              "name": "Cooper Flagg",
+              "similarity": 0.76
+            },
+            {
+              "playerId": "666969",
+              "name": "Zion Williamson",
+              "similarity": 0.75
+            },
+            {
+              "playerId": "38017683",
+              "name": "Paolo Banchero",
+              "similarity": 0.73
+            },
+            {
+              "playerId": "378",
+              "name": "Kristaps Porzingis",
+              "similarity": 0.72
+            },
+            {
+              "playerId": "3547243",
+              "name": "Obi Toppin",
+              "similarity": 0.69
+            }
+          ]
+        },
+        {
+          "slot": "PF",
+          "playerId": "237",
+          "name": "LeBron James",
+          "salary": 7000,
+          "projectedPoints": 43.04,
+          "teamId": "23",
+          "gameId": "21717860",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "17896040",
+              "name": "Jalen Johnson",
+              "similarity": 0.77
+            },
+            {
+              "playerId": "1057262088",
+              "name": "Cooper Flagg",
+              "similarity": 0.77
+            },
+            {
+              "playerId": "38017683",
+              "name": "Paolo Banchero",
+              "similarity": 0.72
+            },
+            {
+              "playerId": "3547243",
+              "name": "Obi Toppin",
+              "similarity": 0.66
+            },
+            {
+              "playerId": "18677986",
+              "name": "Trey Murphy III",
+              "similarity": 0.66
+            },
+            {
+              "playerId": "666969",
+              "name": "Zion Williamson",
+              "similarity": 0.65
+            }
+          ]
+        },
+        {
+          "slot": "C",
+          "playerId": "145",
+          "name": "Joel Embiid",
+          "salary": 7700,
+          "projectedPoints": 44.36,
+          "teamId": "23",
+          "gameId": "21717860",
+          "depthRank": 1,
+          "defenseExamples": []
+        },
+        {
+          "slot": "G",
+          "playerId": "1057261935",
+          "name": "VJ Edgecombe",
+          "salary": 5700,
+          "projectedPoints": 32.89,
+          "teamId": "23",
+          "gameId": "21717860",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "56677858",
+              "name": "Brandin Podziemski",
+              "similarity": 0.87
+            },
+            {
+              "playerId": "17895858",
+              "name": "Quentin Grimes",
+              "similarity": 0.87
+            },
+            {
+              "playerId": "1028036986",
+              "name": "Pelle Larsson",
+              "similarity": 0.86
+            },
+            {
+              "playerId": "475",
+              "name": "Andrew Wiggins",
+              "similarity": 0.82
+            },
+            {
+              "playerId": "313",
+              "name": "De'Anthony Melton",
+              "similarity": 0.81
+            },
+            {
+              "playerId": "1028025639",
+              "name": "Rob Dillingham",
+              "similarity": 0.8
+            }
+          ]
+        },
+        {
+          "slot": "F",
+          "playerId": "38017685",
+          "name": "Chet Holmgren",
+          "salary": 5800,
+          "projectedPoints": 38.57,
+          "teamId": "21",
+          "gameId": "21717861",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "24",
+              "name": "Marvin Bagley III",
+              "similarity": 0.86
+            },
+            {
+              "playerId": "666682",
+              "name": "Keldon Johnson",
+              "similarity": 0.83
+            },
+            {
+              "playerId": "56677830",
+              "name": "GG Jackson",
+              "similarity": 0.75
+            },
+            {
+              "playerId": "56677859",
+              "name": "Olivier-Maxence Prosper",
+              "similarity": 0.7
+            },
+            {
+              "playerId": "666950",
+              "name": "P.J. Washington",
+              "similarity": 0.69
+            },
+            {
+              "playerId": "56677778",
+              "name": "Oscar Tshiebwe",
+              "similarity": 0.68
+            }
+          ]
+        },
+        {
+          "slot": "UTIL",
+          "playerId": "3547254",
+          "name": "Tyrese Maxey",
+          "salary": 8000,
+          "projectedPoints": 49.88,
+          "teamId": "23",
+          "gameId": "21717860",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "17553995",
+              "name": "Austin Reaves",
+              "similarity": 0.81
+            },
+            {
+              "playerId": "413",
+              "name": "Collin Sexton",
+              "similarity": 0.78
+            },
+            {
+              "playerId": "303",
+              "name": "CJ McCollum",
+              "similarity": 0.76
+            },
+            {
+              "playerId": "24489167",
+              "name": "Brandon Williams",
+              "similarity": 0.76
+            },
+            {
+              "playerId": "380",
+              "name": "Norman Powell",
+              "similarity": 0.71
+            },
+            {
+              "playerId": "666400",
+              "name": "Nickeil Alexander-Walker",
+              "similarity": 0.7
+            }
+          ]
+        }
+      ],
+      "rank": 4
+    },
+    {
+      "salary": 49800,
+      "projectedPoints": 312.19,
+      "firstListed": 6,
+      "players": [
+        {
+          "slot": "PG",
+          "playerId": "1028037477",
+          "name": "Ajay Mitchell",
+          "salary": 4400,
+          "projectedPoints": 29.92,
+          "teamId": "21",
+          "gameId": "21717861",
+          "depthRank": 2,
+          "defenseExamples": [
+            {
+              "playerId": "1028028519",
+              "name": "Reed Sheppard",
+              "similarity": 0.9
+            },
+            {
+              "playerId": "313",
+              "name": "De'Anthony Melton",
+              "similarity": 0.87
+            },
+            {
+              "playerId": "3547269",
+              "name": "Immanuel Quickley",
+              "similarity": 0.86
+            },
+            {
+              "playerId": "56677747",
+              "name": "Scoot Henderson",
+              "similarity": 0.85
+            },
+            {
+              "playerId": "1057262518",
+              "name": "Dylan Harper",
+              "similarity": 0.84
+            },
+            {
+              "playerId": "8",
+              "name": "Grayson Allen",
+              "similarity": 0.84
+            }
+          ]
+        },
+        {
+          "slot": "SG",
+          "playerId": "1057261935",
+          "name": "VJ Edgecombe",
+          "salary": 5700,
+          "projectedPoints": 32.89,
+          "teamId": "23",
+          "gameId": "21717860",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "56677858",
+              "name": "Brandin Podziemski",
+              "similarity": 0.87
+            },
+            {
+              "playerId": "17895858",
+              "name": "Quentin Grimes",
+              "similarity": 0.87
+            },
+            {
+              "playerId": "1028036986",
+              "name": "Pelle Larsson",
+              "similarity": 0.86
+            },
+            {
+              "playerId": "475",
+              "name": "Andrew Wiggins",
+              "similarity": 0.82
+            },
+            {
+              "playerId": "313",
+              "name": "De'Anthony Melton",
+              "similarity": 0.81
+            },
+            {
+              "playerId": "1028025639",
+              "name": "Rob Dillingham",
+              "similarity": 0.8
+            }
+          ]
+        },
+        {
+          "slot": "SF",
+          "playerId": "1028028993",
+          "name": "Jaylon Tyson",
+          "salary": 3600,
+          "projectedPoints": 25.39,
+          "teamId": "6",
+          "gameId": "21717860",
+          "depthRank": 2,
+          "defenseExamples": [
+            {
+              "playerId": "200",
+              "name": "Tobias Harris",
+              "similarity": 0.94
+            },
+            {
+              "playerId": "17896103",
+              "name": "Jay Huff",
+              "similarity": 0.9
+            },
+            {
+              "playerId": "56677832",
+              "name": "Jarace Walker",
+              "similarity": 0.86
+            },
+            {
+              "playerId": "1028025177",
+              "name": "Matas Buzelis",
+              "similarity": 0.85
+            },
+            {
+              "playerId": "18",
+              "name": "OG Anunoby",
+              "similarity": 0.84
+            },
+            {
+              "playerId": "667378",
+              "name": "Naz Reid",
+              "similarity": 0.84
+            }
+          ]
+        },
+        {
+          "slot": "PF",
+          "playerId": "38017685",
+          "name": "Chet Holmgren",
+          "salary": 5800,
+          "projectedPoints": 38.57,
+          "teamId": "21",
+          "gameId": "21717861",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "24",
+              "name": "Marvin Bagley III",
+              "similarity": 0.86
+            },
+            {
+              "playerId": "666682",
+              "name": "Keldon Johnson",
+              "similarity": 0.83
+            },
+            {
+              "playerId": "56677830",
+              "name": "GG Jackson",
+              "similarity": 0.75
+            },
+            {
+              "playerId": "56677859",
+              "name": "Olivier-Maxence Prosper",
+              "similarity": 0.7
+            },
+            {
+              "playerId": "666950",
+              "name": "P.J. Washington",
+              "similarity": 0.69
+            },
+            {
+              "playerId": "56677778",
+              "name": "Oscar Tshiebwe",
+              "similarity": 0.68
+            }
+          ]
+        },
+        {
+          "slot": "C",
+          "playerId": "201",
+          "name": "Isaiah Hartenstein",
+          "salary": 4800,
+          "projectedPoints": 30.38,
+          "teamId": "21",
+          "gameId": "21717861",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "1028025344",
+              "name": "Donovan Clingan",
+              "similarity": 0.66
+            },
+            {
+              "playerId": "1028035794",
+              "name": "Kyle Filipowski",
+              "similarity": 0.65
+            }
+          ]
+        },
+        {
+          "slot": "G",
+          "playerId": "3547254",
+          "name": "Tyrese Maxey",
+          "salary": 8000,
+          "projectedPoints": 49.88,
+          "teamId": "23",
+          "gameId": "21717860",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "17553995",
+              "name": "Austin Reaves",
+              "similarity": 0.81
+            },
+            {
+              "playerId": "413",
+              "name": "Collin Sexton",
+              "similarity": 0.78
+            },
+            {
+              "playerId": "303",
+              "name": "CJ McCollum",
+              "similarity": 0.76
+            },
+            {
+              "playerId": "24489167",
+              "name": "Brandon Williams",
+              "similarity": 0.76
+            },
+            {
+              "playerId": "380",
+              "name": "Norman Powell",
+              "similarity": 0.71
+            },
+            {
+              "playerId": "666400",
+              "name": "Nickeil Alexander-Walker",
+              "similarity": 0.7
+            }
+          ]
+        },
+        {
+          "slot": "F",
+          "playerId": "70",
+          "name": "Jaylen Brown",
+          "salary": 7600,
+          "projectedPoints": 49.2,
+          "teamId": "23",
+          "gameId": "21717860",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "1057262088",
+              "name": "Cooper Flagg",
+              "similarity": 0.76
+            },
+            {
+              "playerId": "666969",
+              "name": "Zion Williamson",
+              "similarity": 0.75
+            },
+            {
+              "playerId": "38017683",
+              "name": "Paolo Banchero",
+              "similarity": 0.73
+            },
+            {
+              "playerId": "378",
+              "name": "Kristaps Porzingis",
+              "similarity": 0.72
+            },
+            {
+              "playerId": "3547243",
+              "name": "Obi Toppin",
+              "similarity": 0.69
+            }
+          ]
+        },
+        {
+          "slot": "UTIL",
+          "playerId": "175",
+          "name": "Shai Gilgeous-Alexander",
+          "salary": 9900,
+          "projectedPoints": 55.96,
+          "teamId": "21",
+          "gameId": "21717861",
+          "depthRank": 1,
+          "defenseExamples": [
+            {
+              "playerId": "666676",
+              "name": "Ty Jerome",
+              "similarity": 0.82
+            },
+            {
+              "playerId": "57",
+              "name": "Devin Booker",
+              "similarity": 0.78
+            },
+            {
+              "playerId": "132",
+              "name": "Luka Doncic",
+              "similarity": 0.73
+            },
+            {
+              "playerId": "161",
+              "name": "De'Aaron Fox",
+              "similarity": 0.67
+            },
+            {
+              "playerId": "17553995",
+              "name": "Austin Reaves",
+              "similarity": 0.67
+            }
+          ]
+        }
+      ],
+      "rank": 5
+    }
+  ],
+  "limitations": [
+    "Comparables de 2025 y últimos 18 partidos contra rival",
+    "Defensa por estadística, no defensor individual",
+    "Impacto de compañeros reutilizado del motor A",
+    "Pesos experimentales sin calibración histórica",
+    "Disponibilidad pendiente de confirmación"
+  ]
+}
