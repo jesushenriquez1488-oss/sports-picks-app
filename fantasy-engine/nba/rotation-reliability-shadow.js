@@ -608,7 +608,7 @@ async function main() {
   // Usa exclusivamente las proyecciones originales.
   // No recalcula ni modifica ningun jugador.
 
-  const auditTargets = [
+   const auditTargets = [
     { name: "Anthony Edwards", real: 72.00 },
     { name: "Ty Jerome", real: 66.75 },
     { name: "Anthony Davis", real: 61.50 },
@@ -621,7 +621,39 @@ async function main() {
     { name: "Tyrese Haliburton", real: 46.50 },
     { name: "Dejounte Murray", real: 46.25 },
     { name: "Nickeil Alexander-Walker", real: 46.00 },
-    { name: "Kevin Durant", real: 45.00 }
+    { name: "Kevin Durant", real: 45.00 },
+
+    { name: "Giannis Antetokounmpo", real: 44.50 },
+    { name: "Trae Young", real: 44.50 },
+    { name: "Kawhi Leonard", real: 44.50 },
+    { name: "Immanuel Quickley", real: 44.50 },
+    { name: "Alperen Sengun", real: 43.50 },
+    { name: "Jabari Smith Jr.", real: 43.25 },
+    { name: "Pascal Siakam", real: 43.00 },
+    { name: "Michael Porter Jr.", real: 42.75 },
+    { name: "Tyler Herro", real: 42.00 },
+    { name: "Ivica Zubac", real: 39.75 },
+    { name: "Moussa Diabate", real: 39.50 },
+    { name: "LaMelo Ball", real: 38.50 },
+    { name: "Franz Wagner", real: 38.50 },
+    { name: "Dyson Daniels", real: 38.50 },
+    { name: "Amen Thompson", real: 38.00 },
+    { name: "Scottie Barnes", real: 38.00 },
+
+    { name: "Toumani Camara", real: 15.75 },
+    { name: "Pelle Larsson", real: 15.75 },
+    { name: "Donovan Clingan", real: 16.25 },
+    { name: "Tre Jones", real: 16.75 },
+    { name: "Noah Clowney", real: 16.75 },
+    { name: "Bobby Portis", real: 17.00 },
+    { name: "Jamison Battle", real: 17.25 },
+    { name: "Josh Giddey", real: 17.25 },
+    { name: "Royce O'Neale", real: 17.50 },
+    { name: "Tarris Awaka", real: 17.75 },
+    { name: "D. Peterson", real: 18.00 },
+    { name: "Marcus Smart", real: 18.00 },
+    { name: "Trey Murphy III", real: 18.50 },
+    { name: "B. Burries", real: 18.75 }
   ];
 
   const normalizeName = value =>
