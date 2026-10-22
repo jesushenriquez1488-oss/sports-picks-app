@@ -265,33 +265,75 @@ function rotationCheck(
       expectedMinutes * 0.60
     );
 
+ 
+  // Verificar vigencia del historial.
+  // Una racha de la temporada anterior
+  // no certifica la rotacion actual.
+
+  const lastTeamGameDate = teamGames.length
+    ? day(teamGames[0].game_date)
+    : null;
+
+  const cutoffDayMs = Date.parse(
+    `${day(cutoffAt)}T00:00:00Z`
+  );
+
+  const lastTeamGameMs = lastTeamGameDate
+    ? Date.parse(`${lastTeamGameDate}T00:00:00Z`)
+    : NaN;
+
+  const historicalOnly =
+    Number.isFinite(lastTeamGameMs) &&
+    cutoffDayMs - lastTeamGameMs >
+      60 * 86400000;
+
+  // Cuando el historial es antiguo,
+  // necesitamos una muestra mas completa.
+  // No exigimos minutos fijos ni ser titular.
+
+  const establishedHistoricalRole =
+    l20.games >= 16 &&
+    l20.rate >= 0.85 &&
+    l10.rate >= 0.80 &&
+    l5.rate >= 0.60;
+
   const eligible =
     enoughMinutes &&
     (
-      established ||
-      recentStable ||
-      emergingRole
+      historicalOnly
+        ? establishedHistoricalRole
+        : (
+            established ||
+            recentStable ||
+            emergingRole
+          )
     );
 
   const reason = eligible
-    ? (
-        established
-          ? "stable_rotation"
-          : recentStable
-            ? "reliable_recent_role"
-            : "emerging_recent_role"
-      )
+    ? historicalOnly
+      ? "established_historical_rotation"
+      : established
+        ? "stable_rotation"
+        : recentStable
+          ? "reliable_recent_role"
+          : "emerging_recent_role"
     : teamGames.length < 6
       ? "insufficient_team_games"
       : !enoughMinutes
         ? "minutes_not_supported"
-        : "irregular_or_unverified_rotation";
+        : historicalOnly
+          ? "stale_or_insufficient_role_history"
+          : "irregular_or_unverified_rotation";
+
 
   return {
     ...base,
+  
     eligible,
     reason,
     firstSeen,
+    lastTeamGameDate,
+    historicalOnly,
 
     l20: {
       ...l20,
