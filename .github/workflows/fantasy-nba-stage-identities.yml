@@ -3,6 +3,12 @@ name: Fantasy NBA Stage Identities
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - fantasy-dev
+    paths:
+      - ".github/workflows/fantasy-nba-stage-identities.yml"
+      - "fantasy-engine/nba-fantasy-stage-identities.js"
 
 jobs:
   stage-fantasy-identities:
