@@ -604,6 +604,101 @@ async function main() {
     );
   }
 
+    // AUDITORIA NBA: JUGADORES NO SELECCIONADOS
+  // Usa exclusivamente las proyecciones originales.
+  // No recalcula ni modifica ningun jugador.
+
+  const auditTargets = [
+    { name: "Anthony Edwards", real: 72.00 },
+    { name: "Ty Jerome", real: 66.75 },
+    { name: "Anthony Davis", real: 61.50 },
+    { name: "Paolo Banchero", real: 60.75 },
+    { name: "Julius Randle", real: 55.00 },
+    { name: "Yves Missi", real: 49.00 },
+    { name: "Cooper Flagg", real: 47.75 },
+    { name: "Naz Reid", real: 47.25 },
+    { name: "Jalen Johnson", real: 47.00 },
+    { name: "Tyrese Haliburton", real: 46.50 },
+    { name: "Dejounte Murray", real: 46.25 },
+    { name: "Nickeil Alexander-Walker", real: 46.00 },
+    { name: "Kevin Durant", real: 45.00 }
+  ];
+
+  const normalizeName = value =>
+    String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .toLowerCase();
+
+  const acceptedIds = new Set(
+    accepted.map(p => id(p.playerId))
+  );
+
+  console.log(
+    "===== NBA MISSED PLAYERS AUDIT ====="
+  );
+
+  console.log("Cutoff:", report.cutoffAt);
+  console.log("Real points: user-reported");
+
+  for (const target of auditTargets) {
+    const matches = report.players.filter(
+      p =>
+        normalizeName(p.name) ===
+        normalizeName(target.name)
+    );
+
+    if (matches.length !== 1) {
+      console.log(
+        JSON.stringify({
+          name: target.name,
+          realPoints: target.real,
+          status: matches.length === 0
+            ? "NOT_FOUND_IN_REPORT"
+            : "AMBIGUOUS_NAME",
+          matches: matches.length
+        })
+      );
+      continue;
+    }
+
+    const p = matches[0];
+
+    const projected = Number(p.projectedPoints);
+    const real = Number(target.real);
+
+    const rotation = checks.find(
+      r => r.playerId === id(p.playerId)
+    );
+
+    console.log(
+      JSON.stringify({
+        name: p.name,
+        playerId: id(p.playerId),
+        salary: p.salary,
+        positions: p.positions,
+        projectedPoints: p.projectedPoints,
+        realPoints: real,
+        difference: Number.isFinite(projected)
+          ? Number((real - projected).toFixed(2))
+          : null,
+        expectedMinutes: p.expectedMinutes ?? null,
+        eligibleBySalary: acceptedIds.has(
+          id(p.playerId)
+        ),
+        rotationReason: rotation?.reason ?? null,
+        historicalOnly: rotation?.historicalOnly ?? null,
+        typicalHistoricalMinutes:
+          rotation?.typicalMinutes ?? null
+      })
+    );
+  }
+
+  console.log(
+    "===== END MISSED PLAYERS AUDIT ====="
+  );
+
   // Misma proyeccion, dos grupos distintos.
   // Nunca alterar salarios ni puntos.
 
