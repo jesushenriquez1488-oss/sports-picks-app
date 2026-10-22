@@ -8,6 +8,7 @@ on:
       - fantasy-dev
     paths:
       - "fantasy-engine/nba-role-minutes-shadow.js"
+      - "fantasy-engine/nba-fantasy-core-shadow.js"
       - ".github/workflows/fantasy-nba-role-minutes.yml"
 
 jobs:
@@ -43,19 +44,23 @@ jobs:
           FANTASY_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.FANTASY_SUPABASE_SERVICE_ROLE_KEY }}
         run: node fantasy-engine/nba-fantasy-history-shadow.js
 
-      - name: Build Previous Minutes Baseline
+      - name: Build Role Minutes Baseline
         run: node fantasy-engine/nba-minutes-shadow.js
 
       - name: Calculate Role-Aware Minutes
         run: node fantasy-engine/nba-role-minutes-shadow.js
 
+      - name: Run Fantasy NBA Core V1
+        run: node fantasy-engine/nba-fantasy-core-shadow.js
+
       - name: Save Fantasy Reports
         uses: actions/upload-artifact@v4
         with:
-          name: fantasy-nba-role-minutes
+          name: fantasy-nba-core-shadow
           path: |
             fantasy-shadow-input/nba-rotation-context.json
             fantasy-shadow-input/nba-fantasy-history.json
             fantasy-shadow-input/nba-role-minutes-shadow.json
+            fantasy-shadow-input/nba-fantasy-core-shadow.json
           retention-days: 7
           if-no-files-found: error
