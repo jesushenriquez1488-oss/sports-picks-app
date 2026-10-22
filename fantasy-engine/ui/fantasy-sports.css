@@ -1,0 +1,113 @@
+
+/* CashEdge Fantasy Sports — isolated styles */
+
+.cfs {
+  --bg: #090f21;
+  --panel: #121d34;
+  --edge: #273553;
+  --soft: #8ea4c5;
+  --mint: #42ead0;
+  --violet: #b59aff;
+  --gold: #ffc77a;
+  background: radial-gradient(circle at 80% -10%, #283467 0%, transparent 35%), var(--bg);
+  color: #fff;
+  min-height: 100vh;
+  font: 500 13px/1.35 system-ui,-apple-system,Arial,sans-serif;
+  padding: 14px 12px 105px;
+  box-sizing: border-box;
+}
+.cfs * { box-sizing: border-box; }
+.cfs button,.cfs input { font: inherit; }
+.cfs button { cursor: pointer; }
+.cfs .wrap { max-width: 1050px; margin: 0 auto; }
+.cfs .top { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.cfs .back { border:1px solid #425577; background:#16233b; color:#d3e0f6; padding:8px 10px; border-radius:9px; flex:none; }
+.cfs .eyebrow { font-size:10px; letter-spacing:.18em; color:var(--mint); font-weight:900; }
+.cfs h1 { font-size:23px; margin:1px 0; letter-spacing:-.05em; }
+.cfs .muted { color:var(--soft); }
+.cfs .tiny { font-size:10px; }
+.cfs .sample { font-size:10px; padding:6px 8px; border:1px solid #685735; background:#30261e; color:#ffe1ad; border-radius:8px; font-weight:750; }
+.cfs .intro { padding:16px 0 10px; }
+.cfs .intro strong { font-size:15px; }
+.cfs .box { border:1px solid var(--edge); background:linear-gradient(160deg,#16223c,#11192e); border-radius:14px; padding:11px; min-width:0; }
+.cfs .label { color:var(--soft); font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; margin:0 0 6px; }
+.cfs .choice { display:flex; gap:7px; }
+.cfs .choice button { flex:1; border:1px solid #2f4060; border-radius:10px; background:#1c2842; color:#b7c7df; padding:10px 6px; font-weight:850; }
+.cfs .choice button.active { color:#061e24; background:var(--mint); border-color:var(--mint); }
+.cfs .league { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:8px 0 12px; }
+.cfs .cap { margin-top:8px; display:flex; align-items:center; justify-content:space-between; gap:8px; font-weight:800; }
+.cfs .cap span { color:var(--mint); }
+.cfs .contest { margin-top:12px; padding:12px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.cfs .contest strong { display:block; }
+.cfs .contest .muted { font-size:11px; }
+.cfs .actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:11px 0; }
+.cfs .btn { border:0; border-radius:11px; padding:12px 9px; font-weight:900; }
+.cfs .btn.main { background:linear-gradient(115deg,#50e8d1,#39abd6); color:#05252d; }
+.cfs .btn.second { background:#2b2851; border:1px solid #5b4b91; color:#e4d9ff; }
+.cfs .tabs { display:flex; gap:6px; overflow:auto; padding:4px 0 10px; scrollbar-width:none; }
+.cfs .tabs button { border:1px solid var(--edge); color:#9db4d1; background:#151f36; border-radius:999px; padding:9px 12px; white-space:nowrap; font-weight:800; }
+.cfs .tabs button.on { background:#263354; border-color:var(--mint); color:var(--mint); }
+.cfs .section-head { display:flex; align-items:center; justify-content:space-between; margin:7px 0 9px; }
+.cfs .section-head h2 { font-size:14px; margin:0; }
+.cfs .position-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.cfs .pos-title { display:flex; justify-content:space-between; align-items:center; color:var(--mint); margin-bottom:7px; font-size:13px; font-weight:900; }
+.cfs .pos-title small { font-size:9px; color:var(--soft); font-weight:700; }
+.cfs .athlete { display:flex; gap:5px; align-items:center; border-top:1px solid #26314d; padding:7px 0; min-width:0; }
+.cfs .face { width:27px; height:30px; flex:none; display:flex; align-items:center; justify-content:center; border-radius:8px; background:linear-gradient(135deg,#2d5178,#50417d); color:#d5e5fc; font-size:8px; font-weight:850; overflow:hidden; }
+.cfs .face img { width:100%; height:100%; object-fit:cover; }
+.cfs .athlete-text { flex:1; min-width:0; }
+.cfs .athlete-text strong { display:block; font-size:10px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; }
+.cfs .athlete-text small { display:block; font-size:9px; color:var(--soft); }
+.cfs .athlete-stats { text-align:right; flex:none; }
+.cfs .athlete-stats strong { font-size:11px; color:var(--mint); display:block; }
+.cfs .athlete-stats small { font-size:9px; color:#bccde6; }
+.cfs .plus { width:27px; height:27px; padding:0; border-radius:9px; border:1px solid #376f72; background:#18383f; color:var(--mint); font-size:19px; font-weight:700; flex:none; }
+.cfs .plus:disabled { opacity:.4; cursor:not-allowed; }
+.cfs .view { background:transparent; border:0; border-top:1px solid #2b3b54; color:#b6a1ff; width:100%; margin-top:2px; padding:9px 0 0; font-weight:900; font-size:10px; }
+.cfs .lineup { display:grid; gap:6px; }
+.cfs .slot { display:flex; align-items:center; gap:9px; padding:9px; background:#142039; border:1px solid #2a3855; border-radius:9px; min-height:50px; }
+.cfs .slot-tag { width:42px; color:var(--mint); font-weight:900; font-size:11px; }
+.cfs .slot-text { flex:1; min-width:0; }
+.cfs .slot-text strong { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:11px; }
+.cfs .slot-text small { color:var(--soft); font-size:10px; }
+.cfs .tool { border:1px solid #3b4d68; border-radius:8px; background:#202c44; color:#d1e0f5; padding:6px 9px; }
+.cfs .tool.locked { border-color:var(--gold); color:var(--gold); }
+.cfs .summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin:8px 0 14px; }
+.cfs .metric { background:#16233b; border:1px solid #293a56; border-radius:10px; padding:11px; text-align:center; }
+.cfs .metric b { font-size:17px; display:block; color:#fff; }
+.cfs .metric small { font-size:9px; color:var(--soft); }
+.cfs .pending { padding:22px; text-align:center; border:1px dashed #4c5c7a; border-radius:13px; background:#141d32; color:#b9c9df; }
+.cfs .pending strong { color:#fff; }
+.cfs .guide { color:#b0c2d9; font-size:11px; line-height:1.55; margin-top:11px; }
+.cfs .dock { position:sticky; bottom:9px; margin:18px auto 0; max-width:700px; padding:11px 13px; display:flex; align-items:center; justify-content:space-between; gap:10px; border-radius:15px; border:1px solid #4a6582; background:#1b2941; box-shadow:0 8px 30px #0008; z-index:2; }
+.cfs .dock strong { color:var(--mint); }
+.cfs .dock button { background:var(--mint); color:#05252d; border:0; border-radius:9px; padding:10px 13px; font-weight:900; }
+.cfs .bar { height:6px; background:#36445e; border-radius:10px; overflow:hidden; margin:5px 0; }
+.cfs .bar span { display:block; height:100%; background:var(--mint); }
+.cfs .shade { position:fixed; inset:0; background:#000b; display:flex; justify-content:center; align-items:flex-end; z-index:9999; }
+.cfs .sheet { background:#101a2e; border:1px solid #465879; color:#fff; border-radius:18px 18px 0 0; width:100%; max-width:650px; max-height:83vh; overflow:auto; padding:17px 13px 22px; }
+.cfs .sheet-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.cfs .sheet input { width:100%; padding:12px; border:1px solid #40526e; border-radius:10px; color:#fff; background:#1b2741; outline:none; margin-bottom:9px; }
+.cfs .all-rows { max-height:56vh; overflow:auto; }
+.cfs .all-rows .athlete { padding:10px 2px; }
+.cfs .toast { position:fixed; z-index:10000; bottom:90px; left:50%; transform:translateX(-50%); background:#263756; color:#fff; border:1px solid #5b7798; box-shadow:0 12px 40px #0009; border-radius:11px; padding:13px; min-width:220px; max-width:92vw; text-align:center; }
+
+@media (min-width:740px) {
+  .cfs { padding:28px 30px 75px; }
+  .cfs h1 { font-size:34px; }
+  .cfs .position-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .cfs .face { width:35px; height:38px; }
+  .cfs .athlete-text strong { font-size:12px; }
+  .cfs .box { padding:14px; }
+  .cfs .sheet { border-radius:18px; margin-bottom:8vh; }
+}
+
+@media (max-width:365px) {
+  .cfs { padding:10px 7px 95px; }
+  .cfs .box { padding:8px; }
+  .cfs .position-grid { gap:6px; }
+  .cfs .face { width:22px; height:26px; }
+  .cfs .athlete { gap:3px; }
+  .cfs .athlete-stats strong { font-size:10px; }
+  .cfs .plus { width:23px; height:25px; }
+}
