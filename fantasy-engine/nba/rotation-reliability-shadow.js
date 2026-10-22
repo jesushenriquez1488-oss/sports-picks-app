@@ -524,16 +524,21 @@ async function main() {
       (reasons[row.reason] || 0) + 1;
   }
 
-  const eligibleIds = new Set(
-    checks
-      .filter(r => r.eligible)
-      .map(r => r.playerId)
-  );
+   // FANTASY NBA SHADOW
+  // Excluir salarios de $3,000 a $3,500 inclusive.
+  // Sin limitar superestrellas ni imponer filtros
+  // adicionales de rotacion.
 
-  const accepted = report.players.filter(p =>
-    eligibleIds.has(id(p.playerId))
-  );
+  const MIN_SALARY_EXCLUSIVE = 3500;
 
+  const accepted = report.players.filter(p => {
+    const salary = Number(p.salary);
+
+    return (
+      Number.isFinite(salary) &&
+      salary > MIN_SALARY_EXCLUSIVE
+    );
+  });
   console.log(
     "===== NBA ROTATION RELIABILITY SHADOW ====="
   );
@@ -547,12 +552,12 @@ async function main() {
   );
 
   console.log(
-    "Eligible rotation:",
+    "Eligible by salary:",
     accepted.length
   );
 
   console.log(
-    "Excluded or unverified:",
+    "Excluded by salary:",
     checks.length - accepted.length
   );
 
@@ -614,7 +619,7 @@ async function main() {
 
   for (const [name, result] of [
     ["ORIGINAL", oldLineup],
-    ["ROLE FILTERED", newLineup]
+       ["SALARY FILTERED", newLineup]
   ]) {
     console.log(
       `===== ${name} OPTIMIZATION =====`
