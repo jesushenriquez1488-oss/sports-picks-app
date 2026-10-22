@@ -802,37 +802,68 @@ async function main() {
 
   // Consultar estadisticas reales solo para evaluar
   // el resultado posterior al cutoff.
+  // RESULTADOS REALES DESDE SUPABASE
+  // Exclusivamente para evaluacion posterior.
+  // No se usan para proyectar ni optimizar.
+
   const realStats = [];
-  const slateGameIds = new Set(
-    report.players.map(p => id(p.gameId)).filter(Boolean)
-  );
 
   const playerIds = [
     ...new Set(
-      report.players.map(p => id(p.playerId))
+      report.players
+        .map(p => Number(p.playerId))
+        .filter(Number.isFinite)
     )
-  ].filter(Boolean);
+  ];
 
-  const gameIds = [...slateGameIds];
+  const slateStart = day(slate.startsAt);
+
+  const endDate = new Date(
+    `${slateStart}T00:00:00Z`
+  );
+
+  // Incluye el dia del slate y el dia siguiente
+  // por diferencias de fecha UTC.
+  endDate.setUTCDate(endDate.getUTCDate() + 2);
+
+  const slateEndExclusive =
+    endDate.toISOString().slice(0, 10);
 
   for (let i = 0; i < playerIds.length; i += 100) {
     const batch = playerIds.slice(i, i + 100);
 
     const { data, error } = await db
       .from("nba_player_game_stats")
-      .select("player_id,game_id,game_date,minutes")
+      .select("*")
       .in("player_id", batch)
-      .in("game_id", gameIds)
-      .gte("game_date", day(report.cutoffAt));
+      .gte("game_date", slateStart)
+      .lt("game_date", slateEndExclusive)
+      .order("game_date", { ascending: true })
+      .limit(1000);
 
     if (error) {
       throw new Error(
-        "NBA actual minutes audit: " + error.message
+        "NBA actual stats audit: " + error.message
+      );
+    }
+
+    if ((data || []).length === 1000) {
+      throw new Error(
+        "NBA actual stats audit: query limit reached"
       );
     }
 
     realStats.push(...(data || []));
   }
+
+  console.log("===== SUPABASE ACTUAL DATA =====");
+  console.log("Slate start:", slateStart);
+  console.log("Exclusive end:", slateEndExclusive);
+  console.log("Real stats rows:", realStats.length);
+  console.log(
+    "Unique players:",
+    new Set(realStats.map(r => id(r.player_id))).size
+  );
 
   const actualByPlayer = new Map();
 
@@ -846,7 +877,31 @@ async function main() {
     actualByPlayer.get(key).push(row);
   }
 
-  for (const target of auditTargets) {
+   const allAuditTargets = [
+    ...auditTargets
+  ];
+
+  for (const selected of selectedPlayers) {
+    const alreadyIncluded = allAuditTargets.some(
+      t =>
+        normalizeName(t.name) ===
+        normalizeName(selected.name)
+    );
+
+    if (!alreadyIncluded) {
+      allAuditTargets.push({
+        name: selected.name,
+        real: null
+      });
+    }
+  }
+
+  console.log(
+    "Players to evaluate:",
+    allAuditTargets.length
+  );
+
+  for (const target of allAuditTargets) {
     const matches = report.players.filter(
       p =>
         normalizeName(p.name) ===
@@ -870,16 +925,31 @@ async function main() {
       r => r.playerId === id(p.playerId)
     );
 
-    const actualRows = (
+       const actualRows = (
       actualByPlayer.get(id(p.playerId)) || []
-    ).filter(
-      r => id(r.game_id) === id(p.gameId)
+    ).filter(r =>
+      day(r.game_date) >= slateStart &&
+      day(r.game_date) < slateEndExclusive
     );
 
-    const actualMinutes =
+    // Nunca sumar dos partidos distintos.
+    // Si hay mas de un game_id, se debe
+    // resolver la correspondencia antes de evaluar.
+    const uniqueGameIds = new Set(
+      actualRows.map(r => id(r.game_id))
+    );
+
+    const uniqueActual =
       actualRows.length === 1 &&
-      actualRows[0].minutes !== null
-        ? Number(actualRows[0].minutes)
+      uniqueGameIds.size === 1
+        ? actualRows[0]
+        : null;
+
+        const actualMinutes =
+      uniqueActual &&
+      uniqueActual.minutes != null &&
+      Number.isFinite(Number(uniqueActual.minutes))
+        ? Number(uniqueActual.minutes)
         : null;
 
     const projectedMinutes =
@@ -902,7 +972,10 @@ async function main() {
     }
 
     const projected = Number(p.projectedPoints);
-    const actual = Number(target.real);
+       const actual =
+      target.real == null
+        ? null
+        : Number(target.real);
 
     console.log(JSON.stringify({
       name: p.name,
@@ -911,8 +984,14 @@ async function main() {
       positions: p.positions,
 
       projectedFantasyPoints: p.projectedPoints,
-      actualFantasyPoints: actual,
+            actualFantasyPoints: actual,
+      fantasyPointsSource:
+        actual === null
+          ? "PENDING_SUPABASE_SCORING"
+          : "USER_REPORTED",
+
       fantasyPointsError:
+        actual !== null &&
         Number.isFinite(projected)
           ? Number((actual - projected).toFixed(2))
           : null,
@@ -951,12 +1030,15 @@ async function main() {
 
       selectionStatus,
 
+            actualGameId: uniqueActual?.game_id ?? null,
+      actualGameDate: uniqueActual?.game_date ?? null,
+
       actualMinutesStatus:
-        actualRows.length === 1
+        uniqueActual
           ? "FOUND"
           : actualRows.length === 0
             ? "NOT_FOUND"
-            : "MULTIPLE_MATCHES"
+            : "AMBIGUOUS_MULTIPLE_GAMES"
     }));
   }
 
