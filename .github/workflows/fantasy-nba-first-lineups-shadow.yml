@@ -1,0 +1,74 @@
+
+name: Fantasy NBA First Lineups SHADOW
+
+on:
+  workflow_dispatch:
+
+jobs:
+  first-lineups:
+    if: github.ref == 'refs/heads/fantasy-dev'
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout Fantasy Development
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
+        run: |
+          npm install --no-save --no-package-lock @supabase/supabase-js
+          python -m pip install "ortools>=9.10,<10"
+
+      - name: Build ESPN Identity Report
+        env:
+          FANTASY_SUPABASE_URL: ${{ secrets.FANTASY_SUPABASE_URL }}
+          FANTASY_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.FANTASY_SUPABASE_SERVICE_ROLE_KEY }}
+        run: node fantasy-engine/nba-identity-builder.js
+
+      - name: Build ESPN Rotation Context
+        run: node fantasy-engine/nba-rotation-context-builder.js
+
+      - name: Build NBA Historical Context
+        env:
+          FANTASY_SUPABASE_URL: ${{ secrets.FANTASY_SUPABASE_URL }}
+          FANTASY_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.FANTASY_SUPABASE_SERVICE_ROLE_KEY }}
+        run: node fantasy-engine/nba-fantasy-history-shadow.js
+
+      - name: Recover Historical Starter Data
+        env:
+          FANTASY_SUPABASE_URL: ${{ secrets.FANTASY_SUPABASE_URL }}
+          FANTASY_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.FANTASY_SUPABASE_SERVICE_ROLE_KEY }}
+        run: node fantasy-engine/nba-fantasy-integration-shadow.js
+
+      - name: Fetch Live DraftKings Slate
+        env:
+          BALLDONTLIE_NBA_API_KEY: ${{ secrets.BALLDONTLIE_NBA_API_KEY }}
+          FANTASY_SUPABASE_URL: ${{ secrets.FANTASY_SUPABASE_URL }}
+          FANTASY_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.FANTASY_SUPABASE_SERVICE_ROLE_KEY }}
+          FANTASY_TARGET_DATE: "2026-10-22"
+        run: node fantasy-engine/nba-fantasy-live-slate-shadow.js
+
+      - name: Generate Five Shadow Lineups
+        run: python fantasy-engine/nba-first-lineups-shadow.py
+
+      - name: Save Shadow Lineups
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fantasy-nba-first-lineups-shadow
+          path: |
+            fantasy-slate-data/nba-draftkings-live-shadow.json
+            fantasy-slate-data/nba-draftkings-first-lineups-shadow.json
+          retention-days: 7
+          if-no-files-found: warn
