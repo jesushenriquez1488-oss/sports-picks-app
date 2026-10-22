@@ -784,7 +784,183 @@ async function main() {
       );
     }
   }
+  // AUDITORIA POST-PARTIDO: SOLO SHADOW
+  // No cambia proyecciones ni optimizacion.
 
+  console.log("===== NBA FULL FANTASY AUDIT =====");
+
+  const selectedPlayers =
+    newLineup.recommended?.players || [];
+
+  const selectedIds = new Set(
+    selectedPlayers.map(p => id(p.playerId))
+  );
+
+  const selectedNames = new Set(
+    selectedPlayers.map(p => normalizeName(p.name))
+  );
+
+  // Consultar estadisticas reales solo para evaluar
+  // el resultado posterior al cutoff.
+  const realStats = [];
+  const slateGameIds = new Set(
+    report.players.map(p => id(p.gameId)).filter(Boolean)
+  );
+
+  const playerIds = [
+    ...new Set(
+      report.players.map(p => id(p.playerId))
+    )
+  ].filter(Boolean);
+
+  const gameIds = [...slateGameIds];
+
+  for (let i = 0; i < playerIds.length; i += 100) {
+    const batch = playerIds.slice(i, i + 100);
+
+    const { data, error } = await db
+      .from("nba_player_game_stats")
+      .select("player_id,game_id,game_date,minutes")
+      .in("player_id", batch)
+      .in("game_id", gameIds)
+      .gte("game_date", day(report.cutoffAt));
+
+    if (error) {
+      throw new Error(
+        "NBA actual minutes audit: " + error.message
+      );
+    }
+
+    realStats.push(...(data || []));
+  }
+
+  const actualByPlayer = new Map();
+
+  for (const row of realStats) {
+    const key = id(row.player_id);
+
+    if (!actualByPlayer.has(key)) {
+      actualByPlayer.set(key, []);
+    }
+
+    actualByPlayer.get(key).push(row);
+  }
+
+  for (const target of auditTargets) {
+    const matches = report.players.filter(
+      p =>
+        normalizeName(p.name) ===
+        normalizeName(target.name)
+    );
+
+    if (matches.length !== 1) {
+      console.log(JSON.stringify({
+        name: target.name,
+        status: matches.length === 0
+          ? "NOT_FOUND_IN_REPORT"
+          : "AMBIGUOUS_NAME",
+        realFantasyPoints: target.real
+      }));
+      continue;
+    }
+
+    const p = matches[0];
+
+    const rotation = checks.find(
+      r => r.playerId === id(p.playerId)
+    );
+
+    const actualRows = (
+      actualByPlayer.get(id(p.playerId)) || []
+    ).filter(
+      r => id(r.game_id) === id(p.gameId)
+    );
+
+    const actualMinutes =
+      actualRows.length === 1 &&
+      actualRows[0].minutes !== null
+        ? Number(actualRows[0].minutes)
+        : null;
+
+    const projectedMinutes =
+      p.expectedMinutes == null
+        ? null
+        : Number(p.expectedMinutes);
+
+    const wasSelected =
+      selectedIds.has(id(p.playerId)) ||
+      selectedNames.has(normalizeName(p.name));
+
+    let selectionStatus;
+
+    if (Number(p.salary) <= 3500) {
+      selectionStatus = "EXCLUDED_BY_SALARY";
+    } else if (wasSelected) {
+      selectionStatus = "SELECTED";
+    } else {
+      selectionStatus = "NOT_SELECTED_BY_OPTIMIZER";
+    }
+
+    const projected = Number(p.projectedPoints);
+    const actual = Number(target.real);
+
+    console.log(JSON.stringify({
+      name: p.name,
+      playerId: id(p.playerId),
+      salary: p.salary,
+      positions: p.positions,
+
+      projectedFantasyPoints: p.projectedPoints,
+      actualFantasyPoints: actual,
+      fantasyPointsError:
+        Number.isFinite(projected)
+          ? Number((actual - projected).toFixed(2))
+          : null,
+
+      expectedMinutes: projectedMinutes,
+      actualMinutes:
+        Number.isFinite(actualMinutes)
+          ? actualMinutes
+          : null,
+
+      minutesError:
+        Number.isFinite(actualMinutes) &&
+        Number.isFinite(projectedMinutes)
+          ? Number(
+              (actualMinutes - projectedMinutes).toFixed(2)
+            )
+          : null,
+
+      historicalTypicalMinutes:
+        rotation?.typicalMinutes ?? null,
+
+      historicalRotationDiagnosis:
+        rotation?.reason ?? null,
+
+      historicalOnly:
+        rotation?.historicalOnly ?? null,
+
+      lastHistoricalTeamGame:
+        rotation?.lastTeamGameDate ?? null,
+
+      historicalParticipationL5:
+        rotation?.l5 ?? null,
+
+      historicalParticipationL10:
+        rotation?.l10 ?? null,
+
+      selectionStatus,
+
+      actualMinutesStatus:
+        actualRows.length === 1
+          ? "FOUND"
+          : actualRows.length === 0
+            ? "NOT_FOUND"
+            : "MULTIPLE_MATCHES"
+    }));
+  }
+
+  console.log("===== END NBA FULL FANTASY AUDIT =====");
   console.log(
     "SHADOW ONLY | NO WRITES | NOT READY FOR PUBLICATION"
   );
