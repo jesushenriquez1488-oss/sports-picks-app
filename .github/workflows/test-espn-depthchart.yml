@@ -8,6 +8,7 @@ on:
       - fantasy-dev
     paths:
       - "fantasy-engine/espn-depthchart-probe.js"
+      - "fantasy-engine/espn-depthchart-normalizer.js"
       - ".github/workflows/test-espn-depthchart.yml"
 
 jobs:
@@ -23,5 +24,5 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Run ESPN Depth Chart Test
-        run: node fantasy-engine/espn-depthchart-probe.js
+      - name: Run ESPN NBA Depth Chart Normalizer
+        run: node fantasy-engine/espn-depthchart-normalizer.js
