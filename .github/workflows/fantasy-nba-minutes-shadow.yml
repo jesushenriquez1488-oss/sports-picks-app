@@ -1,0 +1,59 @@
+
+name: Fantasy NBA Minutes SHADOW
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fantasy-dev
+    paths:
+      - "fantasy-engine/nba-minutes-shadow.js"
+      - ".github/workflows/fantasy-nba-minutes-shadow.yml"
+
+jobs:
+  fantasy-nba-minutes:
+    if: github.ref == 'refs/heads/fantasy-dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout Fantasy Development
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Supabase Client
+        run: npm install --no-save --no-package-lock @supabase/supabase-js
+
+      - name: Build ESPN Identity Report
+        env:
+          FANTASY_SUPABASE_URL: ${{ secrets.FANTASY_SUPABASE_URL }}
+          FANTASY_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.FANTASY_SUPABASE_SERVICE_ROLE_KEY }}
+        run: node fantasy-engine/nba-identity-builder.js
+
+      - name: Build NBA Rotation Context
+        run: node fantasy-engine/nba-rotation-context-builder.js
+
+      - name: Build NBA Historical Context
+        env:
+          FANTASY_SUPABASE_URL: ${{ secrets.FANTASY_SUPABASE_URL }}
+          FANTASY_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.FANTASY_SUPABASE_SERVICE_ROLE_KEY }}
+        run: node fantasy-engine/nba-fantasy-history-shadow.js
+
+      - name: Calculate NBA Minutes Baseline
+        run: node fantasy-engine/nba-minutes-shadow.js
+
+      - name: Save NBA Minutes Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: fantasy-nba-minutes-shadow
+          path: |
+            fantasy-shadow-input/nba-identity-report.json
+            fantasy-shadow-input/nba-rotation-context.json
+            fantasy-shadow-input/nba-fantasy-history.json
+            fantasy-shadow-input/nba-minutes-shadow.json
+          retention-days: 7
+          if-no-files-found: error
