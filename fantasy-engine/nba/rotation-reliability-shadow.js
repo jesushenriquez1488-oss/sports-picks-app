@@ -580,6 +580,25 @@ async function main() {
     );
   }
 
+  // AUDITORIA JERICHO SIMS — SOLO DIAGNOSTICO
+  const simsAudit = checks.find(p =>
+    /jericho\s+sims/i.test(String(p.name || ""))
+  );
+
+  console.log(
+    "===== JERICHO SIMS PRE-GAME AUDIT ====="
+  );
+
+  if (simsAudit) {
+    console.log(
+      JSON.stringify(simsAudit, null, 2)
+    );
+  } else {
+    console.log(
+      "Jericho Sims no aparece en las proyecciones del reporte"
+    );
+  }
+
   // Misma proyeccion, dos grupos distintos.
   // Nunca alterar salarios ni puntos.
 
