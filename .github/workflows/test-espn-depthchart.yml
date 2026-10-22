@@ -9,9 +9,7 @@ on:
     paths:
       - "fantasy-engine/espn-depthchart-probe.js"
       - "fantasy-engine/espn-depthchart-normalizer.js"
-      - "fantasy-engine/espn-depthchart-league-audit.js"
-      - "fantasy-engine/espn-sarr-identity-check.js"
-      - "fantasy-engine/espn-nba-identity-audit.js"
+      - "fantasy-engine/nba-identity-builder.js"
       - ".github/workflows/test-espn-depthchart.yml"
 
 jobs:
@@ -28,14 +26,19 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Verify Node.js
-        run: node --version
-
       - name: Install Supabase Client
         run: npm install --no-save --no-package-lock @supabase/supabase-js
 
-      - name: Run NBA ESPN Identity Audit
+      - name: Build NBA Identity Report
         env:
           FANTASY_SUPABASE_URL: ${{ secrets.FANTASY_SUPABASE_URL }}
           FANTASY_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.FANTASY_SUPABASE_SERVICE_ROLE_KEY }}
-        run: node fantasy-engine/espn-nba-identity-audit.js
+        run: node fantasy-engine/nba-identity-builder.js
+
+      - name: Save NBA Identity Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: nba-identity-shadow-report
+          path: fantasy-shadow-input/nba-identity-report.json
+          retention-days: 7
+          if-no-files-found: error
