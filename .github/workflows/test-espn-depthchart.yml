@@ -9,11 +9,13 @@ on:
     paths:
       - "fantasy-engine/espn-depthchart-probe.js"
       - "fantasy-engine/espn-depthchart-normalizer.js"
+      - "fantasy-engine/espn-depthchart-league-audit.js"
       - ".github/workflows/test-espn-depthchart.yml"
 
 jobs:
   test-espn:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
@@ -24,5 +26,5 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Run ESPN NBA Depth Chart Normalizer
-        run: node fantasy-engine/espn-depthchart-normalizer.js
+      - name: Run ESPN NBA League Audit
+        run: node fantasy-engine/espn-depthchart-league-audit.js
