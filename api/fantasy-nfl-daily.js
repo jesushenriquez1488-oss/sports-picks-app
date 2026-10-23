@@ -343,7 +343,9 @@ async function stepPlayers() {
     const gsis = str(r.gsis_id);
     const position = str(r.position).toUpperCase();
     const last = numberOrNull(r.last_season);
-    if (!gsis || gsis === "NA" || !POSITIONS.has(position) || last === null || last < season - 1) continue;
+    // Todas las posiciones: hay jugadores de dos lados (ej. Travis
+    // Hunter figura como CB en NFLverse y como WR en ESPN y DK).
+    if (!gsis || gsis === "NA" || !position || position === "NA" || last === null || last < season - 1) continue;
 
     if (out.has(gsis)) {
       duplicated++;
@@ -368,7 +370,7 @@ async function stepPlayers() {
   }
 
   const list = [...out.values()];
-  if (list.length < 500) throw new Error(`NFLverse players devolvio solo ${list.length} jugadores`);
+  if (list.length < 1500) throw new Error(`NFLverse players devolvio solo ${list.length} jugadores`);
 
   await upsertAll("football_players", list, "gsis_player_id");
 
@@ -586,7 +588,8 @@ function buildPlayerIndex(players) {
     teamPosName: new Map(),
     teamName: new Map(),
     posName: new Map(),
-    teamInitialLast: new Map()
+    teamInitialLast: new Map(),
+    teamPosLast: new Map()
   };
   for (const p of players) {
     const name = normalizeName(p.player_name);
@@ -595,20 +598,38 @@ function buildPlayerIndex(players) {
     pushTo(idx.posName, `${p.position}|${name}`, p);
     const il = initialLast(p.player_name);
     if (il) pushTo(idx.teamInitialLast, `${p.team}|${il}`, p);
+    const lastName = name.split(" ").slice(-1)[0];
+    if (lastName) pushTo(idx.teamPosLast, `${p.team}|${p.position}|${lastName}`, p);
   }
   return idx;
 }
+
+// Apodos que usan las casas en vez del nombre real.
+const NICKNAMES = {
+  hollywood: ["marquise"], drew: ["andrew"], mike: ["michael"], chris: ["christopher"],
+  matt: ["matthew"], josh: ["joshua"], nick: ["nicholas"], tony: ["anthony"],
+  will: ["william"], bob: ["robert"], rob: ["robert"], dan: ["daniel"], danny: ["daniel"],
+  jon: ["jonathan"], cam: ["cameron"], zach: ["zachary"], gabe: ["gabriel"]
+};
 
 // BALLDONTLIE no usa el ID GSIS: se enlaza por equipo + posicion +
 // nombre, y solo si hay UN candidato.
 function linkPlayer(idx, team, position, name) {
   const n = normalizeName(name);
+  const [first, ...rest] = n.split(" ");
+  const aliasFound = (NICKNAMES[first] || [])
+    .flatMap(real => idx.teamPosName.get(`${team}|${position}|${[real, ...rest].join(" ")}`) || []);
   const tries = [
     ["equipo_posicion_nombre", idx.teamPosName.get(`${team}|${position}|${n}`)],
+    ["equipo_posicion_apodo", aliasFound],
     ["equipo_nombre", idx.teamName.get(`${team}|${n}`)],
     // Cambiado de equipo hace poco: nombre + posicion unicos en la liga.
     ["posicion_nombre_liga", idx.posName.get(`${position}|${n}`)],
-    ["equipo_inicial_apellido", idx.teamInitialLast.get(`${team}|${initialLast(name)}`)]
+    ["equipo_inicial_apellido", idx.teamInitialLast.get(`${team}|${initialLast(name)}`)],
+    // Apodos: "Hollywood Brown" = Marquise Brown, "Drew Ogletree" =
+    // Andrew Ogletree. Solo si es el UNICO con ese apellido en esa
+    // posicion de ese equipo.
+    ["equipo_posicion_apellido", idx.teamPosLast.get(`${team}|${position}|${n.split(" ").slice(-1)[0]}`)]
   ];
   for (const [method, found] of tries) {
     if (found && found.length === 1) return { gsis: found[0].gsis_player_id, method };
