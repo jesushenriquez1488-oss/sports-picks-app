@@ -21,6 +21,10 @@
 //   quarters  Marcador por cuarto (BALLDONTLIE /v1/games)
 //             -> nba_game_quarters
 //
+//   spreads   Linea de apuesta: apertura de partidos pasados y
+//             linea actual de hoy (BALLDONTLIE /nba/v2/odds)
+//             -> nba_game_spreads. &games=1500 para la carga inicial.
+//
 //   injuries  Lesiones actuales (BALLDONTLIE)
 //             -> nba_player_injuries_current
 //
@@ -600,6 +604,116 @@ async function stepQuarters() {
 
 
 // ============================================================
+// PASO: LINEAS DE APUESTA (spread)
+// ============================================================
+//
+// 1. Historial: linea de APERTURA de cada partido guardado que
+//    todavia no la tiene (/nba/v2/odds/opening). Una sola vez por
+//    partido.
+// 2. Hoy: linea ACTUAL de los partidos del dia (/nba/v2/odds).
+// Se guarda la mediana de todas las casas (DraftKings, FanDuel,
+// BetMGM...), asi una casa rara no mueve el numero.
+
+function medianOf(values) {
+  const v = values.filter(x => Number.isFinite(x)).sort((a, b) => a - b);
+  if (!v.length) return null;
+  const m = Math.floor(v.length / 2);
+  return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
+}
+
+function summarizeOdds(rows) {
+  const byGame = new Map();
+  for (const r of rows) {
+    const id = Number(r.game_id);
+    if (!Number.isFinite(id)) continue;
+    if (!byGame.has(id)) byGame.set(id, []);
+    byGame.get(id).push(r);
+  }
+  const out = new Map();
+  for (const [id, list] of byGame) {
+    out.set(id, {
+      spread: medianOf(list.map(r => numberOrNull(r.spread_home_value))),
+      total: medianOf(list.map(r => numberOrNull(r.total_value))),
+      vendors: list.length
+    });
+  }
+  return out;
+}
+
+async function stepSpreads(day, maxGames) {
+  const now = new Date().toISOString();
+
+  // ---------- 1. Historial (apertura) ----------
+  const games = await selectAll(
+    "nba_games",
+    "game_id,season,game_date,home_team_id,visitor_team_id",
+    q => q.in("season", [CURRENT_SEASON, PREVIOUS_SEASON]).order("game_date", { ascending: false })
+  );
+  const checked = new Set(
+    (await selectAll("nba_game_spreads", "game_id", q => q.eq("opening_checked", true)))
+      .map(r => Number(r.game_id))
+  );
+  const pending = games.filter(g => !checked.has(Number(g.game_id))).slice(0, maxGames);
+
+  const historyRows = [];
+  for (const group of chunks(pending, 20)) {
+    const odds = summarizeOdds(await bdlPages(
+      "/nba/v2/odds/opening",
+      group.map(g => ["game_ids[]", g.game_id])
+    ));
+    for (const g of group) {
+      const o = odds.get(Number(g.game_id));
+      historyRows.push({
+        game_id: Number(g.game_id),
+        season: Number(g.season),
+        game_date: nbaCalendarDate(g.game_date),
+        home_team_id: Number(g.home_team_id),
+        visitor_team_id: Number(g.visitor_team_id),
+        opening_home_spread: o?.spread ?? null,
+        opening_total: o?.total ?? null,
+        opening_vendors: o?.vendors ?? 0,
+        opening_checked: true,
+        synced_at: now
+      });
+    }
+  }
+  if (historyRows.length) await upsertAll("nba_game_spreads", historyRows, "game_id");
+
+  // ---------- 2. Partidos de hoy (linea actual) ----------
+  const todayGames = await bdlPages("/v1/games", [["dates[]", day]]);
+  const todayOdds = summarizeOdds(await bdlPages("/nba/v2/odds", [["dates[]", day]]));
+  const todayRows = [];
+  for (const g of todayGames) {
+    const id = Number(g.id);
+    const o = todayOdds.get(id);
+    if (!o || o.spread === null) continue;
+    todayRows.push({
+      game_id: id,
+      season: Number(g.season ?? CURRENT_SEASON),
+      game_date: day,
+      home_team_id: numberOrNull(g.home_team?.id ?? g.home_team_id),
+      visitor_team_id: numberOrNull(g.visitor_team?.id ?? g.visitor_team_id),
+      current_home_spread: o.spread,
+      current_total: o.total,
+      current_vendors: o.vendors,
+      current_updated_at: now,
+      synced_at: now
+    });
+  }
+  if (todayRows.length) await upsertAll("nba_game_spreads", todayRows, "game_id");
+
+  return {
+    historyPending: games.filter(g => !checked.has(Number(g.game_id))).length,
+    historySaved: historyRows.length,
+    historyWithLine: historyRows.filter(r => r.opening_home_spread !== null).length,
+    historyRemaining: Math.max(0, games.filter(g => !checked.has(Number(g.game_id))).length - historyRows.length),
+    todayGames: todayGames.length,
+    todayWithLine: todayRows.length
+  };
+}
+
+
+// ============================================================
 // PASO: LESIONES
 // ============================================================
 
@@ -1061,11 +1175,12 @@ function isInternalRequest(req) {
 }
 
 const PLANS = {
-  all: ["starters", "box", "quarters", "evaluate", "injuries", "depth", "slate", "project"],
-  refresh: ["injuries", "depth", "slate", "project"],
+  all: ["starters", "box", "quarters", "spreads", "evaluate", "injuries", "depth", "slate", "project"],
+  refresh: ["injuries", "depth", "slate", "spreads", "project"],
   starters: ["starters"],
   box: ["box"],
   quarters: ["quarters"],
+  spreads: ["spreads"],
   evaluate: ["evaluate"],
   project: ["project"],
   injuries: ["injuries"],
@@ -1115,6 +1230,7 @@ module.exports = async function handler(req, res) {
     starters: () => stepStarters(limit),
     box: () => stepBox(maxDates),
     quarters: () => stepQuarters(),
+    spreads: () => stepSpreads(day, Math.min(1500, Math.max(20, Number(req.query.games || 300)))),
     injuries: () => stepInjuries(),
     depth: () => stepDepth(),
     slate: () => stepSlate(day),
@@ -1128,7 +1244,9 @@ module.exports = async function handler(req, res) {
         platforms: (r.platforms || []).map(p => ({
           platform: p.platform,
           eligible: p.eligible,
-          excluded: p.excluded
+          excluded: p.excluded,
+          lineups: p.lineups?.length || 0,
+          bestLineup: p.lineups?.[0]?.proyectado ?? null
         })),
         formulaSeconds: r.seconds
       };
