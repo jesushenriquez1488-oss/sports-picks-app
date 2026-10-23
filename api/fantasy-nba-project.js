@@ -637,7 +637,8 @@ const MARGIN_BINS = [
   { lo: 10, hi: 15, label: "10-14" },
   { lo: 15, hi: 20, label: "15-19" },
   { lo: 20, hi: 25, label: "20-24" },
-  { lo: 25, hi: Infinity, label: "25+" }
+  { lo: 25, hi: 30, label: "25-29" },
+  { lo: 30, hi: Infinity, label: "30+" }
 ];
 
 function marginBin(margin) {
