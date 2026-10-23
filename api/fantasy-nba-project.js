@@ -87,14 +87,17 @@ const CONFIG = {
   otherTeamWeight: 0.5,
   profilePriorGames: 5,
   blowoutMargin: 20,
+  strengthPriorGames: 10,
   injuryExitShare: 0.4,
   maxStarterMinutes: 40,
   maxBenchMinutes: 34,
-  normalizeMin: 0.8,         // fuera de este rango = datos del equipo incompletos
-  normalizeMax: 1.25,
+  starterMinScale: 0.9,      // recortar titulares mas de 10% = datos incompletos
+  normalizeMax: 1.25,        // necesitar 25%+ de minutos extra = datos incompletos
   roleChangeMinSamples: 20,
   deepBenchRank: 3,
   appearanceGames: 10,
+  appearancePriorGames: 3,
+  benchMinScale: 0.6,        // la banca absorbe primero el exceso de minutos
   benchMinMinutes: 15,       // proteccion de suplentes
   benchMinShare: 0.6,
   benchMinGames: 2,
@@ -440,9 +443,23 @@ async function loadToday(day) {
 // ============================================================
 
 // Estilo de rotacion de cada equipo.
+//   S[i]     minutos del titular i (de mas a menos minutos)
+//   Bcond[k] minutos del suplente k CUANDO entra a jugar
+//   Bplay[k] que tan seguido entra el suplente k
+//   B[k]     promedio total del suplente k (incluye cuando no entra)
+function normalCdf(x) {
+  // Aproximacion de Abramowitz-Stegun.
+  const t = 1 / (1 + 0.2316419 * Math.abs(x));
+  const d = 0.3989423 * Math.exp(-x * x / 2);
+  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+  return x > 0 ? 1 - p : p;
+}
+
 function buildProfiles(teamGames) {
-  const leagueAll = { S: Array(5).fill(0), B: Array(10).fill(0), n: 0 };
-  const leagueNormal = { S: Array(5).fill(0), B: Array(10).fill(0), n: 0 };
+  const empty = () => ({ S: Array(5).fill(0), B: Array(10).fill(0), Bpos: Array(10).fill(0), n: 0 });
+  const leagueAll = empty();
+  const leagueNormal = empty();
+  const leagueBlow = empty();
   const profiles = new Map();
   const usage = new Map();
 
@@ -453,21 +470,34 @@ function buildProfiles(teamGames) {
     const B = played.filter(r => r.starter === false).map(r => r.min).sort((a, b) => b - a);
     while (B.length < 10) B.push(0);
     S.forEach((m, i) => (acc.S[i] += m));
-    B.slice(0, 10).forEach((m, i) => (acc.B[i] += m));
+    B.slice(0, 10).forEach((m, i) => {
+      acc.B[i] += m;
+      if (m > 0) acc.Bpos[i]++;
+    });
     acc.n++;
     return true;
   };
 
-  const avg = acc => ({ S: acc.S.map(x => x / acc.n), B: acc.B.map(x => x / acc.n) });
+  const avg = acc => ({
+    S: acc.S.map(x => x / acc.n),
+    B: acc.B.map(x => x / acc.n),
+    Bcond: acc.B.map((x, i) => (acc.Bpos[i] ? x / acc.Bpos[i] : 0)),
+    Bplay: acc.Bpos.map(x => x / acc.n)
+  });
+
+  const blend = (a, b, w) => Object.fromEntries(
+    Object.keys(a).map(k => [k, a[k].map((x, i) => w * x + (1 - w) * b[k][i])])
+  );
 
   for (const [team, games] of teamGames) {
-    const cur = { S: Array(5).fill(0), B: Array(10).fill(0), n: 0 };
-    const prev = { S: Array(5).fill(0), B: Array(10).fill(0), n: 0 };
+    const cur = empty();
+    const prev = empty();
     const useCur = [];
     const usePrev = [];
 
     for (const g of games) {
       add(leagueAll, g);
+      if (g.blowout) add(leagueBlow, g);
       if (!g.blowout) {
         add(leagueNormal, g);
         add(g.season === CUR ? cur : prev, g);
@@ -487,28 +517,19 @@ function buildProfiles(teamGames) {
     const uP = mean(usePrev);
     usage.set(team, uC !== null && uP !== null ? wU * uC + (1 - wU) * uP : uC ?? uP);
 
-    let S;
-    let B;
-    if (cur.n && prev.n) {
-      const w = cur.n / (cur.n + CONFIG.profilePriorGames);
-      const a = avg(cur);
-      const b = avg(prev);
-      S = a.S.map((x, i) => w * x + (1 - w) * b.S[i]);
-      B = a.B.map((x, i) => w * x + (1 - w) * b.B[i]);
-    } else if (cur.n || prev.n) {
-      ({ S, B } = avg(cur.n ? cur : prev));
-    } else {
-      continue;
-    }
+    let profile;
+    if (cur.n && prev.n) profile = blend(avg(cur), avg(prev), cur.n / (cur.n + CONFIG.profilePriorGames));
+    else if (cur.n || prev.n) profile = avg(cur.n ? cur : prev);
+    else continue;
 
-    profiles.set(team, { S, B, gamesCur: cur.n, gamesPrev: prev.n });
+    profiles.set(team, { ...profile, gamesCur: cur.n, gamesPrev: prev.n });
   }
 
   if (!leagueNormal.n) throw new Error("No hay partidos con titulares para medir rotaciones");
 
   const ln = avg(leagueNormal);
   const la = avg(leagueAll);
-  const league = { S: ln.S, B: ln.B, gamesCur: 0, gamesPrev: 0 };
+  const league = { ...ln, gamesCur: 0, gamesPrev: 0 };
 
   for (const p of [...profiles.values(), league]) {
     p.starterAvg = mean(p.S);
@@ -517,13 +538,44 @@ function buildProfiles(teamGames) {
       p.starterAvg <= 29 ? "ROTA MUCHO" : "NORMAL";
   }
 
-  // Cuanto bajan/suben los minutos por las palizas (medido).
+  // PALIZAS (todo medido con tus partidos):
+  //  - cuanto juegan titulares y suplentes en una paliza vs normal
+  //  - nivel de cada equipo (diferencia de puntos promedio)
+  //  - que tan lejos queda el marcador real de lo esperado
+  // Con eso cada partido de hoy tiene SU probabilidad de paliza
+  // segun la diferencia de nivel entre los dos equipos.
+  const lb = leagueBlow.n ? avg(leagueBlow) : ln;
+  const benchCond = acc => {
+    const minutes = acc.B.reduce((x, y) => x + y, 0);
+    const played = acc.Bpos.reduce((x, y) => x + y, 0);
+    return played ? minutes / played : 0;
+  };
+  const strength = new Map();
+  for (const [team, games] of teamGames) {
+    const cur = games.filter(g => g.season === CUR).map(g => g.margin);
+    const prev = games.filter(g => g.season === PREV).map(g => g.margin);
+    const w = cur.length / (cur.length + CONFIG.strengthPriorGames);
+    strength.set(team, cur.length && prev.length ? w * mean(cur) + (1 - w) * mean(prev) : mean(cur.length ? cur : prev) ?? 0);
+  }
+  const residuals = [];
+  for (const [team, games] of teamGames) {
+    for (const g of games) {
+      residuals.push(g.margin - ((strength.get(team) ?? 0) - (strength.get(g.opp) ?? 0)));
+    }
+  }
   const blowout = {
-    S: mean(la.S) / mean(ln.S),
-    B: ln.B.map((x, i) => (x > 0.5 ? la.B[i] / x : 1))
+    starterRatio: leagueBlow.n ? mean(lb.S) / mean(ln.S) : 1,
+    benchRatio: leagueBlow.n && benchCond(leagueNormal) ? benchCond(leagueBlow) / benchCond(leagueNormal) : 1,
+    marginSd: std(residuals) || 13,
+    games: leagueBlow.n
+  };
+  blowout.probability = (team, opp) => {
+    const mu = (strength.get(team) ?? 0) - (strength.get(opp) ?? 0);
+    const sd = blowout.marginSd;
+    return normalCdf((-CONFIG.blowoutMargin - mu) / sd) + 1 - normalCdf((CONFIG.blowoutMargin - mu) / sd);
   };
 
-  return { profiles, league, blowout, usage };
+  return { profiles, league, blowout, usage, strength };
 }
 
 // Cambio de minutos al pasar de suplente a titular (medido).
@@ -696,7 +748,15 @@ function teamRows(id, team, ctx) {
 function roleBaseline(id, team, role, order, profile, ctx) {
   const all = ctx.byPlayer.get(id) || [];
   const isRole = r => r.starter === (role === "S");
-  const pool = all.filter(r => !r.blowout && r.starter !== null);
+  // Partidos de paliza: no se descartan (pueden ser los unicos de
+  // esta temporada); sus minutos se llevan a partido normal con la
+  // relacion medida.
+  const bl = ctx.models.blowout;
+  const pool = all
+    .filter(r => r.starter !== null)
+    .map(r => (r.blowout
+      ? { ...r, min: r.min / (r.starter ? bl.starterRatio : bl.benchRatio), blowoutCorrected: true }
+      : r));
 
   let roleRows = pool.filter(isRole);
 
@@ -710,9 +770,11 @@ function roleBaseline(id, team, role, order, profile, ctx) {
   const prevSame = roleRows.filter(r => r.team === team && r.season === PREV).slice(0, CONFIG.previousGames);
   const prevOther = roleRows.filter(r => r.team !== team).slice(0, CONFIG.previousGames);
 
+  // Banca: minutos del puesto CUANDO entra (su historial tambien
+  // es solo de partidos jugados). Que tan seguido entra va aparte.
   const teamPrior = role === "S"
     ? profile.starterAvg
-    : profile.B[Math.min(order, 9)] ?? 0.5;
+    : profile.Bcond[Math.min(order, 9)] || 0.5;
 
   const curEst = weighted(cur, r => r.min, (r, i) => Math.pow(CONFIG.currentDecay, i));
   const prevEst = prevSame.length
@@ -908,17 +970,24 @@ function projectTeam(team, ctx) {
   const add = (key, role, order) => {
     const a = available.find(x => x.key === key);
     const effRank = effectiveRank(key);
-    const factor = role === "S" ? ctx.models.blowout.S : ctx.models.blowout.B[Math.min(order, 9)];
+    // Riesgo de paliza de ESTE partido (segun la diferencia de nivel).
+    const bl = ctx.models.blowout;
+    const pBlow = ctx.opponents?.has(team) ? bl.probability(team, ctx.opponents.get(team)) : 0;
+    const factor = role === "S"
+      ? 1 - pBlow * (1 - bl.starterRatio)
+      : 1 + pBlow * (bl.benchRatio - 1);
 
     if (!a.id) {
       // Sin enlace a BALLDONTLIE: solo ocupa minutos del equipo.
-      const teamPrior = role === "S" ? profile.starterAvg : profile.B[Math.min(order, 9)] ?? 0.5;
+      const slot = Math.min(order, 9);
+      const teamPrior = role === "S" ? profile.starterAvg : profile.Bcond[slot] || 0.5;
+      const play = role === "S" ? 1 : profile.Bplay[slot] ?? 0.5;
       rows.push({
         ...a, role, order, effRank, depthPosition: startPos[key] || null,
-        teamPrior, base: teamPrior, raw: teamPrior * factor, injury: { minutes: 0, rates: {} },
+        teamPrior, base: teamPrior, raw: teamPrior * factor * play, injury: { minutes: 0, rates: {} },
         cap: role === "S" ? CONFIG.maxStarterMinutes : CONFIG.maxBenchMinutes,
         sd: role === "S" ? CONFIG.minutesSdStarter : CONFIG.minutesSdBench,
-        baseline: null, appearance: 1, noHistory: true
+        baseline: null, appearance: play, noHistory: true
       });
       return;
     }
@@ -926,14 +995,22 @@ function projectTeam(team, ctx) {
     const baseline = roleBaseline(a.id, team, role, order, profile, ctx);
     const injury = mateEffect(a.id, team, role, importantOut, baseline, ctx);
 
-    // Banca profunda: ¿de verdad entra a jugar?
+    // Suplente: ¿que tan seguido entra a jugar?
+    // Partidos del equipo desde que llego (un partido sin fila =
+    // no jugo), mezclado con lo seguido que entra ese puesto de la
+    // banca en ese equipo. Un jugador nuevo sin partidos jugados
+    // ya no recibe minutos completos.
     let appearance = 1;
-    if (role === "B" && effRank >= CONFIG.deepBenchRank) {
+    if (role === "B") {
+      const slotPlay = profile.Bplay[Math.min(order, 9)] ?? 0.5;
+      const games = ctx.teamGames.get(team) || [];
       const first = teamRows(a.id, team, ctx).slice(-1)[0];
-      const window = first
-        ? (ctx.teamGames.get(team) || []).filter(g => g.date >= first.date).slice(0, CONFIG.appearanceGames)
-        : [];
-      if (window.length >= 3) appearance = window.filter(g => g.rows.has(a.id)).length / window.length;
+      const curGames = games.filter(g => g.season === CUR);
+      // Si nunca ha jugado con el equipo, cuentan los partidos de
+      // esta temporada (estaba en el roster y no jugo).
+      const window = (first ? games.filter(g => g.date >= first.date) : curGames).slice(0, CONFIG.appearanceGames);
+      const played = window.filter(g => g.rows.has(a.id)).length;
+      appearance = (played + CONFIG.appearancePriorGames * slotPlay) / (window.length + CONFIG.appearancePriorGames);
     }
 
     // Proteccion de suplentes: ¿de verdad juega 15+ minutos?
@@ -972,6 +1049,7 @@ function projectTeam(team, ctx) {
       base: baseline.base,
       raw: Math.max(0, baseline.base * factor * appearance + injury.minutes),
       blowoutFactor: factor,
+      blowoutProbability: pBlow,
       appearance,
       playShare,
       playShareBasis,
@@ -989,13 +1067,35 @@ function projectTeam(team, ctx) {
   // Si el ajuste necesario es muy grande, faltan datos del equipo
   // (jugadores sin enlace, depth chart incompleto): se marca y sus
   // jugadores no entran a alineaciones.
+  //
+  // Si sobran minutos: los minutos de los titulares son mas firmes
+  // que los de la banca, asi que primero se recorta la banca (hasta
+  // 60% de lo que traia) y solo despues a todos por igual.
+  // Si faltan minutos (lesiones): se reparten entre todos.
   const rawSum = rows.reduce((s, r) => s + r.raw, 0);
   const factor = rawSum > 0 ? CONFIG.teamMinutes / rawSum : 0;
   const warnings = [];
-  if (factor < CONFIG.normalizeMin || factor > CONFIG.normalizeMax) {
-    warnings.push(`ajuste a 241 demasiado grande (x${round(factor, 2)})`);
+
+  const benchRaw = rows.filter(r => r.role === "B").reduce((s, r) => s + r.raw, 0);
+  const starterRaw = rawSum - benchRaw;
+  let benchScale = 1;
+  let allScale = factor;
+
+  if (rawSum > CONFIG.teamMinutes && benchRaw > 0) {
+    benchScale = Math.max(CONFIG.benchMinScale, (CONFIG.teamMinutes - starterRaw) / benchRaw);
+    const afterBench = starterRaw + benchRaw * benchScale;
+    allScale = CONFIG.teamMinutes / afterBench;
   }
-  rows.forEach(r => (r.minutes = r.raw * factor));
+
+  rows.forEach(r => (r.minutes = r.raw * (r.role === "B" ? benchScale : 1) * allScale));
+
+  // Avisos = datos del equipo incompletos (sus jugadores no entran).
+  if (allScale < CONFIG.starterMinScale) {
+    warnings.push(`hubo que recortar a los titulares x${round(allScale, 2)}`);
+  }
+  if (factor > CONFIG.normalizeMax) {
+    warnings.push(`faltan minutos en el equipo (x${round(factor, 2)})`);
+  }
   for (let k = 0; k < 20; k++) {
     const over = rows.filter(r => r.minutes > r.cap);
     if (!over.length) break;
@@ -1021,6 +1121,8 @@ function projectTeam(team, ctx) {
     profile,
     warnings,
     finalSum,
+    benchScale,
+    allScale,
     out: out.map(a => a.name),
     importantOut: importantOut.map(a => a.name),
     doubtful: available.filter(a => a.status === "DUDA").map(a => a.name),
@@ -1250,8 +1352,19 @@ async function runProjection(day = chicagoDay()) {
     }
   }
 
+  ctx.opponents = opponents;
+
+  // Revisar que TODOS los equipos del slate tengan depth chart.
+  const slateTeams = [...new Set(today.slatePlayers.map(p => Number(p.team_id)))];
+  const missingDepth = slateTeams
+    .filter(t => !depthByTeam.has(t))
+    .map(t => today.slatePlayers.find(p => Number(p.team_id) === t)?.team_abbr || String(t));
+  const dataWarnings = [];
+  if (missingDepth.length) dataWarnings.push(`Equipos sin depth chart (sus jugadores no entran): ${missingDepth.join(", ")}`);
+  if (today.snapshotDate !== day) dataWarnings.push(`El depth chart es del ${today.snapshotDate}, no de hoy`);
+
   // PASO 1 y 2 para cada equipo del slate.
-  const teamIds = [...new Set(today.slatePlayers.map(p => Number(p.team_id)))].filter(t => depthByTeam.has(t));
+  const teamIds = slateTeams.filter(t => depthByTeam.has(t));
   const teamProjections = new Map(teamIds.map(t => [t, projectTeam(t, ctx)]));
 
   // Reparto de jugadas por equipo.
@@ -1298,12 +1411,9 @@ async function runProjection(day = chicagoDay()) {
       else if (!row) exclude(p, "NO_ESTA_EN_DEPTH_CHART");
       else if (row.status === "DUDA" || (slateStatus.get(id) || []).some(s => injuryClass(s) !== "")) exclude(p, "LESION_O_DUDA", { row });
       else if (tp.warnings.length) exclude(p, "MINUTOS_EQUIPO_NO_CUADRAN", { row });
-      // Top 2 de ESPN. Un #3 que sube por lesion solo entra si ya
-      // demostro minutos reales (proteccion de suplentes abajo).
-      else if (row.effRank > CONFIG.maxDepthRank) exclude(p, "FUERA_DEL_TOP2_ESPN", { row });
-      else if (row.originalRank > CONFIG.maxDepthRank && !(row.playShare >= CONFIG.benchMinShare)) {
-        exclude(p, "SUBIO_POR_LESION_SIN_MINUTOS_PROBADOS", { row });
-      }
+      // Solo los puestos 1 y 2 que publico ESPN. Un #3 que sube por
+      // lesion cuenta para repartir minutos, pero NO entra.
+      else if (row.originalRank > CONFIG.maxDepthRank) exclude(p, "FUERA_DEL_TOP2_ESPN", { row });
       else if (row.role === "B" && !(row.playShare >= CONFIG.benchMinShare)) {
         exclude(p, row.playShare === null ? "SUPLENTE_SIN_HISTORIAL_CON_EQUIPO" : "SUPLENTE_NO_JUEGA_15_MIN_SEGURO", { row });
       }
@@ -1356,6 +1466,7 @@ async function runProjection(day = chicagoDay()) {
             temporadaPasada: round(row.baseline?.previous, 1),
             estiloEquipo: round(row.teamPrior, 1),
             mezcla: round(row.base, 1),
+            probabilidadPaliza: round(row.blowoutProbability, 3),
             ajustePalizas: round(row.blowoutFactor, 3),
             entraAJugar: round(row.appearance, 2),
             juega15MasMinutos: row.playShare === null || row.playShare === undefined ? null : round(row.playShare, 2),
@@ -1364,7 +1475,10 @@ async function runProjection(day = chicagoDay()) {
             rangoSinLesionados: row.effRank,
             companerosOut: round(row.injury?.minutes, 1),
             companerosDetalle: row.injury?.detail || null,
-            ajuste241: round(teamProjections.get(Number(p.team_id))?.factor, 3),
+            ajuste241: (() => {
+              const t = teamProjections.get(Number(p.team_id));
+              return t ? round((row.role === "B" ? t.benchScale : 1) * t.allScale, 3) : null;
+            })(),
             final: round(row.minutes, 1)
           },
           ...(f?.explain || {})
@@ -1462,19 +1576,22 @@ async function runProjection(day = chicagoDay()) {
   const result = {
     date: day,
     depthChartDate: today.snapshotDate,
+    avisos: dataWarnings,
     seconds: (Date.now() - t0) / 1000,
     historyGames: history.gamesCount,
     medido: {
       suplenteATitular: models.roleChange.up
         ? `x${round(models.roleChange.up, 2)} minutos (${models.roleChange.samples} casos)`
         : `sin evidencia suficiente (${models.roleChange.samples} casos)`,
-      palizasTitulares: `x${round(models.blowout.S, 3)}`
+      palizas: `titulares x${round(models.blowout.starterRatio, 2)} / banca x${round(models.blowout.benchRatio, 2)} cuando hay paliza (${models.blowout.games} casos); probabilidad segun nivel de cada partido`
     },
     teams: [...teamProjections.values()].map(tp => ({
       equipo: tp.code,
       estilo: tp.profile.label,
       titularesPromedio: round(tp.profile.starterAvg, 1),
       ajuste241: round(tp.factor, 3),
+      ajusteBanca: round(tp.benchScale * tp.allScale, 3),
+      ajusteTitulares: round(tp.allScale, 3),
       sumaMinutos: round(tp.finalSum, 1),
       avisos: tp.warnings,
       repartoJugadas: round(tp.usageFactor, 3),
@@ -1519,13 +1636,19 @@ async function readStored(table, dateColumn, day) {
 
 async function runEvaluation(day) {
   const [games, minutesRows, projections] = await Promise.all([
-    selectAll("nba_games", "game_id,game_date", q => q.in("season", [CUR, PREV]).order("game_id", { ascending: true })),
+    selectAll("nba_games", "game_id,game_date,stats_complete", q => q.in("season", [CUR, PREV]).order("game_id", { ascending: true })),
     selectAll("fantasy_nba_team_minutes", "*", q => q.eq("slate_date", day)),
     selectAll("fantasy_nba_projections", "*", q => q.eq("slate_date", day))
   ]);
 
-  const gameIds = games.filter(g => nbaDay(g.game_date) === day).map(g => Number(g.game_id));
-  if (!gameIds.length) return { date: day, message: "No hay partidos terminados guardados para esa fecha" };
+  // Solo partidos con boxscore COMPLETO: si un jugador no aparece
+  // ahi, de verdad no jugo (no es que falte cargar el boxscore).
+  const dayGames = games.filter(g => nbaDay(g.game_date) === day);
+  const gameIds = dayGames.filter(g => g.stats_complete === true).map(g => Number(g.game_id));
+  const pendingBox = dayGames.length - gameIds.length;
+  if (!gameIds.length) {
+    return { date: day, message: pendingBox ? `Faltan ${pendingBox} boxscores por cargar; se evalua cuando esten completos` : "No hay partidos terminados guardados para esa fecha" };
+  }
   if (!minutesRows.length && !projections.length) return { date: day, message: "No hay proyecciones guardadas para esa fecha" };
 
   const actualRows = await selectAll(
@@ -1609,6 +1732,8 @@ async function runEvaluation(day) {
 
   const summary = {
     date: day,
+    partidosEvaluados: gameIds.length,
+    partidosSinBoxscoreCompleto: pendingBox,
     titularesAcertados: starterTotal ? `${starterHits}/${starterTotal} (${round(100 * starterHits / starterTotal, 1)}%)` : null,
     equiposConFallosDeTitular: [...byTeam.entries()]
       .filter(([, t]) => t.total && t.hits < t.total)
@@ -1672,10 +1797,12 @@ th,td{border:1px solid #1d3550;padding:4px 8px;text-align:left}th{background:#0b
     if (result.message) body += `<p>${escapeHtml(result.message)}</p>`;
     else {
       body += `<div class="box">Depth chart: ${escapeHtml(result.depthChartDate)} | partidos de historial: ${result.historyGames} |
-        suplente a titular: ${escapeHtml(result.medido.suplenteATitular)} | palizas: ${escapeHtml(result.medido.palizasTitulares)} | ${result.seconds}s</div>`;
+        suplente a titular: ${escapeHtml(result.medido.suplenteATitular)}<br>palizas: ${escapeHtml(result.medido.palizas || result.medido.palizasTitulares)} | ${result.seconds}s</div>`;
+      if (result.avisos?.length) body += `<div class="box" style="color:#ffb547">AVISOS: ${result.avisos.map(escapeHtml).join("<br>")}</div>`;
       body += `<h2>Paso 1-2: rol y minutos por equipo</h2>`;
       body += table(result.teams.map(t => ({
         Equipo: t.equipo, Estilo: t.estilo, "Min titulares": t.titularesPromedio, "Ajuste 241": t.ajuste241,
+        "Ajuste titulares": t.ajusteTitulares, "Ajuste banca": t.ajusteBanca,
         "Suma min": t.sumaMinutos, Avisos: t.avisos,
         "Jugadas": t.repartoJugadas, OUT: t.out, Duda: t.duda, Titulares: t.titulares, Banca: t.banca
       })));
