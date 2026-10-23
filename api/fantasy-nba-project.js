@@ -578,6 +578,32 @@ function buildProfiles(teamGames) {
   return { profiles, league, blowout, usage, strength };
 }
 
+// Cuanto cambian los minutos de UN MISMO jugador en una paliza.
+// Se compara a cada jugador consigo mismo (no el promedio de la
+// banca, porque en las palizas entran suplentes que casi no juegan
+// y eso hace parecer que la banca juega menos).
+function measureBlowoutRatios(byPlayer) {
+  const ratios = { S: [], B: [] };
+  for (const rows of byPlayer.values()) {
+    const groups = new Map();
+    for (const r of rows) {
+      if (r.starter === null) continue;
+      const key = `${r.team}:${r.season}:${r.starter ? "S" : "B"}`;
+      if (!groups.has(key)) groups.set(key, { role: r.starter ? "S" : "B", blow: [], normal: [] });
+      groups.get(key)[r.blowout ? "blow" : "normal"].push(r.min);
+    }
+    for (const g of groups.values()) {
+      if (g.blow.length >= 3 && g.normal.length >= 5) ratios[g.role].push(mean(g.blow) / mean(g.normal));
+    }
+  }
+  return {
+    S: ratios.S.length >= CONFIG.roleChangeMinSamples ? median(ratios.S) : null,
+    B: ratios.B.length >= CONFIG.roleChangeMinSamples ? median(ratios.B) : null,
+    samplesS: ratios.S.length,
+    samplesB: ratios.B.length
+  };
+}
+
 // Cambio de minutos al pasar de suplente a titular (medido).
 function buildRoleChange(byPlayer) {
   const up = [];
@@ -1308,10 +1334,15 @@ async function runProjection(day = chicagoDay()) {
   const models = {
     ...buildProfiles(history.teamGames),
     roleChange: buildRoleChange(history.byPlayer),
+    blowoutRatios: measureBlowoutRatios(history.byPlayer),
     types,
     leagueRates: buildLeagueRates(history.byPlayer, types),
     defense: buildDefense(history.teamGames, types)
   };
+
+  // Relacion de palizas medida jugador por jugador (si hay casos).
+  if (models.blowoutRatios.S) models.blowout.starterRatio = models.blowoutRatios.S;
+  if (models.blowoutRatios.B) models.blowout.benchRatio = models.blowoutRatios.B;
 
   const slateStatus = new Map();
   for (const p of today.slatePlayers) {
@@ -1583,7 +1614,7 @@ async function runProjection(day = chicagoDay()) {
       suplenteATitular: models.roleChange.up
         ? `x${round(models.roleChange.up, 2)} minutos (${models.roleChange.samples} casos)`
         : `sin evidencia suficiente (${models.roleChange.samples} casos)`,
-      palizas: `titulares x${round(models.blowout.starterRatio, 2)} / banca x${round(models.blowout.benchRatio, 2)} cuando hay paliza (${models.blowout.games} casos); probabilidad segun nivel de cada partido`
+      palizas: `titulares x${round(models.blowout.starterRatio, 2)} (${models.blowoutRatios.samplesS} jugadores) / banca x${round(models.blowout.benchRatio, 2)} (${models.blowoutRatios.samplesB} jugadores) cuando hay paliza; probabilidad segun nivel de cada partido`
     },
     teams: [...teamProjections.values()].map(tp => ({
       equipo: tp.code,
