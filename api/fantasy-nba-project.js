@@ -340,23 +340,6 @@ async function loadHistory(day) {
     console.warn("Sin marcador por cuarto:", error.message);
   }
 
-  // Linea de apertura de cada partido (si la tabla aun no existe,
-  // se sigue sin linea).
-  const spreads = new Map();
-  try {
-    const rows = await selectAll(
-      "nba_game_spreads",
-      "game_id,opening_home_spread,current_home_spread",
-      b => b.order("game_id", { ascending: true })
-    );
-    for (const r of rows) {
-      const v = r.opening_home_spread ?? r.current_home_spread;
-      if (v !== null && v !== undefined && ok(Number(v))) spreads.set(Number(r.game_id), Number(v));
-    }
-  } catch (error) {
-    console.warn("Sin lineas de apuesta:", error.message);
-  }
-
   // Solo partidos ANTES del dia que se proyecta.
   const gameMap = new Map();
   for (const g of games) {
@@ -364,7 +347,6 @@ async function loadHistory(day) {
     if (!date || date >= day) continue;
     const q3 = quarters.get(Number(g.game_id)) || null;
     gameMap.set(Number(g.game_id), {
-      homeSpread: spreads.has(Number(g.game_id)) ? spreads.get(Number(g.game_id)) : null,
       q3Home: q3 ? q3.home : null,
       q3Visitor: q3 ? q3.visitor : null,
       id: Number(g.game_id),
@@ -402,9 +384,6 @@ async function loadHistory(day) {
         margin,
         q3Margin: q3,
         decided,
-        // Linea desde el punto de vista de ESTE equipo
-        // (negativo = era favorito).
-        spread: g.homeSpread === null ? null : (isHome ? g.homeSpread : -g.homeSpread),
         blowout: Math.abs(decided) >= CONFIG.blowoutMargin,
         rows: new Map()
       });
@@ -434,7 +413,6 @@ async function loadHistory(day) {
       opp: tg.opp,
       margin: tg.margin,
       decided: tg.decided,
-      spread: tg.spread,
       blowout: tg.blowout,
       starter: r.starter === null || r.starter === undefined ? null : r.starter === true,
       min,
@@ -487,30 +465,12 @@ async function loadToday(day) {
     selectAll("nba_player_injuries_current", "player_id,status")
   ]);
 
-  // Linea de hoy por equipo (negativo = favorito).
-  const todaySpreads = new Map();
-  try {
-    const rows = await selectAll(
-      "nba_game_spreads",
-      "home_team_id,visitor_team_id,current_home_spread,opening_home_spread",
-      q => q.eq("game_date", day)
-    );
-    for (const r of rows) {
-      const v = r.current_home_spread ?? r.opening_home_spread;
-      if (v === null || v === undefined || !ok(Number(v))) continue;
-      todaySpreads.set(Number(r.home_team_id), Number(v));
-      todaySpreads.set(Number(r.visitor_team_id), -Number(v));
-    }
-  } catch (error) {
-    console.warn("Sin lineas de hoy:", error.message);
-  }
 
   return {
     snapshotDate,
     slates,
     slatePlayers,
     depth,
-    todaySpreads,
     injuries: new Map(injuries.map(i => [Number(i.player_id), str(i.status)]))
   };
 }
@@ -732,55 +692,6 @@ function measureMarginRatios(byPlayer) {
     B,
     weightS: weights(spread.S, S),
     weightB: weights(spread.B, B),
-    samplesS: ratios.S.map(l => l.length),
-    samplesB: ratios.B.map(l => l.length)
-  };
-}
-
-// MINUTOS SEGUN LA LINEA DEL PARTIDO (antes de jugarse).
-// Para cada jugador: sus minutos en partidos donde su equipo era
-// favorito o underdog por cierta cantidad, comparados con sus
-// minutos de partido cerrado. Mediana de todos los jugadores.
-// Esto es lo que se aplica al partido de HOY.
-const SPREAD_BINS = [
-  { label: "parejo (menos de 4)", test: s => Math.abs(s) < 4 },
-  { label: "favorito 4-7.5", test: s => s <= -4 && s > -8 },
-  { label: "favorito 8-11.5", test: s => s <= -8 && s > -12 },
-  { label: "favorito 12+", test: s => s <= -12 },
-  { label: "underdog 4-7.5", test: s => s >= 4 && s < 8 },
-  { label: "underdog 8-11.5", test: s => s >= 8 && s < 12 },
-  { label: "underdog 12+", test: s => s >= 12 }
-];
-
-const spreadBin = s => SPREAD_BINS.findIndex(b => b.test(s));
-
-function measureSpreadRatios(byPlayer, marginRatios) {
-  const ratios = { S: SPREAD_BINS.map(() => []), B: SPREAD_BINS.map(() => []) };
-  for (const rows of byPlayer.values()) {
-    const groups = new Map();
-    for (const r of rows) {
-      if (r.starter === null || r.spread === null || r.spread === undefined) continue;
-      const role = r.starter ? "S" : "B";
-      const key = `${r.team}:${r.season}:${role}`;
-      if (!groups.has(key)) groups.set(key, { role, rows: [] });
-      groups.get(key).rows.push(r);
-    }
-    for (const g of groups.values()) {
-      if (g.rows.length < 8) continue;
-      const mr = g.role === "S" ? marginRatios.S : marginRatios.B;
-      // Sus minutos de "partido cerrado" (cada partido corregido).
-      const base = mean(g.rows.map(r => r.min / (mr[marginBin(r.decided)] || 1)));
-      if (!(base > 0)) continue;
-      SPREAD_BINS.forEach((b, i) => {
-        const inBin = g.rows.filter(r => b.test(r.spread));
-        if (inBin.length >= 3) ratios[g.role][i].push(mean(inBin.map(r => r.min)) / base);
-      });
-    }
-  }
-  const pick = list => list.map(l => (l.length >= CONFIG.roleChangeMinSamples ? median(l) : null));
-  return {
-    S: pick(ratios.S),
-    B: pick(ratios.B),
     samplesS: ratios.S.map(l => l.length),
     samplesB: ratios.B.map(l => l.length)
   };
@@ -1192,21 +1103,9 @@ function projectTeam(team, ctx) {
       ? bl.binProbabilities(team, ctx.opponents.get(team))
       : MARGIN_BINS.map((_, i) => (i === 0 ? 1 : 0));
     const ratios = role === "S" ? ctx.models.marginRatios.S : ctx.models.marginRatios.B;
-    let factor = probs.reduce((sum, p, i) => sum + p * ratios[i], 0);
+    const factor = probs.reduce((sum, p, i) => sum + p * ratios[i], 0);
     const pBlow = probs[MARGIN_BINS.length - 1];
-    let factorSource = "nivel de los equipos";
 
-    // Si hay linea de apuesta de hoy: se usa lo medido para esa
-    // linea (mas preciso que el nivel calculado).
-    const todaySpread = ctx.todaySpreads?.get(team);
-    if (todaySpread !== undefined) {
-      const bin = spreadBin(todaySpread);
-      const measured = bin >= 0 ? (role === "S" ? ctx.models.spreadRatios.S : ctx.models.spreadRatios.B)[bin] : null;
-      if (measured) {
-        factor = measured;
-        factorSource = `linea ${todaySpread > 0 ? "+" : ""}${todaySpread} (${SPREAD_BINS[bin].label})`;
-      }
-    }
 
     if (!a.id) {
       // Sin enlace a BALLDONTLIE: solo ocupa minutos del equipo.
@@ -1281,8 +1180,6 @@ function projectTeam(team, ctx) {
       raw: Math.max(0, baseline.base * factor * appearance + injury.minutes),
       blowoutFactor: factor,
       blowoutProbability: pBlow,
-      factorSource,
-      todaySpread: todaySpread ?? null,
       appearance,
       playShare,
       playShareBasis,
@@ -1546,7 +1443,6 @@ async function runProjection(day = chicagoDay()) {
     leagueRates: buildLeagueRates(history.byPlayer, types),
     defense: buildDefense(history.teamGames, types)
   };
-  models.spreadRatios = measureSpreadRatios(history.byPlayer, models.marginRatios);
 
 
   const slateStatus = new Map();
@@ -1569,8 +1465,7 @@ async function runProjection(day = chicagoDay()) {
     models,
     injuries: today.injuries,
     slateStatus,
-    depthByTeam,
-    todaySpreads: today.todaySpreads
+    depthByTeam
   };
 
   // Rival de cada equipo (por el partido del slate).
@@ -1707,8 +1602,6 @@ async function runProjection(day = chicagoDay()) {
             mezcla: round(row.base, 1),
             probabilidadPaliza: round(row.blowoutProbability, 3),
             ajustePartido: round(row.blowoutFactor, 3),
-            ajustePartidoFuente: row.factorSource || null,
-            lineaDelPartido: row.todaySpread ?? null,
             entraAJugar: round(row.appearance, 2),
             juega15MasMinutos: row.playShare === null || row.playShare === undefined ? null : round(row.playShare, 2),
             basePara15Min: row.playShareBasis || null,
@@ -1867,11 +1760,6 @@ async function runProjection(day = chicagoDay()) {
       suplenteATitular: models.roleChange.up
         ? `x${round(models.roleChange.up, 2)} minutos (${models.roleChange.samples} casos)`
         : `sin evidencia suficiente (${models.roleChange.samples} casos)`,
-      linea: "minutos segun la linea de apuesta (vs partido cerrado) — " +
-        SPREAD_BINS.map((b, i) =>
-          `${b.label}: titulares ${models.spreadRatios.S[i] ? "x" + round(models.spreadRatios.S[i], 2) : "sin datos"} (${models.spreadRatios.samplesS[i]}), ` +
-          `banca ${models.spreadRatios.B[i] ? "x" + round(models.spreadRatios.B[i], 2) : "sin datos"} (${models.spreadRatios.samplesB[i]})`
-        ).join(" | "),
       palizas: "minutos segun que tan decidido estuvo el partido (mayor diferencia entre el 3er cuarto y el final), vs partido cerrado — " +
         MARGIN_BINS.slice(1).map((b, j) => {
           const i = j + 1;
@@ -1882,7 +1770,6 @@ async function runProjection(day = chicagoDay()) {
     teams: [...teamProjections.values()].map(tp => ({
       equipo: tp.code,
       estilo: tp.profile.label,
-      linea: ctx.todaySpreads?.get(tp.team) ?? null,
       titularesPromedio: round(tp.profile.starterAvg, 1),
       ajuste241: round(tp.factor, 3),
       ajusteBanca: round(tp.benchScale * tp.allScale, 3),
@@ -2176,11 +2063,11 @@ th,td{border:1px solid #1d3550;padding:4px 8px;text-align:left}th{background:#0b
     if (result.message) body += `<p>${escapeHtml(result.message)}</p>`;
     else {
       body += `<div class="box">Depth chart: ${escapeHtml(result.depthChartDate)} | partidos de historial: ${result.historyGames} |
-        suplente a titular: ${escapeHtml(result.medido.suplenteATitular)}<br>palizas: ${escapeHtml(result.medido.palizas || result.medido.palizasTitulares)}<br>linea: ${escapeHtml(result.medido.linea || "")} | ${result.seconds}s</div>`;
+        suplente a titular: ${escapeHtml(result.medido.suplenteATitular)}<br>palizas: ${escapeHtml(result.medido.palizas || result.medido.palizasTitulares)} | ${result.seconds}s</div>`;
       if (result.avisos?.length) body += `<div class="box" style="color:#ffb547">AVISOS: ${result.avisos.map(escapeHtml).join("<br>")}</div>`;
       body += `<h2>Paso 1-2: rol y minutos por equipo</h2>`;
       body += table(result.teams.map(t => ({
-        Equipo: t.equipo, Estilo: t.estilo, Linea: t.linea, "Min titulares": t.titularesPromedio, "Ajuste 241": t.ajuste241,
+        Equipo: t.equipo, Estilo: t.estilo, "Min titulares": t.titularesPromedio, "Ajuste 241": t.ajuste241,
         "Ajuste titulares": t.ajusteTitulares, "Ajuste banca": t.ajusteBanca,
         "Suma min": t.sumaMinutos, Avisos: t.avisos,
         "Jugadas": t.repartoJugadas, OUT: t.out, Duda: t.duda, Titulares: t.titulares, Banca: t.banca
