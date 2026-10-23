@@ -3,17 +3,21 @@
 // ============================================================
 //
 // Es el UNICO lugar de Fantasy NFL que descarga NFLverse.
-// Baja la produccion de cada jugador (pases, acarreos,
-// recepciones, fumbles, 2 puntos...) y la GUARDA en
-// Supabase -> football_player_week_stats.
-// La formula despues lee solo de Supabase.
+// Baja y GUARDA en Supabase (la formula lee solo de ahi):
 //
-// Usa la misma lectura y validacion de
-// fantasy-engine/nfl/stats-bridge.js.
+//   football_schedule              calendario (rival, local, techo,
+//                                  clima, hora, QB titular real)
+//   football_player_week_stats     produccion de cada jugador
+//   football_player_week_expected  TD y yardas "que debieron ser"
+//   football_team_week_stats       ofensiva y defensa por equipo (DST)
+//
+// Cada parte es independiente: si una fuente falla, las demas
+// se guardan igual y el error sale en el reporte.
 //
 // USO
-//   /api/fantasy-nfl-weekly?secret=...                    -> temporada actual
-//   /api/fantasy-nfl-weekly?secret=...&seasons=2025,2026  -> carga inicial
+//   /api/fantasy-nfl-weekly?secret=...                         -> temporada actual
+//   /api/fantasy-nfl-weekly?secret=...&seasons=2025,2026       -> carga inicial
+//   /api/fantasy-nfl-weekly?secret=...&seasons=2022,2023,2024  -> historial (clima)
 //
 // Cron: martes en la manana (despues del Monday Night).
 // Volver a correrlo no duplica nada (reemplaza cada fila).
@@ -29,15 +33,34 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const BASE =
-  "https://github.com/nflverse/nflverse-data/releases/download/stats_player/";
-const SCHEDULE_URL =
-  "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv";
+const RELEASES = "https://github.com/nflverse/nflverse-data/releases/download/";
+const PLAYER_URL = season => `${RELEASES}stats_player/stats_player_week_${season}.csv`;
+const TEAM_URL = season => `${RELEASES}stats_team/stats_team_week_${season}.csv`;
+const EXPECTED_URL = season =>
+  `https://github.com/ffverse/ffopportunity/releases/download/latest-data/ep_weekly_${season}.csv`;
+const SCHEDULE_URLS = [
+  `${RELEASES}schedules/games.csv`,
+  "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv"
+];
 
 const POSITIONS = new Set(["QB", "RB", "WR", "TE", "FB"]);
+const FIRST_SEASON = 2016;
+const MAX_SEASONS_PER_CALL = 3;
 
-// Columnas que DEBEN existir (las mismas que exigia stats-bridge.js).
-const REQUIRED = [
+// ---------- Columnas que DEBEN existir en cada archivo ----------
+
+const SCHEDULE_REQUIRED = [
+  "game_id", "season", "game_type", "week", "gameday",
+  "away_team", "home_team", "away_score", "home_score"
+];
+const SCHEDULE_OPTIONAL = [
+  "weekday", "gametime", "overtime", "location", "away_rest", "home_rest",
+  "div_game", "roof", "surface", "temp", "wind", "stadium_id", "stadium",
+  "away_qb_id", "home_qb_id", "away_qb_name", "home_qb_name", "espn"
+];
+
+// Las mismas que exigia stats-bridge.js.
+const PLAYER_REQUIRED = [
   "player_id", "player_name", "player_display_name", "position", "team",
   "season", "week", "season_type", "game_id",
   "attempts", "carries", "targets",
@@ -48,13 +71,34 @@ const REQUIRED = [
   "passing_2pt_conversions", "rushing_2pt_conversions", "receiving_2pt_conversions",
   "special_teams_tds", "fumble_recovery_tds"
 ];
-
-// Columnas utiles que se guardan si vienen (si no, quedan vacias).
-const OPTIONAL = [
+const PLAYER_OPTIONAL = [
   "completions", "opponent_team",
   "passing_air_yards", "receiving_air_yards", "receiving_yards_after_catch",
   "target_share", "air_yards_share", "wopr"
 ];
+
+const EXPECTED_REQUIRED = [
+  "season", "posteam", "week", "game_id", "player_id",
+  "pass_attempt", "rec_attempt", "rush_attempt",
+  "pass_touchdown_exp", "rec_touchdown_exp", "rush_touchdown_exp"
+];
+const EXPECTED_OPTIONAL = [
+  "full_name", "position", "pass_air_yards", "rec_air_yards",
+  "pass_completions_exp", "receptions_exp",
+  "pass_yards_gained_exp", "rec_yards_gained_exp", "rush_yards_gained_exp",
+  "pass_interception_exp",
+  "pass_two_point_conv_exp", "rec_two_point_conv_exp", "rush_two_point_conv_exp"
+];
+
+const TEAM_REQUIRED = [
+  "season", "week", "team", "season_type", "game_id", "opponent_team",
+  "completions", "attempts", "passing_yards", "passing_tds", "passing_interceptions",
+  "sacks_suffered", "carries", "rushing_yards", "rushing_tds",
+  "targets", "receptions", "fumbles_lost_total",
+  "def_sacks", "def_interceptions", "fumble_recovery_opp", "def_tds", "def_safeties",
+  "def_punt_blocks", "def_fg_blocks", "def_pat_blocks", "special_teams_tds"
+];
+const TEAM_OPTIONAL = ["passing_air_yards"];
 
 // NFL: la temporada 2026 va de septiembre 2026 a febrero 2027.
 function currentNFLSeason() {
@@ -69,7 +113,7 @@ function currentNFLSeason() {
 
 function parseCSV(text, required, optional = []) {
   if (typeof text !== "string" || !text.trim()) {
-    throw new Error("NFLverse CSV vacio");
+    throw new Error("CSV vacio");
   }
 
   const results = [];
@@ -87,7 +131,7 @@ function parseCSV(text, required, optional = []) {
       headers = fields.map(v => v.replace(/^﻿/, "").trim());
       const missing = required.filter(name => !headers.includes(name));
       if (missing.length) {
-        throw new Error("NFLverse CSV columnas faltantes: " + missing.join(", "));
+        throw new Error("CSV columnas faltantes: " + missing.join(", "));
       }
       const wanted = new Set([...required, ...optional]);
       indexes = headers.map((name, i) => (wanted.has(name) ? [name, i] : null)).filter(Boolean);
@@ -119,32 +163,50 @@ function parseCSV(text, required, optional = []) {
     }
   }
 
-  if (quoted) throw new Error("NFLverse CSV con comillas incompletas");
+  if (quoted) throw new Error("CSV con comillas incompletas");
   if (fields.length || field.length) finishRow();
 
   return { headers, rows: results };
 }
 
+const isEmpty = raw => raw === "" || raw === null || raw === undefined || raw === "NA";
+
 function required(row, key) {
   const raw = row[key];
-  if (raw === "" || raw === null || raw === undefined) {
-    throw new Error(`NFLverse ${key} sin valor`);
-  }
+  if (isEmpty(raw)) throw new Error(`${key} sin valor`);
   const value = Number(raw);
-  if (!Number.isFinite(value)) throw new Error(`NFLverse ${key} invalido`);
+  if (!Number.isFinite(value)) throw new Error(`${key} invalido`);
   return value;
 }
 
 function optional(row, key) {
   const raw = row[key];
-  if (raw === "" || raw === null || raw === undefined || raw === "NA") return null;
+  if (isEmpty(raw)) return null;
   const value = Number(raw);
   return Number.isFinite(value) ? value : null;
 }
 
+function text(row, key) {
+  const raw = row[key];
+  if (isEmpty(raw)) return null;
+  const value = String(raw).trim();
+  return value || null;
+}
+
+function bool(row, key) {
+  const raw = text(row, key);
+  if (raw === null) return null;
+  if (/^(1|true|TRUE|T)$/.test(raw)) return true;
+  if (/^(0|false|FALSE|F)$/.test(raw)) return false;
+  return null;
+}
+
+const round = (value, digits = 4) =>
+  value === null ? null : Math.round(value * 10 ** digits) / 10 ** digits;
+
 
 // ============================================================
-// DESCARGA
+// DESCARGA Y GUARDADO
 // ============================================================
 
 async function getText(url) {
@@ -167,18 +229,128 @@ async function getText(url) {
   throw lastError;
 }
 
-async function loadSchedule() {
-  const { rows } = parseCSV(await getText(SCHEDULE_URL), ["game_id", "gameday", "home_team", "away_team"]);
-  return new Map(rows.map(g => [g.game_id, g]));
+async function upsertAll(table, rows, onConflict) {
+  for (let i = 0; i < rows.length; i += 500) {
+    const { error } = await supabaseAdmin
+      .from(table)
+      .upsert(rows.slice(i, i + 500), { onConflict });
+    if (error) throw new Error(`Supabase ${table}: ${error.message}`);
+  }
+}
+
+function newReport(headers, optionalColumns, rowsRead) {
+  return {
+    filasLeidas: rowsRead,
+    guardadas: 0,
+    semanas: [],
+    descartadas: {},
+    duplicadas: 0,
+    columnasOpcionalesFaltantes: optionalColumns.filter(c => !headers.includes(c))
+  };
+}
+
+const addSkip = (report, reason) =>
+  (report.descartadas[reason] = (report.descartadas[reason] || 0) + 1);
+
+// Quita duplicados por llave, cuenta descartes, guarda y cierra el reporte.
+async function saveRows(table, onConflict, keyOf, list, report) {
+  const out = new Map();
+  for (const row of list) {
+    const key = keyOf(row);
+    if (out.has(key)) {
+      report.duplicadas++;
+      continue;
+    }
+    out.set(key, row);
+  }
+  const rows = [...out.values()];
+  await upsertAll(table, rows, onConflict);
+  report.guardadas = rows.length;
+  report.semanas = [...new Set(rows.map(r => r.week))].sort((a, b) => a - b);
+  return rows;
 }
 
 
 // ============================================================
-// UNA TEMPORADA
+// 1) CALENDARIO
+// ============================================================
+
+async function downloadSchedule() {
+  let lastError = null;
+  for (const url of SCHEDULE_URLS) {
+    try {
+      return parseCSV(await getText(url), SCHEDULE_REQUIRED, SCHEDULE_OPTIONAL);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
+
+function normalizeSchedule(row) {
+  const date = String(row.gameday || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("gameday invalido");
+  const away = text(row, "away_team");
+  const home = text(row, "home_team");
+  if (!away || !home || !text(row, "game_id")) throw new Error("partido sin equipos");
+
+  return {
+    game_id: row.game_id,
+    season: required(row, "season"),
+    game_type: text(row, "game_type") || "REG",
+    week: required(row, "week"),
+    game_date: date,
+    weekday: text(row, "weekday"),
+    game_time_et: text(row, "gametime"),
+    away_team: away,
+    home_team: home,
+    away_score: optional(row, "away_score"),
+    home_score: optional(row, "home_score"),
+    overtime: bool(row, "overtime"),
+    location: text(row, "location"),
+    away_rest: optional(row, "away_rest"),
+    home_rest: optional(row, "home_rest"),
+    div_game: bool(row, "div_game"),
+    roof: text(row, "roof"),
+    surface: text(row, "surface"),
+    temp: optional(row, "temp"),
+    wind: optional(row, "wind"),
+    stadium_id: text(row, "stadium_id"),
+    stadium: text(row, "stadium"),
+    away_qb_id: text(row, "away_qb_id"),
+    home_qb_id: text(row, "home_qb_id"),
+    away_qb_name: text(row, "away_qb_name"),
+    home_qb_name: text(row, "home_qb_name"),
+    espn_game_id: text(row, "espn"),
+    synced_at: new Date().toISOString()
+  };
+}
+
+async function saveSchedule(parsed, season) {
+  const report = newReport(parsed.headers, SCHEDULE_OPTIONAL, 0);
+  const list = [];
+  for (const row of parsed.rows) {
+    if (String(row.season) !== String(season)) continue;
+    report.filasLeidas++;
+    try {
+      list.push(normalizeSchedule(row));
+    } catch (error) {
+      addSkip(report, "dato_invalido");
+    }
+  }
+  const rows = await saveRows("football_schedule", "game_id", r => r.game_id, list, report);
+  report.temporadaRegular = rows.filter(r => r.game_type === "REG").length;
+  report.jugados = rows.filter(r => r.home_score !== null && r.away_score !== null).length;
+  return report;
+}
+
+
+// ============================================================
+// 2) PRODUCCION DE JUGADORES
 // ============================================================
 
 function normalize(row, schedule) {
-  const gsis = String(row.player_id || "").trim();
+  const gsis = text(row, "player_id") || "";
   const position = String(row.position || "").trim().toUpperCase();
   const team = String(row.team || "").trim();
   const game = schedule.get(row.game_id);
@@ -241,68 +413,237 @@ function normalize(row, schedule) {
   };
 }
 
-async function loadSeason(season, schedule) {
-  const { headers, rows } = parseCSV(
-    await getText(`${BASE}stats_player_week_${season}.csv`),
-    REQUIRED,
-    OPTIONAL
-  );
-
-  const report = {
-    season,
-    filasLeidas: rows.length,
-    guardadas: 0,
-    jugadores: 0,
-    semanas: [],
-    temporadaRegular: 0,
-    descartadas: {},
-    duplicadas: 0,
-    columnasOpcionalesFaltantes: OPTIONAL.filter(c => !headers.includes(c))
-  };
-
-  const out = new Map();
-  const skip = reason => (report.descartadas[reason] = (report.descartadas[reason] || 0) + 1);
+async function loadPlayers(season, schedule) {
+  const { headers, rows } = parseCSV(await getText(PLAYER_URL(season)), PLAYER_REQUIRED, PLAYER_OPTIONAL);
+  const report = newReport(headers, PLAYER_OPTIONAL, rows.length);
+  const list = [];
 
   for (const row of rows) {
     // Solo temporada regular (los playoffs cambian las rotaciones).
     if (String(row.season_type).toUpperCase() !== "REG") {
-      skip("no_temporada_regular");
+      addSkip(report, "no_temporada_regular");
       continue;
     }
-    report.temporadaRegular++;
-
     let result;
     try {
       result = normalize(row, schedule);
     } catch (error) {
-      skip("dato_invalido");
+      addSkip(report, "dato_invalido");
       continue;
     }
     if (result.skip) {
-      skip(result.skip);
+      addSkip(report, result.skip);
       continue;
     }
-
-    const key = `${result.row.gsis_player_id}|${result.row.game_id}`;
-    if (out.has(key)) {
-      report.duplicadas++;
-      continue;
-    }
-    out.set(key, result.row);
+    list.push(result.row);
   }
 
-  const list = [...out.values()];
-  for (let i = 0; i < list.length; i += 500) {
-    const { error } = await supabaseAdmin
-      .from("football_player_week_stats")
-      .upsert(list.slice(i, i + 500), { onConflict: "gsis_player_id,game_id" });
-    if (error) throw new Error(`Supabase football_player_week_stats: ${error.message}`);
-  }
-
-  report.guardadas = list.length;
-  report.jugadores = new Set(list.map(r => r.gsis_player_id)).size;
-  report.semanas = [...new Set(list.map(r => r.week))].sort((a, b) => a - b);
+  const saved = await saveRows(
+    "football_player_week_stats", "gsis_player_id,game_id",
+    r => `${r.gsis_player_id}|${r.game_id}`, list, report
+  );
+  report.jugadores = new Set(saved.map(r => r.gsis_player_id)).size;
   return report;
+}
+
+
+// ============================================================
+// 3) TD Y YARDAS ESPERADAS (ffopportunity)
+// ============================================================
+
+// Posiciones que se descartan. "NA" (vacia) se CONSERVA: la
+// formula toma la posicion de football_player_week_stats.
+const NON_OFFENSE = new Set(["OL", "T", "G", "C", "OT", "OG", "DB", "CB", "S", "LB", "DL", "DE", "DT", "K", "P", "LS"]);
+
+function normalizeExpected(row, schedule) {
+  // player_id "NA" = pases sin receptor identificado (no son de nadie).
+  const gsis = text(row, "player_id");
+  const team = text(row, "posteam");
+  const position = text(row, "position")?.toUpperCase() || null;
+  const game = schedule.get(row.game_id);
+
+  if (!gsis || !team) return { skip: "sin_identidad" };
+  if (position && (NON_OFFENSE.has(position) || !POSITIONS.has(position))) return { skip: "no_ofensivo" };
+  if (!game) return { skip: "sin_calendario" };
+  if (String(game.game_type || "REG") !== "REG") return { skip: "no_temporada_regular" };
+
+  const twoPoint = ["pass_two_point_conv_exp", "rec_two_point_conv_exp", "rush_two_point_conv_exp"]
+    .map(k => optional(row, k));
+
+  return {
+    row: {
+      gsis_player_id: gsis,
+      game_id: row.game_id,
+      season: required(row, "season"),
+      week: required(row, "week"),
+      team,
+      position,
+      player_name: text(row, "full_name"),
+
+      pass_attempts: required(row, "pass_attempt"),
+      targets: required(row, "rec_attempt"),
+      rush_attempts: required(row, "rush_attempt"),
+      pass_air_yards: round(optional(row, "pass_air_yards"), 2),
+      rec_air_yards: round(optional(row, "rec_air_yards"), 2),
+
+      pass_completions_exp: round(optional(row, "pass_completions_exp")),
+      receptions_exp: round(optional(row, "receptions_exp")),
+      pass_yards_exp: round(optional(row, "pass_yards_gained_exp")),
+      rec_yards_exp: round(optional(row, "rec_yards_gained_exp")),
+      rush_yards_exp: round(optional(row, "rush_yards_gained_exp")),
+      pass_td_exp: round(required(row, "pass_touchdown_exp")),
+      rec_td_exp: round(required(row, "rec_touchdown_exp")),
+      rush_td_exp: round(required(row, "rush_touchdown_exp")),
+      pass_int_exp: round(optional(row, "pass_interception_exp")),
+      two_point_exp: twoPoint.every(v => v === null) ? null : round(twoPoint.reduce((s, v) => s + (v || 0), 0)),
+
+      source: "ffopportunity-ep-weekly",
+      synced_at: new Date().toISOString()
+    }
+  };
+}
+
+async function loadExpected(season, schedule) {
+  const { headers, rows } = parseCSV(await getText(EXPECTED_URL(season)), EXPECTED_REQUIRED, EXPECTED_OPTIONAL);
+  const report = newReport(headers, EXPECTED_OPTIONAL, rows.length);
+  const list = [];
+
+  for (const row of rows) {
+    let result;
+    try {
+      result = normalizeExpected(row, schedule);
+    } catch (error) {
+      addSkip(report, "dato_invalido");
+      continue;
+    }
+    if (result.skip) {
+      addSkip(report, result.skip);
+      continue;
+    }
+    list.push(result.row);
+  }
+
+  const saved = await saveRows(
+    "football_player_week_expected", "gsis_player_id,game_id",
+    r => `${r.gsis_player_id}|${r.game_id}`, list, report
+  );
+  report.jugadores = new Set(saved.map(r => r.gsis_player_id)).size;
+  report.sinPosicion = saved.filter(r => !r.position).length;
+  return report;
+}
+
+
+// ============================================================
+// 4) EQUIPO POR PARTIDO (ofensiva + defensa para la DST)
+// ============================================================
+
+function normalizeTeam(row, schedule) {
+  const team = String(row.team || "").trim();
+  const game = schedule.get(row.game_id);
+  if (!team) return { skip: "sin_equipo" };
+  if (!game) return { skip: "sin_calendario" };
+
+  const isHome = game.home_team === team ? true : game.away_team === team ? false : null;
+  const homeScore = optional(game, "home_score");
+  const awayScore = optional(game, "away_score");
+
+  return {
+    row: {
+      team,
+      game_id: row.game_id,
+      season: required(row, "season"),
+      week: required(row, "week"),
+      game_date: String(game.gameday || "").slice(0, 10) || null,
+      opponent: text(row, "opponent_team") ||
+        (isHome === true ? game.away_team : isHome === false ? game.home_team : null),
+      is_home: isHome,
+      points_for: isHome === null ? null : isHome ? homeScore : awayScore,
+      points_against: isHome === null ? null : isHome ? awayScore : homeScore,
+
+      completions: required(row, "completions"),
+      pass_attempts: required(row, "attempts"),
+      passing_yards: required(row, "passing_yards"),
+      passing_tds: required(row, "passing_tds"),
+      interceptions_thrown: required(row, "passing_interceptions"),
+      sacks_suffered: required(row, "sacks_suffered"),
+      passing_air_yards: optional(row, "passing_air_yards"),
+      carries: required(row, "carries"),
+      rushing_yards: required(row, "rushing_yards"),
+      rushing_tds: required(row, "rushing_tds"),
+      targets: required(row, "targets"),
+      receptions: required(row, "receptions"),
+      fumbles_lost: required(row, "fumbles_lost_total"),
+
+      def_sacks: required(row, "def_sacks"),
+      def_interceptions: required(row, "def_interceptions"),
+      def_fumble_recoveries: required(row, "fumble_recovery_opp"),
+      def_tds: required(row, "def_tds"),
+      def_safeties: required(row, "def_safeties"),
+      blocked_punts: required(row, "def_punt_blocks"),
+      blocked_fgs: required(row, "def_fg_blocks"),
+      blocked_pats: required(row, "def_pat_blocks"),
+      return_tds: required(row, "special_teams_tds"),
+
+      source: "nflverse-stats-team-week",
+      synced_at: new Date().toISOString()
+    }
+  };
+}
+
+async function loadTeams(season, schedule) {
+  const { headers, rows } = parseCSV(await getText(TEAM_URL(season)), TEAM_REQUIRED, TEAM_OPTIONAL);
+  const report = newReport(headers, TEAM_OPTIONAL, rows.length);
+  const list = [];
+
+  for (const row of rows) {
+    if (String(row.season_type).toUpperCase() !== "REG") {
+      addSkip(report, "no_temporada_regular");
+      continue;
+    }
+    let result;
+    try {
+      result = normalizeTeam(row, schedule);
+    } catch (error) {
+      addSkip(report, "dato_invalido");
+      continue;
+    }
+    if (result.skip) {
+      addSkip(report, result.skip);
+      continue;
+    }
+    list.push(result.row);
+  }
+
+  const saved = await saveRows(
+    "football_team_week_stats", "team,game_id",
+    r => `${r.team}|${r.game_id}`, list, report
+  );
+  report.equipos = new Set(saved.map(r => r.team)).size;
+  report.sinMarcador = saved.filter(r => r.points_for === null || r.points_against === null).length;
+  return report;
+}
+
+
+// ============================================================
+// UNA TEMPORADA (cada parte por separado)
+// ============================================================
+
+async function part(fn) {
+  try {
+    return await fn();
+  } catch (error) {
+    return { error: error.message };
+  }
+}
+
+async function loadSeason(season, parsedSchedule, schedule) {
+  return {
+    season,
+    calendario: await part(() => saveSchedule(parsedSchedule, season)),
+    jugadores: await part(() => loadPlayers(season, schedule)),
+    esperados: await part(() => loadExpected(season, schedule)),
+    equipos: await part(() => loadTeams(season, schedule))
+  };
 }
 
 
@@ -326,24 +667,39 @@ module.exports = async function handler(req, res) {
   if (!isInternalRequest(req)) return res.status(401).json({ error: "Unauthorized" });
 
   const current = currentNFLSeason();
-  const seasons = String(req.query.seasons || current)
-    .split(",")
-    .map(s => Number(s.trim()))
-    .filter(s => Number.isInteger(s) && s >= 2015 && s <= current);
+  const seasons = [...new Set(
+    String(req.query.seasons || current)
+      .split(",")
+      .map(s => Number(s.trim()))
+      .filter(s => Number.isInteger(s) && s >= FIRST_SEASON && s <= current)
+  )].sort();
 
-  if (!seasons.length || seasons.length > 3) {
-    return res.status(400).json({ error: "seasons invalidas (maximo 3, ej. 2025,2026)" });
+  if (!seasons.length || seasons.length > MAX_SEASONS_PER_CALL) {
+    return res.status(400).json({
+      error: `seasons invalidas (maximo ${MAX_SEASONS_PER_CALL}, desde ${FIRST_SEASON}, ej. 2025,2026)`
+    });
   }
 
   const t0 = Date.now();
   try {
-    const schedule = await loadSchedule();
+    const parsedSchedule = await downloadSchedule();
+    const schedule = new Map(parsedSchedule.rows.map(g => [g.game_id, g]));
+
     const results = [];
-    for (const season of [...new Set(seasons)].sort()) {
-      results.push(await loadSeason(season, schedule));
+    for (const season of seasons) {
+      results.push(await loadSeason(season, parsedSchedule, schedule));
     }
+
+    const errors = results.flatMap(r =>
+      ["calendario", "jugadores", "esperados", "equipos"]
+        .filter(k => r[k].error)
+        .map(k => `${r.season} ${k}: ${r[k].error}`)
+    );
+    if (errors.length) console.error("FANTASY NFL WEEKLY:", errors);
+
     return res.status(200).json({
-      ok: true,
+      ok: errors.length === 0,
+      errores: errors,
       seasons: results,
       seconds: (Date.now() - t0) / 1000
     });
@@ -355,3 +711,6 @@ module.exports = async function handler(req, res) {
 
 module.exports.parseCSV = parseCSV;
 module.exports.normalize = normalize;
+module.exports.normalizeExpected = normalizeExpected;
+module.exports.normalizeTeam = normalizeTeam;
+module.exports.normalizeSchedule = normalizeSchedule;
