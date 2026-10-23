@@ -265,7 +265,8 @@ async function stepStarters(limit) {
     "game_id,season,game_date",
     q => q
       .in("season", [CURRENT_SEASON, PREVIOUS_SEASON])
-      .eq("postseason", false)
+      // postseason puede venir vacio (null) en partidos viejos.
+      .or("postseason.is.null,postseason.eq.false")
       .order("game_date", { ascending: false })
       .order("game_id", { ascending: true })
   );
@@ -287,8 +288,23 @@ async function stepStarters(limit) {
   // Primero los mas recientes: el dia a dia siempre queda al dia.
   const batch = pending.slice(0, limit);
 
+  // Diagnostico: cuantos partidos ve por temporada.
+  const gamesFound = {
+    [CURRENT_SEASON]: games.filter(g => Number(g.season) === CURRENT_SEASON).length,
+    [PREVIOUS_SEASON]: games.filter(g => Number(g.season) === PREVIOUS_SEASON).length
+  };
+
   if (!batch.length) {
-    return { pending: 0, processed: 0, ok: 0, incomplete: 0, empty: 0, remaining: 0 };
+    return {
+      gamesFound,
+      alreadySynced: syncRows.length,
+      pending: 0,
+      processed: 0,
+      ok: 0,
+      incomplete: 0,
+      empty: 0,
+      remaining: 0
+    };
   }
 
   const gameInfo = new Map(batch.map(g => [Number(g.game_id), g]));
@@ -367,6 +383,8 @@ async function stepStarters(limit) {
   ).length;
 
   return {
+    gamesFound,
+    alreadySynced: syncRows.length,
     pending: pending.length,
     processed: batch.length,
     ...counts,
