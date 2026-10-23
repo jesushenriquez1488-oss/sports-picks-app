@@ -18,6 +18,9 @@
 //             -> nba_player_game_box_ext
 //             &dates=20 para cargar la temporada pasada.
 //
+//   quarters  Marcador por cuarto (BALLDONTLIE /v1/games)
+//             -> nba_game_quarters
+//
 //   injuries  Lesiones actuales (BALLDONTLIE)
 //             -> nba_player_injuries_current
 //
@@ -537,6 +540,66 @@ async function stepBox(maxDates) {
 
 
 // ============================================================
+// PASO: MARCADOR POR CUARTO
+// ============================================================
+//
+// BALLDONTLIE /v1/games trae los puntos de cada cuarto.
+// Solo se bajan los partidos que todavia no estan guardados.
+
+async function stepQuarters() {
+  const games = await selectAll(
+    "nba_games",
+    "game_id,season,game_date",
+    q => q.in("season", [CURRENT_SEASON, PREVIOUS_SEASON]).order("game_id", { ascending: true })
+  );
+  const saved = new Set(
+    (await selectAll("nba_game_quarters", "game_id")).map(r => Number(r.game_id))
+  );
+  const missing = games.filter(g => !saved.has(Number(g.game_id)));
+
+  if (!missing.length) return { missing: 0, saved: 0 };
+
+  // Muchos pendientes (primera carga): temporadas completas.
+  // Pocos (dia a dia): solo esas fechas.
+  let raw;
+  if (missing.length > 60) {
+    const seasons = [...new Set(missing.map(g => Number(g.season)))];
+    raw = await bdlPages("/v1/games", seasons.map(season => ["seasons[]", season]));
+  } else {
+    const dates = [...new Set(missing.map(g => nbaCalendarDate(g.game_date)).filter(Boolean))];
+    raw = [];
+    for (const part of chunks(dates, 10)) {
+      raw.push(...await bdlPages("/v1/games", part.map(d => ["dates[]", d])));
+    }
+  }
+
+  const wanted = new Map(missing.map(g => [Number(g.game_id), g]));
+  const now = new Date().toISOString();
+  const rows = [];
+
+  for (const g of raw) {
+    const id = Number(g.id);
+    if (!wanted.has(id)) continue;
+    const q = k => numberOrNull(g[k]);
+    // Sin cuartos (partido viejo o dato faltante): no se guarda.
+    if (q("home_q3") === null || q("visitor_q3") === null) continue;
+    rows.push({
+      game_id: id,
+      season: Number(wanted.get(id).season),
+      home_q1: q("home_q1"), home_q2: q("home_q2"), home_q3: q("home_q3"), home_q4: q("home_q4"),
+      visitor_q1: q("visitor_q1"), visitor_q2: q("visitor_q2"), visitor_q3: q("visitor_q3"), visitor_q4: q("visitor_q4"),
+      overtimes: ["home_ot1", "home_ot2", "home_ot3"].filter(k => q(k) !== null && q(k) > 0).length,
+      synced_at: now
+    });
+  }
+
+  if (rows.length) await upsertAll("nba_game_quarters", rows, "game_id");
+
+  return { missing: missing.length, saved: rows.length, stillMissing: missing.length - rows.length };
+}
+
+
+// ============================================================
 // PASO: LESIONES
 // ============================================================
 
@@ -998,10 +1061,11 @@ function isInternalRequest(req) {
 }
 
 const PLANS = {
-  all: ["starters", "box", "evaluate", "injuries", "depth", "slate", "project"],
+  all: ["starters", "box", "quarters", "evaluate", "injuries", "depth", "slate", "project"],
   refresh: ["injuries", "depth", "slate", "project"],
   starters: ["starters"],
   box: ["box"],
+  quarters: ["quarters"],
   evaluate: ["evaluate"],
   project: ["project"],
   injuries: ["injuries"],
@@ -1050,6 +1114,7 @@ module.exports = async function handler(req, res) {
   const steps = {
     starters: () => stepStarters(limit),
     box: () => stepBox(maxDates),
+    quarters: () => stepQuarters(),
     injuries: () => stepInjuries(),
     depth: () => stepDepth(),
     slate: () => stepSlate(day),
