@@ -30,8 +30,14 @@
 //             (BALLDONTLIE) -> fantasy_nba_slates
 //                           -> fantasy_nba_slate_players
 //
-//   all       starters + injuries + depth + slate
-//   refresh   injuries + depth + slate (antes de los partidos)
+//   evaluate  Compara las proyecciones de AYER contra lo real
+//             -> fantasy_nba_projections (actual_*), fantasy_nba_evaluations
+//
+//   project   LA FORMULA (api/fantasy-nba-project.js): lee solo
+//             Supabase -> fantasy_nba_projections, fantasy_nba_team_minutes
+//
+//   all       starters + box + evaluate + injuries + depth + slate + project
+//   refresh   injuries + depth + slate + project (antes de los partidos)
 //
 // SEGURIDAD
 //   Igual que /api/nba-data: CRON_SECRET por
@@ -42,6 +48,7 @@
 // ============================================================
 
 const { createClient } = require("@supabase/supabase-js");
+const fantasyProject = require("./fantasy-nba-project.js");
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
@@ -987,10 +994,12 @@ function isInternalRequest(req) {
 }
 
 const PLANS = {
-  all: ["starters", "box", "injuries", "depth", "slate"],
-  refresh: ["injuries", "depth", "slate"],
+  all: ["starters", "box", "evaluate", "injuries", "depth", "slate", "project"],
+  refresh: ["injuries", "depth", "slate", "project"],
   starters: ["starters"],
   box: ["box"],
+  evaluate: ["evaluate"],
+  project: ["project"],
   injuries: ["injuries"],
   depth: ["depth"],
   slate: ["slate"]
@@ -1039,7 +1048,41 @@ module.exports = async function handler(req, res) {
     box: () => stepBox(maxDates),
     injuries: () => stepInjuries(),
     depth: () => stepDepth(),
-    slate: () => stepSlate(day)
+    slate: () => stepSlate(day),
+
+    // La formula (lee solo Supabase).
+    project: async () => {
+      const r = await fantasyProject.runProjection(day);
+      return {
+        date: r.date,
+        message: r.message || null,
+        platforms: (r.platforms || []).map(p => ({
+          platform: p.platform,
+          eligible: p.eligible,
+          excluded: p.excluded
+        })),
+        formulaSeconds: r.seconds
+      };
+    },
+
+    // Compara las proyecciones de ayer contra lo real.
+    evaluate: async () => {
+      const r = await fantasyProject.runEvaluation(fantasyProject.shiftDay(chicagoDay(), -1));
+      return {
+        date: r.date,
+        message: r.message || null,
+        titularesAcertados: r.titularesAcertados || null,
+        errorMinutosTitulares: r.errorMinutosTitulares ?? null,
+        errorMinutosBanca: r.errorMinutosBanca ?? null,
+        platforms: Object.fromEntries(
+          Object.entries(r.platforms || {}).map(([k, v]) => [k, {
+            errorPromedio: v.errorPromedio,
+            sesgo: v.sesgo,
+            dentroDe10: v.dentroDe10
+          }])
+        )
+      };
+    }
   };
 
   const startedAt = Date.now();
