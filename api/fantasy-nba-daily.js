@@ -1,0 +1,893 @@
+// ============================================================
+// CASHEDGE FANTASY NBA — TAREA DIARIA
+// ============================================================
+//
+// Es el UNICO lugar de Fantasy NBA que llama APIs externas.
+// Guarda todo en Supabase. La formula despues lee solo
+// Supabase.
+//
+// PASOS (?step=)
+//
+//   starters  Titulares de cada partido terminado
+//             (BALLDONTLIE /v1/lineups) -> nba_game_starters
+//             Solo descarga partidos que todavia no tiene.
+//             &limit=250 para cargar la temporada pasada.
+//
+//   injuries  Lesiones actuales (BALLDONTLIE)
+//             -> nba_player_injuries_current
+//
+//   depth     Depth chart + roster de los 30 equipos (ESPN)
+//             -> nba_depth_chart
+//             + enlaza solos los jugadores nuevos en
+//               fantasy_nba_player_crosswalk.
+//
+//   slate     Slate principal DraftKings y FanDuel del dia
+//             (BALLDONTLIE) -> fantasy_nba_slates
+//                           -> fantasy_nba_slate_players
+//
+//   all       starters + injuries + depth + slate
+//   refresh   injuries + depth + slate (antes de los partidos)
+//
+// SEGURIDAD
+//   Igual que /api/nba-data: CRON_SECRET por
+//   Authorization Bearer, X-Internal-Secret o ?secret=
+//
+// NO toca nba_games, nba_player_game_stats, picks,
+// Premium Picks, Player Props ni ningun otro cron.
+// ============================================================
+
+const { createClient } = require("@supabase/supabase-js");
+
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+const BDL = "https://api.balldontlie.io";
+const ESPN = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
+
+const TIMEOUT_MS = 15000;
+const ESPN_CONCURRENCY = 5;
+const LINEUP_GAMES_PER_REQUEST = 10;
+const DAILY_STARTER_LIMIT = 60;
+const MAX_STARTER_LIMIT = 250;
+const MAX_EMPTY_ATTEMPTS = 3;
+
+const DEPTH_POSITIONS = ["pg", "sg", "sf", "pf", "c"];
+
+
+// ============================================================
+// TEMPORADA (misma regla que nba-data.js)
+// ============================================================
+// NBA 2026-27 = season 2026 en BALLDONTLIE.
+
+function getCurrentNBASeason() {
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  return month >= 9 ? now.getFullYear() : now.getFullYear() - 1;
+}
+
+const CURRENT_SEASON = getCurrentNBASeason();
+const PREVIOUS_SEASON = CURRENT_SEASON - 1;
+
+
+// ============================================================
+// UTILIDADES
+// ============================================================
+
+const str = value => String(value ?? "").trim();
+
+function chicagoDay(date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(date);
+}
+
+function numberOrNull(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+// Quita acentos, puntos, guiones y sufijos (Jr, III...).
+function normalizeName(value) {
+  return str(value)
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[.'’`]/g, "")
+    .replace(/-/g, " ")
+    .split(/\s+/)
+    .filter(t => t && !["jr", "sr", "ii", "iii", "iv", "v"].includes(t))
+    .join(" ");
+}
+
+// ESPN y las casas usan abreviaturas distintas.
+const TEAM_ALIASES = {
+  GS: "GSW", GSW: "GSW",
+  NY: "NYK", NYK: "NYK",
+  SA: "SAS", SAS: "SAS",
+  NO: "NOP", NOP: "NOP", NOR: "NOP",
+  UTAH: "UTA", UTA: "UTA",
+  WSH: "WAS", WAS: "WAS",
+  PHX: "PHX", PHO: "PHX",
+  BKN: "BKN", BRK: "BKN",
+  CHA: "CHA", CHO: "CHA"
+};
+
+function teamCode(abbreviation) {
+  const a = str(abbreviation).toUpperCase();
+  return TEAM_ALIASES[a] || a;
+}
+
+function chunks(list, size) {
+  const out = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
+
+async function pool(items, limit, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (next < items.length) {
+        const index = next++;
+        results[index] = await fn(items[index], index);
+      }
+    })
+  );
+  return results;
+}
+
+
+// ============================================================
+// HTTP (con reintentos para 429 / 5xx)
+// ============================================================
+
+async function fetchJSON(url, headers = {}) {
+  let lastError = null;
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+    try {
+      const response = await fetch(url, {
+        headers: { Accept: "application/json", ...headers },
+        signal: controller.signal
+      });
+
+      const text = await response.text();
+
+      if (response.ok) return JSON.parse(text);
+
+      lastError = new Error(`HTTP ${response.status} ${url}: ${text.slice(0, 200)}`);
+
+      if (![429, 500, 502, 503, 504].includes(response.status)) throw lastError;
+
+    } catch (error) {
+      lastError = error.name === "AbortError" ? new Error(`Timeout ${url}`) : error;
+      if (/HTTP (4\d\d)/.test(lastError.message) && !/HTTP 429/.test(lastError.message)) {
+        throw lastError;
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 1500 * (attempt + 1)));
+  }
+
+  throw lastError;
+}
+
+function bdlFetch(path, params = []) {
+  const url = new URL(BDL + path);
+  for (const [key, value] of params) url.searchParams.append(key, String(value));
+  return fetchJSON(url.toString(), { Authorization: process.env.BALLDONTLIE_API_KEY });
+}
+
+// Todas las paginas (cursor).
+async function bdlPages(path, params = []) {
+  const rows = [];
+  const seen = new Set();
+  let cursor = null;
+
+  for (let page = 0; page < 60; page++) {
+    const response = await bdlFetch(path, [
+      ...params,
+      ["per_page", 100],
+      ...(cursor ? [["cursor", cursor]] : [])
+    ]);
+
+    if (!Array.isArray(response?.data)) {
+      throw new Error(`BALLDONTLIE ${path}: respuesta sin data`);
+    }
+
+    rows.push(...response.data);
+
+    const next = response?.meta?.next_cursor;
+    if (!next) return rows;
+
+    if (seen.has(String(next))) throw new Error(`BALLDONTLIE ${path}: cursor repetido`);
+    seen.add(String(next));
+    cursor = next;
+  }
+
+  throw new Error(`BALLDONTLIE ${path}: demasiadas paginas`);
+}
+
+
+// ============================================================
+// SUPABASE
+// ============================================================
+
+// Lee todas las filas (de 1000 en 1000).
+async function selectAll(table, columns, build = q => q) {
+  const rows = [];
+  const PAGE = 1000;
+
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await build(
+      supabaseAdmin.from(table).select(columns)
+    ).range(from, from + PAGE - 1);
+
+    if (error) throw new Error(`Supabase ${table}: ${error.message}`);
+
+    rows.push(...(data || []));
+    if (!data || data.length < PAGE) return rows;
+  }
+}
+
+async function upsertAll(table, rows, onConflict, size = 500) {
+  let saved = 0;
+  for (const part of chunks(rows, size)) {
+    const { error } = await supabaseAdmin.from(table).upsert(part, { onConflict });
+    if (error) throw new Error(`Supabase ${table}: ${error.message}`);
+    saved += part.length;
+  }
+  return saved;
+}
+
+
+// ============================================================
+// PASO: TITULARES
+// ============================================================
+
+async function stepStarters(limit) {
+  // Partidos terminados de esta temporada y la pasada.
+  // (nba_games solo guarda partidos terminados.)
+  const games = await selectAll(
+    "nba_games",
+    "game_id,season,game_date",
+    q => q
+      .in("season", [CURRENT_SEASON, PREVIOUS_SEASON])
+      .eq("postseason", false)
+      .order("game_date", { ascending: false })
+      .order("game_id", { ascending: true })
+  );
+
+  const syncRows = await selectAll(
+    "nba_game_lineup_sync",
+    "game_id,status,attempts"
+  );
+
+  const sync = new Map(syncRows.map(r => [Number(r.game_id), r]));
+
+  // Pendiente = nunca descargado, o vino vacio y
+  // todavia no se agotaron los reintentos.
+  const pending = games.filter(game => {
+    const s = sync.get(Number(game.game_id));
+    return !s || (s.status === "empty" && Number(s.attempts) < MAX_EMPTY_ATTEMPTS);
+  });
+
+  // Primero los mas recientes: el dia a dia siempre queda al dia.
+  const batch = pending.slice(0, limit);
+
+  if (!batch.length) {
+    return { pending: 0, processed: 0, ok: 0, incomplete: 0, empty: 0, remaining: 0 };
+  }
+
+  const gameInfo = new Map(batch.map(g => [Number(g.game_id), g]));
+  const byGame = new Map(batch.map(g => [Number(g.game_id), []]));
+
+  for (const group of chunks(batch, LINEUP_GAMES_PER_REQUEST)) {
+    const rows = await bdlPages(
+      "/v1/lineups",
+      group.map(g => ["game_ids[]", g.game_id])
+    );
+
+    for (const r of rows) {
+      const gameId = Number(r.game_id ?? r.game?.id);
+      const playerId = Number(r.player?.id ?? r.player_id);
+      if (!byGame.has(gameId) || !Number.isFinite(playerId)) continue;
+      byGame.get(gameId).push(r);
+    }
+  }
+
+  const starterRows = [];
+  const statusRows = [];
+  const now = new Date().toISOString();
+  const counts = { ok: 0, incomplete: 0, empty: 0 };
+
+  for (const [gameId, rows] of byGame) {
+    const game = gameInfo.get(gameId);
+    const unique = new Map();
+
+    for (const r of rows) {
+      const playerId = Number(r.player?.id ?? r.player_id);
+      unique.set(playerId, {
+        game_id: gameId,
+        player_id: playerId,
+        // Equipo del partido. No se usa player.team_id porque
+        // ese es el equipo ACTUAL (falla con traspasos).
+        team_id: numberOrNull(r.team?.id ?? r.team_id),
+        season: Number(game.season),
+        game_date: game.game_date,
+        starter: r.starter === true,
+        lineup_position: str(r.position) || null,
+        synced_at: now
+      });
+    }
+
+    const list = [...unique.values()];
+    const starters = list.filter(r => r.starter).length;
+
+    const status =
+      list.length === 0 ? "empty" :
+      starters === 10 ? "ok" :
+      "incomplete";
+
+    counts[status]++;
+    starterRows.push(...list);
+
+    statusRows.push({
+      game_id: gameId,
+      status,
+      rows_count: list.length,
+      starters_count: starters,
+      attempts: Number(sync.get(gameId)?.attempts || 0) + 1,
+      synced_at: now
+    });
+  }
+
+  // Primero los titulares; si falla, el control no se marca
+  // y la proxima corrida lo reintenta.
+  if (starterRows.length) {
+    await upsertAll("nba_game_starters", starterRows, "game_id,player_id");
+  }
+
+  await upsertAll("nba_game_lineup_sync", statusRows, "game_id");
+
+  const stillPending = statusRows.filter(
+    r => r.status === "empty" && r.attempts < MAX_EMPTY_ATTEMPTS
+  ).length;
+
+  return {
+    pending: pending.length,
+    processed: batch.length,
+    ...counts,
+    remaining: pending.length - batch.length + stillPending
+  };
+}
+
+
+// ============================================================
+// PASO: LESIONES
+// ============================================================
+
+async function stepInjuries() {
+  const runAt = new Date().toISOString();
+  const raw = await bdlPages("/v1/player_injuries");
+
+  const rows = new Map();
+
+  for (const r of raw) {
+    const playerId = numberOrNull(r.player?.id);
+    if (playerId === null) continue;
+
+    rows.set(playerId, {
+      player_id: playerId,
+      team_id: numberOrNull(r.player?.team_id),
+      player_name: `${str(r.player?.first_name)} ${str(r.player?.last_name)}`.trim(),
+      status: str(r.status) || null,
+      return_date: str(r.return_date) || null,
+      description: str(r.description).slice(0, 500) || null,
+      checked_at: runAt
+    });
+  }
+
+  const list = [...rows.values()];
+
+  if (list.length) {
+    await upsertAll("nba_player_injuries_current", list, "player_id");
+  }
+
+  // Los que ya no aparecen se recuperaron: se borran.
+  const { error } = await supabaseAdmin
+    .from("nba_player_injuries_current")
+    .delete()
+    .lt("checked_at", runAt);
+
+  if (error) throw new Error(`Supabase nba_player_injuries_current: ${error.message}`);
+
+  return { injuries: list.length };
+}
+
+
+// ============================================================
+// PASO: DEPTH CHART + ROSTER + ENLACES
+// ============================================================
+
+async function espnTeams() {
+  const data = await fetchJSON(`${ESPN}/teams?limit=100`);
+  const list = data?.sports?.[0]?.leagues?.[0]?.teams || [];
+
+  const teams = list
+    .map(entry => entry?.team)
+    .filter(t => t?.id && t?.abbreviation)
+    .map(t => ({ id: str(t.id), code: teamCode(t.abbreviation) }));
+
+  if (teams.length < 30) throw new Error(`ESPN devolvio ${teams.length} equipos`);
+  return teams;
+}
+
+async function espnTeamData(teamId) {
+  const [depth, roster] = await Promise.all([
+    fetchJSON(`${ESPN}/teams/${teamId}/depthcharts`),
+    fetchJSON(`${ESPN}/teams/${teamId}/roster`)
+  ]);
+
+  // Depth chart: posicion -> lista ordenada.
+  const charts = depth?.depthchart ?? depth?.depthcharts ?? [];
+  const chartList = Array.isArray(charts) ? charts : [charts];
+  const ranks = new Map();
+  const injuries = new Map();
+  const names = new Map();
+
+  for (const chart of chartList) {
+    const positions = chart?.positions;
+    if (!positions || typeof positions !== "object") continue;
+
+    for (const pos of DEPTH_POSITIONS) {
+      const athletes = positions[pos]?.athletes;
+      if (!Array.isArray(athletes)) continue;
+
+      athletes.forEach((a, index) => {
+        const id = str(a?.id);
+        if (!id) return;
+
+        if (!ranks.has(id)) ranks.set(id, {});
+        const r = ranks.get(id);
+        if (r[pos] === undefined) r[pos] = index + 1;
+
+        if (a?.displayName) names.set(id, str(a.displayName));
+        const status = str(a?.injuries?.[0]?.status);
+        if (status) injuries.set(id, status);
+      });
+    }
+  }
+
+  // Roster (algunos deportes agrupan por posicion).
+  let athletes = roster?.athletes || [];
+  if (athletes.length && Array.isArray(athletes[0]?.items)) {
+    athletes = athletes.flatMap(group => group.items || []);
+  }
+
+  const players = new Map();
+
+  for (const a of athletes) {
+    const id = str(a?.id);
+    if (!id) continue;
+    players.set(id, {
+      id,
+      name: str(a.displayName || a.fullName),
+      position: str(a.position?.abbreviation) || null,
+      injury: str(a.injuries?.[0]?.status) || injuries.get(id) || null
+    });
+  }
+
+  // Jugadores en el depth chart que no salieron en el roster.
+  for (const [id, name] of names) {
+    if (!players.has(id)) {
+      players.set(id, { id, name, position: null, injury: injuries.get(id) || null });
+    }
+  }
+
+  if (!ranks.size) throw new Error("depth chart vacio");
+  if (!players.size) throw new Error("roster vacio");
+
+  return { ranks, players };
+}
+
+async function stepDepth() {
+  const runAt = new Date().toISOString();
+  const day = chicagoDay();
+
+  const [teams, bdlTeams, bdlActive, crosswalk] = await Promise.all([
+    espnTeams(),
+    bdlFetch("/v1/teams").then(r => r.data || []),
+    bdlPages("/v1/players/active"),
+    selectAll("fantasy_nba_player_crosswalk", "espn_player_id,nba_player_id")
+  ]);
+
+  const bdlTeamByCode = new Map(bdlTeams.map(t => [teamCode(t.abbreviation), Number(t.id)]));
+
+  // Jugadores activos BALLDONTLIE por equipo y nombre.
+  const bdlByTeamName = new Map();
+  const bdlByTeamLast = new Map();
+
+  for (const p of bdlActive) {
+    const teamId = Number(p.team?.id ?? p.team_id);
+    const name = normalizeName(`${p.first_name} ${p.last_name}`);
+    if (!Number.isFinite(teamId) || !name) continue;
+
+    const entry = { id: Number(p.id), name: `${str(p.first_name)} ${str(p.last_name)}` };
+    const full = `${teamId}:${name}`;
+    if (!bdlByTeamName.has(full)) bdlByTeamName.set(full, []);
+    bdlByTeamName.get(full).push(entry);
+
+    const parts = name.split(" ");
+    const short = `${teamId}:${parts[0]?.[0]}:${parts.slice(1).join(" ")}`;
+    if (!bdlByTeamLast.has(short)) bdlByTeamLast.set(short, []);
+    bdlByTeamLast.get(short).push(entry);
+  }
+
+  const linkByEspn = new Map(crosswalk.map(r => [str(r.espn_player_id), Number(r.nba_player_id)]));
+  const linkedBdl = new Set(crosswalk.map(r => Number(r.nba_player_id)));
+
+  // ESPN: 30 equipos, 5 a la vez.
+  const failedTeams = [];
+  const okTeams = [];
+  const rows = [];
+  const newLinks = [];
+  const unlinked = [];
+
+  await pool(teams, ESPN_CONCURRENCY, async team => {
+    let data;
+    try {
+      data = await espnTeamData(team.id);
+    } catch (error) {
+      failedTeams.push(`${team.code}: ${error.message}`);
+      return;
+    }
+
+    okTeams.push(team.id);
+    const bdlTeamId = bdlTeamByCode.get(team.code) ?? null;
+
+    for (const player of data.players.values()) {
+      const r = data.ranks.get(player.id) || {};
+      const ranks = DEPTH_POSITIONS.map(p => r[p]).filter(v => v !== undefined);
+
+      // Enlace ESPN -> BALLDONTLIE.
+      let nbaId = linkByEspn.get(player.id) ?? null;
+
+      if (nbaId === null && bdlTeamId !== null) {
+        const name = normalizeName(player.name);
+        const parts = name.split(" ");
+        let found = bdlByTeamName.get(`${bdlTeamId}:${name}`) || [];
+
+        if (found.length !== 1) {
+          found = bdlByTeamLast.get(`${bdlTeamId}:${parts[0]?.[0]}:${parts.slice(1).join(" ")}`) || [];
+        }
+
+        // Solo si hay UNO y no esta enlazado a otro jugador.
+        if (found.length === 1 && !linkedBdl.has(found[0].id)) {
+          nbaId = found[0].id;
+          linkedBdl.add(nbaId);
+          linkByEspn.set(player.id, nbaId);
+          newLinks.push({
+            espn_player_id: player.id,
+            nba_player_id: nbaId,
+            espn_player_name: player.name,
+            nba_player_name: found[0].name,
+            verified: false,
+            verification_source: "auto_daily_team_name"
+          });
+        }
+      }
+
+      if (nbaId === null) unlinked.push(`${player.name} (${team.code})`);
+
+      rows.push({
+        snapshot_date: day,
+        espn_player_id: player.id,
+        espn_team_id: team.id,
+        team_id: bdlTeamId,
+        team_abbr: team.code,
+        player_name: player.name,
+        nba_player_id: nbaId,
+        roster_position: player.position,
+        pg_rank: r.pg ?? null,
+        sg_rank: r.sg ?? null,
+        sf_rank: r.sf ?? null,
+        pf_rank: r.pf ?? null,
+        c_rank: r.c ?? null,
+        best_rank: ranks.length ? Math.min(...ranks) : null,
+        injury_status: player.injury,
+        checked_at: runAt
+      });
+    }
+  });
+
+  if (!okTeams.length) {
+    throw new Error(`ESPN no respondio para ningun equipo: ${failedTeams.join(" | ")}`);
+  }
+
+  // Enlaces nuevos (INSERT: nunca reemplaza los existentes).
+  let linksSaved = 0;
+  for (const part of chunks(newLinks, 50)) {
+    const { error } = await supabaseAdmin.from("fantasy_nba_player_crosswalk").insert(part);
+    if (error) throw new Error(`Supabase crosswalk: ${error.message}`);
+    linksSaved += part.length;
+  }
+
+  // Depth chart del dia (un jugador puede salir dos veces si
+  // ESPN lo lista en dos equipos: se queda el primero).
+  const unique = new Map();
+  for (const row of rows) if (!unique.has(row.espn_player_id)) unique.set(row.espn_player_id, row);
+
+  await upsertAll("nba_depth_chart", [...unique.values()], "snapshot_date,espn_player_id");
+
+  // Quitar del dia a quien ya no esta en el roster
+  // (solo en equipos que respondieron bien).
+  const { error } = await supabaseAdmin
+    .from("nba_depth_chart")
+    .delete()
+    .eq("snapshot_date", day)
+    .in("espn_team_id", okTeams)
+    .lt("checked_at", runAt);
+
+  if (error) throw new Error(`Supabase nba_depth_chart: ${error.message}`);
+
+  return {
+    snapshotDate: day,
+    teams: okTeams.length,
+    failedTeams,
+    players: unique.size,
+    newLinks: linksSaved,
+    // Sin enlace: normalmente jugadores two-way o que
+    // todavia no aparecen en BALLDONTLIE. Se reintenta solo
+    // cada dia.
+    unlinkedCount: unlinked.length,
+    unlinked: unlinked.slice(0, 40)
+  };
+}
+
+
+// ============================================================
+// PASO: SLATE DFS
+// ============================================================
+
+async function saveSlate(platform, day, bdlTeamCode, runAt) {
+  const list = await bdlPages("/nba/v1/dfs/slates", [
+    ["providers[]", platform],
+    ["formats[]", "salary_cap"],
+    ["start_date", day],
+    ["end_date", day]
+  ]);
+
+  // Slate principal: DraftKings "Classic", FanDuel "Full Roster",
+  // el que tenga mas partidos.
+  const main = list
+    .filter(s =>
+      s.provider === platform &&
+      s.format === "salary_cap" &&
+      s.active !== false &&
+      /^(classic|full roster)$/i.test(str(s.style)) &&
+      chicagoDay(new Date(s.starts_at)) === day &&
+      Number(s.salary_cap) > 0
+    )
+    .sort((a, b) => Number(b.event_count) - Number(a.event_count))[0];
+
+  if (!main) return { platform, slate: null };
+
+  const detail = (await bdlFetch(`/nba/v1/dfs/slates/${main.id}`)).data;
+  const draftables = await bdlPages("/nba/v1/dfs/draftables", [["slate_ids[]", main.id]]);
+
+  const players = new Map();
+  const conflicts = new Set();
+
+  for (const d of draftables) {
+    if (d.entity_type !== "player" || d.active === false || d.is_disabled === true) continue;
+
+    const playerId = numberOrNull(d.player_id);
+    const salary = numberOrNull(d.salary);
+    if (playerId === null || salary === null) continue;
+
+    const teamId = numberOrNull(d.team_id);
+    const eventId = numberOrNull(d.slate_event_id);
+
+    if (!players.has(playerId)) {
+      players.set(playerId, {
+        slate_id: Number(main.id),
+        player_id: playerId,
+        platform,
+        slate_date: day,
+        player_name: str(d.display_name),
+        team_id: teamId,
+        team_abbr: bdlTeamCode.get(teamId) || teamCode(d.team_abbreviation) || null,
+        event_id: eventId,
+        salary,
+        positions: [],
+        status: str(d.status) || null,
+        checked_at: runAt
+      });
+    }
+
+    const p = players.get(playerId);
+
+    // Mismo jugador con salario/partido/equipo distinto = dato dudoso.
+    if (p.salary !== salary || p.event_id !== eventId || p.team_id !== teamId) {
+      conflicts.add(playerId);
+    }
+
+    for (const pos of str(d.position).toUpperCase().split(/[\/,]/)) {
+      const clean = pos.trim();
+      if (["PG", "SG", "SF", "PF", "C"].includes(clean) && !p.positions.includes(clean)) {
+        p.positions.push(clean);
+      }
+    }
+  }
+
+  for (const id of conflicts) players.delete(id);
+
+  const list2 = [...players.values()].filter(p => p.positions.length);
+  list2.forEach(p => p.positions.sort());
+
+  const rosterSlots = {};
+  for (const slot of detail?.roster_slots || []) {
+    if (slot.active === false) continue;
+    const name = str(slot.name).toUpperCase();
+    rosterSlots[name] = (rosterSlots[name] || 0) + (Number(slot.required_count) || 1);
+  }
+
+  await upsertAll("fantasy_nba_slates", [{
+    slate_id: Number(main.id),
+    platform,
+    slate_date: day,
+    style: str(detail?.style || main.style) || null,
+    salary_cap: numberOrNull(detail?.salary_cap ?? main.salary_cap),
+    starts_at: detail?.starts_at || main.starts_at || null,
+    event_count: numberOrNull(main.event_count),
+    roster_slots: rosterSlots,
+    events: (detail?.events || []).map(e => ({
+      id: e.id,
+      name: e.name ?? null,
+      starts_at: e.starts_at ?? null,
+      game_id: e.game_id ?? null
+    })),
+    checked_at: runAt
+  }], "slate_id");
+
+  if (list2.length) {
+    await upsertAll("fantasy_nba_slate_players", list2, "slate_id,player_id");
+  }
+
+  // Jugadores que la casa retiro del slate.
+  const { error } = await supabaseAdmin
+    .from("fantasy_nba_slate_players")
+    .delete()
+    .eq("slate_id", Number(main.id))
+    .lt("checked_at", runAt);
+
+  if (error) throw new Error(`Supabase fantasy_nba_slate_players: ${error.message}`);
+
+  return {
+    platform,
+    slate: Number(main.id),
+    games: numberOrNull(main.event_count),
+    players: list2.length,
+    conflicts: conflicts.size
+  };
+}
+
+async function stepSlate(day) {
+  const runAt = new Date().toISOString();
+  const teams = (await bdlFetch("/v1/teams")).data || [];
+  const bdlTeamCode = new Map(teams.map(t => [Number(t.id), teamCode(t.abbreviation)]));
+
+  const results = [];
+  for (const platform of ["draftkings", "fanduel"]) {
+    results.push(await saveSlate(platform, day, bdlTeamCode, runAt));
+  }
+  return { date: day, slates: results };
+}
+
+
+// ============================================================
+// HANDLER
+// ============================================================
+
+function isInternalRequest(req) {
+  const validSecret =
+    process.env.CRON_SECRET ||
+    process.env.GENERATE_DAILY_SECRET ||
+    "";
+
+  if (!validSecret) return false;
+
+  const auth = String(req.headers.authorization || "");
+  const bearer = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  const header = String(req.headers["x-internal-secret"] || "");
+  const query = String(req.query.secret || "");
+
+  return bearer === validSecret || header === validSecret || query === validSecret;
+}
+
+const PLANS = {
+  all: ["starters", "injuries", "depth", "slate"],
+  refresh: ["injuries", "depth", "slate"],
+  starters: ["starters"],
+  injuries: ["injuries"],
+  depth: ["depth"],
+  slate: ["slate"]
+};
+
+module.exports = async function handler(req, res) {
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  if (!isInternalRequest(req)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  if (!process.env.BALLDONTLIE_API_KEY) {
+    return res.status(500).json({ error: "BALLDONTLIE_API_KEY no configurada" });
+  }
+
+  const step = String(req.query.step || "all");
+  const plan = PLANS[step];
+
+  if (!plan) {
+    return res.status(400).json({
+      error: "step invalido",
+      valid: Object.keys(PLANS)
+    });
+  }
+
+  const requestedLimit = Number(req.query.limit || DAILY_STARTER_LIMIT);
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.min(MAX_STARTER_LIMIT, Math.max(1, Math.floor(requestedLimit)))
+    : DAILY_STARTER_LIMIT;
+
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.date || ""))
+    ? String(req.query.date)
+    : chicagoDay();
+
+  const steps = {
+    starters: () => stepStarters(limit),
+    injuries: () => stepInjuries(),
+    depth: () => stepDepth(),
+    slate: () => stepSlate(day)
+  };
+
+  const startedAt = Date.now();
+  const results = {};
+  let failed = false;
+
+  // Cada paso por separado: si uno falla, los demas siguen.
+  for (const name of plan) {
+    const t0 = Date.now();
+    try {
+      results[name] = { ok: true, ...(await steps[name]()), seconds: (Date.now() - t0) / 1000 };
+    } catch (error) {
+      failed = true;
+      console.error(`FANTASY NBA DAILY ${name}:`, error);
+      results[name] = { ok: false, error: error.message, seconds: (Date.now() - t0) / 1000 };
+    }
+  }
+
+  return res.status(failed ? 500 : 200).json({
+    ok: !failed,
+    step,
+    season: CURRENT_SEASON,
+    previousSeason: PREVIOUS_SEASON,
+    seconds: (Date.now() - startedAt) / 1000,
+    results
+  });
+};
