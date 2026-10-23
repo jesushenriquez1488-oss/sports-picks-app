@@ -519,6 +519,7 @@ async function stepDepth() {
   // Jugadores activos BALLDONTLIE por equipo y nombre.
   const bdlByTeamName = new Map();
   const bdlByTeamLast = new Map();
+  const bdlByName = new Map();   // toda la liga (equipo desactualizado en BALLDONTLIE)
 
   for (const p of bdlActive) {
     const teamId = Number(p.team?.id ?? p.team_id);
@@ -526,6 +527,10 @@ async function stepDepth() {
     if (!Number.isFinite(teamId) || !name) continue;
 
     const entry = { id: Number(p.id), name: `${str(p.first_name)} ${str(p.last_name)}` };
+
+    if (!bdlByName.has(name)) bdlByName.set(name, []);
+    bdlByName.get(name).push(entry);
+
     const full = `${teamId}:${name}`;
     if (!bdlByTeamName.has(full)) bdlByTeamName.set(full, []);
     bdlByTeamName.get(full).push(entry);
@@ -565,13 +570,22 @@ async function stepDepth() {
       // Enlace ESPN -> BALLDONTLIE.
       let nbaId = linkByEspn.get(player.id) ?? null;
 
-      if (nbaId === null && bdlTeamId !== null) {
+      if (nbaId === null) {
         const name = normalizeName(player.name);
         const parts = name.split(" ");
-        let found = bdlByTeamName.get(`${bdlTeamId}:${name}`) || [];
 
-        if (found.length !== 1) {
+        // 1) Mismo equipo + mismo nombre.
+        let found = bdlTeamId === null ? [] : bdlByTeamName.get(`${bdlTeamId}:${name}`) || [];
+
+        // 2) Mismo equipo + apellido e inicial.
+        if (found.length !== 1 && bdlTeamId !== null) {
           found = bdlByTeamLast.get(`${bdlTeamId}:${parts[0]?.[0]}:${parts.slice(1).join(" ")}`) || [];
+        }
+
+        // 3) Traspasos: BALLDONTLIE aun lo tiene en el equipo
+        //    viejo. Solo si ese nombre es UNICO en toda la liga.
+        if (found.length !== 1) {
+          found = bdlByName.get(name) || [];
         }
 
         // Solo si hay UNO y no esta enlazado a otro jugador.
