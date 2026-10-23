@@ -1,6 +1,12 @@
 
 #!/usr/bin/env python3
 
+"""
+CashEdge NBA Fantasy A/B Experiment
+2026-10-22 — SHADOW ONLY
+No database writes.
+"""
+
 import json
 import os
 import sys
@@ -15,9 +21,7 @@ from pathlib import Path
 sys.path.insert(
     0,
     str(
-        Path(
-            "fantasy-engine/optimizer"
-        ).resolve()
+        Path("fantasy-engine/optimizer").resolve()
     )
 )
 
@@ -30,37 +34,33 @@ DATE = os.getenv(
     "2026-10-22"
 )
 
+ROOT = Path("fantasy-experiments") / DATE
+
+FILE_A = ROOT / "sample-a.json"
+FILE_B = ROOT / "sample-b.json"
+
+FILE_EVAL = (
+    ROOT / "comparison-after-games.json"
+)
+
 INPUT_A = Path(
-    "fantasy-slate-data/nba-draftkings-context-shadow.json"
+    "fantasy-slate-data/"
+    "nba-draftkings-context-shadow.json"
 )
 
 INPUT_B = Path(
-    "fantasy-slate-data/nba-draftkings-advanced-shadow.json"
+    "fantasy-slate-data/"
+    "nba-draftkings-advanced-shadow.json"
 )
 
-OUTPUT = Path(
-    "fantasy-experiments"
-) / DATE
+SLOTS = RULES["nba"]["draftkings"]["slots"]
+CAP = RULES["nba"]["draftkings"]["salary_cap"]
 
-FILE_A = OUTPUT / "sample-a.json"
-FILE_B = OUTPUT / "sample-b.json"
-
-FILE_EVAL = (
-    OUTPUT /
-    "comparison-after-games.json"
-)
-
-SLOTS = RULES[
-    "nba"
-]["draftkings"]["slots"]
-
-CAP = RULES[
-    "nba"
-]["draftkings"]["salary_cap"]
+SLATE_ID = "80365"
 
 
-# Muestra A: alineaciones originales
-# slot, jugador, salario, puntos esperados.
+# MUESTRA A ORIGINAL
+# No cambiar jugadores ni proyecciones.
 
 LOG_A = [
     [
@@ -131,21 +131,19 @@ def ensure(condition, message):
 
 def read(file):
     ensure(
-        file.exists(),
-        f"Falta archivo: {file}"
+        file.is_file(),
+        f"Archivo no encontrado: {file}"
     )
 
     return json.loads(
-        file.read_text(
-            encoding="utf-8"
-        )
+        file.read_text(encoding="utf-8")
     )
 
 
-def save_once(file, value):
+def save_once(file, data):
     ensure(
         not file.exists(),
-        f"Muestra congelada, NO sobrescribir: {file}"
+        f"NO sobrescribir archivo congelado: {file}"
     )
 
     file.parent.mkdir(
@@ -153,49 +151,53 @@ def save_once(file, value):
         exist_ok=True
     )
 
-    file.write_text(
-        json.dumps(
-            value,
-            ensure_ascii=False,
-            indent=2
-        ),
-        encoding="utf-8"
+    with file.open("x", encoding="utf-8") as handle:
+        json.dump(
+            data,
+            handle,
+            indent=2,
+            ensure_ascii=False
+        )
+
+
+def check_report(report):
+    ensure(
+        report.get("mode") == "shadow"
+        and report.get("platform") == "draftkings",
+        "Reporte no es DraftKings SHADOW"
     )
+
+    ensure(
+        report.get("date") == DATE
+        and str(report.get("slateId")) == SLATE_ID,
+        "Fecha o slate incorrectos"
+    )
+
+    ensure(
+        report.get("salaryCap") == CAP,
+        "Salary cap distinto al oficial"
+    )
+
+    return report
 
 
 def norm(name):
+    t = unicodedata.normalize(
+        "NFKD",
+        str(name).casefold()
+    )
+
     return "".join(
-        c
-        for c in unicodedata.normalize(
-            "NFKD",
-            name.casefold()
-        )
+        c for c in t
         if not unicodedata.combining(c)
     ).replace(".", "").replace(" ", "")
 
 
-def roster_snapshot(raw):
-    ensure(
-        raw.get("mode") == "shadow"
-        and raw.get("platform") == "draftkings",
-        "Formato incorrecto"
+def freeze():
+    report = check_report(
+        read(INPUT_A)
     )
 
-    ensure(
-        raw.get("date") == DATE
-        and str(raw.get("slateId")) == "80365",
-        "Fecha/slate incorrectos"
-    )
-
-    ensure(
-        raw.get("salaryCap") == CAP,
-        "Presupuesto inesperado"
-    )
-
-    return raw
-
-
-def freeze_a(report):
     by_name = {}
 
     for p in report["players"]:
@@ -206,42 +208,35 @@ def freeze_a(report):
 
     lineups = []
 
-    for index, log in enumerate(LOG_A):
-        players = []
+    for index, original in enumerate(LOG_A):
+        people = []
 
-        for slot, name, salary, pts in log:
+        for slot, name, salary, expected in original:
             matches = [
-                x
-                for x in by_name.get(
-                    norm(name),
-                    []
-                )
-                if x["salary"] == salary
+                p
+                for p in by_name.get(norm(name), [])
+                if p["salary"] == salary
             ]
 
             ensure(
                 len(matches) == 1,
-                f"ID ambiguo o no encontrado: "
-                f"{name} (${salary})"
+                f"Identidad ambigua: {name}"
             )
 
             p = matches[0]
 
-            players.append({
+            people.append({
                 "slot": slot,
                 "playerId": str(p["playerId"]),
                 "name": name,
                 "salary": salary,
-                "projectedPoints": pts,
+                "projectedPoints": expected,
                 "teamId": str(p["teamId"]),
                 "gameId": str(p["gameId"])
             })
 
         ensure(
-            sum(
-                x["salary"]
-                for x in players
-            ) <= CAP,
+            sum(p["salary"] for p in people) <= CAP,
             "A excede presupuesto"
         )
 
@@ -249,101 +244,100 @@ def freeze_a(report):
             "rank": index + 1,
             "projectedPoints": TOTALS_A[index],
             "salary": sum(
-                x["salary"]
-                for x in players
+                p["salary"] for p in people
             ),
-            "players": players
+            "players": people
         })
 
-    return {
+    save_once(FILE_A, {
         "mode": "shadow",
         "sample": "A",
         "date": DATE,
-        "slateId": str(report["slateId"]),
+        "slateId": SLATE_ID,
         "platform": "draftkings",
         "model": "CONTEXT_EXPERIMENTAL_V1",
-        "origin": "GitHub Actions original log",
         "immutable": True,
         "readyForPublication": False,
         "lineups": lineups
-    }
+    })
+
+    print(
+        "MUESTRA A CONGELADA: 5 lineups"
+    )
 
 
-def validate_lineup(lineup, pool):
+def validate_lineup(raw, pool):
     selected = (
-        lineup["players"]
-        if isinstance(lineup, dict)
-        else lineup
+        raw
+        if isinstance(raw, list)
+        else raw.get("players", raw.get("lineup", []))
     )
 
     ensure(
         len(selected) == len(SLOTS),
-        "Faltan posiciones"
+        "Alineacion incompleta"
     )
 
-    seen_ids = set()
-    seen_slots = set()
-    checked = []
+    ids = set()
+    slots = set()
+    people = []
 
-    for chosen in selected:
-        pid = str(
-            chosen["playerId"]
+    for selection in selected:
+        player_id = str(
+            selection["playerId"]
         )
 
-        slot = chosen["slot"]
+        slot = selection["slot"]
 
         ensure(
-            pid in pool and pid not in seen_ids,
-            f"Jugador fuera de pool o repetido: {pid}"
+            player_id in pool
+            and player_id not in ids,
+            "Jugador no valido o repetido"
         )
 
         ensure(
-            slot in SLOTS and slot not in seen_slots,
-            f"Slot inválido: {slot}"
+            slot in SLOTS
+            and slot not in slots,
+            "Slot no valido o repetido"
         )
 
-        p = pool[pid]
+        p = pool[player_id]
 
         ensure(
             bool(
-                set(
-                    positions_of(p)
-                ) & set(
-                    SLOTS[slot]
-                )
+                set(positions_of(p))
+                & set(SLOTS[slot])
             ),
-            f"Posición inválida: {p['name']} -> {slot}"
+            f"Posicion invalida: {p['name']} -> {slot}"
         )
 
         ensure(
             p["salary"] > 3500,
-            f"Salario prohibido: {p['name']}"
+            "Salario prohibido"
         )
 
-        seen_ids.add(pid)
-        seen_slots.add(slot)
+        ids.add(player_id)
+        slots.add(slot)
 
-        checked.append({
+        people.append({
             "slot": slot,
-            "playerId": pid,
+            "playerId": player_id,
             "name": p["name"],
             "salary": p["salary"],
             "projectedPoints": p["projectedPoints"],
-            "teamId": str(p["teamId"]),
-            "gameId": str(p["gameId"]),
+            "teamId": p["teamId"],
+            "gameId": p["gameId"],
             "depthRank": p["depthRank"],
-            "defenseExamples":
-                p.get("defenseExamples", [])
+            "defenseExamples": p["defenseExamples"]
         })
 
     ensure(
-        seen_slots == set(SLOTS),
+        slots == set(SLOTS),
         "Faltan slots"
     )
 
     salary = sum(
-        p["salary"]
-        for p in checked
+        p["salary"] for p in people
     )
 
     ensure(
@@ -353,35 +347,43 @@ def validate_lineup(lineup, pool):
 
     return {
         "salary": salary,
-
         "projectedPoints": round(
             sum(
                 p["projectedPoints"]
-                for p in checked
+                for p in people
             ),
             2
         ),
-
         "firstListed": sum(
             p["depthRank"] == 1
-            for p in checked
+            for p in people
         ),
-
-        "players": checked
+        "players": people
     }
 
 
-def build_b(report):
+def build():
+    a = read(FILE_A)
+
+    ensure(
+        a.get("date") == DATE
+        and str(a.get("slateId")) == SLATE_ID,
+        "La muestra A es incorrecta"
+    )
+
+    report = check_report(
+        read(INPUT_B)
+    )
+
     pool = {}
 
-    for p in report.get(
-        "players",
-        []
-    ):
-        if (
-            p.get("readyForOptimization")
-            is not True
-            or not p.get("capturedBeforeTipoff")
+    for p in report.get("players", []):
+        salary = p.get("salary")
+        pts = p.get("projectedPoints")
+
+        if not (
+            p.get("readyForOptimization") is True
+            and p.get("capturedBeforeTipoff") is True
         ):
             continue
 
@@ -392,64 +394,40 @@ def build_b(report):
         ):
             continue
 
-        salary = p.get("salary")
-        pts = p.get("projectedPoints")
-
-        if (
-            not isinstance(salary, int)
-            or salary <= 3500
-            or not isinstance(
-                pts,
-                (int, float)
-            )
-            or pts <= 0
+        if not (
+            type(salary) is int
+            and salary > 3500
+            and isinstance(pts, (int, float))
+            and pts > 0
         ):
             continue
 
-        if p.get(
-            "depthRank"
-        ) not in (1, 2):
+        if p.get("depthRank") not in (1, 2):
             continue
 
         pid = str(p["playerId"])
 
         ensure(
             pid not in pool,
-            f"ID repetido: {pid}"
+            f"ID duplicado: {pid}"
         )
 
         pool[pid] = {
             "playerId": pid,
             "name": p["name"],
             "salary": salary,
-            "projectedPoints": pts,
-
+            "projectedPoints": float(pts),
             "positions": sorted(
                 positions_of(p)
             ),
-
-            "gameId": str(
-                p["gameId"]
-            ),
-
-            "teamId": str(
-                p["teamId"]
-            ),
-
-            "depthRank":
-                p["depthRank"],
-
-            "defenseExamples":
-                p.get(
-                    "diagnostics",
-                    {}
-                ).get(
-                    "defenseSimilarPlayers",
-                    {}
-                ).get(
-                    "examples",
-                    []
-                )
+            "gameId": str(p["gameId"]),
+            "teamId": str(p["teamId"]),
+            "depthRank": p["depthRank"],
+            "defenseExamples": (
+                (p.get("diagnostics") or {})
+                .get("defenseSimilarPlayers", {})
+                .get("examples", [])
+            )
         }
 
     print(
@@ -457,50 +435,39 @@ def build_b(report):
         len(pool)
     )
 
-    solutions = []
-    solver_status = "NOT_RUN"
+    selected_lineups = []
+    status = "NOT_RUN"
 
     if len(pool) >= len(SLOTS):
-        for count in range(5, 0, -1):
+        for n in range(5, 0, -1):
             result = optimize_multiple({
                 "sport": "nba",
-
                 "platform": "draftkings",
-
                 "slate": {
-                    "id": str(
-                        report["slateId"]
-                    ),
+                    "id": SLATE_ID,
                     "sport": "nba",
                     "platform": "draftkings",
                     "format": "classic",
-
                     "gameIds": sorted({
                         p["gameId"]
                         for p in pool.values()
                     })
                 },
-
-                "players": list(
-                    pool.values()
-                ),
-
-                "lineupCount": count,
+                "players": list(pool.values()),
+                "lineupCount": n,
                 "maxExposurePercent": 100,
                 "minDifferentPlayers": 2,
                 "timeLimitSeconds": 20
             })
 
-            solver_status = result.get(
+            status = result.get(
                 "status",
                 "UNKNOWN"
             )
 
             if (
                 result.get("found")
-                and len(
-                    result.get("lineups") or []
-                ) == count
+                and len(result.get("lineups") or []) == n
             ):
                 signatures = set()
 
@@ -510,7 +477,7 @@ def build_b(report):
                         pool
                     )
 
-                    signature = tuple(
+                    sig = tuple(
                         sorted(
                             p["playerId"]
                             for p in checked["players"]
@@ -518,54 +485,96 @@ def build_b(report):
                     )
 
                     ensure(
-                        signature not in signatures,
-                        "Alineación duplicada"
+                        sig not in signatures,
+                        "Alineacion duplicada"
                     )
 
-                    signatures.add(signature)
+                    signatures.add(sig)
 
                     checked["rank"] = (
-                        len(solutions) + 1
+                        len(selected_lineups) + 1
                     )
 
-                    solutions.append(checked)
+                    selected_lineups.append(checked)
 
                 break
 
-    return {
+    ensure(
+        selected_lineups,
+        "No se generaron alineaciones B validas"
+    )
+
+    save_once(FILE_B, {
         "mode": "shadow",
         "sample": "B",
         "date": DATE,
-        "slateId": str(report["slateId"]),
+        "slateId": SLATE_ID,
         "platform": "draftkings",
         "model": report["model"],
         "immutable": True,
         "readyForPublication": False,
         "eligiblePlayers": len(pool),
-        "solverStatus": solver_status,
-        "lineups": solutions,
+        "solverStatus": status,
+        "lineups": selected_lineups,
         "limitations": report.get(
             "limitations",
             []
         )
-    }
+    })
+
+    print(
+        "MUESTRA A PRESERVADA:",
+        len(a["lineups"]),
+        "lineups"
+    )
+
+    print(
+        "MUESTRA B CONGELADA:",
+        len(selected_lineups),
+        "lineups"
+    )
+
+    for row in selected_lineups:
+        print(
+            f"B {row['rank']} | "
+            f"Salario {row['salary']} | "
+            f"Proyeccion {row['projectedPoints']}"
+        )
+
+        for p in row["players"]:
+            print(
+                f"  {p['slot']} {p['name']} "
+                f"${p['salary']} "
+                f"{p['projectedPoints']} FP"
+            )
 
 
 def api(route, params):
-    key = os.getenv(
-        "BALLDONTLIE_NBA_API_KEY"
-    )
+    # CORRECCION PRINCIPAL:
+    # Elimina saltos de linea y espacios
+    # al principio y al final de la clave.
+
+    key = (
+        os.getenv("BALLDONTLIE_NBA_API_KEY")
+        or ""
+    ).strip()
 
     ensure(
         key,
         "Falta BALLDONTLIE_NBA_API_KEY"
     )
 
+    ensure(
+        "\n" not in key
+        and "\r" not in key,
+        "La API key tiene saltos de linea internos"
+    )
+
     url = (
-        "https://api.balldontlie.io" +
-        route +
-        "?" +
-        urllib.parse.urlencode(
+        "https://api.balldontlie.io"
+        + route
+        + "?"
+        + urllib.parse.urlencode(
             params,
             doseq=True
         )
@@ -583,8 +592,8 @@ def api(route, params):
             with urllib.request.urlopen(
                 req,
                 timeout=40
-            ) as resp:
-                return json.load(resp)
+            ) as response:
+                return json.load(response)
 
         except urllib.error.HTTPError as exc:
             if exc.code not in (
@@ -601,98 +610,122 @@ def api(route, params):
             )
 
     raise RuntimeError(
-        f"BDL no respondió: {route}"
+        f"BALLDONTLIE no respondio: {route}"
     )
 
 
 def pages(route, params):
     rows = []
-    seen = set()
     cursor = None
+    seen = set()
 
     for _ in range(100):
-        query = {
-            **params,
-            "per_page": 100
-        }
+        query = dict(params)
+
+        query["per_page"] = 100
 
         if cursor:
             query["cursor"] = cursor
 
-        result = api(
+        response = api(
             route,
             query
         )
 
         ensure(
             isinstance(
-                result.get("data"),
+                response.get("data"),
                 list
             ),
-            "API response inesperado"
+            "Respuesta API inesperada"
         )
 
         rows.extend(
-            result["data"]
+            response["data"]
         )
 
-        nxt = result.get(
-            "meta",
-            {}
-        ).get(
-            "next_cursor"
+        next_cursor = (
+            response
+            .get("meta", {})
+            .get("next_cursor")
         )
 
-        if not nxt:
+        if not next_cursor:
             return rows
 
         ensure(
-            str(nxt) not in seen,
-            "Cursor de API repetido"
+            str(next_cursor) not in seen,
+            "Cursor repetido"
         )
 
-        seen.add(str(nxt))
-        cursor = nxt
+        seen.add(
+            str(next_cursor)
+        )
+
+        cursor = next_cursor
 
     raise RuntimeError(
-        "Paginación incompleta"
+        "Paginacion incompleta"
     )
 
 
 def fantasy_score(row):
-    def val(key):
-        raw = row.get(key)
+    def v(key):
+        value = row.get(key)
 
         return (
-            float(raw)
-            if raw not in (None, "")
-            else 0
+            float(value)
+            if value not in (None, "")
+            else 0.0
         )
 
-    stats = [
-        val("pts"),
-        val("reb"),
-        val("ast"),
-        val("stl"),
-        val("blk")
+    pts, reb, ast, stl, blk = [
+        v(k)
+        for k in (
+            "pts",
+            "reb",
+            "ast",
+            "stl",
+            "blk"
+        )
     ]
 
     doubles = sum(
-        v >= 10
-        for v in stats
+        x >= 10
+        for x in (
+            pts,
+            reb,
+            ast,
+            stl,
+            blk
+        )
     )
 
     return round(
-        stats[0] +
-        1.25 * stats[1] +
-        1.5 * stats[2] +
-        2 * stats[3] +
-        2 * stats[4] -
-        0.5 * val("turnover") +
-        0.5 * val("fg3m") +
-        (1.5 if doubles >= 2 else 0) +
-        (3 if doubles >= 3 else 0),
+        pts
+        + 1.25 * reb
+        + 1.5 * ast
+        + 2 * stl
+        + 2 * blk
+        - 0.5 * v("turnover")
+        + 0.5 * v("fg3m")
+        + (1.5 if doubles >= 2 else 0)
+        + (3 if doubles >= 3 else 0),
         2
+    )
+
+
+def finished(game):
+    status = str(
+        game.get("status_state")
+        or game.get("status")
+        or ""
+    ).lower()
+
+    return (
+        status in ("final", "completed")
+        or status.startswith("final/")
+        or status.startswith("final ")
     )
 
 
@@ -702,13 +735,20 @@ def evaluate():
 
     ensure(
         a["date"] == b["date"] == DATE
-        and a["slateId"] == b["slateId"],
+        and str(a["slateId"]) == str(b["slateId"])
+        and str(a["slateId"]) == SLATE_ID,
         "Muestras de fechas distintas"
     )
 
     ensure(
-        a["lineups"] and b["lineups"],
+        a.get("lineups")
+        and b.get("lineups"),
         "Faltan alineaciones"
+    )
+
+    ensure(
+        not FILE_EVAL.exists(),
+        f"Comparacion ya congelada: {FILE_EVAL}"
     )
 
     games = pages(
@@ -718,6 +758,12 @@ def evaluate():
         }
     )
 
+    final_ids = {
+        str(g["id"])
+        for g in games
+        if finished(g)
+    }
+
     needed = {
         str(p["gameId"])
         for report in (a, b)
@@ -725,207 +771,226 @@ def evaluate():
         for p in lineup["players"]
     }
 
-    final = {
-        str(g["id"])
-        for g in games
-        if (
-            str(
-                g.get("status_state", "")
-            ).lower() == "final"
-            or str(
-                g.get("status", "")
-            ).lower() == "final"
-        )
-    }
-
     ensure(
-        needed <= final,
-        "Los partidos aún no han terminado: " +
-        ", ".join(
-            sorted(needed - final)
+        needed <= final_ids,
+        "Partidos sin resultado final: "
+        + ", ".join(
+            sorted(needed - final_ids)
         )
     )
 
-    stats = pages(
+    rows = pages(
         "/v1/stats",
         {
             "dates[]": [DATE]
         }
     )
 
-    actual = {
-        (
-            str(
-                row.get(
-                    "player",
-                    {}
-                ).get("id")
-            ),
-            str(
-                row.get(
-                    "game",
-                    {}
-                ).get("id")
+    actual = {}
+
+    for row in rows:
+        pid = str(
+            (row.get("player") or {}).get("id")
+        )
+
+        gid = str(
+            (row.get("game") or {}).get("id")
+        )
+
+        if (
+            pid not in ("", "None")
+            and gid in final_ids
+        ):
+            key = (pid, gid)
+
+            ensure(
+                key not in actual,
+                f"Estadistica duplicada: {key}"
             )
-        ): fantasy_score(row)
-        for row in stats
-    }
 
-    def calc(report):
-        lineups = []
-        player_errors = {}
+            actual[key] = fantasy_score(row)
 
-        for item in report["lineups"]:
-            lines = []
+    ensure(
+        actual,
+        "BALLDONTLIE no devolvio estadisticas de la fecha"
+    )
 
-            for p in item["players"]:
+    # No inventar DNP ni asignar 0 FP
+    # cuando la API no identifica al jugador.
+
+    missing = sorted({
+        (
+            str(p["playerId"]),
+            str(p["gameId"]),
+            p["name"]
+        )
+        for r in (a, b)
+        for lineup in r["lineups"]
+        for p in lineup["players"]
+        if (
+            str(p["playerId"]),
+            str(p["gameId"])
+        ) not in actual
+    })
+
+    if missing:
+        print(
+            "ATENCION: jugadores sin boxscore identificado:"
+        )
+
+        for pid, gid, name in missing:
+            print(
+                " ",
+                name,
+                "ID",
+                pid,
+                "GAME",
+                gid
+            )
+
+        raise ValueError(
+            "Evaluacion detenida: faltan boxscores; "
+            "no asignar cero automaticamente"
+        )
+
+    def calculate(sample):
+        lineup_results = []
+        unique = {}
+
+        for lineup in sample["lineups"]:
+            players = []
+
+            for p in lineup["players"]:
                 key = (
                     str(p["playerId"]),
                     str(p["gameId"])
                 )
 
-                # Juego final sin estadisticas
-                # registradas: DNP = 0 FP.
-                earned = actual.get(
-                    key,
-                    0.0
-                )
+                earned = actual[key]
 
-                pred = float(
+                forecast = float(
                     p["projectedPoints"]
                 )
 
-                lines.append({
+                players.append({
                     "name": p["name"],
                     "playerId": p["playerId"],
-                    "projectedFP": pred,
+                    "projectedFP": forecast,
                     "actualFP": earned,
                     "error": round(
-                        pred - earned,
+                        forecast - earned,
                         2
                     )
                 })
 
-                player_errors[key] = (
-                    pred,
+                unique[key] = (
+                    forecast,
                     earned
                 )
 
-            actual_total = round(
+            total = round(
                 sum(
-                    p["actualFP"]
-                    for p in lines
+                    x["actualFP"]
+                    for x in players
                 ),
                 2
             )
 
-            lineups.append({
-                "rank": item["rank"],
-                "projectedFP":
-                    item["projectedPoints"],
-                "actualFP":
-                    actual_total,
-
+            lineup_results.append({
+                "rank": lineup["rank"],
+                "projectedFP": lineup["projectedPoints"],
+                "actualFP": total,
                 "projectionError": round(
-                    item["projectedPoints"] -
-                    actual_total,
+                    lineup["projectedPoints"] - total,
                     2
                 ),
-
-                "players": lines
+                "players": players
             })
 
-        err = list(
-            player_errors.values()
+        errors = list(
+            unique.values()
         )
 
         return {
-            "sample": report["sample"],
-
-            "lineups": lineups,
-
+            "sample": sample["sample"],
+            "lineups": lineup_results,
             "meanActualFP": round(
                 sum(
                     x["actualFP"]
-                    for x in lineups
-                ) / len(lineups),
+                    for x in lineup_results
+                ) / len(lineup_results),
                 2
             ),
-
             "bestActualFP": max(
                 x["actualFP"]
-                for x in lineups
+                for x in lineup_results
             ),
-
             "uniquePlayerMAE": round(
                 sum(
                     abs(p - a)
-                    for p, a in err
-                ) / len(err),
+                    for p, a in errors
+                ) / len(errors),
                 2
             )
         }
 
-    outcomes = [
-        calc(a),
-        calc(b)
+    comparisons = [
+        calculate(a),
+        calculate(b)
     ]
 
-    report = {
+    output = {
         "date": DATE,
-        "slateId": a["slateId"],
+        "slateId": SLATE_ID,
         "mode": "shadow",
-
-        "source":
-            "BALLDONTLIE final boxscores",
-
-        "comparison": outcomes,
-
-        "winnerByAverageLineupFP":
-            max(
-                outcomes,
-                key=lambda o:
-                    o["meanActualFP"]
-            )["sample"],
-
-        "winnerByPlayerMAE":
-            min(
-                outcomes,
-                key=lambda o:
-                    o["uniquePlayerMAE"]
-            )["sample"]
+        "source": "BALLDONTLIE final boxscores",
+        "comparison": comparisons,
+        "winnerByAverageLineupFP": max(
+            comparisons,
+            key=lambda x: x["meanActualFP"]
+        )["sample"],
+        "winnerByPlayerMAE": min(
+            comparisons,
+            key=lambda x: x["uniquePlayerMAE"]
+        )["sample"]
     }
 
     save_once(
         FILE_EVAL,
-        report
+        output
     )
 
-    summary = {
-        x["sample"]: {
-            "promedio_real":
-                x["meanActualFP"],
-
-            "mejor_alineacion_real":
-                x["bestActualFP"],
-
-            "error_medio_por_jugador":
-                x["uniquePlayerMAE"]
-        }
-        for x in outcomes
-    }
-
     print(
-        "COMPARACION FINAL:",
-        json.dumps(
-            summary,
-            ensure_ascii=False,
-            indent=2
+        "COMPARACION FINAL:"
+    )
+
+    for x in comparisons:
+        print(
+            f"MUESTRA {x['sample']}: "
+            f"promedio real {x['meanActualFP']} FP, "
+            f"mejor alineacion {x['bestActualFP']} FP, "
+            f"error jugador {x['uniquePlayerMAE']} FP"
         )
+
+        for l in x["lineups"]:
+            print(
+                f"  #{l['rank']}: "
+                f"esperado {l['projectedFP']} FP, "
+                f"real {l['actualFP']} FP"
+            )
+
+    print(
+        "Ganador alineaciones:",
+        output["winnerByAverageLineupFP"]
     )
 
     print(
-        "Guardado en:",
+        "Ganador precision:",
+        output["winnerByPlayerMAE"]
+    )
+
+    print(
+        "Guardado:",
         FILE_EVAL
     )
 
@@ -943,95 +1008,10 @@ def main():
     )
 
     if mode == "freeze":
-        ensure(
-            not FILE_A.exists(),
-            "La muestra A ya está congelada"
-        )
-
-        a = freeze_a(
-            roster_snapshot(
-                read(INPUT_A)
-            )
-        )
-
-        save_once(
-            FILE_A,
-            a
-        )
-
-        print(
-            "MUESTRA A CONGELADA:",
-            len(a["lineups"]),
-            "lineups",
-            FILE_A
-        )
+        freeze()
 
     elif mode == "build":
-        a = read(FILE_A)
-
-        ensure(
-            a["date"] == DATE
-            and a["slateId"] == "80365",
-            "Muestra A incorrecta"
-        )
-
-        ensure(
-            not FILE_B.exists(),
-            "La muestra B ya está congelada"
-        )
-
-        b = build_b(
-            roster_snapshot(
-                read(INPUT_B)
-            )
-        )
-
-        ensure(
-            len(b["lineups"]) >= 1,
-            "B no tiene alineaciones válidas"
-        )
-
-        save_once(
-            FILE_B,
-            b
-        )
-
-        print(
-            "MUESTRA A PRESERVADA:",
-            len(a["lineups"]),
-            "lineups"
-        )
-
-        print(
-            "MUESTRA B CONGELADA:",
-            len(b["lineups"]),
-            "lineups"
-        )
-
-        for l in b["lineups"]:
-            print(
-                "B",
-                l["rank"],
-                "| Salario",
-                l["salary"],
-                "| Proyección",
-                l["projectedPoints"]
-            )
-
-            for p in l["players"]:
-                print(
-                    " ",
-                    p["slot"],
-                    p["name"],
-                    "$" + str(p["salary"]),
-                    str(p["projectedPoints"]) +
-                    " FP"
-                )
-
-        print(
-            "Snapshots:",
-            OUTPUT
-        )
+        build()
 
     elif mode == "evaluate":
         evaluate()
