@@ -720,7 +720,7 @@ function roleBaseline(id, team, role, order, profile, ctx) {
     const other = pool.filter(r => !isRole(r) && r.team === team).slice(0, CONFIG.previousGames);
     const otherEst = weighted(other, r => r.min, (r, i) => Math.pow(CONFIG.previousDecay, i));
     if (otherEst.value !== null) {
-      const ratio = role === "S" ? ctx.roleChange.up : ctx.roleChange.down;
+      const ratio = role === "S" ? ctx.models.roleChange.up : ctx.models.roleChange.down;
       const capped = role === "S" ? Math.min(otherEst.value * ratio, profile.S[0]) : otherEst.value * ratio;
       prior = { value: capped, weight: 2 };
       source = role === "S" ? "nuevo titular (cambio medido en la liga)" : "nuevo suplente (cambio medido en la liga)";
