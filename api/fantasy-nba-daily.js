@@ -1,57 +1,32 @@
 // ============================================================
-// CASHEDGE FANTASY NBA — TAREA DIARIA
+// CASHEDGE FANTASY NFL — DATOS DIARIOS
 // ============================================================
 //
-// Es el UNICO lugar de Fantasy NBA que llama APIs externas.
-// Guarda todo en Supabase. La formula despues lee solo
-// Supabase.
+// Guarda en Supabase todo lo que la formula NFL necesita del
+// dia del partido. La formula NUNCA llama a estas fuentes:
+// solo lee lo que este archivo deja guardado.
 //
-// PASOS (?step=)
+//   players  NFLverse: enlace GSIS <-> ESPN y estado de roster
+//            (activo, IR, practica, cortado)   -> football_players
+//   depth    Depth chart ESPN de los 32 equipos -> football_depth_chart
+//   slates   Slates y salarios DK / FD de los proximos 7 dias
+//            (BALLDONTLIE)                      -> fantasy_nfl_slates
+//                                                  fantasy_nfl_slate_players
+//   weather  Pronostico de viento a la hora de cada partido al
+//            aire libre (Open-Meteo, gratis)    -> football_game_weather
 //
-//   starters  Titulares de cada partido terminado
-//             (BALLDONTLIE /v1/lineups) -> nba_game_starters
-//             Solo descarga partidos que todavia no tiene.
-//             &limit=250 para cargar la temporada pasada.
+// Las lesiones NO se bajan aqui: ya las guarda tu nfl-injury-cron
+// en nfl_injury_state.
 //
-//   box       Tiros intentados, tiros libres, rebotes ofensivos
-//             y defensivos, faltas (BALLDONTLIE /v1/stats)
-//             -> nba_player_game_box_ext
-//             &dates=20 para cargar la temporada pasada.
+// USO
+//   /api/fantasy-nfl-daily?secret=...              -> todo
+//   /api/fantasy-nfl-daily?secret=...&step=depth   -> un paso
+//   steps: all, refresh, players, depth, slates, weather
 //
-//   quarters  Marcador por cuarto (BALLDONTLIE /v1/games)
-//             -> nba_game_quarters
-//
-//   injuries  Lesiones actuales (BALLDONTLIE)
-//             -> nba_player_injuries_current
-//
-//   depth     Depth chart + roster de los 30 equipos (ESPN)
-//             -> nba_depth_chart
-//             + enlaza solos los jugadores nuevos en
-//               fantasy_nba_player_crosswalk.
-//
-//   slate     Slate principal DraftKings y FanDuel del dia
-//             (BALLDONTLIE) -> fantasy_nba_slates
-//                           -> fantasy_nba_slate_players
-//
-//   evaluate  Compara las proyecciones de AYER contra lo real
-//             -> fantasy_nba_projections (actual_*), fantasy_nba_evaluations
-//
-//   project   LA FORMULA (api/fantasy-nba-project.js): lee solo
-//             Supabase -> fantasy_nba_projections, fantasy_nba_team_minutes
-//
-//   all       starters + box + evaluate + injuries + depth + slate + project
-//   refresh   injuries + depth + slate + project (antes de los partidos)
-//
-// SEGURIDAD
-//   Igual que /api/nba-data: CRON_SECRET por
-//   Authorization Bearer, X-Internal-Secret o ?secret=
-//
-// NO toca nba_games, nba_player_game_stats, picks,
-// Premium Picks, Player Props ni ningun otro cron.
+// SHADOW: no toca picks, props, nfl_* ni ningun otro cron.
 // ============================================================
 
 const { createClient } = require("@supabase/supabase-js");
-const fantasyProject = require("./fantasy-nba-project.js");
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
@@ -59,31 +34,17 @@ const supabaseAdmin = createClient(
 );
 
 const BDL = "https://api.balldontlie.io";
-const ESPN = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
+const ESPN = "https://site.api.espn.com/apis/site/v2/sports/football/nfl";
+const PLAYERS_URL = "https://github.com/nflverse/nflverse-data/releases/download/players/players.csv";
+const WEATHER_URL = "https://api.open-meteo.com/v1/forecast";
 
-const TIMEOUT_MS = 15000;
+const TIMEOUT_MS = 20000;
 const ESPN_CONCURRENCY = 5;
-const LINEUP_GAMES_PER_REQUEST = 10;
-const DAILY_STARTER_LIMIT = 60;
-const MAX_STARTER_LIMIT = 250;
-const MAX_EMPTY_ATTEMPTS = 3;
+const SLATE_DAYS = 7;          // slates de hoy y los 6 dias siguientes
+const WEATHER_DAYS = 8;        // Open-Meteo pronostica hasta 16; con 8 sobra
+const GAME_HOURS = 4;          // promedio del viento durante el partido
 
-const DEPTH_POSITIONS = ["pg", "sg", "sf", "pf", "c"];
-
-
-// ============================================================
-// TEMPORADA (misma regla que nba-data.js)
-// ============================================================
-// NBA 2026-27 = season 2026 en BALLDONTLIE.
-
-function getCurrentNBASeason() {
-  const now = new Date();
-  const month = now.getMonth() + 1;
-  return month >= 9 ? now.getFullYear() : now.getFullYear() - 1;
-}
-
-const CURRENT_SEASON = getCurrentNBASeason();
-const PREVIOUS_SEASON = CURRENT_SEASON - 1;
+const POSITIONS = new Set(["QB", "RB", "WR", "TE", "FB"]);
 
 
 // ============================================================
@@ -91,6 +52,18 @@ const PREVIOUS_SEASON = CURRENT_SEASON - 1;
 // ============================================================
 
 const str = value => String(value ?? "").trim();
+
+function numberOrNull(value) {
+  if (value === null || value === undefined || value === "" || value === "NA") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+// NFL: la temporada 2026 va de septiembre 2026 a febrero 2027.
+function currentNFLSeason() {
+  const now = new Date();
+  return now.getMonth() + 1 >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+}
 
 function chicagoDay(date = new Date()) {
   return new Intl.DateTimeFormat("en-CA", {
@@ -101,41 +74,55 @@ function chicagoDay(date = new Date()) {
   }).format(date);
 }
 
-function numberOrNull(value) {
-  if (value === null || value === undefined || value === "") return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
+function easternParts(date) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/New_York",
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", hourCycle: "h23"
+    }).formatToParts(date).map(p => [p.type, p.value])
+  );
+  return { day: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
 }
 
-// Quita acentos, puntos, guiones y sufijos (Jr, III...).
+function addDays(day, n) {
+  const d = new Date(`${day}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+// Todos los archivos usan el codigo NFLverse (LA = Rams, WAS = Washington).
+const TEAM_ALIASES = {
+  LAR: "LA", STL: "LA",
+  WSH: "WAS",
+  JAC: "JAX",
+  OAK: "LV", LVR: "LV",
+  SD: "LAC",
+  GNB: "GB", KAN: "KC", NWE: "NE", NOR: "NO", SFO: "SF", TAM: "TB"
+};
+
+function teamCode(raw) {
+  const value = str(raw).toUpperCase();
+  return TEAM_ALIASES[value] || value;
+}
+
+// Quita acentos, apostrofes, puntos y sufijos (Jr, III...).
+// "D.J. Moore" -> "dj moore", "Ja'Marr Chase" -> "jamarr chase".
 function normalizeName(value) {
   return str(value)
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .replace(/[.'’`]/g, "")
-    .replace(/-/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
     .split(/\s+/)
     .filter(t => t && !["jr", "sr", "ii", "iii", "iv", "v"].includes(t))
     .join(" ");
 }
 
-// ESPN y las casas usan abreviaturas distintas.
-const TEAM_ALIASES = {
-  GS: "GSW", GSW: "GSW",
-  NY: "NYK", NYK: "NYK",
-  SA: "SAS", SAS: "SAS",
-  NO: "NOP", NOP: "NOP", NOR: "NOP",
-  UTAH: "UTA", UTA: "UTA",
-  WSH: "WAS", WAS: "WAS",
-  PHX: "PHX", PHO: "PHX",
-  BKN: "BKN", BRK: "BKN",
-  CHA: "CHA", CHO: "CHA"
-};
-
-function teamCode(abbreviation) {
-  const a = str(abbreviation).toUpperCase();
-  return TEAM_ALIASES[a] || a;
+function initialLast(name) {
+  const parts = normalizeName(name).split(" ");
+  return parts.length > 1 ? `${parts[0][0]}:${parts.slice(1).join(" ")}` : null;
 }
 
 function chunks(list, size) {
@@ -158,12 +145,17 @@ async function pool(items, limit, fn) {
   return results;
 }
 
+function pushTo(map, key, value) {
+  if (!map.has(key)) map.set(key, []);
+  map.get(key).push(value);
+}
+
 
 // ============================================================
 // HTTP (con reintentos para 429 / 5xx)
 // ============================================================
 
-async function fetchJSON(url, headers = {}) {
+async function fetchText(url, headers = {}) {
   let lastError = null;
 
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -172,16 +164,13 @@ async function fetchJSON(url, headers = {}) {
 
     try {
       const response = await fetch(url, {
-        headers: { Accept: "application/json", ...headers },
+        headers: { "User-Agent": "CashEdge-Fantasy/1.0", ...headers },
         signal: controller.signal
       });
-
       const text = await response.text();
-
-      if (response.ok) return JSON.parse(text);
+      if (response.ok) return text;
 
       lastError = new Error(`HTTP ${response.status} ${url}: ${text.slice(0, 200)}`);
-
       if (![429, 500, 502, 503, 504].includes(response.status)) throw lastError;
 
     } catch (error) {
@@ -199,10 +188,18 @@ async function fetchJSON(url, headers = {}) {
   throw lastError;
 }
 
+async function fetchJSON(url, headers = {}) {
+  return JSON.parse(await fetchText(url, { Accept: "application/json", ...headers }));
+}
+
+function bdlKey() {
+  return process.env.BALLDONTLIE_NFL_API_KEY || process.env.BALLDONTLIE_API_KEY || "";
+}
+
 function bdlFetch(path, params = []) {
   const url = new URL(BDL + path);
   for (const [key, value] of params) url.searchParams.append(key, String(value));
-  return fetchJSON(url.toString(), { Authorization: process.env.BALLDONTLIE_API_KEY });
+  return fetchJSON(url.toString(), { Authorization: bdlKey() });
 }
 
 // Todas las paginas (cursor).
@@ -225,7 +222,7 @@ async function bdlPages(path, params = []) {
     rows.push(...response.data);
 
     const next = response?.meta?.next_cursor;
-    if (!next) return rows;
+    if (next === null || next === undefined || next === "") return rows;
 
     if (seen.has(String(next))) throw new Error(`BALLDONTLIE ${path}: cursor repetido`);
     seen.add(String(next));
@@ -240,7 +237,6 @@ async function bdlPages(path, params = []) {
 // SUPABASE
 // ============================================================
 
-// Lee todas las filas (de 1000 en 1000).
 async function selectAll(table, columns, build = q => q) {
   const rows = [];
   const PAGE = 1000;
@@ -251,7 +247,6 @@ async function selectAll(table, columns, build = q => q) {
     ).range(from, from + PAGE - 1);
 
     if (error) throw new Error(`Supabase ${table}: ${error.message}`);
-
     rows.push(...(data || []));
     if (!data || data.length < PAGE) return rows;
   }
@@ -269,774 +264,718 @@ async function upsertAll(table, rows, onConflict, size = 500) {
 
 
 // ============================================================
-// PASO: TITULARES
+// CSV (misma lectura que fantasy-nfl-weekly.js)
 // ============================================================
 
-async function stepStarters(limit) {
-  // Partidos terminados de esta temporada y la pasada.
-  // (nba_games solo guarda partidos terminados.)
-  const games = await selectAll(
-    "nba_games",
-    "game_id,season,game_date",
-    q => q
-      .in("season", [CURRENT_SEASON, PREVIOUS_SEASON])
-      // postseason puede venir vacio (null) en partidos viejos.
-      .or("postseason.is.null,postseason.eq.false")
-      .order("game_date", { ascending: false })
-      .order("game_id", { ascending: true })
-  );
+function parseCSV(text, required, optional = []) {
+  if (typeof text !== "string" || !text.trim()) throw new Error("CSV vacio");
 
-  const syncRows = await selectAll(
-    "nba_game_lineup_sync",
-    "game_id,status,attempts"
-  );
+  const results = [];
+  let headers = null;
+  let indexes = [];
+  let fields = [];
+  let field = "";
+  let quoted = false;
 
-  const sync = new Map(syncRows.map(r => [Number(r.game_id), r]));
-
-  // Pendiente = nunca descargado, o vino vacio y
-  // todavia no se agotaron los reintentos.
-  const pending = games.filter(game => {
-    const s = sync.get(Number(game.game_id));
-    return !s || (s.status === "empty" && Number(s.attempts) < MAX_EMPTY_ATTEMPTS);
-  });
-
-  // Primero los mas recientes: el dia a dia siempre queda al dia.
-  const batch = pending.slice(0, limit);
-
-  // Diagnostico: cuantos partidos ve por temporada.
-  const gamesFound = {
-    [CURRENT_SEASON]: games.filter(g => Number(g.season) === CURRENT_SEASON).length,
-    [PREVIOUS_SEASON]: games.filter(g => Number(g.season) === PREVIOUS_SEASON).length
+  const finishRow = () => {
+    fields.push(field);
+    field = "";
+    if (!headers) {
+      headers = fields.map(v => v.replace(/^﻿/, "").trim());
+      const missing = required.filter(name => !headers.includes(name));
+      if (missing.length) throw new Error("CSV columnas faltantes: " + missing.join(", "));
+      const wanted = new Set([...required, ...optional]);
+      indexes = headers.map((name, i) => (wanted.has(name) ? [name, i] : null)).filter(Boolean);
+    } else if (fields.some(v => v !== "")) {
+      const obj = {};
+      for (const [name, i] of indexes) obj[name] = fields[i] ?? "";
+      results.push(obj);
+    }
+    fields = [];
   };
 
-  if (!batch.length) {
-    return {
-      gamesFound,
-      alreadySynced: syncRows.length,
-      pending: 0,
-      processed: 0,
-      ok: 0,
-      incomplete: 0,
-      empty: 0,
-      remaining: 0
-    };
-  }
-
-  const gameInfo = new Map(batch.map(g => [Number(g.game_id), g]));
-  const byGame = new Map(batch.map(g => [Number(g.game_id), []]));
-
-  for (const group of chunks(batch, LINEUP_GAMES_PER_REQUEST)) {
-    const rows = await bdlPages(
-      "/v1/lineups",
-      group.map(g => ["game_ids[]", g.game_id])
-    );
-
-    for (const r of rows) {
-      const gameId = Number(r.game_id ?? r.game?.id);
-      const playerId = Number(r.player?.id ?? r.player_id);
-      if (!byGame.has(gameId) || !Number.isFinite(playerId)) continue;
-      byGame.get(gameId).push(r);
-    }
-  }
-
-  const starterRows = [];
-  const statusRows = [];
-  const now = new Date().toISOString();
-  const counts = { ok: 0, incomplete: 0, empty: 0 };
-
-  for (const [gameId, rows] of byGame) {
-    const game = gameInfo.get(gameId);
-    const unique = new Map();
-
-    for (const r of rows) {
-      const playerId = Number(r.player?.id ?? r.player_id);
-      unique.set(playerId, {
-        game_id: gameId,
-        player_id: playerId,
-        // Equipo del partido. No se usa player.team_id porque
-        // ese es el equipo ACTUAL (falla con traspasos).
-        team_id: numberOrNull(r.team?.id ?? r.team_id),
-        season: Number(game.season),
-        game_date: game.game_date,
-        starter: r.starter === true,
-        lineup_position: str(r.position) || null,
-        synced_at: now
-      });
-    }
-
-    const list = [...unique.values()];
-    const starters = list.filter(r => r.starter).length;
-
-    const status =
-      list.length === 0 ? "empty" :
-      starters === 10 ? "ok" :
-      "incomplete";
-
-    counts[status]++;
-    starterRows.push(...list);
-
-    statusRows.push({
-      game_id: gameId,
-      status,
-      rows_count: list.length,
-      starters_count: starters,
-      attempts: Number(sync.get(gameId)?.attempts || 0) + 1,
-      synced_at: now
-    });
-  }
-
-  // Primero los titulares; si falla, el control no se marca
-  // y la proxima corrida lo reintenta.
-  if (starterRows.length) {
-    await upsertAll("nba_game_starters", starterRows, "game_id,player_id");
-  }
-
-  await upsertAll("nba_game_lineup_sync", statusRows, "game_id");
-
-  const stillPending = statusRows.filter(
-    r => r.status === "empty" && r.attempts < MAX_EMPTY_ATTEMPTS
-  ).length;
-
-  return {
-    gamesFound,
-    alreadySynced: syncRows.length,
-    pending: pending.length,
-    processed: batch.length,
-    ...counts,
-    remaining: pending.length - batch.length + stillPending
-  };
-}
-
-
-// ============================================================
-// PASO: ESTADISTICAS EXTRA (tiros, tiros libres, rebotes of/def)
-// ============================================================
-//
-// BALLDONTLIE /v1/stats por fecha NBA (hora Este), igual que
-// nba-data.js. Solo partidos que todavia no tienen estos datos.
-
-function nbaCalendarDate(value) {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/New_York",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  }).format(parsed);
-}
-
-function parseMinutes(value) {
-  const raw = str(value);
-  if (raw.includes(":")) {
-    const [m, s] = raw.split(":").map(Number);
-    return Number.isFinite(m) && Number.isFinite(s) ? m + s / 60 : 0;
-  }
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : 0;
-}
-
-async function stepBox(maxDates) {
-  const games = await selectAll(
-    "nba_games",
-    "game_id,season,game_date",
-    q => q
-      .in("season", [CURRENT_SEASON, PREVIOUS_SEASON])
-      .or("postseason.is.null,postseason.eq.false")
-      .order("game_date", { ascending: false })
-      .order("game_id", { ascending: true })
-  );
-
-  const syncRows = await selectAll("nba_box_ext_sync", "game_id,status,attempts");
-  const sync = new Map(syncRows.map(r => [Number(r.game_id), r]));
-
-  const pending = games.filter(game => {
-    const s = sync.get(Number(game.game_id));
-    return !s || (s.status === "empty" && Number(s.attempts) < MAX_EMPTY_ATTEMPTS);
-  });
-
-  // Agrupar por fecha NBA; primero las mas recientes.
-  const byDate = new Map();
-  for (const game of pending) {
-    const day = nbaCalendarDate(game.game_date);
-    if (!day) continue;
-    if (!byDate.has(day)) byDate.set(day, []);
-    byDate.get(day).push(game);
-  }
-
-  const dates = [...byDate.keys()].sort().reverse().slice(0, maxDates);
-  const now = new Date().toISOString();
-  const boxRows = [];
-  const statusRows = [];
-  let ok = 0;
-  let empty = 0;
-
-  for (const day of dates) {
-    const stats = await bdlPages("/v1/stats", [["dates[]", day], ["period", 0]]);
-
-    for (const game of byDate.get(day)) {
-      const gameId = Number(game.game_id);
-      const rows = new Map();
-
-      for (const s of stats) {
-        if (Number(s.game?.id) !== gameId) continue;
-        const playerId = Number(s.player?.id);
-        if (!Number.isFinite(playerId) || parseMinutes(s.min) <= 0) continue;
-
-        rows.set(playerId, {
-          game_id: gameId,
-          player_id: playerId,
-          team_id: numberOrNull(s.team?.id),
-          season: Number(game.season),
-          game_date: game.game_date,
-          fgm: numberOrNull(s.fgm),
-          fga: numberOrNull(s.fga),
-          fg3m: numberOrNull(s.fg3m),
-          fg3a: numberOrNull(s.fg3a),
-          ftm: numberOrNull(s.ftm),
-          fta: numberOrNull(s.fta),
-          oreb: numberOrNull(s.oreb),
-          dreb: numberOrNull(s.dreb),
-          pf: numberOrNull(s.pf),
-          synced_at: now
-        });
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (char === '"') {
+      if (quoted && text[i + 1] === '"') {
+        field += '"';
+        i++;
+      } else {
+        quoted = !quoted;
       }
-
-      const status = rows.size ? "ok" : "empty";
-      if (status === "ok") ok++;
-      else empty++;
-
-      boxRows.push(...rows.values());
-      statusRows.push({
-        game_id: gameId,
-        status,
-        rows_count: rows.size,
-        attempts: Number(sync.get(gameId)?.attempts || 0) + 1,
-        synced_at: now
-      });
+    } else if (char === "," && !quoted) {
+      fields.push(field);
+      field = "";
+    } else if ((char === "\n" || char === "\r") && !quoted) {
+      if (char === "\r" && text[i + 1] === "\n") i++;
+      if (fields.length || field.length) finishRow();
+    } else {
+      field += char;
     }
   }
 
-  if (boxRows.length) {
-    await upsertAll("nba_player_game_box_ext", boxRows, "game_id,player_id");
-  }
-  if (statusRows.length) {
-    await upsertAll("nba_box_ext_sync", statusRows, "game_id");
+  if (quoted) throw new Error("CSV con comillas incompletas");
+  if (fields.length || field.length) finishRow();
+  return { headers, rows: results };
+}
+
+
+// ============================================================
+// PASO 1: JUGADORES (NFLverse)
+// ============================================================
+// Enlaza el ID de ESPN (depth chart y lesiones) con el GSIS de
+// NFLverse (snaps y produccion). Ademas trae el estado de roster:
+// un jugador en IR (RES) o en practica (DEV) no puede jugar.
+
+async function stepPlayers() {
+  const season = currentNFLSeason();
+  const { rows } = parseCSV(
+    await fetchText(PLAYERS_URL),
+    ["gsis_id", "display_name", "position", "latest_team", "status", "espn_id", "last_season"],
+    ["first_name", "last_name", "jersey_number", "rookie_season"]
+  );
+
+  const runAt = new Date().toISOString();
+  const out = new Map();
+  let duplicated = 0;
+
+  for (const r of rows) {
+    const gsis = str(r.gsis_id);
+    const position = str(r.position).toUpperCase();
+    const last = numberOrNull(r.last_season);
+    // Todas las posiciones: hay jugadores de dos lados (ej. Travis
+    // Hunter figura como CB en NFLverse y como WR en ESPN y DK).
+    if (!gsis || gsis === "NA" || !position || position === "NA" || last === null || last < season - 1) continue;
+
+    if (out.has(gsis)) {
+      duplicated++;
+      continue;
+    }
+
+    const espn = str(r.espn_id);
+    out.set(gsis, {
+      gsis_player_id: gsis,
+      player_name: str(r.display_name),
+      first_name: str(r.first_name) || null,
+      last_name: str(r.last_name) || null,
+      position,
+      team: str(r.latest_team) && str(r.latest_team) !== "NA" ? teamCode(r.latest_team) : null,
+      roster_status: str(r.status) && str(r.status) !== "NA" ? str(r.status).toUpperCase() : null,
+      espn_athlete_id: espn && espn !== "NA" ? espn.replace(/\.0$/, "") : null,
+      jersey_number: str(r.jersey_number) && str(r.jersey_number) !== "NA" ? str(r.jersey_number) : null,
+      rookie_season: numberOrNull(r.rookie_season),
+      last_season: last,
+      synced_at: runAt
+    });
   }
 
-  const processedGames = statusRows.filter(
-    r => r.status === "ok" || r.attempts >= MAX_EMPTY_ATTEMPTS
-  ).length;
+  const list = [...out.values()];
+  if (list.length < 1500) throw new Error(`NFLverse players devolvio solo ${list.length} jugadores`);
+
+  await upsertAll("football_players", list, "gsis_player_id");
+
+  const status = {};
+  for (const p of list) if (p.last_season === season) status[p.roster_status || "?"] = (status[p.roster_status || "?"] || 0) + 1;
 
   return {
-    pendingGames: pending.length,
-    datesProcessed: dates.length,
-    gamesOk: ok,
-    gamesEmpty: empty,
-    playerRows: boxRows.length,
-    remainingGames: pending.length - processedGames
+    jugadores: list.length,
+    conIdESPN: list.filter(p => p.espn_athlete_id).length,
+    duplicados: duplicated,
+    estadoRosterTemporadaActual: status
   };
 }
 
 
 // ============================================================
-// PASO: MARCADOR POR CUARTO
-// ============================================================
-//
-// BALLDONTLIE /v1/games trae los puntos de cada cuarto.
-// Solo se bajan los partidos que todavia no estan guardados.
-
-async function stepQuarters() {
-  const games = await selectAll(
-    "nba_games",
-    "game_id,season,game_date",
-    q => q.in("season", [CURRENT_SEASON, PREVIOUS_SEASON]).order("game_id", { ascending: true })
-  );
-  const saved = new Set(
-    (await selectAll("nba_game_quarters", "game_id")).map(r => Number(r.game_id))
-  );
-  const missing = games.filter(g => !saved.has(Number(g.game_id)));
-
-  if (!missing.length) return { missing: 0, saved: 0 };
-
-  // Muchos pendientes (primera carga): temporadas completas.
-  // Pocos (dia a dia): solo esas fechas.
-  let raw;
-  if (missing.length > 60) {
-    const seasons = [...new Set(missing.map(g => Number(g.season)))];
-    raw = await bdlPages("/v1/games", seasons.map(season => ["seasons[]", season]));
-  } else {
-    const dates = [...new Set(missing.map(g => nbaCalendarDate(g.game_date)).filter(Boolean))];
-    raw = [];
-    for (const part of chunks(dates, 10)) {
-      raw.push(...await bdlPages("/v1/games", part.map(d => ["dates[]", d])));
-    }
-  }
-
-  const wanted = new Map(missing.map(g => [Number(g.game_id), g]));
-  const now = new Date().toISOString();
-  const rows = [];
-
-  for (const g of raw) {
-    const id = Number(g.id);
-    if (!wanted.has(id)) continue;
-    const q = k => numberOrNull(g[k]);
-    // Sin cuartos (partido viejo o dato faltante): no se guarda.
-    if (q("home_q3") === null || q("visitor_q3") === null) continue;
-    rows.push({
-      game_id: id,
-      season: Number(wanted.get(id).season),
-      home_q1: q("home_q1"), home_q2: q("home_q2"), home_q3: q("home_q3"), home_q4: q("home_q4"),
-      visitor_q1: q("visitor_q1"), visitor_q2: q("visitor_q2"), visitor_q3: q("visitor_q3"), visitor_q4: q("visitor_q4"),
-      overtimes: ["home_ot1", "home_ot2", "home_ot3"].filter(k => q(k) !== null && q(k) > 0).length,
-      synced_at: now
-    });
-  }
-
-  if (rows.length) await upsertAll("nba_game_quarters", rows, "game_id");
-
-  return { missing: missing.length, saved: rows.length, stillMissing: missing.length - rows.length };
-}
-
-
-// ============================================================
-// PASO: LESIONES
-// ============================================================
-
-async function stepInjuries() {
-  const runAt = new Date().toISOString();
-  const raw = await bdlPages("/v1/player_injuries");
-
-  const rows = new Map();
-
-  for (const r of raw) {
-    const playerId = numberOrNull(r.player?.id);
-    if (playerId === null) continue;
-
-    rows.set(playerId, {
-      player_id: playerId,
-      team_id: numberOrNull(r.player?.team_id),
-      player_name: `${str(r.player?.first_name)} ${str(r.player?.last_name)}`.trim(),
-      status: str(r.status) || null,
-      return_date: str(r.return_date) || null,
-      description: str(r.description).slice(0, 500) || null,
-      checked_at: runAt
-    });
-  }
-
-  const list = [...rows.values()];
-
-  if (list.length) {
-    await upsertAll("nba_player_injuries_current", list, "player_id");
-  }
-
-  // Los que ya no aparecen se recuperaron: se borran.
-  const { error } = await supabaseAdmin
-    .from("nba_player_injuries_current")
-    .delete()
-    .lt("checked_at", runAt);
-
-  if (error) throw new Error(`Supabase nba_player_injuries_current: ${error.message}`);
-
-  return { injuries: list.length };
-}
-
-
-// ============================================================
-// PASO: DEPTH CHART + ROSTER + ENLACES
+// PASO 2: DEPTH CHART ESPN
 // ============================================================
 
 async function espnTeams() {
   const data = await fetchJSON(`${ESPN}/teams?limit=100`);
   const list = data?.sports?.[0]?.leagues?.[0]?.teams || [];
-
   const teams = list
     .map(entry => entry?.team)
     .filter(t => t?.id && t?.abbreviation)
     .map(t => ({ id: str(t.id), code: teamCode(t.abbreviation) }));
 
-  if (teams.length < 30) throw new Error(`ESPN devolvio ${teams.length} equipos`);
+  if (teams.length < 32) throw new Error(`ESPN devolvio ${teams.length} equipos`);
   return teams;
 }
 
-async function espnTeamData(teamId) {
-  const [depth, roster] = await Promise.all([
-    fetchJSON(`${ESPN}/teams/${teamId}/depthcharts`),
-    fetchJSON(`${ESPN}/teams/${teamId}/roster`)
-  ]);
+function athleteId(a) {
+  const id = str(a?.id || a?.athlete?.id);
+  if (id) return id;
+  const ref = str(a?.$ref || a?.athlete?.$ref);
+  return ref.match(/athletes\/(\d+)/)?.[1] || "";
+}
 
-  // Depth chart: posicion -> lista ordenada.
+// La formacion ofensiva es la que tiene QB.
+// En cada posicion puede haber una o varias casillas (ej. tres
+// casillas de WR). El orden de la posicion se arma asi:
+// primero los titulares de cada casilla, luego los segundos, etc.
+function parseDepth(depth) {
   const charts = depth?.depthchart ?? depth?.depthcharts ?? [];
   const chartList = Array.isArray(charts) ? charts : [charts];
-  const ranks = new Map();
-  const injuries = new Map();
-  const names = new Map();
 
-  for (const chart of chartList) {
-    const positions = chart?.positions;
-    if (!positions || typeof positions !== "object") continue;
+  const offense = chartList.find(chart =>
+    Object.entries(chart?.positions || {}).some(([key, entry]) =>
+      str(entry?.position?.abbreviation || key).toUpperCase() === "QB"
+    )
+  );
+  if (!offense) throw new Error("sin formacion ofensiva");
 
-    for (const pos of DEPTH_POSITIONS) {
-      const athletes = positions[pos]?.athletes;
-      if (!Array.isArray(athletes)) continue;
+  const groups = new Map();
+  for (const [key, entry] of Object.entries(offense.positions || {})) {
+    const position = str(entry?.position?.abbreviation || key).toUpperCase().replace(/\d+$/, "");
+    if (!POSITIONS.has(position)) continue;
+    const athletes = Array.isArray(entry?.athletes) ? entry.athletes : [];
+    pushTo(groups, position, { slot: key, athletes });
+  }
 
-      athletes.forEach((a, index) => {
-        const id = str(a?.id);
-        if (!id) return;
+  const rows = [];
+  for (const [position, slots] of groups) {
+    const seen = new Set();
+    let rank = 0;
+    const depthLevels = Math.max(0, ...slots.map(s => s.athletes.length));
 
-        if (!ranks.has(id)) ranks.set(id, {});
-        const r = ranks.get(id);
-        if (r[pos] === undefined) r[pos] = index + 1;
-
-        if (a?.displayName) names.set(id, str(a.displayName));
-        const status = str(a?.injuries?.[0]?.status);
-        if (status) injuries.set(id, status);
-      });
+    for (let level = 0; level < depthLevels; level++) {
+      for (const s of slots) {
+        const a = s.athletes[level];
+        const id = athleteId(a);
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        rank++;
+        rows.push({
+          espn_athlete_id: id,
+          position,
+          position_rank: rank,
+          slot: s.slot,
+          slot_rank: level + 1,
+          player_name: str(a?.displayName || a?.athlete?.displayName || a?.fullName) || null,
+          espn_injury: str(a?.injuries?.[0]?.status) || null
+        });
+      }
     }
   }
 
-  // Roster (algunos deportes agrupan por posicion).
-  let athletes = roster?.athletes || [];
-  if (athletes.length && Array.isArray(athletes[0]?.items)) {
-    athletes = athletes.flatMap(group => group.items || []);
-  }
+  if (!rows.some(r => r.position === "QB")) throw new Error("depth chart sin QB");
 
-  const players = new Map();
-
-  for (const a of athletes) {
-    const id = str(a?.id);
-    if (!id) continue;
-    players.set(id, {
-      id,
-      name: str(a.displayName || a.fullName),
-      position: str(a.position?.abbreviation) || null,
-      injury: str(a.injuries?.[0]?.status) || injuries.get(id) || null
-    });
-  }
-
-  // Jugadores en el depth chart que no salieron en el roster.
-  for (const [id, name] of names) {
-    if (!players.has(id)) {
-      players.set(id, { id, name, position: null, injury: injuries.get(id) || null });
+  return {
+    rows,
+    formato: {
+      formacion: str(offense.name) || null,
+      casillas: [...groups].map(([p, s]) => `${p}: ${s.map(x => `${x.slot}(${x.athletes.length})`).join(" ")}`)
     }
-  }
-
-  if (!ranks.size) throw new Error("depth chart vacio");
-  if (!players.size) throw new Error("roster vacio");
-
-  return { ranks, players };
+  };
 }
 
 async function stepDepth() {
   const runAt = new Date().toISOString();
   const day = chicagoDay();
 
-  const [teams, bdlTeams, bdlActive, crosswalk] = await Promise.all([
+  const [teams, players] = await Promise.all([
     espnTeams(),
-    bdlFetch("/v1/teams").then(r => r.data || []),
-    bdlPages("/v1/players/active"),
-    selectAll("fantasy_nba_player_crosswalk", "espn_player_id,nba_player_id")
+    selectAll("football_players", "gsis_player_id,player_name,position,team,espn_athlete_id")
   ]);
 
-  // Solo los 30 equipos actuales. BALLDONTLIE tambien trae equipos
-  // historicos (IDs 31+) y alguno comparte abreviatura: eso le ponia
-  // a Washington un ID equivocado.
-  const currentTeams = bdlTeams.filter(t => Number(t.id) >= 1 && Number(t.id) <= 30);
-  const bdlTeamByCode = new Map(currentTeams.map(t => [teamCode(t.abbreviation), Number(t.id)]));
+  if (!players.length) throw new Error("football_players vacia: corre primero step=players");
 
-  // Jugadores activos BALLDONTLIE por equipo y nombre.
-  const bdlByTeamName = new Map();
-  const bdlByTeamLast = new Map();
-  const bdlByName = new Map();   // toda la liga (equipo desactualizado en BALLDONTLIE)
+  const byEspn = new Map(players.filter(p => p.espn_athlete_id).map(p => [str(p.espn_athlete_id), p]));
+  const byTeamName = new Map();
+  for (const p of players) pushTo(byTeamName, `${p.team}|${normalizeName(p.player_name)}`, p);
 
-  for (const p of bdlActive) {
-    const teamId = Number(p.team?.id ?? p.team_id);
-    const name = normalizeName(`${p.first_name} ${p.last_name}`);
-    if (!Number.isFinite(teamId) || !name) continue;
-
-    const entry = { id: Number(p.id), name: `${str(p.first_name)} ${str(p.last_name)}` };
-
-    if (!bdlByName.has(name)) bdlByName.set(name, []);
-    bdlByName.get(name).push(entry);
-
-    const full = `${teamId}:${name}`;
-    if (!bdlByTeamName.has(full)) bdlByTeamName.set(full, []);
-    bdlByTeamName.get(full).push(entry);
-
-    const parts = name.split(" ");
-    const short = `${teamId}:${parts[0]?.[0]}:${parts.slice(1).join(" ")}`;
-    if (!bdlByTeamLast.has(short)) bdlByTeamLast.set(short, []);
-    bdlByTeamLast.get(short).push(entry);
-  }
-
-  const linkByEspn = new Map(crosswalk.map(r => [str(r.espn_player_id), Number(r.nba_player_id)]));
-  const linkedBdl = new Set(crosswalk.map(r => Number(r.nba_player_id)));
-
-  // ESPN: 30 equipos, 5 a la vez.
   const failedTeams = [];
   const okTeams = [];
   const rows = [];
-  const newLinks = [];
   const unlinked = [];
+  let sample = null;
 
   await pool(teams, ESPN_CONCURRENCY, async team => {
-    let data;
+    let parsed;
     try {
-      data = await espnTeamData(team.id);
+      parsed = parseDepth(await fetchJSON(`${ESPN}/teams/${team.id}/depthcharts`));
     } catch (error) {
       failedTeams.push(`${team.code}: ${error.message}`);
       return;
     }
 
-    okTeams.push(team.id);
-    const bdlTeamId = bdlTeamByCode.get(team.code) ?? null;
+    okTeams.push(team.code);
+    if (!sample) sample = { equipo: team.code, ...parsed.formato };
 
-    for (const player of data.players.values()) {
-      const r = data.ranks.get(player.id) || {};
-      const ranks = DEPTH_POSITIONS.map(p => r[p]).filter(v => v !== undefined);
+    for (const r of parsed.rows) {
+      let p = byEspn.get(r.espn_athlete_id) || null;
+      let method = p ? "espn_id" : null;
 
-      // Enlace ESPN -> BALLDONTLIE.
-      let nbaId = linkByEspn.get(player.id) ?? null;
-
-      if (nbaId === null) {
-        const name = normalizeName(player.name);
-        const parts = name.split(" ");
-
-        // 1) Mismo equipo + mismo nombre.
-        let found = bdlTeamId === null ? [] : bdlByTeamName.get(`${bdlTeamId}:${name}`) || [];
-
-        // 2) Mismo equipo + apellido e inicial.
-        if (found.length !== 1 && bdlTeamId !== null) {
-          found = bdlByTeamLast.get(`${bdlTeamId}:${parts[0]?.[0]}:${parts.slice(1).join(" ")}`) || [];
-        }
-
-        // 3) Traspasos: BALLDONTLIE aun lo tiene en el equipo
-        //    viejo. Solo si ese nombre es UNICO en toda la liga.
-        if (found.length !== 1) {
-          found = bdlByName.get(name) || [];
-        }
-
-        // Solo si hay UNO y no esta enlazado a otro jugador.
-        if (found.length === 1 && !linkedBdl.has(found[0].id)) {
-          nbaId = found[0].id;
-          linkedBdl.add(nbaId);
-          linkByEspn.set(player.id, nbaId);
-          newLinks.push({
-            espn_player_id: player.id,
-            nba_player_id: nbaId,
-            espn_player_name: player.name,
-            nba_player_name: found[0].name,
-            verified: false,
-            verification_source: "auto_daily_team_name"
-          });
+      // Respaldo: mismo equipo + mismo nombre (solo si es unico).
+      if (!p && r.player_name) {
+        const found = byTeamName.get(`${team.code}|${normalizeName(r.player_name)}`) || [];
+        if (found.length === 1) {
+          p = found[0];
+          method = "equipo_nombre";
         }
       }
 
-      if (nbaId === null) unlinked.push(`${player.name} (${team.code})`);
+      if (!p) unlinked.push(`${r.player_name || r.espn_athlete_id} (${team.code} ${r.position}${r.position_rank})`);
 
       rows.push({
         snapshot_date: day,
-        espn_player_id: player.id,
-        espn_team_id: team.id,
-        team_id: bdlTeamId,
-        team_abbr: team.code,
-        player_name: player.name,
-        nba_player_id: nbaId,
-        roster_position: player.position,
-        pg_rank: r.pg ?? null,
-        sg_rank: r.sg ?? null,
-        sf_rank: r.sf ?? null,
-        pf_rank: r.pf ?? null,
-        c_rank: r.c ?? null,
-        best_rank: ranks.length ? Math.min(...ranks) : null,
-        injury_status: player.injury,
+        team: team.code,
+        ...r,
+        gsis_player_id: p?.gsis_player_id || null,
         checked_at: runAt
       });
     }
   });
 
-  if (!okTeams.length) {
-    throw new Error(`ESPN no respondio para ningun equipo: ${failedTeams.join(" | ")}`);
-  }
+  if (!okTeams.length) throw new Error(`ESPN no respondio para ningun equipo: ${failedTeams.join(" | ")}`);
 
-  // Enlaces nuevos (INSERT: nunca reemplaza los existentes).
-  let linksSaved = 0;
-  for (const part of chunks(newLinks, 50)) {
-    const { error } = await supabaseAdmin.from("fantasy_nba_player_crosswalk").insert(part);
-    if (error) throw new Error(`Supabase crosswalk: ${error.message}`);
-    linksSaved += part.length;
-  }
+  await upsertAll("football_depth_chart", rows, "snapshot_date,team,espn_athlete_id,position");
 
-  // Depth chart del dia (un jugador puede salir dos veces si
-  // ESPN lo lista en dos equipos: se queda el primero).
-  const unique = new Map();
-  for (const row of rows) if (!unique.has(row.espn_player_id)) unique.set(row.espn_player_id, row);
-
-  await upsertAll("nba_depth_chart", [...unique.values()], "snapshot_date,espn_player_id");
-
-  // Quitar del dia a quien ya no esta en el roster
-  // (solo en equipos que respondieron bien).
+  // Quitar de hoy a quien ESPN ya no lista (solo equipos que respondieron).
   const { error } = await supabaseAdmin
-    .from("nba_depth_chart")
+    .from("football_depth_chart")
     .delete()
     .eq("snapshot_date", day)
-    .in("espn_team_id", okTeams)
+    .in("team", okTeams)
     .lt("checked_at", runAt);
+  if (error) throw new Error(`Supabase football_depth_chart: ${error.message}`);
 
-  if (error) throw new Error(`Supabase nba_depth_chart: ${error.message}`);
-
+  const starters = rows.filter(r => r.position_rank === 1);
   return {
     snapshotDate: day,
-    teams: okTeams.length,
-    failedTeams,
-    players: unique.size,
-    newLinks: linksSaved,
-    // Sin enlace: normalmente jugadores two-way o que
-    // todavia no aparecen en BALLDONTLIE. Se reintenta solo
-    // cada dia.
-    unlinkedCount: unlinked.length,
-    unlinked: unlinked.slice(0, 40)
+    equipos: okTeams.length,
+    equiposFallidos: failedTeams,
+    filas: rows.length,
+    titularesSinEnlace: starters.filter(r => !r.gsis_player_id).map(r => `${r.player_name} (${r.team} ${r.position})`),
+    sinEnlaceTotal: unlinked.length,
+    sinEnlace: unlinked.slice(0, 30),
+    formatoESPN: sample
   };
 }
 
 
 // ============================================================
-// PASO: SLATE DFS
+// PASO 3: SLATES Y SALARIOS (BALLDONTLIE)
 // ============================================================
 
-async function saveSlate(platform, day, bdlTeamCode, runAt) {
-  const list = await bdlPages("/nba/v1/dfs/slates", [
-    ["providers[]", platform],
-    ["formats[]", "salary_cap"],
-    ["start_date", day],
-    ["end_date", day]
-  ]);
+// Slate principal del dia: el de mas partidos cuyo ultimo partido
+// empieza antes de las 6 pm del este (asi el domingo es el "Main"
+// de 1 pm + 4 pm y no el que incluye el Sunday/Monday Night).
+// Si ninguno cumple (ej. lunes), el de mas partidos.
+function markMain(slates) {
+  const byKey = new Map();
+  for (const s of slates) pushTo(byKey, `${s.platform}|${s.slate_date}`, s);
 
-  // Slate principal: DraftKings "Classic", FanDuel "Full Roster",
-  // el que tenga mas partidos.
-  const main = list
-    .filter(s =>
-      s.provider === platform &&
-      s.format === "salary_cap" &&
-      s.active !== false &&
-      /^(classic|full roster)$/i.test(str(s.style)) &&
-      chicagoDay(new Date(s.starts_at)) === day &&
-      Number(s.salary_cap) > 0
-    )
-    .sort((a, b) => Number(b.event_count) - Number(a.event_count))[0];
+  for (const list of byKey.values()) {
+    const sameDay = list.filter(s => {
+      if (!s.last_event_starts_at || !s.starts_at) return false;
+      const first = easternParts(new Date(s.starts_at));
+      const last = easternParts(new Date(s.last_event_starts_at));
+      return first.day === last.day && last.hour < 18;
+    });
+    const pick = (sameDay.length ? sameDay : list)
+      .slice()
+      .sort((a, b) =>
+        (b.event_count || 0) - (a.event_count || 0) ||
+        String(a.starts_at).localeCompare(String(b.starts_at))
+      )[0];
+    if (pick) pick.is_main = true;
+  }
+}
 
-  if (!main) return { platform, slate: null };
+function buildPlayerIndex(players) {
+  const idx = {
+    teamPosName: new Map(),
+    teamName: new Map(),
+    posName: new Map(),
+    teamInitialLast: new Map(),
+    teamPosLast: new Map()
+  };
+  for (const p of players) {
+    const name = normalizeName(p.player_name);
+    pushTo(idx.teamPosName, `${p.team}|${p.position}|${name}`, p);
+    pushTo(idx.teamName, `${p.team}|${name}`, p);
+    pushTo(idx.posName, `${p.position}|${name}`, p);
+    const il = initialLast(p.player_name);
+    if (il) pushTo(idx.teamInitialLast, `${p.team}|${il}`, p);
+    const lastName = name.split(" ").slice(-1)[0];
+    if (lastName) pushTo(idx.teamPosLast, `${p.team}|${p.position}|${lastName}`, p);
+  }
+  return idx;
+}
 
-  const detail = (await bdlFetch(`/nba/v1/dfs/slates/${main.id}`)).data;
-  const draftables = await bdlPages("/nba/v1/dfs/draftables", [["slate_ids[]", main.id]]);
+// Apodos que usan las casas en vez del nombre real.
+const NICKNAMES = {
+  hollywood: ["marquise"], drew: ["andrew"], mike: ["michael"], chris: ["christopher"],
+  matt: ["matthew"], josh: ["joshua"], nick: ["nicholas"], tony: ["anthony"],
+  will: ["william"], bob: ["robert"], rob: ["robert"], dan: ["daniel"], danny: ["daniel"],
+  jon: ["jonathan"], cam: ["cameron"], zach: ["zachary"], gabe: ["gabriel"]
+};
 
-  const players = new Map();
+// BALLDONTLIE no usa el ID GSIS: se enlaza por equipo + posicion +
+// nombre, y solo si hay UN candidato.
+function linkPlayer(idx, team, position, name) {
+  const n = normalizeName(name);
+  const [first, ...rest] = n.split(" ");
+  const aliasFound = (NICKNAMES[first] || [])
+    .flatMap(real => idx.teamPosName.get(`${team}|${position}|${[real, ...rest].join(" ")}`) || []);
+  const tries = [
+    ["equipo_posicion_nombre", idx.teamPosName.get(`${team}|${position}|${n}`)],
+    ["equipo_posicion_apodo", aliasFound],
+    ["equipo_nombre", idx.teamName.get(`${team}|${n}`)],
+    // Cambiado de equipo hace poco: nombre + posicion unicos en la liga.
+    ["posicion_nombre_liga", idx.posName.get(`${position}|${n}`)],
+    ["equipo_inicial_apellido", idx.teamInitialLast.get(`${team}|${initialLast(name)}`)],
+    // Apodos: "Hollywood Brown" = Marquise Brown, "Drew Ogletree" =
+    // Andrew Ogletree. Solo si es el UNICO con ese apellido en esa
+    // posicion de ese equipo.
+    ["equipo_posicion_apellido", idx.teamPosLast.get(`${team}|${position}|${n.split(" ").slice(-1)[0]}`)]
+  ];
+  for (const [method, found] of tries) {
+    if (found && found.length === 1) return { gsis: found[0].gsis_player_id, method };
+  }
+  return null;
+}
+
+function draftablePosition(d) {
+  const entity = str(d.entity_type).toLowerCase();
+  if (entity === "team") return "DST";
+  for (const raw of str(d.position).toUpperCase().split(/[\/,]/)) {
+    const p = raw.trim();
+    if (POSITIONS.has(p)) return p === "FB" ? "RB" : p;
+    if (["DST", "D", "DEF", "D/ST"].includes(p)) return "DST";
+  }
+  return null;
+}
+
+async function loadSlatePlayers(slate, idx, runAt) {
+  const detail = (await bdlFetch(`/nfl/v1/dfs/slates/${slate.slate_id}`)).data || {};
+  const draftables = await bdlPages("/nfl/v1/dfs/draftables", [["slate_ids[]", slate.slate_id]]);
+
+  const rosterSlots = {};
+  for (const s of detail.roster_slots || []) {
+    if (s.active === false) continue;
+    const name = str(s.name).toUpperCase();
+    rosterSlots[name] = (rosterSlots[name] || 0) + (Number(s.required_count) || 1);
+  }
+  slate.roster_slots = rosterSlots;
+  slate.events = (detail.events || []).map(e => ({
+    id: e.id,
+    name: e.name ?? null,
+    starts_at: e.starts_at ?? null,
+    game_id: e.game_id ?? null,
+    active: e.active ?? null
+  }));
+  slate.style = str(detail.style || slate.style) || null;
+  slate.salary_cap = numberOrNull(detail.salary_cap) ?? slate.salary_cap;
+
+  const out = new Map();
   const conflicts = new Set();
+  const skipped = { inactivo: 0, sinSalario: 0, posicion: 0 };
 
   for (const d of draftables) {
-    if (d.entity_type !== "player" || d.active === false || d.is_disabled === true) continue;
-
-    const playerId = numberOrNull(d.player_id);
+    if (d.active === false || d.is_disabled === true) {
+      skipped.inactivo++;
+      continue;
+    }
     const salary = numberOrNull(d.salary);
-    if (playerId === null || salary === null) continue;
+    if (salary === null || salary <= 0) {
+      skipped.sinSalario++;
+      continue;
+    }
+    const position = draftablePosition(d);
+    if (!position) {
+      skipped.posicion++;
+      continue;
+    }
 
+    const isTeam = position === "DST";
+    const playerId = numberOrNull(d.player_id);
     const teamId = numberOrNull(d.team_id);
+    if (isTeam ? teamId === null : playerId === null) {
+      skipped.posicion++;
+      continue;
+    }
+
+    const key = isTeam ? `DST:${teamId}` : `P:${playerId}`;
     const eventId = numberOrNull(d.slate_event_id);
 
-    if (!players.has(playerId)) {
-      players.set(playerId, {
-        slate_id: Number(main.id),
-        player_id: playerId,
+    // El mismo jugador sale una vez por cada casilla (ej. RB y FLEX).
+    if (out.has(key)) {
+      const prev = out.get(key);
+      if (prev.salary !== salary || prev.event_id !== eventId) conflicts.add(key);
+      continue;
+    }
+
+    out.set(key, {
+      slate_id: slate.slate_id,
+      entity_key: key,
+      platform: slate.platform,
+      slate_date: slate.slate_date,
+      entity_type: isTeam ? "team" : "player",
+      bdl_player_id: isTeam ? null : playerId,
+      bdl_team_id: teamId,
+      player_name: str(d.display_name),
+      position,
+      team: teamCode(d.team_abbreviation) || null,
+      event_id: eventId,
+      bdl_game_id: numberOrNull(d.game_id),
+      salary,
+      status: str(d.status) || null,
+      gsis_player_id: null,
+      link_method: null,
+      checked_at: runAt
+    });
+  }
+
+  for (const key of conflicts) out.delete(key);
+
+  // Enlace a NFLverse. Un GSIS no puede quedar en dos jugadores.
+  const claims = new Map();
+  for (const row of out.values()) {
+    if (row.entity_type !== "player") continue;
+    const link = linkPlayer(idx, row.team, row.position, row.player_name);
+    if (link) {
+      row.gsis_player_id = link.gsis;
+      row.link_method = link.method;
+      pushTo(claims, link.gsis, row);
+    }
+  }
+  for (const list of claims.values()) {
+    if (list.length > 1) for (const row of list) {
+      row.gsis_player_id = null;
+      row.link_method = "ambiguo";
+    }
+  }
+
+  const rows = [...out.values()];
+  if (rows.length) await upsertAll("fantasy_nfl_slate_players", rows, "slate_id,entity_key");
+
+  // Quien la casa retiro del slate.
+  const { error } = await supabaseAdmin
+    .from("fantasy_nfl_slate_players")
+    .delete()
+    .eq("slate_id", slate.slate_id)
+    .lt("checked_at", runAt);
+  if (error) throw new Error(`Supabase fantasy_nfl_slate_players: ${error.message}`);
+
+  const players = rows.filter(r => r.entity_type === "player");
+  const unlinked = players.filter(r => !r.gsis_player_id);
+  // Los que importan: los que cuestan mas de $3,500.
+  const unlinkedRelevant = unlinked.filter(r => r.salary > 3500);
+
+  return {
+    jugadores: players.length,
+    dst: rows.length - players.length,
+    enlazados: players.length - unlinked.length,
+    sinEnlace: unlinked.length,
+    sinEnlaceMasDe3500: unlinkedRelevant.map(r => `${r.player_name} (${r.team} ${r.position} $${r.salary})`).slice(0, 25),
+    conflictos: conflicts.size,
+    descartados: skipped
+  };
+}
+
+async function stepSlates() {
+  if (!bdlKey()) throw new Error("BALLDONTLIE_NFL_API_KEY / BALLDONTLIE_API_KEY no configurada");
+
+  const runAt = new Date().toISOString();
+  const today = chicagoDay();
+  const until = addDays(today, SLATE_DAYS - 1);
+
+  const players = await selectAll("football_players", "gsis_player_id,player_name,position,team");
+  if (!players.length) throw new Error("football_players vacia: corre primero step=players");
+  const idx = buildPlayerIndex(players);
+
+  const slates = [];
+  const otherStyles = {};
+
+  for (const platform of ["draftkings", "fanduel"]) {
+    const list = await bdlPages("/nfl/v1/dfs/slates", [
+      ["providers[]", platform],
+      ["formats[]", "salary_cap"],
+      ["scopes[]", "multi_event"],
+      ["start_date", today],
+      ["end_date", until]
+    ]);
+
+    for (const s of list) {
+      if (s.provider !== platform || s.format !== "salary_cap" || s.active === false) continue;
+      if (s.scope && s.scope !== "multi_event") continue;
+      if (!(numberOrNull(s.salary_cap) > 0) || !s.starts_at) continue;
+
+      // DraftKings "Classic", FanDuel "Full Roster" (las de 9 jugadores).
+      if (!/^(classic|full roster)$/i.test(str(s.style))) {
+        const k = `${platform}: ${str(s.style) || "?"}`;
+        otherStyles[k] = (otherStyles[k] || 0) + 1;
+        continue;
+      }
+
+      const slateDate = chicagoDay(new Date(s.starts_at));
+      if (slateDate < today || slateDate > until) continue;
+
+      slates.push({
+        slate_id: Number(s.id),
         platform,
-        slate_date: day,
-        player_name: str(d.display_name),
-        team_id: teamId,
-        team_abbr: bdlTeamCode.get(teamId) || teamCode(d.team_abbreviation) || null,
-        event_id: eventId,
-        salary,
-        positions: [],
-        status: str(d.status) || null,
+        slate_date: slateDate,
+        style: str(s.style) || null,
+        salary_cap: numberOrNull(s.salary_cap),
+        starts_at: s.starts_at,
+        last_event_starts_at: s.last_event_starts_at || null,
+        event_count: numberOrNull(s.event_count),
+        is_main: false,
+        roster_slots: null,
+        events: null,
         checked_at: runAt
       });
     }
+  }
 
-    const p = players.get(playerId);
+  markMain(slates);
 
-    // Mismo jugador con salario/partido/equipo distinto = dato dudoso.
-    if (p.salary !== salary || p.event_id !== eventId || p.team_id !== teamId) {
-      conflicts.add(playerId);
-    }
-
-    for (const pos of str(d.position).toUpperCase().split(/[\/,]/)) {
-      const clean = pos.trim();
-      if (["PG", "SG", "SF", "PF", "C"].includes(clean) && !p.positions.includes(clean)) {
-        p.positions.push(clean);
-      }
+  const report = [];
+  for (const slate of slates.sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)))) {
+    try {
+      const r = await loadSlatePlayers(slate, idx, runAt);
+      report.push({ slate: slate.slate_id, plataforma: slate.platform, fecha: slate.slate_date, principal: slate.is_main, partidos: slate.event_count, ...r });
+    } catch (error) {
+      report.push({ slate: slate.slate_id, plataforma: slate.platform, fecha: slate.slate_date, error: error.message });
     }
   }
 
-  for (const id of conflicts) players.delete(id);
-
-  const list2 = [...players.values()].filter(p => p.positions.length);
-  list2.forEach(p => p.positions.sort());
-
-  const rosterSlots = {};
-  for (const slot of detail?.roster_slots || []) {
-    if (slot.active === false) continue;
-    const name = str(slot.name).toUpperCase();
-    rosterSlots[name] = (rosterSlots[name] || 0) + (Number(slot.required_count) || 1);
-  }
-
-  await upsertAll("fantasy_nba_slates", [{
-    slate_id: Number(main.id),
-    platform,
-    slate_date: day,
-    style: str(detail?.style || main.style) || null,
-    salary_cap: numberOrNull(detail?.salary_cap ?? main.salary_cap),
-    starts_at: detail?.starts_at || main.starts_at || null,
-    event_count: numberOrNull(main.event_count),
-    roster_slots: rosterSlots,
-    events: (detail?.events || []).map(e => ({
-      id: e.id,
-      name: e.name ?? null,
-      starts_at: e.starts_at ?? null,
-      game_id: e.game_id ?? null
-    })),
-    checked_at: runAt
-  }], "slate_id");
-
-  if (list2.length) {
-    await upsertAll("fantasy_nba_slate_players", list2, "slate_id,player_id");
-  }
-
-  // Jugadores que la casa retiro del slate.
-  const { error } = await supabaseAdmin
-    .from("fantasy_nba_slate_players")
-    .delete()
-    .eq("slate_id", Number(main.id))
-    .lt("checked_at", runAt);
-
-  if (error) throw new Error(`Supabase fantasy_nba_slate_players: ${error.message}`);
+  if (slates.length) await upsertAll("fantasy_nfl_slates", slates, "slate_id");
 
   return {
-    platform,
-    slate: Number(main.id),
-    games: numberOrNull(main.event_count),
-    players: list2.length,
-    conflicts: conflicts.size
+    desde: today,
+    hasta: until,
+    slates: report,
+    otrosFormatosIgnorados: otherStyles
   };
 }
 
-async function stepSlate(day) {
-  const runAt = new Date().toISOString();
-  const teams = (await bdlFetch("/v1/teams")).data || [];
-  const bdlTeamCode = new Map(teams.map(t => [Number(t.id), teamCode(t.abbreviation)]));
 
-  const results = [];
-  for (const platform of ["draftkings", "fanduel"]) {
-    results.push(await saveSlate(platform, day, bdlTeamCode, runAt));
+// ============================================================
+// PASO 4: CLIMA (Open-Meteo, gratis, sin clave)
+// ============================================================
+// Solo partidos sin techo fijo. El viento se promedia durante las
+// 4 horas del partido. Que tanto baja los pases y patadas NO se
+// inventa: la formula lo mide con el historial (football_schedule.wind).
+
+// Coordenadas de cada estadio (stadium_id de NFLverse).
+const STADIUMS = {
+  ATL97: [33.7554, -84.4008], BAL00: [39.2780, -76.6227], BOS00: [42.0909, -71.2643],
+  BUF00: [42.7738, -78.7870], CAR00: [35.2258, -80.8528], CHI98: [41.8623, -87.6167],
+  CIN00: [39.0955, -84.5161], CLE00: [41.5061, -81.6995], DAL00: [32.7473, -97.0945],
+  DEN00: [39.7439, -105.0201], DET00: [42.3400, -83.0456], GNB00: [44.5013, -88.0622],
+  HOU00: [29.6847, -95.4107], IND00: [39.7601, -86.1639], JAX00: [30.3239, -81.6373],
+  KAN00: [39.0489, -94.4839], LAX01: [33.9535, -118.3392], MIA00: [25.9580, -80.2389],
+  MIN01: [44.9737, -93.2581], NAS00: [36.1665, -86.7713], NOR00: [29.9511, -90.0812],
+  NYC01: [40.8135, -74.0745], PHI00: [39.9008, -75.1675], PHO00: [33.5276, -112.2626],
+  PIT00: [40.4468, -80.0158], SEA00: [47.5952, -122.3316], SFO01: [37.4030, -121.9700],
+  TAM00: [27.9759, -82.5033], VEG00: [36.0909, -115.1833], WAS00: [38.9078, -76.8645],
+  // Partidos internacionales
+  LON00: [51.5560, -0.2796], LON02: [51.6043, -0.0664], MAD01: [40.4531, -3.6883],
+  MEL00: [-37.8200, 144.9834], MEX00: [19.3029, -99.1505], MUN01: [48.2188, 11.6247],
+  PAR00: [48.9245, 2.3602], RIO00: [-22.9122, -43.2302], FRA00: [50.0686, 8.6455],
+  SAO00: [-23.5453, -46.4742], BER00: [52.5147, 13.2395], DUB00: [53.3607, -6.2511]
+};
+
+const avg = list => {
+  const v = list.filter(x => Number.isFinite(x));
+  return v.length ? Math.round((v.reduce((s, x) => s + x, 0) / v.length) * 10) / 10 : null;
+};
+
+async function stepWeather() {
+  const runAt = new Date().toISOString();
+  const today = chicagoDay();
+  const until = addDays(today, WEATHER_DAYS - 1);
+
+  const games = await selectAll(
+    "football_schedule",
+    "game_id,game_date,game_time_et,roof,stadium_id,home_score",
+    q => q.gte("game_date", today).lte("game_date", until)
+  );
+
+  const pending = games.filter(g => g.home_score === null);
+  const skipped = { techo: 0, sinEstadio: [], sinHora: 0, fueraDelPronostico: 0 };
+  const byStadium = new Map();
+
+  for (const g of pending) {
+    if (str(g.roof).toLowerCase() === "dome") {
+      skipped.techo++;
+      continue;
+    }
+    if (!STADIUMS[g.stadium_id]) {
+      skipped.sinEstadio.push(`${g.game_id} (${g.stadium_id || "?"})`);
+      continue;
+    }
+    if (!/^\d{1,2}:\d{2}/.test(str(g.game_time_et))) {
+      skipped.sinHora++;
+      continue;
+    }
+    pushTo(byStadium, g.stadium_id, g);
   }
-  return { date: day, slates: results };
+
+  const rows = [];
+  const failed = [];
+
+  await pool([...byStadium.keys()], 4, async stadium => {
+    const [lat, lon] = STADIUMS[stadium];
+    const url = `${WEATHER_URL}?latitude=${lat}&longitude=${lon}` +
+      "&hourly=temperature_2m,precipitation,precipitation_probability,wind_speed_10m,wind_gusts_10m" +
+      "&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=mm" +
+      `&timezone=America%2FNew_York&forecast_days=${Math.min(16, WEATHER_DAYS + 1)}`;
+
+    let data;
+    try {
+      data = await fetchJSON(url);
+    } catch (error) {
+      failed.push(`${stadium}: ${error.message}`);
+      return;
+    }
+
+    const h = data?.hourly || {};
+    const index = new Map((h.time || []).map((t, i) => [t, i]));
+
+    for (const g of byStadium.get(stadium)) {
+      const hour = Number(str(g.game_time_et).split(":")[0]);
+      const start = index.get(`${g.game_date}T${String(hour).padStart(2, "0")}:00`);
+      if (start === undefined) {
+        skipped.fueraDelPronostico++;
+        continue;
+      }
+      const span = k => (h[k] || []).slice(start, start + GAME_HOURS).map(Number);
+
+      rows.push({
+        game_id: g.game_id,
+        game_date: g.game_date,
+        kickoff_et: str(g.game_time_et),
+        stadium_id: stadium,
+        roof: g.roof || null,
+        wind_mph: avg(span("wind_speed_10m")),
+        gust_mph: avg(span("wind_gusts_10m")),
+        temp_f: avg(span("temperature_2m")),
+        precip_mm: Math.round(span("precipitation").filter(Number.isFinite).reduce((s, x) => s + x, 0) * 10) / 10,
+        precip_prob: (() => {
+          const p = span("precipitation_probability").filter(Number.isFinite);
+          return p.length ? Math.max(...p) : null;
+        })(),
+        source: "open-meteo",
+        checked_at: runAt
+      });
+    }
+  });
+
+  if (rows.length) await upsertAll("football_game_weather", rows, "game_id");
+
+  const windy = rows.filter(r => r.wind_mph >= 15).map(r => `${r.game_id} ${r.wind_mph} mph`);
+  return {
+    desde: today,
+    hasta: until,
+    partidos: rows.length,
+    conVientoFuerte: windy,
+    omitidos: skipped,
+    estadiosFallidos: failed
+  };
 }
 
 
@@ -1045,139 +984,73 @@ async function stepSlate(day) {
 // ============================================================
 
 function isInternalRequest(req) {
-  const validSecret =
-    process.env.CRON_SECRET ||
-    process.env.GENERATE_DAILY_SECRET ||
-    "";
-
-  if (!validSecret) return false;
-
+  const secret = process.env.CRON_SECRET || process.env.GENERATE_DAILY_SECRET || "";
+  if (!secret) return false;
   const auth = String(req.headers.authorization || "");
-  const bearer = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  const header = String(req.headers["x-internal-secret"] || "");
-  const query = String(req.query.secret || "");
-
-  return bearer === validSecret || header === validSecret || query === validSecret;
+  return (
+    (auth.startsWith("Bearer ") && auth.slice(7) === secret) ||
+    String(req.headers["x-internal-secret"] || "") === secret ||
+    String(req.query.secret || "") === secret
+  );
 }
 
 const PLANS = {
-  all: ["starters", "box", "quarters", "evaluate", "injuries", "depth", "slate", "project"],
-  refresh: ["injuries", "depth", "slate", "project"],
-  starters: ["starters"],
-  box: ["box"],
-  quarters: ["quarters"],
-  evaluate: ["evaluate"],
-  project: ["project"],
-  injuries: ["injuries"],
+  all: ["players", "depth", "slates", "weather"],
+  refresh: ["depth", "slates", "weather"],
+  players: ["players"],
   depth: ["depth"],
-  slate: ["slate"]
+  slates: ["slates"],
+  weather: ["weather"]
+};
+
+const STEPS = {
+  players: stepPlayers,
+  depth: stepDepth,
+  slates: stepSlates,
+  weather: stepWeather
 };
 
 module.exports = async function handler(req, res) {
-  if (req.method !== "GET") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  if (!isInternalRequest(req)) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
-  if (!process.env.BALLDONTLIE_API_KEY) {
-    return res.status(500).json({ error: "BALLDONTLIE_API_KEY no configurada" });
-  }
+  if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
+  if (!isInternalRequest(req)) return res.status(401).json({ error: "Unauthorized" });
 
   const step = String(req.query.step || "all");
   const plan = PLANS[step];
+  if (!plan) return res.status(400).json({ error: "step invalido", valid: Object.keys(PLANS) });
 
-  if (!plan) {
-    return res.status(400).json({
-      error: "step invalido",
-      valid: Object.keys(PLANS)
-    });
-  }
-
-  const requestedLimit = Number(req.query.limit || DAILY_STARTER_LIMIT);
-  const limit = Number.isFinite(requestedLimit)
-    ? Math.min(MAX_STARTER_LIMIT, Math.max(1, Math.floor(requestedLimit)))
-    : DAILY_STARTER_LIMIT;
-
-  const day = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.date || ""))
-    ? String(req.query.date)
-    : chicagoDay();
-
-  // Fechas por llamada para el paso box (diario 3; carga inicial hasta 20).
-  const requestedDates = Number(req.query.dates || 3);
-  const maxDates = Number.isFinite(requestedDates)
-    ? Math.min(20, Math.max(1, Math.floor(requestedDates)))
-    : 3;
-
-  const steps = {
-    starters: () => stepStarters(limit),
-    box: () => stepBox(maxDates),
-    quarters: () => stepQuarters(),
-    injuries: () => stepInjuries(),
-    depth: () => stepDepth(),
-    slate: () => stepSlate(day),
-
-    // La formula (lee solo Supabase).
-    project: async () => {
-      const r = await fantasyProject.runProjection(day);
-      return {
-        date: r.date,
-        message: r.message || null,
-        platforms: (r.platforms || []).map(p => ({
-          platform: p.platform,
-          eligible: p.eligible,
-          excluded: p.excluded,
-          lineups: p.lineups?.length || 0,
-          bestLineup: p.lineups?.[0]?.proyectado ?? null
-        })),
-        formulaSeconds: r.seconds
-      };
-    },
-
-    // Compara las proyecciones de ayer contra lo real.
-    evaluate: async () => {
-      const r = await fantasyProject.runEvaluation(fantasyProject.shiftDay(chicagoDay(), -1));
-      return {
-        date: r.date,
-        message: r.message || null,
-        titularesAcertados: r.titularesAcertados || null,
-        errorMinutosTitulares: r.errorMinutosTitulares ?? null,
-        errorMinutosBanca: r.errorMinutosBanca ?? null,
-        platforms: Object.fromEntries(
-          Object.entries(r.platforms || {}).map(([k, v]) => [k, {
-            errorPromedio: v.errorPromedio,
-            sesgo: v.sesgo,
-            dentroDe10: v.dentroDe10
-          }])
-        )
-      };
-    }
-  };
-
-  const startedAt = Date.now();
+  const t0 = Date.now();
   const results = {};
-  let failed = false;
+  const errors = [];
 
   // Cada paso por separado: si uno falla, los demas siguen.
   for (const name of plan) {
-    const t0 = Date.now();
+    const s0 = Date.now();
     try {
-      results[name] = { ok: true, ...(await steps[name]()), seconds: (Date.now() - t0) / 1000 };
+      results[name] = await STEPS[name]();
     } catch (error) {
-      failed = true;
-      console.error(`FANTASY NBA DAILY ${name}:`, error);
-      results[name] = { ok: false, error: error.message, seconds: (Date.now() - t0) / 1000 };
+      console.error(`FANTASY NFL DAILY ${name}:`, error);
+      results[name] = { error: error.message };
+      errors.push(`${name}: ${error.message}`);
     }
+    results[name].seconds = (Date.now() - s0) / 1000;
   }
 
-  return res.status(failed ? 500 : 200).json({
-    ok: !failed,
+  return res.status(200).json({
+    ok: errors.length === 0,
     step,
-    season: CURRENT_SEASON,
-    previousSeason: PREVIOUS_SEASON,
-    seconds: (Date.now() - startedAt) / 1000,
-    results
+    errores: errors,
+    results,
+    seconds: (Date.now() - t0) / 1000
   });
 };
+
+module.exports.parseDepth = parseDepth;
+module.exports.normalizeName = normalizeName;
+module.exports.linkPlayer = linkPlayer;
+module.exports.buildPlayerIndex = buildPlayerIndex;
+module.exports.markMain = markMain;
+// La formula (fantasy-nfl-project.js) los usa para refrescar el
+// depth chart y los estados de los salarios justo antes de cada
+// partido, despues de los inactivos.
+module.exports.stepDepth = stepDepth;
+module.exports.stepSlates = stepSlates;
