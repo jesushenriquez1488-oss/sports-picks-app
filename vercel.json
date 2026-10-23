@@ -3,7 +3,8 @@
     "api/twitter-bot.js": {"memory": 1769, "maxDuration": 60},
     "api/telegram-bot.js": {"memory": 1769, "maxDuration": 60},
     "api/fantasy-nba-daily.js": {"maxDuration": 300},
-    "api/fantasy-nba-project.js": {"maxDuration": 300}
+    "api/fantasy-nba-project.js": {"maxDuration": 300},
+    "api/fantasy-nfl-weekly.js": {"maxDuration": 300}
   },
   "crons": [
     { "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=0&force=true", "schedule": "0 11 * * *" },
@@ -52,6 +53,7 @@
     { "path": "/api/nba-data?type=maintenance", "schedule": "0 8 * * *" },
     { "path": "/api/fantasy-nba-daily?step=all", "schedule": "30 8 * * *" },
     { "path": "/api/fantasy-nba-daily?step=refresh", "schedule": "30 21 * * *" },
+    { "path": "/api/fantasy-nfl-weekly", "schedule": "0 14 * * 2" },
     { "path": "/api/internal/nfl-injury-cron?start=0", "schedule": "0,10,20,30,40,50 * * * *" },
     { "path": "/api/internal/nfl-injury-cron?start=8", "schedule": "2,12,22,32,42,52 * * * *" },
     { "path": "/api/internal/nfl-injury-cron?start=16", "schedule": "4,14,24,34,44,54 * * * *" },
