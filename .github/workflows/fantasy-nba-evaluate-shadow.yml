@@ -1,0 +1,59 @@
+
+name: Fantasy NBA Evaluate SHADOW
+
+on:
+  push:
+    branches:
+      - fantasy-dev
+    paths:
+      - ".github/workflows/fantasy-nba-evaluate-shadow.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout fantasy-dev
+        uses: actions/checkout@v4
+        with:
+          ref: fantasy-dev
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install optimizer dependency
+        run: |
+          python -m pip install "ortools>=9.10,<10"
+
+      - name: Evaluate October 22 Fantasy Results
+        env:
+          BALLDONTLIE_NBA_API_KEY: ${{ secrets.BALLDONTLIE_NBA_API_KEY }}
+          FANTASY_TARGET_DATE: "2026-10-22"
+        run: |
+          python fantasy-engine/nba-fantasy-experiment-shadow.py evaluate
+
+      - name: Save Comparison to fantasy-dev
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add fantasy-experiments/2026-10-22/comparison-after-games.json
+
+          if ! git diff --cached --quiet; then
+            git commit -m "shadow: evaluate Fantasy October 22"
+            git push origin HEAD:fantasy-dev
+          fi
+
+      - name: Upload Evaluation Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fantasy-nba-evaluation-oct22
+          path: fantasy-experiments/2026-10-22/comparison-after-games.json
+          if-no-files-found: warn
