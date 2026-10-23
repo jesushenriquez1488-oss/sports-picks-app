@@ -603,7 +603,8 @@ const MARGIN_BINS = [
   { lo: 0, hi: 10, label: "0-9" },
   { lo: 10, hi: 15, label: "10-14" },
   { lo: 15, hi: 20, label: "15-19" },
-  { lo: 20, hi: Infinity, label: "20+" }
+  { lo: 20, hi: 25, label: "20-24" },
+  { lo: 25, hi: Infinity, label: "25+" }
 ];
 
 function marginBin(margin) {
@@ -613,6 +614,9 @@ function marginBin(margin) {
 
 function measureMarginRatios(byPlayer) {
   const ratios = { S: MARGIN_BINS.map(() => []), B: MARGIN_BINS.map(() => []) };
+  // Minutos de cada partido divididos entre los minutos normales
+  // del jugador: sirve para medir cuanto "ruido" trae cada rango.
+  const spread = { S: MARGIN_BINS.map(() => []), B: MARGIN_BINS.map(() => []) };
   for (const rows of byPlayer.values()) {
     const groups = new Map();
     for (const r of rows) {
@@ -625,16 +629,31 @@ function measureMarginRatios(byPlayer) {
     for (const g of groups.values()) {
       const close = g.bins[0];
       if (close.length < 5) continue;
-      for (let i = 1; i < MARGIN_BINS.length; i++) {
-        if (g.bins[i].length >= 3) ratios[g.role][i].push(mean(g.bins[i]) / mean(close));
+      const base = mean(close);
+      for (let i = 0; i < MARGIN_BINS.length; i++) {
+        for (const m of g.bins[i]) spread[g.role][i].push(m / base);
+        if (i > 0 && g.bins[i].length >= 3) ratios[g.role][i].push(mean(g.bins[i]) / base);
       }
     }
   }
   // Sin suficientes casos en un rango: no se ajusta (x1).
   const pick = list => list.map((l, i) => (i === 0 ? 1 : l.length >= CONFIG.roleChangeMinSamples ? median(l) : 1));
+  const S = pick(ratios.S);
+  const B = pick(ratios.B);
+
+  // Cuanto vale un partido de cada rango comparado con uno cerrado:
+  // si en las palizas los minutos varian el doble, ese partido
+  // cuenta como 1/4 de partido (menos informacion).
+  const weights = (list, r) => {
+    const v = list.map((l, i) => (l.length >= CONFIG.roleChangeMinSamples ? std(l.map(x => x / r[i])) : null));
+    return v.map(x => (x && v[0] ? clamp((v[0] * v[0]) / (x * x), 0.1, 1) : 1));
+  };
+
   return {
-    S: pick(ratios.S),
-    B: pick(ratios.B),
+    S,
+    B,
+    weightS: weights(spread.S, S),
+    weightB: weights(spread.B, B),
     samplesS: ratios.S.map(l => l.length),
     samplesB: ratios.B.map(l => l.length)
   };
@@ -817,8 +836,10 @@ function roleBaseline(id, team, role, order, profile, ctx) {
   const pool = all
     .filter(r => r.starter !== null)
     .map(r => {
-      const ratio = (r.starter ? mr.S : mr.B)[marginBin(r.margin)] || 1;
-      return ratio === 1 ? r : { ...r, rawMin: r.min, min: r.min / ratio };
+      const bin = marginBin(r.margin);
+      const ratio = (r.starter ? mr.S : mr.B)[bin] || 1;
+      const info = (r.starter ? mr.weightS : mr.weightB)?.[bin] ?? 1;
+      return { ...r, rawMin: r.min, min: r.min / ratio, info };
     });
 
   let roleRows = pool.filter(isRole);
@@ -839,7 +860,9 @@ function roleBaseline(id, team, role, order, profile, ctx) {
     ? profile.starterAvg
     : profile.Bcond[Math.min(order, 9)] || 0.5;
 
-  const curEst = weighted(cur, r => r.min, (r, i) => Math.pow(CONFIG.currentDecay, i));
+  // Un partido decidido informa menos que uno cerrado (peso medido).
+  const curEst = weighted(cur, r => r.min, (r, i) => Math.pow(CONFIG.currentDecay, i) * (r.info ?? 1));
+  const curGamesEffective = cur.reduce((sum, r) => sum + (r.info ?? 1), 0);
   const prevEst = prevSame.length
     ? weighted(prevSame, r => r.min, (r, i) => Math.pow(CONFIG.previousDecay, i))
     : (() => {
@@ -885,7 +908,7 @@ function roleBaseline(id, team, role, order, profile, ctx) {
   // estable que es el jugador. Si un jugador de minutos estables
   // cambia de 20 a 36, se le cree rapido.
   const k = (sd * sd) / (CONFIG.seasonShiftSd * CONFIG.seasonShiftSd);
-  const w = cur.length / (cur.length + k);
+  const w = curGamesEffective / (curGamesEffective + k);
   const base = cur.length ? w * curEst.value + (1 - w) * prevBlend : prevBlend;
 
   return {
@@ -893,6 +916,7 @@ function roleBaseline(id, team, role, order, profile, ctx) {
     teamPrior,
     current: curEst.value,
     currentGames: cur.length,
+    currentGamesEffective: curGamesEffective,
     currentWeight: w,
     previous: prior.value,
     previousGames: prevSame.length,
@@ -1531,6 +1555,7 @@ async function runProjection(day = chicagoDay()) {
             fuente: row.baseline?.source || "sin historial",
             estaTemporada: round(row.baseline?.current, 1),
             partidosEstaTemporada: row.baseline?.currentGames ?? 0,
+            partidosEfectivos: round(row.baseline?.currentGamesEffective, 2),
             pesoEstaTemporada: round(row.baseline?.currentWeight, 2),
             temporadaPasada: round(row.baseline?.previous, 1),
             estiloEquipo: round(row.teamPrior, 1),
@@ -1655,7 +1680,7 @@ async function runProjection(day = chicagoDay()) {
       palizas: "minutos segun diferencia final (vs partido cerrado) — " +
         MARGIN_BINS.slice(1).map((b, j) => {
           const i = j + 1;
-          return `${b.label} pts: titulares x${round(models.marginRatios.S[i], 2)} (${models.marginRatios.samplesS[i]}), ` +
+          return `${b.label} pts: titulares x${round(models.marginRatios.S[i], 2)} vale ${round(models.marginRatios.weightS[i], 2)} partido (${models.marginRatios.samplesS[i]}), ` +
             `banca x${round(models.marginRatios.B[i], 2)} (${models.marginRatios.samplesB[i]})`;
         }).join(" | ")
     },
