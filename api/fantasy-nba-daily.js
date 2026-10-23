@@ -675,7 +675,11 @@ async function stepDepth() {
     selectAll("fantasy_nba_player_crosswalk", "espn_player_id,nba_player_id")
   ]);
 
-  const bdlTeamByCode = new Map(bdlTeams.map(t => [teamCode(t.abbreviation), Number(t.id)]));
+  // Solo los 30 equipos actuales. BALLDONTLIE tambien trae equipos
+  // historicos (IDs 31+) y alguno comparte abreviatura: eso le ponia
+  // a Washington un ID equivocado.
+  const currentTeams = bdlTeams.filter(t => Number(t.id) >= 1 && Number(t.id) <= 30);
+  const bdlTeamByCode = new Map(currentTeams.map(t => [teamCode(t.abbreviation), Number(t.id)]));
 
   // Jugadores activos BALLDONTLIE por equipo y nombre.
   const bdlByTeamName = new Map();
