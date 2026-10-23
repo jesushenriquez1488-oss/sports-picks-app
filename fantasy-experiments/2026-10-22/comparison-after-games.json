@@ -1,0 +1,666 @@
+{
+  "date": "2026-10-22",
+  "slateId": "80365",
+  "mode": "shadow",
+  "source": "BALLDONTLIE final boxscores",
+  "comparison": [
+    {
+      "sample": "A",
+      "lineups": [
+        {
+          "rank": 1,
+          "projectedFP": 316.1,
+          "actualFP": 236.75,
+          "projectionError": 79.35,
+          "players": [
+            {
+              "name": "Tyrese Maxey",
+              "playerId": "3547254",
+              "projectedFP": 49.53,
+              "actualFP": 48.75,
+              "error": 0.78
+            },
+            {
+              "name": "Ajay Mitchell",
+              "playerId": "1028037477",
+              "projectedFP": 30.82,
+              "actualFP": 22.5,
+              "error": 8.32
+            },
+            {
+              "name": "DeMar DeRozan",
+              "playerId": "125",
+              "projectedFP": 28.91,
+              "actualFP": 13.0,
+              "error": 15.91
+            },
+            {
+              "name": "Chet Holmgren",
+              "playerId": "38017685",
+              "projectedFP": 38.86,
+              "actualFP": 46.25,
+              "error": -7.39
+            },
+            {
+              "name": "Isaiah Hartenstein",
+              "playerId": "201",
+              "projectedFP": 30.54,
+              "actualFP": 17.5,
+              "error": 13.04
+            },
+            {
+              "name": "Jaylon Tyson",
+              "playerId": "1028028993",
+              "projectedFP": 24.94,
+              "actualFP": 18.5,
+              "error": 6.44
+            },
+            {
+              "name": "Jaylen Brown",
+              "playerId": "70",
+              "projectedFP": 47.24,
+              "actualFP": 37.5,
+              "error": 9.74
+            },
+            {
+              "name": "Nikola Jokic",
+              "playerId": "246",
+              "projectedFP": 65.26,
+              "actualFP": 32.75,
+              "error": 32.51
+            }
+          ]
+        },
+        {
+          "rank": 2,
+          "projectedFP": 312.98,
+          "actualFP": 254.25,
+          "projectionError": 58.73,
+          "players": [
+            {
+              "name": "VJ Edgecombe",
+              "playerId": "1057261935",
+              "projectedFP": 32.54,
+              "actualFP": 34.75,
+              "error": -2.21
+            },
+            {
+              "name": "Ajay Mitchell",
+              "playerId": "1028037477",
+              "projectedFP": 30.82,
+              "actualFP": 22.5,
+              "error": 8.32
+            },
+            {
+              "name": "Jaylen Brown",
+              "playerId": "70",
+              "projectedFP": 47.24,
+              "actualFP": 37.5,
+              "error": 9.74
+            },
+            {
+              "name": "Chet Holmgren",
+              "playerId": "38017685",
+              "projectedFP": 38.86,
+              "actualFP": 46.25,
+              "error": -7.39
+            },
+            {
+              "name": "Isaiah Hartenstein",
+              "playerId": "201",
+              "projectedFP": 30.54,
+              "actualFP": 17.5,
+              "error": 13.04
+            },
+            {
+              "name": "Jaylon Tyson",
+              "playerId": "1028028993",
+              "projectedFP": 24.94,
+              "actualFP": 18.5,
+              "error": 6.44
+            },
+            {
+              "name": "LeBron James",
+              "playerId": "237",
+              "projectedFP": 42.78,
+              "actualFP": 44.5,
+              "error": -1.72
+            },
+            {
+              "name": "Nikola Jokic",
+              "playerId": "246",
+              "projectedFP": 65.26,
+              "actualFP": 32.75,
+              "error": 32.51
+            }
+          ]
+        },
+        {
+          "rank": 3,
+          "projectedFP": 312.65,
+          "actualFP": 238.75,
+          "projectionError": 73.9,
+          "players": [
+            {
+              "name": "Tyrese Maxey",
+              "playerId": "3547254",
+              "projectedFP": 49.53,
+              "actualFP": 48.75,
+              "error": 0.78
+            },
+            {
+              "name": "Ajay Mitchell",
+              "playerId": "1028037477",
+              "projectedFP": 30.82,
+              "actualFP": 22.5,
+              "error": 8.32
+            },
+            {
+              "name": "Jaylon Tyson",
+              "playerId": "1028028993",
+              "projectedFP": 24.94,
+              "actualFP": 18.5,
+              "error": 6.44
+            },
+            {
+              "name": "LeBron James",
+              "playerId": "237",
+              "projectedFP": 42.78,
+              "actualFP": 44.5,
+              "error": -1.72
+            },
+            {
+              "name": "Isaiah Hartenstein",
+              "playerId": "201",
+              "projectedFP": 30.54,
+              "actualFP": 17.5,
+              "error": 13.04
+            },
+            {
+              "name": "Sam Merrill",
+              "playerId": "3547299",
+              "projectedFP": 21.54,
+              "actualFP": 16.75,
+              "error": 4.79
+            },
+            {
+              "name": "Jaylen Brown",
+              "playerId": "70",
+              "projectedFP": 47.24,
+              "actualFP": 37.5,
+              "error": 9.74
+            },
+            {
+              "name": "Nikola Jokic",
+              "playerId": "246",
+              "projectedFP": 65.26,
+              "actualFP": 32.75,
+              "error": 32.51
+            }
+          ]
+        },
+        {
+          "rank": 4,
+          "projectedFP": 312.0,
+          "actualFP": 257.75,
+          "projectionError": 54.25,
+          "players": [
+            {
+              "name": "Ajay Mitchell",
+              "playerId": "1028037477",
+              "projectedFP": 30.82,
+              "actualFP": 22.5,
+              "error": 8.32
+            },
+            {
+              "name": "DeMar DeRozan",
+              "playerId": "125",
+              "projectedFP": 28.91,
+              "actualFP": 13.0,
+              "error": 15.91
+            },
+            {
+              "name": "Jaylen Brown",
+              "playerId": "70",
+              "projectedFP": 47.24,
+              "actualFP": 37.5,
+              "error": 9.74
+            },
+            {
+              "name": "LeBron James",
+              "playerId": "237",
+              "projectedFP": 42.78,
+              "actualFP": 44.5,
+              "error": -1.72
+            },
+            {
+              "name": "Isaiah Hartenstein",
+              "playerId": "201",
+              "projectedFP": 30.54,
+              "actualFP": 17.5,
+              "error": 13.04
+            },
+            {
+              "name": "James Harden",
+              "playerId": "192",
+              "projectedFP": 43.32,
+              "actualFP": 27.75,
+              "error": 15.57
+            },
+            {
+              "name": "Chet Holmgren",
+              "playerId": "38017685",
+              "projectedFP": 38.86,
+              "actualFP": 46.25,
+              "error": -7.39
+            },
+            {
+              "name": "Tyrese Maxey",
+              "playerId": "3547254",
+              "projectedFP": 49.53,
+              "actualFP": 48.75,
+              "error": 0.78
+            }
+          ]
+        },
+        {
+          "rank": 5,
+          "projectedFP": 311.89,
+          "actualFP": 233.0,
+          "projectionError": 78.89,
+          "players": [
+            {
+              "name": "Ajay Mitchell",
+              "playerId": "1028037477",
+              "projectedFP": 30.82,
+              "actualFP": 22.5,
+              "error": 8.32
+            },
+            {
+              "name": "Jaylon Tyson",
+              "playerId": "1028028993",
+              "projectedFP": 24.94,
+              "actualFP": 18.5,
+              "error": 6.44
+            },
+            {
+              "name": "DeMar DeRozan",
+              "playerId": "125",
+              "projectedFP": 28.91,
+              "actualFP": 13.0,
+              "error": 15.91
+            },
+            {
+              "name": "Chet Holmgren",
+              "playerId": "38017685",
+              "projectedFP": 38.86,
+              "actualFP": 46.25,
+              "error": -7.39
+            },
+            {
+              "name": "Nikola Jokic",
+              "playerId": "246",
+              "projectedFP": 65.26,
+              "actualFP": 32.75,
+              "error": 32.51
+            },
+            {
+              "name": "VJ Edgecombe",
+              "playerId": "1057261935",
+              "projectedFP": 32.54,
+              "actualFP": 34.75,
+              "error": -2.21
+            },
+            {
+              "name": "Jaylen Brown",
+              "playerId": "70",
+              "projectedFP": 47.24,
+              "actualFP": 37.5,
+              "error": 9.74
+            },
+            {
+              "name": "James Harden",
+              "playerId": "192",
+              "projectedFP": 43.32,
+              "actualFP": 27.75,
+              "error": 15.57
+            }
+          ]
+        }
+      ],
+      "meanActualFP": 244.1,
+      "bestActualFP": 257.75,
+      "uniquePlayerMAE": 9.87
+    },
+    {
+      "sample": "B",
+      "lineups": [
+        {
+          "rank": 1,
+          "projectedFP": 317.55,
+          "actualFP": 236.75,
+          "projectionError": 80.8,
+          "players": [
+            {
+              "name": "Tyrese Maxey",
+              "playerId": "3547254",
+              "projectedFP": 49.88,
+              "actualFP": 48.75,
+              "error": 1.13
+            },
+            {
+              "name": "DeMar DeRozan",
+              "playerId": "125",
+              "projectedFP": 29.01,
+              "actualFP": 13.0,
+              "error": 16.01
+            },
+            {
+              "name": "Jaylon Tyson",
+              "playerId": "1028028993",
+              "projectedFP": 25.39,
+              "actualFP": 18.5,
+              "error": 6.89
+            },
+            {
+              "name": "Chet Holmgren",
+              "playerId": "38017685",
+              "projectedFP": 38.57,
+              "actualFP": 46.25,
+              "error": -7.68
+            },
+            {
+              "name": "Nikola Jokic",
+              "playerId": "246",
+              "projectedFP": 65.2,
+              "actualFP": 32.75,
+              "error": 32.45
+            },
+            {
+              "name": "Ajay Mitchell",
+              "playerId": "1028037477",
+              "projectedFP": 29.92,
+              "actualFP": 22.5,
+              "error": 7.42
+            },
+            {
+              "name": "Jaylen Brown",
+              "playerId": "70",
+              "projectedFP": 49.2,
+              "actualFP": 37.5,
+              "error": 11.7
+            },
+            {
+              "name": "Isaiah Hartenstein",
+              "playerId": "201",
+              "projectedFP": 30.38,
+              "actualFP": 17.5,
+              "error": 12.88
+            }
+          ]
+        },
+        {
+          "rank": 2,
+          "projectedFP": 314.59,
+          "actualFP": 254.25,
+          "projectionError": 60.34,
+          "players": [
+            {
+              "name": "Ajay Mitchell",
+              "playerId": "1028037477",
+              "projectedFP": 29.92,
+              "actualFP": 22.5,
+              "error": 7.42
+            },
+            {
+              "name": "Jaylon Tyson",
+              "playerId": "1028028993",
+              "projectedFP": 25.39,
+              "actualFP": 18.5,
+              "error": 6.89
+            },
+            {
+              "name": "Jaylen Brown",
+              "playerId": "70",
+              "projectedFP": 49.2,
+              "actualFP": 37.5,
+              "error": 11.7
+            },
+            {
+              "name": "Chet Holmgren",
+              "playerId": "38017685",
+              "projectedFP": 38.57,
+              "actualFP": 46.25,
+              "error": -7.68
+            },
+            {
+              "name": "Isaiah Hartenstein",
+              "playerId": "201",
+              "projectedFP": 30.38,
+              "actualFP": 17.5,
+              "error": 12.88
+            },
+            {
+              "name": "VJ Edgecombe",
+              "playerId": "1057261935",
+              "projectedFP": 32.89,
+              "actualFP": 34.75,
+              "error": -1.86
+            },
+            {
+              "name": "LeBron James",
+              "playerId": "237",
+              "projectedFP": 43.04,
+              "actualFP": 44.5,
+              "error": -1.46
+            },
+            {
+              "name": "Nikola Jokic",
+              "playerId": "246",
+              "projectedFP": 65.2,
+              "actualFP": 32.75,
+              "error": 32.45
+            }
+          ]
+        },
+        {
+          "rank": 3,
+          "projectedFP": 314.09,
+          "actualFP": 238.75,
+          "projectionError": 75.34,
+          "players": [
+            {
+              "name": "Tyrese Maxey",
+              "playerId": "3547254",
+              "projectedFP": 49.88,
+              "actualFP": 48.75,
+              "error": 1.13
+            },
+            {
+              "name": "Ajay Mitchell",
+              "playerId": "1028037477",
+              "projectedFP": 29.92,
+              "actualFP": 22.5,
+              "error": 7.42
+            },
+            {
+              "name": "Jaylen Brown",
+              "playerId": "70",
+              "projectedFP": 49.2,
+              "actualFP": 37.5,
+              "error": 11.7
+            },
+            {
+              "name": "LeBron James",
+              "playerId": "237",
+              "projectedFP": 43.04,
+              "actualFP": 44.5,
+              "error": -1.46
+            },
+            {
+              "name": "Isaiah Hartenstein",
+              "playerId": "201",
+              "projectedFP": 30.38,
+              "actualFP": 17.5,
+              "error": 12.88
+            },
+            {
+              "name": "Jaylon Tyson",
+              "playerId": "1028028993",
+              "projectedFP": 25.39,
+              "actualFP": 18.5,
+              "error": 6.89
+            },
+            {
+              "name": "Sam Merrill",
+              "playerId": "3547299",
+              "projectedFP": 21.08,
+              "actualFP": 16.75,
+              "error": 4.33
+            },
+            {
+              "name": "Nikola Jokic",
+              "playerId": "246",
+              "projectedFP": 65.2,
+              "actualFP": 32.75,
+              "error": 32.45
+            }
+          ]
+        },
+        {
+          "rank": 4,
+          "projectedFP": 313.25,
+          "actualFP": 287.0,
+          "projectionError": 26.25,
+          "players": [
+            {
+              "name": "Ajay Mitchell",
+              "playerId": "1028037477",
+              "projectedFP": 29.92,
+              "actualFP": 22.5,
+              "error": 7.42
+            },
+            {
+              "name": "Jaylon Tyson",
+              "playerId": "1028028993",
+              "projectedFP": 25.39,
+              "actualFP": 18.5,
+              "error": 6.89
+            },
+            {
+              "name": "Jaylen Brown",
+              "playerId": "70",
+              "projectedFP": 49.2,
+              "actualFP": 37.5,
+              "error": 11.7
+            },
+            {
+              "name": "LeBron James",
+              "playerId": "237",
+              "projectedFP": 43.04,
+              "actualFP": 44.5,
+              "error": -1.46
+            },
+            {
+              "name": "Joel Embiid",
+              "playerId": "145",
+              "projectedFP": 44.36,
+              "actualFP": 34.25,
+              "error": 10.11
+            },
+            {
+              "name": "VJ Edgecombe",
+              "playerId": "1057261935",
+              "projectedFP": 32.89,
+              "actualFP": 34.75,
+              "error": -1.86
+            },
+            {
+              "name": "Chet Holmgren",
+              "playerId": "38017685",
+              "projectedFP": 38.57,
+              "actualFP": 46.25,
+              "error": -7.68
+            },
+            {
+              "name": "Tyrese Maxey",
+              "playerId": "3547254",
+              "projectedFP": 49.88,
+              "actualFP": 48.75,
+              "error": 1.13
+            }
+          ]
+        },
+        {
+          "rank": 5,
+          "projectedFP": 312.19,
+          "actualFP": 253.25,
+          "projectionError": 58.94,
+          "players": [
+            {
+              "name": "Ajay Mitchell",
+              "playerId": "1028037477",
+              "projectedFP": 29.92,
+              "actualFP": 22.5,
+              "error": 7.42
+            },
+            {
+              "name": "VJ Edgecombe",
+              "playerId": "1057261935",
+              "projectedFP": 32.89,
+              "actualFP": 34.75,
+              "error": -1.86
+            },
+            {
+              "name": "Jaylon Tyson",
+              "playerId": "1028028993",
+              "projectedFP": 25.39,
+              "actualFP": 18.5,
+              "error": 6.89
+            },
+            {
+              "name": "Chet Holmgren",
+              "playerId": "38017685",
+              "projectedFP": 38.57,
+              "actualFP": 46.25,
+              "error": -7.68
+            },
+            {
+              "name": "Isaiah Hartenstein",
+              "playerId": "201",
+              "projectedFP": 30.38,
+              "actualFP": 17.5,
+              "error": 12.88
+            },
+            {
+              "name": "Tyrese Maxey",
+              "playerId": "3547254",
+              "projectedFP": 49.88,
+              "actualFP": 48.75,
+              "error": 1.13
+            },
+            {
+              "name": "Jaylen Brown",
+              "playerId": "70",
+              "projectedFP": 49.2,
+              "actualFP": 37.5,
+              "error": 11.7
+            },
+            {
+              "name": "Shai Gilgeous-Alexander",
+              "playerId": "175",
+              "projectedFP": 55.96,
+              "actualFP": 27.5,
+              "error": 28.46
+            }
+          ]
+        }
+      ],
+      "meanActualFP": 254.0,
+      "bestActualFP": 287.0,
+      "uniquePlayerMAE": 10.95
+    }
+  ],
+  "winnerByAverageLineupFP": "B",
+  "winnerByPlayerMAE": "A"
+}
