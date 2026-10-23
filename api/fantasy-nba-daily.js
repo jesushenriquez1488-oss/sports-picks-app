@@ -13,6 +13,11 @@
 //             Solo descarga partidos que todavia no tiene.
 //             &limit=250 para cargar la temporada pasada.
 //
+//   box       Tiros intentados, tiros libres, rebotes ofensivos
+//             y defensivos, faltas (BALLDONTLIE /v1/stats)
+//             -> nba_player_game_box_ext
+//             &dates=20 para cargar la temporada pasada.
+//
 //   injuries  Lesiones actuales (BALLDONTLIE)
 //             -> nba_player_injuries_current
 //
@@ -389,6 +394,137 @@ async function stepStarters(limit) {
     processed: batch.length,
     ...counts,
     remaining: pending.length - batch.length + stillPending
+  };
+}
+
+
+// ============================================================
+// PASO: ESTADISTICAS EXTRA (tiros, tiros libres, rebotes of/def)
+// ============================================================
+//
+// BALLDONTLIE /v1/stats por fecha NBA (hora Este), igual que
+// nba-data.js. Solo partidos que todavia no tienen estos datos.
+
+function nbaCalendarDate(value) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(parsed);
+}
+
+function parseMinutes(value) {
+  const raw = str(value);
+  if (raw.includes(":")) {
+    const [m, s] = raw.split(":").map(Number);
+    return Number.isFinite(m) && Number.isFinite(s) ? m + s / 60 : 0;
+  }
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : 0;
+}
+
+async function stepBox(maxDates) {
+  const games = await selectAll(
+    "nba_games",
+    "game_id,season,game_date",
+    q => q
+      .in("season", [CURRENT_SEASON, PREVIOUS_SEASON])
+      .or("postseason.is.null,postseason.eq.false")
+      .order("game_date", { ascending: false })
+      .order("game_id", { ascending: true })
+  );
+
+  const syncRows = await selectAll("nba_box_ext_sync", "game_id,status,attempts");
+  const sync = new Map(syncRows.map(r => [Number(r.game_id), r]));
+
+  const pending = games.filter(game => {
+    const s = sync.get(Number(game.game_id));
+    return !s || (s.status === "empty" && Number(s.attempts) < MAX_EMPTY_ATTEMPTS);
+  });
+
+  // Agrupar por fecha NBA; primero las mas recientes.
+  const byDate = new Map();
+  for (const game of pending) {
+    const day = nbaCalendarDate(game.game_date);
+    if (!day) continue;
+    if (!byDate.has(day)) byDate.set(day, []);
+    byDate.get(day).push(game);
+  }
+
+  const dates = [...byDate.keys()].sort().reverse().slice(0, maxDates);
+  const now = new Date().toISOString();
+  const boxRows = [];
+  const statusRows = [];
+  let ok = 0;
+  let empty = 0;
+
+  for (const day of dates) {
+    const stats = await bdlPages("/v1/stats", [["dates[]", day], ["period", 0]]);
+
+    for (const game of byDate.get(day)) {
+      const gameId = Number(game.game_id);
+      const rows = new Map();
+
+      for (const s of stats) {
+        if (Number(s.game?.id) !== gameId) continue;
+        const playerId = Number(s.player?.id);
+        if (!Number.isFinite(playerId) || parseMinutes(s.min) <= 0) continue;
+
+        rows.set(playerId, {
+          game_id: gameId,
+          player_id: playerId,
+          team_id: numberOrNull(s.team?.id),
+          season: Number(game.season),
+          game_date: game.game_date,
+          fgm: numberOrNull(s.fgm),
+          fga: numberOrNull(s.fga),
+          fg3m: numberOrNull(s.fg3m),
+          fg3a: numberOrNull(s.fg3a),
+          ftm: numberOrNull(s.ftm),
+          fta: numberOrNull(s.fta),
+          oreb: numberOrNull(s.oreb),
+          dreb: numberOrNull(s.dreb),
+          pf: numberOrNull(s.pf),
+          synced_at: now
+        });
+      }
+
+      const status = rows.size ? "ok" : "empty";
+      if (status === "ok") ok++;
+      else empty++;
+
+      boxRows.push(...rows.values());
+      statusRows.push({
+        game_id: gameId,
+        status,
+        rows_count: rows.size,
+        attempts: Number(sync.get(gameId)?.attempts || 0) + 1,
+        synced_at: now
+      });
+    }
+  }
+
+  if (boxRows.length) {
+    await upsertAll("nba_player_game_box_ext", boxRows, "game_id,player_id");
+  }
+  if (statusRows.length) {
+    await upsertAll("nba_box_ext_sync", statusRows, "game_id");
+  }
+
+  const processedGames = statusRows.filter(
+    r => r.status === "ok" || r.attempts >= MAX_EMPTY_ATTEMPTS
+  ).length;
+
+  return {
+    pendingGames: pending.length,
+    datesProcessed: dates.length,
+    gamesOk: ok,
+    gamesEmpty: empty,
+    playerRows: boxRows.length,
+    remainingGames: pending.length - processedGames
   };
 }
 
@@ -851,9 +987,10 @@ function isInternalRequest(req) {
 }
 
 const PLANS = {
-  all: ["starters", "injuries", "depth", "slate"],
+  all: ["starters", "box", "injuries", "depth", "slate"],
   refresh: ["injuries", "depth", "slate"],
   starters: ["starters"],
+  box: ["box"],
   injuries: ["injuries"],
   depth: ["depth"],
   slate: ["slate"]
@@ -891,8 +1028,15 @@ module.exports = async function handler(req, res) {
     ? String(req.query.date)
     : chicagoDay();
 
+  // Fechas por llamada para el paso box (diario 3; carga inicial hasta 20).
+  const requestedDates = Number(req.query.dates || 3);
+  const maxDates = Number.isFinite(requestedDates)
+    ? Math.min(20, Math.max(1, Math.floor(requestedDates)))
+    : 3;
+
   const steps = {
     starters: () => stepStarters(limit),
+    box: () => stepBox(maxDates),
     injuries: () => stepInjuries(),
     depth: () => stepDepth(),
     slate: () => stepSlate(day)
