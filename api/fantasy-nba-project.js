@@ -88,6 +88,7 @@ const CONFIG = {
   profilePriorGames: 5,
   blowoutMargin: 20,
   strengthPriorGames: 10,
+  previousStrengthCarry: 0.65,
   injuryExitShare: 0.4,
   maxStarterMinutes: 40,
   maxBenchMinutes: 34,
@@ -554,8 +555,11 @@ function buildProfiles(teamGames) {
   for (const [team, games] of teamGames) {
     const cur = games.filter(g => g.season === CUR).map(g => g.margin);
     const prev = games.filter(g => g.season === PREV).map(g => g.margin);
+    // La temporada pasada se acerca a 0 (los rosters cambian en el
+    // verano). Valor estandar NBA; la evaluacion diaria lo revisa.
+    const prevLevel = prev.length ? mean(prev) * CONFIG.previousStrengthCarry : 0;
     const w = cur.length / (cur.length + CONFIG.strengthPriorGames);
-    strength.set(team, cur.length && prev.length ? w * mean(cur) + (1 - w) * mean(prev) : mean(cur.length ? cur : prev) ?? 0);
+    strength.set(team, cur.length ? w * mean(cur) + (1 - w) * prevLevel : prevLevel);
   }
   const residuals = [];
   for (const [team, games] of teamGames) {
@@ -569,38 +573,70 @@ function buildProfiles(teamGames) {
     marginSd: std(residuals) || 13,
     games: leagueBlow.n
   };
-  blowout.probability = (team, opp) => {
+  // Probabilidad de que la diferencia final caiga en cada rango.
+  const absBetween = (mu, sd, lo, hi) => {
+    const p = (a, b) => normalCdf((b - mu) / sd) - normalCdf((a - mu) / sd);
+    return hi === Infinity
+      ? (1 - normalCdf((lo - mu) / sd)) + normalCdf((-lo - mu) / sd)
+      : p(lo, hi) + p(-hi, -lo);
+  };
+  blowout.binProbabilities = (team, opp) => {
     const mu = (strength.get(team) ?? 0) - (strength.get(opp) ?? 0);
     const sd = blowout.marginSd;
-    return normalCdf((-CONFIG.blowoutMargin - mu) / sd) + 1 - normalCdf((CONFIG.blowoutMargin - mu) / sd);
+    return MARGIN_BINS.map((b, i) => (i === 0
+      ? normalCdf((b.hi - mu) / sd) - normalCdf((-b.hi - mu) / sd)
+      : absBetween(mu, sd, b.lo, b.hi)));
   };
+  blowout.probability = (team, opp) => blowout.binProbabilities(team, opp)[MARGIN_BINS.length - 1];
 
   return { profiles, league, blowout, usage, strength };
 }
 
-// Cuanto cambian los minutos de UN MISMO jugador en una paliza.
+// Cuanto cambian los minutos de UN MISMO jugador segun la
+// diferencia final del partido (0-9, 10-14, 15-19, 20+ puntos),
+// comparado con sus partidos cerrados (0-9). No hace falta llegar
+// a 20 puntos: en un partido de 15 la banca ya juega mas.
 // Se compara a cada jugador consigo mismo (no el promedio de la
-// banca, porque en las palizas entran suplentes que casi no juegan
-// y eso hace parecer que la banca juega menos).
-function measureBlowoutRatios(byPlayer) {
-  const ratios = { S: [], B: [] };
+// banca, porque en esos partidos entran suplentes que casi no
+// juegan y eso deforma el promedio).
+const MARGIN_BINS = [
+  { lo: 0, hi: 10, label: "0-9" },
+  { lo: 10, hi: 15, label: "10-14" },
+  { lo: 15, hi: 20, label: "15-19" },
+  { lo: 20, hi: Infinity, label: "20+" }
+];
+
+function marginBin(margin) {
+  const a = Math.abs(margin);
+  return MARGIN_BINS.findIndex(b => a >= b.lo && a < b.hi);
+}
+
+function measureMarginRatios(byPlayer) {
+  const ratios = { S: MARGIN_BINS.map(() => []), B: MARGIN_BINS.map(() => []) };
   for (const rows of byPlayer.values()) {
     const groups = new Map();
     for (const r of rows) {
       if (r.starter === null) continue;
-      const key = `${r.team}:${r.season}:${r.starter ? "S" : "B"}`;
-      if (!groups.has(key)) groups.set(key, { role: r.starter ? "S" : "B", blow: [], normal: [] });
-      groups.get(key)[r.blowout ? "blow" : "normal"].push(r.min);
+      const role = r.starter ? "S" : "B";
+      const key = `${r.team}:${r.season}:${role}`;
+      if (!groups.has(key)) groups.set(key, { role, bins: MARGIN_BINS.map(() => []) });
+      groups.get(key).bins[marginBin(r.margin)].push(r.min);
     }
     for (const g of groups.values()) {
-      if (g.blow.length >= 3 && g.normal.length >= 5) ratios[g.role].push(mean(g.blow) / mean(g.normal));
+      const close = g.bins[0];
+      if (close.length < 5) continue;
+      for (let i = 1; i < MARGIN_BINS.length; i++) {
+        if (g.bins[i].length >= 3) ratios[g.role][i].push(mean(g.bins[i]) / mean(close));
+      }
     }
   }
+  // Sin suficientes casos en un rango: no se ajusta (x1).
+  const pick = list => list.map((l, i) => (i === 0 ? 1 : l.length >= CONFIG.roleChangeMinSamples ? median(l) : 1));
   return {
-    S: ratios.S.length >= CONFIG.roleChangeMinSamples ? median(ratios.S) : null,
-    B: ratios.B.length >= CONFIG.roleChangeMinSamples ? median(ratios.B) : null,
-    samplesS: ratios.S.length,
-    samplesB: ratios.B.length
+    S: pick(ratios.S),
+    B: pick(ratios.B),
+    samplesS: ratios.S.map(l => l.length),
+    samplesB: ratios.B.map(l => l.length)
   };
 }
 
@@ -774,15 +810,16 @@ function teamRows(id, team, ctx) {
 function roleBaseline(id, team, role, order, profile, ctx) {
   const all = ctx.byPlayer.get(id) || [];
   const isRole = r => r.starter === (role === "S");
-  // Partidos de paliza: no se descartan (pueden ser los unicos de
-  // esta temporada); sus minutos se llevan a partido normal con la
-  // relacion medida.
-  const bl = ctx.models.blowout;
+  // Cada partido se lleva a "partido cerrado" segun su diferencia
+  // final (medido): si la banca jugo mucho porque el partido se
+  // decidio, los minutos del titular se corrigen hacia arriba.
+  const mr = ctx.models.marginRatios;
   const pool = all
     .filter(r => r.starter !== null)
-    .map(r => (r.blowout
-      ? { ...r, min: r.min / (r.starter ? bl.starterRatio : bl.benchRatio), blowoutCorrected: true }
-      : r));
+    .map(r => {
+      const ratio = (r.starter ? mr.S : mr.B)[marginBin(r.margin)] || 1;
+      return ratio === 1 ? r : { ...r, rawMin: r.min, min: r.min / ratio };
+    });
 
   let roleRows = pool.filter(isRole);
 
@@ -996,12 +1033,16 @@ function projectTeam(team, ctx) {
   const add = (key, role, order) => {
     const a = available.find(x => x.key === key);
     const effRank = effectiveRank(key);
-    // Riesgo de paliza de ESTE partido (segun la diferencia de nivel).
+    // Partido de HOY: probabilidad de cada diferencia final segun el
+    // nivel de los dos equipos, por cuanto cambian los minutos en
+    // cada caso (medido).
     const bl = ctx.models.blowout;
-    const pBlow = ctx.opponents?.has(team) ? bl.probability(team, ctx.opponents.get(team)) : 0;
-    const factor = role === "S"
-      ? 1 - pBlow * (1 - bl.starterRatio)
-      : 1 + pBlow * (bl.benchRatio - 1);
+    const probs = ctx.opponents?.has(team)
+      ? bl.binProbabilities(team, ctx.opponents.get(team))
+      : MARGIN_BINS.map((_, i) => (i === 0 ? 1 : 0));
+    const ratios = role === "S" ? ctx.models.marginRatios.S : ctx.models.marginRatios.B;
+    const factor = probs.reduce((sum, p, i) => sum + p * ratios[i], 0);
+    const pBlow = probs[MARGIN_BINS.length - 1];
 
     if (!a.id) {
       // Sin enlace a BALLDONTLIE: solo ocupa minutos del equipo.
@@ -1334,15 +1375,12 @@ async function runProjection(day = chicagoDay()) {
   const models = {
     ...buildProfiles(history.teamGames),
     roleChange: buildRoleChange(history.byPlayer),
-    blowoutRatios: measureBlowoutRatios(history.byPlayer),
+    marginRatios: measureMarginRatios(history.byPlayer),
     types,
     leagueRates: buildLeagueRates(history.byPlayer, types),
     defense: buildDefense(history.teamGames, types)
   };
 
-  // Relacion de palizas medida jugador por jugador (si hay casos).
-  if (models.blowoutRatios.S) models.blowout.starterRatio = models.blowoutRatios.S;
-  if (models.blowoutRatios.B) models.blowout.benchRatio = models.blowoutRatios.B;
 
   const slateStatus = new Map();
   for (const p of today.slatePlayers) {
@@ -1614,7 +1652,12 @@ async function runProjection(day = chicagoDay()) {
       suplenteATitular: models.roleChange.up
         ? `x${round(models.roleChange.up, 2)} minutos (${models.roleChange.samples} casos)`
         : `sin evidencia suficiente (${models.roleChange.samples} casos)`,
-      palizas: `titulares x${round(models.blowout.starterRatio, 2)} (${models.blowoutRatios.samplesS} jugadores) / banca x${round(models.blowout.benchRatio, 2)} (${models.blowoutRatios.samplesB} jugadores) cuando hay paliza; probabilidad segun nivel de cada partido`
+      palizas: "minutos segun diferencia final (vs partido cerrado) — " +
+        MARGIN_BINS.slice(1).map((b, j) => {
+          const i = j + 1;
+          return `${b.label} pts: titulares x${round(models.marginRatios.S[i], 2)} (${models.marginRatios.samplesS[i]}), ` +
+            `banca x${round(models.marginRatios.B[i], 2)} (${models.marginRatios.samplesB[i]})`;
+        }).join(" | ")
     },
     teams: [...teamProjections.values()].map(tp => ({
       equipo: tp.code,
@@ -1728,6 +1771,24 @@ async function runEvaluation(day) {
   }
 
   const absMean = a => round(mean(a.map(Math.abs)), 1);
+
+  // Calibracion: ¿que predijo mejor los minutos? La mezcla final,
+  // solo esta temporada o solo la temporada pasada. Con los dias
+  // esto dice cuanto peso merece la temporada actual.
+  const calib = { final: [], estaTemporada: [], temporadaPasada: [] };
+  const seenPlayers = new Set();
+  for (const p of projections) {
+    const m = p.explain?.minutos;
+    const a = actual.get(Number(p.player_id));
+    if (!m || !a || !(a.min > 0) || seenPlayers.has(p.player_id)) continue;
+    const cur = Number(m.estaTemporada);
+    const prev = Number(m.temporadaPasada);
+    if (!ok(cur) || !ok(prev) || m.estaTemporada === null || m.temporadaPasada === null) continue;
+    seenPlayers.add(p.player_id);
+    calib.final.push(Number(p.minutes) - a.min);
+    calib.estaTemporada.push(cur - a.min);
+    calib.temporadaPasada.push(prev - a.min);
+  }
   const now = new Date().toISOString();
   const updates = [];
   const platforms = {};
@@ -1769,6 +1830,12 @@ async function runEvaluation(day) {
     equiposConFallosDeTitular: [...byTeam.entries()]
       .filter(([, t]) => t.total && t.hits < t.total)
       .map(([team, t]) => `${team}: ${t.hits}/${t.total}`),
+    calibracionMinutos: {
+      jugadores: calib.final.length,
+      errorConLaMezcla: absMean(calib.final),
+      errorSoloEstaTemporada: absMean(calib.estaTemporada),
+      errorSoloTemporadaPasada: absMean(calib.temporadaPasada)
+    },
     errorMinutosTitulares: absMean(minErr.S),
     errorMinutosBanca: absMean(minErr.B),
     sesgoMinutos: round(mean([...minErr.S, ...minErr.B]), 1),
@@ -1817,7 +1884,9 @@ th,td{border:1px solid #1d3550;padding:4px 8px;text-align:left}th{background:#0b
     if (result.message) body += `<p>${escapeHtml(result.message)}</p>`;
     else {
       body += `<div class="box">Titulares acertados: ${escapeHtml(result.titularesAcertados)}<br>
-        Error minutos titulares: ${result.errorMinutosTitulares} | banca: ${result.errorMinutosBanca} | sesgo: ${result.sesgoMinutos}</div>`;
+        Error minutos titulares: ${result.errorMinutosTitulares} | banca: ${result.errorMinutosBanca} | sesgo: ${result.sesgoMinutos}<br>
+        Calibracion minutos (${result.calibracionMinutos?.jugadores ?? 0} jugadores): mezcla ${result.calibracionMinutos?.errorConLaMezcla} |
+        solo esta temporada ${result.calibracionMinutos?.errorSoloEstaTemporada} | solo temporada pasada ${result.calibracionMinutos?.errorSoloTemporadaPasada}</div>`;
       for (const [platform, p] of Object.entries(result.platforms)) {
         body += `<h2>${escapeHtml(platform)}</h2><div class="box">Jugadores ${p.jugadores} | error promedio ${p.errorPromedio} | sesgo ${p.sesgo} | dentro de ±10: ${p.dentroDe10}</div>`;
         body += table(p.mayoresFallos);
