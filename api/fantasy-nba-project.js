@@ -6,8 +6,9 @@
 // Guarda el resultado en Supabase. No publica nada.
 //
 // USO (navegador)
-//   /api/fantasy-nba-project?secret=...              -> proyecta hoy (JSON)
-//   /api/fantasy-nba-project?secret=...&view=1       -> lo mismo en tablas faciles de leer
+//   /api/fantasy-nba-project?secret=...&view=1       -> VER la proyeccion guardada de hoy
+//   /api/fantasy-nba-project?secret=...&run=1&view=1 -> RECALCULAR hoy, guardar y ver
+//                       (no recalcula fechas pasadas ni slates que ya empezaron)
 //   /api/fantasy-nba-project?secret=...&mode=evaluate&date=YYYY-MM-DD&view=1
 //                                                    -> compara una fecha contra lo real
 //
@@ -75,7 +76,10 @@ const CONFIG = {
 
   // Minutos
   teamMinutes: 241,
-  currentPriorGames: 2,      // w = n / (n + 2)
+  // Peso de esta temporada: ruido de un partido (desviacion de
+  // sus minutos) contra cuanto puede cambiar un rol de una
+  // temporada a otra. Con 2 partidos esta temporada pesa ~75%.
+  seasonShiftSd: 6,
   teamPriorGames: 3,
   currentDecay: 0.85,
   previousDecay: 0.95,
@@ -86,10 +90,14 @@ const CONFIG = {
   injuryExitShare: 0.4,
   maxStarterMinutes: 40,
   maxBenchMinutes: 34,
-  normalizeMin: 0.85,
+  normalizeMin: 0.8,         // fuera de este rango = datos del equipo incompletos
   normalizeMax: 1.25,
+  roleChangeMinSamples: 20,
   deepBenchRank: 3,
   appearanceGames: 10,
+  benchMinMinutes: 15,       // proteccion de suplentes
+  benchMinShare: 0.6,
+  benchMinGames: 2,
 
   // Companeros OUT
   importantMateMinutes: 18,
@@ -533,7 +541,9 @@ function buildRoleChange(byPlayer) {
       if (g.S.length >= 5 && g.B.length >= 5) up.push(mean(g.S) / mean(g.B));
     }
   }
-  const ratio = median(up) || 1.35;
+  // Sin suficientes casos reales NO se inventa un aumento.
+  if (up.length < CONFIG.roleChangeMinSamples) return { up: null, down: null, samples: up.length };
+  const ratio = median(up);
   return { up: ratio, down: 1 / ratio, samples: up.length };
 }
 
@@ -719,13 +729,15 @@ function roleBaseline(id, team, role, order, profile, ctx) {
   if (!cur.length && prior.value === null) {
     const other = pool.filter(r => !isRole(r) && r.team === team).slice(0, CONFIG.previousGames);
     const otherEst = weighted(other, r => r.min, (r, i) => Math.pow(CONFIG.previousDecay, i));
-    if (otherEst.value !== null) {
-      const ratio = role === "S" ? ctx.models.roleChange.up : ctx.models.roleChange.down;
+    const ratio = role === "S" ? ctx.models.roleChange.up : ctx.models.roleChange.down;
+    if (otherEst.value !== null && ratio) {
       const capped = role === "S" ? Math.min(otherEst.value * ratio, profile.S[0]) : otherEst.value * ratio;
       prior = { value: capped, weight: 2 };
       source = role === "S" ? "nuevo titular (cambio medido en la liga)" : "nuevo suplente (cambio medido en la liga)";
     } else {
-      source = "sin historial: estilo del equipo";
+      source = otherEst.value !== null
+        ? "sin evidencia suficiente de cambio de rol: estilo del equipo"
+        : "sin historial: estilo del equipo";
     }
   }
 
@@ -733,10 +745,7 @@ function roleBaseline(id, team, role, order, profile, ctx) {
     ? teamPrior
     : (prior.weight * prior.value + CONFIG.teamPriorGames * teamPrior) / (prior.weight + CONFIG.teamPriorGames);
 
-  const w = cur.length / (cur.length + CONFIG.currentPriorGames);
-  const base = cur.length ? w * curEst.value + (1 - w) * prevBlend : prevBlend;
-
-  // Variacion de minutos en ese rol.
+  // Variacion de minutos en ese rol (ruido de un partido).
   const sameTeam = roleRows.filter(r => r.team === team).slice(0, 20).map(r => r.min);
   const sdPrior = role === "S" ? CONFIG.minutesSdStarter : CONFIG.minutesSdBench;
   const s = std(sameTeam);
@@ -746,6 +755,13 @@ function roleBaseline(id, team, role, order, profile, ctx) {
     CONFIG.minutesSdMin,
     CONFIG.minutesSdMax
   );
+
+  // Esta temporada manda: cada partido actual vale segun lo
+  // estable que es el jugador. Si un jugador de minutos estables
+  // cambia de 20 a 36, se le cree rapido.
+  const k = (sd * sd) / (CONFIG.seasonShiftSd * CONFIG.seasonShiftSd);
+  const w = cur.length / (cur.length + k);
+  const base = cur.length ? w * curEst.value + (1 - w) * prevBlend : prevBlend;
 
   return {
     base,
@@ -834,6 +850,8 @@ function projectTeam(team, ctx) {
     espnId: str(d.espn_player_id),
     name: str(d.player_name),
     ranks: Object.fromEntries(POSITIONS.map(p => [p, d[`${p}_rank`] ?? null])),
+    // Rango publicado por ESPN (antes de quitar lesionados).
+    originalRank: Math.min(99, ...POSITIONS.map(p => d[`${p}_rank`]).filter(v => v !== null && v !== undefined)),
     status: statusOf(d, ctx)
   }));
 
@@ -918,6 +936,32 @@ function projectTeam(team, ctx) {
       if (window.length >= 3) appearance = window.filter(g => g.rows.has(a.id)).length / window.length;
     }
 
+    // Proteccion de suplentes: ¿de verdad juega 15+ minutos?
+    // Ultimos 10 partidos del equipo desde que llego (si no aparece
+    // en el boxscore cuenta como 0). Si faltan companeros importantes,
+    // se miran los partidos donde ellos ya faltaron.
+    let playShare = null;
+    let playShareBasis = null;
+    if (role === "B") {
+      const first = teamRows(a.id, team, ctx).slice(-1)[0];
+      const since = first ? (ctx.teamGames.get(team) || []).filter(g => g.date >= first.date) : [];
+      let window = since.slice(0, CONFIG.appearanceGames);
+      playShareBasis = "ultimos partidos del equipo";
+      if (importantOut.length) {
+        const without = since
+          .filter(g => importantOut.some(m => !g.rows.has(m.id)))
+          .slice(0, CONFIG.appearanceGames);
+        if (without.length >= CONFIG.benchMinGames) {
+          window = without;
+          playShareBasis = "partidos sin los companeros OUT";
+        }
+      }
+      if (window.length >= CONFIG.benchMinGames) {
+        playShare = window.filter(g => (g.rows.get(a.id)?.min || 0) >= CONFIG.benchMinMinutes).length / window.length;
+      }
+      playShareBasis = `${playShareBasis} (${window.length})`;
+    }
+
     const history = (ctx.byPlayer.get(a.id) || []).slice(0, 30).map(r => r.min);
     const cap = Math.min(44, Math.max(role === "S" ? CONFIG.maxStarterMinutes : CONFIG.maxBenchMinutes,
       (history.length ? Math.max(...history) : 0) + 2));
@@ -929,6 +973,8 @@ function projectTeam(team, ctx) {
       raw: Math.max(0, baseline.base * factor * appearance + injury.minutes),
       blowoutFactor: factor,
       appearance,
+      playShare,
+      playShareBasis,
       injury,
       cap,
       sd: baseline.sd,
@@ -940,10 +986,17 @@ function projectTeam(team, ctx) {
   bench.forEach((k, i) => add(k, "B", i));
 
   // 241 minutos: reparto proporcional respetando maximos.
+  // Si el ajuste necesario es muy grande, faltan datos del equipo
+  // (jugadores sin enlace, depth chart incompleto): se marca y sus
+  // jugadores no entran a alineaciones.
   const rawSum = rows.reduce((s, r) => s + r.raw, 0);
-  const factor = clamp(rawSum > 0 ? CONFIG.teamMinutes / rawSum : 1, CONFIG.normalizeMin, CONFIG.normalizeMax);
+  const factor = rawSum > 0 ? CONFIG.teamMinutes / rawSum : 0;
+  const warnings = [];
+  if (factor < CONFIG.normalizeMin || factor > CONFIG.normalizeMax) {
+    warnings.push(`ajuste a 241 demasiado grande (x${round(factor, 2)})`);
+  }
   rows.forEach(r => (r.minutes = r.raw * factor));
-  for (let k = 0; k < 10; k++) {
+  for (let k = 0; k < 20; k++) {
     const over = rows.filter(r => r.minutes > r.cap);
     if (!over.length) break;
     let excess = 0;
@@ -957,10 +1010,17 @@ function projectTeam(team, ctx) {
     free.forEach(r => (r.minutes += excess * (r.minutes / freeSum)));
   }
 
+  const finalSum = rows.reduce((s, r) => s + r.minutes, 0);
+  if (Math.abs(finalSum - CONFIG.teamMinutes) > 1) {
+    warnings.push(`los minutos suman ${round(finalSum, 1)}, no ${CONFIG.teamMinutes}`);
+  }
+
   return {
     team,
     code: depth[0]?.team_abbr || String(team),
     profile,
+    warnings,
+    finalSum,
     out: out.map(a => a.name),
     importantOut: importantOut.map(a => a.name),
     doubtful: available.filter(a => a.status === "DUDA").map(a => a.name),
@@ -1121,9 +1181,25 @@ async function runProjection(day = chicagoDay()) {
   const runAt = new Date().toISOString();
   const t0 = Date.now();
 
+  // Nunca recalcular el pasado: usaria lesiones y depth chart de
+  // HOY y contaminaria la evaluacion.
+  if (day < chicagoDay()) {
+    return { date: day, message: "Fecha pasada: no se recalcula para no contaminar la evaluacion", platforms: [] };
+  }
+
   const [history, today] = await Promise.all([loadHistory(day), loadToday(day)]);
   if (!today.slates.length) {
     return { date: day, message: "No hay slate guardado para hoy. Corre fantasy-nba-daily?step=slate", platforms: [] };
+  }
+
+  // Slates que ya empezaron quedan congelados (la proyeccion
+  // guardada es la que se evalua).
+  const lockedSlates = today.slates.filter(sl => sl.starts_at && Date.parse(sl.starts_at) <= Date.now());
+  today.slates = today.slates.filter(sl => !lockedSlates.includes(sl));
+  const openIds = new Set(today.slates.map(sl => Number(sl.slate_id)));
+  today.slatePlayers = today.slatePlayers.filter(p => openIds.has(Number(p.slate_id)));
+  if (!today.slates.length) {
+    return { date: day, message: "Todos los slates de hoy ya empezaron: proyeccion congelada", platforms: [] };
   }
 
   const types = buildArchetypes(history.byPlayer);
@@ -1221,7 +1297,16 @@ async function runProjection(day = chicagoDay()) {
       else if (outRow) exclude(p, "LESION_OUT");
       else if (!row) exclude(p, "NO_ESTA_EN_DEPTH_CHART");
       else if (row.status === "DUDA" || (slateStatus.get(id) || []).some(s => injuryClass(s) !== "")) exclude(p, "LESION_O_DUDA", { row });
+      else if (tp.warnings.length) exclude(p, "MINUTOS_EQUIPO_NO_CUADRAN", { row });
+      // Top 2 de ESPN. Un #3 que sube por lesion solo entra si ya
+      // demostro minutos reales (proteccion de suplentes abajo).
       else if (row.effRank > CONFIG.maxDepthRank) exclude(p, "FUERA_DEL_TOP2_ESPN", { row });
+      else if (row.originalRank > CONFIG.maxDepthRank && !(row.playShare >= CONFIG.benchMinShare)) {
+        exclude(p, "SUBIO_POR_LESION_SIN_MINUTOS_PROBADOS", { row });
+      }
+      else if (row.role === "B" && !(row.playShare >= CONFIG.benchMinShare)) {
+        exclude(p, row.playShare === null ? "SUPLENTE_SIN_HISTORIAL_CON_EQUIPO" : "SUPLENTE_NO_JUEGA_15_MIN_SEGURO", { row });
+      }
       else if (row.minutes < CONFIG.minProjectedMinutes) exclude(p, "POCOS_MINUTOS", { row });
       else {
         const opp = opponents.get(team);
@@ -1273,6 +1358,10 @@ async function runProjection(day = chicagoDay()) {
             mezcla: round(row.base, 1),
             ajustePalizas: round(row.blowoutFactor, 3),
             entraAJugar: round(row.appearance, 2),
+            juega15MasMinutos: row.playShare === null || row.playShare === undefined ? null : round(row.playShare, 2),
+            basePara15Min: row.playShareBasis || null,
+            rangoESPN: row.originalRank,
+            rangoSinLesionados: row.effRank,
             companerosOut: round(row.injury?.minutes, 1),
             companerosDetalle: row.injury?.detail || null,
             ajuste241: round(teamProjections.get(Number(p.team_id))?.factor, 3),
@@ -1365,17 +1454,20 @@ async function runProjection(day = chicagoDay()) {
       .from("fantasy_nba_team_minutes")
       .delete()
       .eq("slate_date", day)
+      .in("team_id", [...teamProjections.keys()])
       .lt("created_at", runAt);
     if (error) throw new Error(`Supabase fantasy_nba_team_minutes: ${error.message}`);
   }
 
-  return {
+  const result = {
     date: day,
     depthChartDate: today.snapshotDate,
     seconds: (Date.now() - t0) / 1000,
     historyGames: history.gamesCount,
     medido: {
-      suplenteATitular: `x${round(models.roleChange.up, 2)} minutos (${models.roleChange.samples} casos)`,
+      suplenteATitular: models.roleChange.up
+        ? `x${round(models.roleChange.up, 2)} minutos (${models.roleChange.samples} casos)`
+        : `sin evidencia suficiente (${models.roleChange.samples} casos)`,
       palizasTitulares: `x${round(models.blowout.S, 3)}`
     },
     teams: [...teamProjections.values()].map(tp => ({
@@ -1383,6 +1475,8 @@ async function runProjection(day = chicagoDay()) {
       estilo: tp.profile.label,
       titularesPromedio: round(tp.profile.starterAvg, 1),
       ajuste241: round(tp.factor, 3),
+      sumaMinutos: round(tp.finalSum, 1),
+      avisos: tp.warnings,
       repartoJugadas: round(tp.usageFactor, 3),
       out: tp.out,
       duda: tp.doubtful,
@@ -1391,6 +1485,31 @@ async function runProjection(day = chicagoDay()) {
     })),
     platforms
   };
+
+  // Guardar el resumen para verlo sin recalcular. Los slates
+  // congelados conservan su resumen anterior.
+  const { data: previousRun } = await supabaseAdmin
+    .from("fantasy_nba_runs")
+    .select("summary")
+    .eq("slate_date", day)
+    .limit(1);
+  const lockedIds = new Set(lockedSlates.map(sl => Number(sl.slate_id)));
+  const keptPlatforms = (previousRun?.[0]?.summary?.platforms || []).filter(p => lockedIds.has(Number(p.slateId)));
+  const stored = { ...result, platforms: [...keptPlatforms, ...result.platforms] };
+
+  const { error: runError } = await supabaseAdmin
+    .from("fantasy_nba_runs")
+    .upsert([{ slate_date: day, summary: stored, created_at: runAt }], { onConflict: "slate_date" });
+  if (runError) throw new Error(`Supabase fantasy_nba_runs: ${runError.message}`);
+
+  return stored;
+}
+
+// Lee lo ya calculado (no recalcula ni escribe).
+async function readStored(table, dateColumn, day) {
+  const { data, error } = await supabaseAdmin.from(table).select("summary").eq(dateColumn, day).limit(1);
+  if (error) throw new Error(`Supabase ${table}: ${error.message}`);
+  return data?.[0]?.summary || null;
 }
 
 
@@ -1557,6 +1676,7 @@ th,td{border:1px solid #1d3550;padding:4px 8px;text-align:left}th{background:#0b
       body += `<h2>Paso 1-2: rol y minutos por equipo</h2>`;
       body += table(result.teams.map(t => ({
         Equipo: t.equipo, Estilo: t.estilo, "Min titulares": t.titularesPromedio, "Ajuste 241": t.ajuste241,
+        "Suma min": t.sumaMinutos, Avisos: t.avisos,
         "Jugadas": t.repartoJugadas, OUT: t.out, Duda: t.duda, Titulares: t.titulares, Banca: t.banca
       })));
       for (const p of result.platforms) {
@@ -1592,10 +1712,21 @@ async function handler(req, res) {
   const mode = String(req.query.mode || "project");
   const date = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.date || "")) ? String(req.query.date) : null;
 
+  // Por defecto SOLO LEE lo guardado. &run=1 recalcula y guarda.
+  const run = String(req.query.run || "") === "1";
+
   try {
-    const result = mode === "evaluate"
-      ? await runEvaluation(date || shiftDay(chicagoDay(), -1))
-      : await runProjection(date || chicagoDay());
+    let result;
+    if (mode === "evaluate") {
+      const day = date || shiftDay(chicagoDay(), -1);
+      result = (!run && await readStored("fantasy_nba_evaluations", "eval_date", day)) || await runEvaluation(day);
+    } else {
+      const day = date || chicagoDay();
+      result = run
+        ? await runProjection(day)
+        : (await readStored("fantasy_nba_runs", "slate_date", day)) ||
+          { date: day, message: "Todavia no hay proyeccion guardada para esta fecha. Agrega &run=1 para calcularla.", platforms: [] };
+    }
 
     if (String(req.query.view || "") === "1") {
       res.setHeader("Content-Type", "text/html; charset=utf-8");
