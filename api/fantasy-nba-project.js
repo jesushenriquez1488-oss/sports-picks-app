@@ -317,12 +317,35 @@ async function loadHistory(day) {
     )
   ]);
 
+  // Marcador por cuarto (si la tabla todavia no existe, se sigue
+  // solo con el marcador final).
+  const quarters = new Map();
+  try {
+    const q = await selectAll(
+      "nba_game_quarters",
+      "game_id,home_q1,home_q2,home_q3,visitor_q1,visitor_q2,visitor_q3",
+      b => b.order("game_id", { ascending: true })
+    );
+    for (const r of q) {
+      const h = [r.home_q1, r.home_q2, r.home_q3].map(Number);
+      const v = [r.visitor_q1, r.visitor_q2, r.visitor_q3].map(Number);
+      if ([...h, ...v].every(ok)) {
+        quarters.set(Number(r.game_id), { home: h[0] + h[1] + h[2], visitor: v[0] + v[1] + v[2] });
+      }
+    }
+  } catch (error) {
+    console.warn("Sin marcador por cuarto:", error.message);
+  }
+
   // Solo partidos ANTES del dia que se proyecta.
   const gameMap = new Map();
   for (const g of games) {
     const date = nbaDay(g.game_date);
     if (!date || date >= day) continue;
+    const q3 = quarters.get(Number(g.game_id)) || null;
     gameMap.set(Number(g.game_id), {
+      q3Home: q3 ? q3.home : null,
+      q3Visitor: q3 ? q3.visitor : null,
       id: Number(g.game_id),
       season: Number(g.season),
       date,
@@ -343,13 +366,22 @@ async function loadHistory(day) {
     if (!map.has(g.id)) {
       const isHome = g.home === team;
       const margin = isHome ? g.homeScore - g.visitorScore : g.visitorScore - g.homeScore;
+      // Que tan decidido estuvo: la mayor diferencia entre el final
+      // del 3er cuarto y el final. Un partido que iba por 34 en el
+      // 3ro y termino por 22 se trata como de 34: ahi sentaron a
+      // los titulares.
+      const q3 = g.q3Home === null ? null
+        : (isHome ? g.q3Home - g.q3Visitor : g.q3Visitor - g.q3Home);
+      const decided = q3 !== null && Math.abs(q3) > Math.abs(margin) ? q3 : margin;
       map.set(g.id, {
         id: g.id,
         season: g.season,
         date: g.date,
         opp: isHome ? g.visitor : g.home,
         margin,
-        blowout: Math.abs(margin) >= CONFIG.blowoutMargin,
+        q3Margin: q3,
+        decided,
+        blowout: Math.abs(decided) >= CONFIG.blowoutMargin,
         rows: new Map()
       });
     }
@@ -377,6 +409,7 @@ async function loadHistory(day) {
       team,
       opp: tg.opp,
       margin: tg.margin,
+      decided: tg.decided,
       blowout: tg.blowout,
       starter: r.starter === null || r.starter === undefined ? null : r.starter === true,
       min,
@@ -564,7 +597,7 @@ function buildProfiles(teamGames) {
   const residuals = [];
   for (const [team, games] of teamGames) {
     for (const g of games) {
-      residuals.push(g.margin - ((strength.get(team) ?? 0) - (strength.get(g.opp) ?? 0)));
+      residuals.push(g.decided - ((strength.get(team) ?? 0) - (strength.get(g.opp) ?? 0)));
     }
   }
   const blowout = {
@@ -624,7 +657,7 @@ function measureMarginRatios(byPlayer) {
       const role = r.starter ? "S" : "B";
       const key = `${r.team}:${r.season}:${role}`;
       if (!groups.has(key)) groups.set(key, { role, bins: MARGIN_BINS.map(() => []) });
-      groups.get(key).bins[marginBin(r.margin)].push(r.min);
+      groups.get(key).bins[marginBin(r.decided)].push(r.min);
     }
     for (const g of groups.values()) {
       const close = g.bins[0];
@@ -836,7 +869,7 @@ function roleBaseline(id, team, role, order, profile, ctx) {
   const pool = all
     .filter(r => r.starter !== null)
     .map(r => {
-      const bin = marginBin(r.margin);
+      const bin = marginBin(r.decided);
       const ratio = (r.starter ? mr.S : mr.B)[bin] || 1;
       const info = (r.starter ? mr.weightS : mr.weightB)?.[bin] ?? 1;
       return { ...r, rawMin: r.min, min: r.min / ratio, info };
@@ -1677,7 +1710,7 @@ async function runProjection(day = chicagoDay()) {
       suplenteATitular: models.roleChange.up
         ? `x${round(models.roleChange.up, 2)} minutos (${models.roleChange.samples} casos)`
         : `sin evidencia suficiente (${models.roleChange.samples} casos)`,
-      palizas: "minutos segun diferencia final (vs partido cerrado) — " +
+      palizas: "minutos segun que tan decidido estuvo el partido (mayor diferencia entre el 3er cuarto y el final), vs partido cerrado — " +
         MARGIN_BINS.slice(1).map((b, j) => {
           const i = j + 1;
           return `${b.label} pts: titulares x${round(models.marginRatios.S[i], 2)} vale ${round(models.marginRatios.weightS[i], 2)} partido (${models.marginRatios.samplesS[i]}), ` +
