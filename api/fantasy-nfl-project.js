@@ -45,6 +45,7 @@ const CONFIG = {
   triggerTo: 10,                 // ...y 10 minutos antes del partido
   lineupCount: 10,
   lineupMinDifferent: 2,
+  lineupMaxExposure: 0.4,        // ningun jugador en mas del 40% de las alineaciones
   sims: 10000,
 
   // Quien puede entrar a una alineacion (rol real):
@@ -448,7 +449,7 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
     }
 
     debug("optimizador", slate.slate_id, slate.platform, "pool", pool.length);
-    const result = buildLineups(slate.platform, pool, { count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent });
+    const result = buildLineups(slate.platform, pool, { count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure });
     debug("alineaciones", result.lineups.length);
     slateReports.push({
       slate: slate.slate_id, plataforma: slate.platform, fecha: slate.slate_date, principal: slate.is_main,
