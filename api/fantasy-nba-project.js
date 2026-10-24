@@ -75,6 +75,13 @@ const CONFIG = {
   lineupCount: 10,          // alineaciones por casa (de la mas optima a la menos)
   lineupMinDifferent: 2,    // cada alineacion cambia al menos 2 jugadores
   lineupMaxExposure: 0.4,   // ningun jugador en mas del 40% de las alineaciones
+  // Nombre de la formula oficial (queda guardado en cada corrida).
+  formulaVersion: "produccion-propia+10%",
+  // Pruebas en paralelo: mismos datos, un solo ajuste distinto.
+  // Solo se archivan; nunca cambian las alineaciones oficiales.
+  shadowVariants: [
+    { version: "produccion-propia-sin-10%", config: { currentWeightBoost: 0 } }
+  ],
   minProjectedMinutes: 18,
   minHistoryMinutes: 40,
 
@@ -1676,8 +1683,63 @@ function projectFantasy(row, team, opp, usageFactor, ctx) {
 // PROYECCION COMPLETA
 // ============================================================
 
+// Corrida normal + variantes de prueba (shadow). Las variantes
+// usan los MISMOS datos de hoy y solo cambian un ajuste; no tocan
+// las alineaciones oficiales, solo se archivan para compararlas.
 async function runProjection(day = chicagoDay()) {
-  const runAt = new Date().toISOString();
+  const result = await runProjectionCore(day, { version: CONFIG.formulaVersion });
+  if (result.message) return result;
+  const variantes = [];
+  for (const v of CONFIG.shadowVariants) {
+    const saved = {};
+    for (const k of Object.keys(v.config)) saved[k] = CONFIG[k];
+    try {
+      Object.assign(CONFIG, v.config);
+      const r = await runProjectionCore(day, { version: v.version, archiveOnly: true, runAt: result.runAt });
+      variantes.push({ version: v.version, mejores: r.best });
+    } catch (error) {
+      console.warn("Variante", v.version, error.message);
+      variantes.push({ version: v.version, error: error.message });
+    } finally {
+      Object.assign(CONFIG, saved);
+    }
+  }
+  return { ...result, variantesDePrueba: variantes };
+}
+
+// Archivo de cada corrida: nunca se borra ni se reemplaza. Asi se
+// pueden comparar las alineaciones de la manana, las de la tarde y
+// las variantes de prueba contra el resultado real.
+async function archiveRun(runAt, version, lineupRows, projectionRows) {
+  const lineups = lineupRows.map(l => ({
+    run_at: runAt,
+    version,
+    slate_date: l.slate_date,
+    slate_id: l.slate_id,
+    platform: l.platform,
+    lineup_number: l.lineup_number,
+    salary: l.salary,
+    projected_points: l.projected_points,
+    players: l.players
+  }));
+  const players = projectionRows.map(p => ({
+    run_at: runAt,
+    version,
+    slate_date: p.slate_date,
+    slate_id: p.slate_id,
+    platform: p.platform,
+    player_id: p.player_id,
+    player_name: p.player_name,
+    eligible: p.eligible,
+    minutes: p.minutes,
+    proj_mean: p.proj_mean ?? null
+  }));
+  if (lineups.length) await upsertAll("fantasy_nba_lineup_runs", lineups, "run_at,version,slate_id,lineup_number");
+  if (players.length) await upsertAll("fantasy_nba_projection_runs", players, "run_at,version,slate_id,player_id");
+}
+
+async function runProjectionCore(day = chicagoDay(), opts = {}) {
+  const runAt = opts.runAt || new Date().toISOString();
   const t0 = Date.now();
 
   // Nunca recalcular el pasado: usaria lesiones y depth chart de
@@ -1999,7 +2061,16 @@ async function runProjection(day = chicagoDay()) {
     });
   }
 
-  // Guardar alineaciones (se reemplazan las anteriores del slate).
+  // Variante de prueba: solo se archiva, no toca lo oficial.
+  if (opts.archiveOnly) {
+    await archiveRun(runAt, opts.version, lineupRows, projectionRows);
+    return {
+      best: platforms.map(p => ({ platform: p.platform, slateId: p.slateId, proyectadoMejor: p.lineups?.[0]?.proyectado ?? null }))
+    };
+  }
+
+  // Guardar alineaciones (se reemplazan las anteriores del slate;
+  // la copia de cada corrida queda en fantasy_nba_lineup_runs).
   for (const slate of today.slates) {
     const rows = lineupRows.filter(r => r.slate_id === Number(slate.slate_id));
     if (rows.length) await upsertAll("fantasy_nba_lineups", rows, "slate_id,lineup_number");
@@ -2127,7 +2198,9 @@ async function runProjection(day = chicagoDay()) {
     .upsert([{ slate_date: day, summary: stored, created_at: runAt }], { onConflict: "slate_date" });
   if (runError) throw new Error(`Supabase fantasy_nba_runs: ${runError.message}`);
 
-  return stored;
+  await archiveRun(runAt, opts.version, lineupRows, projectionRows);
+
+  return { ...stored, runAt, version: opts.version };
 }
 
 // Lee lo ya calculado (no recalcula ni escribe).
@@ -2154,8 +2227,11 @@ async function runEvaluation(day) {
   const dayGames = games.filter(g => nbaDay(g.game_date) === day);
   const gameIds = dayGames.filter(g => g.stats_complete === true).map(g => Number(g.game_id));
   const pendingBox = dayGames.length - gameIds.length;
-  if (!gameIds.length) {
-    return { date: day, message: pendingBox ? `Faltan ${pendingBox} boxscores por cargar; se evalua cuando esten completos` : "No hay partidos terminados guardados para esa fecha" };
+  if (!dayGames.length) return { date: day, message: "No hay partidos guardados para esa fecha" };
+  // Nada se evalua ni se guarda mientras falte UN partido del dia:
+  // un resultado a medias se veria como definitivo.
+  if (pendingBox > 0) {
+    return { date: day, message: `Faltan ${pendingBox} de ${dayGames.length} boxscores por cargar; se evalua cuando esten todos (no se guardo nada)` };
   }
   if (!minutesRows.length && !projections.length) return { date: day, message: "No hay proyecciones guardadas para esa fecha" };
 
@@ -2269,8 +2345,10 @@ async function runEvaluation(day) {
     const complete = values.every(v => v !== undefined && v !== null);
     const real = round(values.reduce((sum, v) => sum + (Number(v) || 0), 0));
     lineupUpdates.push({ ...l, actual_points: real, evaluated_at: now });
-    if (!lineupEval[l.platform]) lineupEval[l.platform] = { slateId: l.slate_id, lineups: [] };
-    lineupEval[l.platform].lineups.push({
+    // Cada slate por separado (fecha + plataforma + slate).
+    const key = `${l.platform} slate ${l.slate_id}`;
+    if (!lineupEval[key]) lineupEval[key] = { platform: l.platform, slateId: l.slate_id, lineups: [] };
+    lineupEval[key].lineups.push({
       "#": l.lineup_number,
       proyectado: Number(l.projected_points),
       real,
@@ -2281,7 +2359,8 @@ async function runEvaluation(day) {
   }
   if (lineupUpdates.length) await upsertAll("fantasy_nba_lineups", lineupUpdates, "slate_id,lineup_number");
 
-  for (const [platform, ev] of Object.entries(lineupEval)) {
+  for (const ev of Object.values(lineupEval)) {
+    const platform = ev.platform;
     ev.lineups.sort((a, b) => a["#"] - b["#"]);
     const pool = projections
       .filter(p => p.platform === platform && Number(p.slate_id) === Number(ev.slateId))
@@ -2306,9 +2385,74 @@ async function runEvaluation(day) {
     ev.porcentajeDeLaPerfecta = perfect && perfect.points > 0 ? `${round(100 * best / perfect.points, 1)}%` : null;
   }
 
+  // COMPARACION DE VERSIONES: cada corrida archivada (manana, tarde,
+  // variantes de prueba) contra el mismo resultado real.
+  const comparacionVersiones = [];
+  try {
+    const [runLineups, runPlayers] = await Promise.all([
+      selectAll("fantasy_nba_lineup_runs", "*", q => q.eq("slate_date", day)),
+      selectAll("fantasy_nba_projection_runs", "*", q => q.eq("slate_date", day))
+    ]);
+    const norm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const realByName = new Map(updates.map(u => [`${u.slate_id}:${norm(u.player_name)}`, u.actual_points]));
+    const realOf = (slateId, pl) => {
+      const byId = pl.player_id ? realById.get(`${slateId}:${pl.player_id}`) : undefined;
+      return byId !== undefined ? byId : realByName.get(`${slateId}:${norm(pl.name)}`);
+    };
+    const perfectBySlate = new Map(Object.values(lineupEval).map(ev => [Number(ev.slateId), ev.perfecta?.real ?? null]));
+
+    const groups = new Map();
+    const archiveUpdates = [];
+    for (const l of runLineups) {
+      const values = (l.players || []).map(pl => realOf(l.slate_id, pl));
+      const missing = values.filter(v => v === undefined || v === null).length;
+      const real = round(values.reduce((s, v) => s + (Number(v) || 0), 0));
+      archiveUpdates.push({ ...l, actual_points: real, evaluated_at: now });
+      const key = `${l.version}|${l.run_at}|${l.slate_id}`;
+      if (!groups.has(key)) groups.set(key, { l, reals: [], missing: 0 });
+      const g = groups.get(key);
+      g.reals.push(real);
+      g.missing += missing;
+    }
+    if (archiveUpdates.length) await upsertAll("fantasy_nba_lineup_runs", archiveUpdates, "run_at,version,slate_id,lineup_number");
+
+    const playerErr = new Map();
+    for (const p of runPlayers) {
+      if (!p.eligible || p.proj_mean === null) continue;
+      const real = realOf(p.slate_id, { player_id: p.player_id, name: p.player_name });
+      if (real === undefined || real === null) continue;
+      const key = `${p.version}|${p.run_at}|${p.slate_id}`;
+      if (!playerErr.has(key)) playerErr.set(key, []);
+      playerErr.get(key).push(Number(p.proj_mean) - Number(real));
+    }
+
+    for (const [key, g] of groups) {
+      const perfect = perfectBySlate.get(Number(g.l.slate_id)) ?? null;
+      const best = Math.max(...g.reals);
+      const e = playerErr.get(key) || [];
+      comparacionVersiones.push({
+        version: g.l.version,
+        corrida: new Intl.DateTimeFormat("es-US", { timeZone: "America/Chicago", hour: "2-digit", minute: "2-digit" }).format(new Date(g.l.run_at)),
+        plataforma: g.l.platform,
+        slate: g.l.slate_id,
+        alineaciones: g.reals.length,
+        mejorReal: best,
+        promedioReal: round(mean(g.reals), 1),
+        perfecta: perfect,
+        porcentajeDeLaPerfecta: perfect ? `${round(100 * best / perfect, 1)}%` : null,
+        errorPromedioJugadores: e.length ? round(mean(e.map(Math.abs)), 2) : null,
+        jugadoresSinResultado: g.missing
+      });
+    }
+    comparacionVersiones.sort((a, b) => String(a.plataforma).localeCompare(String(b.plataforma)) || b.mejorReal - a.mejorReal);
+  } catch (error) {
+    console.warn("Comparacion de versiones:", error.message);
+  }
+
   const summary = {
     date: day,
     partidosEvaluados: gameIds.length,
+    comparacionVersiones,
     partidosSinBoxscoreCompleto: pendingBox,
     titularesAcertados: starterTotal ? `${starterHits}/${starterTotal} (${round(100 * starterHits / starterTotal, 1)}%)` : null,
     equiposConFallosDeTitular: [...byTeam.entries()]
@@ -2372,12 +2516,18 @@ th,td{border:1px solid #1d3550;padding:4px 8px;text-align:left}th{background:#0b
         Error minutos titulares: ${result.errorMinutosTitulares} | banca: ${result.errorMinutosBanca} | sesgo: ${result.sesgoMinutos}<br>
         Calibracion minutos (${result.calibracionMinutos?.jugadores ?? 0} jugadores): mezcla ${result.calibracionMinutos?.errorConLaMezcla} |
         solo esta temporada ${result.calibracionMinutos?.errorSoloEstaTemporada} | solo temporada pasada ${result.calibracionMinutos?.errorSoloTemporadaPasada}</div>`;
+      if (result.comparacionVersiones?.length) {
+        body += `<h2>Comparacion de versiones (mismo resultado real)</h2>`;
+        body += table(result.comparacionVersiones);
+      }
       for (const [platform, p] of Object.entries(result.platforms)) {
         body += `<h2>${escapeHtml(platform)}</h2><div class="box">Jugadores ${p.jugadores} | error promedio ${p.errorPromedio} | sesgo ${p.sesgo} | dentro de ±10: ${p.dentroDe10}</div>`;
         body += table(p.mayoresFallos);
-        const le = result.alineaciones?.[platform];
-        if (le) {
-          body += `<h2>${escapeHtml(platform)} — alineaciones: proyectado vs real</h2>`;
+        const slates = Object.entries(result.alineaciones || {})
+          .filter(([key, x]) => (x.platform || key) === platform)
+          .map(([, x]) => x);
+        for (const le of slates) {
+          body += `<h2>${escapeHtml(platform)} — slate ${escapeHtml(le.slateId)} — alineaciones: proyectado vs real</h2>`;
           body += `<div class="box">Mejor alineacion nuestra: ${le.mejorNuestra} pts | perfecta (sabiendo el resultado): ${le.perfecta?.real ?? "?"} pts | logramos ${le.porcentajeDeLaPerfecta ?? "?"} de la perfecta<br>
             Perfecta: ${escapeHtml(le.perfecta?.jugadores || "")}</div>`;
           body += table(le.lineups);
