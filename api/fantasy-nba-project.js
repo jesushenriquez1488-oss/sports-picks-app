@@ -74,6 +74,7 @@ const CONFIG = {
   maxDepthRank: 2,
   lineupCount: 10,          // alineaciones por casa (de la mas optima a la menos)
   lineupMinDifferent: 2,    // cada alineacion cambia al menos 2 jugadores
+  lineupMaxExposure: 0.4,   // ningun jugador en mas del 40% de las alineaciones
   minProjectedMinutes: 18,
   minHistoryMinutes: 40,
 
@@ -92,6 +93,14 @@ const CONFIG = {
   blowoutMargin: 20,
   strengthPriorGames: 10,
   previousStrengthCarry: 0.65,
+  // Partido de hoy (palizas): localia, cansancio y bajas. Los tres
+  // se MIDEN con tus partidos; si hay pocos casos no se aplican.
+  gameModelMinGames: 150,
+  homeEdgeMax: 5,              // puntos
+  restEdgeMax: 5,              // puntos por jugar 2 noches seguidas
+  missingEdgeMax: 30,          // puntos si faltara el 100% del aporte
+  rotationGames: 10,           // "titulares habituales": ultimos 10 partidos
+  rotationMinApps: 3,
   injuryExitShare: 0.4,
   maxStarterMinutes: 40,
   maxBenchMinutes: 34,
@@ -342,8 +351,14 @@ async function loadHistory(day) {
 
   // Solo partidos ANTES del dia que se proyecta.
   const gameMap = new Map();
+  // Partidos de HOY: quien es local.
+  const todayGames = new Map();
   for (const g of games) {
     const date = nbaDay(g.game_date);
+    if (date === day) {
+      todayGames.set(Number(g.home_team_id), { home: true, opp: Number(g.visitor_team_id) });
+      todayGames.set(Number(g.visitor_team_id), { home: false, opp: Number(g.home_team_id) });
+    }
     if (!date || date >= day) continue;
     const q3 = quarters.get(Number(g.game_id)) || null;
     gameMap.set(Number(g.game_id), {
@@ -381,6 +396,7 @@ async function loadHistory(day) {
         season: g.season,
         date: g.date,
         opp: isHome ? g.visitor : g.home,
+        home: isHome,
         margin,
         q3Margin: q3,
         decided,
@@ -444,7 +460,7 @@ async function loadHistory(day) {
     teams.set(team, [...map.values()].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id));
   }
 
-  return { byPlayer, teamGames: teams, names, gamesCount: gameMap.size };
+  return { byPlayer, teamGames: teams, names, gamesCount: gameMap.size, todayGames };
 }
 
 async function loadToday(day) {
@@ -627,6 +643,136 @@ function buildProfiles(teamGames) {
   blowout.probability = (team, opp) => blowout.binProbabilities(team, opp)[MARGIN_BINS.length - 1];
 
   return { profiles, league, blowout, usage, strength };
+}
+
+// ============================================================
+// PARTIDO DE HOY: ¿que tan desparejo es? (palizas)
+// ============================================================
+// Diferencia esperada = nivel del equipo - nivel del rival
+//   + LOCALIA   (cuanto gana de mas el local)
+//   + CANSANCIO (cuanto pierde quien jugo la noche anterior)
+//   + BAJAS     (cuanto pierde un equipo segun el aporte de sus
+//                titulares habituales que no juegan)
+// Los tres numeros se MIDEN con tus partidos (regresion sobre la
+// diferencia real). Con pocos casos no se aplican, y cada uno tiene
+// un limite para que nunca "ensucie" la proyeccion.
+
+// Aporte de un jugador en un partido (puntos DK sin bonos).
+const playerValue = r => r.pts + 1.25 * r.reb + 1.5 * r.ast + 2 * r.stl + 2 * r.blk - 0.5 * r.tov + 0.5 * r.fg3m;
+
+const daysBetween = (a, b) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 86400000);
+
+// Titulares/rotacion habitual antes de un partido: los que jugaron
+// 3+ de los ultimos 10 partidos del equipo con 18+ minutos de promedio.
+function rotationBefore(list, index) {
+  const prev = list.slice(index + 1, index + 1 + CONFIG.rotationGames);
+  const acc = new Map();
+  for (const g of prev) {
+    for (const [id, r] of g.rows) {
+      const a = acc.get(id) || { apps: 0, min: 0, value: 0 };
+      a.apps++;
+      a.min += r.min;
+      a.value += playerValue(r);
+      acc.set(id, a);
+    }
+  }
+  const rotation = new Map();
+  for (const [id, a] of acc) {
+    if (a.apps >= CONFIG.rotationMinApps && a.min / a.apps >= CONFIG.importantMateMinutes) {
+      rotation.set(id, a.value / a.apps);
+    }
+  }
+  return rotation;
+}
+
+// Parte del aporte habitual que falta (0 = completo, 1 = no queda nadie).
+function missingShare(rotation, missingIds) {
+  let total = 0, miss = 0;
+  for (const [id, v] of rotation) {
+    total += v;
+    if (missingIds.has(id)) miss += v;
+  }
+  return total > 0 ? miss / total : 0;
+}
+
+function solve3(A, b) {
+  // Eliminacion de Gauss 3x3.
+  const m = A.map((row, i) => [...row, b[i]]);
+  for (let c = 0; c < 3; c++) {
+    let p = c;
+    for (let r = c + 1; r < 3; r++) if (Math.abs(m[r][c]) > Math.abs(m[p][c])) p = r;
+    [m[c], m[p]] = [m[p], m[c]];
+    if (Math.abs(m[c][c]) < 1e-9) return null;
+    for (let r = 0; r < 3; r++) {
+      if (r === c) continue;
+      const f = m[r][c] / m[c][c];
+      for (let k = c; k < 4; k++) m[r][k] -= f * m[c][k];
+    }
+  }
+  return m.map((row, i) => row[3] / m[i][i]);
+}
+
+function buildGameModel(teamGames, strength) {
+  const info = new Map();   // `${team}|${gameId}` -> { miss, b2b, home, decided }
+  for (const [team, list] of teamGames) {
+    list.forEach((g, i) => {
+      const rotation = rotationBefore(list, i);
+      const missing = new Set([...rotation.keys()].filter(id => !g.rows.has(id)));
+      const prev = list[i + 1];
+      info.set(`${team}|${g.id}`, {
+        miss: g.rows.size ? missingShare(rotation, missing) : null,
+        b2b: prev ? (daysBetween(prev.date, g.date) === 1 ? 1 : 0) : 0,
+        home: g.home,
+        decided: g.decided,
+        team,
+        opp: g.opp
+      });
+    });
+  }
+
+  // Una observacion por partido (desde el local).
+  const obs = [];
+  for (const [key, a] of info) {
+    if (!a.home || a.miss === null) continue;
+    const b = info.get(`${a.opp}|${key.split("|")[1]}`);
+    if (!b || b.miss === null) continue;
+    const base = (strength.get(a.team) ?? 0) - (strength.get(a.opp) ?? 0);
+    obs.push({ y: a.decided - base, x1: b.miss - a.miss, x2: b.b2b - a.b2b });
+  }
+
+  const fallback = { home: 0, missing: 0, rest: 0 };
+  let coef = fallback;
+  let fitted = false;
+  if (obs.length >= CONFIG.gameModelMinGames) {
+    const A = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+    const v = [0, 0, 0];
+    for (const o of obs) {
+      const x = [1, o.x1, o.x2];
+      for (let i = 0; i < 3; i++) {
+        v[i] += x[i] * o.y;
+        for (let j = 0; j < 3; j++) A[i][j] += x[i] * x[j];
+      }
+    }
+    const sol = solve3(A, v);
+    if (sol) {
+      coef = {
+        home: clamp(sol[0], 0, CONFIG.homeEdgeMax),
+        missing: clamp(sol[1], 0, CONFIG.missingEdgeMax),
+        rest: clamp(sol[2], 0, CONFIG.restEdgeMax)
+      };
+      fitted = true;
+    }
+  }
+
+  const residuals = obs.map(o => o.y - (coef.home + coef.missing * o.x1 + coef.rest * o.x2));
+  return {
+    coef,
+    fitted,
+    games: obs.length,
+    b2bGames: obs.filter(o => o.x2 !== 0).length,
+    gamesWithMissing: obs.filter(o => o.x1 !== 0).length,
+    marginSd: std(residuals) || null
+  };
 }
 
 // Cuanto cambian los minutos de UN MISMO jugador segun la
@@ -1486,6 +1632,49 @@ async function runProjection(day = chicagoDay()) {
 
   ctx.opponents = opponents;
 
+  // ---- Partido de hoy: localia, cansancio y bajas ----
+  const gameModel = buildGameModel(history.teamGames, models.strength);
+  const todayInfo = new Map();
+  for (const team of new Set(today.slatePlayers.map(p => Number(p.team_id)))) {
+    const list = history.teamGames.get(team) || [];
+    const rotation = rotationBefore(list, -1);
+    const outIds = new Set((depthByTeam.get(team) || [])
+      .filter(d => d.nba_player_id && statusOf(d, ctx) === "OUT")
+      .map(d => Number(d.nba_player_id)));
+    const tg = history.todayGames.get(team);
+    todayInfo.set(team, {
+      miss: missingShare(rotation, outIds),
+      b2b: list[0] && daysBetween(list[0].date, day) === 1 ? 1 : 0,
+      home: tg ? (tg.home ? 1 : -1) : 0
+    });
+  }
+  const expectedMargin = (team, opp) => {
+    const a = todayInfo.get(team) || { miss: 0, b2b: 0, home: 0 };
+    const b = todayInfo.get(opp) || { miss: 0, b2b: 0, home: 0 };
+    const c = gameModel.coef;
+    return {
+      total: (models.strength.get(team) ?? 0) - (models.strength.get(opp) ?? 0) +
+        c.home * a.home + c.missing * (b.miss - a.miss) + c.rest * (b.b2b - a.b2b),
+      nivel: (models.strength.get(team) ?? 0) - (models.strength.get(opp) ?? 0),
+      localia: c.home * a.home,
+      bajas: c.missing * (b.miss - a.miss),
+      cansancio: c.rest * (b.b2b - a.b2b)
+    };
+  };
+  if (gameModel.fitted && gameModel.marginSd) models.blowout.marginSd = gameModel.marginSd;
+  models.blowout.binProbabilities = (team, opp) => {
+    const mu = expectedMargin(team, opp).total;
+    const sd = models.blowout.marginSd;
+    return MARGIN_BINS.map((b, i) => {
+      if (i === 0) return normalCdf((b.hi - mu) / sd) - normalCdf((-b.hi - mu) / sd);
+      const p = (lo, hi) => normalCdf((hi - mu) / sd) - normalCdf((lo - mu) / sd);
+      return b.hi === Infinity
+        ? (1 - normalCdf((b.lo - mu) / sd)) + normalCdf((-b.lo - mu) / sd)
+        : p(b.lo, b.hi) + p(-b.hi, -b.lo);
+    });
+  };
+  models.blowout.probability = (team, opp) => models.blowout.binProbabilities(team, opp)[MARGIN_BINS.length - 1];
+
   // Revisar que TODOS los equipos del slate tengan depth chart.
   const slateTeams = [...new Set(today.slatePlayers.map(p => Number(p.team_id)))];
   const missingDepth = slateTeams
@@ -1600,7 +1789,18 @@ async function runProjection(day = chicagoDay()) {
             temporadaPasada: round(row.baseline?.previous, 1),
             estiloEquipo: round(row.teamPrior, 1),
             mezcla: round(row.base, 1),
-            probabilidadPaliza: round(row.blowoutProbability, 3),
+            probabilidadPaliza: round(row.blowoutProbability, 3),   // por 30+ puntos
+            paliza20oMas: (() => {
+              const o = opponents.get(Number(p.team_id));
+              if (!o) return null;
+              return round(models.blowout.binProbabilities(Number(p.team_id), o).slice(3).reduce((a, b) => a + b, 0), 3);
+            })(),
+            diferenciaEsperada: (() => {
+              const o = opponents.get(Number(p.team_id));
+              if (!o) return null;
+              const m = expectedMargin(Number(p.team_id), o);
+              return { total: round(m.total, 1), nivel: round(m.nivel, 1), localia: round(m.localia, 1), bajas: round(m.bajas, 1), cansancio: round(m.cansancio, 1) };
+            })(),
             ajustePartido: round(row.blowoutFactor, 3),
             entraAJugar: round(row.appearance, 2),
             juega15MasMinutos: row.playShare === null || row.playShare === undefined ? null : round(row.playShare, 2),
@@ -1631,7 +1831,7 @@ async function runProjection(day = chicagoDay()) {
       salary: Number(x.p.salary),
       points: x.f[platform].mean,
       positions: x.p.positions
-    })), { count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent });
+    })), { count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure });
 
     lineupRows.push(...lineupResult.lineups.map(l => ({
       slate_id: Number(slate.slate_id),
@@ -1757,6 +1957,10 @@ async function runProjection(day = chicagoDay()) {
     seconds: (Date.now() - t0) / 1000,
     historyGames: history.gamesCount,
     medido: {
+      partidoDeHoy: gameModel.fitted
+        ? `localia +${round(gameModel.coef.home, 1)} pts | por cada 10% del aporte habitual que falta ${round(gameModel.coef.missing / 10, 1)} pts | jugar 2 noches seguidas -${round(gameModel.coef.rest, 1)} pts | ` +
+          `${gameModel.games} partidos (${gameModel.b2bGames} con cansancio distinto, ${gameModel.gamesWithMissing} con bajas) | diferencia real vs esperada: +-${round(models.blowout.marginSd, 1)} pts`
+        : `sin datos suficientes (${gameModel.games} partidos): no se aplica`,
       suplenteATitular: models.roleChange.up
         ? `x${round(models.roleChange.up, 2)} minutos (${models.roleChange.samples} casos)`
         : `sin evidencia suficiente (${models.roleChange.samples} casos)`,
@@ -2139,3 +2343,4 @@ module.exports.runProjection = runProjection;
 module.exports.runEvaluation = runEvaluation;
 module.exports.shiftDay = shiftDay;
 module.exports.chicagoDay = chicagoDay;
+module.exports.buildGameModel = buildGameModel;
