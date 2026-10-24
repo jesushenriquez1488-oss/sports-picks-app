@@ -72,8 +72,11 @@ const CONFIG = {
   shareHalfLife: 3,
 
   // Peso del rol del depth chart cuando el jugador tiene historial.
-  // Con 6 partidos propios el historial pesa ~86% (tu regla: casi
-  // todo el peso a esta temporada).
+  // El promedio propio usa recencia (los ultimos partidos pesan mas),
+  // pero cuanto pesa frente al rol se cuenta en PARTIDOS jugados:
+  // snaps: 6 partidos -> 6/(6+1) = 86% propio, 14% rol.
+  // targets/acarreos: 6 partidos -> 6/(6+2) = 75% propio.
+  // (tu regla: casi todo el peso a esta temporada)
   snapPriorGames: 1,
   sharePriorGames: 2,
   // Si el depth chart le da un rol MAYOR al que venia jugando
@@ -118,8 +121,8 @@ const CONFIG = {
   // Lesiones: la parte del que no juega va el doble a su misma
   // posicion (ej. targets de un WR a los otros WR).
   samePositionBoost: 1.5,
-  // Confianza en el "con / sin" medido: partidos sin el jugador /
-  // (partidos sin el jugador + 2).
+  // Confianza en el "con / sin" medido de cada companero: partidos
+  // sin el jugador / (partidos sin el jugador + 2).
   withoutPriorGames: 2,
 
   // Roles con historial minimo para entrar al reparto.
@@ -402,7 +405,11 @@ function buildPlayerHistory({ season, asOfDate, playerGames, expected, snaps, te
       car: num(r.rushing_attempts), rushYds: num(r.rushing_yards), rushTd: num(r.rushing_tds),
       att: num(r.passing_attempts), comp: num(r.completions), passYds: num(r.passing_yards), passTd: num(r.passing_tds),
       int: num(r.interceptions), fumbles: num(r.fumbles_lost), twoPt: num(r.two_point_conversions),
-      recTdX: e ? num(e.rec_td_exp) : null, rushTdX: e ? num(e.rush_td_exp) : null, passTdX: e ? num(e.pass_td_exp) : null,
+      // Si falta el TD esperado de ese partido, se usa el TD real de ese
+      // partido (nunca se cuenta como cero).
+      recTdX: e && e.rec_td_exp !== null && e.rec_td_exp !== undefined ? num(e.rec_td_exp) : num(r.receiving_tds),
+      rushTdX: e && e.rush_td_exp !== null && e.rush_td_exp !== undefined ? num(e.rush_td_exp) : num(r.rushing_tds),
+      passTdX: e && e.pass_td_exp !== null && e.pass_td_exp !== undefined ? num(e.pass_td_exp) : num(r.passing_tds),
       ppr: pprPoints(r),
       teamTgt: tg.targets, teamCar: tg.carries, teamAtt: tg.pass_attempts,
       snaps: null, snapPct: null
@@ -864,17 +871,20 @@ function teamShares(ctx, team, candidates) {
     const mSnap = promoted ? CONFIG.promotedPriorGames : CONFIG.snapPriorGames;
     const mShare = promoted ? CONFIG.promotedPriorGames : CONFIG.sharePriorGames;
 
-    const blend = (own, nEff, pr, m) => (own === null || nEff === 0 ? pr : (own * nEff + pr * m) / (nEff + m));
+    // n = partidos jugados (no el peso por recencia).
+    const blend = (own, n, pr, m) => (own === null || n === 0 ? pr : (own * n + pr * m) / (n + m));
+    const nSnap = list.filter(g => g.snapPct !== null && g.snapPct !== undefined).length;
+    const nTeam = key => list.filter(g => g[key] > 0).length;
 
     return {
       ...c,
       games: list.length,
       playedRecently: list.some(g => recentDates.has(g.game_date)),
       promoted,
-      snapPct: clamp(blend(snap.mean, snap.nEff, prior.snap, mSnap), 0, 1),
-      tshare: blend(ts.d > 0 ? ts.share : null, ts.d > 0 ? ts.nEff : 0, prior.tshare, mShare),
-      cshare: blend(cs.d > 0 ? cs.share : null, cs.d > 0 ? cs.nEff : 0, prior.cshare, mShare),
-      pshare: c.position === "QB" ? blend(ps.d > 0 ? ps.share : null, ps.d > 0 ? ps.nEff : 0, prior.pshare, mShare) : 0,
+      snapPct: clamp(blend(snap.mean, nSnap, prior.snap, mSnap), 0, 1),
+      tshare: blend(ts.d > 0 ? ts.share : null, nTeam("teamTgt"), prior.tshare, mShare),
+      cshare: blend(cs.d > 0 ? cs.share : null, nTeam("teamCar"), prior.cshare, mShare),
+      pshare: c.position === "QB" ? blend(ps.d > 0 ? ps.share : null, nTeam("teamAtt"), prior.pshare, mShare) : 0,
       history: list
     };
   });
@@ -889,38 +899,40 @@ function teamShares(ctx, team, candidates) {
       if (!(lost > 0)) continue;
 
       // Partidos de esta temporada en que ESE jugador no estuvo:
-      // cuanto subio cada companero (el "con / sin" medido).
+      // cuanto subio cada companero (el "con / sin" medido). Cada
+      // subida se acerca a cero si hay pocos partidos sin el.
       const withoutDates = new Set(dates.filter(d => !m.history.some(g => g.game_date === d)));
+      const den = key === "tshare" ? "teamTgt" : key === "cshare" ? "teamCar" : "teamAtt";
+      const numKey = key === "tshare" ? "tgt" : key === "cshare" ? "car" : "att";
       const gains = new Map();
-      let nWithout = 0;
       for (const j of ok) {
         const wo = j.history.filter(g => withoutDates.has(g.game_date));
         const wi = j.history.filter(g => !withoutDates.has(g.game_date));
-        nWithout = Math.max(nWithout, wo.length);
         if (wo.length && wi.length) {
-          const den = key === "tshare" ? "teamTgt" : key === "cshare" ? "teamCar" : "teamAtt";
-          const num = key === "tshare" ? "tgt" : key === "cshare" ? "car" : "att";
-          const a = sum(wo, g => g[num]) / Math.max(1, sum(wo, g => g[den]));
-          const b = sum(wi, g => g[num]) / Math.max(1, sum(wi, g => g[den]));
-          gains.set(j.gsis, Math.max(0, a - b));
+          const a = sum(wo, g => g[numKey]) / Math.max(1, sum(wo, g => g[den]));
+          const b = sum(wi, g => g[numKey]) / Math.max(1, sum(wi, g => g[den]));
+          const trust = wo.length / (wo.length + CONFIG.withoutPriorGames);
+          gains.set(j.gsis, Math.max(0, a - b) * trust);
         }
       }
 
-      // Reparto por defecto: proporcional a lo que ya tiene cada uno,
-      // el doble para la misma posicion.
+      // 1) A cada companero, lo que se midio que subio (nunca mas de
+      //    lo que deja el que no juega).
+      const measured = [...gains.values()].reduce((s, v) => s + v, 0);
+      const scale = measured > lost ? lost / measured : 1;
+      // 2) Lo que sobra, repartido proporcional a lo que ya tiene cada
+      //    uno (un poco mas para la misma posicion).
+      const remainder = lost - measured * scale;
       const weights = ok.map(j => {
         const same = sameGroup(m, j);
         return { j, w: j[key] * (same ? CONFIG.samePositionBoost : 1) * (same || key === "tshare" ? 1 : 0) };
       });
       const wTotal = weights.reduce((s, x) => s + x.w, 0);
-      const measured = [...gains.values()].reduce((s, v) => s + v, 0);
-      const trust = measured > 0 ? nWithout / (nWithout + CONFIG.withoutPriorGames) : 0;
 
       for (const { j, w } of weights) {
-        const byDefault = wTotal > 0 ? lost * w / wTotal : 0;
-        const byData = measured > 0 ? lost * (gains.get(j.gsis) || 0) / measured : 0;
-        j[key] += (1 - trust) * byDefault + trust * byData;
-        j.inherits = (j.inherits || 0) + (1 - trust) * byDefault + trust * byData;
+        const add = (gains.get(j.gsis) || 0) * scale + (wTotal > 0 ? remainder * w / wTotal : 0);
+        j[key] += add;
+        j.inherits = (j.inherits || 0) + add;
       }
     }
   };
