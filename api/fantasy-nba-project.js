@@ -84,6 +84,10 @@ const CONFIG = {
   // sus minutos) contra cuanto puede cambiar un rol de una
   // temporada a otra. Con 2 partidos esta temporada pesa ~75%.
   seasonShiftSd: 6,
+  // +10 puntos de peso a esta temporada en los minutos (decision
+  // tuya, 24-oct: la evaluacion mostro que "solo esta temporada"
+  // erro menos que la mezcla: 4.9 vs 5.6 minutos).
+  currentWeightBoost: 0.10,
   teamPriorGames: 3,
   currentDecay: 0.85,
   previousDecay: 0.95,
@@ -127,8 +131,20 @@ const CONFIG = {
   rateGames: 80,
   rateDecay: 0.97,
   currentRateWeight: 1.5,
-  leaguePriorMinutes: 150,
-  rolePriorMinutes: 300,
+  // Temporada pasada (mismo equipo y rol) = 1 partido de peso.
+  previousSeasonGames: 1,
+  // Si cambio de equipo (mismo rol): medio partido, y se quita
+  // cuando ya tiene 8 partidos con el equipo nuevo.
+  previousOtherTeamGames: 0.5,
+  otherTeamDropGames: 8,
+  previousRateGames: 30,
+  // Partidos que no cuentan: salio antes (<60% de sus minutos
+  // normales) o paliza donde lo sentaron (<80%).
+  rateShortShare: 0.6,
+  rateBlowoutShare: 0.8,
+  // Noche rara: con 3+ partidos se recorta a +-35% de su mediana.
+  outlierMinGames: 3,
+  outlierBand: 0.35,
   archetypeMinMinutes: 200,
   usageMin: 0.92,
   usageMax: 1.12,
@@ -1092,7 +1108,9 @@ function roleBaseline(id, team, role, order, profile, ctx) {
   // estable que es el jugador. Si un jugador de minutos estables
   // cambia de 20 a 36, se le cree rapido.
   const k = (sd * sd) / (CONFIG.seasonShiftSd * CONFIG.seasonShiftSd);
-  const w = curGamesEffective / (curGamesEffective + k);
+  const w = cur.length
+    ? Math.min(1, curGamesEffective / (curGamesEffective + k) + CONFIG.currentWeightBoost)
+    : 0;
   const base = cur.length ? w * curEst.value + (1 - w) * prevBlend : prevBlend;
 
   return {
@@ -1413,45 +1431,142 @@ function projectTeam(team, ctx) {
 // PASO 3, 4 Y 5: PRODUCCION, DEFENSA, SIMULACION
 // ============================================================
 
-function playerRates(row, ctx) {
-  const rows = (ctx.byPlayer.get(row.id) || [])
-    .filter(r => r.min >= CONFIG.rateMinMinutes)
-    .slice(0, CONFIG.rateGames);
-  const totalMinutes = rows.reduce((s, r) => s + r.min, 0);
-  const type = ctx.models.types.get(row.id) || null;
-  const league =
-    ctx.models.leagueRates[`${type}:${row.role}`] ||
-    ctx.models.leagueRates[`ALL:${row.role}`];
+// PRODUCCION POR MINUTO (aprobado el 24-oct):
+//   1. Solo SUS partidos. Nada de promedio de liga.
+//   2. Temporada actual: sus partidos con ESTE equipo y en ESTE rol
+//      (titular o banca). Si no tiene en ese rol, sus partidos de
+//      esta temporada con este equipo en cualquier rol.
+//   3. Temporada pasada: solo si fue con el mismo equipo y el mismo
+//      rol, con mas peso a los ultimos juegos, y vale como UN partido.
+//      1 partido actual = 50/50, 2 = 67/33, 10 = 91/9.
+//   4. Se descartan los partidos donde salio antes (lesion,
+//      expulsion: menos del 60% de sus minutos normales) y los de
+//      paliza en los que de verdad lo sentaron (menos del 80%).
+//   5. Con 3 o mas partidos, una noche fuera de lo normal se recorta
+//      a +-35% de su mediana: un 80 no arrastra a un jugador de 40.
+//      Con 2 partidos es promedio simple (no se sabe cual es el raro).
+function rateGameFilter(rows) {
+  const normal = rows.filter(r => !r.blowout);
+  const typical = median((normal.length >= 2 ? normal : rows).map(r => r.min));
+  if (!typical) return { valid: rows, dropped: [] };
+  const valid = [];
+  const dropped = [];
+  for (const r of rows) {
+    if (r.min < CONFIG.rateShortShare * typical) dropped.push({ r, why: "SALIO_ANTES" });
+    else if (r.blowout && r.min < CONFIG.rateBlowoutShare * typical) dropped.push({ r, why: "PALIZA" });
+    else valid.push(r);
+  }
+  return { valid, dropped, typical };
+}
 
-  const w = (r, i) => Math.pow(CONFIG.rateDecay, i) * (r.season === CUR ? CONFIG.currentRateWeight : 1);
-  const roleRows = rows.filter(r => r.starter === (row.role === "S"));
+function capOutliers(rows) {
+  if (rows.length < CONFIG.outlierMinGames) return { rows, capped: 0 };
+  const per = rows.map(r => scoreDK(r) / r.min);
+  const med = median(per);
+  if (!(med > 0)) return { rows, capped: 0 };
+  let capped = 0;
+  const out = rows.map((r, i) => {
+    const target = clamp(per[i], (1 - CONFIG.outlierBand) * med, (1 + CONFIG.outlierBand) * med);
+    if (Math.abs(target - per[i]) < 1e-9 || !(per[i] > 0)) return r;
+    capped++;
+    const f = target / per[i];
+    const c = { ...r, capped: round(f, 3) };
+    for (const k of RATE_KEYS) c[k] = r[k] * f;
+    return c;
+  });
+  return { rows: out, capped };
+}
 
+function blockRates(rows) {
+  if (!rows.length) return null;
   const rates = {};
   for (const k of RATE_KEYS) {
     let s = 0;
     let m = 0;
     rows.forEach((r, i) => {
-      s += w(r, i) * r[k];
-      m += w(r, i) * r.min;
+      const w = Math.pow(CONFIG.rateDecay, i);
+      s += w * r[k];
+      m += w * r.min;
     });
-    const overall = (s + CONFIG.leaguePriorMinutes * league[k]) / (m + CONFIG.leaguePriorMinutes);
+    rates[k] = m > 0 ? s / m : 0;
+  }
+  return rates;
+}
 
-    let rs = 0;
-    let rm = 0;
-    roleRows.forEach((r, i) => {
-      rs += w(r, i) * r[k];
-      rm += w(r, i) * r.min;
-    });
-    const base = (rs + CONFIG.rolePriorMinutes * overall) / (rm + CONFIG.rolePriorMinutes);
+function playerRates(row, ctx, team) {
+  const teamId = team ?? row.team ?? null;
+  const isRole = r => r.starter === (row.role === "S");
+  const all = (ctx.byPlayer.get(row.id) || []).filter(r => r.min >= CONFIG.rateMinMinutes);
+  const type = ctx.models.types.get(row.id) || null;
+
+  const curTeam = all.filter(r => r.season === CUR && (teamId === null || r.team === teamId));
+
+  // Partidos validos (sin salidas por lesion ni palizas donde lo sentaron).
+  const fCur = rateGameFilter(curTeam);
+
+  let curRows = fCur.valid.filter(isRole);
+  let curBasis = "temporada actual, mismo equipo y rol";
+  if (!curRows.length && fCur.valid.length) {
+    curRows = fCur.valid;
+    curBasis = "temporada actual, mismo equipo (otro rol)";
+  }
+
+  const cur = capOutliers(curRows);
+  const rCur = blockRates(cur.rows);
+  const n = cur.rows.length;
+
+  // Temporada pasada, siempre en su MISMO rol:
+  //  - con este mismo equipo: vale 1 partido;
+  //  - si cambio de equipo: vale medio partido y deja de contar
+  //    cuando ya tiene 8 partidos validos con el equipo nuevo.
+  const prevRole = all.filter(r => r.season === PREV && isRole(r));
+  let prevRows = prevRole.filter(r => teamId === null || r.team === teamId);
+  let prevWeight = CONFIG.previousSeasonGames;
+  let prevBasis = "mismo equipo y rol";
+  if (!prevRows.length) {
+    prevRows = n < CONFIG.otherTeamDropGames ? prevRole : [];
+    prevWeight = CONFIG.previousOtherTeamGames;
+    prevBasis = "otro equipo, mismo rol";
+  }
+  const fPrev = rateGameFilter(prevRows.slice(0, CONFIG.previousRateGames));
+  const prev = capOutliers(fPrev.valid);
+  const rPrev = blockRates(prev.rows);
+
+  const p = rPrev ? prevWeight : 0;
+  const used = [...cur.rows, ...prev.rows];
+  const totalMinutes = used.reduce((s, r) => s + r.min, 0);
+
+  if (!rCur && !rPrev) {
+    return { rates: null, rows: [], roleGames: 0, totalMinutes: 0, type, info: { basis: "sin partidos validos" } };
+  }
+
+  const curWeight = n / (n + p);
+  const rates = {};
+  for (const k of RATE_KEYS) {
+    const base = (n * (rCur?.[k] || 0) + p * (rPrev?.[k] || 0)) / (n + p);
     rates[k] = Math.max(0, base + (row.injury?.rates?.[k] || 0));
   }
 
-  return { rates, rows, roleGames: roleRows.length, totalMinutes, type };
+  return {
+    rates,
+    rows: used,
+    roleGames: cur.rows.filter(isRole).length,
+    totalMinutes,
+    type,
+    info: {
+      basis: (n ? curBasis : "sin partidos este ano") + (rPrev ? ` + temporada pasada (${prevBasis}, vale ${p} partido)` : ""),
+      currentGames: n,
+      previousGames: prev.rows.length,
+      currentWeight: round(curWeight, 2),
+      dropped: [...fCur.dropped, ...fPrev.dropped].map(d => `${d.r.date} ${d.why} (${round(d.r.min, 0)} min)`),
+      capped: cur.capped + prev.capped
+    }
+  };
 }
 
 function projectFantasy(row, team, opp, usageFactor, ctx) {
-  const pr = playerRates(row, ctx);
-  if (pr.totalMinutes < CONFIG.minHistoryMinutes) return { excluded: "POCO_HISTORIAL" };
+  const pr = playerRates(row, ctx, team);
+  if (!pr.rates) return { excluded: "POCO_HISTORIAL" };
 
   const type = pr.type || "TIRADOR";
   const rates = { ...pr.rates };
@@ -1540,6 +1655,12 @@ function projectFantasy(row, team, opp, usageFactor, ctx) {
       jugadasPor36: round(pr.rates.use * 36, 1),
       porCada36Min: Object.fromEntries(STATS.map(k => [k, round(pr.rates[k] * 36, 1)])),
       partidosEnEseRol: pr.roleGames,
+      produccionBase: pr.info.basis,
+      partidosTemporadaActual: pr.info.currentGames,
+      partidosTemporadaPasada: pr.info.previousGames,
+      pesoTemporadaActual: pr.info.currentWeight,
+      partidosDescartados: pr.info.dropped,
+      nochesRecortadas: pr.info.capped,
       repartoJugadasEquipo: round(usageFactor, 3),
       defensaRival: tier,
       defensaRivalFactor: round(oppDk, 3),
@@ -1693,8 +1814,9 @@ async function runProjection(day = chicagoDay()) {
   for (const tp of teamProjections.values()) {
     let used = 0;
     for (const r of tp.rows) {
-      const rate = r.id
-        ? playerRates(r, ctx).rates.use
+      const own = r.id ? playerRates(r, ctx, tp.team).rates : null;
+      const rate = own
+        ? own.use
         : (models.leagueRates[`ALL:${r.role}`]?.use || 0);
       used += rate * r.minutes;
     }
