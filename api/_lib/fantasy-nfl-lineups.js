@@ -204,7 +204,10 @@ function solveOne(pool, rule, previous, minDifferent, nodeLimit) {
 }
 
 // players: [{ id, name, salary, points, positions:[QB|RB|WR|TE|DST], gameId, team }]
-function buildLineups(platform, players, { count = 10, minDifferent = 2, nodeLimit = 5e6 } = {}) {
+// maxExposure: parte maxima de las alineaciones en que puede salir un
+// mismo jugador (0.4 = 40%: con 10 alineaciones, maximo 4). Asi una
+// lesion o una paliza no hunde todas las alineaciones.
+function buildLineups(platform, players, { count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1 } = {}) {
   const rule = RULES[platform];
   if (!rule) return { status: "PLATAFORMA_NO_SOPORTADA", lineups: [] };
 
@@ -216,12 +219,17 @@ function buildLineups(platform, players, { count = 10, minDifferent = 2, nodeLim
   const lineups = [];
   let allOptimal = true;
 
+  const maxUses = Math.max(1, Math.floor(maxExposure * count + 1e-9));
+  const uses = new Map();
+
   for (let k = 0; k < count; k++) {
-    const r = solveOne(pool, rule, lineups.map(l => l.players), minDifferent, nodeLimit);
+    const available = pool.filter(p => (uses.get(p.id) || 0) < maxUses);
+    const r = solveOne(available, rule, lineups.map(l => l.players), minDifferent, nodeLimit);
     if (!r.complete) allOptimal = false;
     if (!r.best) break;
 
     const ordered = r.best.slots.map((pi, s) => ({ slot: rule.slots[s], ...r.best.players[pi] }));
+    for (const pl of r.best.players) uses.set(pl.id, (uses.get(pl.id) || 0) + 1);
     lineups.push({
       number: k + 1,
       players: ordered,
