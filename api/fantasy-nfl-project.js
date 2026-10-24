@@ -244,20 +244,29 @@ function availabilityFor({ now, kickoffOf, playersByGsis, injuryIdx, depthByGsis
       return { ok: false, reason: `ROSTER_${str(p.roster_status).toUpperCase()}` };
     }
 
+    // Cada fuente con su estado y CUANDO se leyo ese estado.
     const inj = p.espn_athlete_id ? injuryIdx.byEspn.get(str(p.espn_athlete_id)) : null;
-    const statuses = [
-      inj ? (inj.normalized_status || inj.raw_status) : null,
-      depthByGsis.get(gsis)?.espn_injury || null,
-      slateStatus.get(gsis) || null
-    ].map(classify);
+    const depth = depthByGsis.get(gsis);
+    const slate = slateStatus.get(gsis);
+    const sources = [
+      inj ? { status: classify(inj.normalized_status || inj.raw_status), at: Date.parse(inj.last_seen_at || inj.updated_at || "") } : null,
+      depth ? { status: classify(depth.espn_injury), at: Date.parse(depth.checked_at || "") } : null,
+      slate ? { status: classify(slate.status), at: Date.parse(slate.checked_at || "") } : null
+    ].filter(x => x && x.status);
 
-    if (statuses.includes("OUT")) return { ok: false, reason: "LESION_OUT" };
+    if (sources.some(x => x.status === "OUT")) return { ok: false, reason: "LESION_OUT" };
 
-    if (statuses.includes("Q")) {
+    if (sources.some(x => x.status === "Q")) {
+      // Un "Questionable" solo entra si:
+      // 1) ya salieron los inactivos de SU partido (90 min antes), y
+      // 2) CADA fuente que lo marca en duda volvio a leer a ESE jugador
+      //    despues de los inactivos y sigue sin ponerlo "Out".
+      // (Si lo dejaron inactivo, las fuentes lo cambian a "Out".)
       const kickoff = kickoffOf(team);
-      const released = kickoff && now.getTime() >= kickoff.getTime() - CONFIG.inactivesMinutesBefore * 60000;
-      const fresh = kickoff && injuryIdx.freshest >= kickoff.getTime() - CONFIG.inactivesMinutesBefore * 60000;
-      if (!released || !fresh) return { ok: false, reason: "DUDA_ANTES_DE_INACTIVOS", questionable: true };
+      const release = kickoff ? kickoff.getTime() - CONFIG.inactivesMinutesBefore * 60000 : Infinity;
+      if (now.getTime() < release) return { ok: false, reason: "DUDA_ANTES_DE_INACTIVOS", questionable: true };
+      const stale = sources.filter(x => x.status === "Q" && !(x.at >= release));
+      if (stale.length) return { ok: false, reason: "DUDA_SIN_ACTUALIZAR_DESPUES_DE_INACTIVOS", questionable: true };
       return { ok: true, questionable: true };
     }
     return { ok: true };
@@ -307,7 +316,13 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
   const names = new Map(hist.players.map(p => [p.gsis_player_id, p.player_name]));
   const injuryIdx = injuryIndex(todayData.injuries);
   const depthByGsis = new Map(todayData.depth.filter(d => d.gsis_player_id).map(d => [d.gsis_player_id, d]));
-  const slateStatus = new Map(todayData.slatePlayers.filter(s => s.gsis_player_id && s.status).map(s => [s.gsis_player_id, s.status]));
+  // Estado de cada jugador en los salarios (el mas reciente).
+  const slateStatus = new Map();
+  for (const sp of todayData.slatePlayers) {
+    if (!sp.gsis_player_id || !sp.status) continue;
+    const prev = slateStatus.get(sp.gsis_player_id);
+    if (!prev || String(sp.checked_at) > String(prev.checked_at)) slateStatus.set(sp.gsis_player_id, { status: sp.status, checked_at: sp.checked_at });
+  }
   const gameOfTeam = new Map();
   for (const g of games) {
     if (!gameOfTeam.has(g.home_team)) gameOfTeam.set(g.home_team, g);
@@ -592,21 +607,33 @@ async function runEvaluation() {
     const sps = slatePlayers.filter(s => Number(s.slate_id) === Number(slate.slate_id));
     const teams = new Set(sps.map(s => teamCode(s.team)));
 
-    // ¿Ya estan cargados los partidos de todos los equipos?
-    const loaded = [...teams].every(t => teamStats.some(g => g.team === t && Date.parse(`${g.game_date}T23:59:00Z`) >= Date.parse(slate.starts_at) - 86400000));
-    if (!loaded || Date.now() < lastStart + 5 * 3600000) {
-      results.push({ slate: slate.slate_id, estado: "ESPERANDO_RESULTADOS" });
+    // Partido de cada equipo en este slate (el primero desde el cierre).
+    const since = Date.parse(slate.starts_at) - 86400000;
+    const teamGame = team => teamStats
+      .filter(g => g.team === team && Date.parse(`${String(g.game_date).slice(0, 10)}T12:00:00Z`) >= since)
+      .sort((a, b) => String(a.game_date).localeCompare(String(b.game_date)))[0] || null;
+
+    // ¿Ya esta TODO cargado? De cada equipo: su fila de equipo Y las
+    // filas de sus jugadores de ese mismo partido. Si falta algo no se
+    // evalua (un jugador sin fila contaria como 0 puntos).
+    const missing = [...teams].filter(t => {
+      const tg = teamGame(t);
+      return !tg || !weekStats.some(r => r.game_id === tg.game_id && r.team === t);
+    });
+    if (missing.length || Date.now() < lastStart + 5 * 3600000) {
+      results.push({ slate: slate.slate_id, estado: "ESPERANDO_RESULTADOS", faltan: missing });
       continue;
     }
 
-    // Ultima corrida ANTES del cierre del slate.
-    const { data: runRows, error } = await supabaseAdmin
-      .from("fantasy_nfl_runs").select("run_id,run_at")
-      .lt("run_at", slate.starts_at).order("run_at", { ascending: false }).limit(1);
-    if (error) throw new Error(`Supabase fantasy_nfl_runs: ${error.message}`);
-    const runId = runRows?.[0]?.run_id;
+    // La corrida exacta que hizo las alineaciones de ESTE slate: la
+    // ultima antes del cierre que tenga alineaciones para el.
+    const lineupRuns = [...new Set((await selectAll("fantasy_nfl_lineups", "run_id", q => q.eq("slate_id", slate.slate_id))).map(r => Number(r.run_id)))];
+    const runRows = lineupRuns.length
+      ? await selectAll("fantasy_nfl_runs", "run_id,run_at", q => q.in("run_id", lineupRuns).lt("run_at", slate.starts_at))
+      : [];
+    const runId = runRows.sort((a, b) => String(b.run_at).localeCompare(String(a.run_at)))[0]?.run_id;
     if (!runId) {
-      results.push({ slate: slate.slate_id, estado: "SIN_CORRIDA_PREVIA" });
+      results.push({ slate: slate.slate_id, estado: "SIN_CORRIDA_CON_ALINEACIONES" });
       continue;
     }
 
@@ -617,12 +644,6 @@ async function runEvaluation() {
     const projByKey = new Map(proj.map(p => [p.entity_key, p]));
     const platform = slate.platform;
     const pkey = platform === "draftkings" ? "dk" : "fd";
-
-    // Partido de cada equipo en este slate (el primero desde el cierre).
-    const since = Date.parse(slate.starts_at) - 86400000;
-    const teamGame = team => teamStats
-      .filter(g => g.team === team && Date.parse(`${String(g.game_date).slice(0, 10)}T12:00:00Z`) >= since)
-      .sort((a, b) => String(a.game_date).localeCompare(String(b.game_date)))[0] || null;
 
     // Puntos reales de cada jugador / DST del slate.
     const actual = new Map();
