@@ -43,12 +43,14 @@
 //             -> fantasy_nba_prop_lines. Puntos, rebotes, asistencias,
 //             triples, robos y tapones. ~6 creditos por partido.
 //             &snapshot=manana|previa para nombrar la foto.
-//             &auto=1 (cron cada 15 min): baja "manana" a las 10 am
-//             de Chicago y "previa" entre 100 y 0 min antes del
-//             primer partido; despues de cada foto corre el refresh.
-//             Si no toca, no llama a la API.
+//             La foto "manana" se baja en la corrida diaria (all, 3:30 am).
+//             &auto=1 (cron cada 15 min): baja "previa" entre 100 y 0
+//             min antes del primer partido; y, solo de respaldo, la
+//             "manana" a las 10 am si la de las 3:30 fallo. Despues de
+//             cada foto corre el refresh. Si no toca, no llama a la API.
 //
-//   all       starters + box + evaluate + injuries + depth + slate + project
+//   all       starters + box + quarters + evaluate + injuries + depth
+//             + slate + props (manana) + project
 //   refresh   injuries + depth + slate + project (antes de los partidos)
 //
 // SEGURIDAD
@@ -1322,7 +1324,10 @@ function isInternalRequest(req) {
 }
 
 const PLANS = {
-  all: ["starters", "box", "quarters", "evaluate", "injuries", "depth", "slate", "project"],
+  // 3:30 am: la foto "manana" de props va despues del slate (para
+  // enlazar jugadores) y antes de la formula. Las casas ya publican
+  // las lineas del dia desde la noche anterior.
+  all: ["starters", "box", "quarters", "evaluate", "injuries", "depth", "slate", "props", "project"],
   refresh: ["injuries", "depth", "slate", "project"],
   starters: ["starters"],
   box: ["box"],
@@ -1387,7 +1392,12 @@ module.exports = async function handler(req, res) {
     // Manual: &snapshot=manana|previa (por defecto "manual").
     props: () => auto
       ? stepPropsAuto(day, runRefresh, () => stepInjuries())
-      : stepProps(day, ["manana", "previa"].includes(String(req.query.snapshot)) ? String(req.query.snapshot) : "manual"),
+      : stepProps(
+          day,
+          ["manana", "previa"].includes(String(req.query.snapshot))
+            ? String(req.query.snapshot)
+            : step === "all" ? "manana" : "manual"
+        ),
 
     // La formula (lee solo Supabase).
     project: async () => {
