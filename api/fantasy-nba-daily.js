@@ -1110,12 +1110,12 @@ async function oddsFetch(url) {
 
 async function propSnapshotExists(day, snapshot) {
   const { data, error } = await supabaseAdmin
-    .from("fantasy_nba_prop_lines")
+    .from("fantasy_nba_prop_snapshots")
     .select("prop_date")
     .eq("prop_date", day)
     .eq("snapshot", snapshot)
     .limit(1);
-  if (error) throw new Error(`Supabase fantasy_nba_prop_lines: ${error.message}`);
+  if (error) throw new Error(`Supabase fantasy_nba_prop_snapshots: ${error.message}`);
   return Boolean(data?.length);
 }
 
@@ -1236,6 +1236,21 @@ async function stepProps(day, snapshot) {
     );
   }
 
+  // Foto de las lesiones en ESTE momento: asi la formula sabe que
+  // bajas ya estaban cuando se publicaron las lineas y cuales
+  // salieron despues (esas las lineas no las traen).
+  const injuries = await selectAll("nba_player_injuries_current", "player_id,status");
+  await upsertAll("fantasy_nba_prop_snapshots", [{
+    prop_date: day,
+    snapshot,
+    fetched_at: fetchedAt,
+    events: events.length,
+    lines: list.length,
+    players: new Set(list.map(r => r.player_key)).size,
+    credits_remaining: credits?.remaining ?? null,
+    injuries: Object.fromEntries(injuries.map(i => [String(i.player_id), str(i.status)]))
+  }], "prop_date,snapshot");
+
   const byMarket = {};
   for (const r of list) byMarket[r.market] = (byMarket[r.market] || 0) + 1;
 
@@ -1255,7 +1270,7 @@ async function stepProps(day, snapshot) {
 
 // Automatico (cron cada 15 min): decide si toca foto y cual.
 // Si no toca nada, solo lee Supabase (no gasta creditos).
-async function stepPropsAuto(day, runRefresh) {
+async function stepPropsAuto(day, runRefresh, runInjuries) {
   const now = Date.now();
   const tip = await firstTip(day);
 
@@ -1276,7 +1291,10 @@ async function stepPropsAuto(day, runRefresh) {
     };
   }
 
+  // Lesiones al dia ANTES de la foto (para comparar con las lineas).
+  const injuriesBefore = await runInjuries().catch(error => ({ ok: false, error: error.message }));
   const props = await stepProps(day, snapshot);
+  props.injuriesBefore = injuriesBefore;
   // Con la foto nueva: lesiones, depth chart, slate y formula.
   const refresh = await runRefresh();
   return { date: day, snapshot, props, refresh };
@@ -1368,7 +1386,7 @@ module.exports = async function handler(req, res) {
     // Lineas de props. &auto=1 (cron): decide solo si toca foto.
     // Manual: &snapshot=manana|previa (por defecto "manual").
     props: () => auto
-      ? stepPropsAuto(day, runRefresh)
+      ? stepPropsAuto(day, runRefresh, () => stepInjuries())
       : stepProps(day, ["manana", "previa"].includes(String(req.query.snapshot)) ? String(req.query.snapshot) : "manual"),
 
     // La formula (lee solo Supabase).
