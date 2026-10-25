@@ -39,6 +39,15 @@
 //   project   LA FORMULA (api/fantasy-nba-project.js): lee solo
 //             Supabase -> fantasy_nba_projections, fantasy_nba_team_minutes
 //
+//   props     Lineas de props del dia (The Odds API, ODDS_API_KEY)
+//             -> fantasy_nba_prop_lines. Puntos, rebotes, asistencias,
+//             triples, robos y tapones. ~6 creditos por partido.
+//             &snapshot=manana|previa para nombrar la foto.
+//             &auto=1 (cron cada 15 min): baja "manana" a las 10 am
+//             de Chicago y "previa" entre 100 y 0 min antes del
+//             primer partido; despues de cada foto corre el refresh.
+//             Si no toca, no llama a la API.
+//
 //   all       starters + box + evaluate + injuries + depth + slate + project
 //   refresh   injuries + depth + slate + project (antes de los partidos)
 //
@@ -47,7 +56,8 @@
 //   Authorization Bearer, X-Internal-Secret o ?secret=
 //
 // NO toca nba_games, nba_player_game_stats, picks,
-// Premium Picks, Player Props ni ningun otro cron.
+// Premium Picks, Player Props (player_props_cache) ni ningun
+// otro cron.
 // ============================================================
 
 const { createClient } = require("@supabase/supabase-js");
@@ -1041,6 +1051,239 @@ async function stepSlate(day) {
 
 
 // ============================================================
+// PASO: LINEAS DE PROPS (The Odds API)
+// ============================================================
+// Lo que el mercado espera de cada jugador: puntos, rebotes,
+// asistencias, triples, robos y tapones. Se guarda TAL CUAL
+// (sin analizar) en fantasy_nba_prop_lines, en dos fotos:
+//   manana = 10:00 am de Chicago (las primeras lineas del dia)
+//   previa = entre 100 y 0 minutos antes del primer partido
+// La formula solo lee esa tabla; nunca llama a la API.
+// No toca player_props_cache ni nada de CashEdge Player Props.
+
+const ODDS_API = "https://api.the-odds-api.com/v4/sports/basketball_nba";
+const PROP_MARKETS = [
+  "player_points",
+  "player_rebounds",
+  "player_assists",
+  "player_threes",
+  "player_steals",
+  "player_blocks"
+];
+const PROP_CONCURRENCY = 3;
+const MORNING_HOUR_CHICAGO = 10;
+const PREVIA_MINUTES_BEFORE = 100;
+
+function chicagoHour(date = new Date()) {
+  return Number(new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago", hour: "2-digit", hour12: false
+  }).format(date)) % 24;
+}
+
+// Como fetchJSON, pero devuelve tambien los creditos que quedan.
+async function oddsFetch(url) {
+  let lastError = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    try {
+      const response = await fetch(url, { headers: { Accept: "application/json" }, signal: controller.signal });
+      const text = await response.text();
+      const credits = {
+        remaining: numberOrNull(response.headers.get("x-requests-remaining")),
+        used: numberOrNull(response.headers.get("x-requests-used")),
+        last: numberOrNull(response.headers.get("x-requests-last"))
+      };
+      if (response.ok) return { data: JSON.parse(text), credits };
+      lastError = new Error(`The Odds API HTTP ${response.status}: ${text.slice(0, 200)}`);
+      if (![429, 500, 502, 503, 504].includes(response.status)) throw lastError;
+    } catch (error) {
+      lastError = error.name === "AbortError" ? new Error("The Odds API: timeout") : error;
+      if (/HTTP (4\d\d)/.test(lastError.message) && !/HTTP 429/.test(lastError.message)) throw lastError;
+    } finally {
+      clearTimeout(timeout);
+    }
+    await new Promise(resolve => setTimeout(resolve, 1500 * (attempt + 1)));
+  }
+  throw lastError;
+}
+
+async function propSnapshotExists(day, snapshot) {
+  const { data, error } = await supabaseAdmin
+    .from("fantasy_nba_prop_lines")
+    .select("prop_date")
+    .eq("prop_date", day)
+    .eq("snapshot", snapshot)
+    .limit(1);
+  if (error) throw new Error(`Supabase fantasy_nba_prop_lines: ${error.message}`);
+  return Boolean(data?.length);
+}
+
+// Primer partido del dia segun el slate guardado (sin llamar APIs).
+async function firstTip(day) {
+  const slates = await selectAll("fantasy_nba_slates", "starts_at,events", q => q.eq("slate_date", day));
+  const times = [];
+  for (const s of slates) {
+    if (s.starts_at) times.push(Date.parse(s.starts_at));
+    for (const e of s.events || []) if (e.starts_at) times.push(Date.parse(e.starts_at));
+  }
+  const valid = times.filter(Number.isFinite);
+  return valid.length ? Math.min(...valid) : null;
+}
+
+async function stepProps(day, snapshot) {
+  const apiKey = process.env.ODDS_API_KEY;
+  if (!apiKey) throw new Error("ODDS_API_KEY no configurada");
+
+  const fetchedAt = new Date().toISOString();
+
+  // 1) Partidos (este endpoint no gasta creditos).
+  const ev = await oddsFetch(`${ODDS_API}/events?apiKey=${apiKey}`);
+  const events = (Array.isArray(ev.data) ? ev.data : [])
+    .filter(e => e.commence_time && chicagoDay(new Date(e.commence_time)) === day);
+
+  if (!events.length) {
+    return { date: day, snapshot, events: 0, lines: 0, message: "No hay partidos NBA ese dia en The Odds API", credits: ev.credits };
+  }
+
+  // 2) Jugadores del slate de hoy para enlazar por nombre.
+  const slatePlayers = await selectAll(
+    "fantasy_nba_slate_players",
+    "player_id,player_name",
+    q => q.eq("slate_date", day)
+  );
+  const idByName = new Map();
+  for (const p of slatePlayers) {
+    const key = normalizeName(p.player_name);
+    if (key && !idByName.has(key)) idByName.set(key, Number(p.player_id));
+  }
+
+  // 3) Lineas de cada partido.
+  let credits = ev.credits;
+  const failedEvents = [];
+  const perEvent = await pool(events, PROP_CONCURRENCY, async event => {
+    try {
+      const url = `${ODDS_API}/events/${event.id}/odds?apiKey=${apiKey}` +
+        `&regions=us&markets=${PROP_MARKETS.join(",")}&oddsFormat=american`;
+      const r = await oddsFetch(url);
+      if (r.credits.remaining !== null) credits = r.credits;
+      return { event, data: r.data };
+    } catch (error) {
+      failedEvents.push(`${event.away_team} @ ${event.home_team}: ${error.message}`);
+      return null;
+    }
+  });
+
+  const rows = new Map();
+  const unmatched = new Set();
+
+  for (const item of perEvent) {
+    if (!item) continue;
+    const { event, data } = item;
+
+    for (const book of data?.bookmakers || []) {
+      for (const market of book.markets || []) {
+        if (!PROP_MARKETS.includes(market.key)) continue;
+
+        for (const outcome of market.outcomes || []) {
+          const side = str(outcome.name).toUpperCase();
+          const player = str(outcome.description);
+          const line = numberOrNull(outcome.point);
+          if (!player || line === null || (side !== "OVER" && side !== "UNDER")) continue;
+
+          const playerKey = normalizeName(player);
+          const key = [event.id, book.key, market.key, playerKey].join("|");
+
+          if (!rows.has(key)) {
+            const nbaId = idByName.get(playerKey) ?? null;
+            if (nbaId === null) unmatched.add(player);
+            rows.set(key, {
+              prop_date: day,
+              snapshot,
+              event_id: str(event.id),
+              commence_time: event.commence_time,
+              home_team: str(event.home_team),
+              away_team: str(event.away_team),
+              bookmaker: str(book.key),
+              market: market.key,
+              player_name: player,
+              player_key: playerKey,
+              nba_player_id: nbaId,
+              line,
+              over_price: null,
+              under_price: null,
+              book_updated_at: market.last_update || book.last_update || null,
+              fetched_at: fetchedAt
+            });
+          }
+
+          const row = rows.get(key);
+          // Una sola linea por casa/mercado/jugador (la primera que llega).
+          if (row.line !== line) continue;
+          if (side === "OVER") row.over_price = numberOrNull(outcome.price);
+          else row.under_price = numberOrNull(outcome.price);
+        }
+      }
+    }
+  }
+
+  const list = [...rows.values()];
+  if (list.length) {
+    await upsertAll(
+      "fantasy_nba_prop_lines",
+      list,
+      "prop_date,snapshot,event_id,bookmaker,market,player_key"
+    );
+  }
+
+  const byMarket = {};
+  for (const r of list) byMarket[r.market] = (byMarket[r.market] || 0) + 1;
+
+  return {
+    date: day,
+    snapshot,
+    events: events.length,
+    eventsFailed: failedEvents,
+    lines: list.length,
+    players: new Set(list.map(r => r.player_key)).size,
+    byMarket,
+    unmatchedPlayers: [...unmatched].slice(0, 40),
+    unmatchedCount: unmatched.size,
+    credits
+  };
+}
+
+// Automatico (cron cada 15 min): decide si toca foto y cual.
+// Si no toca nada, solo lee Supabase (no gasta creditos).
+async function stepPropsAuto(day, runRefresh) {
+  const now = Date.now();
+  const tip = await firstTip(day);
+
+  let snapshot = null;
+  if (tip && now >= tip - PREVIA_MINUTES_BEFORE * 60000 && now < tip) {
+    if (!(await propSnapshotExists(day, "previa"))) snapshot = "previa";
+  }
+  if (!snapshot && chicagoHour() >= MORNING_HOUR_CHICAGO && (!tip || now < tip)) {
+    if (!(await propSnapshotExists(day, "manana"))) snapshot = "manana";
+  }
+
+  if (!snapshot) {
+    return {
+      date: day,
+      skipped: true,
+      firstTip: tip ? new Date(tip).toISOString() : null,
+      message: "No toca descarga ahora"
+    };
+  }
+
+  const props = await stepProps(day, snapshot);
+  // Con la foto nueva: lesiones, depth chart, slate y formula.
+  const refresh = await runRefresh();
+  return { date: day, snapshot, props, refresh };
+}
+
+
+// ============================================================
 // HANDLER
 // ============================================================
 
@@ -1070,7 +1313,8 @@ const PLANS = {
   project: ["project"],
   injuries: ["injuries"],
   depth: ["depth"],
-  slate: ["slate"]
+  slate: ["slate"],
+  props: ["props"]
 };
 
 module.exports = async function handler(req, res) {
@@ -1096,6 +1340,8 @@ module.exports = async function handler(req, res) {
     });
   }
 
+  const auto = String(req.query.auto || "") === "1";
+
   const requestedLimit = Number(req.query.limit || DAILY_STARTER_LIMIT);
   const limit = Number.isFinite(requestedLimit)
     ? Math.min(MAX_STARTER_LIMIT, Math.max(1, Math.floor(requestedLimit)))
@@ -1118,6 +1364,12 @@ module.exports = async function handler(req, res) {
     injuries: () => stepInjuries(),
     depth: () => stepDepth(),
     slate: () => stepSlate(day),
+
+    // Lineas de props. &auto=1 (cron): decide solo si toca foto.
+    // Manual: &snapshot=manana|previa (por defecto "manual").
+    props: () => auto
+      ? stepPropsAuto(day, runRefresh)
+      : stepProps(day, ["manana", "previa"].includes(String(req.query.snapshot)) ? String(req.query.snapshot) : "manual"),
 
     // La formula (lee solo Supabase).
     project: async () => {
@@ -1155,6 +1407,21 @@ module.exports = async function handler(req, res) {
       };
     }
   };
+
+  // Refresh despues de una foto de props (cada paso por separado).
+  async function runRefresh() {
+    const out = {};
+    for (const name of PLANS.refresh) {
+      const t0 = Date.now();
+      try {
+        out[name] = { ok: true, ...(await steps[name]()), seconds: (Date.now() - t0) / 1000 };
+      } catch (error) {
+        console.error(`FANTASY NBA DAILY refresh ${name}:`, error);
+        out[name] = { ok: false, error: error.message, seconds: (Date.now() - t0) / 1000 };
+      }
+    }
+    return out;
+  }
 
   const startedAt = Date.now();
   const results = {};
