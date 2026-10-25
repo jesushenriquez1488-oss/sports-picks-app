@@ -80,8 +80,29 @@ const CONFIG = {
   // Pruebas en paralelo: mismos datos, un solo ajuste distinto.
   // Solo se archivan; nunca cambian las alineaciones oficiales.
   shadowVariants: [
-    { version: "produccion-propia-sin-10%", config: { currentWeightBoost: 0 } }
+    { version: "produccion-propia-sin-10%", config: { currentWeightBoost: 0 } },
+    { version: "mercado+escenarios", config: { useProps: true, questionableScenarios: true } }
   ],
+
+  // MERCADO (lineas de props). Solo en la variante de prueba.
+  useProps: false,
+  // Peso del mercado por estadistica (el resto = nuestra formula).
+  // Punto de partida; la evaluacion de cada noche dira cual acierta.
+  propWeights: { pts: 0.7, reb: 0.7, ast: 0.7, fg3m: 0.6, stl: 0.5, blk: 0.5 },
+  // Si en su equipo hubo una baja DESPUES de la linea, la linea
+  // no la trae: se confia menos en ella (peso x0.35).
+  propNewsFactor: 0.35,
+  // Variacion de los puntos (medido con 314 jugadores):
+  // desviacion = 1.61 x raiz(media). Rebotes, asistencias, triples,
+  // robos y tapones se comportan como conteo simple (Poisson).
+  pointsSdFactor: 1.61,
+  newsMateMinutes: 15,
+
+  // DUDOSOS: sus companeros se proyectan en dos escenarios
+  // (juega / no juega) y se mezclan. El dudoso sigue SIN entrar
+  // a alineaciones hasta que se confirme.
+  questionableScenarios: false,
+  questionablePlayProb: 0.5,
   minProjectedMinutes: 18,
   minHistoryMinutes: 40,
 
@@ -524,6 +545,127 @@ async function loadToday(day) {
 //   Bcond[k] minutos del suplente k CUANDO entra a jugar
 //   Bplay[k] que tan seguido entra el suplente k
 //   B[k]     promedio total del suplente k (incluye cuando no entra)
+// ============================================================
+// MERCADO: lineas de props -> lo que espera el mercado
+// ============================================================
+
+const PROP_STAT = {
+  player_points: "pts",
+  player_rebounds: "reb",
+  player_assists: "ast",
+  player_threes: "fg3m",
+  player_steals: "stl",
+  player_blocks: "blk"
+};
+
+function normName(value) {
+  return str(value)
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[.'’`]/g, "")
+    .replace(/-/g, " ")
+    .split(/\s+/)
+    .filter(t => t && !["jr", "sr", "ii", "iii", "iv", "v"].includes(t))
+    .join(" ");
+}
+
+function americanProb(price) {
+  const p = Number(price);
+  if (!Number.isFinite(p) || p === 0) return null;
+  return p < 0 ? -p / (-p + 100) : 100 / (p + 100);
+}
+
+// Probabilidad real del OVER (sin la comision de la casa).
+function overProbability(overPrice, underPrice) {
+  const o = americanProb(overPrice);
+  const u = americanProb(underPrice);
+  if (o !== null && u !== null) return o / (o + u);
+  if (o !== null) return clamp(o - 0.024, 0.02, 0.98);
+  if (u !== null) return clamp(1 - u + 0.024, 0.02, 0.98);
+  return 0.5;
+}
+
+function poissonAtLeast(lambda, k) {
+  if (k <= 0) return 1;
+  let term = Math.exp(-lambda);
+  let cdf = term;
+  for (let i = 1; i < k; i++) {
+    term *= lambda / i;
+    cdf += term;
+  }
+  return 1 - cdf;
+}
+
+// Promedio esperado a partir de la linea y su probabilidad.
+//   Conteos (rebotes, asistencias, triples, robos, tapones): Poisson.
+//   Puntos: normal con desviacion = 1.61 x raiz(media).
+function marketMean(stat, line, pOver) {
+  const p = clamp(pOver, 0.03, 0.97);
+  let lo = 0.01;
+  let hi = stat === "pts" ? 90 : 40;
+  for (let i = 0; i < 60; i++) {
+    const m = (lo + hi) / 2;
+    let prob;
+    if (stat === "pts") {
+      const sd = CONFIG.pointsSdFactor * Math.sqrt(m);
+      prob = 1 - normalCdf((line - m) / sd);
+    } else {
+      prob = poissonAtLeast(m, Math.floor(line) + 1);
+    }
+    if (prob < p) lo = m;
+    else hi = m;
+  }
+  return (lo + hi) / 2;
+}
+
+// Lee la foto de lineas mas reciente del dia y calcula, por
+// jugador y estadistica, lo que espera el mercado (mediana de
+// las casas).
+async function loadMarket(day) {
+  const { data: snaps, error } = await supabaseAdmin
+    .from("fantasy_nba_prop_snapshots")
+    .select("snapshot,fetched_at,injuries")
+    .eq("prop_date", day)
+    .order("fetched_at", { ascending: false })
+    .limit(1);
+  if (error) throw new Error(`Supabase fantasy_nba_prop_snapshots: ${error.message}`);
+  const snap = snaps?.[0];
+  if (!snap) return null;
+
+  const lines = await selectAll(
+    "fantasy_nba_prop_lines",
+    "nba_player_id,player_key,bookmaker,market,line,over_price,under_price",
+    q => q.eq("prop_date", day).eq("snapshot", snap.snapshot)
+  );
+
+  const acc = new Map();
+  for (const l of lines) {
+    const stat = PROP_STAT[l.market];
+    if (!stat) continue;
+    const mean = marketMean(stat, Number(l.line), overProbability(l.over_price, l.under_price));
+    if (!ok(mean)) continue;
+    const key = str(l.player_key);
+    if (!acc.has(key)) acc.set(key, { id: l.nba_player_id ? Number(l.nba_player_id) : null, stats: {} });
+    const a = acc.get(key);
+    if (!a.id && l.nba_player_id) a.id = Number(l.nba_player_id);
+    (a.stats[stat] = a.stats[stat] || []).push(mean);
+  }
+
+  const byKey = new Map();
+  const byId = new Map();
+  for (const [key, a] of acc) {
+    const stats = {};
+    for (const [stat, list] of Object.entries(a.stats)) stats[stat] = median(list);
+    const v = { stats, books: Math.max(...Object.values(a.stats).map(l => l.length)) };
+    byKey.set(key, v);
+    if (a.id) byId.set(a.id, v);
+  }
+
+  const injuries = new Map(Object.entries(snap.injuries || {}).map(([id, s]) => [Number(id), str(s)]));
+  return { snapshot: snap.snapshot, fetchedAt: snap.fetched_at, byKey, byId, injuries, players: byKey.size };
+}
+
 function normalCdf(x) {
   // Aproximacion de Abramowitz-Stegun.
   const t = 1 / (1 + 0.2316419 * Math.abs(x));
@@ -1018,6 +1160,8 @@ const defenseTier = f => (f >= CONFIG.softDefense ? "BLANDA" : f <= CONFIG.hardD
 
 function statusOf(depthRow, ctx) {
   const id = Number(depthRow.nba_player_id);
+  // Escenario "el dudoso no juega".
+  if (ctx.forceOut?.has(id)) return "OUT";
   const all = [
     str(depthRow.injury_status),
     ctx.injuries.get(id) || "",
@@ -1610,8 +1754,32 @@ function projectFantasy(row, team, opp, usageFactor, ctx) {
     : 1;
   for (const k of STATS) rates[k] *= affinity;
 
-  // Simulacion.
+  // MERCADO: mezcla lo que espera el mercado (lineas de props) con
+  // nuestra formula, estadistica por estadistica. Lo que no tiene
+  // linea (perdidas, o un jugador sin lineas) queda con la formula.
+  // Si hubo una baja en su equipo DESPUES de la linea, la linea no
+  // la trae y se le da menos peso.
   const m0 = row.minutes;
+  let market = null;
+  if (ctx.market && m0 > 0) {
+    const mk = (row.id && ctx.market.byId.get(row.id)) || ctx.market.byKey.get(normName(row.name));
+    if (mk) {
+      const news = ctx.market.newsTeams?.has(team) || false;
+      market = { foto: ctx.market.snapshot, casas: mk.books, noticiaDespuesDeLaLinea: news, mercado: {}, formula: {}, final: {} };
+      for (const [k, expected] of Object.entries(mk.stats)) {
+        if (!STATS.includes(k) || !ok(expected)) continue;
+        const w = (CONFIG.propWeights[k] ?? 0) * (news ? CONFIG.propNewsFactor : 1);
+        const ours = rates[k] * m0;
+        const final = w * expected + (1 - w) * ours;
+        rates[k] = Math.max(0, final / m0);
+        market.mercado[k] = round(expected, 1);
+        market.formula[k] = round(ours, 1);
+        market.final[k] = round(final, 1);
+      }
+    }
+  }
+
+  // Simulacion (m0 = minutos proyectados, definido arriba).
   let sample = pr.rows.filter(r => r.min >= Math.max(10, 0.5 * m0)).slice(0, 40);
   if (sample.length < CONFIG.bootstrapMinGames) sample = pr.rows.slice(0, 40);
   const bootstrap = sample.length >= CONFIG.bootstrapMinGames;
@@ -1673,7 +1841,9 @@ function projectFantasy(row, team, opp, usageFactor, ctx) {
       defensaRivalFactor: round(oppDk, 3),
       afinidadContraEsaDefensa: round(affinity, 3),
       partidosContraEsaDefensa: count,
-      simulacion: bootstrap ? `${sample.length} partidos reales` : "variacion estandar (pocos partidos)"
+      simulacion: bootstrap ? `${sample.length} partidos reales` : "variacion estandar (pocos partidos)",
+      mercado: market,
+      escenarioDudoso: row.scenario || null
     }
   };
 }
@@ -1696,7 +1866,7 @@ async function runProjection(day = chicagoDay()) {
     try {
       Object.assign(CONFIG, v.config);
       const r = await runProjectionCore(day, { version: v.version, archiveOnly: true, runAt: result.runAt });
-      variantes.push({ version: v.version, mejores: r.best });
+      variantes.push({ version: v.version, mejores: r.best, mercado: r.mercado, dudosos: r.dudosos });
     } catch (error) {
       console.warn("Variante", v.version, error.message);
       variantes.push({ version: v.version, error: error.message });
@@ -1870,6 +2040,60 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
   // PASO 1 y 2 para cada equipo del slate.
   const teamIds = slateTeams.filter(t => depthByTeam.has(t));
   const teamProjections = new Map(teamIds.map(t => [t, projectTeam(t, ctx)]));
+
+  // DUDOSOS (solo variante de prueba): sus companeros se proyectan
+  // con el dudoso jugando y sin el dudoso, y se mezclan segun la
+  // probabilidad de que juegue. El dudoso sigue fuera de las
+  // alineaciones hasta que se confirme.
+  if (CONFIG.questionableScenarios) {
+    const p = CONFIG.questionablePlayProb;
+    for (const [team, tp] of teamProjections) {
+      const dudas = tp.rows.filter(r => r.status === "DUDA" && r.id).map(r => r.id);
+      if (!dudas.length) continue;
+      const tpOut = projectTeam(team, { ...ctx, forceOut: new Set(dudas) });
+      for (const r of tp.rows) {
+        if (r.status === "DUDA") continue;
+        const ro = tpOut.rows.find(x => x.key === r.key);
+        if (!ro) continue;
+        const mPlay = r.minutes;
+        const mOut = ro.minutes;
+        r.minutes = p * mPlay + (1 - p) * mOut;
+        r.sd = Math.sqrt(p * r.sd ** 2 + (1 - p) * ro.sd ** 2 + p * (1 - p) * (mPlay - mOut) ** 2);
+        r.cap = Math.max(r.cap, ro.cap);
+        const ratesPlay = r.injury?.rates || {};
+        const ratesOut = ro.injury?.rates || {};
+        const mixed = {};
+        for (const k of RATE_KEYS) mixed[k] = p * (ratesPlay[k] || 0) + (1 - p) * (ratesOut[k] || 0);
+        r.injury = { ...(r.injury || {}), rates: mixed };
+        r.scenario = { dudosos: tp.doubtful, minutosSiJuegan: round(mPlay, 1), minutosSiNoJuegan: round(mOut, 1), probabilidadJuegan: p };
+      }
+    }
+  }
+
+  // MERCADO (solo variante de prueba): lineas de props de hoy y
+  // equipos con bajas que salieron DESPUES de la linea.
+  if (CONFIG.useProps) {
+    ctx.market = await loadMarket(day).catch(error => {
+      console.warn("Mercado:", error.message);
+      return null;
+    });
+    if (ctx.market) {
+      const newsTeams = new Set();
+      for (const team of teamIds) {
+        for (const d of ctx.depthByTeam.get(team) || []) {
+          const id = Number(d.nba_player_id);
+          if (!id) continue;
+          const recentRows = teamRows(id, team, ctx).slice(0, 10);
+          const recentMin = recentRows.length ? mean(recentRows.map(r => r.min)) : 0;
+          if (recentMin < CONFIG.newsMateMinutes) continue;
+          const before = injuryClass(ctx.market.injuries.get(id) || "");
+          const now = injuryClass(ctx.injuries.get(id) || "");
+          if (before !== now) newsTeams.add(team);
+        }
+      }
+      ctx.market.newsTeams = newsTeams;
+    }
+  }
 
   // Reparto de jugadas por equipo.
   const usageFactors = new Map();
@@ -2065,7 +2289,15 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
   if (opts.archiveOnly) {
     await archiveRun(runAt, opts.version, lineupRows, projectionRows);
     return {
-      best: platforms.map(p => ({ platform: p.platform, slateId: p.slateId, proyectadoMejor: p.lineups?.[0]?.proyectado ?? null }))
+      best: platforms.map(p => ({ platform: p.platform, slateId: p.slateId, proyectadoMejor: p.lineups?.[0]?.proyectado ?? null })),
+      mercado: CONFIG.useProps
+        ? (ctx.market
+          ? { foto: ctx.market.snapshot, hora: ctx.market.fetchedAt, jugadoresConLinea: ctx.market.players, equiposConNoticiaDespues: [...(ctx.market.newsTeams || [])].map(t => teamProjections.get(t)?.code || t) }
+          : "sin lineas de props guardadas para hoy")
+        : undefined,
+      dudosos: CONFIG.questionableScenarios
+        ? [...teamProjections.values()].filter(tp => tp.doubtful.length).map(tp => `${tp.code}: ${tp.doubtful.join(", ")}`)
+        : undefined
     };
   }
 
