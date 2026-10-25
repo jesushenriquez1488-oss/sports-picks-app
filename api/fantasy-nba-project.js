@@ -79,6 +79,11 @@ const CONFIG = {
   // medir (nadie las juega). 10 por noche es muy poco para saber
   // que version es mejor.
   testLineupCount: 150,
+  testNodeLimit: 200000,
+  testSecondsPerPlatform: 25,
+  // Si la corrida completa pasa de esto, las variantes que falten
+  // se saltan (Vercel corta a los 300 s).
+  maxRunSeconds: 200,
   // Nombre de la formula oficial (queda guardado en cada corrida).
   formulaVersion: "produccion-propia+10%",
   // Pruebas en paralelo: mismos datos, un solo ajuste distinto.
@@ -1871,16 +1876,21 @@ function projectFantasy(row, team, opp, usageFactor, ctx) {
 // usan los MISMOS datos de hoy y solo cambian un ajuste; no tocan
 // las alineaciones oficiales, solo se archivan para compararlas.
 async function runProjection(day = chicagoDay()) {
+  const started = Date.now();
   const result = await runProjectionCore(day, { version: CONFIG.formulaVersion });
   if (result.message) return result;
   const variantes = [];
   for (const v of CONFIG.shadowVariants) {
+    if ((Date.now() - started) / 1000 > CONFIG.maxRunSeconds) {
+      variantes.push({ version: v.version, error: "saltada: la corrida se acerco al limite de tiempo" });
+      continue;
+    }
     const saved = {};
     for (const k of Object.keys(v.config)) saved[k] = CONFIG[k];
     try {
       Object.assign(CONFIG, v.config);
       const r = await runProjectionCore(day, { version: v.version, archiveOnly: true, runAt: result.runAt });
-      variantes.push({ version: v.version, mejores: r.best, mercado: r.mercado, dudosos: r.dudosos });
+      variantes.push({ version: v.version, mejores: r.best, prueba: r.prueba, mercado: r.mercado, dudosos: r.dudosos, segundos: round((Date.now() - started) / 1000, 1) });
     } catch (error) {
       console.warn("Variante", v.version, error.message);
       variantes.push({ version: v.version, error: error.message });
@@ -2135,6 +2145,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
   const projectionRows = [];
   const lineupRows = [];
   const testLineupRows = [];
+  const testInfo = [];
   const platforms = [];
 
   for (const slate of today.slates) {
@@ -2266,8 +2277,16 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     // para medir (nadie las juega). Se archivan con la etiqueta
     // "[prueba 150]" y la evaluacion las compara contra lo real.
     if (CONFIG.testLineupCount > 0) {
-      const test = buildLineups(platform, optimizerPool,
-        { count: CONFIG.testLineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure });
+      // Casi optimas (busqueda mas corta) y con tope de tiempo:
+      // para medir sirven igual y la corrida no se pasa del limite.
+      const test = buildLineups(platform, optimizerPool, {
+        count: CONFIG.testLineupCount,
+        minDifferent: CONFIG.lineupMinDifferent,
+        maxExposure: CONFIG.lineupMaxExposure,
+        nodeLimit: CONFIG.testNodeLimit,
+        timeLimitMs: CONFIG.testSecondsPerPlatform * 1000
+      });
+      testInfo.push(`${platform}: ${test.lineups.length}${test.timedOut ? " (tope de tiempo)" : ""}`);
       testLineupRows.push(...test.lineups.map(l => ({
         slate_id: Number(slate.slate_id),
         lineup_number: l.number,
@@ -2328,6 +2347,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     await archiveRun(runAt, opts.version, lineupRows, projectionRows, testLineupRows);
     return {
       best: platforms.map(p => ({ platform: p.platform, slateId: p.slateId, proyectadoMejor: p.lineups?.[0]?.proyectado ?? null })),
+      prueba: testInfo,
       mercado: CONFIG.useProps
         ? (ctx.market
           ? { foto: ctx.market.snapshot, hora: ctx.market.fetchedAt, jugadoresConLinea: ctx.market.players, equiposConNoticiaDespues: [...(ctx.market.newsTeams || [])].map(t => teamProjections.get(t)?.code || t) }
@@ -2470,7 +2490,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
 
   await archiveRun(runAt, opts.version, lineupRows, projectionRows, testLineupRows);
 
-  return { ...stored, runAt, version: opts.version };
+  return { ...stored, runAt, version: opts.version, prueba: testInfo };
 }
 
 // Lee lo ya calculado (no recalcula ni escribe).
