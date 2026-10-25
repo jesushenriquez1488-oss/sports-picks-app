@@ -75,6 +75,10 @@ const CONFIG = {
   lineupCount: 10,          // alineaciones por casa (de la mas optima a la menos)
   lineupMinDifferent: 2,    // cada alineacion cambia al menos 2 jugadores
   lineupMaxExposure: 0.4,   // ningun jugador en mas del 40% de las alineaciones
+  // Muestra de prueba: alineaciones extra por version SOLO para
+  // medir (nadie las juega). 10 por noche es muy poco para saber
+  // que version es mejor.
+  testLineupCount: 150,
   // Nombre de la formula oficial (queda guardado en cada corrida).
   formulaVersion: "produccion-propia+10%",
   // Pruebas en paralelo: mismos datos, un solo ajuste distinto.
@@ -236,6 +240,16 @@ function median(a) {
   const s = [...a].sort((x, y) => x - y);
   const m = Math.floor(s.length / 2);
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+// Valor en la posicion q (0..1) de la lista ordenada.
+function quantile(a, q) {
+  if (!a.length) return null;
+  const s = [...a].sort((x, y) => x - y);
+  const pos = (s.length - 1) * q;
+  const lo = Math.floor(pos);
+  const hi = Math.ceil(pos);
+  return s[lo] + (s[hi] - s[lo]) * (pos - lo);
 }
 
 function std(a) {
@@ -1880,10 +1894,14 @@ async function runProjection(day = chicagoDay()) {
 // Archivo de cada corrida: nunca se borra ni se reemplaza. Asi se
 // pueden comparar las alineaciones de la manana, las de la tarde y
 // las variantes de prueba contra el resultado real.
-async function archiveRun(runAt, version, lineupRows, projectionRows) {
-  const lineups = lineupRows.map(l => ({
+async function archiveRun(runAt, version, lineupRows, projectionRows, testLineupRows = []) {
+  const testVersion = `${version} [prueba ${CONFIG.testLineupCount}]`;
+  const lineups = [
+    ...lineupRows.map(l => ({ ...l, archiveVersion: version })),
+    ...testLineupRows.map(l => ({ ...l, archiveVersion: testVersion }))
+  ].map(l => ({
     run_at: runAt,
-    version,
+    version: l.archiveVersion,
     slate_date: l.slate_date,
     slate_id: l.slate_id,
     platform: l.platform,
@@ -2116,6 +2134,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
   const fantasyCache = new Map();
   const projectionRows = [];
   const lineupRows = [];
+  const testLineupRows = [];
   const platforms = [];
 
   for (const slate of today.slates) {
@@ -2231,7 +2250,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     }
 
     // PASO 6: ALINEACIONES (optimo exacto con los puntos proyectados).
-    const lineupResult = buildLineups(platform, eligible.map(x => ({
+    const optimizerPool = eligible.map(x => ({
       id: String(x.p.player_id),
       name: x.p.player_name,
       team: x.p.team_abbr,
@@ -2239,7 +2258,26 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
       salary: Number(x.p.salary),
       points: x.f[platform].mean,
       positions: x.p.positions
-    })), { count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure });
+    }));
+    const lineupResult = buildLineups(platform, optimizerPool,
+      { count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure });
+
+    // MUESTRA DE PRUEBA: 150 alineaciones mas por version, solo
+    // para medir (nadie las juega). Se archivan con la etiqueta
+    // "[prueba 150]" y la evaluacion las compara contra lo real.
+    if (CONFIG.testLineupCount > 0) {
+      const test = buildLineups(platform, optimizerPool,
+        { count: CONFIG.testLineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure });
+      testLineupRows.push(...test.lineups.map(l => ({
+        slate_id: Number(slate.slate_id),
+        lineup_number: l.number,
+        platform,
+        slate_date: day,
+        salary: l.salary,
+        projected_points: l.points,
+        players: l.players.map(p => ({ slot: p.slot, player_id: Number(p.id), name: p.name, team: p.team, salary: p.salary, points: p.points }))
+      })));
+    }
 
     lineupRows.push(...lineupResult.lineups.map(l => ({
       slate_id: Number(slate.slate_id),
@@ -2287,7 +2325,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
 
   // Variante de prueba: solo se archiva, no toca lo oficial.
   if (opts.archiveOnly) {
-    await archiveRun(runAt, opts.version, lineupRows, projectionRows);
+    await archiveRun(runAt, opts.version, lineupRows, projectionRows, testLineupRows);
     return {
       best: platforms.map(p => ({ platform: p.platform, slateId: p.slateId, proyectadoMejor: p.lineups?.[0]?.proyectado ?? null })),
       mercado: CONFIG.useProps
@@ -2430,7 +2468,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     .upsert([{ slate_date: day, summary: stored, created_at: runAt }], { onConflict: "slate_date" });
   if (runError) throw new Error(`Supabase fantasy_nba_runs: ${runError.message}`);
 
-  await archiveRun(runAt, opts.version, lineupRows, projectionRows);
+  await archiveRun(runAt, opts.version, lineupRows, projectionRows, testLineupRows);
 
   return { ...stored, runAt, version: opts.version };
 }
@@ -2670,6 +2708,11 @@ async function runEvaluation(day) {
         alineaciones: g.reals.length,
         mejorReal: best,
         promedioReal: round(mean(g.reals), 1),
+        medianaReal: round(quantile(g.reals, 0.5), 1),
+        top10porCientoReal: round(quantile(g.reals, 0.9), 1),
+        // Zona donde se gana dinero en torneos grandes.
+        llegan85porCientoPerfecta: perfect ? `${g.reals.filter(v => v >= 0.85 * perfect).length}/${g.reals.length}` : null,
+        llegan90porCientoPerfecta: perfect ? `${g.reals.filter(v => v >= 0.9 * perfect).length}/${g.reals.length}` : null,
         perfecta: perfect,
         porcentajeDeLaPerfecta: perfect ? `${round(100 * best / perfect, 1)}%` : null,
         errorPromedioJugadores: e.length ? round(mean(e.map(Math.abs)), 2) : null,
