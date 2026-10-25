@@ -109,7 +109,18 @@ function solveOne(pool, rule, previous, minDifferent, nodeLimit) {
     return b;
   };
 
-  const previousSets = previous.map(l => new Set(l.map(p => p.id)));
+  // Para cada jugador: en que alineaciones anteriores aparece.
+  // Se lleva la cuenta al vuelo (rapido con 150+ alineaciones);
+  // misma regla que antes: ninguna anterior puede repetir mas de
+  // maxShared jugadores.
+  const inPrevious = new Map();
+  previous.forEach((l, idx) => {
+    for (const p of l) {
+      if (!inPrevious.has(p.id)) inPrevious.set(p.id, []);
+      inPrevious.get(p.id).push(idx);
+    }
+  });
+  const shared = new Int16Array(previous.length);
   let best = null;
   let bestPoints = -Infinity;
   let nodes = 0;
@@ -151,12 +162,16 @@ function solveOne(pool, rule, previous, minDifferent, nodeLimit) {
       if (salary + p.salary > rule.salaryCap) continue;
 
       chosen.push(p);
+      const prevList = inPrevious.get(p.id) || [];
+      let repeats = false;
+      for (const idx of prevList) if (++shared[idx] > maxShared) repeats = true;
       // Poda temprana: las posiciones deben seguir siendo posibles
       // y no repetir demasiado una alineacion anterior.
-      const ok = (!rule.maxPerTeam || chosen.filter(c => c.team === p.team).length <= rule.maxPerTeam) &&
-        assignSlots(chosen, rule) &&
-        previousSets.every(set => chosen.filter(c => set.has(c.id)).length <= maxShared);
+      const ok = !repeats &&
+        (!rule.maxPerTeam || chosen.filter(c => c.team === p.team).length <= rule.maxPerTeam) &&
+        assignSlots(chosen, rule);
       if (ok) search(j + 1, salary + p.salary, points + p.points);
+      for (const idx of prevList) shared[idx]--;
       chosen.pop();
       if (!complete) return;
     }
