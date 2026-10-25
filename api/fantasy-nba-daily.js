@@ -1390,14 +1390,19 @@ module.exports = async function handler(req, res) {
 
     // Lineas de props. &auto=1 (cron): decide solo si toca foto.
     // Manual: &snapshot=manana|previa (por defecto "manual").
-    props: () => auto
-      ? stepPropsAuto(day, runRefresh, () => stepInjuries())
-      : stepProps(
-          day,
-          ["manana", "previa"].includes(String(req.query.snapshot))
-            ? String(req.query.snapshot)
-            : step === "all" ? "manana" : "manual"
-        ),
+    props: async () => {
+      if (auto) return stepPropsAuto(day, runRefresh, () => stepInjuries());
+      // Manual: lesiones al dia ANTES de la foto, para que la foto
+      // guarde las bajas reales del momento (en "all" ya se corrio
+      // el paso injuries justo antes).
+      if (step !== "all") await stepInjuries();
+      return stepProps(
+        day,
+        ["manana", "previa"].includes(String(req.query.snapshot))
+          ? String(req.query.snapshot)
+          : step === "all" ? "manana" : "manual"
+      );
+    },
 
     // La formula (lee solo Supabase).
     project: async () => {
@@ -1411,6 +1416,13 @@ module.exports = async function handler(req, res) {
           excluded: p.excluded,
           lineups: p.lineups?.length || 0,
           bestLineup: p.lineups?.[0]?.proyectado ?? null
+        })),
+        prueba: r.prueba || null,
+        variantes: (r.variantesDePrueba || []).map(v => ({
+          version: v.version,
+          error: v.error || null,
+          prueba: v.prueba || null,
+          segundos: v.segundos ?? null
         })),
         formulaSeconds: r.seconds
       };
