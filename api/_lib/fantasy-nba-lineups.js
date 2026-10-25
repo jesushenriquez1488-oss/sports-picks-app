@@ -185,7 +185,7 @@ function solveOne(pool, rule, previous, minDifferent, nodeLimit) {
 // maxExposure: parte maxima de las alineaciones en que puede salir un
 // mismo jugador (0.4 = 40%: con 10 alineaciones, maximo 4). Asi una
 // lesion o una paliza no hunde todas las alineaciones.
-function buildLineups(platform, players, { count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1 } = {}) {
+function buildLineups(platform, players, { count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1, timeLimitMs = Infinity } = {}) {
   const rule = RULES[platform];
   if (!rule) return { status: "PLATAFORMA_NO_SOPORTADA", lineups: [] };
 
@@ -200,7 +200,15 @@ function buildLineups(platform, players, { count = 10, minDifferent = 2, nodeLim
   const maxUses = Math.max(1, Math.floor(maxExposure * count + 1e-9));
   const uses = new Map();
 
+  const startedAt = Date.now();
+  let timedOut = false;
+
   for (let k = 0; k < count; k++) {
+    // Tope de tiempo (solo lo usan las alineaciones de prueba).
+    if (Date.now() - startedAt > timeLimitMs) {
+      timedOut = true;
+      break;
+    }
     const available = pool.filter(p => (uses.get(p.id) || 0) < maxUses);
     const r = solveOne(available, rule, lineups.map(l => l.players), minDifferent, nodeLimit);
     if (!r.complete) allOptimal = false;
@@ -221,6 +229,7 @@ function buildLineups(platform, players, { count = 10, minDifferent = 2, nodeLim
   return {
     status: lineups.length ? "OK" : "SIN_SOLUCION",
     optimal: allOptimal,
+    timedOut,
     salaryCap: rule.salaryCap,
     lineups
   };
