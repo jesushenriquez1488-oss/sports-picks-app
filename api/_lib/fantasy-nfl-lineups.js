@@ -355,35 +355,54 @@ function buildStackLineups(platform, players, { count = 10, minDifferent = 2, no
   const pairsOf = r => (r.length >= 3 ? [[r[0], r[1]], [r[0], r[2]], [r[1], r[2]]] : [[r[0], r[1]]]);
 
   const free = p => (uses.get(p.id) || 0) < maxUses;
-  for (const st of stacks) {
+  // Arma UNA alineacion del bloque st (turno k). Devuelve true si salio.
+  const buildOne = (st, k) => {
     const pairs = pairsOf(st.rec);
-    for (let k = 0; k < st.quota; k++) {
-      // Receptores: el turno que toca; si alguno ya llego al tope de
-      // exposicion, la siguiente opcion del mismo bloque que este libre.
-      const options = k % 2 === 0
-        ? pairs.map((_, j) => pairs[(k / 2 + j) % pairs.length])
-        : st.rec.slice(0, 2).map((_, j) => [st.rec[((k - 1) / 2 + j) % 2]]);
-      const rec = options.find(o => o.every(free));
-      if (!rec) continue;
-      const forced = [st.qb, ...rec];
-      const fid = new Set(forced.map(p => p.id));
-      const available = pool.filter(p => !fid.has(p.id) && p.positions[0] !== "QB" && (uses.get(p.id) || 0) < maxUses);
-      const r = solveOne(available, rule, built.map(l => l.raw), minDifferent, nodeLimit, forced, true);
-      if (!r.complete) allOptimal = false;
-      if (!r.best) continue;
+    // Receptores: el turno que toca; si alguno ya llego al tope de
+    // exposicion, la siguiente opcion del mismo bloque que este libre.
+    const options = k % 2 === 0
+      ? pairs.map((_, j) => pairs[(k / 2 + j) % pairs.length])
+      : st.rec.slice(0, 2).map((_, j) => [st.rec[((k - 1) / 2 + j) % 2]]);
+    const rec = options.find(o => o.every(free));
+    if (!rec) return false;
+    const forced = [st.qb, ...rec];
+    const fid = new Set(forced.map(p => p.id));
+    const available = pool.filter(p => !fid.has(p.id) && p.positions[0] !== "QB" && free(p));
+    const r = solveOne(available, rule, built.map(l => l.raw), minDifferent, nodeLimit, forced, true);
+    if (!r.complete) allOptimal = false;
+    if (!r.best) return false;
 
-      // El QB no cuenta: a el lo limita la cuota de su bloque.
-      for (const pl of r.best.players) if (pl.id !== st.qb.id) uses.set(pl.id, (uses.get(pl.id) || 0) + 1);
-      const ordered = r.best.slots.map((pi, s) => ({ slot: rule.slots[s], ...r.best.players[pi] }));
-      built.push({
-        raw: r.best.players,
-        players: ordered,
-        salary: ordered.reduce((sum, p) => sum + p.salary, 0),
-        points: Math.round(ordered.reduce((sum, p) => sum + p.points, 0) * 100) / 100,
-        optimal: r.complete,
-        nodes: r.nodes,
-        stack: { team: st.team, qb: st.qb.name, receivers: forced.slice(1).map(p => p.name) }
-      });
+    // El QB no cuenta: a el lo limita la cuota de su bloque.
+    for (const pl of r.best.players) if (pl.id !== st.qb.id) uses.set(pl.id, (uses.get(pl.id) || 0) + 1);
+    const ordered = r.best.slots.map((pi, s) => ({ slot: rule.slots[s], ...r.best.players[pi] }));
+    built.push({
+      raw: r.best.players,
+      players: ordered,
+      salary: ordered.reduce((sum, p) => sum + p.salary, 0),
+      points: Math.round(ordered.reduce((sum, p) => sum + p.points, 0) * 100) / 100,
+      optimal: r.complete,
+      nodes: r.nodes,
+      stack: { team: st.team, qb: st.qb.name, receivers: forced.slice(1).map(p => p.name) }
+    });
+    st.built = (st.built || 0) + 1;
+    return true;
+  };
+
+  // Primero la cuota de cada bloque.
+  for (const st of stacks) {
+    st.built = 0;
+    for (let k = 0; k < st.quota; k++) buildOne(st, st.built);
+  }
+  // Si un bloque no pudo completar su cuota (sus receptores llegaron
+  // al tope), esas alineaciones pasan a los bloques que si entraron,
+  // del mas probable al menos probable.
+  const inPlay = stacks.filter(st => st.quota > 0);
+  let progress = true;
+  while (built.length < count && progress) {
+    progress = false;
+    for (const st of inPlay) {
+      if (built.length >= count) break;
+      if (buildOne(st, st.built)) progress = true;
     }
   }
 
@@ -398,7 +417,7 @@ function buildStackLineups(platform, players, { count = 10, minDifferent = 2, no
     lineups,
     stacks: stacks.map(st => ({
       team: st.team, qb: st.qb.name, receivers: st.rec.map(p => p.name),
-      value: Math.round(st.value * 100) / 100, prob: Math.round(st.prob * 1000) / 1000, lineups: st.quota
+      value: Math.round(st.value * 100) / 100, prob: Math.round(st.prob * 1000) / 1000, lineups: st.built
     }))
   };
 }
