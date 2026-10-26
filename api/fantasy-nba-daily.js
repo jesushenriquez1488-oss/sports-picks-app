@@ -49,6 +49,16 @@
 //             "manana" a las 10 am si la de las 3:30 fallo. Despues de
 //             cada foto corre el refresh. Si no toca, no llama a la API.
 //
+//   cierre    CORRIDA DE CIERRE, justo antes de cada slate (lo que mas
+//             mejoro en la prueba del 25-oct: de 30 a 70 alineaciones
+//             cobrando). Lesiones al dia + foto "cierre" de props
+//             (solo partidos que no han empezado) + depth chart +
+//             formula. Las alineaciones de la manana NO se borran:
+//             quedan en el archivo para comparar.
+//             &auto=1 (cron cada 10 min): solo corre si un slate
+//             empieza entre 45 y 15 minutos y todavia no se corrio
+//             su cierre. Si no toca, no llama a ninguna API.
+//
 //   all       starters + box + quarters + evaluate + injuries + depth
 //             + slate + props (manana) + project
 //   refresh   injuries + depth + slate + project (antes de los partidos)
@@ -1133,16 +1143,19 @@ async function firstTip(day) {
   return valid.length ? Math.min(...valid) : null;
 }
 
-async function stepProps(day, snapshot) {
+async function stepProps(day, snapshot, { onlyUpcoming = false } = {}) {
   const apiKey = process.env.ODDS_API_KEY;
   if (!apiKey) throw new Error("ODDS_API_KEY no configurada");
 
   const fetchedAt = new Date().toISOString();
 
   // 1) Partidos (este endpoint no gasta creditos).
+  // En el cierre solo los que no han empezado (un partido en juego
+  // trae lineas en vivo, que no sirven para proyectar).
   const ev = await oddsFetch(`${ODDS_API}/events?apiKey=${apiKey}`);
   const events = (Array.isArray(ev.data) ? ev.data : [])
-    .filter(e => e.commence_time && chicagoDay(new Date(e.commence_time)) === day);
+    .filter(e => e.commence_time && chicagoDay(new Date(e.commence_time)) === day)
+    .filter(e => !onlyUpcoming || Date.parse(e.commence_time) > Date.now());
 
   if (!events.length) {
     return { date: day, snapshot, events: 0, lines: 0, message: "No hay partidos NBA ese dia en The Odds API", credits: ev.credits };
@@ -1304,6 +1317,80 @@ async function stepPropsAuto(day, runRefresh, runInjuries) {
 
 
 // ============================================================
+// PASO: CORRIDA DE CIERRE (antes de cada slate)
+// ============================================================
+// Por que: en la prueba del 25-oct, con la misma formula y el mismo
+// combinador, saber al cierre quien no juega (Kawhi, Edgecombe,
+// Thompson) y repartir sus minutos subio las alineaciones que cobran
+// de 30 a 70 de 150. Lo que hace:
+//   1) lesiones al dia (BALLDONTLIE)
+//   2) foto "cierre" de props (solo partidos que no han empezado):
+//      las casas ya movieron las lineas con la noticia
+//   3) depth chart al dia (ESPN)
+//   4) la formula completa: minutos, roles y las alineaciones se
+//      rehacen desde cero (oficial + variantes + 150 de prueba).
+// Las corridas anteriores quedan en el archivo (no se borran).
+
+const CIERRE_START_MINUTES = 45;   // empieza a mirar 45 min antes
+const CIERRE_END_MINUTES = 15;     // y no corre a menos de 15 min
+
+async function slateStarts(day) {
+  const slates = await selectAll("fantasy_nba_slates", "slate_id,platform,starts_at", q => q.eq("slate_date", day));
+  return slates
+    .map(s => ({ slateId: Number(s.slate_id), platform: s.platform, start: Date.parse(s.starts_at) }))
+    .filter(s => Number.isFinite(s.start));
+}
+
+// ¿Ya se hizo el cierre de este horario? La foto "cierre" de props
+// guarda la hora en que se bajo.
+async function cierreDoneSince(day, sinceMs) {
+  const { data, error } = await supabaseAdmin
+    .from("fantasy_nba_prop_snapshots")
+    .select("fetched_at")
+    .eq("prop_date", day)
+    .eq("snapshot", "cierre")
+    .limit(1);
+  if (error) throw new Error(`Supabase fantasy_nba_prop_snapshots: ${error.message}`);
+  const at = data?.[0]?.fetched_at ? Date.parse(data[0].fetched_at) : null;
+  return at !== null && at >= sinceMs;
+}
+
+async function stepCierre(day, { auto, runInjuries, runDepth, runProject }) {
+  const now = Date.now();
+  const slates = await slateStarts(day);
+  const due = slates.filter(s =>
+    now >= s.start - CIERRE_START_MINUTES * 60000 &&
+    now <= s.start - CIERRE_END_MINUTES * 60000
+  );
+  const horarios = slates.map(s => `${s.platform} ${new Date(s.start).toISOString()}`);
+
+  if (auto) {
+    if (!due.length) return { date: day, skipped: true, message: "No toca corrida de cierre ahora", slates: horarios };
+    const first = Math.min(...due.map(s => s.start));
+    if (await cierreDoneSince(day, first - (CIERRE_START_MINUTES + 5) * 60000)) {
+      return { date: day, skipped: true, message: "El cierre de este horario ya se corrio", slates: horarios };
+    }
+  }
+
+  const out = { date: day, slatesEnCierre: due.map(s => `${s.platform} ${new Date(s.start).toISOString()}`) };
+  const step = async (name, fn) => {
+    const t0 = Date.now();
+    try {
+      out[name] = { ok: true, ...(await fn()), seconds: (Date.now() - t0) / 1000 };
+    } catch (error) {
+      console.error(`FANTASY NBA CIERRE ${name}:`, error);
+      out[name] = { ok: false, error: error.message, seconds: (Date.now() - t0) / 1000 };
+    }
+  };
+  await step("injuries", runInjuries);
+  await step("props", () => stepProps(day, "cierre", { onlyUpcoming: true }));
+  await step("depth", runDepth);
+  await step("project", runProject);
+  return out;
+}
+
+
+// ============================================================
 // HANDLER
 // ============================================================
 
@@ -1337,7 +1424,8 @@ const PLANS = {
   injuries: ["injuries"],
   depth: ["depth"],
   slate: ["slate"],
-  props: ["props"]
+  props: ["props"],
+  cierre: ["cierre"]
 };
 
 module.exports = async function handler(req, res) {
@@ -1427,6 +1515,15 @@ module.exports = async function handler(req, res) {
         formulaSeconds: r.seconds
       };
     },
+
+    // Corrida de cierre: &auto=1 (cron) decide si toca; sin auto
+    // corre ya (para probarla a mano).
+    cierre: () => stepCierre(day, {
+      auto,
+      runInjuries: () => stepInjuries(),
+      runDepth: () => stepDepth(),
+      runProject: () => steps.project()
+    }),
 
     // Compara las proyecciones de ayer contra lo real.
     evaluate: async () => {
