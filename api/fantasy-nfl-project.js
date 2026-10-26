@@ -28,7 +28,7 @@
 
 const { createClient } = require("@supabase/supabase-js");
 const model = require("./_lib/fantasy-nfl-model.js");
-const { buildLineups, RULES } = require("./_lib/fantasy-nfl-lineups.js");
+const { buildLineups, buildStackLineups, RULES } = require("./_lib/fantasy-nfl-lineups.js");
 const daily = require("./fantasy-nfl-daily.js");
 
 const supabaseAdmin = createClient(
@@ -46,6 +46,9 @@ const CONFIG = {
   lineupCount: 10,
   lineupMinDifferent: 2,
   lineupMaxExposure: 0.4,        // ningun jugador en mas del 40% de las alineaciones
+                                 // (con stack: el QB lo limita la cuota de su bloque)
+  lineupStack: true,             // QB + receptores en cada alineacion y nunca una
+                                 // DST contra los propios jugadores (false = como antes)
   sims: 10000,
 
   // Quien puede entrar a una alineacion (rol real):
@@ -443,18 +446,23 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
         points: round(p.sim?.[slate.platform]?.mean ?? 0, 2),
         positions: [sp.entity_type === "team" ? "DST" : p.position],
         team: teamCode(sp.team),
+        opp: teamCode(sp.team) === g.home_team ? g.away_team : g.home_team,
         gameId: g.game_id
       });
       inPool.add(key);
     }
 
     debug("optimizador", slate.slate_id, slate.platform, "pool", pool.length);
-    const result = buildLineups(slate.platform, pool, { count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure });
+    const lineupOpts = { count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure };
+    const result = CONFIG.lineupStack
+      ? buildStackLineups(slate.platform, pool, lineupOpts)
+      : buildLineups(slate.platform, pool, lineupOpts);
     debug("alineaciones", result.lineups.length);
     slateReports.push({
       slate: slate.slate_id, plataforma: slate.platform, fecha: slate.slate_date, principal: slate.is_main,
       partidos: slate.event_count, pool: pool.length, excluidos: excluded,
       estado: result.status, optimo: result.optimal,
+      stacks: result.stacks ? result.stacks.filter(s => s.lineups > 0) : undefined,
       mejor: result.lineups[0] ? { puntos: result.lineups[0].points, salario: result.lineups[0].salary } : null
     });
     for (const l of result.lineups) {
