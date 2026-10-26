@@ -88,10 +88,30 @@ const CONFIG = {
   formulaVersion: "produccion-propia+10%",
   // Pruebas en paralelo: mismos datos, un solo ajuste distinto.
   // Solo se archivan; nunca cambian las alineaciones oficiales.
+  // "produccion-propia-sin-10%" se quito el 26-oct: dio lo mismo que
+  // con el +10% (evaluacion del 25). En su lugar entra el reparto
+  // medido de las jugadas cuando falta alguien.
   shadowVariants: [
-    { version: "produccion-propia-sin-10%", config: { currentWeightBoost: 0 } },
-    { version: "mercado+escenarios", config: { useProps: true, questionableScenarios: true } }
+    { version: "mercado+escenarios", config: { useProps: true, questionableScenarios: true } },
+    {
+      version: "mercado+escenarios+reparto-medido",
+      config: { useProps: true, questionableScenarios: true, usageAstShare: 0.85, usage3pmShare: 0, usageRebShare: 0.27 }
+    }
   ],
+
+  // REPARTO DE JUGADAS cuando falta alguien (factor de uso del equipo).
+  // Puntos y perdidas suben con el factor completo. Cuanto de ese
+  // factor se lleva cada estadistica:
+  //   actual (oficial): asistencias 0.5, triples 1, rebotes 0.
+  //   MEDIDO (historial 2025-26, 364 partidos con un titular de 25+
+  //   minutos ausente contra 705 sin ausentes, mismos minutos):
+  //     puntos   -> el factor completo acierta (real 5.76 vs 5.91)
+  //     asist.   -> 0.85 (con 0.5 nos quedamos cortos: real 1.15 vs 0.68)
+  //     triples  -> 0   (no suben: real -0.03 vs 0.70 que dabamos)
+  //     rebotes  -> 0.27 (suben poco: real +0.64 por partido)
+  usageAstShare: 0.5,
+  usage3pmShare: 1,
+  usageRebShare: 0,
 
   // MERCADO (lineas de props). Solo en la variante de prueba.
   useProps: false,
@@ -1742,10 +1762,13 @@ function projectFantasy(row, team, opp, usageFactor, ctx) {
   const rates = { ...pr.rates };
 
   // Reparto de jugadas del equipo (lesiones de jugadores que usan mucho).
+  // Cuanto se lleva cada estadistica: ver CONFIG.usage*Share
+  // (los valores por defecto dan exactamente lo de antes).
   rates.pts *= usageFactor;
-  rates.fg3m *= usageFactor;
+  rates.fg3m *= 1 + CONFIG.usage3pmShare * (usageFactor - 1);
   rates.tov *= usageFactor;
-  rates.ast *= 1 + (usageFactor - 1) / 2;
+  rates.ast *= 1 + CONFIG.usageAstShare * (usageFactor - 1);
+  rates.reb *= 1 + CONFIG.usageRebShare * (usageFactor - 1);
 
   // Defensa del rival contra ESTE tipo de jugador.
   const def = ctx.models.defense.get(opp)?.[type] || {};
@@ -2697,7 +2720,10 @@ async function runEvaluation(day) {
       const values = (l.players || []).map(pl => realOf(l.slate_id, pl));
       const missing = values.filter(v => v === undefined || v === null).length;
       const real = round(values.reduce((s, v) => s + (Number(v) || 0), 0));
-      archiveUpdates.push({ ...l, actual_points: real, evaluated_at: now });
+      // Sin "id": esa columna la crea Supabase sola y no deja
+      // escribirla (por eso antes no se guardaban los puntos reales).
+      const { id: _archiveId, ...rest } = l;
+      archiveUpdates.push({ ...rest, actual_points: real, evaluated_at: now });
       const key = `${l.version}|${l.run_at}|${l.slate_id}`;
       if (!groups.has(key)) groups.set(key, { l, reals: [], missing: 0 });
       const g = groups.get(key);
@@ -2719,7 +2745,8 @@ async function runEvaluation(day) {
     for (const [key, g] of groups) {
       const perfect = perfectBySlate.get(Number(g.l.slate_id)) ?? null;
       const best = Math.max(...g.reals);
-      const e = playerErr.get(key) || [];
+      // Las 150 de prueba usan las proyecciones de su misma version.
+      const e = playerErr.get(key) || playerErr.get(key.replace(/ \[prueba \d+\]/, "")) || [];
       comparacionVersiones.push({
         version: g.l.version,
         corrida: new Intl.DateTimeFormat("es-US", { timeZone: "America/Chicago", hour: "2-digit", minute: "2-digit" }).format(new Date(g.l.run_at)),
