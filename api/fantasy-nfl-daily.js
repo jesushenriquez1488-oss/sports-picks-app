@@ -1049,3 +1049,8 @@ module.exports.normalizeName = normalizeName;
 module.exports.linkPlayer = linkPlayer;
 module.exports.buildPlayerIndex = buildPlayerIndex;
 module.exports.markMain = markMain;
+// La formula (fantasy-nfl-project.js) los usa para refrescar el
+// depth chart y los estados de los salarios justo antes de cada
+// partido, despues de los inactivos.
+module.exports.stepDepth = stepDepth;
+module.exports.stepSlates = stepSlates;
