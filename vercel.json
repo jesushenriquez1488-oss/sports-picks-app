@@ -56,6 +56,7 @@
     { "path": "/api/fantasy-nba-daily?step=all", "schedule": "30 8 * * *" },
     { "path": "/api/fantasy-nba-daily?step=refresh", "schedule": "30 21 * * *" },
     { "path": "/api/fantasy-nba-daily?step=props&auto=1", "schedule": "*/15 13-23 * * *" },
+    { "path": "/api/fantasy-nba-daily?step=cierre&auto=1", "schedule": "*/10 15-23,0-4 * * *" },
     { "path": "/api/fantasy-nfl-weekly", "schedule": "0 14 * * 2" },
     { "path": "/api/fantasy-nfl-daily?step=all", "schedule": "15 13 * * *" },
     { "path": "/api/fantasy-nfl-project?auto=1", "schedule": "*/10 0-2,12-23 * * *" },
