@@ -66,8 +66,10 @@
 //
 // 8. ALINEACIONES (27-oct)
 //    Titular y su suplente de la misma posicion nunca juntos.
-//    Pilas en partidos rapidos; el nucleo del partido MUY RAPIDO
-//    va en la mitad de las alineaciones (tope 50% esos 3).
+//    Pilas en los partidos mas rapidos DE HOY (comparados solo entre
+//    ellos): el nucleo del mas rapido va en la mitad de las
+//    alineaciones (tope 50% esos 3); el resto lleva parejas de los
+//    siguientes mas rapidos.
 //
 // REGLAS: salario <= $3,500 fuera; lesionados o en duda fuera;
 // fuera del top 2 de su posicion fuera; menos de 18 minutos fuera.
@@ -139,11 +141,8 @@ const CONFIG = {
   paceMinGames: 3,
   paceFactorMin: 0.94,
   paceFactorMax: 1.06,
-  // Clase del partido: se compara contra todos los cruces posibles
-  // de la liga con el ritmo de hoy de cada equipo.
-  paceVeryFast: 0.90,   // 10% mas rapido = MUY RAPIDO
-  paceFast: 0.67,       // tercio mas rapido = RAPIDO
-  paceSlow: 0.33,       // tercio mas lento = LENTO
+  // Rapido o lento: se compara SOLO entre los partidos del slate de
+  // hoy (el mas rapido del slate = nucleo; la mitad rapida = parejas).
   // Partido "parejo" para la pila estrella vs estrella.
   closeMargin: 5,
 
@@ -1953,11 +1952,9 @@ function projectFantasy(row, team, opp, usageFactor, ctx) {
       afinidadContraEsaDefensa: round(affinity, 3),
       partidosContraEsaDefensa: count,
       ritmo: pace ? {
-        partido: pace.cls,
         posesionesEsperadas: round(pace.pace, 1),
         normalSuEquipo: round(pace.teamPace, 1),
         normalRival: round(pace.oppPace, 1),
-        percentil: round(pace.percentile, 2),
         factor: round(paceFactor, 3)
       } : null,
       simulacion: bootstrap ? `${sample.length} partidos reales` : "variacion estandar (pocos partidos)",
@@ -2016,38 +2013,16 @@ function buildPace(teamGames) {
     teamPace.set(team, { pace: value, games: n, previous: prev.length ? round(mean(prev), 1) : null });
   }
 
-  // Todos los cruces posibles de la liga con el ritmo de hoy:
-  // sirve para decir si un partido es rapido o lento.
-  const paces = [...teamPace.values()].map(t => t.pace);
-  const matchups = [];
-  for (let i = 0; i < paces.length; i++) {
-    for (let j = i + 1; j < paces.length; j++) matchups.push((paces[i] + paces[j]) / 2);
-  }
-  matchups.sort((a, b) => a - b);
-  const percentile = v => {
-    if (!matchups.length) return null;
-    let lo = 0, hi = matchups.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      if (matchups[mid] < v) lo = mid + 1; else hi = mid;
-    }
-    return lo / matchups.length;
-  };
-
+  // Ritmo esperado del partido de hoy. Que partido es rapido o lento
+  // se decide comparando SOLO los partidos del slate de hoy
+  // (ver rankSlateGames), nunca contra la liga.
   const game = (team, opp) => {
     const a = teamPace.get(team);
     const b = teamPace.get(opp);
     if (!a || !b) return null;
     const pace = (a.pace + b.pace) / 2;
-    const pct = percentile(pace);
-    const cls = pct === null ? "NORMAL"
-      : pct >= CONFIG.paceVeryFast ? "MUY_RAPIDO"
-        : pct >= CONFIG.paceFast ? "RAPIDO"
-          : pct <= CONFIG.paceSlow ? "LENTO" : "NORMAL";
     return {
       pace,
-      percentile: pct,
-      cls,
       factor: clamp(pace / a.pace, CONFIG.paceFactorMin, CONFIG.paceFactorMax),
       teamPace: a.pace,
       oppPace: b.pace
@@ -2055,6 +2030,23 @@ function buildPace(teamGames) {
   };
 
   return { teamPace, game };
+}
+
+// Ordena los partidos del slate de HOY por ritmo esperado:
+//   el mas rapido del slate        -> MUY_RAPIDO (nucleo en el 50%)
+//   los siguientes de la mitad rapida -> RAPIDO (parejas)
+//   el mas lento (slates de 3+)     -> LENTO
+//   el resto                        -> NORMAL
+function rankSlateGames(games) {
+  const sorted = [...games].sort((a, b) => b.pace - a.pace);
+  const fastCount = Math.ceil(sorted.length / 2);
+  sorted.forEach((g, i) => {
+    g.rank = i + 1;
+    g.cls = i === 0 ? "MUY_RAPIDO"
+      : i < fastCount ? "RAPIDO"
+        : sorted.length >= 3 && i === sorted.length - 1 ? "LENTO" : "NORMAL";
+  });
+  return sorted;
 }
 
 
@@ -2494,11 +2486,12 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
         slateGames.push({
           gameId,
           teams: [abbrA, abbrB],
-          cls: pace.cls,
           pace: pace.pace,
           close: Math.abs(expectedMargin(idA, idB).total) <= CONFIG.closeMargin
         });
       }
+      // Rapido o lento = comparado SOLO con los partidos de hoy.
+      rankSlateGames(slateGames);
     }
     const lineupOptions = count => {
       if (!CONFIG.lineupStrategy) return {};
@@ -3099,6 +3092,7 @@ th,td{border:1px solid #1d3550;padding:4px 8px;text-align:left}th{background:#0b
         body += `<h2>${escapeHtml(p.platform)} — slate ${p.slateId} (${p.games} partidos)</h2>`;
         body += `<div class="box">Jugadores ${p.players} | elegibles ${p.eligible} | excluidos ${escapeHtml(JSON.stringify(p.excluded))}</div>`;
         body += table(p.top);
+        body += `<div class="box"><b>Ritmo de los partidos:</b> ${escapeHtml((p.ritmoPartidos || []).join(" | ") || "sin datos")}<br><b>Plan de pilas:</b> ${escapeHtml(p.plan || "sin datos")}</div>`;
         body += `<h2>${escapeHtml(p.platform)} — ${p.lineups?.length || 0} alineaciones (de la mas optima a la menos)${p.lineupsOptimal ? " · optimo garantizado" : ""}</h2>`;
         body += table(p.lineups || []);
       }
