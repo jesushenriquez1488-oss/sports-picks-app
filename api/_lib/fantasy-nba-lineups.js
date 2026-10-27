@@ -11,6 +11,19 @@
 // que cambia al menos N jugadores respecto a la #1, la #3 la
 // mejor que cambia al menos N respecto a la #1 y la #2, etc.
 //
+// REGLAS NUEVAS (27-oct, aprobadas):
+//  1. Titular y su suplente de la MISMA posicion nunca van juntos
+//     (se reparten los mismos minutos). Opcion: noStarterBackup.
+//  2. Pilas en partidos rapidos (planStacks + stackPlan):
+//     - partido MUY RAPIDO: su nucleo (2 estrellas de un equipo +
+//       la estrella rival) va en la MITAD de las alineaciones; esos
+//       3 jugadores pueden llegar al 50%.
+//     - partidos RAPIDOS: cada alineacion lleva una pareja de un
+//       partido rapido (2 titulares del mismo equipo, o estrella vs
+//       estrella si el partido se espera parejo).
+//     - El resto de cada alineacion lo completa el optimizador con
+//       los que mas proyectan (no al azar).
+//
 // Archivo con "_" al inicio: Vercel NO lo publica como endpoint.
 // ============================================================
 
@@ -38,6 +51,10 @@ const RULES = {
   }
 };
 
+// Puntos extra (solo internos) para obligar a que entren los
+// jugadores de la pila. Se quitan antes de devolver la alineacion.
+const FORCE_BONUS = 1000;
+
 // ¿Se pueden acomodar estos jugadores en las posiciones?
 // (emparejamiento jugador-posicion). Devuelve la asignacion o null.
 function assignSlots(players, rule) {
@@ -64,7 +81,23 @@ function assignSlots(players, rule) {
   return slotOf;
 }
 
-function solveOne(pool, rule, previous, minDifferent, nodeLimit) {
+// Regla 1: ¿a es titular y b es su suplente de esa misma posicion?
+// startPos = posicion del titular en el depth chart (PG, SG...).
+// backupOf = posiciones donde el suplente aparece en el depth chart.
+function isStarterAndBackup(a, b) {
+  return a.team === b.team &&
+    a.starter === true && b.starter === false &&
+    !!a.startPos && Array.isArray(b.backupOf) && b.backupOf.includes(a.startPos);
+}
+function starterBackupConflict(chosen, p) {
+  for (const c of chosen) {
+    if (c === p) continue;
+    if (isStarterAndBackup(c, p) || isStarterAndBackup(p, c)) return true;
+  }
+  return false;
+}
+
+function solveOne(pool, rule, previous, minDifferent, nodeLimit, check = null) {
   const size = rule.slots.length;
   const maxShared = size - minDifferent;
   const n = pool.length;
@@ -165,10 +198,12 @@ function solveOne(pool, rule, previous, minDifferent, nodeLimit) {
       const prevList = inPrevious.get(p.id) || [];
       let repeats = false;
       for (const idx of prevList) if (++shared[idx] > maxShared) repeats = true;
-      // Poda temprana: las posiciones deben seguir siendo posibles
-      // y no repetir demasiado una alineacion anterior.
+      // Poda temprana: las posiciones deben seguir siendo posibles,
+      // no repetir demasiado una alineacion anterior y cumplir las
+      // reglas extra (titular/suplente).
       const ok = !repeats &&
         (!rule.maxPerTeam || chosen.filter(c => c.team === p.team).length <= rule.maxPerTeam) &&
+        (!check || check(chosen, p)) &&
         assignSlots(chosen, rule);
       if (ok) search(j + 1, salary + p.salary, points + p.points);
       for (const idx of prevList) shared[idx]--;
@@ -181,11 +216,102 @@ function solveOne(pool, rule, previous, minDifferent, nodeLimit) {
   return { best, nodes, complete };
 }
 
-// players: [{ id, name, salary, points, positions:[...], gameId, team }]
+// ------------------------------------------------------------
+// PLAN DE PILAS (partidos rapidos)
+// games: [{ gameId, cls: "MUY_RAPIDO"|"RAPIDO"|"NORMAL"|"LENTO",
+//           teams: [teamA, teamB], close: bool, pace }]
+// Devuelve { core: { ids, names, gameId, lineups } | null,
+//            pairs: [{ ids, names, gameId, tipo }], resumen }
+// ------------------------------------------------------------
+function planStacks(players, games, count, { coreShare = 0.5 } = {}) {
+  const pool = players.filter(p => p.salary > 0 && p.points > 0 && p.positions?.length);
+  const topStarters = (team, k) => pool
+    .filter(p => p.team === team && p.starter === true)
+    .sort((a, b) => b.points - a.points)
+    .slice(0, k);
+
+  const fast = games
+    .filter(g => g.cls === "MUY_RAPIDO" || g.cls === "RAPIDO")
+    .sort((a, b) => b.pace - a.pace);
+  if (!fast.length) return { core: null, pairs: [], resumen: "Sin partidos rapidos: se arma normal" };
+
+  const pairsOf = g => {
+    const [a, b] = g.teams;
+    const ta = topStarters(a, 2);
+    const tb = topStarters(b, 2);
+    const out = [];
+    if (ta.length === 2) out.push({ players: ta, tipo: "2 del mismo equipo" });
+    if (tb.length === 2) out.push({ players: tb, tipo: "2 del mismo equipo" });
+    // Estrella vs estrella: en partido parejo o muy rapido (medido:
+    // explotan juntas 1.29x en parejos y 1.34x en total alto).
+    if ((g.close || g.cls === "MUY_RAPIDO") && ta.length && tb.length) {
+      out.push({ players: [ta[0], tb[0]], tipo: "estrella vs estrella" });
+    }
+    return out.map(x => ({
+      ids: x.players.map(p => p.id),
+      names: x.players.map(p => p.name),
+      gameId: g.gameId,
+      tipo: x.tipo,
+      value: x.players.reduce((s, p) => s + p.points, 0)
+    }));
+  };
+
+  let core = null;
+  const veryFast = fast.find(g => g.cls === "MUY_RAPIDO");
+  if (veryFast) {
+    const [a, b] = veryFast.teams;
+    const ta = topStarters(a, 2);
+    const tb = topStarters(b, 2);
+    const sa = ta.reduce((s, p) => s + p.points, 0);
+    const sb = tb.reduce((s, p) => s + p.points, 0);
+    // Nucleo: las 2 estrellas del equipo mas fuerte + la estrella rival.
+    const [mine, rival] = (ta.length === 2 && (sa >= sb || tb.length < 2)) ? [ta, tb] : [tb, ta];
+    if (mine.length === 2 && rival.length) {
+      const ids = [...mine.map(p => p.id), rival[0].id];
+      core = {
+        ids,
+        names: [...mine.map(p => p.name), rival[0].name],
+        gameId: veryFast.gameId,
+        lineups: Math.floor(count * coreShare + 1e-9)
+      };
+    }
+  }
+
+  // Parejas: primero las de los OTROS partidos rapidos; si no hay
+  // otros, las demas parejas del partido muy rapido.
+  let pairs = fast
+    .filter(g => !core || g.gameId !== core.gameId)
+    .flatMap(pairsOf)
+    .sort((a, b) => b.value - a.value);
+  if (!pairs.length && core) {
+    pairs = pairsOf(fast.find(g => g.gameId === core.gameId))
+      .filter(p => !(p.ids.length === 2 && p.ids.every(id => core.ids.includes(id))))
+      .sort((a, b) => b.value - a.value);
+  }
+  pairs = pairs.slice(0, 6);
+
+  return {
+    core,
+    pairs,
+    resumen: [
+      core ? `Nucleo partido MUY RAPIDO (${core.lineups} de ${count}): ${core.names.join(" + ")}` : null,
+      pairs.length ? `Parejas de partidos rapidos: ${pairs.map(p => p.names.join(" + ")).join(" | ")}` : null
+    ].filter(Boolean).join(". ")
+  };
+}
+
+// players: [{ id, name, salary, points, positions:[...], gameId, team,
+//             starter, startPos, backupOf }]
 // maxExposure: parte maxima de las alineaciones en que puede salir un
 // mismo jugador (0.4 = 40%: con 10 alineaciones, maximo 4). Asi una
 // lesion o una paliza no hunde todas las alineaciones.
-function buildLineups(platform, players, { count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1, timeLimitMs = Infinity } = {}) {
+// noStarterBackup: regla titular / suplente de su posicion.
+// stackPlan: resultado de planStacks (pilas de partidos rapidos).
+// coreExposure: tope de los jugadores del nucleo (0.5 = 50%).
+function buildLineups(platform, players, {
+  count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1, timeLimitMs = Infinity,
+  noStarterBackup = false, stackPlan = null, coreExposure = 0.5
+} = {}) {
   const rule = RULES[platform];
   if (!rule) return { status: "PLATAFORMA_NO_SOPORTADA", lineups: [] };
 
@@ -198,10 +324,26 @@ function buildLineups(platform, players, { count = 10, minDifferent = 2, nodeLim
   let allOptimal = true;
 
   const maxUses = Math.max(1, Math.floor(maxExposure * count + 1e-9));
+  const coreIds = new Set(stackPlan?.core?.ids || []);
+  const coreUses = Math.max(maxUses, Math.floor(coreExposure * count + 1e-9));
+  const capOf = id => (coreIds.has(id) ? coreUses : maxUses);
   const uses = new Map();
+  const check = noStarterBackup ? (chosen, p) => !starterBackupConflict(chosen, p) : null;
 
   const startedAt = Date.now();
   let timedOut = false;
+  let pairTurn = 0;
+
+  // Que jugadores obligar en la alineacion k (en orden de intento).
+  const candidatesFor = k => {
+    if (!stackPlan) return [null];
+    const list = [];
+    if (stackPlan.core && k < stackPlan.core.lineups) list.push(stackPlan.core);
+    const pairs = stackPlan.pairs || [];
+    for (let t = 0; t < pairs.length; t++) list.push(pairs[(pairTurn + t) % pairs.length]);
+    list.push(null); // ultimo recurso: sin obligar a nadie
+    return list;
+  };
 
   for (let k = 0; k < count; k++) {
     // Tope de tiempo (solo lo usan las alineaciones de prueba).
@@ -209,22 +351,56 @@ function buildLineups(platform, players, { count = 10, minDifferent = 2, nodeLim
       timedOut = true;
       break;
     }
-    const available = pool.filter(p => (uses.get(p.id) || 0) < maxUses);
-    const r = solveOne(available, rule, lineups.map(l => l.players), minDifferent, nodeLimit);
-    if (!r.complete) allOptimal = false;
-    if (!r.best) break;
+    const available = pool.filter(p => (uses.get(p.id) || 0) < capOf(p.id));
+    const availableIds = new Set(available.map(p => p.id));
 
-    const players = r.best.slots.map((pi, s) => ({ slot: rule.slots[s], ...r.best.players[pi] }));
-    for (const pl of r.best.players) uses.set(pl.id, (uses.get(pl.id) || 0) + 1);
+    let r = null;
+    let used = null;
+    let attempts = 0;
+    for (const cand of candidatesFor(k)) {
+      if (cand && !cand.ids.every(id => availableIds.has(id))) continue;
+      // Maximo 3 intentos con pila (para no pasarse de tiempo).
+      if (cand && attempts >= 3) continue;
+      if (cand) attempts++;
+      const forced = new Set(cand ? cand.ids : []);
+      const list = forced.size
+        ? available
+          .map(p => (forced.has(p.id) ? { ...p, points: p.points + FORCE_BONUS, realPoints: p.points } : p))
+          .sort((a, b) => b.points - a.points || a.salary - b.salary)
+        : available;
+      const res = solveOne(list, rule, lineups.map(l => l.players), minDifferent, nodeLimit, check);
+      if (!res.best) continue;
+      // Con pila: todos los obligados deben haber entrado.
+      if (forced.size && !cand.ids.every(id => res.best.players.some(p => p.id === id))) continue;
+      r = res;
+      used = cand;
+      break;
+    }
+    if (!r) break;
+    if (!r.complete) allOptimal = false;
+    if (used && used !== stackPlan?.core) pairTurn++;
+
+    const clean = p => {
+      if (p.realPoints === undefined) return p;
+      const { realPoints, ...rest } = p;
+      return { ...rest, points: realPoints };
+    };
+    const players = r.best.slots.map((pi, s) => ({ slot: rule.slots[s], ...clean(r.best.players[pi]) }));
+    for (const pl of players) uses.set(pl.id, (uses.get(pl.id) || 0) + 1);
     lineups.push({
       number: k + 1,
       players,
       salary: players.reduce((sum, p) => sum + p.salary, 0),
       points: Math.round(players.reduce((sum, p) => sum + p.points, 0) * 100) / 100,
       optimal: r.complete,
-      nodes: r.nodes
+      nodes: r.nodes,
+      pila: used ? used.names.join(" + ") : null
     });
   }
+
+  // Ordenar de mas a menos proyectado y renumerar.
+  lineups.sort((a, b) => b.points - a.points);
+  lineups.forEach((l, i) => (l.number = i + 1));
 
   return {
     status: lineups.length ? "OK" : "SIN_SOLUCION",
@@ -235,4 +411,4 @@ function buildLineups(platform, players, { count = 10, minDifferent = 2, nodeLim
   };
 }
 
-module.exports = { buildLineups, assignSlots, RULES };
+module.exports = { buildLineups, planStacks, assignSlots, starterBackupConflict, RULES };
