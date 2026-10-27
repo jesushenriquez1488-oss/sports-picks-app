@@ -14,13 +14,14 @@
 // REGLAS NUEVAS (27-oct, aprobadas):
 //  1. Titular y su suplente de la MISMA posicion nunca van juntos
 //     (se reparten los mismos minutos). Opcion: noStarterBackup.
-//  2. Pilas en partidos rapidos (planStacks + stackPlan):
-//     - partido MUY RAPIDO: su nucleo (2 estrellas de un equipo +
-//       la estrella rival) va en la MITAD de las alineaciones; esos
-//       3 jugadores pueden llegar al 50%.
-//     - partidos RAPIDOS: cada alineacion lleva una pareja de un
-//       partido rapido (2 titulares del mismo equipo, o estrella vs
-//       estrella si el partido se espera parejo).
+//  2. Pilas en los partidos mas rapidos DEL SLATE DE HOY (se
+//     comparan solo entre ellos, nunca contra la liga):
+//     - el MAS RAPIDO del slate (MUY_RAPIDO): su nucleo (2 estrellas
+//       de un equipo + la estrella rival) va en la MITAD de las
+//       alineaciones; esos 3 jugadores pueden llegar al 50%.
+//     - los demas de la mitad rapida (RAPIDO): las otras alineaciones
+//       llevan una pareja de ellos (2 titulares del mismo equipo, o
+//       estrella vs estrella si el partido se espera parejo).
 //     - El resto de cada alineacion lo completa el optimizador con
 //       los que mas proyectan (no al azar).
 //
