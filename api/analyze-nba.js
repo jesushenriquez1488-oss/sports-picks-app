@@ -11697,19 +11697,31 @@ function buildNBAPaceProfile(
     );
 
 
-  const paceCurrentWeight =
-    Math.min(
-      gamesCount / 20,
-      1
-    );
+  
+  // Peso acelerado de temporada NBA:
+  // 5 partidos = 85% actual
+  // 6 partidos = 93% actual
+  // 7+ partidos = 100% actual
 
+  const paceCurrentWeight =
+    gamesCount >= 7
+      ? 1
+      : gamesCount === 6
+        ? 0.93
+        : gamesCount === 5
+          ? 0.85
+          : Math.min(
+              gamesCount * 0.17,
+              0.68
+            );
+
+  // Ambos ajustes adoptan la temporada nueva
+  // según los partidos actuales disponibles.
+  // Si falta el pace edge actual, el fallback
+  // existente mantiene el valor anterior.
 
   const paceEdgeCurrentWeight =
-    Math.min(
-      paceEdgeGames / 20,
-      1
-    );
-
+    paceCurrentWeight;
 
   let effectivePace =
     null;
