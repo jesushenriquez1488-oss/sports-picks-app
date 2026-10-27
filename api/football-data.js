@@ -9188,20 +9188,19 @@ function projectWRReceivingYards({
   seasonYds,
   recentTargetsScore,
   oppRecYardsDefenseScore,
-  coverageMatchupScore,
   airYardsScore,
   paceScore
 }) {
-  const oppComponent = recent5Yds * oppRecYardsDefenseScore;
- 
+  const oppComponent =
+    recent5Yds * oppRecYardsDefenseScore;
+
   return (
-    recent5Yds             * 0.30 +
-    seasonYds              * 0.15 +
-    recentTargetsScore     * 0.20 +
-    oppComponent           * 0.15 +
-    coverageMatchupScore   * 0.10 +
-    airYardsScore          * 0.05 +
-    paceScore              * 0.05
+    recent5Yds         * 0.40 +
+    seasonYds          * 0.15 +
+    recentTargetsScore * 0.20 +
+    oppComponent       * 0.15 +
+    airYardsScore      * 0.05 +
+    paceScore          * 0.05
   );
 }
  
@@ -18564,6 +18563,36 @@ const propsBaselineTargets =
     const recent5RecYds  = avgStat("receivingYards");
     const recent5Rec     = avgStat("receptions");
     const recent5Targets = avgStat("targets");
+   // Eficiencia real del jugador en los últimos 5 partidos
+const totalRushYards = playerGameStats.reduce(
+  (sum, s) => sum + nflSafeNum(s.rushingYards),
+  0
+);
+
+const totalRushCarries = playerGameStats.reduce(
+  (sum, s) => sum + nflSafeNum(s.rushingCarries),
+  0
+);
+
+const playerYPC =
+  totalRushCarries > 0
+    ? totalRushYards / totalRushCarries
+    : null;
+
+const totalReceptions = playerGameStats.reduce(
+  (sum, s) => sum + nflSafeNum(s.receptions),
+  0
+);
+
+const totalTargets = playerGameStats.reduce(
+  (sum, s) => sum + nflSafeNum(s.targets),
+  0
+);
+
+const playerCatchRate =
+  totalTargets > 0
+    ? totalReceptions / totalTargets
+    : null;
     const avgTotalPlays  = avgStat("totalPlays");
  
     // Scores de contexto
@@ -18786,20 +18815,26 @@ projectionDebug = {
 });
     }
  
-   else if (market === "player_rush_yds") {
-  if (recent5RushYds <= 0 && recent5Carries <= 0) {
+  else if (market === "player_rush_yds") {
+  if (
+    recent5RushYds <= 0 ||
+    recent5Carries <= 0 ||
+    playerYPC === null
+  ) {
     propsDebug.noMarketStats++;
     continue;
   }
-      projection = projectRBRushingYards({
-        recent5Yds:              recent5RushYds,
-        seasonYds:               seasonRushYds,
-        recentCarriesScore:      recent5Carries * 4.2,  // YPC promedio liga
-        oppRunDefenseScore:      oppRunDefScore,
-        gameScriptPositiveScore: gameScriptPositiveScore * 4.2,
-        paceScore:               paceScore * recent5RushYds
-      });
-    }
+
+  projection = projectRBRushingYards({
+    recent5Yds: recent5RushYds,
+    seasonYds: seasonRushYds,
+    recentCarriesScore: recent5Carries * playerYPC,
+    oppRunDefenseScore: oppRunDefScore,
+    gameScriptPositiveScore:
+      gameScriptPositiveScore * playerYPC,
+    paceScore: paceScore * recent5RushYds
+  });
+}
  else if (market === "player_rush_attempts") {
   if (recent5Carries <= 0) {
     propsDebug.noMarketStats++;
@@ -18816,35 +18851,51 @@ projectionDebug = {
     }
  
    else if (market === "player_receptions") {
-  if (recent5Rec <= 0 && recent5Targets <= 0) {
+  if (
+    recent5Targets <= 0 ||
+    playerCatchRate === null
+  ) {
     propsDebug.noMarketStats++;
     continue;
   }
-      projection = projectWRReceptions({
-        recent5Rec,
-        seasonRec,
-        recentTargetsScore:  recent5Targets * 0.68, // catch rate liga ~68%
-        oppCatchDefenseScore: oppCatchDefScore,
-        teamPassRateScore:   teamPassRateScore * recent5Rec,
-        gameScriptScore:     gameScriptScore * recent5Rec
-      });
-    }
+
+  projection = projectWRReceptions({
+    recent5Rec,
+    seasonRec,
+    recentTargetsScore:
+      recent5Targets * playerCatchRate,
+    oppCatchDefenseScore: oppCatchDefScore,
+    teamPassRateScore:
+      teamPassRateScore * recent5Rec,
+    gameScriptScore:
+      gameScriptScore * recent5Rec
+  });
+}
  
-  else if (market === "player_reception_yds") {
-  if (recent5RecYds <= 0) {
+ else if (market === "player_reception_yds") {
+  if (
+    recent5RecYds <= 0 ||
+    recent5Rec <= 0 ||
+    recent5Targets <= 0 ||
+    playerCatchRate === null
+  ) {
     propsDebug.noMarketStats++;
     continue;
   }
-      const ypr = recent5Rec > 0 ? recent5RecYds / recent5Rec : 11;
-      projection = projectWRReceivingYards({
-        recent5Yds:              recent5RecYds,
-        seasonYds:               seasonRecYds,
-        recentTargetsScore:      recent5Targets * ypr * 0.68,
-        oppRecYardsDefenseScore: oppRecYardsDefScore,
-        coverageMatchupScore:    recent5RecYds * oppRecYardsDefScore,
-        airYardsScore:           ypr * recent5Targets * 0.10,
-        paceScore:               paceScore * recent5RecYds
-      });
+
+  const ypr = recent5RecYds / recent5Rec;
+
+  projection = projectWRReceivingYards({
+    recent5Yds: recent5RecYds,
+    seasonYds: seasonRecYds,
+    recentTargetsScore:
+      recent5Targets * playerCatchRate * ypr,
+    oppRecYardsDefenseScore: oppRecYardsDefScore,
+    airYardsScore:
+      ypr * recent5Targets * 0.10,
+    paceScore:
+      paceScore * recent5RecYds
+  });
     if (
   propsDebug.wrDiagnostics.length < 20
 ) {
@@ -18882,22 +18933,19 @@ projectionDebug = {
         oppRecYardsDefScore.toFixed(3)
       ),
 
-    recentTargetsScore:
-      Number(
-        (
-          recent5Targets *
-          ypr *
-          0.68
-        ).toFixed(1)
-      ),
+   recentTargetsScore:
+  Number(
+    (
+      recent5Targets *
+      playerCatchRate *
+      ypr
+    ).toFixed(1)
+  ),
 
-    coverageMatchupScore:
-      Number(
-        (
-          recent5RecYds *
-          oppRecYardsDefScore
-        ).toFixed(1)
-      ),
+playerCatchRate:
+  Number(
+    playerCatchRate.toFixed(3)
+  ),
 
     paceScore:
       Number(
