@@ -224,79 +224,101 @@ function solveOne(pool, rule, previous, minDifferent, nodeLimit, check = null) {
 // Devuelve { core: { ids, names, gameId, lineups } | null,
 //            pairs: [{ ids, names, gameId, tipo }], resumen }
 // ------------------------------------------------------------
-function planStacks(players, games, count, { coreShare = 0.5 } = {}) {
-  const pool = players.filter(p => p.salary > 0 && p.points > 0 && p.positions?.length);
+function planStacks(players, games, count, { coreShare = 0.5, platform = "draftkings" } = {}) {
+  const rule = RULES[platform] || RULES.draftkings;
+  const pool = players
+    .filter(p => p.salary > 0 && p.points > 0 && p.positions?.length)
+    .map(p => ({ ...p, positions: p.positions.map(x => String(x).toUpperCase()) }));
   const topStarters = (team, k) => pool
     .filter(p => p.team === team && p.starter === true)
     .sort((a, b) => b.points - a.points)
     .slice(0, k);
+  // ¿Caben juntos en las posiciones de esta casa? (ej. FanDuel tiene
+  // UN solo C: dos pivots no pueden ir juntos).
+  const fits = list => !!assignSlots(list, rule);
+  const asStack = (list, gameId, tipo) => ({
+    ids: list.map(p => p.id),
+    names: list.map(p => p.name),
+    gameId,
+    tipo,
+    value: list.reduce((s, p) => s + p.points, 0)
+  });
 
   const fast = games
     .filter(g => g.cls === "MUY_RAPIDO" || g.cls === "RAPIDO")
     .sort((a, b) => b.pace - a.pace);
   if (!fast.length) return { core: null, pairs: [], resumen: "Sin partidos rapidos: se arma normal" };
 
+  // Parejas de un partido: 2 titulares del mismo equipo (entre sus 3
+  // mejores) y, en partido parejo o el mas rapido, estrella vs estrella.
   const pairsOf = g => {
     const [a, b] = g.teams;
-    const ta = topStarters(a, 2);
-    const tb = topStarters(b, 2);
     const out = [];
-    if (ta.length === 2) out.push({ players: ta, tipo: "2 del mismo equipo" });
-    if (tb.length === 2) out.push({ players: tb, tipo: "2 del mismo equipo" });
-    // Estrella vs estrella: en partido parejo o muy rapido (medido:
-    // explotan juntas 1.29x en parejos y 1.34x en total alto).
-    if ((g.close || g.cls === "MUY_RAPIDO") && ta.length && tb.length) {
-      out.push({ players: [ta[0], tb[0]], tipo: "estrella vs estrella" });
+    for (const t of [a, b]) {
+      const top = topStarters(t, 3);
+      for (let i = 0; i < top.length; i++) {
+        for (let j = i + 1; j < top.length; j++) out.push(asStack([top[i], top[j]], g.gameId, "2 del mismo equipo"));
+      }
     }
-    return out.map(x => ({
-      ids: x.players.map(p => p.id),
-      names: x.players.map(p => p.name),
-      gameId: g.gameId,
-      tipo: x.tipo,
-      value: x.players.reduce((s, p) => s + p.points, 0)
-    }));
+    // Estrella vs estrella (medido: explotan juntas 1.29x en parejos
+    // y 1.34x en total alto).
+    if (g.close || g.cls === "MUY_RAPIDO") {
+      const ta = topStarters(a, 2);
+      const tb = topStarters(b, 2);
+      for (const x of ta) for (const y of tb) out.push(asStack([x, y], g.gameId, "estrella vs estrella"));
+    }
+    return out.filter(st => fits(pool.filter(p => st.ids.includes(p.id))));
   };
 
+  // NUCLEO del partido mas rapido: 2 estrellas de un equipo + la
+  // estrella rival. Se prueban todas las combinaciones de sus 3
+  // mejores titulares y se queda la de mas puntos que QUEPA en las
+  // posiciones de la casa.
   let core = null;
   const veryFast = fast.find(g => g.cls === "MUY_RAPIDO");
   if (veryFast) {
-    const [a, b] = veryFast.teams;
-    const ta = topStarters(a, 2);
-    const tb = topStarters(b, 2);
-    const sa = ta.reduce((s, p) => s + p.points, 0);
-    const sb = tb.reduce((s, p) => s + p.points, 0);
-    // Nucleo: las 2 estrellas del equipo mas fuerte + la estrella rival.
-    const [mine, rival] = (ta.length === 2 && (sa >= sb || tb.length < 2)) ? [ta, tb] : [tb, ta];
-    if (mine.length === 2 && rival.length) {
-      const ids = [...mine.map(p => p.id), rival[0].id];
+    const options = [];
+    for (const [mineTeam, rivalTeam] of [veryFast.teams, [...veryFast.teams].reverse()]) {
+      const mine = topStarters(mineTeam, 3);
+      const rival = topStarters(rivalTeam, 3);
+      for (let i = 0; i < mine.length; i++) {
+        for (let j = i + 1; j < mine.length; j++) {
+          for (const r of rival) {
+            const trio = [mine[i], mine[j], r];
+            if (fits(trio)) options.push(trio);
+          }
+        }
+      }
+    }
+    options.sort((x, y) => y.reduce((s, p) => s + p.points, 0) - x.reduce((s, p) => s + p.points, 0));
+    if (options.length) {
       core = {
-        ids,
-        names: [...mine.map(p => p.name), rival[0].name],
-        gameId: veryFast.gameId,
+        ...asStack(options[0], veryFast.gameId, "nucleo"),
         lineups: Math.floor(count * coreShare + 1e-9)
       };
     }
   }
 
-  // Parejas: primero las de los OTROS partidos rapidos; si no hay
-  // otros, las demas parejas del partido muy rapido.
-  let pairs = fast
+  // Parejas: primero las de los OTROS partidos rapidos; despues, como
+  // respaldo (cuando el tope de exposicion agota las primeras), las
+  // del partido mas rapido que no repiten el nucleo completo.
+  const others = fast
     .filter(g => !core || g.gameId !== core.gameId)
     .flatMap(pairsOf)
     .sort((a, b) => b.value - a.value);
-  if (!pairs.length && core) {
-    pairs = pairsOf(fast.find(g => g.gameId === core.gameId))
-      .filter(p => !(p.ids.length === 2 && p.ids.every(id => core.ids.includes(id))))
-      .sort((a, b) => b.value - a.value);
-  }
-  pairs = pairs.slice(0, 6);
+  const backup = core
+    ? pairsOf(fast.find(g => g.gameId === core.gameId))
+      .filter(p => !p.ids.every(id => core.ids.includes(id)))
+      .sort((a, b) => b.value - a.value)
+    : [];
+  const pairs = [...others.slice(0, 8), ...backup.slice(0, 4)];
 
   return {
     core,
     pairs,
     resumen: [
-      core ? `Nucleo partido MUY RAPIDO (${core.lineups} de ${count}): ${core.names.join(" + ")}` : null,
-      pairs.length ? `Parejas de partidos rapidos: ${pairs.map(p => p.names.join(" + ")).join(" | ")}` : null
+      core ? `Nucleo del partido mas rapido (${core.lineups} de ${count}): ${core.names.join(" + ")}` : null,
+      pairs.length ? `Parejas (en orden): ${pairs.map(p => p.names.join(" + ")).join(" | ")}` : null
     ].filter(Boolean).join(". ")
   };
 }
@@ -360,8 +382,8 @@ function buildLineups(platform, players, {
     let attempts = 0;
     for (const cand of candidatesFor(k)) {
       if (cand && !cand.ids.every(id => availableIds.has(id))) continue;
-      // Maximo 3 intentos con pila (para no pasarse de tiempo).
-      if (cand && attempts >= 3) continue;
+      // Maximo 4 intentos con pila (para no pasarse de tiempo).
+      if (cand && attempts >= 4) continue;
       if (cand) attempts++;
       const forced = new Set(cand ? cand.ids : []);
       const list = forced.size
