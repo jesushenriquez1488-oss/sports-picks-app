@@ -2497,7 +2497,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
       if (!CONFIG.lineupStrategy) return {};
       return {
         noStarterBackup: true,
-        stackPlan: planStacks(optimizerPool, slateGames, count, { coreShare: CONFIG.coreExposure }),
+        stackPlan: planStacks(optimizerPool, slateGames, count, { coreShare: CONFIG.coreExposure, platform }),
         coreExposure: CONFIG.coreExposure
       };
     };
