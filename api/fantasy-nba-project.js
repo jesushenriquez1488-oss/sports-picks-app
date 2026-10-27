@@ -52,16 +52,29 @@
 //    Cuanto permite ESE rival a ESE tipo de jugador, stat por stat.
 //    Y como rinde EL contra ese tipo de defensa.
 //
-// 5. PUNTOS FANTASY
+// 5. RITMO DEL PARTIDO (27-oct)
+//    Posesiones esperadas del partido vs las normales de su equipo.
+//    Partido mas rapido = mas de todo; mas lento = menos.
+//
+// 6. MERCADO (oficial desde el 27-oct)
+//    Lineas de props de las casas: 85% mercado, 15% nuestra formula.
+//    Jugador sin linea: 100% nuestra formula.
+//
+// 7. PUNTOS FANTASY
 //    10,000 simulaciones -> DraftKings (doble y triple doble)
 //    y FanDuel.
+//
+// 8. ALINEACIONES (27-oct)
+//    Titular y su suplente de la misma posicion nunca juntos.
+//    Pilas en partidos rapidos; el nucleo del partido MUY RAPIDO
+//    va en la mitad de las alineaciones (tope 50% esos 3).
 //
 // REGLAS: salario <= $3,500 fuera; lesionados o en duda fuera;
 // fuera del top 2 de su posicion fuera; menos de 18 minutos fuera.
 // ============================================================
 
 const { createClient } = require("@supabase/supabase-js");
-const { buildLineups } = require("./_lib/fantasy-nba-lineups.js");
+const { buildLineups, planStacks } = require("./_lib/fantasy-nba-lineups.js");
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
@@ -85,19 +98,60 @@ const CONFIG = {
   // se saltan (Vercel corta a los 300 s).
   maxRunSeconds: 200,
   // Nombre de la formula oficial (queda guardado en cada corrida).
-  formulaVersion: "produccion-propia+10%",
+  // 27-oct (aprobado): mercado 85% + ritmo del partido + pilas en
+  // partidos rapidos + regla titular/suplente.
+  formulaVersion: "mercado85+ritmo+pilas",
   // Pruebas en paralelo: mismos datos, un solo ajuste distinto.
   // Solo se archivan; nunca cambian las alineaciones oficiales.
-  // "produccion-propia-sin-10%" se quito el 26-oct: dio lo mismo que
-  // con el +10% (evaluacion del 25). En su lugar entra el reparto
-  // medido de las jugadas cuando falta alguien.
+  // 27-oct: la oficial anterior ("produccion-propia+10%") y mercado
+  // al 70% quedan como pruebas para seguir comparando. El reparto
+  // medido se quito: dio practicamente lo mismo que mercado.
   shadowVariants: [
-    { version: "mercado+escenarios", config: { useProps: true, questionableScenarios: true } },
     {
-      version: "mercado+escenarios+reparto-medido",
-      config: { useProps: true, questionableScenarios: true, usageAstShare: 0.85, usage3pmShare: 0, usageRebShare: 0.27 }
+      version: "produccion-propia+10%",
+      config: {
+        useProps: false, questionableScenarios: false, usePace: false, lineupStrategy: false,
+        previousSeasonGames: 1
+      }
+    },
+    {
+      version: "mercado+escenarios",
+      config: {
+        usePace: false, lineupStrategy: false, previousSeasonGames: 1,
+        propWeights: { pts: 0.7, reb: 0.7, ast: 0.7, fg3m: 0.6, stl: 0.5, blk: 0.5 }
+      }
     }
   ],
+
+  // RITMO DEL PARTIDO (27-oct, medido con temporadas 2024+: las
+  // estrellas explotan 23-24% en partidos rapidos vs 13-17% en lentos).
+  // Ritmo = posesiones por partido = tiros + 0.44 x tiros libres
+  //         - rebotes ofensivos + perdidas (de nuestra base).
+  // Ritmo normal de cada equipo: esta temporada; la pasada (mismo
+  // equipo) vale pacePriorGames partidos mientras hay pocos juegos.
+  // Ritmo esperado del partido = promedio de los dos equipos.
+  // Factor = ritmo esperado / ritmo normal de SU equipo (mas
+  // posesiones = mas de todo). Se aplica a nuestra formula ANTES de
+  // mezclar con el mercado (el mercado ya cuenta el ritmo: asi no
+  // se cuenta dos veces). Jugador sin linea: se aplica completo.
+  usePace: true,
+  pacePriorGames: 5,
+  paceMinGames: 3,
+  paceFactorMin: 0.94,
+  paceFactorMax: 1.06,
+  // Clase del partido: se compara contra todos los cruces posibles
+  // de la liga con el ritmo de hoy de cada equipo.
+  paceVeryFast: 0.90,   // 10% mas rapido = MUY RAPIDO
+  paceFast: 0.67,       // tercio mas rapido = RAPIDO
+  paceSlow: 0.33,       // tercio mas lento = LENTO
+  // Partido "parejo" para la pila estrella vs estrella.
+  closeMargin: 5,
+
+  // ALINEACIONES (27-oct, aprobado):
+  //  - titular y su suplente de la misma posicion nunca juntos;
+  //  - pilas en partidos rapidos; nucleo del MUY RAPIDO en el 50%.
+  lineupStrategy: true,
+  coreExposure: 0.5,
 
   // REPARTO DE JUGADAS cuando falta alguien (factor de uso del equipo).
   // Puntos y perdidas suben con el factor completo. Cuanto de ese
@@ -113,11 +167,13 @@ const CONFIG = {
   usage3pmShare: 1,
   usageRebShare: 0,
 
-  // MERCADO (lineas de props). Solo en la variante de prueba.
-  useProps: false,
+  // MERCADO (lineas de props). Oficial desde el 27-oct.
+  useProps: true,
   // Peso del mercado por estadistica (el resto = nuestra formula).
-  // Punto de partida; la evaluacion de cada noche dira cual acierta.
-  propWeights: { pts: 0.7, reb: 0.7, ast: 0.7, fg3m: 0.6, stl: 0.5, blk: 0.5 },
+  // 27-oct: subido de 70% a 85% (prueba 25 y 26-oct: el error baja
+  // siempre con mas mercado; las alineaciones salen mejor con
+  // 70-90%). Cada estadistica sube en la misma proporcion (x 85/70).
+  propWeights: { pts: 0.85, reb: 0.85, ast: 0.85, fg3m: 0.73, stl: 0.61, blk: 0.61 },
   // Si en su equipo hubo una baja DESPUES de la linea, la linea
   // no la trae: se confia menos en ella (peso x0.35).
   propNewsFactor: 0.35,
@@ -129,8 +185,8 @@ const CONFIG = {
 
   // DUDOSOS: sus companeros se proyectan en dos escenarios
   // (juega / no juega) y se mezclan. El dudoso sigue SIN entrar
-  // a alineaciones hasta que se confirme.
-  questionableScenarios: false,
+  // a alineaciones hasta que se confirme. Oficial desde el 27-oct.
+  questionableScenarios: true,
   questionablePlayProb: 0.5,
   minProjectedMinutes: 18,
   minHistoryMinutes: 40,
@@ -188,8 +244,13 @@ const CONFIG = {
   rateGames: 80,
   rateDecay: 0.97,
   currentRateWeight: 1.5,
-  // Temporada pasada (mismo equipo y rol) = 1 partido de peso.
-  previousSeasonGames: 1,
+  // Temporada pasada (mismo equipo y rol) = 3 partidos de peso.
+  // 27-oct: antes 1. La comparacion contra el mercado mostro que la
+  // formula le creia demasiado a los primeros 3-4 partidos (inflaba
+  // a los que arrancaron bien y bajaba a estrellas que arrancaron
+  // flojo). Solo cuenta el MISMO equipo y rol; si cambio de equipo
+  // sigue valiendo medio partido.
+  previousSeasonGames: 3,
   // Si cambio de equipo (mismo rol): medio partido, y se quita
   // cuando ya tiene 8 partidos con el equipo nuevo.
   previousOtherTeamGames: 0.5,
@@ -1796,6 +1857,14 @@ function projectFantasy(row, team, opp, usageFactor, ctx) {
     : 1;
   for (const k of STATS) rates[k] *= affinity;
 
+  // RITMO DEL PARTIDO: mas posesiones que lo normal de su equipo =
+  // mas de todo (y menos si es mas lento). Va ANTES del mercado:
+  // la linea ya trae el ritmo, asi que solo afecta la parte de
+  // nuestra formula (o todo, si el jugador no tiene linea).
+  const pace = CONFIG.usePace ? ctx.paceByTeam?.get(team) || null : null;
+  const paceFactor = pace ? pace.factor : 1;
+  for (const k of STATS) rates[k] *= paceFactor;
+
   // MERCADO: mezcla lo que espera el mercado (lineas de props) con
   // nuestra formula, estadistica por estadistica. Lo que no tiene
   // linea (perdidas, o un jugador sin lineas) queda con la formula.
@@ -1883,11 +1952,109 @@ function projectFantasy(row, team, opp, usageFactor, ctx) {
       defensaRivalFactor: round(oppDk, 3),
       afinidadContraEsaDefensa: round(affinity, 3),
       partidosContraEsaDefensa: count,
+      ritmo: pace ? {
+        partido: pace.cls,
+        posesionesEsperadas: round(pace.pace, 1),
+        normalSuEquipo: round(pace.teamPace, 1),
+        normalRival: round(pace.oppPace, 1),
+        percentil: round(pace.percentile, 2),
+        factor: round(paceFactor, 3)
+      } : null,
       simulacion: bootstrap ? `${sample.length} partidos reales` : "variacion estandar (pocos partidos)",
       mercado: market,
       escenarioDudoso: row.scenario || null
     }
   };
+}
+
+
+// ============================================================
+// RITMO (PACE) DE CADA EQUIPO Y DEL PARTIDO DE HOY
+// ============================================================
+// Posesiones de un equipo en un partido = tiros + 0.44 x tiros
+// libres - rebotes ofensivos + perdidas (suma de sus jugadores).
+// Ritmo del partido = promedio de las posesiones de los dos.
+// Ritmo normal del equipo = sus partidos de esta temporada; la
+// temporada pasada (mismo equipo) vale pacePriorGames partidos.
+function buildPace(teamGames) {
+  const possOf = tg => {
+    let fga = 0, fta = 0, oreb = 0, tov = 0;
+    for (const r of tg.rows.values()) {
+      fga += r.fga; fta += r.fta; oreb += r.oreb; tov += r.tov;
+    }
+    // Partido con datos incompletos: no cuenta.
+    if (fga < 50) return null;
+    return fga + 0.44 * fta - oreb + tov;
+  };
+
+  // Posesiones de cada equipo en cada partido.
+  const poss = new Map();   // `${team}:${gameId}` -> posesiones
+  for (const [team, list] of teamGames) {
+    for (const tg of list) {
+      const p = possOf(tg);
+      if (p !== null) poss.set(`${team}:${tg.id}`, p);
+    }
+  }
+
+  const teamPace = new Map();
+  for (const [team, list] of teamGames) {
+    const cur = [];
+    const prev = [];
+    for (const tg of list) {
+      const a = poss.get(`${team}:${tg.id}`);
+      const b = poss.get(`${tg.opp}:${tg.id}`);
+      if (a === undefined || b === undefined) continue;
+      const gamePace = (a + b) / 2;
+      if (tg.season === CUR) cur.push(gamePace);
+      else if (tg.season === PREV) prev.push(gamePace);
+    }
+    const n = cur.length;
+    const k = prev.length ? CONFIG.pacePriorGames : 0;
+    // Sin temporada pasada hacen falta al menos paceMinGames de esta.
+    if (!prev.length && n < CONFIG.paceMinGames) continue;
+    const value = (n * (n ? mean(cur) : 0) + k * (prev.length ? mean(prev) : 0)) / (n + k);
+    teamPace.set(team, { pace: value, games: n, previous: prev.length ? round(mean(prev), 1) : null });
+  }
+
+  // Todos los cruces posibles de la liga con el ritmo de hoy:
+  // sirve para decir si un partido es rapido o lento.
+  const paces = [...teamPace.values()].map(t => t.pace);
+  const matchups = [];
+  for (let i = 0; i < paces.length; i++) {
+    for (let j = i + 1; j < paces.length; j++) matchups.push((paces[i] + paces[j]) / 2);
+  }
+  matchups.sort((a, b) => a - b);
+  const percentile = v => {
+    if (!matchups.length) return null;
+    let lo = 0, hi = matchups.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (matchups[mid] < v) lo = mid + 1; else hi = mid;
+    }
+    return lo / matchups.length;
+  };
+
+  const game = (team, opp) => {
+    const a = teamPace.get(team);
+    const b = teamPace.get(opp);
+    if (!a || !b) return null;
+    const pace = (a.pace + b.pace) / 2;
+    const pct = percentile(pace);
+    const cls = pct === null ? "NORMAL"
+      : pct >= CONFIG.paceVeryFast ? "MUY_RAPIDO"
+        : pct >= CONFIG.paceFast ? "RAPIDO"
+          : pct <= CONFIG.paceSlow ? "LENTO" : "NORMAL";
+    return {
+      pace,
+      percentile: pct,
+      cls,
+      factor: clamp(pace / a.pace, CONFIG.paceFactorMin, CONFIG.paceFactorMax),
+      teamPace: a.pace,
+      oppPace: b.pace
+    };
+  };
+
+  return { teamPace, game };
 }
 
 
@@ -2035,6 +2202,14 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
   }
 
   ctx.opponents = opponents;
+
+  // ---- Ritmo del partido de hoy (cada equipo del slate) ----
+  const paceModel = buildPace(history.teamGames);
+  ctx.paceByTeam = new Map();
+  for (const [team, opp] of opponents) {
+    const g = paceModel.game(team, opp);
+    if (g) ctx.paceByTeam.set(team, g);
+  }
 
   // ---- Partido de hoy: localia, cansancio y bajas ----
   const gameModel = buildGameModel(history.teamGames, models.strength);
@@ -2291,10 +2466,54 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
       gameId: String(x.p.event_id),
       salary: Number(x.p.salary),
       points: x.f[platform].mean,
-      positions: x.p.positions
+      positions: x.p.positions,
+      // Regla titular / suplente de su posicion (depth chart de hoy):
+      // titular -> su posicion; suplente -> posiciones donde ESPN lo
+      // tiene como reemplazo (puesto 2 o 3 de esa posicion).
+      starter: x.row.role === "S",
+      startPos: x.row.role === "S" ? x.row.depthPosition || null : null,
+      backupOf: x.row.role === "S" ? [] :
+        POSITIONS.filter(pos => x.row.ranks?.[pos] !== null && x.row.ranks?.[pos] !== undefined && x.row.ranks[pos] <= 3)
+          .map(pos => pos.toUpperCase())
     }));
-    const lineupResult = buildLineups(platform, optimizerPool,
-      { count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure });
+
+    // Partidos del slate con su ritmo (para las pilas).
+    const slateGames = [];
+    if (CONFIG.lineupStrategy) {
+      const byEvent = new Map();
+      for (const x of eligible) {
+        const e = String(x.p.event_id);
+        if (!byEvent.has(e)) byEvent.set(e, new Map());
+        byEvent.get(e).set(x.p.team_abbr, Number(x.p.team_id));
+      }
+      for (const [gameId, teams] of byEvent) {
+        if (teams.size !== 2) continue;
+        const [[abbrA, idA], [abbrB, idB]] = [...teams];
+        const pace = ctx.paceByTeam.get(idA);
+        if (!pace) continue;
+        slateGames.push({
+          gameId,
+          teams: [abbrA, abbrB],
+          cls: pace.cls,
+          pace: pace.pace,
+          close: Math.abs(expectedMargin(idA, idB).total) <= CONFIG.closeMargin
+        });
+      }
+    }
+    const lineupOptions = count => {
+      if (!CONFIG.lineupStrategy) return {};
+      return {
+        noStarterBackup: true,
+        stackPlan: planStacks(optimizerPool, slateGames, count, { coreShare: CONFIG.coreExposure }),
+        coreExposure: CONFIG.coreExposure
+      };
+    };
+
+    const officialOptions = lineupOptions(CONFIG.lineupCount);
+    const lineupResult = buildLineups(platform, optimizerPool, {
+      count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure,
+      ...officialOptions
+    });
 
     // MUESTRA DE PRUEBA: 150 alineaciones mas por version, solo
     // para medir (nadie las juega). Se archivan con la etiqueta
@@ -2307,7 +2526,8 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
         minDifferent: CONFIG.lineupMinDifferent,
         maxExposure: CONFIG.lineupMaxExposure,
         nodeLimit: CONFIG.testNodeLimit,
-        timeLimitMs: CONFIG.testSecondsPerPlatform * 1000
+        timeLimitMs: CONFIG.testSecondsPerPlatform * 1000,
+        ...lineupOptions(CONFIG.testLineupCount)
       });
       testInfo.push(`${platform}: ${test.lineups.length}${test.timedOut ? " (tope de tiempo)" : ""}`);
       testLineupRows.push(...test.lineups.map(l => ({
@@ -2341,8 +2561,13 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
         "#": l.number,
         proyectado: l.points,
         salario: l.salary,
+        pila: l.pila || "-",
         jugadores: l.players.map(p => `${p.slot}: ${p.name} ($${p.salary}, ${round(p.points, 1)})`).join(" | ")
       })),
+      ritmoPartidos: slateGames
+        .sort((a, b) => b.pace - a.pace)
+        .map(g => `${g.teams.join(" @ ")}: ${g.cls} (${round(g.pace, 1)} posesiones${g.close ? ", parejo" : ""})`),
+      plan: officialOptions.stackPlan ? officialOptions.stackPlan.resumen : "sin estrategia de pilas",
       slateId: Number(slate.slate_id),
       games: slate.event_count,
       players: players.length,
