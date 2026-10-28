@@ -14,7 +14,9 @@
 // REGLAS NUEVAS (27-oct, aprobadas):
 //  1. Titular y su suplente de la MISMA posicion nunca van juntos
 //     (se reparten los mismos minutos). Opcion: noStarterBackup.
-//  2. Pilas en los partidos mas rapidos DEL SLATE DE HOY (se
+//  2. (28-oct) La pila se escoge por TECHO y con mezcla libre de
+//     equipos (ver planStacks). Solo DraftKings; FanDuel sin pilas.
+//     Pilas en los partidos mas rapidos DEL SLATE DE HOY (se
 //     comparan solo entre ellos, nunca contra la liga):
 //     - el MAS RAPIDO del slate (MUY_RAPIDO): su nucleo (2 estrellas
 //       de un equipo + la estrella rival) va en la MITAD de las
@@ -225,14 +227,16 @@ function solveOne(pool, rule, previous, minDifferent, nodeLimit, check = null) {
 //            pairs: [{ ids, names, gameId, tipo }], resumen }
 // ------------------------------------------------------------
 function planStacks(players, games, count, { coreShare = 0.5, platform = "draftkings" } = {}) {
+  // 28-oct (aprobado para DraftKings): la pila se escoge por TECHO
+  // (p90 = lo que hace en sus mejores noches) y con MEZCLA LIBRE: los
+  // jugadores del partido que mas pueden explotar, sean del equipo que
+  // sean (2+0, 1+1, 2+1...). Prueba con el 27-oct (DK, 150): cobran 54
+  // vs 35 con la pila fija y 40 sin pilas.
   const rule = RULES[platform] || RULES.draftkings;
   const pool = players
     .filter(p => p.salary > 0 && p.points > 0 && p.positions?.length)
     .map(p => ({ ...p, positions: p.positions.map(x => String(x).toUpperCase()) }));
-  const topStarters = (team, k) => pool
-    .filter(p => p.team === team && p.starter === true)
-    .sort((a, b) => b.points - a.points)
-    .slice(0, k);
+  const ceilingOf = p => (Number.isFinite(p.p90) ? p.p90 : p.points);
   // ¿Caben juntos en las posiciones de esta casa? (ej. FanDuel tiene
   // UN solo C: dos pivots no pueden ir juntos).
   const fits = list => !!assignSlots(list, rule);
@@ -241,7 +245,7 @@ function planStacks(players, games, count, { coreShare = 0.5, platform = "draftk
     names: list.map(p => p.name),
     gameId,
     tipo,
-    value: list.reduce((s, p) => s + p.points, 0)
+    value: list.reduce((s, p) => s + ceilingOf(p), 0)
   });
 
   const fast = games
@@ -249,67 +253,52 @@ function planStacks(players, games, count, { coreShare = 0.5, platform = "draftk
     .sort((a, b) => b.pace - a.pace);
   if (!fast.length) return { core: null, pairs: [], resumen: "Sin partidos rapidos: se arma normal" };
 
-  // Parejas de un partido: 2 titulares del mismo equipo (entre sus 3
-  // mejores) y, en partido parejo o el mas rapido, estrella vs estrella.
-  const pairsOf = g => {
-    const [a, b] = g.teams;
+  // Combinaciones de k jugadores del partido: los 8 titulares con mas
+  // techo de los DOS equipos, ordenadas por techo sumado.
+  const combos = (g, k) => {
+    const cand = pool
+      .filter(p => g.teams.includes(p.team) && p.starter === true)
+      .sort((a, b) => ceilingOf(b) - ceilingOf(a))
+      .slice(0, 8);
     const out = [];
-    for (const t of [a, b]) {
-      const top = topStarters(t, 3);
-      for (let i = 0; i < top.length; i++) {
-        for (let j = i + 1; j < top.length; j++) out.push(asStack([top[i], top[j]], g.gameId, "2 del mismo equipo"));
+    const rec = (i, cur) => {
+      if (cur.length === k) {
+        if (fits(cur)) out.push(asStack([...cur], g.gameId, "techo"));
+        return;
       }
-    }
-    // Estrella vs estrella (medido: explotan juntas 1.29x en parejos
-    // y 1.34x en total alto).
-    if (g.close || g.cls === "MUY_RAPIDO") {
-      const ta = topStarters(a, 2);
-      const tb = topStarters(b, 2);
-      for (const x of ta) for (const y of tb) out.push(asStack([x, y], g.gameId, "estrella vs estrella"));
-    }
-    return out.filter(st => fits(pool.filter(p => st.ids.includes(p.id))));
+      for (let j = i; j < cand.length; j++) {
+        cur.push(cand[j]);
+        rec(j + 1, cur);
+        cur.pop();
+      }
+    };
+    rec(0, []);
+    return out.sort((a, b) => b.value - a.value);
   };
 
-  // NUCLEO del partido mas rapido: 2 estrellas de un equipo + la
-  // estrella rival. Se prueban todas las combinaciones de sus 3
-  // mejores titulares y se queda la de mas puntos que QUEPA en las
-  // posiciones de la casa.
+  // NUCLEO del partido mas rapido: la pareja con mas techo; el 3ro
+  // (el siguiente con mas techo que quepa) solo si el presupuesto lo
+  // permite (lo decide buildLineups con trioMaxLoss).
   let core = null;
   const veryFast = fast.find(g => g.cls === "MUY_RAPIDO");
   if (veryFast) {
-    const options = [];
-    for (const [mineTeam, rivalTeam] of [veryFast.teams, [...veryFast.teams].reverse()]) {
-      const mine = topStarters(mineTeam, 3);
-      const rival = topStarters(rivalTeam, 3);
-      for (let i = 0; i < mine.length; i++) {
-        for (let j = i + 1; j < mine.length; j++) {
-          for (const r of rival) {
-            const trio = [mine[i], mine[j], r];
-            if (fits(trio)) options.push(trio);
-          }
-        }
-      }
-    }
-    options.sort((x, y) => y.reduce((s, p) => s + p.points, 0) - x.reduce((s, p) => s + p.points, 0));
-    if (options.length) {
-      core = {
-        ...asStack(options[0], veryFast.gameId, "nucleo"),
-        lineups: Math.floor(count * coreShare + 1e-9)
-      };
+    const duo = combos(veryFast, 2)[0];
+    if (duo) {
+      const trios = combos(veryFast, 3);
+      const trio = trios.find(t => duo.ids.every(id => t.ids.includes(id))) || null;
+      core = { ...duo, tipo: "nucleo", lineups: Math.floor(count * coreShare + 1e-9), trio };
     }
   }
 
-  // Parejas: primero las de los OTROS partidos rapidos; despues, como
-  // respaldo (cuando el tope de exposicion agota las primeras), las
-  // del partido mas rapido que no repiten el nucleo completo.
+  // Parejas: primero las de los OTROS partidos rapidos (por techo,
+  // mezcla libre); despues, de respaldo, las del partido mas rapido
+  // que no repiten el nucleo.
   const others = fast
     .filter(g => !core || g.gameId !== core.gameId)
-    .flatMap(pairsOf)
+    .flatMap(g => combos(g, 2))
     .sort((a, b) => b.value - a.value);
   const backup = core
-    ? pairsOf(fast.find(g => g.gameId === core.gameId))
-      .filter(p => !p.ids.every(id => core.ids.includes(id)))
-      .sort((a, b) => b.value - a.value)
+    ? combos(veryFast, 2).filter(p => !p.ids.every(id => core.ids.includes(id)))
     : [];
   const pairs = [...others.slice(0, 8), ...backup.slice(0, 4)];
 
@@ -317,8 +306,9 @@ function planStacks(players, games, count, { coreShare = 0.5, platform = "draftk
     core,
     pairs,
     resumen: [
-      core ? `Nucleo del partido mas rapido (${core.lineups} de ${count}): ${core.names.join(" + ")}` : null,
-      pairs.length ? `Parejas (en orden): ${pairs.map(p => p.names.join(" + ")).join(" | ")}` : null
+      core ? `Nucleo del partido mas rapido (${core.lineups} de ${count}): ${core.names.join(" + ")}` +
+        (core.trio ? ` (+ ${core.trio.names.find(n => !core.names.includes(n))} solo si el presupuesto lo permite)` : "") : null,
+      pairs.length ? `Parejas por techo (en orden): ${pairs.map(p => p.names.join(" + ")).join(" | ")}` : null
     ].filter(Boolean).join(". ")
   };
 }
@@ -333,7 +323,7 @@ function planStacks(players, games, count, { coreShare = 0.5, platform = "draftk
 // coreExposure: tope de los jugadores del nucleo (0.5 = 50%).
 function buildLineups(platform, players, {
   count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1, timeLimitMs = Infinity,
-  noStarterBackup = false, stackPlan = null, coreExposure = 0.5
+  noStarterBackup = false, stackPlan = null, coreExposure = 0.5, trioMaxLoss = 3
 } = {}) {
   const rule = RULES[platform];
   if (!rule) return { status: "PLATAFORMA_NO_SOPORTADA", lineups: [] };
@@ -347,11 +337,48 @@ function buildLineups(platform, players, {
   let allOptimal = true;
 
   const maxUses = Math.max(1, Math.floor(maxExposure * count + 1e-9));
+  const check = noStarterBackup ? (chosen, p) => !starterBackupConflict(chosen, p) : null;
+
+  // Obliga a que entren estos jugadores (puntos extra internos).
+  const forcePool = (list, ids) => {
+    const forced = new Set(ids);
+    return list
+      .map(p => (forced.has(p.id) ? { ...p, points: p.points + FORCE_BONUS, realPoints: p.points } : p))
+      .sort((a, b) => b.points - a.points || a.salary - b.salary);
+  };
+  const realPointsOf = res => res?.best
+    ? res.best.players.reduce((s, p) => s + (p.realPoints ?? p.points), 0)
+    : -Infinity;
+
+  // NUCLEO DE 2 O DE 3: se arma la mejor alineacion con la pareja y
+  // con el trio. Si el trio pierde mas de trioMaxLoss puntos
+  // proyectados (porque obliga a rellenar con baratos), va de 2.
+  let coreNote = null;
+  if (stackPlan?.core) {
+    stackPlan = { ...stackPlan, core: { ...stackPlan.core } };
+    const core = stackPlan.core;
+    if (core.trio) {
+      const limit = Math.min(nodeLimit, 2e6);
+      const r2 = solveOne(forcePool(pool, core.ids), rule, [], minDifferent, limit, check);
+      const r3 = solveOne(forcePool(pool, core.trio.ids), rule, [], minDifferent, limit, check);
+      const p2 = realPointsOf(r2);
+      const p3 = realPointsOf(r3);
+      const trioOk = r3.best && core.trio.ids.every(id => r3.best.players.some(p => p.id === id)) &&
+        p3 >= p2 - trioMaxLoss;
+      if (trioOk) {
+        core.ids = core.trio.ids;
+        core.names = core.trio.names;
+      }
+      coreNote = `Nucleo de ${trioOk ? 3 : 2}: ${core.names.join(" + ")} ` +
+        `(mejor alineacion con 2: ${Math.round(p2 * 10) / 10} | con 3: ${p3 === -Infinity ? "no cabe" : Math.round(p3 * 10) / 10})`;
+    } else {
+      coreNote = `Nucleo de 2: ${core.names.join(" + ")}`;
+    }
+  }
   const coreIds = new Set(stackPlan?.core?.ids || []);
   const coreUses = Math.max(maxUses, Math.floor(coreExposure * count + 1e-9));
   const capOf = id => (coreIds.has(id) ? coreUses : maxUses);
   const uses = new Map();
-  const check = noStarterBackup ? (chosen, p) => !starterBackupConflict(chosen, p) : null;
 
   const startedAt = Date.now();
   let timedOut = false;
@@ -386,11 +413,7 @@ function buildLineups(platform, players, {
       if (cand && attempts >= 4) continue;
       if (cand) attempts++;
       const forced = new Set(cand ? cand.ids : []);
-      const list = forced.size
-        ? available
-          .map(p => (forced.has(p.id) ? { ...p, points: p.points + FORCE_BONUS, realPoints: p.points } : p))
-          .sort((a, b) => b.points - a.points || a.salary - b.salary)
-        : available;
+      const list = forced.size ? forcePool(available, cand.ids) : available;
       const res = solveOne(list, rule, lineups.map(l => l.players), minDifferent, nodeLimit, check);
       if (!res.best) continue;
       // Con pila: todos los obligados deben haber entrado.
@@ -430,6 +453,7 @@ function buildLineups(platform, players, {
     optimal: allOptimal,
     timedOut,
     salaryCap: rule.salaryCap,
+    nucleo: coreNote,
     lineups
   };
 }
