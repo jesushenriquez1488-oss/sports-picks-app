@@ -87,13 +87,13 @@ const CONFIG = {
   // Reglas
   minSalary: 3501,
   maxDepthRank: 2,
-  lineupCount: 10,          // alineaciones por casa (de la mas optima a la menos)
+  lineupCount: 25,          // alineaciones por casa (de la mas optima a la menos). 28-oct: 10 -> 25
   lineupMinDifferent: 2,    // cada alineacion cambia al menos 2 jugadores
   lineupMaxExposure: 0.4,   // ningun jugador en mas del 40% de las alineaciones
   // Muestra de prueba: alineaciones extra por version SOLO para
   // medir (nadie las juega). 10 por noche es muy poco para saber
   // que version es mejor.
-  testLineupCount: 150,
+  testLineupCount: 200,     // 28-oct: 150 -> 200
   testNodeLimit: 200000,
   testSecondsPerPlatform: 25,
   // Si la corrida completa pasa de esto, las variantes que falten
@@ -112,14 +112,13 @@ const CONFIG = {
     {
       version: "produccion-propia+10%",
       config: {
-        useProps: false, questionableScenarios: false, usePace: false, lineupStrategy: false,
-        previousSeasonGames: 1
+        useProps: false, questionableScenarios: false, usePace: false, lineupStrategy: false
       }
     },
     {
       version: "mercado+escenarios",
       config: {
-        usePace: false, lineupStrategy: false, previousSeasonGames: 1,
+        usePace: false, lineupStrategy: false,
         propWeights: { pts: 0.7, reb: 0.7, ast: 0.7, fg3m: 0.6, stl: 0.5, blk: 0.5 }
       }
     }
@@ -151,6 +150,13 @@ const CONFIG = {
   //  - pilas en partidos rapidos; nucleo del MUY RAPIDO en el 50%.
   lineupStrategy: true,
   coreExposure: 0.5,
+  // 28-oct: el nucleo es de 2 estrellas del mismo equipo; la estrella
+  // rival entra de 3ra solo si la mejor alineacion no pierde mas de
+  // estos puntos proyectados por meterla (presupuesto).
+  trioMaxLoss: 3,
+  // Casas donde se arman pilas. 28-oct: la prueba del 27-oct dio que en
+  // FanDuel armar SIN pilas fue lo mejor (alla dos pivots no caben).
+  stackPlatforms: ["draftkings"],
 
   // REPARTO DE JUGADAS cuando falta alguien (factor de uso del equipo).
   // Puntos y perdidas suben con el factor completo. Cuanto de ese
@@ -243,13 +249,10 @@ const CONFIG = {
   rateGames: 80,
   rateDecay: 0.97,
   currentRateWeight: 1.5,
-  // Temporada pasada (mismo equipo y rol) = 3 partidos de peso.
-  // 27-oct: antes 1. La comparacion contra el mercado mostro que la
-  // formula le creia demasiado a los primeros 3-4 partidos (inflaba
-  // a los que arrancaron bien y bajaba a estrellas que arrancaron
-  // flojo). Solo cuenta el MISMO equipo y rol; si cambio de equipo
-  // sigue valiendo medio partido.
-  previousSeasonGames: 3,
+  // Temporada pasada (mismo equipo y rol) = 1 partido de peso.
+  // 28-oct: se probo con 3 (27-oct) y rindio peor; vuelve a 1. Lo
+  // que manda es esta temporada en su rol actual.
+  previousSeasonGames: 1,
   // Si cambio de equipo (mismo rol): medio partido, y se quita
   // cuando ya tiene 8 partidos con el equipo nuevo.
   previousOtherTeamGames: 0.5,
@@ -2459,6 +2462,8 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
       salary: Number(x.p.salary),
       points: x.f[platform].mean,
       positions: x.p.positions,
+      // Techo (lo que hace en sus mejores noches): para escoger la pila.
+      p90: x.f[platform].p90,
       // Regla titular / suplente de su posicion (depth chart de hoy):
       // titular -> su posicion; suplente -> posiciones donde ESPN lo
       // tiene como reemplazo (puesto 2 o 3 de esa posicion).
@@ -2495,10 +2500,14 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     }
     const lineupOptions = count => {
       if (!CONFIG.lineupStrategy) return {};
+      // Pilas solo en las casas aprobadas (28-oct: DraftKings). En las
+      // demas se arma sin pilas, con la regla titular/suplente.
+      if (!CONFIG.stackPlatforms.includes(platform)) return { noStarterBackup: true };
       return {
         noStarterBackup: true,
         stackPlan: planStacks(optimizerPool, slateGames, count, { coreShare: CONFIG.coreExposure, platform }),
-        coreExposure: CONFIG.coreExposure
+        coreExposure: CONFIG.coreExposure,
+        trioMaxLoss: CONFIG.trioMaxLoss
       };
     };
 
@@ -2560,7 +2569,9 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
       ritmoPartidos: slateGames
         .sort((a, b) => b.pace - a.pace)
         .map(g => `${g.teams.join(" @ ")}: ${g.cls} (${round(g.pace, 1)} posesiones${g.close ? ", parejo" : ""})`),
-      plan: officialOptions.stackPlan ? officialOptions.stackPlan.resumen : "sin estrategia de pilas",
+      plan: officialOptions.stackPlan
+        ? [officialOptions.stackPlan.resumen, lineupResult.nucleo].filter(Boolean).join(". Decision: ")
+        : (CONFIG.lineupStrategy ? "sin pilas en esta casa (solo regla titular/suplente)" : "sin estrategia de pilas"),
       slateId: Number(slate.slate_id),
       games: slate.event_count,
       players: players.length,
