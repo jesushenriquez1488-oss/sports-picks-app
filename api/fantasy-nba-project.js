@@ -37,6 +37,10 @@
 //       faltaron (sin contar dos veces lo que ya esta en su
 //       promedio).
 //    g) El equipo debe sumar 241 minutos (240 + tiempo extra).
+//    h) (29-oct) Lo reciente pesa mas: cada partido atras vale 70%.
+//       Cambio de rol (2 ultimos partidos con 8+ minutos mas o menos
+//       que antes): solo cuentan esos 2. Con 5+ partidos esta
+//       temporada, la pasada ya no cuenta.
 //
 // 3. PRODUCCION SEGUN SU FUNCION
 //    Por minuto, en ese rol: puntos, triples, rebotes,
@@ -56,13 +60,15 @@
 //    Posesiones esperadas del partido vs las normales de su equipo.
 //    Partido mas rapido = mas de todo; mas lento = menos.
 //
-// 6. MERCADO (oficial desde el 27-oct)
-//    Lineas de props de las casas: 85% mercado, 15% nuestra formula.
+// 6. MERCADO (oficial desde el 27-oct; 29-oct: 60/40)
+//    Lineas de props de las casas: 60% mercado, 40% nuestra formula.
 //    Jugador sin linea: 100% nuestra formula.
 //
 // 7. PUNTOS FANTASY
 //    10,000 simulaciones -> DraftKings (doble y triple doble)
-//    y FanDuel.
+//    y FanDuel. Promedio = proyectado; techo = noche 9,000 de 10,000.
+//    (29-oct) Baratos (< 10% del tope): techo ancho = promedio +
+//    1.5 x (techo - promedio).
 //
 // 8. ALINEACIONES (27-oct)
 //    Titular y su suplente de la misma posicion nunca juntos.
@@ -70,13 +76,15 @@
 //    ellos): el nucleo del mas rapido va en la mitad de las
 //    alineaciones (tope 50% esos 3); el resto lleva parejas de los
 //    siguientes mas rapidos.
+//    (29-oct) Se arman apuntando al TECHO, no al promedio. 20
+//    alineaciones oficiales por casa.
 //
 // REGLAS: salario <= $3,500 fuera; lesionados o en duda fuera;
 // fuera del top 2 de su posicion fuera; menos de 18 minutos fuera.
 // ============================================================
 
 const { createClient } = require("@supabase/supabase-js");
-const { buildLineups, planStacks } = require("./_lib/fantasy-nba-lineups.js");
+const { buildLineups, planStacks, RULES } = require("./_lib/fantasy-nba-lineups.js");
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
@@ -87,7 +95,7 @@ const CONFIG = {
   // Reglas
   minSalary: 3501,
   maxDepthRank: 2,
-  lineupCount: 25,          // alineaciones por casa (de la mas optima a la menos). 28-oct: 10 -> 25
+  lineupCount: 20,          // alineaciones por casa (de la mas optima a la menos). 28-oct: 10 -> 25. 29-oct: 25 -> 20
   lineupMinDifferent: 2,    // cada alineacion cambia al menos 2 jugadores
   lineupMaxExposure: 0.4,   // ningun jugador en mas del 40% de las alineaciones
   // Muestra de prueba: alineaciones extra por version SOLO para
@@ -102,27 +110,56 @@ const CONFIG = {
   // Nombre de la formula oficial (queda guardado en cada corrida).
   // 27-oct (aprobado): mercado 85% + ritmo del partido + pilas en
   // partidos rapidos + regla titular/suplente.
-  formulaVersion: "mercado85+ritmo+pilas",
+  // 29-oct (aprobado): mercado 60% / formula 40% + techo ancho en
+  // los baratos + alineaciones apuntando al techo + partidos
+  // recientes mas fuertes (cambio de rol, 5+ partidos = solo esta
+  // temporada). Antes: "mercado85+ritmo+pilas".
+  formulaVersion: "mercado60+techo+recientes",
   // Pruebas en paralelo: mismos datos, un solo ajuste distinto.
   // Solo se archivan; nunca cambian las alineaciones oficiales.
-  // 27-oct: la oficial anterior ("produccion-propia+10%") y mercado
-  // al 70% quedan como pruebas para seguir comparando. El reparto
-  // medido se quito: dio practicamente lo mismo que mercado.
+  // 29-oct: la prueba "mercado60+techo" es la oficial SIN los
+  // partidos recientes mas fuertes (puntos 3 y 4). Mercado al 70%
+  // se queda como referencia, tal como estaba (sin techo ni
+  // recientes). La formula sola ("produccion-propia+10%") se quito:
+  // fue la peor en todas las pruebas del 27 y 28-oct.
   shadowVariants: [
     {
-      version: "produccion-propia+10%",
-      config: {
-        useProps: false, questionableScenarios: false, usePace: false, lineupStrategy: false
-      }
+      version: "mercado60+techo",
+      config: { recentForm: false }
     },
     {
       version: "mercado+escenarios",
       config: {
         usePace: false, lineupStrategy: false,
+        recentForm: false, aimCeiling: false, ceilingWidenCheap: 1,
         propWeights: { pts: 0.7, reb: 0.7, ast: 0.7, fg3m: 0.6, stl: 0.5, blk: 0.5 }
       }
     }
   ],
+
+  // TECHO (29-oct). El techo (p90) sale de la simulacion. A los
+  // BARATOS (salario < 10% del tope: DK < $5,000, FD < $6,000) les
+  // quedaba corto: lo pasaban 21% de las veces (deberia ser 10%).
+  // Techo ancho = promedio + 1.5 x (techo - promedio) -> 12%.
+  // aimCeiling: las alineaciones se arman con el TECHO (no con el
+  // promedio) para meter a los que pueden explotar.
+  ceilingWidenCheap: 1.5,
+  cheapSalaryShare: 0.1,
+  aimCeiling: true,
+
+  // PARTIDOS RECIENTES MAS FUERTES (29-oct):
+  //  - cada partido hacia atras pesa 70% del siguiente en minutos
+  //    (antes 85%) y 90% en produccion por minuto (antes 97%);
+  //  - cambio de rol: si sus 2 ultimos partidos en el rol tienen
+  //    AMBOS 8+ minutos mas (o menos) que su promedio anterior, se
+  //    usan solo esos 2 (lo de antes del cambio ya no cuenta);
+  //  - con 5+ partidos esta temporada en su rol, la temporada pasada
+  //    ya no cuenta (ni en minutos ni en produccion).
+  recentForm: true,
+  recentDecay: 0.7,
+  recentRateDecay: 0.9,
+  roleChangeMinutes: 8,
+  seasonOnlyGames: 5,
 
   // RITMO DEL PARTIDO (27-oct, medido con temporadas 2024+: las
   // estrellas explotan 23-24% en partidos rapidos vs 13-17% en lentos).
@@ -175,10 +212,11 @@ const CONFIG = {
   // MERCADO (lineas de props). Oficial desde el 27-oct.
   useProps: true,
   // Peso del mercado por estadistica (el resto = nuestra formula).
-  // 27-oct: subido de 70% a 85% (prueba 25 y 26-oct: el error baja
-  // siempre con mas mercado; las alineaciones salen mejor con
-  // 70-90%). Cada estadistica sube en la misma proporcion (x 85/70).
-  propWeights: { pts: 0.85, reb: 0.85, ast: 0.85, fg3m: 0.73, stl: 0.61, blk: 0.61 },
+  // 27-oct: subido de 70% a 85%. 29-oct: bajado a 60% (prueba 27 y
+  // 28-oct: 60/40 dio las alineaciones mas altas, 331.3 y 313.5;
+  // 85% quedo entre las peores). Cada estadistica en la misma
+  // proporcion que la mezcla al 70% (x 60/70).
+  propWeights: { pts: 0.6, reb: 0.6, ast: 0.6, fg3m: 0.51, stl: 0.43, blk: 0.43 },
   // Si en su equipo hubo una baja DESPUES de la linea, la linea
   // no la trae: se confia menos en ella (peso x0.35).
   propNewsFactor: 0.35,
@@ -1313,9 +1351,25 @@ function roleBaseline(id, team, role, order, profile, ctx) {
     ? profile.starterAvg
     : profile.Bcond[Math.min(order, 9)] || 0.5;
 
+  // 29-oct: CAMBIO DE ROL. Si sus 2 ultimos partidos en el rol tienen
+  // AMBOS 8+ minutos mas (o menos) que su promedio anterior, el
+  // entrenador le cambio el rol: solo cuentan esos 2 partidos.
+  let curUse = cur;
+  let roleChange = null;
+  if (CONFIG.recentForm && cur.length >= 3) {
+    const before = mean(cur.slice(2).map(r => r.min));
+    const d0 = cur[0].min - before;
+    const d1 = cur[1].min - before;
+    if (Math.min(d0, d1) >= CONFIG.roleChangeMinutes) roleChange = "SUBE";
+    else if (Math.max(d0, d1) <= -CONFIG.roleChangeMinutes) roleChange = "BAJA";
+    if (roleChange) curUse = cur.slice(0, 2);
+  }
+
   // Un partido decidido informa menos que uno cerrado (peso medido).
-  const curEst = weighted(cur, r => r.min, (r, i) => Math.pow(CONFIG.currentDecay, i) * (r.info ?? 1));
-  const curGamesEffective = cur.reduce((sum, r) => sum + (r.info ?? 1), 0);
+  // 29-oct: lo reciente pesa mas (cada partido atras = 70%, antes 85%).
+  const decay = CONFIG.recentForm ? CONFIG.recentDecay : CONFIG.currentDecay;
+  const curEst = weighted(curUse, r => r.min, (r, i) => Math.pow(decay, i) * (r.info ?? 1));
+  const curGamesEffective = curUse.reduce((sum, r) => sum + (r.info ?? 1), 0);
   const prevEst = prevSame.length
     ? weighted(prevSame, r => r.min, (r, i) => Math.pow(CONFIG.previousDecay, i))
     : (() => {
@@ -1361,8 +1415,11 @@ function roleBaseline(id, team, role, order, profile, ctx) {
   // estable que es el jugador. Si un jugador de minutos estables
   // cambia de 20 a 36, se le cree rapido.
   const k = (sd * sd) / (CONFIG.seasonShiftSd * CONFIG.seasonShiftSd);
+  // 29-oct: con 5+ partidos esta temporada en su rol, o con cambio
+  // de rol, solo cuenta esta temporada (lo de antes ya no aplica).
+  const seasonOnly = CONFIG.recentForm && (cur.length >= CONFIG.seasonOnlyGames || roleChange !== null);
   const w = cur.length
-    ? Math.min(1, curGamesEffective / (curGamesEffective + k) + CONFIG.currentWeightBoost)
+    ? (seasonOnly ? 1 : Math.min(1, curGamesEffective / (curGamesEffective + k) + CONFIG.currentWeightBoost))
     : 0;
   const base = cur.length ? w * curEst.value + (1 - w) * prevBlend : prevBlend;
 
@@ -1377,7 +1434,10 @@ function roleBaseline(id, team, role, order, profile, ctx) {
     previousGames: prevSame.length,
     source,
     roleRows,
-    sd
+    sd,
+    roleChange,
+    // Minutos reales de los 2 ultimos partidos del cambio de rol.
+    recentRawMinutes: roleChange ? curUse.map(r => r.rawMin ?? r.min) : null
   };
 }
 
@@ -1558,6 +1618,10 @@ function projectTeam(team, ctx) {
       const window = (first ? games.filter(g => g.date >= first.date) : curGames).slice(0, CONFIG.appearanceGames);
       const played = window.filter(g => g.rows.has(a.id)).length;
       appearance = (played + CONFIG.appearancePriorGames * slotPlay) / (window.length + CONFIG.appearancePriorGames);
+      // 29-oct: si le subieron el rol (jugo sus 2 ultimos partidos con
+      // muchos mas minutos), ya entra siempre: los partidos de antes,
+      // donde no jugaba, no le bajan los minutos.
+      if (baseline.roleChange === "SUBE") appearance = 1;
     }
 
     // Proteccion de suplentes: ¿de verdad juega 15+ minutos?
@@ -1584,6 +1648,13 @@ function projectTeam(team, ctx) {
         playShare = window.filter(g => (g.rows.get(a.id)?.min || 0) >= CONFIG.benchMinMinutes).length / window.length;
       }
       playShareBasis = `${playShareBasis} (${window.length})`;
+      // 29-oct: cambio de rol hacia arriba con 15+ minutos en sus 2
+      // ultimos partidos: se mira solo desde el cambio.
+      const recent = baseline.recentRawMinutes;
+      if (baseline.roleChange === "SUBE" && recent && recent.every(m => m >= CONFIG.benchMinMinutes)) {
+        playShare = 1;
+        playShareBasis = "cambio de rol: sus 2 ultimos partidos";
+      }
     }
 
     const history = (ctx.byPlayer.get(a.id) || []).slice(0, 30).map(r => r.min);
@@ -1736,8 +1807,10 @@ function blockRates(rows) {
   for (const k of RATE_KEYS) {
     let s = 0;
     let m = 0;
+    // 29-oct: lo reciente pesa mas (cada partido atras = 90%, antes 97%).
+    const decay = CONFIG.recentForm ? CONFIG.recentRateDecay : CONFIG.rateDecay;
     rows.forEach((r, i) => {
-      const w = Math.pow(CONFIG.rateDecay, i);
+      const w = Math.pow(decay, i);
       s += w * r[k];
       m += w * r.min;
     });
@@ -1785,8 +1858,10 @@ function playerRates(row, ctx, team) {
   const prev = capOutliers(fPrev.valid);
   const rPrev = blockRates(prev.rows);
 
-  const p = rPrev ? prevWeight : 0;
-  const used = [...cur.rows, ...prev.rows];
+  // 29-oct: con 5+ partidos validos esta temporada, la pasada ya no cuenta.
+  const p = rPrev && !(CONFIG.recentForm && n >= CONFIG.seasonOnlyGames) ? prevWeight : 0;
+  // Si la temporada pasada no cuenta, tampoco entra a la simulacion.
+  const used = p > 0 ? [...cur.rows, ...prev.rows] : cur.rows;
   const totalMinutes = used.reduce((s, r) => s + r.min, 0);
 
   if (!rCur && !rPrev) {
@@ -2383,6 +2458,16 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     const platform = slate.platform;
     const eligible = list.filter(x => x.f).sort((a, b) => b.f[platform].mean - a.f[platform].mean);
 
+    // 29-oct: TECHO ANCHO para los baratos (salario < 10% del tope de
+    // la casa): promedio + 1.5 x (techo - promedio).
+    const cheapLimit = CONFIG.cheapSalaryShare * (RULES[platform]?.salaryCap || 50000);
+    const ceilingOf = (pts, salary) => {
+      if (!pts || pts.p90 === null || pts.p90 === undefined) return pts?.p90 ?? null;
+      return Number(salary) < cheapLimit
+        ? round(pts.mean + CONFIG.ceilingWidenCheap * (pts.p90 - pts.mean), 2)
+        : pts.p90;
+    };
+
     for (const x of list) {
       const { p, row, f } = x;
       const pts = f?.[platform];
@@ -2405,7 +2490,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
         proj_mean: pts?.mean ?? null,
         proj_p10: pts?.p10 ?? null,
         proj_p50: pts?.p50 ?? null,
-        proj_p90: pts?.p90 ?? null,
+        proj_p90: pts ? ceilingOf(pts, p.salary) : null,
         value_per_1k: pts ? round(pts.mean / (Number(p.salary) / 1000)) : null,
         double_double: f?.doubleDouble ?? null,
         triple_double: f?.tripleDouble ?? null,
@@ -2418,6 +2503,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
             partidosEfectivos: round(row.baseline?.currentGamesEffective, 2),
             pesoEstaTemporada: round(row.baseline?.currentWeight, 2),
             temporadaPasada: round(row.baseline?.previous, 1),
+            cambioDeRol: row.baseline?.roleChange || null,
             estiloEquipo: round(row.teamPrior, 1),
             mezcla: round(row.base, 1),
             probabilidadPaliza: round(row.blowoutProbability, 3),   // por 30+ puntos
@@ -2453,17 +2539,21 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
       });
     }
 
-    // PASO 6: ALINEACIONES (optimo exacto con los puntos proyectados).
+    // PASO 6: ALINEACIONES (optimo exacto).
+    // 29-oct: se arman apuntando al TECHO (aimCeiling): el optimizador
+    // escoge con el techo, no con el promedio. El promedio se sigue
+    // mostrando y guardando como "proyectado".
+    const meanById = new Map(eligible.map(x => [String(x.p.player_id), x.f[platform].mean]));
     const optimizerPool = eligible.map(x => ({
       id: String(x.p.player_id),
       name: x.p.player_name,
       team: x.p.team_abbr,
       gameId: String(x.p.event_id),
       salary: Number(x.p.salary),
-      points: x.f[platform].mean,
+      points: CONFIG.aimCeiling ? (ceilingOf(x.f[platform], x.p.salary) ?? x.f[platform].mean) : x.f[platform].mean,
       positions: x.p.positions,
       // Techo (lo que hace en sus mejores noches): para escoger la pila.
-      p90: x.f[platform].p90,
+      p90: ceilingOf(x.f[platform], x.p.salary),
       // Regla titular / suplente de su posicion (depth chart de hoy):
       // titular -> su posicion; suplente -> posiciones donde ESPN lo
       // tiene como reemplazo (puesto 2 o 3 de esa posicion).
@@ -2511,6 +2601,9 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
       };
     };
 
+    // Promedio proyectado de una alineacion (aunque se arme con el techo).
+    const meanOf = l => round(l.players.reduce((s, p) => s + (meanById.get(p.id) ?? p.points), 0), 2);
+
     const officialOptions = lineupOptions(CONFIG.lineupCount);
     const lineupResult = buildLineups(platform, optimizerPool, {
       count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure,
@@ -2538,8 +2631,8 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
         platform,
         slate_date: day,
         salary: l.salary,
-        projected_points: l.points,
-        players: l.players.map(p => ({ slot: p.slot, player_id: Number(p.id), name: p.name, team: p.team, salary: p.salary, points: p.points }))
+        projected_points: meanOf(l),
+        players: l.players.map(p => ({ slot: p.slot, player_id: Number(p.id), name: p.name, team: p.team, salary: p.salary, points: meanById.get(p.id) ?? p.points }))
       })));
     }
 
@@ -2549,9 +2642,9 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
       platform,
       slate_date: day,
       salary: l.salary,
-      projected_points: l.points,
+      projected_points: meanOf(l),
       optimal: l.optimal,
-      players: l.players.map(p => ({ slot: p.slot, player_id: Number(p.id), name: p.name, team: p.team, salary: p.salary, points: p.points })),
+      players: l.players.map(p => ({ slot: p.slot, player_id: Number(p.id), name: p.name, team: p.team, salary: p.salary, points: meanById.get(p.id) ?? p.points })),
       created_at: runAt
     })));
 
@@ -2561,10 +2654,11 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
       lineupsOptimal: lineupResult.optimal,
       lineups: lineupResult.lineups.map(l => ({
         "#": l.number,
-        proyectado: l.points,
+        proyectado: meanOf(l),
+        techo: CONFIG.aimCeiling ? l.points : null,
         salario: l.salary,
         pila: l.pila || "-",
-        jugadores: l.players.map(p => `${p.slot}: ${p.name} ($${p.salary}, ${round(p.points, 1)})`).join(" | ")
+        jugadores: l.players.map(p => `${p.slot}: ${p.name} ($${p.salary}, ${round(meanById.get(p.id) ?? p.points, 1)})`).join(" | ")
       })),
       ritmoPartidos: slateGames
         .sort((a, b) => b.pace - a.pace)
@@ -2587,7 +2681,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
         minutos: round(x.row.minutes, 1),
         puntos: x.f[platform].mean,
         p10: x.f[platform].p10,
-        p90: x.f[platform].p90,
+        p90: ceilingOf(x.f[platform], x.p.salary),
         ptsPor1k: round(x.f[platform].mean / (Number(x.p.salary) / 1000)),
         defensa: x.f.explain.defensaRival
       }))
