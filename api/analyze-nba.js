@@ -12218,16 +12218,14 @@ async function buildNBAFormulaSample(
   teamId,
   requestOptions = {}
 ) {
-  const currentSeason =
-    getCurrentNBASeason();
+ const currentSeason =
+  getCurrentNBASeason();
 
-  const previousSeason =
-    currentSeason - 1;
+const previousSeason =
+  currentSeason - 1;
 
-
-  // ==============================
-  // TEMPORADA ACTUAL
-  // ==============================
+// NBA: exclusivamente temporada actual.
+// Sin mezclar partidos de temporadas anteriores.
 
 const currentSeasonGames =
   await getRecentGames(
@@ -12237,51 +12235,14 @@ const currentSeasonGames =
     requestOptions
   );
 
-
-  let sampleRaw =
-    [...currentSeasonGames];
-
-
-  // ==============================
-  // REGLA DE 5 JUEGOS
-  // ==============================
-  //
-  // Si ya tiene 5 o más:
-  // NO usamos temporada anterior.
-  //
-  // Si tiene menos de 5:
-  // podemos completar hasta 7
-  // con temporada anterior.
-  // ==============================
-
-  if (
-    currentSeasonGames.length < 5
-  ) {
-  const previousSeasonGames =
-  await getRecentGames(
-    origin,
-    teamId,
-    previousSeason,
-    requestOptions
-  );
-
-    sampleRaw = [
-      ...currentSeasonGames,
-      ...previousSeasonGames
-    ];
-  }
-
-
-  // Ordenamos y tomamos máximo 7.
-  const selectedRaw =
-    sampleRaw
-      .sort(
-        (a, b) =>
-          new Date(b.date) -
-          new Date(a.date)
-      )
-      .slice(0, 7);
-
+const selectedRaw =
+  [...currentSeasonGames]
+    .sort(
+      (a, b) =>
+        new Date(b.date) -
+        new Date(a.date)
+    )
+    .slice(0, 7);
 
   const formulaGames = [];
 
@@ -12337,8 +12298,7 @@ const currentSeasonGames =
 
     previousSeason,
 
-    usedPreviousSeason:
-      currentSeasonGames.length < 5
+   usedPreviousSeason: false
   };
 }
 function calcTeamFormula(teamGames) {
