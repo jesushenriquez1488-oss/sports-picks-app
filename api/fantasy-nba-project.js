@@ -102,6 +102,9 @@ const CONFIG = {
   // medir (nadie las juega). 10 por noche es muy poco para saber
   // que version es mejor.
   testLineupCount: 200,     // 28-oct: 150 -> 200
+  // 29-oct: las 200 de prueba solo en DraftKings (FanDuel solo sus
+  // oficiales). Ahorra tiempo de corrida.
+  testPlatforms: ["draftkings"],
   testNodeLimit: 200000,
   testSecondsPerPlatform: 25,
   // Si la corrida completa pasa de esto, las variantes que falten
@@ -2613,7 +2616,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     // MUESTRA DE PRUEBA: 150 alineaciones mas por version, solo
     // para medir (nadie las juega). Se archivan con la etiqueta
     // "[prueba 150]" y la evaluacion las compara contra lo real.
-    if (CONFIG.testLineupCount > 0) {
+    if (CONFIG.testLineupCount > 0 && CONFIG.testPlatforms.includes(platform)) {
       // Casi optimas (busqueda mas corta) y con tope de tiempo:
       // para medir sirven igual y la corrida no se pasa del limite.
       const test = buildLineups(platform, optimizerPool, {
