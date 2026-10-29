@@ -927,11 +927,15 @@ async function stepDepth() {
 // ============================================================
 
 async function saveSlate(platform, day, bdlTeamCode, runAt) {
+  // 29-oct: BALLDONTLIE filtra por fecha UTC. Un slate de esta noche
+  // que empieza a las 7 pm de Chicago ya es el dia SIGUIENTE en UTC y
+  // no salia. Se pide hoy y manana (UTC) y abajo se queda solo el que
+  // empieza HOY en hora de Chicago.
   const list = await bdlPages("/nba/v1/dfs/slates", [
     ["providers[]", platform],
     ["formats[]", "salary_cap"],
     ["start_date", day],
-    ["end_date", day]
+    ["end_date", fantasyProject.shiftDay(day, 1)]
   ]);
 
   // Slate principal: DraftKings "Classic", FanDuel "Full Roster",
