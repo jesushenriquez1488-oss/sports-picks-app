@@ -947,7 +947,27 @@ async function saveSlate(platform, day, bdlTeamCode, runAt) {
     )
     .sort((a, b) => Number(b.event_count) - Number(a.event_count))[0];
 
-  if (!main) return { platform, slate: null };
+  // 29-oct: si no encuentra el slate principal, muestra lo que
+  // devolvio BALLDONTLIE para saber por que lo descarto.
+  if (!main) {
+    return {
+      platform,
+      slate: null,
+      recibidos: list.length,
+      candidatos: list.slice(0, 20).map(s => ({
+        id: s.id,
+        provider: s.provider,
+        format: s.format,
+        style: s.style,
+        name: s.name ?? null,
+        starts_at: s.starts_at,
+        diaChicago: s.starts_at ? chicagoDay(new Date(s.starts_at)) : null,
+        event_count: s.event_count,
+        salary_cap: s.salary_cap,
+        active: s.active
+      }))
+    };
+  }
 
   const detail = (await bdlFetch(`/nba/v1/dfs/slates/${main.id}`)).data;
   const draftables = await bdlPages("/nba/v1/dfs/draftables", [["slate_ids[]", main.id]]);
