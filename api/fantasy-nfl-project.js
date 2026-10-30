@@ -9,6 +9,7 @@
 //
 // USO
 //   ?secret=...                     -> ver la ultima corrida y sus alineaciones
+//   ?secret=...&view=1              -> lo mismo en pagina (tablas con salario)
 //   ?secret=...&run=1               -> calcular ahora
 //   ?secret=...&auto=1              -> (cron) decide solo si toca correr:
 //                                      1) una vez al dia (8:30 am Chicago)
@@ -788,6 +789,67 @@ async function viewLatest() {
   return { ok: true, run, alineacionesSlatePrincipal: show };
 }
 
+// 30-oct: VISTA HTML de la ultima corrida (?secret=...&view=1), como en
+// NBA: cada slate con sus pilas, excluidos y alineaciones con salario.
+// Solo muestra; no calcula ni guarda nada.
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const chicagoTime = iso => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("es-US", { timeZone: "America/Chicago", weekday: "short", day: "2-digit", month: "2-digit", hour: "numeric", minute: "2-digit" });
+};
+
+async function viewLatestHtml() {
+  const { data: run, error } = await supabaseAdmin
+    .from("fantasy_nfl_runs").select("*").order("run_at", { ascending: false }).limit(1).maybeSingle();
+  if (error) throw new Error(`Supabase fantasy_nfl_runs: ${error.message}`);
+  if (!run) return "<p>Todavia no hay corridas: usa &amp;run=1</p>";
+
+  const lineups = await selectAll("fantasy_nfl_lineups", "*", q => q.eq("run_id", run.run_id));
+  const s = run.summary || {};
+  const slates = [...(s.slates || [])].sort((a, b) =>
+    Number(b.principal) - Number(a.principal) || String(a.plataforma).localeCompare(String(b.plataforma)) || (b.partidos || 0) - (a.partidos || 0));
+
+  let body = `<h1>Fantasy NFL — corrida ${esc(run.run_id)}</h1>`;
+  body += `<div class="box">Hecha: <b>${esc(chicagoTime(run.run_at))}</b> (Chicago) · ${esc(run.trigger)}${run.trigger_kickoff ? ` · partido ${esc(chicagoTime(run.trigger_kickoff))}` : ""}<br>` +
+    `Partidos: ${esc(s.partidos ?? run.games)} · jugadores proyectados: ${esc(s.jugadoresProyectados ?? "")} · no juegan: ${esc(s.noJuegan ?? "")}<br>` +
+    `Depth chart: ${esc(s.depthChart ?? "")} · lesiones actualizadas: ${esc(s.lesionesActualizadas ? chicagoTime(s.lesionesActualizadas) : "")}</div>`;
+
+  for (const sl of slates) {
+    const own = lineups
+      .filter(l => Number(l.slate_id) === Number(sl.slate))
+      .sort((a, b) => a.lineup_number - b.lineup_number);
+    const title = `${esc(sl.plataforma)} — slate ${esc(sl.slate)} (${esc(sl.partidos)} partidos, ${esc(sl.fecha)})${sl.principal ? " · PRINCIPAL" : ""}`;
+    let html = `<div class="box">Estado: <b>${esc(sl.estado)}</b> · pool ${esc(sl.pool)} · mejor ${esc(sl.mejor?.puntos ?? "-")} ($${esc(sl.mejor?.salario ?? "-")})<br>` +
+      `<b>Pilas:</b> ${(sl.stacks || []).map(k => `${esc(k.qb)} (${esc(k.team)}) + ${esc((k.receivers || []).join(", "))} → ${esc(k.lineups)} alin.`).join(" | ") || "sin pilas"}<br>` +
+      `<b>Excluidos:</b> ${esc(Object.entries(sl.excluidos || {}).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(", "))}</div>`;
+    if (own.length) {
+      html += `<table><tr><th>#</th><th>pila</th><th>salario</th><th>jugadores</th><th>proyectado</th></tr>`;
+      for (const l of own) {
+        const players = l.players || [];
+        const qb = players.find(p => String(p.slot).toUpperCase() === "QB");
+        const mates = qb ? players.filter(p => p !== qb && p.team === qb.team && !/DST|D$/i.test(String(p.slot))) : [];
+        const pila = qb ? `${qb.name}${mates.length ? " + " + mates.map(p => p.name).join(" + ") : ""}` : "-";
+        const list = players.map(p => `<b>${esc(p.slot)}</b>: ${esc(p.name)} (${esc(p.team)}, $${esc(p.salary)}, ${esc(round(num(p.points) ?? 0, 1))})`).join(" | ");
+        html += `<tr><td>${esc(l.lineup_number)}</td><td>${esc(pila)}</td><td>$${esc(l.salary)}</td><td>${list}</td><td>${esc(num(l.points))}</td></tr>`;
+      }
+      html += `</table>`;
+    } else {
+      html += `<p>Sin alineaciones para este slate.</p>`;
+    }
+    body += sl.principal
+      ? `<h2>${title}</h2>${html}`
+      : `<details><summary>${title}</summary>${html}</details>`;
+  }
+
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
+    `<title>Fantasy NFL</title><style>body{font-family:Arial,sans-serif;background:#020814;color:#e6f1ff;margin:16px}` +
+    `h1{color:#00ffe7;font-size:20px}h2{color:#00ffe7;font-size:16px;margin-top:24px}summary{cursor:pointer;color:#a07cff;margin:10px 0;font-weight:bold}` +
+    `.box{background:#0b1730;border:1px solid #1d2f55;border-radius:8px;padding:10px;margin:8px 0;font-size:13px;line-height:1.5}` +
+    `table{border-collapse:collapse;width:100%;font-size:12px;margin:8px 0}th,td{border:1px solid #1d2f55;padding:5px;text-align:left;vertical-align:top}` +
+    `th{background:#0f2244;color:#00ffe7}tr:nth-child(even){background:#071126}</style></head><body>${body}</body></html>`;
+}
+
 async function viewEvaluation() {
   const rows = await selectAll("fantasy_nfl_evaluations", "*", q => q.order("evaluated_at", { ascending: false }).limit(20));
   return { ok: true, evaluaciones: rows };
@@ -822,6 +884,10 @@ module.exports = async function handler(req, res) {
       result = await autoRun();
     } else if (req.query.run) {
       result = await runProjection({ trigger: "manual", refresh: Boolean(req.query.refresh) });
+    } else if (req.query.view) {
+      // 30-oct: vista HTML de la ultima corrida.
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.status(200).send(await viewLatestHtml());
     } else {
       result = await viewLatest();
     }
