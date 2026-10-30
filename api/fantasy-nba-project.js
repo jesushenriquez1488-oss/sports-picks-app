@@ -40,7 +40,18 @@
 //    h) (29-oct) Lo reciente pesa mas: cada partido atras vale 70%.
 //       Cambio de rol (2 ultimos partidos con 8+ minutos mas o menos
 //       que antes): solo cuentan esos 2. Con 5+ partidos esta
-//       temporada, la pasada ya no cuenta.
+//       temporada, la pasada ya no cuenta. (30-oct: apagado en la
+//       oficial; la oficial es el 70% que cobro mas.)
+//    i) (30-oct) MINUTOS DE LOS LESIONADOS: si al equipo le faltan
+//       minutos, cada titular sube maximo +1 y el resto se reparte
+//       IGUAL entre los suplentes que juegan 2 a 20 minutos (los de
+//       20+ ya estan en su tope). Antes se multiplicaba a todos por
+//       igual y se inflaba a los titulares (~3.7 min con baja cara).
+//    j) (30-oct) TITULAR NUEVO DE ESPN: si ESPN lo pone de titular
+//       pero esta temporada no ha sido titular con su equipo (y si
+//       ha jugado de banca), sus minutos = 55% minutos de titular +
+//       45% sus minutos de banca de esta temporada (Mathurin,
+//       DeAndre Jordan: ESPN no acierta al titular real).
 //
 // 3. PRODUCCION SEGUN SU FUNCION
 //    Por minuto, en ese rol: puntos, triples, rebotes,
@@ -60,24 +71,21 @@
 //    Posesiones esperadas del partido vs las normales de su equipo.
 //    Partido mas rapido = mas de todo; mas lento = menos.
 //
-// 6. MERCADO (oficial desde el 27-oct; 29-oct: 60/40)
-//    Lineas de props de las casas: 60% mercado, 40% nuestra formula.
+// 6. MERCADO (oficial desde el 27-oct; 30-oct: 70/30)
+//    Lineas de props de las casas: 70% mercado, 30% nuestra formula.
 //    Jugador sin linea: 100% nuestra formula.
+//    Prueba al lado (30-oct): 60/40, todo lo demas igual.
 //
 // 7. PUNTOS FANTASY
 //    10,000 simulaciones -> DraftKings (doble y triple doble)
 //    y FanDuel. Promedio = proyectado; techo = noche 9,000 de 10,000.
-//    (29-oct) Baratos (< 10% del tope): techo ancho = promedio +
-//    1.5 x (techo - promedio).
+//    (30-oct) Techo ancho de los baratos: apagado.
 //
-// 8. ALINEACIONES (27-oct)
+// 8. ALINEACIONES
 //    Titular y su suplente de la misma posicion nunca juntos.
-//    Pilas en los partidos mas rapidos DE HOY (comparados solo entre
-//    ellos): el nucleo del mas rapido va en la mitad de las
-//    alineaciones (tope 50% esos 3); el resto lleva parejas de los
-//    siguientes mas rapidos.
-//    (29-oct) Se arman apuntando al TECHO, no al promedio. 20
-//    alineaciones oficiales por casa.
+//    (30-oct) SIN pilas y armadas con el PROMEDIO (no con el techo):
+//    del 27 al 29-oct fue lo que mas cobro. Tope 40% por jugador.
+//    20 alineaciones oficiales por casa.
 //
 // REGLAS: salario <= $3,500 fuera; lesionados o en duda fuera;
 // fuera del top 2 de su posicion fuera; menos de 18 minutos fuera.
@@ -117,38 +125,45 @@ const CONFIG = {
   // los baratos + alineaciones apuntando al techo + partidos
   // recientes mas fuertes (cambio de rol, 5+ partidos = solo esta
   // temporada). Antes: "mercado85+ritmo+pilas".
-  formulaVersion: "mercado60+techo+recientes",
+  // 30-oct (aprobado): mercado 70% / formula 30%, sin techo, sin
+  // pilas, sin ritmo, sin "recientes" (la version "mercado+escenarios"
+  // que mas cobro del 27 al 29-oct: 184 de 600 en la prueba) + los
+  // arreglos de minutos (lesionados y titular nuevo de ESPN).
+  // Antes: "mercado60+techo+recientes".
+  formulaVersion: "mercado70+minutos",
   // Pruebas en paralelo: mismos datos, un solo ajuste distinto.
   // Solo se archivan; nunca cambian las alineaciones oficiales.
-  // 29-oct: la prueba "mercado60+techo" es la oficial SIN los
-  // partidos recientes mas fuertes (puntos 3 y 4). Mercado al 70%
-  // se queda como referencia, tal como estaba (sin techo ni
-  // recientes). La formula sola ("produccion-propia+10%") se quito:
-  // fue la peor en todas las pruebas del 27 y 28-oct.
+  // 30-oct: solo el 60/40 (mismo todo, solo cambia el peso del
+  // mercado).
   shadowVariants: [
     {
-      version: "mercado60+techo",
-      config: { recentForm: false }
-    },
-    {
-      version: "mercado+escenarios",
+      version: "mercado60+minutos",
       config: {
-        usePace: false, lineupStrategy: false,
-        recentForm: false, aimCeiling: false, ceilingWidenCheap: 1,
-        propWeights: { pts: 0.7, reb: 0.7, ast: 0.7, fg3m: 0.6, stl: 0.5, blk: 0.5 }
+        propWeights: { pts: 0.6, reb: 0.6, ast: 0.6, fg3m: 0.51, stl: 0.43, blk: 0.43 }
       }
     }
   ],
 
-  // TECHO (29-oct). El techo (p90) sale de la simulacion. A los
-  // BARATOS (salario < 10% del tope: DK < $5,000, FD < $6,000) les
-  // quedaba corto: lo pasaban 21% de las veces (deberia ser 10%).
-  // Techo ancho = promedio + 1.5 x (techo - promedio) -> 12%.
-  // aimCeiling: las alineaciones se arman con el TECHO (no con el
-  // promedio) para meter a los que pueden explotar.
-  ceilingWidenCheap: 1.5,
+  // TECHO. 30-oct: apagado (solo ayudo el 27-oct). Con 1 el techo
+  // es el de la simulacion tal cual; aimCeiling false = las
+  // alineaciones se arman con el promedio.
+  ceilingWidenCheap: 1,
   cheapSalaryShare: 0.1,
-  aimCeiling: true,
+  aimCeiling: false,
+
+  // MINUTOS DE LOS LESIONADOS (30-oct, medido en 30 equipos con bajas
+  // del 24 al 29-oct: error de minutos de los elegibles 4.70 -> 4.33).
+  // Si al equipo le faltan minutos: cada titular sube maximo
+  // injuryStarterExtra; el resto, IGUAL para cada suplente que juega
+  // entre injuryBenchMin y injuryBenchMax minutos.
+  injuryRedistribute: true,
+  injuryStarterExtra: 1,
+  injuryBenchMin: 2,
+  injuryBenchMax: 20,
+  // TITULAR NUEVO DE ESPN (30-oct, 14 casos: error 6.8 -> ~4.5 min):
+  // sin partidos de titular con su equipo esta temporada y con
+  // partidos de banca -> 55% minutos de titular + 45% de banca.
+  newStarterShare: 0.55,
 
   // PARTIDOS RECIENTES MAS FUERTES (29-oct):
   //  - cada partido hacia atras pesa 70% del siguiente en minutos
@@ -158,7 +173,9 @@ const CONFIG = {
   //    usan solo esos 2 (lo de antes del cambio ya no cuenta);
   //  - con 5+ partidos esta temporada en su rol, la temporada pasada
   //    ya no cuenta (ni en minutos ni en produccion).
-  recentForm: true,
+  // 30-oct: apagado en la oficial (la version 70% que mas cobro no
+  // lo tenia).
+  recentForm: false,
   recentDecay: 0.7,
   recentRateDecay: 0.9,
   roleChangeMinutes: 8,
@@ -175,7 +192,9 @@ const CONFIG = {
   // posesiones = mas de todo). Se aplica a nuestra formula ANTES de
   // mezclar con el mercado (el mercado ya cuenta el ritmo: asi no
   // se cuenta dos veces). Jugador sin linea: se aplica completo.
-  usePace: true,
+  // 30-oct: apagado en la oficial (la version 70% que mas cobro no
+  // lo tenia; el mercado ya trae el ritmo).
+  usePace: false,
   pacePriorGames: 5,
   paceMinGames: 3,
   paceFactorMin: 0.94,
@@ -189,6 +208,9 @@ const CONFIG = {
   //  - titular y su suplente de la misma posicion nunca juntos;
   //  - pilas en partidos rapidos; nucleo del MUY RAPIDO en el 50%.
   lineupStrategy: true,
+  // 30-oct: SIN pilas (del 27 al 29-oct la pila de un nucleo se
+  // equivoco de partido los 3 dias). La regla titular/suplente sigue.
+  useStacks: false,
   coreExposure: 0.5,
   // 28-oct: el nucleo es de 2 estrellas del mismo equipo; la estrella
   // rival entra de 3ra solo si la mejor alineacion no pierde mas de
@@ -215,11 +237,10 @@ const CONFIG = {
   // MERCADO (lineas de props). Oficial desde el 27-oct.
   useProps: true,
   // Peso del mercado por estadistica (el resto = nuestra formula).
-  // 27-oct: subido de 70% a 85%. 29-oct: bajado a 60% (prueba 27 y
-  // 28-oct: 60/40 dio las alineaciones mas altas, 331.3 y 313.5;
-  // 85% quedo entre las peores). Cada estadistica en la misma
-  // proporcion que la mezcla al 70% (x 60/70).
-  propWeights: { pts: 0.6, reb: 0.6, ast: 0.6, fg3m: 0.51, stl: 0.43, blk: 0.43 },
+  // 27-oct: subido de 70% a 85%. 29-oct: bajado a 60%. 30-oct: 70%
+  // (prueba 27-29 oct, 50% a 100%: 70/30 la que mas cobra; el error
+  // por jugador casi no cambia con el porcentaje).
+  propWeights: { pts: 0.7, reb: 0.7, ast: 0.7, fg3m: 0.6, stl: 0.5, blk: 0.5 },
   // Si en su equipo hubo una baja DESPUES de la linea, la linea
   // no la trae: se confia menos en ella (peso x0.35).
   propNewsFactor: 0.35,
@@ -1603,6 +1624,23 @@ function projectTeam(team, ctx) {
     }
 
     const baseline = roleBaseline(a.id, team, role, order, profile, ctx);
+
+    // 30-oct: TITULAR NUEVO DE ESPN. Esta temporada no ha sido titular
+    // con su equipo pero si ha jugado de banca: ESPN suele no acertar
+    // (Mathurin 36 proy -> 18.6 real; DeAndre Jordan 20 -> 0). Sus
+    // minutos = 55% de titular + 45% de lo que juega de banca.
+    let newStarter = null;
+    if (role === "S" && CONFIG.newStarterShare < 1) {
+      const season = teamRows(a.id, team, ctx).filter(r => r.season === CUR);
+      const benchGames = season.filter(r => r.starter === false);
+      if (!season.some(r => r.starter === true) && benchGames.length) {
+        const benchMin = mean(benchGames.map(r => r.min));
+        const starterBase = baseline.base;
+        baseline.base = CONFIG.newStarterShare * starterBase + (1 - CONFIG.newStarterShare) * benchMin;
+        newStarter = { titular: round(starterBase, 1), banca: round(benchMin, 1), partidosBanca: benchGames.length, usado: round(baseline.base, 1) };
+      }
+    }
+
     const injury = mateEffect(a.id, team, role, importantOut, baseline, ctx);
 
     // Suplente: ¿que tan seguido entra a jugar?
@@ -1677,7 +1715,8 @@ function projectTeam(team, ctx) {
       injury,
       cap,
       sd: baseline.sd,
-      baseline
+      baseline,
+      newStarter
     });
   };
 
@@ -1709,6 +1748,34 @@ function projectTeam(team, ctx) {
   }
 
   rows.forEach(r => (r.minutes = r.raw * (r.role === "B" ? benchScale : 1) * allScale));
+
+  // 30-oct: FALTAN MINUTOS (lesionados). En vez de multiplicar a
+  // todos por igual: cada titular sube maximo +1 y el resto va IGUAL
+  // a cada suplente que juega entre 2 y 20 minutos. Si no hay
+  // suplentes en ese rango, se queda el reparto parejo de antes.
+  let redistributed = false;
+  if (CONFIG.injuryRedistribute && rawSum > 0 && rawSum < CONFIG.teamMinutes && factor <= CONFIG.normalizeMax) {
+    const benchTake = rows.filter(r => r.role === "B" && r.raw >= CONFIG.injuryBenchMin && r.raw < CONFIG.injuryBenchMax);
+    if (benchTake.length) {
+      let missing = CONFIG.teamMinutes - rawSum;
+      rows.forEach(r => (r.minutes = r.raw));
+      const startersRows = rows.filter(r => r.role === "S");
+      const each = Math.min(CONFIG.injuryStarterExtra, missing / Math.max(1, startersRows.length));
+      startersRows.forEach(r => {
+        r.minutes += each;
+        r.injuryExtra = each;
+      });
+      missing -= each * startersRows.length;
+      const share = missing / benchTake.length;
+      benchTake.forEach(r => {
+        r.minutes += share;
+        r.injuryExtra = share;
+      });
+      benchScale = 1;
+      allScale = 1;
+      redistributed = true;
+    }
+  }
 
   // Avisos = datos del equipo incompletos (sus jugadores no entran).
   if (allScale < CONFIG.starterMinScale) {
@@ -1744,6 +1811,7 @@ function projectTeam(team, ctx) {
     finalSum,
     benchScale,
     allScale,
+    redistributed,
     out: out.map(a => a.name),
     importantOut: importantOut.map(a => a.name),
     doubtful: available.filter(a => a.status === "DUDA").map(a => a.name),
@@ -2533,6 +2601,11 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
               const t = teamProjections.get(Number(p.team_id));
               return t ? round((row.role === "B" ? t.benchScale : 1) * t.allScale, 3) : null;
             })(),
+            // 30-oct: minutos que recibio del reparto de lesionados
+            // (titulares max +1; suplentes de 2-20 min, parejo).
+            extraPorBajas: row.injuryExtra !== undefined ? round(row.injuryExtra, 1) : null,
+            // 30-oct: titular nuevo de ESPN (55% titular + 45% banca).
+            titularNuevo: row.newStarter || null,
             final: round(row.minutes, 1)
           },
           ...(f?.explain || {})
@@ -2569,7 +2642,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
 
     // Partidos del slate con su ritmo (para las pilas).
     const slateGames = [];
-    if (CONFIG.lineupStrategy) {
+    if (CONFIG.lineupStrategy && CONFIG.useStacks) {
       const byEvent = new Map();
       for (const x of eligible) {
         const e = String(x.p.event_id);
@@ -2595,7 +2668,8 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
       if (!CONFIG.lineupStrategy) return {};
       // Pilas solo en las casas aprobadas (28-oct: DraftKings). En las
       // demas se arma sin pilas, con la regla titular/suplente.
-      if (!CONFIG.stackPlatforms.includes(platform)) return { noStarterBackup: true };
+      // 30-oct: sin pilas (useStacks false) -> solo la regla.
+      if (!CONFIG.useStacks || !CONFIG.stackPlatforms.includes(platform)) return { noStarterBackup: true };
       return {
         noStarterBackup: true,
         stackPlan: planStacks(optimizerPool, slateGames, count, { coreShare: CONFIG.coreExposure, platform }),
@@ -2668,7 +2742,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
         .map(g => `${g.teams.join(" @ ")}: ${g.cls} (${round(g.pace, 1)} posesiones${g.close ? ", parejo" : ""})`),
       plan: officialOptions.stackPlan
         ? [officialOptions.stackPlan.resumen, lineupResult.nucleo].filter(Boolean).join(". Decision: ")
-        : (CONFIG.lineupStrategy ? "sin pilas en esta casa (solo regla titular/suplente)" : "sin estrategia de pilas"),
+        : (CONFIG.lineupStrategy ? "sin pilas (solo regla titular/suplente)" : "sin estrategia de pilas"),
       slateId: Number(slate.slate_id),
       games: slate.event_count,
       players: players.length,
