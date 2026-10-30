@@ -139,7 +139,8 @@ function gameLabel(p) {
   return p.matchup || "";
 }
 function pickLabel(p) {
-  const pick = p.pick || "";
+  // same casing everywhere: "OVER 78.5" → "Over 78.5"
+  const pick = String(p.pick || "").replace(/^(over|under)\b/i, w => w[0].toUpperCase() + w.slice(1).toLowerCase());
   // Totals are saved as just "Over"/"Under": add the line (e.g. "Under 156.5")
   if (/^(over|under)$/i.test(pick) && p.line != null) return `${pick} ${p.line}`;
   return pick;
