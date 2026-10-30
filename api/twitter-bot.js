@@ -1,5 +1,10 @@
 // /api/twitter-bot.js
 // CashEdge X Bot — every post goes out with a branded image generated on the fly.
+// Oct-30 redesign: only 3 posts a day, all automatic (?type=auto, cron every 30 min):
+//   1. "winners"  → yesterday's Premium picks that HIT (skipped if none hit)
+//   2. "pick"     → today's free Premium pick, 2 h before the day's first game
+//   3. "props"    → 3 free player props, 30 min after the free pick
+// No teasers, no polls, no "top secret" posts.
 // Posts have NO links on purpose: X charges $0.015 per post without a URL vs $0.20 with one.
 // The link to cashedgeapp.com lives in the profile bio.
 
@@ -173,10 +178,98 @@ async function saveFreePlay(pickId) {
 }
 
 // Free Premium Play: one of today's Premium picks, still pending, lowest confidence
-async function getTodayFreePick() {
+async function getTodayFreePick(kick = new Map()) {
   const rows = await sbSelect(TABLE,
     `select=*&is_premium=eq.true&${DATE_COL}=eq.${chicagoDate(0)}&result=ilike.pending&order=confidence.asc&limit=20`);
-  return rows.find(p => pickLabel(p) && gameLabel(p)) || null;
+  // never give away a game that is about to start (or already started)
+  const soon = Date.now() + 30 * 60000;
+  return rows.find(p => {
+    if (!pickLabel(p) || !gameLabel(p)) return false;
+    const t = kick.get(p.game_id);
+    return !t || t.getTime() > soon;
+  }) || null;
+}
+
+// All of yesterday's Premium picks (to know if grading finished and which ones won)
+async function getYesterdayPremium() {
+  return sbSelect(TABLE, `select=*&is_premium=eq.true&${DATE_COL}=eq.${chicagoDate(-1)}&limit=100`);
+}
+
+// ── Schedule helpers (Chicago time) ────────────────────────────────────────
+function chiParts(d = new Date()) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", {
+    timeZone: TZ, hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit"
+  }).formatToParts(d).map(x => [x.type, x.value]));
+  return { date: `${p.year}-${p.month}-${p.day}`, min: (Number(p.hour) % 24) * 60 + Number(p.minute) };
+}
+const hhmm = m => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
+
+// Kickoff of every game today, from the odds feed (same source the story engine uses)
+async function getTodayKickoffs() {
+  const since = new Date(Date.now() - 36 * 3600e3).toISOString();
+  const rows = await sbSelect("market_odds_updates",
+    `select=cashedge_game_id,commence:raw_payload->>commence_time,home:raw_payload->>home_team,away:raw_payload->>away_team` +
+    `&observed_at=gte.${since}&limit=10000`);
+  const today = chicagoDate(0);
+  const map = new Map();
+  for (const r of rows) {
+    if (!r.commence || !r.cashedge_game_id) continue;
+    const t = new Date(r.commence);
+    if (isNaN(t) || chiParts(t).date !== today) continue;
+    map.set(r.cashedge_game_id, t);
+    if (r.away && r.home) map.set(`${r.away} @ ${r.home}`, t); // props rows use this game name
+  }
+  return map;
+}
+
+// Slots already posted today on X (uses the existing social_post_log table)
+async function postedToday() {
+  const rows = await sbSelect("social_post_log",
+    `select=slot,posted_at&channel=eq.x&posted_at=gte.${new Date(Date.now() - 26 * 3600e3).toISOString()}&limit=200`);
+  const today = chicagoDate(0);
+  return new Set(rows.filter(r => chiParts(new Date(r.posted_at)).date === today).map(r => r.slot));
+}
+
+// ── 3 FREE PROPS (from player_props_cache) ────────────────────────────────
+// One row per game; analysis_json.props = props shown to free users, lockedProps = Premium only.
+// Only "props" are used here, so the post never gives away Premium-only props.
+const PROPS_TABLE = "player_props_cache";
+const MARKET_LABEL = {
+  player_points: "PTS", player_rebounds: "REB", player_assists: "AST", player_threes: "3PM",
+  player_points_rebounds_assists: "PRA", player_pass_yds: "PASS YDS", player_rush_yds: "RUSH YDS",
+  player_reception_yds: "REC YDS", player_receptions: "REC", player_pass_tds: "PASS TD",
+  pitcher_strikeouts: "K", pitcher_outs: "OUTS", batter_hits: "HITS", batter_total_bases: "TB"
+};
+const marketLabel = m => MARKET_LABEL[m] || String(m || "").replace(/^(player|batter|pitcher)_/, "").replace(/_/g, " ").toUpperCase();
+// The cache stores decimal odds (2.12) → American (+112)
+function americanOdds(dec) {
+  const d = Number(dec);
+  if (!Number.isFinite(d) || d <= 1) return null;
+  return d >= 2 ? Math.round((d - 1) * 100) : -Math.round(100 / (d - 1));
+}
+const fmtOdds = a => a == null ? "" : (a > 0 ? `+${a}` : String(a));
+const propLabel = p => `${p.side === "UNDER" ? "U" : "O"} ${p.line} ${marketLabel(p.market)}`;
+
+async function getTodayFreeProps(kick = new Map()) {
+  const rows = await sbSelect(PROPS_TABLE,
+    `select=sport,game,game_date,analysis_json&game_date=eq.${chicagoDate(0)}&order=updated_at.desc&limit=200`);
+  const soon = Date.now() + 30 * 60000;
+  const seenGames = new Set();
+  const all = [];
+  for (const r of rows) {
+    if (seenGames.has(r.game)) continue; // newest analysis per game only
+    seenGames.add(r.game);
+    const t = kick.get(r.game);
+    if (t && t.getTime() <= soon) continue; // game about to start / started
+    for (const p of r.analysis_json?.props || []) {
+      if (!p?.player || p.line == null || !p.side) continue;
+      all.push({ ...p, sport: String(r.sport || "").toLowerCase(), game: r.game, american: americanOdds(p.odds) });
+    }
+  }
+  // highest confidence first, one prop per player
+  all.sort((a, b) => Number(b.confidence || 0) - Number(a.confidence || 0));
+  const players = new Set();
+  return all.filter(p => !players.has(p.player) && players.add(p.player)).slice(0, 3);
 }
 
 async function getTodayPremiumCount() {
@@ -285,6 +378,59 @@ function receiptsImage(picks, w, l) {
         badge(p.result)
       )),
       picks.length > 5 ? h("div", { display: "flex", fontSize: 22, color: C.muted }, `+${picks.length - 5} more`) : null
+    )
+  );
+}
+
+function winnersImage(wins) {
+  const shown = wins.slice(0, 5);
+  return frame(`YESTERDAY · ${prettyDate(-1)}`,
+    h("div", { display: "flex", alignItems: "baseline" },
+      h("div", { display: "flex", fontSize: 80, color: C.green, fontWeight: 900 }, String(wins.length)),
+      h("div", { display: "flex", fontSize: 46, color: C.white, fontWeight: 900, marginLeft: 20 },
+        `PREMIUM ${wins.length === 1 ? "WINNER" : "WINNERS"}`)
+    ),
+    h("div", { display: "flex", flexDirection: "column", marginTop: 14 },
+      shown.map(p => h("div", {
+        display: "flex", alignItems: "center", padding: "10px 18px", marginBottom: 9,
+        backgroundColor: C.card, borderRadius: 14, border: `2px solid ${C.green}55`
+      },
+        sportChip(sportOf(p)),
+        h("div", { display: "flex", flexDirection: "column", flexGrow: 1 },
+          h("div", { display: "flex", fontSize: 28, color: C.white, fontWeight: 800 }, pickLabel(p).slice(0, 40)),
+          h("div", { display: "flex", fontSize: 18, color: C.muted, marginTop: 2 }, gameLabel(p).slice(0, 60))
+        ),
+        badge("win")
+      )),
+      wins.length > 5 ? h("div", { display: "flex", fontSize: 22, color: C.green, fontWeight: 800 }, `+${wins.length - 5} more winners`) : null
+    )
+  );
+}
+
+function propsImage(props) {
+  return frame(`FREE PLAYER PROPS · ${prettyDate(0)}`,
+    h("div", { display: "flex", fontSize: 46, color: C.white, fontWeight: 900 }, "3 FREE PLAYER PROPS"),
+    h("div", { display: "flex", flexDirection: "column", marginTop: 16 },
+      props.map(p => h("div", {
+        display: "flex", alignItems: "center", padding: "14px 20px", marginBottom: 12,
+        backgroundColor: C.card, borderRadius: 16, border: `2px solid ${C.cyan}55`
+      },
+        sportChip(p.sport),
+        h("div", { display: "flex", flexDirection: "column", flexGrow: 1 },
+          h("div", { display: "flex", fontSize: 30, color: C.white, fontWeight: 900 }, String(p.player).slice(0, 30)),
+          h("div", { display: "flex", fontSize: 26, color: C.cyan, fontWeight: 800, marginTop: 2 },
+            `${p.side} ${p.line} ${marketLabel(p.market)}`)
+        ),
+        p.american != null ? h("div", {
+          display: "flex", padding: "8px 16px", borderRadius: 12, marginRight: 14,
+          border: `2px solid ${p.american > 0 ? C.green : C.line}`, color: p.american > 0 ? C.green : C.white,
+          fontSize: 26, fontWeight: 900
+        }, fmtOdds(p.american)) : null,
+        h("div", { display: "flex", flexDirection: "column", alignItems: "center" },
+          h("div", { display: "flex", fontSize: 32, color: C.gold, fontWeight: 900 }, `${Number(p.confidence || 0).toFixed(0)}%`),
+          h("div", { display: "flex", fontSize: 12, color: C.muted, letterSpacing: 2 }, "CONFIDENCE")
+        )
+      ))
     )
   );
 }
@@ -412,15 +558,39 @@ async function buildReceipts() {
   };
 }
 
-async function buildFreePick() {
-  const p = await getTodayFreePick();
+async function buildFreePick(kick) {
+  const p = await getTodayFreePick(kick);
   if (!p) return null;
   const s = sportOf(p);
   return {
-    text: `🆓 FREE PREMIUM PLAY\n\n${SPORT_EMOJI[s] || "🎯"} ${pickLabel(p)}\n${gameLabel(p)}\n\nOne of today\'s Premium picks, free. The rest are locked in the app with live line movement and sharp money alerts.\n\nResult posted tomorrow, win or lose.\n\n📲 Line-move alerts FREE on our Telegram → link in bio\n\n#${SPORT_TAG[s] || "Sports"}Picks #SportsBetting`,
+    text: `🆓 FREE PREMIUM PLAY · ${SPORT_TAG[s] || "TODAY"}\n\n${SPORT_EMOJI[s] || "🎯"} ${pickLabel(p)}\n${gameLabel(p)}\n\nStraight from today's Premium board. No paywall on this one.\n\n📲 More Premium picks + live line moves → link in bio\n\n#${SPORT_TAG[s] || "Sports"}Picks #SportsBetting\n\n21+ | Not betting advice`,
     image: freePickImage(p),
     pickId: p.id,
+    gameId: p.game_id,
     cardDate: chicagoDate(0) // real CashEdge card of today's free play
+  };
+}
+
+// Yesterday's Premium picks that HIT. Losses are not listed. Null when nothing hit.
+function buildWinners(rows) {
+  const wins = rows.filter(p => /^win$/i.test(p.result) && pickLabel(p));
+  if (!wins.length) return null;
+  const lines = wins.slice(0, 4).map(p => `✅ ${pickLabel(p)} · ${SPORT_TAG[sportOf(p)] || ""}`.trim());
+  const more = wins.length > 4 ? `\n+${wins.length - 4} more` : "";
+  return {
+    text: `✅ ${wins.length} Premium ${wins.length === 1 ? "winner" : "winners"} yesterday (${prettyDate(-1)})\n\n${lines.join("\n")}${more}\n\n🆓 Today's free play drops before the first game.\n📲 Link in bio\n\n21+ | Not betting advice`,
+    image: winnersImage(wins)
+  };
+}
+
+async function buildProps(kick) {
+  const props = await getTodayFreeProps(kick);
+  if (props.length < 3) return null;
+  const lines = props.map(p => `🔥 ${p.player} ${propLabel(p)}${p.american != null ? ` (${fmtOdds(p.american)})` : ""}`);
+  const tag = SPORT_TAG[props[0].sport] || "";
+  return {
+    text: `🆓 3 FREE PLAYER PROPS${tag ? ` · ${tag}` : ""}\n\n${lines.join("\n")}\n\nStraight from today's CashEdge props board.\n📲 Full props board → link in bio\n\n21+ | Not betting advice`,
+    image: propsImage(props)
   };
 }
 
@@ -459,6 +629,37 @@ async function buildMarket(set) {
 }
 
 const BUILDERS = { morning: buildReceipts, pick: buildFreePick, teaser: buildTeaser, results: buildRecord, market: buildMarket };
+
+// ── AUTO: decides which post is due right now (one post per run) ───────────
+async function planAuto() {
+  const now = chiParts().min;
+  const done = await postedToday();
+
+  // 1) Yesterday's winners: from 9:00 CT, once grading finished (11:00 CT at the latest)
+  if (!done.has("winners") && now >= 9 * 60) {
+    const rows = await getYesterdayPremium();
+    const pending = rows.some(p => /^pending$/i.test(p.result));
+    if (!pending || now >= 11 * 60) return { slot: "winners", rows, now };
+  }
+
+  // 2) Free pick: 2 h before the day's first game (never before 9:30 CT)
+  // 3) 3 free props: 30 min after the free pick
+  const kick = await getTodayKickoffs();
+  const first = [...kick.values()].sort((a, b) => a - b)[0];
+  const firstMin = first ? chiParts(first).min : 13 * 60; // no kickoff data → as if first game at 1 PM
+  const pickAt = Math.max(firstMin - 120, 9 * 60 + 30);
+  if (!done.has("pick") && now >= pickAt) return { slot: "pick", kick, now, firstMin, pickAt };
+  if (!done.has("props") && now >= pickAt + 30) return { slot: "props", kick, now, firstMin, pickAt };
+
+  return { slot: null, now, firstMin, pickAt, done: [...done] };
+}
+
+async function buildAuto(plan) {
+  if (plan.slot === "winners") return buildWinners(plan.rows);
+  if (plan.slot === "pick") return buildFreePick(plan.kick);
+  if (plan.slot === "props") return buildProps(plan.kick);
+  return null;
+}
 
 // ── CashEdge Premium card (same design and data as the landing's real Premium card) ──
 const SITE = "https://www.cashedgeapp.com";
@@ -610,9 +811,57 @@ async function makeImage(post) {
 // ── Handler ────────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   const { type, dry, img, set } = req.query;
+
+  // ── type=auto (the only one in the cron) ──
+  if (type === "auto") {
+    try {
+      const plan = await planAuto();
+      const info = { now: hhmm(plan.now), firstGame: plan.firstMin != null ? hhmm(plan.firstMin) : undefined,
+        pickAt: plan.pickAt != null ? hhmm(plan.pickAt) : undefined };
+      const post = plan.slot ? await buildAuto(plan) : null;
+
+      if (dry === "1") {
+        if (img === "1" && post) {
+          const png = await makeImage(post);
+          res.setHeader("Content-Type", "image/png");
+          res.setHeader("Cache-Control", "no-store");
+          return res.status(200).send(png);
+        }
+        return res.status(200).json({ ok: true, slot: plan.slot, ...info, preview: fitX(post?.text) || null });
+      }
+
+      if (req.headers["authorization"] !== `Bearer ${process.env.CRON_SECRET}`) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const { logPost } = await import("./_social-stories.js");
+      if (!plan.slot) return res.status(200).json({ ok: true, idle: true, ...info });
+
+      if (!post) {
+        // Winners with zero hits: mark the day as done so it doesn't keep checking
+        if (plan.slot === "winners") await logPost("x", "winners", "no-winners", null);
+        return res.status(200).json({ ok: true, slot: plan.slot, skipped: "No data to post", ...info });
+      }
+
+      if (post.pickId) await saveFreePlay(post.pickId);
+      let mediaId = null;
+      try {
+        mediaId = await uploadImage(await makeImage(post));
+      } catch (e) {
+        console.error("Image failed, posting text only:", e);
+      }
+      const tweet = await postTweet(fitX(post.text), mediaId);
+      await logPost("x", plan.slot, plan.slot, post.gameId || null);
+      return res.status(200).json({ ok: true, slot: plan.slot, withImage: !!mediaId, ...info, tweet });
+    } catch (error) {
+      console.error("Twitter bot (auto) error:", error);
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  // ── Manual types (previews / one-off posts; no longer in the cron) ──
   const build = BUILDERS[type];
   if (!build) {
-    return res.status(400).json({ error: "Invalid type. Use: morning, pick, teaser, results, market" });
+    return res.status(400).json({ error: "Invalid type. Use: auto, morning, pick, teaser, results, market" });
   }
 
   try {
