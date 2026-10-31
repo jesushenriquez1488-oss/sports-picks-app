@@ -86,13 +86,21 @@
 //    (30-oct) SIN pilas y armadas con el PROMEDIO (no con el techo):
 //    del 27 al 29-oct fue lo que mas cobro. Tope 40% por jugador.
 //    20 alineaciones oficiales por casa.
+//    (31-oct) CIERRE SIN REARMAR: la corrida que cae a 60 min o
+//    menos del inicio del slate NO arma las alineaciones de nuevo.
+//    Toma las de la corrida anterior (la de las 4:30) y SOLO cambia
+//    al jugador que salio OUT por el de mas puntos que quepa en ese
+//    puesto y en el salario (respeta titular/suplente y el 40%).
+//    Igual con las de prueba y con la prueba del 60/40.
+//    (31-oct) PRUEBA: 500 en DraftKings y 200 en FanDuel (antes 200
+//    solo DraftKings). La prueba del 60/40 sigue en 200, solo DK.
 //
 // REGLAS: salario <= $3,500 fuera; lesionados o en duda fuera;
 // fuera del top 2 de su posicion fuera; menos de 18 minutos fuera.
 // ============================================================
 
 const { createClient } = require("@supabase/supabase-js");
-const { buildLineups, planStacks, RULES } = require("./_lib/fantasy-nba-lineups.js");
+const { buildLineups, planStacks, assignSlots, starterBackupConflict, RULES } = require("./_lib/fantasy-nba-lineups.js");
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
@@ -109,15 +117,23 @@ const CONFIG = {
   // Muestra de prueba: alineaciones extra por version SOLO para
   // medir (nadie las juega). 10 por noche es muy poco para saber
   // que version es mejor.
-  testLineupCount: 200,     // 28-oct: 150 -> 200
+  testLineupCount: 500,     // 28-oct: 150 -> 200. 31-oct: 200 -> 500 (DraftKings)
+  // 31-oct: cuantas de prueba por casa (si no esta aqui, testLineupCount).
+  testCountByPlatform: { fanduel: 200 },
   // 29-oct: las 200 de prueba solo en DraftKings (FanDuel solo sus
   // oficiales). Ahorra tiempo de corrida.
-  testPlatforms: ["draftkings"],
+  testPlatforms: ["draftkings", "fanduel"],   // 31-oct: FanDuel tambien
   testNodeLimit: 200000,
-  testSecondsPerPlatform: 25,
+  testSecondsPerPlatform: 60,   // 31-oct: 25 -> 60 (500 no caben en 25 s)
   // Si la corrida completa pasa de esto, las variantes que falten
   // se saltan (Vercel corta a los 300 s).
   maxRunSeconds: 200,
+  // 31-oct: CIERRE SIN REARMAR. Si la corrida cae a swapOnlyMinutes
+  // o menos del inicio del slate y ya hay alineaciones de una corrida
+  // anterior de hoy (la de las 4:30), se dejan IGUALES y solo se
+  // cambia a los jugadores que salieron OUT.
+  closingSwapOnly: true,
+  swapOnlyMinutes: 60,
   // Nombre de la formula oficial (queda guardado en cada corrida).
   // 27-oct (aprobado): mercado 85% + ritmo del partido + pilas en
   // partidos rapidos + regla titular/suplente.
@@ -139,7 +155,13 @@ const CONFIG = {
     {
       version: "mercado60+minutos",
       config: {
-        propWeights: { pts: 0.6, reb: 0.6, ast: 0.6, fg3m: 0.51, stl: 0.43, blk: 0.43 }
+        propWeights: { pts: 0.6, reb: 0.6, ast: 0.6, fg3m: 0.51, stl: 0.43, blk: 0.43 },
+        // 31-oct: la prueba del 60/40 se queda en 200, solo DraftKings,
+        // para no pasarnos del tiempo de Vercel.
+        testLineupCount: 200,
+        testCountByPlatform: {},
+        testPlatforms: ["draftkings"],
+        testSecondsPerPlatform: 25
       }
     }
   ],
@@ -2235,11 +2257,17 @@ async function runProjection(day = chicagoDay()) {
 // Archivo de cada corrida: nunca se borra ni se reemplaza. Asi se
 // pueden comparar las alineaciones de la manana, las de la tarde y
 // las variantes de prueba contra el resultado real.
+// 31-oct: cuantas alineaciones de prueba lleva cada casa.
+function testCountFor(platform) {
+  return CONFIG.testCountByPlatform?.[platform] ?? CONFIG.testLineupCount;
+}
+
 async function archiveRun(runAt, version, lineupRows, projectionRows, testLineupRows = []) {
-  const testVersion = `${version} [prueba ${CONFIG.testLineupCount}]`;
+  // 31-oct: la etiqueta lleva cuantas de prueba se armaron en ESA casa
+  // (DraftKings 500, FanDuel 200).
   const lineups = [
     ...lineupRows.map(l => ({ ...l, archiveVersion: version })),
-    ...testLineupRows.map(l => ({ ...l, archiveVersion: testVersion }))
+    ...testLineupRows.map(l => ({ ...l, archiveVersion: `${version} [prueba ${testCountFor(l.platform)}]` }))
   ].map(l => ({
     run_at: runAt,
     version: l.archiveVersion,
@@ -2265,6 +2293,126 @@ async function archiveRun(runAt, version, lineupRows, projectionRows, testLineup
   }));
   if (lineups.length) await upsertAll("fantasy_nba_lineup_runs", lineups, "run_at,version,slate_id,lineup_number");
   if (players.length) await upsertAll("fantasy_nba_projection_runs", players, "run_at,version,slate_id,player_id");
+}
+
+// 31-oct: CIERRE SIN REARMAR.
+// Alineaciones de la corrida anterior de HOY (misma version y slate).
+async function loadBaseLineups(slateId, version, runAt) {
+  const { data, error } = await supabaseAdmin
+    .from("fantasy_nba_lineup_runs")
+    .select("run_at")
+    .eq("slate_id", slateId)
+    .eq("version", version)
+    .lt("run_at", runAt)
+    .order("run_at", { ascending: false })
+    .limit(1);
+  if (error) throw new Error(`Supabase fantasy_nba_lineup_runs: ${error.message}`);
+  const at = data?.[0]?.run_at;
+  if (!at) return null;
+  const rows = await selectAll(
+    "fantasy_nba_lineup_runs",
+    "lineup_number,players,run_at",
+    q => q.eq("slate_id", slateId).eq("version", version).eq("run_at", at).order("lineup_number", { ascending: true })
+  );
+  return rows.length ? { runAt: at, rows } : null;
+}
+
+// Deja las alineaciones iguales y SOLO cambia a los OUT: el de mas
+// puntos que quepa en el salario, sin repetir jugador, respetando
+// titular/suplente, el tope por jugador (si se puede) y las reglas
+// de la casa (posiciones, equipos y partidos). Si para que quepa hay
+// que mover a otro jugador de la misma alineacion de casilla (por
+// ejemplo de UTIL a C), se mueve; los jugadores son los mismos.
+// Con 2 OUT en la misma alineacion se prueban los dos ordenes y se
+// queda la que suma mas.
+// extra: id -> { positions, team, gameId } de los jugadores del slate
+// que no estan en el pool (para poder acomodarlos).
+function swapOutPlayers(platform, baseRows, pool, isOut, maxExposure, extra = new Map()) {
+  const rule = RULES[platform];
+  const byId = new Map(pool.map(p => [p.id, p]));
+  const maxUses = Math.max(1, Math.floor(maxExposure * baseRows.length + 1e-9));
+  const uses = new Map();
+  const upper = list => (list || []).map(x => String(x).toUpperCase());
+  const lineups = baseRows.map(r => ({
+    number: r.lineup_number,
+    players: (r.players || []).map(x => {
+      const id = String(x.player_id);
+      const cur = byId.get(id);
+      if (cur) return { ...cur, positions: upper(cur.positions), slot: x.slot };
+      const e = extra.get(id) || {};
+      return { id, name: x.name, team: x.team, salary: Number(x.salary), points: Number(x.points) || 0, positions: upper(e.positions), gameId: e.gameId || null, slot: x.slot, starter: null, startPos: null, backupOf: [] };
+    })
+  }));
+  for (const l of lineups) for (const p of l.players) if (!isOut(p.id)) uses.set(p.id, (uses.get(p.id) || 0) + 1);
+
+  // reserve = salario minimo que hay que guardar para los OUT que
+  // faltan por cambiar en esa misma alineacion.
+  const minSalary = pool.length ? Math.min(...pool.map(p => p.salary)) : 0;
+  const valid = (all, reserve = 0) => {
+    if (all.reduce((s, x) => s + x.salary, 0) + reserve > rule.salaryCap) return null;
+    if (rule.maxPerTeam && [...new Set(all.map(o => o.team))].some(t => all.filter(o => o.team === t).length > rule.maxPerTeam)) return null;
+    if (rule.minTeams && new Set(all.map(o => o.team)).size < rule.minTeams) return null;
+    if (rule.minGames && new Set(all.map(o => o.gameId).filter(Boolean)).size < rule.minGames) return null;
+    return assignSlots(all, rule);
+  };
+  // Cambia a los OUT en el orden dado; devuelve la alineacion o null.
+  // Va del mejor candidato hacia abajo; si con el mejor ya no cabe el
+  // siguiente OUT, prueba con el que sigue (hasta 40).
+  const trySwap = (players, order, localUses, k = 0, done = []) => {
+    if (k === order.length) return { players, done, localUses };
+    const outId = order[k];
+    const pending = order.slice(k + 1);
+    const others = players.filter(x => x.id !== outId);
+    // Para validar no cuentan los OUT que faltan (se cambian despues).
+    const kept = others.filter(x => !pending.includes(x.id));
+    const reserve = pending.length * minSalary;
+    const cands = pool
+      .filter(c => !isOut(c.id) && !others.some(o => o.id === c.id) && !starterBackupConflict(kept, c))
+      .map(c => ({ ...c, positions: upper(c.positions) }))
+      .filter(c => valid([...kept, c], reserve))
+      .sort((a, b) => {
+        const fa = (localUses.get(a.id) || 0) < maxUses ? 0 : 1;
+        const fb = (localUses.get(b.id) || 0) < maxUses ? 0 : 1;
+        return fa - fb || b.points - a.points;
+      })
+      .slice(0, 40);
+    const outName = players.find(x => x.id === outId).name;
+    for (const pick of cands) {
+      const next = new Map(localUses);
+      next.set(pick.id, (next.get(pick.id) || 0) + 1);
+      const r = trySwap([...others, pick], order, next, k + 1, [...done, { out: outName, pick: pick.name }]);
+      if (r) return r;
+    }
+    return null;
+  };
+
+  const cambios = [];
+  for (const l of lineups) {
+    const outs = l.players.filter(p => isOut(p.id)).map(p => p.id);
+    if (outs.length) {
+      const orders = outs.length === 2 ? [outs, [outs[1], outs[0]]] : [outs];
+      let best = null;
+      for (const order of orders) {
+        const r = trySwap(l.players, order, new Map(uses));
+        if (r) {
+          const total = r.players.reduce((s, x) => s + (x.points || 0), 0);
+          if (!best || total > best.total) best = { ...r, total };
+        }
+      }
+      if (best) {
+        const slotOf = assignSlots(best.players, rule);
+        l.players = rule.slots.map((slot, s) => ({ ...best.players[slotOf[s]], slot }));
+        for (const [k, v] of best.localUses) uses.set(k, v);
+        best.done.forEach(d => cambios.push(`#${l.number}: ${d.out} -> ${d.pick}`));
+      } else {
+        l.players.filter(p => isOut(p.id)).forEach(p => cambios.push(`#${l.number}: ${p.name} OUT, sin reemplazo que quepa`));
+      }
+    }
+    l.salary = l.players.reduce((s, x) => s + x.salary, 0);
+    l.points = round(l.players.reduce((s, x) => s + (x.points || 0), 0), 2);
+    l.optimal = false;
+  }
+  return { status: "CIERRE_SOLO_OUT", optimal: false, lineups, cambios };
 }
 
 async function runProjectionCore(day = chicagoDay(), opts = {}) {
@@ -2681,27 +2829,45 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     // Promedio proyectado de una alineacion (aunque se arme con el techo).
     const meanOf = l => round(l.players.reduce((s, p) => s + (meanById.get(p.id) ?? p.points), 0), 2);
 
+    // 31-oct: CIERRE SIN REARMAR. A 60 min o menos del inicio, si ya
+    // hay alineaciones de una corrida anterior de hoy, se dejan iguales
+    // y solo se cambia a los OUT.
+    const swapMode = CONFIG.closingSwapOnly && slate.starts_at &&
+      Date.parse(slate.starts_at) - Date.now() <= CONFIG.swapOnlyMinutes * 60000;
+    const slateIds = new Set(players.map(p => String(p.player_id)));
+    const outIds = new Set(list.filter(x => x.reason === "LESION_OUT").map(x => String(x.p.player_id)));
+    for (const [id, st] of slateStatus) if (st.some(s => injuryClass(s) === "OUT")) outIds.add(String(id));
+    const isOut = id => outIds.has(String(id)) || !slateIds.has(String(id));
+    const slateExtra = new Map(players.map(p => [String(p.player_id), { positions: p.positions, team: p.team_abbr, gameId: String(p.event_id) }]));
+    const baseOfficial = swapMode ? await loadBaseLineups(Number(slate.slate_id), opts.version, runAt) : null;
+    const baseTest = swapMode ? await loadBaseLineups(Number(slate.slate_id), `${opts.version} [prueba ${testCountFor(platform)}]`, runAt) : null;
+
     const officialOptions = lineupOptions(CONFIG.lineupCount);
-    const lineupResult = buildLineups(platform, optimizerPool, {
-      count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure,
-      ...officialOptions
-    });
+    const lineupResult = baseOfficial
+      ? swapOutPlayers(platform, baseOfficial.rows, optimizerPool, isOut, CONFIG.lineupMaxExposure, slateExtra)
+      : buildLineups(platform, optimizerPool, {
+        count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure,
+        ...officialOptions
+      });
 
     // MUESTRA DE PRUEBA: 150 alineaciones mas por version, solo
     // para medir (nadie las juega). Se archivan con la etiqueta
     // "[prueba 150]" y la evaluacion las compara contra lo real.
-    if (CONFIG.testLineupCount > 0 && CONFIG.testPlatforms.includes(platform)) {
+    if (testCountFor(platform) > 0 && CONFIG.testPlatforms.includes(platform)) {
       // Casi optimas (busqueda mas corta) y con tope de tiempo:
       // para medir sirven igual y la corrida no se pasa del limite.
-      const test = buildLineups(platform, optimizerPool, {
-        count: CONFIG.testLineupCount,
-        minDifferent: CONFIG.lineupMinDifferent,
-        maxExposure: CONFIG.lineupMaxExposure,
-        nodeLimit: CONFIG.testNodeLimit,
-        timeLimitMs: CONFIG.testSecondsPerPlatform * 1000,
-        ...lineupOptions(CONFIG.testLineupCount)
-      });
-      testInfo.push(`${platform}: ${test.lineups.length}${test.timedOut ? " (tope de tiempo)" : ""}`);
+      const test = baseTest
+        ? swapOutPlayers(platform, baseTest.rows, optimizerPool, isOut, CONFIG.lineupMaxExposure, slateExtra)
+        : buildLineups(platform, optimizerPool, {
+          count: testCountFor(platform),
+          minDifferent: CONFIG.lineupMinDifferent,
+          maxExposure: CONFIG.lineupMaxExposure,
+          nodeLimit: CONFIG.testNodeLimit,
+          timeLimitMs: CONFIG.testSecondsPerPlatform * 1000,
+          ...lineupOptions(testCountFor(platform))
+        });
+      testInfo.push(`${platform}: ${test.lineups.length}${test.timedOut ? " (tope de tiempo)" : ""}` +
+        (baseTest ? ` (cierre: solo OUT, ${test.cambios.length} cambios)` : ""));
       testLineupRows.push(...test.lineups.map(l => ({
         slate_id: Number(slate.slate_id),
         lineup_number: l.number,
@@ -2727,6 +2893,13 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
 
     platforms.push({
       platform,
+      // 31-oct: corrida de cierre que solo cambio a los OUT.
+      cierreSoloOut: baseOfficial
+        ? {
+          alineacionesDe: new Intl.DateTimeFormat("es-US", { timeZone: "America/Chicago", hour: "2-digit", minute: "2-digit" }).format(new Date(baseOfficial.runAt)),
+          cambios: lineupResult.cambios.length ? lineupResult.cambios : ["ningun OUT nuevo: alineaciones iguales"]
+        }
+        : null,
       lineupStatus: lineupResult.status,
       lineupsOptimal: lineupResult.optimal,
       lineups: lineupResult.lineups.map(l => ({
