@@ -7,6 +7,10 @@
 // No teasers, no polls, no "top secret" posts.
 // Posts have NO links on purpose: X charges $0.015 per post without a URL vs $0.20 with one.
 // The link to cashedgeapp.com lives in the profile bio.
+// Oct-31: the same 3 posts also go to the Facebook page "CashEdge AI" (FB_PAGE_ID + FB_PAGE_TOKEN).
+// On Facebook: real link instead of "link in bio" and the full 21+ / 1-800-MY-RESET line.
+// Each network is logged on its own in social_post_log (channel "x" / "facebook"):
+// if one fails, the other still posts, and the failed one retries on the next run.
 
 import crypto from "crypto";
 
@@ -17,6 +21,12 @@ const X_API_KEY = process.env.X_API_KEY;
 const X_API_SECRET = process.env.X_API_SECRET;
 const X_ACCESS_TOKEN = process.env.X_ACCESS_TOKEN;
 const X_ACCESS_TOKEN_SECRET = process.env.X_ACCESS_TOKEN_SECRET;
+
+// Facebook page "CashEdge AI": Page token that never expires (saved only in Vercel)
+const FB_PAGE_ID = process.env.FB_PAGE_ID;
+const FB_PAGE_TOKEN = process.env.FB_PAGE_TOKEN;
+const FB_API = "https://graph.facebook.com/v26.0";
+const FB_ON = !!(FB_PAGE_ID && FB_PAGE_TOKEN);
 
 // ── CONFIG ─────────────────────────────────────────────────────────────────
 const TABLE = "picks_history";
@@ -103,6 +113,37 @@ async function postTweet(text, mediaId) {
   return data;
 }
 
+// ── Facebook API ───────────────────────────────────────────────────────────
+// Same text as X, adapted: no character limit, the real link instead of "link in bio",
+// and the full responsible-gambling line.
+function fbText(text) {
+  return String(text || "")
+    .replace(/link in bio/gi, SITE)
+    .replace(/21\+ \| Not betting advice/g, "21+ | Not betting advice | 1-800-MY-RESET");
+}
+
+// Photo post with the same image as X. If the photo upload fails, posts the text only.
+async function postFacebook(text, png) {
+  const send = async (edge, withPhoto) => {
+    const form = new FormData();
+    form.append("access_token", FB_PAGE_TOKEN);
+    form.append("message", text);
+    if (withPhoto) form.append("source", new Blob([png], { type: "image/png" }), "cashedge.png");
+    const res = await fetch(`${FB_API}/${FB_PAGE_ID}/${edge}`, { method: "POST", body: form });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(`Facebook: ${data?.error?.message || JSON.stringify(data)}`);
+    return data;
+  };
+  if (png) {
+    try {
+      return await send("photos", true);
+    } catch (e) {
+      console.error("Facebook photo failed, posting text only:", e);
+    }
+  }
+  return send("feed", false);
+}
+
 // ── Supabase ───────────────────────────────────────────────────────────────
 const sbHeaders = { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` };
 
@@ -178,17 +219,28 @@ async function saveFreePlay(pickId) {
   });
 }
 
-// Free Premium Play: one of today's Premium picks, still pending, lowest confidence
+// Free Premium Play: one of today's Premium picks, still pending, lowest confidence.
+// ONE free pick per day for every channel: if it was already posted today (on X or Facebook),
+// the other channel reuses it. If that game already started, nothing is posted
+// (never a second Premium pick for free).
 async function getTodayFreePick(kick = new Map()) {
-  const rows = await sbSelect(TABLE,
-    `select=*&is_premium=eq.true&${DATE_COL}=eq.${chicagoDate(0)}&result=ilike.pending&order=confidence.asc&limit=20`);
   // never give away a game that is about to start (or already started)
   const soon = Date.now() + 30 * 60000;
-  return rows.find(p => {
-    if (!pickLabel(p) || !gameLabel(p)) return false;
+  const playable = p => {
+    if (!p || !pickLabel(p) || !gameLabel(p) || !/^pending$/i.test(p.result)) return false;
     const t = kick.get(p.game_id);
     return !t || t.getTime() > soon;
-  }) || null;
+  };
+
+  const saved = await sbSelect("x_free_plays", `select=pick_id&post_date=eq.${chicagoDate(0)}&limit=1`);
+  if (saved[0]) {
+    const rows = await sbSelect(TABLE, `select=*&id=eq.${saved[0].pick_id}&limit=1`);
+    return playable(rows[0]) ? rows[0] : null;
+  }
+
+  const rows = await sbSelect(TABLE,
+    `select=*&is_premium=eq.true&${DATE_COL}=eq.${chicagoDate(0)}&result=ilike.pending&order=confidence.asc&limit=20`);
+  return rows.find(playable) || null;
 }
 
 // All of yesterday's Premium picks (to know if grading finished and which ones won)
@@ -223,10 +275,10 @@ async function getTodayKickoffs() {
   return map;
 }
 
-// Slots already posted today on X (uses the existing social_post_log table)
-async function postedToday() {
+// Slots already posted today on a channel ("x" / "facebook"), from the social_post_log table
+async function postedToday(channel = "x") {
   const rows = await sbSelect("social_post_log",
-    `select=slot,posted_at&channel=eq.x&posted_at=gte.${new Date(Date.now() - 26 * 3600e3).toISOString()}&limit=200`);
+    `select=slot,posted_at&channel=eq.${channel}&posted_at=gte.${new Date(Date.now() - 26 * 3600e3).toISOString()}&limit=200`);
   const today = chicagoDate(0);
   return new Set(rows.filter(r => chiParts(new Date(r.posted_at)).date === today).map(r => r.slot));
 }
@@ -631,16 +683,22 @@ async function buildMarket(set) {
 
 const BUILDERS = { morning: buildReceipts, pick: buildFreePick, teaser: buildTeaser, results: buildRecord, market: buildMarket };
 
-// ── AUTO: decides which post is due right now (one post per run) ───────────
+// ── AUTO: decides which posts are due right now and on which channels ───────
+// Returns the due slots in order (winners → pick → props), each with the channels still missing it.
 async function planAuto() {
   const now = chiParts().min;
-  const done = await postedToday();
+  const channels = FB_ON ? ["x", "facebook"] : ["x"];
+  const doneBy = {};
+  for (const c of channels) doneBy[c] = await postedToday(c);
+  const missing = slot => channels.filter(c => !doneBy[c].has(slot));
+  const due = [];
 
   // 1) Yesterday's winners: from 9:00 CT, once grading finished (11:00 CT at the latest)
-  if (!done.has("winners") && now >= 9 * 60) {
-    const rows = await getYesterdayPremium();
+  let rows = [];
+  if (missing("winners").length && now >= 9 * 60) {
+    rows = await getYesterdayPremium();
     const pending = rows.some(p => /^pending$/i.test(p.result));
-    if (!pending || now >= 11 * 60) return { slot: "winners", rows, now };
+    if (!pending || now >= 11 * 60) due.push({ slot: "winners", channels: missing("winners") });
   }
 
   // 2) Free pick: 2 h before the day's first game (never before 9:30 CT)
@@ -649,16 +707,17 @@ async function planAuto() {
   const first = [...kick.values()].sort((a, b) => a - b)[0];
   const firstMin = first ? chiParts(first).min : 13 * 60; // no kickoff data → as if first game at 1 PM
   const pickAt = Math.max(firstMin - 120, 9 * 60 + 30);
-  if (!done.has("pick") && now >= pickAt) return { slot: "pick", kick, now, firstMin, pickAt };
-  if (!done.has("props") && now >= pickAt + 30) return { slot: "props", kick, now, firstMin, pickAt };
+  if (missing("pick").length && now >= pickAt) due.push({ slot: "pick", channels: missing("pick") });
+  if (missing("props").length && now >= pickAt + 30) due.push({ slot: "props", channels: missing("props") });
 
-  return { slot: null, now, firstMin, pickAt, done: [...done] };
+  const done = Object.fromEntries(channels.map(c => [c, [...doneBy[c]]]));
+  return { due, rows, kick, now, firstMin, pickAt, done };
 }
 
-async function buildAuto(plan) {
-  if (plan.slot === "winners") return buildWinners(plan.rows);
-  if (plan.slot === "pick") return buildFreePick(plan.kick);
-  if (plan.slot === "props") return buildProps(plan.kick);
+async function buildAuto(plan, slot) {
+  if (slot === "winners") return buildWinners(plan.rows);
+  if (slot === "pick") return buildFreePick(plan.kick);
+  if (slot === "props") return buildProps(plan.kick);
   return null;
 }
 
@@ -818,8 +877,17 @@ export default async function handler(req, res) {
     try {
       const plan = await planAuto();
       const info = { now: hhmm(plan.now), firstGame: plan.firstMin != null ? hhmm(plan.firstMin) : undefined,
-        pickAt: plan.pickAt != null ? hhmm(plan.pickAt) : undefined };
-      const post = plan.slot ? await buildAuto(plan) : null;
+        pickAt: plan.pickAt != null ? hhmm(plan.pickAt) : undefined, facebook: FB_ON, done: plan.done };
+
+      // One post per run: the first due slot that has something to post.
+      // A slot with nothing to post (e.g. today's free pick already started) doesn't block the next one.
+      let slot = null, post = null, channels = [];
+      const empty = [];
+      for (const d of plan.due) {
+        const p = await buildAuto(plan, d.slot);
+        if (p) { slot = d.slot; post = p; channels = d.channels; break; }
+        empty.push(d);
+      }
 
       if (dry === "1") {
         if (img === "1" && post) {
@@ -828,31 +896,56 @@ export default async function handler(req, res) {
           res.setHeader("Cache-Control", "no-store");
           return res.status(200).send(png);
         }
-        return res.status(200).json({ ok: true, slot: plan.slot, ...info, preview: fitX(post?.text) || null });
+        return res.status(200).json({ ok: true, slot, channels, ...info,
+          preview: fitX(post?.text) || null, previewFacebook: post ? fbText(post.text) : null });
       }
 
       if (req.headers["authorization"] !== `Bearer ${process.env.CRON_SECRET}`) {
         return res.status(401).json({ error: "Unauthorized" });
       }
       const { logPost } = await import("./_social-stories.js");
-      if (!plan.slot) return res.status(200).json({ ok: true, idle: true, ...info });
 
-      if (!post) {
-        // Winners with zero hits: mark the day as done so it doesn't keep checking
-        if (plan.slot === "winners") await logPost("x", "winners", "no-winners", null);
-        return res.status(200).json({ ok: true, slot: plan.slot, skipped: "No data to post", ...info });
+      // Winners with zero hits: mark the day as done so it doesn't keep checking
+      for (const d of empty) {
+        if (d.slot === "winners") for (const c of d.channels) await logPost(c, "winners", "no-winners", null);
       }
+      if (!post) return res.status(200).json({ ok: true, idle: true, ...info });
 
       if (post.pickId) await saveFreePlay(post.pickId);
-      let mediaId = null;
+      let png = null;
       try {
-        mediaId = await uploadImage(await makeImage(post));
+        png = await makeImage(post);
       } catch (e) {
         console.error("Image failed, posting text only:", e);
       }
-      const tweet = await postTweet(fitX(post.text), mediaId);
-      await logPost("x", plan.slot, plan.slot, post.gameId || null);
-      return res.status(200).json({ ok: true, slot: plan.slot, withImage: !!mediaId, ...info, tweet });
+
+      // Each channel on its own: if one fails, the other still posts (and is logged)
+      const posted = {}, errors = {};
+      if (channels.includes("x")) {
+        try {
+          let mediaId = null;
+          if (png) {
+            try { mediaId = await uploadImage(png); } catch (e) { console.error("X image failed, text only:", e); }
+          }
+          posted.x = await postTweet(fitX(post.text), mediaId);
+          await logPost("x", slot, slot, post.gameId || null);
+        } catch (e) {
+          console.error("X post failed:", e);
+          errors.x = e.message;
+        }
+      }
+      if (channels.includes("facebook")) {
+        try {
+          posted.facebook = await postFacebook(fbText(post.text), png);
+          await logPost("facebook", slot, slot, post.gameId || null);
+        } catch (e) {
+          console.error("Facebook post failed:", e);
+          errors.facebook = e.message;
+        }
+      }
+
+      const ok = Object.keys(posted).length > 0;
+      return res.status(ok ? 200 : 500).json({ ok, slot, channels, withImage: !!png, ...info, posted, errors });
     } catch (error) {
       console.error("Twitter bot (auto) error:", error);
       return res.status(500).json({ error: error.message });
