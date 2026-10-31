@@ -67,7 +67,7 @@
     { "path": "/api/internal/nfl-injury-cron?start=24", "schedule": "6,16,26,36,46,56 * * * *" },
     { "path": "/api/internal/nfl-history-auto", "schedule": "0 15 * * 1,3,4,5" },
     { "path": "/api/internal/nfl-boxscore-auto", "schedule": "15 15 * * 1,3,4,5" },
-    { "path": "/api/twitter-bot?type=auto", "schedule": "*/30 13-23 * * *" },
+    { "path": "/api/twitter-bot?type=auto", "schedule": "*/30 0-1,13-23 * * *" },
     { "path": "/api/telegram-bot", "schedule": "5 * * * *" }
   ]
 }
