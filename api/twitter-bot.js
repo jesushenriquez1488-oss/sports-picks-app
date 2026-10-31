@@ -7,7 +7,10 @@
 // No teasers, no polls, no "top secret" posts.
 // Posts have NO links on purpose: X charges $0.015 per post without a URL vs $0.20 with one.
 // The link to cashedgeapp.com lives in the profile bio.
-// Oct-31: the same 3 posts also go to the Facebook page "CashEdge AI" (FB_PAGE_ID + FB_PAGE_TOKEN).
+// Oct-31: 4th post "market" → a real line move / betting split story (story engine), 30 min before the first game.
+// Oct-31: ROTATION → 5 versions (A–E) of text, hashtags and image colors, changing every 2 days
+//         (Mon Nov 2 = A). Same version on X and Facebook. Preview any version with &v=a … &v=e.
+// Oct-31: the same posts also go to the Facebook page "CashEdge AI" (FB_PAGE_ID + FB_PAGE_TOKEN).
 // On Facebook: real link instead of "link in bio" and the full 21+ / 1-800-MY-RESET line.
 // Each network is logged on its own in social_post_log (channel "x" / "facebook"):
 // if one fails, the other still posts, and the failed one retries on the next run.
@@ -45,6 +48,27 @@ const C = {
 };
 const IMG_W = 1200;
 const IMG_H = 675;
+
+// ── ROTATION: 5 versions, each one lasts 2 days (Mon Nov 2, 2026 = A) → full cycle every 10 days ──
+const VERSION_NAMES = ["A", "B", "C", "D", "E"];
+const ROTATION_START = Date.UTC(2026, 10, 2) / 86400000; // Monday Nov 2, 2026
+let FORCED_V = null; // &v=a … &v=e (previews only)
+function versionIdx() {
+  if (FORCED_V != null) return FORCED_V;
+  const [y, m, d] = chicagoDate(0).split("-").map(Number);
+  const k = Math.floor((Date.UTC(y, m - 1, d) / 86400000 - ROTATION_START) / 2);
+  return ((k % 5) + 5) % 5;
+}
+
+// Image colors per version (a = main accent, b = second accent)
+const THEMES = [
+  { a: "#39ff6a", b: "#00ffe7", bg: "#020814", card: "#071426", glow: "rgba(57,255,106,0.20)", glowAt: "50% 35%" },  // A green/cyan
+  { a: "#d4ff3a", b: "#ffffff", bg: "#050705", card: "#11160a", glow: "rgba(212,255,58,0.16)", glowAt: "85% 15%" },  // B lime/white
+  { a: "#c77dff", b: "#ff4fd8", bg: "#08031a", card: "#150a30", glow: "rgba(199,125,255,0.24)", glowAt: "15% 25%" }, // C purple/pink
+  { a: "#3da9ff", b: "#00ffe7", bg: "#010a1f", card: "#06183a", glow: "rgba(61,169,255,0.24)", glowAt: "50% 100%" }, // D electric blue
+  { a: "#ff4d6d", b: "#ff9f1c", bg: "#120308", card: "#24070f", glow: "rgba(255,77,109,0.22)", glowAt: "80% 80%" }   // E red/orange
+];
+const theme = () => THEMES[versionIdx()];
 
 // ── OAuth 1.0a ─────────────────────────────────────────────────────────────
 function encode(str) {
@@ -119,7 +143,8 @@ async function postTweet(text, mediaId) {
 function fbText(text) {
   return String(text || "")
     .replace(/link in bio/gi, SITE)
-    .replace(/21\+ \| Not betting advice/g, "21+ | Not betting advice | 1-800-MY-RESET");
+    .replace(/21\+ \| Not betting advice/g, "21+ | Not betting advice | 1-800-MY-RESET")
+    .replace(/21\+ \| Gamble responsibly/g, "21+ | Gamble responsibly | 1-800-MY-RESET");
 }
 
 // Photo post with the same image as X. If the photo upload fails, posts the text only.
@@ -336,25 +361,25 @@ function h(type, style, ...children) {
 }
 
 // "Quantum math" backdrop: grid, wave functions and a node network (deterministic per seed)
-function quantumBg(seed = 7) {
+function quantumBg(seed = 7, ca = C.green, cb = C.cyan) {
   let s = seed + 11;
   const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
   const kids = [];
-  for (let x = 0; x <= IMG_W; x += 60) kids.push({ type: "line", props: { x1: x, y1: 0, x2: x, y2: IMG_H, stroke: C.green, strokeOpacity: 0.05 } });
-  for (let y = 0; y <= IMG_H; y += 60) kids.push({ type: "line", props: { x1: 0, y1: y, x2: IMG_W, y2: y, stroke: C.green, strokeOpacity: 0.05 } });
+  for (let x = 0; x <= IMG_W; x += 60) kids.push({ type: "line", props: { x1: x, y1: 0, x2: x, y2: IMG_H, stroke: ca, strokeOpacity: 0.05 } });
+  for (let y = 0; y <= IMG_H; y += 60) kids.push({ type: "line", props: { x1: 0, y1: y, x2: IMG_W, y2: y, stroke: ca, strokeOpacity: 0.05 } });
   for (let k = 0; k < 4; k++) {
     const amp = 25 + rnd() * 60, per = 220 + rnd() * 320, y0 = 90 + rnd() * (IMG_H - 180), ph = rnd() * 6.28;
     let d = "";
     for (let x = 0; x <= IMG_W; x += 15) d += `${x === 0 ? "M" : "L"}${x},${(y0 + amp * Math.sin(x / per * 6.28 + ph)).toFixed(1)} `;
-    kids.push({ type: "path", props: { d, fill: "none", stroke: k % 2 ? C.cyan : C.green, strokeOpacity: 0.18, strokeWidth: 1.5 } });
+    kids.push({ type: "path", props: { d, fill: "none", stroke: k % 2 ? cb : ca, strokeOpacity: 0.18, strokeWidth: 1.5 } });
   }
   const nodes = Array.from({ length: 18 }, () => [rnd() * IMG_W, rnd() * IMG_H]);
   nodes.forEach(([x, y], i) => {
     const nx = nodes[i + 1];
     if (nx && Math.abs(nx[0] - x) + Math.abs(nx[1] - y) < 450) {
-      kids.push({ type: "line", props: { x1: x, y1: y, x2: nx[0], y2: nx[1], stroke: C.green, strokeOpacity: 0.14 } });
+      kids.push({ type: "line", props: { x1: x, y1: y, x2: nx[0], y2: nx[1], stroke: ca, strokeOpacity: 0.14 } });
     }
-    kids.push({ type: "circle", props: { cx: x, cy: y, r: 2 + rnd() * 2, fill: C.green, fillOpacity: 0.5 } });
+    kids.push({ type: "circle", props: { cx: x, cy: y, r: 2 + rnd() * 2, fill: ca, fillOpacity: 0.5 } });
   });
   return { type: "svg", props: { width: IMG_W, height: IMG_H, viewBox: `0 0 ${IMG_W} ${IMG_H}`,
     style: { position: "absolute", top: 0, left: 0 }, children: kids } };
@@ -365,29 +390,31 @@ const FORMULAS = [
   ["Δline = Σ w · Δbook", 820, 530], ["z = (μ − line) / σ", 430, 612]
 ];
 
+// Colors come from the rotation theme (A–E)
 function frame(kicker, ...body) {
+  const t = theme();
   return h("div", {
     width: IMG_W, height: IMG_H, display: "flex", flexDirection: "column", position: "relative",
-    backgroundColor: C.bg, padding: "42px 56px", fontFamily: "Inter, InterGreek",
-    backgroundImage: "radial-gradient(circle at 50% 35%, rgba(57,255,106,0.20), rgba(2,8,20,0) 60%)"
+    backgroundColor: t.bg, padding: "42px 56px", fontFamily: "Inter, InterGreek",
+    backgroundImage: `radial-gradient(circle at ${t.glowAt}, ${t.glow}, rgba(0,0,0,0) 60%)`
   },
-    quantumBg(String(kicker).length),
-    ...FORMULAS.map(([t, left, top], i) => h("div", {
+    quantumBg(String(kicker).length + versionIdx() * 7, t.a, t.b),
+    ...FORMULAS.map(([txt, left, top], i) => h("div", {
       position: "absolute", display: "flex", left, top, fontSize: 18, fontWeight: 500,
-      color: i % 2 ? C.cyan : C.green, opacity: 0.16
-    }, t)),
+      color: i % 2 ? t.b : t.a, opacity: 0.16
+    }, txt)),
     h("div", { display: "flex", justifyContent: "space-between", alignItems: "center" },
       h("div", { display: "flex", fontSize: 36, fontWeight: 900 },
         h("span", { color: C.white }, "Cash"),
-        h("span", { color: C.green }, "Edge")
+        h("span", { color: t.a }, "Edge")
       ),
-      h("div", { display: "flex", fontSize: 20, color: C.green, letterSpacing: 4, fontWeight: 800 }, kicker)
+      h("div", { display: "flex", fontSize: 20, color: t.a, letterSpacing: 4, fontWeight: 800 }, kicker)
     ),
     h("div", { display: "flex", width: 220, height: 5, marginTop: 12,
-      backgroundImage: `linear-gradient(90deg, ${C.green}, ${C.cyan})` }),
+      backgroundImage: `linear-gradient(90deg, ${t.a}, ${t.b})` }),
     h("div", { display: "flex", flexDirection: "column", flexGrow: 1, marginTop: 22 }, ...body),
     h("div", { display: "flex", justifyContent: "space-between", fontSize: 17, color: C.muted },
-      h("span", { color: C.green, fontWeight: 800 }, "📲 Free alerts on Telegram: t.me/Cashedgeapp"),
+      h("span", { color: t.a, fontWeight: 800 }, "📲 Free alerts on Telegram: t.me/Cashedgeapp"),
       h("span", {}, "21+ | Not betting advice | 1-800-MY-RESET")
     )
   );
@@ -406,7 +433,7 @@ function badge(result) {
 function sportChip(s) {
   return h("div", {
     display: "flex", padding: "6px 14px", borderRadius: 8, border: `2px solid ${C.line}`,
-    color: C.cyan, fontSize: 20, fontWeight: 700, marginRight: 18, minWidth: 80, justifyContent: "center"
+    color: theme().b, fontSize: 20, fontWeight: 700, marginRight: 18, minWidth: 80, justifyContent: "center"
   }, SPORT_TAG[s] || s.toUpperCase() || "—");
 }
 
@@ -435,18 +462,41 @@ function receiptsImage(picks, w, l) {
   );
 }
 
+// Row look per version: A outlined · B left bar · C tinted · D underline · E thick outline
+function rowStyle(color) {
+  const t = theme();
+  return [
+    { backgroundColor: t.card, borderRadius: 14, border: `2px solid ${color}55` },
+    { backgroundColor: t.card, borderRadius: 6, borderLeft: `8px solid ${color}` },
+    { backgroundColor: `${color}22`, borderRadius: 18 },
+    { backgroundColor: "rgba(0,0,0,0)", borderRadius: 0, borderBottom: `2px solid ${color}88` },
+    { backgroundColor: t.card, borderRadius: 14, border: `3px solid ${color}` }
+  ][versionIdx()];
+}
+
+// Headline of each image per version (same idea as the post text)
+const WINNERS_HEAD = [
+  n => n === 1 ? "PREMIUM WINNER" : "PREMIUM WINNERS",
+  n => n === 1 ? "RECEIPT FROM YESTERDAY" : "RECEIPTS FROM YESTERDAY",
+  () => "FOR THE BOOKS",
+  n => n === 1 ? "PREMIUM PLAY CASHED" : "PREMIUM PLAYS CASHED",
+  n => n === 1 ? "HIT ON THE PREMIUM BOARD" : "HITS ON THE PREMIUM BOARD"
+];
+const PROPS_HEAD = ["3 FREE PLAYER PROPS", "PROPS ON THE BOARD TODAY", "PLAYER PROPS, FREE", "3 PROPS OUR NUMBERS LIKE", "START YOUR PROP SLIP HERE"];
+
 function winnersImage(wins) {
+  const t = theme();
   const shown = wins.slice(0, 5);
   return frame(`YESTERDAY · ${prettyDate(-1)}`,
     h("div", { display: "flex", alignItems: "baseline" },
-      h("div", { display: "flex", fontSize: 80, color: C.green, fontWeight: 900 }, String(wins.length)),
+      h("div", { display: "flex", fontSize: 80, color: t.a, fontWeight: 900 }, String(wins.length)),
       h("div", { display: "flex", fontSize: 46, color: C.white, fontWeight: 900, marginLeft: 20 },
-        `PREMIUM ${wins.length === 1 ? "WINNER" : "WINNERS"}`)
+        WINNERS_HEAD[versionIdx()](wins.length))
     ),
     h("div", { display: "flex", flexDirection: "column", marginTop: 14 },
       shown.map(p => h("div", {
         display: "flex", alignItems: "center", padding: "10px 18px", marginBottom: 9,
-        backgroundColor: C.card, borderRadius: 14, border: `2px solid ${C.green}55`
+        ...rowStyle(t.a)
       },
         sportChip(sportOf(p)),
         h("div", { display: "flex", flexDirection: "column", flexGrow: 1 },
@@ -455,32 +505,33 @@ function winnersImage(wins) {
         ),
         badge("win")
       )),
-      wins.length > 5 ? h("div", { display: "flex", fontSize: 22, color: C.green, fontWeight: 800 }, `+${wins.length - 5} more winners`) : null
+      wins.length > 5 ? h("div", { display: "flex", fontSize: 22, color: t.a, fontWeight: 800 }, `+${wins.length - 5} more winners`) : null
     )
   );
 }
 
 function propsImage(props) {
+  const t = theme();
   return frame(`FREE PLAYER PROPS · ${prettyDate(0)}`,
-    h("div", { display: "flex", fontSize: 46, color: C.white, fontWeight: 900 }, "3 FREE PLAYER PROPS"),
+    h("div", { display: "flex", fontSize: 46, color: C.white, fontWeight: 900 }, PROPS_HEAD[versionIdx()]),
     h("div", { display: "flex", flexDirection: "column", marginTop: 16 },
       props.map(p => h("div", {
         display: "flex", alignItems: "center", padding: "14px 20px", marginBottom: 12,
-        backgroundColor: C.card, borderRadius: 16, border: `2px solid ${C.cyan}55`
+        ...rowStyle(t.b)
       },
         sportChip(p.sport),
         h("div", { display: "flex", flexDirection: "column", flexGrow: 1 },
           h("div", { display: "flex", fontSize: 30, color: C.white, fontWeight: 900 }, String(p.player).slice(0, 30)),
-          h("div", { display: "flex", fontSize: 26, color: C.cyan, fontWeight: 800, marginTop: 2 },
+          h("div", { display: "flex", fontSize: 26, color: t.b, fontWeight: 800, marginTop: 2 },
             `${p.side} ${p.line} ${marketLabel(p.market)}`)
         ),
         p.american != null ? h("div", {
           display: "flex", padding: "8px 16px", borderRadius: 12, marginRight: 14,
-          border: `2px solid ${p.american > 0 ? C.green : C.line}`, color: p.american > 0 ? C.green : C.white,
+          border: `2px solid ${p.american > 0 ? t.a : C.line}`, color: p.american > 0 ? t.a : C.white,
           fontSize: 26, fontWeight: 900
         }, fmtOdds(p.american)) : null,
         h("div", { display: "flex", flexDirection: "column", alignItems: "center" },
-          h("div", { display: "flex", fontSize: 32, color: C.gold, fontWeight: 900 }, `${Number(p.confidence || 0).toFixed(0)}%`),
+          h("div", { display: "flex", fontSize: 32, color: t.a, fontWeight: 900 }, `${Number(p.confidence || 0).toFixed(0)}%`),
           h("div", { display: "flex", fontSize: 12, color: C.muted, letterSpacing: 2 }, "CONFIDENCE")
         )
       ))
@@ -611,12 +662,37 @@ async function buildReceipts() {
   };
 }
 
+// ── POST TEXTS: 5 versions each (A–E), approved Oct-31 ─────────────────────
+const FREE_PICK_COPY = [
+  (sp, em, pick, game) => `🆓 FREE PREMIUM PLAY · ${sp}\n\n${em} ${pick}\n${game}\n\nStraight from today's Premium board. No paywall on this one.\n\n📲 More Premium picks + live line moves → link in bio\n\n#${sp}Picks #SportsBetting`,
+  (sp, em, pick, game) => `🎁 Today's free one · ${sp}\n\n${em} ${pick}\n${game}\n\nPulled from today's Premium board. On the house.\n\n📲 The rest of the board → link in bio\n\n#${sp}Picks #FreePicks`,
+  (sp, em, pick, game) => `One Premium pick, free. Every day. ${em}\n\n${pick}\n${game}\n\n📲 More Premium picks + live line moves → link in bio\n\n#FreePick #${sp}Bets`,
+  (sp, em, pick, game) => `📌 FREE PLAY OF THE DAY · ${sp}\n\n${em} ${pick}\n${game}\n\nThe rest of the board is still locked.\n\n📲 Link in bio\n\n#PickOfTheDay #${sp}`,
+  (sp, em, pick, game) => `No paywall today 🔓\n\n${em} ${pick}\n${game}\n\nThis one came straight off the Premium board.\n\n📲 Link in bio\n\n#SportsPicks #${sp}Picks`
+];
+const WINNERS_COPY = [
+  (n, date, lines, sp) => `✅ ${n} Premium ${n === 1 ? "winner" : "winners"} yesterday (${date})\n\n${lines}\n\n🆓 Today's free play drops before the first game.\n📲 Link in bio\n\n#SportsBetting #${sp}Picks`,
+  (n, date, lines, sp) => `Yesterday's receipts 🧾 (${date})\n\n${lines}\n\nAll posted before the games. All graded publicly.\n📲 Today's board → link in bio\n\n#SportsPicks #BetSmart`,
+  (n, date, lines, sp) => `${n} for the books 📚 (${date})\n\n${lines}\n\nPremium members had ${n === 1 ? "this" : "these"} before the games.\n📲 Get today's → link in bio\n\n#FreePicks #${sp}Bets`,
+  (n, date, lines, sp) => `Cash it. ✅ ${n} Premium ${n === 1 ? "play" : "plays"} hit yesterday\n\n${lines}\n\nPicked by the numbers, tracked in public.\n📲 Link in bio\n\n#BettingPicks #${sp}`,
+  (n, date, lines, sp) => `🔥 Yesterday on the Premium board (${date})\n\n${lines}\n\nNo hype, just the record.\n📲 See today's picks → link in bio\n\n#SportsBettingTips #PicksOfTheDay`
+];
+const PROPS_ICON = ["🔥", "🎯", "▪️", "📈", "👉"];
+const PROPS_COPY = [
+  (sp, lines) => `🆓 3 FREE PLAYER PROPS${sp ? ` · ${sp}` : ""}\n\n${lines}\n\nStraight from today's CashEdge props board.\n📲 Full props board → link in bio\n\n#PlayerProps #${sp || "Sports"}Props`,
+  (sp, lines) => `🎯 Props on the board today${sp ? ` · ${sp}` : ""}\n\n${lines}\n\nThree free player props from today's CashEdge board.\n📲 Full props board → link in bio\n\n#PropBets #${sp || "Sports"}`,
+  (sp, lines) => `Player props, free. 3 for today 👇\n\n${lines}\n\nProjection vs the line, no guesswork.\n📲 Link in bio\n\n#PlayerProps #FreePicks`,
+  (sp, lines) => `📊 3 player props our numbers like today\n\n${lines}\n\n📲 Full board with every prop → link in bio\n\n#${sp || "Sports"}Props #SportsBetting`,
+  (sp, lines) => `Building a prop slip today? Start here 👇\n\n${lines}\n\nFree from the CashEdge props board.\n📲 Link in bio\n\n#PropPicks #${sp || "Sports"}Bets`
+];
+const LEGAL = "\n\n21+ | Not betting advice";
+
 async function buildFreePick(kick) {
   const p = await getTodayFreePick(kick);
   if (!p) return null;
   const s = sportOf(p);
   return {
-    text: `🆓 FREE PREMIUM PLAY · ${SPORT_TAG[s] || "TODAY"}\n\n${SPORT_EMOJI[s] || "🎯"} ${pickLabel(p)}\n${gameLabel(p)}\n\nStraight from today's Premium board. No paywall on this one.\n\n📲 More Premium picks + live line moves → link in bio\n\n#${SPORT_TAG[s] || "Sports"}Picks #SportsBetting\n\n21+ | Not betting advice`,
+    text: FREE_PICK_COPY[versionIdx()](SPORT_TAG[s] || "Sports", SPORT_EMOJI[s] || "🎯", pickLabel(p), gameLabel(p)) + LEGAL,
     image: freePickImage(p),
     pickId: p.id,
     gameId: p.game_id,
@@ -630,8 +706,12 @@ function buildWinners(rows) {
   if (!wins.length) return null;
   const lines = wins.slice(0, 4).map(p => `✅ ${pickLabel(p)} · ${SPORT_TAG[sportOf(p)] || ""}`.trim());
   const more = wins.length > 4 ? `\n+${wins.length - 4} more` : "";
+  // hashtag sport = the sport with the most winners
+  const count = {};
+  wins.forEach(p => { const t = SPORT_TAG[sportOf(p)]; if (t) count[t] = (count[t] || 0) + 1; });
+  const sp = Object.keys(count).sort((a, b) => count[b] - count[a])[0] || "Sports";
   return {
-    text: `✅ ${wins.length} Premium ${wins.length === 1 ? "winner" : "winners"} yesterday (${prettyDate(-1)})\n\n${lines.join("\n")}${more}\n\n🆓 Today's free play drops before the first game.\n📲 Link in bio\n\n21+ | Not betting advice`,
+    text: WINNERS_COPY[versionIdx()](wins.length, prettyDate(-1), lines.join("\n") + more, sp) + LEGAL,
     image: winnersImage(wins)
   };
 }
@@ -639,10 +719,11 @@ function buildWinners(rows) {
 async function buildProps(kick) {
   const props = await getTodayFreeProps(kick);
   if (props.length < 3) return null;
-  const lines = props.map(p => `🔥 ${p.player} ${propLabel(p)}${p.american != null ? ` (${fmtOdds(p.american)})` : ""}`);
+  const icon = PROPS_ICON[versionIdx()];
+  const lines = props.map(p => `${icon} ${p.player} ${propLabel(p)}${p.american != null ? ` (${fmtOdds(p.american)})` : ""}`);
   const tag = SPORT_TAG[props[0].sport] || "";
   return {
-    text: `🆓 3 FREE PLAYER PROPS${tag ? ` · ${tag}` : ""}\n\n${lines.join("\n")}\n\nStraight from today's CashEdge props board.\n📲 Full props board → link in bio\n\n21+ | Not betting advice`,
+    text: PROPS_COPY[versionIdx()](tag, lines.join("\n")) + LEGAL,
     image: propsImage(props)
   };
 }
@@ -681,6 +762,20 @@ async function buildMarket(set) {
   };
 }
 
+// Market post of the auto cron: real line move / split story from the story engine.
+// The engine already rotates ~30 texts and 7 image designs and never repeats a text within 4 days.
+// The order of story types also rotates with the version, so each 2-day block leads with a different kind.
+// "freeplay" stories are left out on purpose (one of its texts promises tomorrow's result, and losses aren't posted).
+const AUTO_MARKET_TYPES = ["reverse", "money", "steam", "bigmove", "trap"];
+async function buildMarketAuto() {
+  const { buildMarketStory } = await import("./_social-stories.js");
+  const k = versionIdx();
+  const order = [...AUTO_MARKET_TYPES.slice(k), ...AUTO_MARKET_TYPES.slice(0, k)];
+  const s = await buildMarketStory("x", order);
+  if (!s) return null;
+  return { text: s.text, png: s.png, templateId: s.templateId, gameId: s.gameId };
+}
+
 const BUILDERS = { morning: buildReceipts, pick: buildFreePick, teaser: buildTeaser, results: buildRecord, market: buildMarket };
 
 // ── AUTO: decides which posts are due right now and on which channels ───────
@@ -703,12 +798,15 @@ async function planAuto() {
 
   // 2) Free pick: 2 h before the day's first game (never before 9:30 CT)
   // 3) 3 free props: 30 min after the free pick
+  // 4) market move: 30 min before the first game (see below)
   const kick = await getTodayKickoffs();
   const first = [...kick.values()].sort((a, b) => a - b)[0];
   const firstMin = first ? chiParts(first).min : 13 * 60; // no kickoff data → as if first game at 1 PM
   const pickAt = Math.max(firstMin - 120, 9 * 60 + 30);
   if (missing("pick").length && now >= pickAt) due.push({ slot: "pick", channels: missing("pick") });
   if (missing("props").length && now >= pickAt + 30) due.push({ slot: "props", channels: missing("props") });
+  // 4) Market move: 30 min before the first game (1 h after the props)
+  if (missing("market").length && now >= pickAt + 90) due.push({ slot: "market", channels: missing("market") });
 
   const done = Object.fromEntries(channels.map(c => [c, [...doneBy[c]]]));
   return { due, rows, kick, now, firstMin, pickAt, done };
@@ -718,6 +816,7 @@ async function buildAuto(plan, slot) {
   if (slot === "winners") return buildWinners(plan.rows);
   if (slot === "pick") return buildFreePick(plan.kick);
   if (slot === "props") return buildProps(plan.kick);
+  if (slot === "market") return buildMarketAuto();
   return null;
 }
 
@@ -870,14 +969,17 @@ async function makeImage(post) {
 
 // ── Handler ────────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
-  const { type, dry, img, set } = req.query;
+  const { type, dry, img, set, v } = req.query;
+  // &v=a … &v=e forces a version (only for previews); otherwise the version of today's date
+  FORCED_V = /^[a-e]$/i.test(String(v || "")) ? "abcde".indexOf(String(v).toLowerCase()) : null;
 
   // ── type=auto (the only one in the cron) ──
   if (type === "auto") {
     try {
       const plan = await planAuto();
       const info = { now: hhmm(plan.now), firstGame: plan.firstMin != null ? hhmm(plan.firstMin) : undefined,
-        pickAt: plan.pickAt != null ? hhmm(plan.pickAt) : undefined, facebook: FB_ON, done: plan.done };
+        pickAt: plan.pickAt != null ? hhmm(plan.pickAt) : undefined, version: VERSION_NAMES[versionIdx()],
+        facebook: FB_ON, done: plan.done };
 
       // One post per run: the first due slot that has something to post.
       // A slot with nothing to post (e.g. today's free pick already started) doesn't block the next one.
@@ -928,7 +1030,7 @@ export default async function handler(req, res) {
             try { mediaId = await uploadImage(png); } catch (e) { console.error("X image failed, text only:", e); }
           }
           posted.x = await postTweet(fitX(post.text), mediaId);
-          await logPost("x", slot, slot, post.gameId || null);
+          await logPost("x", slot, post.templateId || slot, post.gameId || null);
         } catch (e) {
           console.error("X post failed:", e);
           errors.x = e.message;
@@ -937,7 +1039,7 @@ export default async function handler(req, res) {
       if (channels.includes("facebook")) {
         try {
           posted.facebook = await postFacebook(fbText(post.text), png);
-          await logPost("facebook", slot, slot, post.gameId || null);
+          await logPost("facebook", slot, post.templateId || slot, post.gameId || null);
         } catch (e) {
           console.error("Facebook post failed:", e);
           errors.facebook = e.message;
