@@ -426,8 +426,17 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
     const lastStart = Date.parse(slate.last_event_starts_at || slate.starts_at);
     const pool = [];
     const excluded = {};
+    // 1-nov: el mismo jugador puede venir 2 veces en el slate (dos IDs
+    // distintos de la fuente, mismo jugador real). Solo entra una vez;
+    // si no, el optimizador lo podia poner en TE y en FLEX a la vez.
+    const seenKeys = new Set();
     for (const sp of sps) {
       const key = sp.entity_type === "team" ? `DST:${teamCode(sp.team)}` : sp.gsis_player_id;
+      if (key && seenKeys.has(key)) {
+        excluded.REPETIDO_EN_EL_SLATE = (excluded.REPETIDO_EN_EL_SLATE || 0) + 1;
+        continue;
+      }
+      if (key) seenKeys.add(key);
       const p = key ? projByGsis.get(key) : null;
       const reason = poolReason(sp, p);
       if (reason) {
