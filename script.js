@@ -42581,8 +42581,25 @@ function openPromoModal(context = "general") {
 
     </div>
 
-  `;
+   `;
 
+  // Apple iOS: eliminar códigos promocionales externos.
+  // La web y Android mantienen sus promociones.
+  if (
+    typeof isIOSNativeApp === "function" &&
+    isIOSNativeApp()
+  ) {
+    const promoInput = modal.querySelector("#promoCodeInput");
+
+    if (promoInput) {
+      const promoLabel = promoInput.previousElementSibling;
+      const promoDivider = promoLabel?.previousElementSibling;
+
+      promoDivider?.remove();
+      promoLabel?.remove();
+      promoInput.remove();
+    }
+  }
 
   modal.style.display =
     "block";
