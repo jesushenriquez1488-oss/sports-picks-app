@@ -422,4 +422,133 @@ function buildStackLineups(platform, players, { count = 10, minDifferent = 2, no
   };
 }
 
-module.exports = { buildLineups, buildStackLineups, assignSlots, RULES };
+// ============================================================
+// 2-NOV: ALINEACIONES CARGADAS A LOS PARTIDOS DE LAS VEGAS
+// ============================================================
+// Prueba 25-oct y 1-nov (4 slates DK, 300 alineaciones c/u):
+// mercado 70% + 4 partidos + 2 principales extra del partido dio
+// la mejor de 250 en el slate principal del 1-nov (vs 197 hoy).
+//
+// 1) Se escogen los N partidos con el total mas alto de Las Vegas
+//    (gameTotals: gameId -> puntos esperados del partido).
+// 2) En cada partido: el QB del equipo que mas puntos espera anotar
+//    (teamImplied) + sus 2 receptores principales (WR/TE, rotando el
+//    par entre sus 3 mejores) + `extras` principales MAS del mismo
+//    partido (RB/WR/TE de cualquiera de los dos equipos, entre los 6
+//    mejores, rotando).
+// 3) Las alineaciones se reparten parejo entre los partidos (turnos).
+// 4) El resto lo llena el optimizador exacto. Nunca una DST contra
+//    jugadores de la propia alineacion. Tope de exposicion para todos
+//    menos el QB (a el lo limita el reparto entre partidos).
+// Sin totales de Las Vegas -> buildStackLineups (como antes).
+function buildGameStackLineups(platform, players, {
+  count = 20, minDifferent = 2, nodeLimit = 1e5, maxExposure = 0.4,
+  games = 4, extras = 2, gameTotals = null, teamImplied = null
+} = {}) {
+  const rule = RULES[platform];
+  if (!rule) return { status: "PLATAFORMA_NO_SOPORTADA", lineups: [] };
+  const fallback = () => ({ ...buildStackLineups(platform, players, { count, minDifferent, maxExposure }), partidos: [] });
+  if (!gameTotals || !gameTotals.size) return fallback();
+
+  const pool = players
+    .filter(p => p.salary > 0 && p.points > 0 && p.positions?.length)
+    .map(p => ({ ...p, positions: p.positions.map(x => String(x).toUpperCase()) }))
+    .sort((a, b) => GROUPS.indexOf(a.positions[0]) - GROUPS.indexOf(b.positions[0]) || b.points - a.points || a.salary - b.salary);
+  const byPoints = (a, b) => b.points - a.points;
+  const isRec = p => p.positions[0] === "WR" || p.positions[0] === "TE";
+  const isSkill = p => p.positions[0] === "RB" || isRec(p);
+
+  // ---- 1) Partidos ----
+  const chosen = [...gameTotals.entries()]
+    .filter(([g]) => pool.some(p => p.gameId === g && p.positions[0] === "QB"))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, games);
+
+  // ---- 2) Bloque de cada partido ----
+  const stacks = [];
+  for (const [gameId, total] of chosen) {
+    const teams = [...new Set(pool.filter(p => p.gameId === gameId && p.positions[0] !== "DST").map(p => p.team))];
+    const options = teams.map(team => {
+      const qb = pool.filter(p => p.team === team && p.positions[0] === "QB").sort(byPoints)[0];
+      if (!qb) return null;
+      const rec = pool.filter(p => p.team === team && isRec(p)).sort(byPoints).slice(0, 3);
+      if (rec.length < 2) return null;
+      return { team, qb, rec, implied: teamImplied?.get(team) ?? 0 };
+    }).filter(Boolean).sort((a, b) => b.implied - a.implied || b.qb.points - a.qb.points);
+    if (!options.length) continue;
+    const st = options[0];
+    st.gameId = gameId;
+    st.total = total;
+    st.principal = pool.filter(p => p.gameId === gameId && isSkill(p)).sort(byPoints).slice(0, 6);
+    stacks.push(st);
+  }
+  if (!stacks.length) return fallback();
+
+  // ---- 3) y 4) Alineaciones ----
+  const maxUses = Math.max(1, Math.floor(maxExposure * count + 1e-9));
+  const uses = new Map();
+  const free = p => (uses.get(p.id) || 0) < maxUses;
+  const pairsOf = r => (r.length >= 3 ? [[r[0], r[1]], [r[0], r[2]], [r[1], r[2]]] : [[r[0], r[1]]]);
+  const built = [];
+  let allOptimal = true;
+
+  // Si la combinacion del turno no cabe (salario, exposicion o ya
+  // repetida), se prueba la siguiente del mismo partido (hasta 8).
+  const tryOne = (st, k) => {
+    const pairs = pairsOf(st.rec);
+    const rec = pairs.map((_, j) => pairs[(k + j) % pairs.length]).find(o => o.every(free));
+    if (!rec) return null;
+    const forced = [st.qb, ...rec];
+    const cand = st.principal.filter(p => !rec.includes(p) && free(p));
+    for (let x = 0; x < extras && cand.length; x++) forced.push(cand.splice((k + x) % cand.length, 1)[0]);
+    const fid = new Set(forced.map(p => p.id));
+    const available = pool.filter(p => !fid.has(p.id) && p.positions[0] !== "QB" && free(p));
+    const r = solveOne(available, rule, built.map(l => l.raw), minDifferent, nodeLimit, forced, true);
+    if (!r.complete) allOptimal = false;
+    return r.best ? { r, forced } : null;
+  };
+
+  const buildOne = st => {
+    const k = st.built || 0;
+    let hit = null;
+    for (let t = 0; t < 8 && !hit; t++) hit = tryOne(st, (st.turn || 0) + t);
+    st.turn = (st.turn || 0) + 1;
+    if (!hit) return false;
+    const { r, forced } = hit;
+    for (const pl of r.best.players) if (pl.id !== st.qb.id) uses.set(pl.id, (uses.get(pl.id) || 0) + 1);
+    const ordered = r.best.slots.map((pi, s) => ({ slot: rule.slots[s], ...r.best.players[pi] }));
+    built.push({
+      raw: r.best.players,
+      players: ordered,
+      salary: ordered.reduce((sum, p) => sum + p.salary, 0),
+      points: Math.round(ordered.reduce((sum, p) => sum + p.points, 0) * 100) / 100,
+      optimal: r.complete,
+      nodes: r.nodes,
+      stack: { team: st.team, qb: st.qb.name, receivers: forced.slice(1).map(p => p.name) }
+    });
+    st.built = k + 1;
+    return true;
+  };
+
+  // Turnos: una alineacion por partido, en orden, hasta completar.
+  let progress = true;
+  while (built.length < count && progress) {
+    progress = false;
+    for (const st of stacks) {
+      if (built.length >= count) break;
+      if (buildOne(st)) progress = true;
+    }
+  }
+
+  built.sort((a, b) => b.points - a.points);
+  const lineups = built.map((l, i) => ({ number: i + 1, players: l.players, salary: l.salary, points: l.points, optimal: l.optimal, nodes: l.nodes, stack: l.stack }));
+  return {
+    status: lineups.length ? "OK" : "SIN_SOLUCION",
+    optimal: allOptimal,
+    salaryCap: rule.salaryCap,
+    lineups,
+    partidos: stacks.map(st => ({ partido: st.gameId, total: Math.round(st.total * 100) / 100, qb: st.qb.name, alineaciones: st.built || 0 }))
+  };
+}
+
+module.exports = { buildLineups, buildStackLineups, buildGameStackLineups, assignSlots, RULES };
