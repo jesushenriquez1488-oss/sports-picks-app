@@ -4,7 +4,36 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Sports Picks App</title>
-  
+  <!-- CASHEDGE: IOS PRIVACY WITHOUT AD TRACKING -->
+<script>
+(function () {
+  const isNativeIOS =
+    window.location.protocol === "capacitor:" ||
+    (
+      window.Capacitor?.isNativePlatform?.() === true &&
+      window.Capacitor?.getPlatform?.() === "ios"
+    );
+
+  if (!isNativeIOS) return;
+
+  document.documentElement.classList.add("ce-ios-native");
+
+  document.addEventListener("DOMContentLoaded", function () {
+    window.ceSetPrivacyPreferences?.({
+      analytics: false,
+      advertising: false
+    });
+  });
+})();
+</script>
+
+<style>
+  html.ce-ios-native #cePrivacyBanner,
+  html.ce-ios-native #cePrivacyModal,
+  html.ce-ios-native a[onclick*="ceOpenPrivacyPreferences"] {
+    display: none !important;
+  }
+</style>
 <!-- CASHEDGE: HIDE GOOGLE PLAY ON IOS -->
 <script>
 (function () {
