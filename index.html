@@ -187,15 +187,12 @@ const IS_IOS_APP =
       deleteCookie("_twclid");
     }
 
-    function loadGoogle(preferences) {
+   function loadGoogle(preferences) {
 
-
-if (
-  window.Capacitor?.isNativePlatform?.() === true &&
-  window.Capacitor?.getPlatform?.() === "ios"
-) {
-  return;
-}
+  // CashEdge iOS: no cargar Google Analytics ni Google Ads.
+  if (IS_IOS_APP) {
+    return;
+  }
 
       if (
         !preferences.analytics &&
@@ -256,12 +253,10 @@ window.gtag("js", new Date());
 
     function loadMetaPixel() {
       
-  if (
-    window.Capacitor?.isNativePlatform?.() === true &&
-    window.Capacitor?.getPlatform?.() === "ios"
-  ) {
-    return;
-  }
+// iOS: bloquear Meta Pixel.
+if (IS_IOS_APP) {
+  return;
+}
 
 
       if (window.__cashEdgeMetaLoaded) {
@@ -305,12 +300,10 @@ window.gtag("js", new Date());
     }
     function loadTikTokPixel() {
       
-  if (
-    window.Capacitor?.isNativePlatform?.() === true &&
-    window.Capacitor?.getPlatform?.() === "ios"
-  ) {
-    return;
-  }
+ // iOS: bloquear TikTok Pixel.
+if (IS_IOS_APP) {
+  return;
+}
 
 
   if (window.__cashEdgeTikTokLoaded) {
