@@ -23,13 +23,26 @@
 // inactivos de su partido y la lista de lesiones esta actualizada.
 //
 // SHADOW: no publica nada, no toca picks, props ni otros crons.
+//
+// 2-NOV (aprobado): MERCADO 70% + 4 PARTIDOS + 2 PRINCIPALES (DK).
+//   - Lee (solo lectura) las lineas de CashEdge en player_props_cache:
+//     yardas, recepciones, prob. de touchdown y puntos que Las Vegas
+//     espera de cada equipo.
+//   - Proyeccion DK = 70% mercado + 30% formula (sin linea: formula).
+//     DST: segun los puntos que se espera que anote su rival.
+//   - 20 alineaciones en los 4 partidos con total mas alto de Las
+//     Vegas: QB del equipo que mas anota + 2 receptores + 2 principales
+//     mas del mismo partido.
+//   - 200 alineaciones de prueba (misma forma) en
+//     fantasy_nfl_test_lineups; la evaluacion las mide.
+//   - FanDuel sigue como antes (20 alineaciones).
 // ============================================================
 
 "use strict";
 
 const { createClient } = require("@supabase/supabase-js");
 const model = require("./_lib/fantasy-nfl-model.js");
-const { buildLineups, buildStackLineups, RULES } = require("./_lib/fantasy-nfl-lineups.js");
+const { buildLineups, buildStackLineups, buildGameStackLineups, RULES } = require("./_lib/fantasy-nfl-lineups.js");
 const daily = require("./fantasy-nfl-daily.js");
 
 const supabaseAdmin = createClient(
@@ -44,7 +57,16 @@ const CONFIG = {
   triggerFrom: 75,               // la corrida post-inactivos: entre 75 (le da
                                  // tiempo a nfl-injury-cron de actualizar)...
   triggerTo: 10,                 // ...y 10 minutos antes del partido
-  lineupCount: 10,
+  lineupCount: 20,               // 2-nov: 10 -> 20
+  testLineupCount: 200,          // 2-nov: de prueba (fantasy_nfl_test_lineups)
+  testMaxSeconds: 200,           // si la corrida va pasada de esto, no arma pruebas
+  // 2-nov (aprobado, prueba 25-oct y 1-nov): mercado + partidos de Las Vegas.
+  market: {
+    platforms: ["draftkings"],   // FanDuel sigue como antes
+    weight: 0.7,                 // 70% mercado + 30% formula
+    games: 4,                    // los 4 partidos con total mas alto
+    extras: 2                    // principales extra del mismo partido
+  },
   lineupMinDifferent: 2,
   lineupMaxExposure: 0.4,        // ningun jugador en mas del 40% de las alineaciones
                                  // (con stack: el QB lo limita la cuota de su bloque)
@@ -215,6 +237,112 @@ async function loadToday(today) {
 
 
 // ============================================================
+// 2-NOV: MERCADO (lineas de CashEdge, solo lectura)
+// ============================================================
+// player_props_cache (sport nfl): playerLines = linea de cada jugador
+// (player_pass_yds, player_rush_yds, player_reception_yds,
+// player_receptions...) y anytimeTDProps = probabilidad de touchdown
+// + puntos que Las Vegas espera de su equipo (impliedTeamPoints).
+
+const normName = v => str(v).toLowerCase()
+  .replace(/\b(jr|sr|ii|iii|iv|v)\b\.?/g, "")
+  .replace(/[^a-z]/g, "");
+
+async function loadMarket(today) {
+  const until = addDays(today, CONFIG.windowDays);
+  const rows = await selectAll(
+    "player_props_cache",
+    "game,game_date,playerLines:analysis_json->playerLines,td:analysis_json->anytimeTDProps",
+    q => q.eq("sport", "nfl").gte("game_date", addDays(today, -1)).lte("game_date", until)
+  );
+  const lines = new Map();     // nombre -> { mercado: linea }
+  const tdProb = new Map();    // nombre -> prob. de touchdown (0-1)
+  const implied = new Map();   // nombre -> puntos esperados de su equipo
+  for (const r of rows) {
+    for (const l of Array.isArray(r.playerLines) ? r.playerLines : []) {
+      const k = normName(l.player);
+      const line = num(l.line);
+      if (!k || line === null || !l.market) continue;
+      const o = lines.get(k) || {};
+      // Primero la de DraftKings; si no hay, la de otra casa.
+      if (o[l.market] === undefined || str(l.bookmaker).toLowerCase() === "draftkings") o[l.market] = line;
+      lines.set(k, o);
+    }
+    for (const t of Array.isArray(r.td) ? r.td : []) {
+      const k = normName(t.player);
+      if (!k) continue;
+      const p = num(t.impliedProbability);
+      if (p !== null && !tdProb.has(k)) tdProb.set(k, p / 100);
+      const ip = num(t.model?.impliedTeamPoints);
+      if (ip !== null) implied.set(k, ip);
+    }
+  }
+  return { lines, tdProb, implied, games: rows.length };
+}
+
+// Puntos que Las Vegas espera de cada equipo: la mediana de lo que
+// trae cada jugador del equipo. Si a un equipo le falta (paso con
+// CIN-TEN el 1-nov), se estima con la linea de yardas de pase de su QB
+// (ajuste lineal con los equipos que si lo tienen). Sin nada: null.
+function teamImpliedPoints(market, players) {
+  const byTeam = new Map();
+  for (const p of players) {
+    const v = market.implied.get(normName(p.name));
+    if (v !== undefined) pushTo(byTeam, p.team, v);
+  }
+  const out = new Map();
+  for (const [t, list] of byTeam) {
+    const a = list.slice().sort((x, y) => x - y);
+    out.set(t, a[Math.floor(a.length / 2)]);
+  }
+  const passYds = p => market.lines.get(normName(p.name))?.player_pass_yds;
+  const qbs = players.filter(p => p.position === "QB" && passYds(p) !== undefined);
+  const pts = qbs.filter(q => out.has(q.team)).map(q => [passYds(q), out.get(q.team)]);
+  const estimated = [];
+  if (pts.length >= 5) {
+    const mx = pts.reduce((s, x) => s + x[0], 0) / pts.length;
+    const my = pts.reduce((s, x) => s + x[1], 0) / pts.length;
+    const sxx = pts.reduce((s, x) => s + (x[0] - mx) ** 2, 0);
+    const b = sxx ? pts.reduce((s, x) => s + (x[0] - mx) * (x[1] - my), 0) / sxx : 0;
+    for (const q of qbs) {
+      if (out.has(q.team)) continue;
+      out.set(q.team, Math.round((my + b * (passYds(q) - mx)) * 4) / 4);
+      estimated.push(q.team);
+    }
+  }
+  return { byTeam: out, estimated };
+}
+
+// Puntos DraftKings segun el mercado (null = sin linea suficiente).
+// Lineas = mediana; TD esperados = -ln(1 - prob. de touchdown).
+// QB: pases de TD = puntos del equipo x 0.105 TD por punto x 62% por aire.
+function marketPointsDK(p, market, implied) {
+  if (p.isDst) {
+    const opp = implied.get(p.opponent);
+    return opp === undefined ? null : Math.max(1, 6.5 + 0.45 * (22 - opp));
+  }
+  const k = normName(p.name);
+  const o = market.lines.get(k);
+  if (!o) return null;
+  const prob = market.tdProb.get(k);
+  const tds = prob === undefined ? null : -Math.log(1 - Math.min(prob, 0.95));
+  if (p.position === "QB") {
+    if (o.player_pass_yds === undefined) return null;
+    const passTd = (implied.get(p.team) ?? 22) * 0.105 * 0.62;
+    return 0.04 * o.player_pass_yds + 4 * passTd - 0.8 + 0.1 * (o.player_rush_yds || 0) +
+      6 * (tds ?? 0.12) + (o.player_pass_yds >= 300 ? 1 : 0);
+  }
+  const recYds = o.player_reception_yds;
+  const rushYds = o.player_rush_yds;
+  if (recYds === undefined && rushYds === undefined) return null;
+  if (p.position === "RB" && rushYds === undefined) return null;
+  if (tds === null) return null;
+  const rec = o.player_receptions ?? (recYds !== undefined ? recYds / 11 : 0);
+  return rec + 0.1 * (recYds || 0) + 0.1 * (rushYds || 0) + 6 * tds;
+}
+
+
+// ============================================================
 // DISPONIBILIDAD (quien va a jugar)
 // ============================================================
 
@@ -302,7 +430,12 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
     }
   }
 
-  const [hist, todayData] = await Promise.all([loadHistory(season), loadToday(today)]);
+  const [hist, todayData, market] = await Promise.all([
+    loadHistory(season),
+    loadToday(today),
+    // 2-nov: si el mercado falla, se sigue con la formula sola.
+    loadMarket(today).catch(error => ({ lines: new Map(), tdProb: new Map(), implied: new Map(), games: 0, error: error.message }))
+  ]);
   const t1 = Date.now();
   debug("datos", (t1 - t0) / 1000, "s");
 
@@ -377,6 +510,20 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
     for (const p of proj.players) projByGsis.set(p.gsis, { ...p, kickoff: game.kickoff });
     for (const d of proj.dst) projByGsis.set(`DST:${d.team}`, { ...d, kickoff: game.kickoff, isDst: true });
   }
+  // 2-nov: puntos que Las Vegas espera de cada equipo y de cada partido.
+  const projList = [...projByGsis.values()].filter(p => !p.isDst);
+  const { byTeam: implied, estimated: impliedEstimated } = teamImpliedPoints(market, projList);
+  const gameTotals = new Map();
+  for (const { game } of projected) {
+    const h = implied.get(game.home_team), a = implied.get(game.away_team);
+    if (h !== undefined && a !== undefined) gameTotals.set(game.game_id, h + a);
+  }
+  const marketPts = new Map();
+  for (const [key, p] of projByGsis) {
+    const v = marketPointsDK(p, market, implied);
+    if (v !== null) marketPts.set(key, v);
+  }
+
   // Los que no juegan tambien se guardan (con el motivo). Un jugador
   // cambiado de equipo puede salir en los dos: se guarda una vez.
   const savedOut = new Set();
@@ -414,6 +561,7 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
   };
 
   const lineupsOut = [];
+  const testLineupsOut = [];
   const slateReports = [];
   const inPool = new Set();
 
@@ -426,6 +574,8 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
     const lastStart = Date.parse(slate.last_event_starts_at || slate.starts_at);
     const pool = [];
     const excluded = {};
+    const useMarket = CONFIG.market.platforms.includes(slate.platform) && marketPts.size > 0;
+    let withMarket = 0;
     // 1-nov: el mismo jugador puede venir 2 veces en el slate (dos IDs
     // distintos de la fuente, mismo jugador real). Solo entra una vez;
     // si no, el optimizador lo podia poner en TE y en FLEX a la vez.
@@ -448,12 +598,16 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
         excluded.PARTIDO_FUERA_DEL_SLATE = (excluded.PARTIDO_FUERA_DEL_SLATE || 0) + 1;
         continue;
       }
+      // 2-nov: DK = 70% mercado + 30% formula (sin linea: formula).
+      const formulaPts = p.sim?.[slate.platform]?.mean ?? 0;
+      const mPts = useMarket ? marketPts.get(key) : undefined;
+      if (mPts !== undefined) withMarket++;
       pool.push({
         id: sp.entity_key,
         key,
         name: sp.player_name,
         salary: num(sp.salary),
-        points: round(p.sim?.[slate.platform]?.mean ?? 0, 2),
+        points: round(mPts !== undefined ? CONFIG.market.weight * mPts + (1 - CONFIG.market.weight) * formulaPts : formulaPts, 2),
         positions: [sp.entity_type === "team" ? "DST" : p.position],
         team: teamCode(sp.team),
         opp: teamCode(sp.team) === g.home_team ? g.away_team : g.home_team,
@@ -464,15 +618,41 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
 
     debug("optimizador", slate.slate_id, slate.platform, "pool", pool.length);
     const lineupOpts = { count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure };
-    const result = CONFIG.lineupStack
-      ? buildStackLineups(slate.platform, pool, lineupOpts)
-      : buildLineups(slate.platform, pool, lineupOpts);
+    // 2-nov: DK con mercado -> 4 partidos de Las Vegas + 2 principales.
+    const gameOpts = { games: CONFIG.market.games, extras: CONFIG.market.extras, gameTotals, teamImplied: implied };
+    const result = useMarket && gameTotals.size
+      ? buildGameStackLineups(slate.platform, pool, { ...lineupOpts, ...gameOpts })
+      : CONFIG.lineupStack
+        ? buildStackLineups(slate.platform, pool, lineupOpts)
+        : buildLineups(slate.platform, pool, lineupOpts);
+    // 2-nov: 200 de prueba con la misma forma (solo DK con mercado).
+    let testInfo = null;
+    if (useMarket && gameTotals.size) {
+      if ((Date.now() - t0) / 1000 > CONFIG.testMaxSeconds) {
+        testInfo = "no se armaron: la corrida se acerco al limite de tiempo";
+      } else {
+        const test = buildGameStackLineups(slate.platform, pool, { ...lineupOpts, ...gameOpts, count: CONFIG.testLineupCount });
+        testInfo = test.lineups.length;
+        for (const l of test.lineups) {
+          testLineupsOut.push({
+            slate_id: slate.slate_id, platform: slate.platform, lineup_number: l.number, salary: l.salary, points: l.points,
+            players: l.players.map(p => ({ slot: p.slot, id: p.id, key: p.key, name: p.name, team: p.team, salary: p.salary, points: p.points }))
+          });
+        }
+      }
+    }
     debug("alineaciones", result.lineups.length);
     slateReports.push({
       slate: slate.slate_id, plataforma: slate.platform, fecha: slate.slate_date, principal: slate.is_main,
       partidos: slate.event_count, pool: pool.length, excluidos: excluded,
       estado: result.status, optimo: result.optimal,
       stacks: result.stacks ? result.stacks.filter(s => s.lineups > 0) : undefined,
+      mercado: useMarket ? {
+        conLinea: `${withMarket} de ${pool.length}`,
+        partidos: result.partidos || [],
+        estimados: impliedEstimated,
+        prueba: testInfo
+      } : undefined,
       mejor: result.lineups[0] ? { puntos: result.lineups[0].points, salario: result.lineups[0].salary } : null
     });
     for (const l of result.lineups) {
@@ -514,6 +694,10 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
     depthChart: todayData.depthSnapshot,
     lesionesActualizadas: injuryIdx.freshest ? new Date(injuryIdx.freshest).toISOString() : null,
     slates: slateReports,
+    mercado: market.error ? { error: market.error } : {
+      partidosConLineas: market.games,
+      totalesVegas: [...gameTotals.entries()].sort((a, b) => b[1] - a[1]).map(([g, v]) => `${g} ${round(v, 2)}`)
+    },
     refresh: refresh ? refreshReport : undefined,
     seconds: { datos: (t1 - t0) / 1000, formula: (t2 - t1) / 1000, total: (Date.now() - t0) / 1000 }
   };
@@ -531,6 +715,14 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
 
   await insertAll("fantasy_nfl_projections", rows.map(r => ({ run_id: runId, ...r })));
   await insertAll("fantasy_nfl_lineups", lineupsOut.map(l => ({ run_id: runId, ...l })));
+  // 2-nov: las de prueba aparte (si la tabla falla, no tumba la corrida).
+  if (testLineupsOut.length) {
+    try {
+      await insertAll("fantasy_nfl_test_lineups", testLineupsOut.map(l => ({ run_id: runId, ...l })));
+    } catch (error) {
+      summary.pruebaError = error.message;
+    }
+  }
 
   return { ok: true, run_id: runId, trigger, ...summary };
 }
@@ -741,6 +933,26 @@ async function runEvaluation() {
     const cheapPts = cheap.map(sp => actual.get(sp.entity_key).points);
     const cheapInPerfect = perfect ? perfect.players.filter(p => p.positions[0] !== "DST" && p.salary <= cheapLimit).map(p => `${p.name} $${p.salary} ${round(p.points, 1)} pts`) : [];
 
+    // 2-nov: las 200 de prueba de la misma corrida.
+    let prueba = null;
+    try {
+      const tests = await selectAll("fantasy_nfl_test_lineups", "lineup_number,players", q => q.eq("run_id", runId).eq("slate_id", slate.slate_id));
+      if (tests.length) {
+        const pts = tests.map(l => round(l.players.reduce((s, p) => s + (actual.get(p.id)?.points ?? 0), 0)));
+        prueba = {
+          alineaciones: pts.length,
+          mejor: Math.max(...pts),
+          promedio: round(pts.reduce((s, v) => s + v, 0) / pts.length),
+          con150oMas: pts.filter(v => v >= 150).length,
+          con175oMas: pts.filter(v => v >= 175).length,
+          con200oMas: pts.filter(v => v >= 200).length,
+          con225oMas: pts.filter(v => v >= 225).length
+        };
+      }
+    } catch (error) {
+      prueba = { error: error.message };
+    }
+
     const evaluation = {
       slate_id: slate.slate_id,
       platform,
@@ -749,7 +961,8 @@ async function runEvaluation() {
       metrics: {
         porPosicion: byPos,
         snapsErrorPromedio: snapErr.length ? round(snapErr.reduce((s, v) => s + v, 0) / snapErr.length * 100, 1) : null,
-        realDentroDeP10P90: coverN ? round(cover / coverN * 100, 0) : null
+        realDentroDeP10P90: coverN ? round(cover / coverN * 100, 0) : null,
+        prueba200: prueba
       },
       lineups: {
         nuestras: ours,
