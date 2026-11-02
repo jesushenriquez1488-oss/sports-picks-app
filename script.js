@@ -41807,7 +41807,14 @@ async function requestDeleteAccount() {
   }
 }
 function openPromoModal(context = "general") {
-
+  // En iPhone, usar Apple StoreKit directamente.
+  // No mostrar códigos promocionales externos.
+  if (
+    typeof isIOSNativeApp === "function" &&
+    isIOSNativeApp()
+  ) {
+    return goPremiumMonthly();
+  }
   const validContexts = [
     "general",
     "free_limit",
