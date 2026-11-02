@@ -425,12 +425,10 @@ if (IS_IOS_APP) {
   );
 }
 
-    function loadXPixel() {
+   function loadXPixel() {
 
-      if (
-        window.Capacitor?.isNativePlatform?.() === true &&
-        window.Capacitor?.getPlatform?.() === "ios"
-      ) {
+      // CashEdge iOS: no cargar X Pixel.
+      if (IS_IOS_APP) {
         return;
       }
 
