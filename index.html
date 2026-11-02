@@ -115,8 +115,11 @@
     const X_PURCHASE_EVENT_ID = "tw-rhklj-rhuld";
     
 const IS_IOS_APP =
-  window.Capacitor?.isNativePlatform?.() === true &&
-  window.Capacitor?.getPlatform?.() === "ios";
+  window.location.protocol === "capacitor:" ||
+  (
+    window.Capacitor?.isNativePlatform?.() === true &&
+    window.Capacitor?.getPlatform?.() === "ios"
+  );
 
     function getPreferences() {
       try {
