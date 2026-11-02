@@ -92,6 +92,12 @@
 //    al jugador que salio OUT por el de mas puntos que quepa en ese
 //    puesto y en el salario (respeta titular/suplente y el 40%).
 //    Igual con las de prueba y con la prueba del 60/40.
+//    (2-nov) REGLA DEL 50%: fuera quien jugo menos de la mitad de
+//    los partidos de su equipo. PALIZAS: si se espera una diferencia
+//    de 10+, a los titulares de los dos equipos -20% (menos la
+//    estrella del favorito). ESTRELLA 80/20: la de mayor techo
+//    ($9,000+ DK, fuera de palizas) en el 80% y la #2 en el resto.
+//    Prueba al lado: la formula anterior ("mercado70+minutos").
 //    (31-oct) PRUEBA: 500 en DraftKings y 200 en FanDuel (antes 200
 //    solo DraftKings). La prueba del 60/40 sigue en 200, solo DK.
 //
@@ -114,6 +120,25 @@ const CONFIG = {
   lineupCount: 20,          // alineaciones por casa (de la mas optima a la menos). 28-oct: 10 -> 25. 29-oct: 25 -> 20
   lineupMinDifferent: 2,    // cada alineacion cambia al menos 2 jugadores
   lineupMaxExposure: 0.4,   // ningun jugador en mas del 40% de las alineaciones
+  // 2-nov (aprobado, prueba 27-oct al 1-nov):
+  // REGLA DEL 50%: solo entra quien jugo en por lo menos la mitad de
+  // los partidos de su equipo esta temporada (titular o suplente).
+  // Ej.: DeAndre Jordan, 2 de 5 -> fuera. 0 = apagada.
+  minGamesShare: 0.5,
+  // PALIZAS: si la formula espera que el partido se decida por
+  // blowoutExpected (10) puntos o mas, a los TITULARES de los dos equipos se les
+  // baja 20% al armar alineaciones (se sientan temprano). No se toca
+  // a la estrella del favorito ni a los suplentes. 0 = apagada.
+  blowoutExpected: 10,
+  blowoutCut: 0.2,
+  // ESTRELLA 80/20: candidatas = salario de 18% del tope o mas
+  // (DK $9,000 / FD $10,800), fuera de partidos con paliza (salvo la
+  // estrella del favorito). Se ordenan por su TECHO (noche 9,000 de
+  // 10,000: ya cuenta defensa rival, minutos y mercado). La #1 va en
+  // el 80% de las alineaciones y la #2 en el resto.
+  starCore: true,
+  starSalaryShare: 0.18,
+  starShare: 0.8,
   // Muestra de prueba: alineaciones extra por version SOLO para
   // medir (nadie las juega). 10 por noche es muy poco para saber
   // que version es mejor.
@@ -146,17 +171,22 @@ const CONFIG = {
   // que mas cobro del 27 al 29-oct: 184 de 600 en la prueba) + los
   // arreglos de minutos (lesionados y titular nuevo de ESPN).
   // Antes: "mercado60+techo+recientes".
-  formulaVersion: "mercado70+minutos",
+  // 2-nov (aprobado): + regla del 50% + palizas (titulares -20%) +
+  // estrella 80/20. Antes: "mercado70+minutos".
+  formulaVersion: "mercado70+estrella",
   // Pruebas en paralelo: mismos datos, un solo ajuste distinto.
   // Solo se archivan; nunca cambian las alineaciones oficiales.
-  // 30-oct: solo el 60/40 (mismo todo, solo cambia el peso del
-  // mercado).
+  // 2-nov: la prueba al lado es la formula ANTERIOR (70% sin las 3
+  // reglas nuevas), para medir dia a dia si las reglas nuevas ganan.
+  // (El 60/40 perdio contra el 70% del 27-oct al 1-nov; se quita.)
   shadowVariants: [
     {
-      version: "mercado60+minutos",
+      version: "mercado70+minutos",
       config: {
-        propWeights: { pts: 0.6, reb: 0.6, ast: 0.6, fg3m: 0.51, stl: 0.43, blk: 0.43 },
-        // 31-oct: la prueba del 60/40 se queda en 200, solo DraftKings,
+        minGamesShare: 0,
+        blowoutCut: 0,
+        starCore: false,
+        // La prueba de la anterior se queda en 200, solo DraftKings,
         // para no pasarnos del tiempo de Vercel.
         testLineupCount: 200,
         testCountByPlatform: {},
@@ -2628,6 +2658,18 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     usageFactors.set(tp.team, tp.usageFactor);
   }
 
+  // 2-nov: REGLA DEL 50%. Parte de los partidos de su equipo (esta
+  // temporada, antes de hoy) en que el jugador jugo. null = el equipo
+  // todavia no ha jugado.
+  const playedShare = (id, team) => {
+    const tg = (ctx.teamGames.get(team) || []).filter(g => g.season === CUR);
+    if (!tg.length) return null;
+    const ids = new Set(tg.map(g => g.id));
+    const played = new Set((ctx.byPlayer.get(id) || [])
+      .filter(r => r.team === team && ids.has(r.gameId) && r.min > 0).map(r => r.gameId));
+    return played.size / tg.length;
+  };
+
   const fantasyCache = new Map();
   const projectionRows = [];
   const lineupRows = [];
@@ -2656,6 +2698,9 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
       else if (!tp) exclude(p, "EQUIPO_SIN_DEPTH_CHART");
       else if (outRow) exclude(p, "LESION_OUT");
       else if (!row) exclude(p, "NO_ESTA_EN_DEPTH_CHART");
+      else if (CONFIG.minGamesShare > 0 && playedShare(id, team) !== null && playedShare(id, team) < CONFIG.minGamesShare) {
+        exclude(p, "JUGO_MENOS_DE_LA_MITAD", { row });
+      }
       else if (row.status === "DUDA" || (slateStatus.get(id) || []).some(s => injuryClass(s) !== "")) exclude(p, "LESION_O_DUDA", { row });
       else if (tp.warnings.length) exclude(p, "MINUTOS_EQUIPO_NO_CUADRAN", { row });
       // Solo los puestos 1 y 2 que publico ESPN. Un #3 que sube por
@@ -2768,13 +2813,40 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     // escoge con el techo, no con el promedio. El promedio se sigue
     // mostrando y guardando como "proyectado".
     const meanById = new Map(eligible.map(x => [String(x.p.player_id), x.f[platform].mean]));
+
+    // 2-nov: PALIZAS. Equipos cuyo partido se espera decidido por
+    // blowoutExpected+ y la estrella (el que mas proyecta) del favorito.
+    const blowoutTeams = new Set();
+    const favoriteStars = new Set();
+    const blowoutGames = [];
+    if (CONFIG.blowoutCut > 0) {
+      const seen = new Set();
+      for (const x of eligible) {
+        const team = Number(x.p.team_id);
+        const opp = opponents.get(team);
+        if (!opp || seen.has(team)) continue;
+        seen.add(team); seen.add(opp);
+        const m = expectedMargin(team, opp).total;
+        if (Math.abs(m) < CONFIG.blowoutExpected) continue;
+        const fav = m > 0 ? team : opp;
+        blowoutTeams.add(team); blowoutTeams.add(opp);
+        const star = eligible.filter(y => Number(y.p.team_id) === fav)[0];   // eligible va de mas a menos
+        if (star) favoriteStars.add(String(star.p.player_id));
+        blowoutGames.push(`${teamProjections.get(team)?.code || team} vs ${teamProjections.get(opp)?.code || opp} (espera ${round(Math.abs(m), 1)}, favorito ${teamProjections.get(fav)?.code || fav})`);
+      }
+    }
+    const blowoutFactor = x => (
+      CONFIG.blowoutCut > 0 && x.row.role === "S" &&
+      blowoutTeams.has(Number(x.p.team_id)) && !favoriteStars.has(String(x.p.player_id))
+    ) ? 1 - CONFIG.blowoutCut : 1;
+
     const optimizerPool = eligible.map(x => ({
       id: String(x.p.player_id),
       name: x.p.player_name,
       team: x.p.team_abbr,
       gameId: String(x.p.event_id),
       salary: Number(x.p.salary),
-      points: CONFIG.aimCeiling ? (ceilingOf(x.f[platform], x.p.salary) ?? x.f[platform].mean) : x.f[platform].mean,
+      points: (CONFIG.aimCeiling ? (ceilingOf(x.f[platform], x.p.salary) ?? x.f[platform].mean) : x.f[platform].mean) * blowoutFactor(x),
       positions: x.p.positions,
       // Techo (lo que hace en sus mejores noches): para escoger la pila.
       p90: ceilingOf(x.f[platform], x.p.salary),
@@ -2812,12 +2884,34 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
       // Rapido o lento = comparado SOLO con los partidos de hoy.
       rankSlateGames(slateGames);
     }
+    // 2-nov: ESTRELLAS del dia, ordenadas por techo.
+    const starMin = CONFIG.starSalaryShare * (RULES[platform]?.salaryCap || 50000);
+    const stars = !CONFIG.starCore ? [] : optimizerPool
+      .filter(p => p.salary >= starMin && p.p90 !== null && p.p90 !== undefined)
+      .filter(p => {
+        const x = eligible.find(y => String(y.p.player_id) === p.id);
+        return !blowoutTeams.has(Number(x.p.team_id)) || favoriteStars.has(p.id);
+      })
+      .sort((a, b) => b.p90 - a.p90)
+      .slice(0, 2);
+
     const lineupOptions = count => {
       if (!CONFIG.lineupStrategy) return {};
       // Pilas solo en las casas aprobadas (28-oct: DraftKings). En las
       // demas se arma sin pilas, con la regla titular/suplente.
       // 30-oct: sin pilas (useStacks false) -> solo la regla.
-      if (!CONFIG.useStacks || !CONFIG.stackPlatforms.includes(platform)) return { noStarterBackup: true };
+      if (!CONFIG.useStacks || !CONFIG.stackPlatforms.includes(platform)) {
+        // 2-nov: ESTRELLA 80/20 (la #1 en el 80%, la #2 en el resto).
+        if (!stars.length) return { noStarterBackup: true };
+        return {
+          noStarterBackup: true,
+          stackPlan: {
+            core: { ids: [stars[0].id], names: [stars[0].name], lineups: Math.floor(CONFIG.starShare * count) },
+            pairs: stars[1] ? [{ ids: [stars[1].id], names: [stars[1].name] }] : []
+          },
+          coreExposure: CONFIG.starShare
+        };
+      }
       return {
         noStarterBackup: true,
         stackPlan: planStacks(optimizerPool, slateGames, count, { coreShare: CONFIG.coreExposure, platform }),
@@ -2893,6 +2987,11 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
 
     platforms.push({
       platform,
+      // 2-nov: reglas nuevas de este dia.
+      estrellas: stars.length
+        ? stars.map((st, i) => `${i === 0 ? "80%" : "resto"}: ${st.name} ($${st.salary}, techo ${round(st.p90, 1)})`)
+        : (CONFIG.starCore ? ["ninguna candidata"] : null),
+      palizas: CONFIG.blowoutCut > 0 ? (blowoutGames.length ? blowoutGames : ["ninguna"]) : null,
       // 31-oct: corrida de cierre que solo cambio a los OUT.
       cierreSoloOut: baseOfficial
         ? {
