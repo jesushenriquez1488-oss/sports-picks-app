@@ -3944,6 +3944,567 @@ function renderNBAMobileCard({
     </div>
   `;
 }
+// ============================================================
+// NCAAB — TARJETA PROPIA
+// ============================================================
+//
+// Reemplaza la tarjeta genérica (que decía "HOT PICK · NBA")
+// solo para NCAAB. WNBA sigue con la tarjeta de siempre.
+//
+// Muestra:
+// - logos de los dos equipos
+// - puntos proyectados de cada equipo
+// - POWER 0-100 (puesto BPI de ESPN entre 365 equipos D-I)
+// - ajuste por nivel del rival (cuánto cambió la proyección)
+// - modelo vs línea (spread o total, según el pick)
+//
+// No muestra lesiones: no hay fuente de lesiones para NCAAB.
+// ============================================================
+
+function ensureNcaabCardStyles() {
+
+  if (document.getElementById("ce-ncaab-card-styles")) {
+    return;
+  }
+
+  const style = document.createElement("style");
+  style.id = "ce-ncaab-card-styles";
+  style.textContent = `
+    .ce-ncaab-card{
+      position:relative;
+      overflow:hidden;
+      font-family:Arial,sans-serif;
+      background:
+        radial-gradient(circle at 0% 0%, rgba(0,255,231,.10), transparent 40%),
+        radial-gradient(circle at 100% 100%, rgba(124,60,255,.12), transparent 45%),
+        #050b16;
+      border:1px solid rgba(0,255,231,.22);
+      border-radius:20px;
+      padding:18px 16px 14px;
+      color:#fff;
+    }
+    .ce-ncaab-card.is-premium{
+      border-color:rgba(0,255,231,.45);
+      box-shadow:0 0 0 1px rgba(0,255,231,.08), 0 18px 45px rgba(0,0,0,.35);
+    }
+    .ce-ncaab-top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:14px;
+    }
+    .ce-ncaab-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:5px 11px;
+      border-radius:999px;
+      font-size:10px;
+      font-weight:800;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+      color:#00ffe7;
+      background:rgba(0,255,231,.08);
+      border:1px solid rgba(0,255,231,.30);
+    }
+    .ce-ncaab-badge.is-normal{
+      color:#b9a3ff;
+      background:rgba(124,60,255,.10);
+      border-color:rgba(124,60,255,.35);
+    }
+    .ce-ncaab-dot{
+      width:6px;height:6px;border-radius:50%;
+      background:currentColor;
+      box-shadow:0 0 8px currentColor;
+    }
+    .ce-ncaab-pickrow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:16px;
+    }
+    .ce-ncaab-pick-label{
+      font-size:10px;
+      letter-spacing:.14em;
+      color:#5f7699;
+      text-transform:uppercase;
+      margin-bottom:4px;
+    }
+    .ce-ncaab-pick{
+      font-size:24px;
+      font-weight:800;
+      line-height:1.15;
+    }
+    .ce-ncaab-conf{
+      flex:0 0 auto;
+      width:74px;height:74px;
+      border-radius:50%;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      border:3px solid #00ffe7;
+      background:rgba(0,255,231,.05);
+    }
+    .ce-ncaab-card:not(.is-premium) .ce-ncaab-conf{
+      border-color:#7c3cff;
+      background:rgba(124,60,255,.06);
+    }
+    .ce-ncaab-conf strong{
+      font-size:19px;
+      color:#00ffe7;
+    }
+    .ce-ncaab-card:not(.is-premium) .ce-ncaab-conf strong{
+      color:#c4a0ff;
+    }
+    .ce-ncaab-conf small{
+      font-size:8px;
+      letter-spacing:.12em;
+      color:#5f7699;
+    }
+    .ce-ncaab-matchup{
+      display:grid;
+      grid-template-columns:1fr auto 1fr;
+      align-items:stretch;
+      gap:8px;
+      margin-bottom:12px;
+    }
+    .ce-ncaab-team{
+      background:#08111f;
+      border:1px solid #142540;
+      border-radius:14px;
+      padding:12px 10px;
+      text-align:center;
+      min-width:0;
+    }
+    .ce-ncaab-logo{
+      width:52px;height:52px;
+      object-fit:contain;
+      display:block;
+      margin:0 auto 6px;
+      filter:drop-shadow(0 4px 10px rgba(0,0,0,.45));
+    }
+    .ce-ncaab-logo-fallback{
+      width:52px;height:52px;
+      margin:0 auto 6px;
+      border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      background:#0f1d33;
+      color:#8fb0d9;
+      font-weight:800;
+      font-size:16px;
+    }
+    .ce-ncaab-name{
+      font-size:12px;
+      font-weight:700;
+      color:#dfe8f5;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .ce-ncaab-side{
+      font-size:9px;
+      letter-spacing:.12em;
+      color:#4f6687;
+      text-transform:uppercase;
+      margin-top:2px;
+    }
+    .ce-ncaab-score{
+      font-size:30px;
+      font-weight:800;
+      margin-top:8px;
+      line-height:1;
+    }
+    .ce-ncaab-score-label{
+      font-size:8px;
+      letter-spacing:.14em;
+      color:#4f6687;
+      text-transform:uppercase;
+      margin-top:4px;
+    }
+    .ce-ncaab-vs{
+      align-self:center;
+      font-size:11px;
+      font-weight:800;
+      color:#4f6687;
+      letter-spacing:.1em;
+    }
+    .ce-ncaab-power{
+      margin-top:10px;
+      text-align:left;
+    }
+    .ce-ncaab-power-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:baseline;
+      font-size:9px;
+      letter-spacing:.1em;
+      color:#5f7699;
+      text-transform:uppercase;
+      margin-bottom:4px;
+    }
+    .ce-ncaab-power-head strong{
+      font-size:13px;
+      color:#fff;
+      letter-spacing:0;
+    }
+    .ce-ncaab-bar{
+      height:6px;
+      border-radius:999px;
+      background:#0f1d33;
+      overflow:hidden;
+    }
+    .ce-ncaab-bar span{
+      display:block;
+      height:100%;
+      border-radius:999px;
+      background:#00ffe7;
+    }
+    .ce-ncaab-bar.is-home span{
+      background:#7c3cff;
+    }
+    .ce-ncaab-rank{
+      font-size:9px;
+      color:#4f6687;
+      margin-top:4px;
+    }
+    .ce-ncaab-adj{
+      margin-top:8px;
+      font-size:10px;
+      color:#8fa5c4;
+    }
+    .ce-ncaab-adj b.up{ color:#00ffe7; }
+    .ce-ncaab-adj b.down{ color:#ff8c1a; }
+    .ce-ncaab-stats{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:8px;
+      margin-bottom:10px;
+    }
+    .ce-ncaab-stat{
+      background:#08111f;
+      border:1px solid #142540;
+      border-radius:12px;
+      padding:10px 8px;
+      text-align:center;
+    }
+    .ce-ncaab-stat small{
+      display:block;
+      font-size:8px;
+      letter-spacing:.14em;
+      color:#5f7699;
+      text-transform:uppercase;
+      margin-bottom:5px;
+    }
+    .ce-ncaab-stat strong{
+      font-size:16px;
+      font-weight:800;
+      color:#fff;
+    }
+    .ce-ncaab-stat em{
+      display:block;
+      font-style:normal;
+      font-size:10px;
+      font-weight:700;
+      margin-top:3px;
+    }
+    .ce-ncaab-note{
+      font-size:10px;
+      line-height:1.45;
+      color:#5f7699;
+      background:#060d19;
+      border:1px solid #10203a;
+      border-radius:10px;
+      padding:9px 11px;
+      margin-bottom:10px;
+    }
+    .ce-ncaab-rest{
+      font-size:11px;
+      color:#8fa5c4;
+      margin-bottom:10px;
+    }
+    .ce-ncaab-rest b{ color:#dfe8f5; }
+    .ce-ncaab-hl{
+      text-align:center;
+      margin-top:4px;
+    }
+    .ce-ncaab-hl button{
+      background:transparent;
+      border:1px solid rgba(255,140,26,.35);
+      border-radius:16px;
+      padding:6px 16px;
+      color:#ff8c1a;
+      font-size:10px;
+      font-weight:700;
+      letter-spacing:.06em;
+      cursor:pointer;
+      text-transform:uppercase;
+    }
+    @media (max-width:420px){
+      .ce-ncaab-pick{ font-size:20px; }
+      .ce-ncaab-score{ font-size:26px; }
+      .ce-ncaab-logo,.ce-ncaab-logo-fallback{ width:44px;height:44px; }
+      .ce-ncaab-stat strong{ font-size:14px; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+
+function ceNcaabEsc(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+
+function ceNcaabShortName(teamName) {
+  // "Virginia Tech Hokies" → "Virginia Tech"
+  const parts = String(teamName || "").trim().split(" ");
+  return parts.length > 1
+    ? parts.slice(0, -1).join(" ")
+    : String(teamName || "");
+}
+
+
+function ceNcaabInitials(teamName) {
+  return ceNcaabShortName(teamName)
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(word => word[0])
+    .join("")
+    .toUpperCase();
+}
+
+
+function ceNcaabTeamBlock({
+  teamName,
+  sideLabel,
+  info,
+  projection,
+  detail,
+  locked,
+  isHome
+}) {
+
+  const logo = info?.logo
+    ? `<img class="ce-ncaab-logo" src="${ceNcaabEsc(info.logo)}" alt="${ceNcaabEsc(teamName)} logo"
+         onerror="this.outerHTML='<div class=&quot;ce-ncaab-logo-fallback&quot;>${ceNcaabEsc(ceNcaabInitials(teamName))}</div>'">`
+    : `<div class="ce-ncaab-logo-fallback">${ceNcaabEsc(ceNcaabInitials(teamName))}</div>`;
+
+  const power = Number.isFinite(Number(info?.power))
+    ? Number(info.power)
+    : null;
+
+  const rank = Number.isFinite(Number(info?.bpiRank))
+    ? Number(info.bpiRank)
+    : null;
+
+  const adj = Number(detail?.strengthAdjustment);
+
+  const adjHTML = !locked && Number.isFinite(adj)
+    ? `<div class="ce-ncaab-adj">Opponent level:
+         <b class="${adj >= 0 ? "up" : "down"}">${adj >= 0 ? "+" : ""}${adj.toFixed(1)} pts</b>
+       </div>`
+    : "";
+
+  return `
+    <div class="ce-ncaab-team">
+      ${logo}
+      <div class="ce-ncaab-name" title="${ceNcaabEsc(teamName)}">${ceNcaabEsc(ceNcaabShortName(teamName))}</div>
+      <div class="ce-ncaab-side">${sideLabel}</div>
+
+      <div class="ce-ncaab-score">${locked || !Number.isFinite(Number(projection)) ? "--" : Number(projection).toFixed(1)}</div>
+      <div class="ce-ncaab-score-label">Projected pts</div>
+
+      <div class="ce-ncaab-power">
+        <div class="ce-ncaab-power-head">
+          <span>Power</span>
+          <strong>${power === null ? "--" : power}</strong>
+        </div>
+        <div class="ce-ncaab-bar ${isHome ? "is-home" : ""}">
+          <span style="width:${power === null ? 0 : power}%"></span>
+        </div>
+        <div class="ce-ncaab-rank">${rank === null ? "Rank not available" : `#${rank} of 365 D-I`}</div>
+      </div>
+
+      ${adjHTML}
+    </div>
+  `;
+}
+
+
+function renderNCAABCard({
+  data,
+  premium,
+  locked,
+  isPremium,
+  displayPick,
+  awayTeam,
+  homeTeam,
+  awaySpread,
+  homeSpread,
+  total,
+  index,
+  league
+}) {
+
+  ensureNcaabCardStyles();
+
+  const teams = data?.public?.ncaabCard || {};
+  const detail = premium?.ncaabDetail || {};
+  const confidence = data?.public?.confidence;
+
+  const projA = Number(premium?.projA);
+  const projB = Number(premium?.projB);
+
+  // ---------- MODELO VS LÍNEA ----------
+  const rawPick = String(premium?.pick || "");
+  const isTotalPick = /^(over|under)/i.test(rawPick);
+
+  let lineLabel = "Model vs line";
+  let lineValue = "--";
+  let lineDiff = "";
+
+  if (!locked && premium) {
+
+    if (isTotalPick) {
+      const ln = Number(premium.totalLine) > 0
+        ? Number(premium.totalLine)
+        : Number(total || 0);
+      const proj = Number(premium.totalProj || 0);
+
+      lineLabel = "Total: model / line";
+      lineValue = ln > 0
+        ? `${proj.toFixed(1)}<span style="color:#4f6687;font-size:11px;"> / ${ln}</span>`
+        : proj.toFixed(1);
+
+      if (ln > 0) {
+        const d = proj - ln;
+        lineDiff = `<em style="color:${d >= 0 ? "#ff8c1a" : "#4da3ff"};">${d >= 0 ? "▲ +" : "▼ "}${d.toFixed(1)} pts</em>`;
+      }
+
+    } else {
+      // Spread: margen del modelo vs línea del favorito
+      const margin = projB - projA; // + = gana el local
+      const favHome = margin >= 0;
+      const favName = ceNcaabShortName(favHome ? homeTeam : awayTeam);
+      const homeLine = Number(homeSpread);
+      const marketMargin = Number.isFinite(homeLine) ? -homeLine : null; // + = local favorito
+
+      lineLabel = "Margin: model / line";
+      lineValue = `${ceNcaabEsc(favName)} by ${Math.abs(margin).toFixed(1)}`;
+
+      if (marketMargin !== null) {
+        const marketFavName = ceNcaabShortName(marketMargin >= 0 ? homeTeam : awayTeam);
+        lineDiff = `<em style="color:#8fa5c4;">Line: ${ceNcaabEsc(marketFavName)} -${Math.abs(marketMargin)}</em>`;
+      }
+    }
+  }
+
+  const edge = Number(premium?.mainEdge);
+
+  const statsHTML = `
+    <div class="ce-ncaab-stats">
+      <div class="ce-ncaab-stat">
+        <small>Edge</small>
+        <strong>${locked || !Number.isFinite(edge) ? "--" : edge.toFixed(1)}</strong>
+        ${locked ? "" : `<em style="color:#5f7699;">pts vs line</em>`}
+      </div>
+      <div class="ce-ncaab-stat" style="grid-column:span 2;">
+        <small>${lineLabel}</small>
+        <strong style="font-size:14px;">${lineValue}</strong>
+        ${lineDiff}
+      </div>
+    </div>
+  `;
+
+  const restHTML = !locked && premium && (premium.awayRestNote || premium.homeRestNote)
+    ? `
+      <div class="ce-ncaab-rest">
+        😴 <b>Rest</b> ·
+        ${ceNcaabEsc(ceNcaabShortName(awayTeam))}: ${ceNcaabEsc(premium.awayRestNote || "—")}
+        · ${ceNcaabEsc(ceNcaabShortName(homeTeam))}: ${ceNcaabEsc(premium.homeRestNote || "—")}
+      </div>`
+    : "";
+
+  const noteHTML = `
+    <div class="ce-ncaab-note">
+      <b style="color:#8fa5c4;">Power</b> = team strength from 0 to 100, based on its BPI rank among 365 Division I teams.
+      ${locked ? "" : `<b style="color:#8fa5c4;">Opponent level</b> = how much each projection moved after scaling recent games to the strength of tonight's opponent.`}
+    </div>
+  `;
+
+  const highlightHTML = !locked && premium
+    ? `
+      <div class="ce-ncaab-hl">
+        <button onclick='toggleGameHighlight(${index}, "${encodeURIComponent(JSON.stringify(premium || {})).replace(/'/g, "%27")}", "${escapeText(awayTeam)}", "${escapeText(homeTeam)}")'>
+          🎯 Game Highlight
+        </button>
+        <div id="gameHighlight${index}"></div>
+      </div>`
+    : "";
+
+  return `
+    <div class="ce-ncaab-card ${isPremium ? "is-premium" : ""}">
+
+      <div class="ce-ncaab-top">
+        <span class="ce-ncaab-badge ${isPremium ? "" : "is-normal"}">
+          <span class="ce-ncaab-dot"></span>
+          ${isPremium ? "Premium Pick · NCAAB" : "Featured Play · NCAAB"}
+        </span>
+      </div>
+
+      <div class="ce-ncaab-pickrow">
+        <div style="min-width:0;">
+          <div class="ce-ncaab-pick-label">Model pick</div>
+          <div class="ce-ncaab-pick">${displayPick}</div>
+        </div>
+        <div class="ce-ncaab-conf">
+          <strong>${confidence ?? "--"}%</strong>
+          <small>PROB.</small>
+        </div>
+      </div>
+
+      <div class="ce-ncaab-matchup">
+        ${ceNcaabTeamBlock({
+          teamName: awayTeam,
+          sideLabel: "Away",
+          info: teams.away,
+          projection: projA,
+          detail: detail.away,
+          locked,
+          isHome: false
+        })}
+        <div class="ce-ncaab-vs">@</div>
+        ${ceNcaabTeamBlock({
+          teamName: homeTeam,
+          sideLabel: "Home",
+          info: teams.home,
+          projection: projB,
+          detail: detail.home,
+          locked,
+          isHome: true
+        })}
+      </div>
+
+      ${statsHTML}
+
+      ${locked
+        ? cePremiumPickLockedHTML({
+            sportLabel: league,
+            recordText: ceRecordPlain(league)
+          })
+        : `${restHTML}${noteHTML}${highlightHTML}`}
+
+    </div>
+  `;
+}
 async function analyzeAuto( awayTeam, homeTeam, awaySpread, homeSpread, total, index, gameTime) {
   const resultDiv = document.getElementById(`result${index}`);
   if (!startAnalysisLock(index, "Analyzing...")) return;
@@ -4075,6 +4636,32 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
 
     });
 
+
+  endAnalysisLock(
+    index
+  );
+
+  return;
+}
+    if (
+  league === "ncaab"
+) {
+
+  resultDiv.innerHTML =
+    renderNCAABCard({
+      data,
+      premium,
+      locked,
+      isPremium,
+      displayPick,
+      awayTeam,
+      homeTeam,
+      awaySpread,
+      homeSpread,
+      total,
+      index,
+      league
+    });
 
   endAnalysisLock(
     index
