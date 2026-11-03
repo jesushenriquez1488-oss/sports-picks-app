@@ -709,7 +709,295 @@ async function resolveNcaabTeam(
     );
 
 
-  return exact || null;
+  if (exact) {
+    return exact;
+  }
+
+
+  // ==========================================================
+  // FALLBACK — NOMBRES DISTINTOS ENTRE THE ODDS API Y ESPN
+  //
+  // Ej: Odds API "Sam Houston St Bearkats"
+  //     ESPN     "Sam Houston Bearkats"
+  //
+  // 1) Mismo mascota al final del nombre.
+  // 2) Lo que queda (la escuela) debe coincidir
+  //    con la location de ESPN:
+  //    igual, o uno empieza con el otro,
+  //    o comparten una palabra propia
+  //    (ej. "CSU Bakersfield" / "Cal State Bakersfield").
+  // 3) Solo se acepta si queda UN candidato.
+  //    Si hay duda, no se adivina.
+  // ==========================================================
+
+  return findNcaabTeamByMascot(
+    teams,
+    teamName
+  );
+}
+
+
+const NCAAB_GENERIC_WORDS =
+  new Set([
+    "st",
+    "state",
+    "saint",
+    "university",
+    "univ",
+    "college",
+    "of",
+    "the",
+    "at",
+    "and",
+    "north",
+    "south",
+    "east",
+    "west",
+    "northern",
+    "southern",
+    "eastern",
+    "western",
+    "central",
+    "cal",
+    "csu",
+    "uc"
+  ]);
+
+
+function ncaabSchoolKey(
+  value
+) {
+
+  // "state" y "st" cuentan como lo mismo
+  // y se quitan al final del nombre
+  // de la escuela.
+  return normalizeNcaabName(
+    value
+  )
+    .replace(
+      /state$/,
+      ""
+    )
+    .replace(
+      /st$/,
+      ""
+    );
+}
+
+
+function ncaabSchoolWords(
+  value
+) {
+
+  return String(
+    value ||
+    ""
+  )
+    .normalize(
+      "NFD"
+    )
+    .replace(
+      /[̀-ͯ]/g,
+      ""
+    )
+    .toLowerCase()
+    .split(
+      /[^a-z0-9]+/
+    )
+    .filter(
+      word =>
+        word.length >= 4 &&
+        !NCAAB_GENERIC_WORDS.has(
+          word
+        )
+    );
+}
+
+
+function findNcaabTeamByMascot(
+  teams,
+  teamName
+) {
+
+  const target =
+    normalizeNcaabName(
+      teamName
+    );
+
+
+  const candidates =
+    [];
+
+
+  for (
+    const team
+    of teams
+  ) {
+
+    const mascot =
+      normalizeNcaabName(
+        team.name
+      );
+
+
+    if (
+      !mascot ||
+      !target.endsWith(
+        mascot
+      ) ||
+      target.length <=
+        mascot.length
+    ) {
+      continue;
+    }
+
+
+    // Parte de la escuela en el nombre
+    // de The Odds API (sin la mascota).
+    const rawSchool =
+      String(
+        teamName
+      )
+        .trim()
+        .slice(
+          0,
+          Math.max(
+            0,
+            String(teamName)
+              .trim()
+              .length -
+              String(team.name || "")
+                .length
+          )
+        );
+
+
+    const oddsSchool =
+      ncaabSchoolKey(
+        rawSchool
+      );
+
+
+    const espnSchool =
+      ncaabSchoolKey(
+        team.location
+      );
+
+
+    if (
+      !oddsSchool ||
+      !espnSchool
+    ) {
+      continue;
+    }
+
+
+    // Nivel 1: misma escuela.
+    if (
+      oddsSchool ===
+      espnSchool
+    ) {
+      candidates.push({
+        team,
+        level: 1
+      });
+      continue;
+    }
+
+
+    // Nivel 2: una empieza con la otra.
+    if (
+      Math.min(
+        oddsSchool.length,
+        espnSchool.length
+      ) >= 4 &&
+      (
+        oddsSchool.startsWith(
+          espnSchool
+        ) ||
+        espnSchool.startsWith(
+          oddsSchool
+        )
+      )
+    ) {
+      candidates.push({
+        team,
+        level: 2
+      });
+      continue;
+    }
+
+
+    // Nivel 3: comparten una palabra propia.
+    const oddsWords =
+      ncaabSchoolWords(
+        rawSchool
+      );
+
+    const espnWords =
+      ncaabSchoolWords(
+        team.location
+      );
+
+
+    if (
+      oddsWords.some(
+        word =>
+          espnWords.includes(
+            word
+          )
+      )
+    ) {
+      candidates.push({
+        team,
+        level: 3
+      });
+    }
+  }
+
+
+  if (
+    !candidates.length
+  ) {
+    return null;
+  }
+
+
+  const bestLevel =
+    Math.min(
+      ...candidates.map(
+        c => c.level
+      )
+    );
+
+
+  const best =
+    candidates.filter(
+      c =>
+        c.level ===
+        bestLevel
+    );
+
+
+  // Si quedan 2+ con el mismo nivel,
+  // no adivinamos.
+  if (
+    best.length !== 1
+  ) {
+    console.warn(
+      "NCAAB team ambiguous:",
+      teamName,
+      best.map(
+        c =>
+          c.team.displayName
+      )
+    );
+
+    return null;
+  }
+
+
+  return best[0].team;
 }
 
 
