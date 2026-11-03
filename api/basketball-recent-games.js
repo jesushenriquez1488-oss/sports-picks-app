@@ -197,9 +197,14 @@ module.exports =
         league === "ncaab"
       ) {
 
+        // opponent = rival de HOY (opcional).
+        // Con él se ajusta cada juego al nivel
+        // del rival de hoy usando la escala BPI
+        // propia del equipo.
         const games =
           await getEspnNcaabRecentGames(
-            team
+            team,
+            req.query.opponent || null
           );
 
 
@@ -469,7 +474,8 @@ module.exports =
 // ============================================================
 
 async function getEspnNcaabRecentGames(
-  teamName
+  teamName,
+  opponentName = null
 ) {
 
   const team =
@@ -485,39 +491,100 @@ async function getEspnNcaabRecentGames(
   }
 
 
- const currentSeason =
-  getCurrentNcaabSeason();
+  const currentSeason =
+    getCurrentNcaabSeason();
 
-const previousSeason =
-  currentSeason - 1;
-
-
-// BPI ACTUAL DEL EQUIPO ANALIZADO.
-//
-// Sale del mismo mapa BPI de temporada
-// que ya tenemos cacheado 24 horas.
-// No genera una llamada individual
-// por cada partido.
-const teamBpi =
-  await getNcaabSeasonBpi(
-    team.id,
-    currentSeason
-  );
+  const previousSeason =
+    currentSeason - 1;
 
 
-// Temporada actual.
-const currentGames =
-  await getNcaabTeamGames(
-    team.id,
-    currentSeason
-  );
+  // ==========================================================
+  // RIVAL DE HOY (opcional)
+  //
+  // Si no se encuentra, el análisis sigue
+  // pero sin ajuste de escala (puntos crudos).
+  // ==========================================================
+
+  let todayOpponent =
+    null;
+
+  if (opponentName) {
+    try {
+      todayOpponent =
+        await resolveNcaabTeam(
+          opponentName
+        );
+    } catch (error) {
+      todayOpponent =
+        null;
+    }
+  }
+
+
+  // ==========================================================
+  // BPI ACTUAL (esta temporada)
+  // del equipo y del rival de hoy.
+  // ==========================================================
+
+  const [
+    teamProfile,
+    todayOpponentProfile
+  ] =
+    await Promise.all([
+
+      getNcaabBpiProfile(
+        team.id,
+        currentSeason
+      ),
+
+      todayOpponent
+        ? getNcaabBpiProfile(
+            todayOpponent.id,
+            currentSeason
+          )
+        : Promise.resolve(null)
+    ]);
+
+
+  const teamBpi =
+    teamProfile?.bpi ??
+    null;
+
+
+  // ==========================================================
+  // TEMPORADA COMPLETA (actual + anterior)
+  //
+  // Los 7 juegos de la fórmula siguen la regla
+  // de siempre, pero la ESCALA BPI del equipo
+  // se mide con todos sus juegos, porque en la
+  // temporada completa enfrenta rivales fuertes
+  // y débiles (fuera de conferencia).
+  // ==========================================================
+
+  const [
+    currentGames,
+    previousGames
+  ] =
+    await Promise.all([
+
+      getNcaabTeamGames(
+        team.id,
+        currentSeason
+      ),
+
+      getNcaabTeamGames(
+        team.id,
+        previousSeason
+      )
+    ]);
+
 
   let selectedGames =
     [];
 
 
   // ==========================================================
-  // REGLA DE TEMPORADA
+  // REGLA DE TEMPORADA (SIN CAMBIOS)
   //
   // 5+ actuales:
   // solo temporada actual.
@@ -539,13 +606,6 @@ const currentGames =
 
   } else {
 
-    const previousGames =
-      await getNcaabTeamGames(
-        team.id,
-        previousSeason
-      );
-
-
     selectedGames =
       [
         ...currentGames,
@@ -566,17 +626,118 @@ const currentGames =
   }
 
 
-const enriched =
-  await Promise.all(
-    selectedGames.map(
+  // ==========================================================
+  // BPI OFF / DEF DE CADA RIVAL
+  // de la temporada de ese juego.
+  // ==========================================================
+
+  const seasonGames =
+    [
+      ...currentGames,
+      ...previousGames
+    ];
+
+
+  const profiles =
+    await mapWithLimit(
+      seasonGames,
+      8,
       game =>
-        enrichNcaabGame(
-          team,
-          game,
-          teamBpi
+        getNcaabBpiProfile(
+          game.opponentId,
+          game.season
         )
-    )
-  );
+    );
+
+
+  const seasonRows =
+    seasonGames.map(
+      (
+        game,
+        index
+      ) => ({
+        eventId:
+          game.eventId,
+
+        date:
+          game.date,
+
+        season:
+          game.season,
+
+        opponent:
+          game.opponent,
+
+        scored:
+          game.scored,
+
+        allowed:
+          game.allowed,
+
+        rivalBpi:
+          profiles[index]?.bpi ?? null,
+
+        rivalOff:
+          profiles[index]?.off ?? null,
+
+        rivalDef:
+          profiles[index]?.def ?? null
+      })
+    );
+
+
+  // ==========================================================
+  // ESCALA BPI PROPIA DEL EQUIPO
+  // ==========================================================
+
+  const scale =
+    calcNcaabTeamScale(
+      seasonRows
+    );
+
+
+  // ==========================================================
+  // VERIFICACIÓN: juegos de toda la temporada
+  // contra rivales de BPI parecido al de hoy (±5)
+  // ==========================================================
+
+  const similarCheck =
+    calcNcaabSimilarCheck(
+      seasonRows,
+      todayOpponentProfile
+    );
+
+
+  const rowByEvent =
+    new Map(
+      seasonRows.map(
+        row => [
+          row.eventId,
+          row
+        ]
+      )
+    );
+
+
+  const enriched =
+    await Promise.all(
+      selectedGames.map(
+        game =>
+          enrichNcaabGame(
+            team,
+            game,
+            teamBpi,
+            rowByEvent.get(
+              game.eventId
+            ),
+            scale,
+            todayOpponentProfile,
+            similarCheck,
+            teamProfile
+          )
+      )
+    );
+
 
   return enriched
     .filter(Boolean)
@@ -589,6 +750,393 @@ const enriched =
         new Date(a.date)
     );
 }
+
+
+// ============================================================
+// NCAAB — ESCALA BPI POR EQUIPO
+//
+// ATAQUE:  puntos anotados vs BPI DEF del rival.
+//          Rival con mejor defensa → anota menos.
+//          La escala no puede ser positiva.
+//
+// DEFENSA: puntos permitidos vs BPI OFF del rival.
+//          Rival con mejor ataque → permite más.
+//          La escala no puede ser negativa.
+//
+// Método: se compara cada par de juegos
+// (cuántos puntos cambió / cuánto cambió el BPI)
+// y se toma la MEDIANA. Así un juego raro
+// no ensucia la escala.
+//
+// Sin topes. Sin promedios de liga.
+// ============================================================
+
+const NCAAB_SCALE_MIN_GAMES = 6;
+
+const NCAAB_SCALE_MIN_BPI_GAP = 1;
+
+
+function calcNcaabMedianPairSlope(
+  points
+) {
+
+  const slopes =
+    [];
+
+
+  for (
+    let i = 0;
+    i < points.length;
+    i++
+  ) {
+    for (
+      let j = i + 1;
+      j < points.length;
+      j++
+    ) {
+
+      const dx =
+        points[j].x -
+        points[i].x;
+
+
+      // Rivales casi del mismo BPI
+      // no dicen nada de la escala.
+      if (
+        Math.abs(dx) <
+        NCAAB_SCALE_MIN_BPI_GAP
+      ) {
+        continue;
+      }
+
+
+      slopes.push(
+        (
+          points[j].y -
+          points[i].y
+        ) /
+        dx
+      );
+    }
+  }
+
+
+  if (
+    !slopes.length
+  ) {
+    return {
+      slope: null,
+      pairs: 0
+    };
+  }
+
+
+  slopes.sort(
+    (a, b) =>
+      a - b
+  );
+
+
+  const middle =
+    Math.floor(
+      slopes.length / 2
+    );
+
+
+  const median =
+    slopes.length % 2
+      ? slopes[middle]
+      : (
+          slopes[middle - 1] +
+          slopes[middle]
+        ) / 2;
+
+
+  return {
+    slope:
+      median,
+
+    pairs:
+      slopes.length
+  };
+}
+
+
+function calcNcaabTeamScaleSide(
+  rows,
+  bpiKey,
+  valueKey,
+  expectedSign
+) {
+
+  const points =
+    rows
+      .filter(
+        row =>
+          Number.isFinite(
+            row?.[bpiKey]
+          ) &&
+          Number.isFinite(
+            row?.[valueKey]
+          )
+      )
+      .map(
+        row => ({
+          x:
+            row[bpiKey],
+
+          y:
+            row[valueKey]
+        })
+      );
+
+
+  if (
+    points.length <
+    NCAAB_SCALE_MIN_GAMES
+  ) {
+    return {
+      usable: false,
+      reason: "few_games",
+      games: points.length,
+      pairs: 0,
+      slope: null
+    };
+  }
+
+
+  const {
+    slope,
+    pairs
+  } =
+    calcNcaabMedianPairSlope(
+      points
+    );
+
+
+  if (
+    !Number.isFinite(
+      slope
+    )
+  ) {
+    return {
+      usable: false,
+      reason: "no_range",
+      games: points.length,
+      pairs,
+      slope: null
+    };
+  }
+
+
+  // REGLA DE SIGNO
+  const wrongDirection =
+    (
+      expectedSign < 0 &&
+      slope > 0
+    ) ||
+    (
+      expectedSign > 0 &&
+      slope < 0
+    );
+
+
+  return {
+    usable:
+      !wrongDirection,
+
+    reason:
+      wrongDirection
+        ? "wrong_direction"
+        : "ok",
+
+    games:
+      points.length,
+
+    pairs,
+
+    slope
+  };
+}
+
+
+function calcNcaabTeamScale(
+  seasonRows
+) {
+
+  return {
+
+    // puntos anotados por cada punto
+    // de BPI DEF del rival
+    offense:
+      calcNcaabTeamScaleSide(
+        seasonRows,
+        "rivalDef",
+        "scored",
+        -1
+      ),
+
+    // puntos permitidos por cada punto
+    // de BPI OFF del rival
+    defense:
+      calcNcaabTeamScaleSide(
+        seasonRows,
+        "rivalOff",
+        "allowed",
+        1
+      )
+  };
+}
+
+
+// ============================================================
+// NCAAB — VERIFICACIÓN CON RIVALES PARECIDOS
+//
+// Juegos de toda la temporada (actual + anterior)
+// contra rivales con BPI a 5 puntos o menos
+// del rival de hoy. Lo que hizo el equipo
+// de verdad contra ese nivel de rival.
+// ============================================================
+
+const NCAAB_SIMILAR_BPI_RANGE = 5;
+
+
+function calcNcaabSimilarCheck(
+  seasonRows,
+  todayOpponentProfile
+) {
+
+  const target =
+    todayOpponentProfile?.bpi;
+
+
+  if (
+    !Number.isFinite(
+      target
+    )
+  ) {
+    return null;
+  }
+
+
+  const similar =
+    seasonRows.filter(
+      row =>
+        Number.isFinite(
+          row.rivalBpi
+        ) &&
+        Math.abs(
+          row.rivalBpi -
+          target
+        ) <=
+          NCAAB_SIMILAR_BPI_RANGE
+    );
+
+
+  if (
+    !similar.length
+  ) {
+    return {
+      games: 0,
+      range:
+        NCAAB_SIMILAR_BPI_RANGE,
+      avgScored: null,
+      avgAllowed: null
+    };
+  }
+
+
+  return {
+    games:
+      similar.length,
+
+    range:
+      NCAAB_SIMILAR_BPI_RANGE,
+
+    avgScored:
+      similar.reduce(
+        (sum, row) =>
+          sum + row.scored,
+        0
+      ) /
+      similar.length,
+
+    avgAllowed:
+      similar.reduce(
+        (sum, row) =>
+          sum + row.allowed,
+        0
+      ) /
+      similar.length,
+
+    opponents:
+      similar.map(
+        row =>
+          `${row.opponent} (${Number(row.rivalBpi).toFixed(1)}): ${row.scored}-${row.allowed}`
+      )
+  };
+}
+
+
+// ============================================================
+// NCAAB — LÍMITE DE LLAMADAS EN PARALELO A ESPN
+// ============================================================
+
+async function mapWithLimit(
+  items,
+  limit,
+  worker
+) {
+
+  const results =
+    new Array(
+      items.length
+    );
+
+  let next = 0;
+
+
+  async function run() {
+
+    while (
+      next <
+      items.length
+    ) {
+
+      const index =
+        next++;
+
+      try {
+        results[index] =
+          await worker(
+            items[index],
+            index
+          );
+      } catch (error) {
+        results[index] =
+          null;
+      }
+    }
+  }
+
+
+  await Promise.all(
+    Array.from(
+      {
+        length:
+          Math.min(
+            limit,
+            items.length
+          )
+      },
+      run
+    )
+  );
+
+
+  return results;
+}
+
 
 
 // ============================================================
@@ -1223,26 +1771,117 @@ function parseEspnScore(
 async function enrichNcaabGame(
   team,
   game,
-  teamBpi
+  teamBpi,
+  row = null,
+  scale = null,
+  todayOpponentProfile = null,
+  similarCheck = null,
+  teamProfile = null
 ) {
- const [
-  opponentHistory,
-  opponentBpi
-] =
-  await Promise.all([
 
-    getNcaabOpponentAverages(
+  const opponentHistory =
+    await getNcaabOpponentAverages(
       game.opponentId,
       game.date,
       game.season
-    ),
+    );
 
-    getNcaabSeasonBpi(
-      game.opponentId,
-      game.season
-    )
 
-  ]);
+  const rivalBpi =
+    row?.rivalBpi ?? null;
+
+  const rivalOff =
+    row?.rivalOff ?? null;
+
+  const rivalDef =
+    row?.rivalDef ?? null;
+
+
+  // ==========================================================
+  // AJUSTE DE ESTE JUEGO AL RIVAL DE HOY
+  //
+  // Anotados ajustados =
+  //   anotados + escala ataque del equipo ×
+  //   (BPI DEF rival de hoy − BPI DEF de ese rival)
+  //
+  // Permitidos ajustados =
+  //   permitidos + escala defensa del equipo ×
+  //   (BPI OFF rival de hoy − BPI OFF de ese rival)
+  //
+  // Si la escala no sirve (pocos juegos o
+  // sentido al revés) o falta un BPI,
+  // se deja el número crudo.
+  // ==========================================================
+
+  const todayDef =
+    todayOpponentProfile?.def ?? null;
+
+  const todayOff =
+    todayOpponentProfile?.off ?? null;
+
+  const todayBpi =
+    todayOpponentProfile?.bpi ?? null;
+
+
+  const canAdjustScored =
+    scale?.offense?.usable === true &&
+    Number.isFinite(todayDef) &&
+    Number.isFinite(rivalDef);
+
+
+  const canAdjustAllowed =
+    scale?.defense?.usable === true &&
+    Number.isFinite(todayOff) &&
+    Number.isFinite(rivalOff);
+
+
+  const adjustedScored =
+    canAdjustScored
+      ? game.scored +
+        scale.offense.slope *
+        (todayDef - rivalDef)
+      : game.scored;
+
+
+  const adjustedAllowed =
+    canAdjustAllowed
+      ? game.allowed +
+        scale.defense.slope *
+        (todayOff - rivalOff)
+      : game.allowed;
+
+
+  // ==========================================================
+  // PESO DEL JUEGO
+  //
+  // Rival con BPI parecido al de hoy → pesa más.
+  // Diferencia 0 → 1.00
+  // Diferencia 5 → 0.50
+  // Diferencia 10 → 0.20
+  // Diferencia 20 → 0.06
+  // Sin rival de hoy: todos pesan igual.
+  // ==========================================================
+
+  let similarityWeight =
+    1;
+
+  if (
+    Number.isFinite(todayBpi)
+  ) {
+
+    similarityWeight =
+      Number.isFinite(rivalBpi)
+        ? 1 /
+          (
+            1 +
+            Math.pow(
+              Math.abs(rivalBpi - todayBpi) / 5,
+              2
+            )
+          )
+        : 0.05;
+  }
+
 
   return {
 
@@ -1284,28 +1923,64 @@ async function enrichNcaabGame(
         ?.opponentAvgAllowed ??
       null,
 
-// BPI ACTUAL DEL EQUIPO
-// que estamos analizando.
-//
-// Es el mismo en todos los registros
-// porque representa su fuerza actual
-// para el matchup de hoy.
 
-teamBpi:
-  Number.isFinite(
-    teamBpi
-  )
-    ? teamBpi
-    : null,
-    // BPI DEL RIVAL PARA ESE JUEGO.
-    // null si ESPN no lo tiene.
-
-    opponentBpi:
-      Number.isFinite(
-        opponentBpi
-      )
-        ? opponentBpi
+    // BPI actual del equipo analizado
+    // (igual en todos los registros).
+    teamBpi:
+      Number.isFinite(teamBpi)
+        ? teamBpi
         : null,
+
+    teamBpiOff:
+      teamProfile?.off ?? null,
+
+    teamBpiDef:
+      teamProfile?.def ?? null,
+
+
+    // BPI del rival de ESE juego
+    // (de la temporada de ese juego).
+    opponentBpi:
+      Number.isFinite(rivalBpi)
+        ? rivalBpi
+        : null,
+
+    opponentBpiOff:
+      rivalOff,
+
+    opponentBpiDef:
+      rivalDef,
+
+
+    // NUEVO — ajuste al rival de hoy
+    adjustedScored,
+
+    adjustedAllowed,
+
+    scoredAdjusted:
+      canAdjustScored,
+
+    allowedAdjusted:
+      canAdjustAllowed,
+
+    similarityWeight,
+
+    todayOpponentBpi:
+      todayBpi,
+
+    todayOpponentOff:
+      todayOff,
+
+    todayOpponentDef:
+      todayDef,
+
+
+    // Igual en todos los registros:
+    // escala del equipo y verificación ±5.
+    teamScale:
+      scale,
+
+    similarCheck
   };
 }
 
@@ -1442,6 +2117,38 @@ async function getNcaabSeasonBpi(
   season
 ) {
 
+  const profile =
+    await getNcaabBpiProfile(
+      teamId,
+      season
+    );
+
+
+  return profile?.bpi ??
+    null;
+}
+
+
+// ============================================================
+// NCAAB — BPI POR EQUIPO (TOTAL, OFENSIVO, DEFENSIVO)
+//
+// La lista completa (getNcaabSeasonBpiMap) solo
+// devuelve 25 equipos, así que se pide equipo
+// por equipo. ESPN da:
+//   bpi        = total (margen por 70 posesiones)
+//   bpioffense = fuerza del ataque
+//   bpidefense = fuerza de la defensa
+//                (más alto = mejor defensa)
+//
+// Se guarda 24 horas por equipo y temporada,
+// incluso si ESPN no lo tiene (null).
+// ============================================================
+
+async function getNcaabBpiProfile(
+  teamId,
+  season
+) {
+
   if (
     !teamId ||
     !season
@@ -1450,24 +2157,8 @@ async function getNcaabSeasonBpi(
   }
 
 
-  // ==========================================================
-  // BPI POR EQUIPO
-  //
-  // La lista completa (getNcaabSeasonBpiMap)
-  // solo devuelve 25 equipos aunque pidamos
-  // limit=100, así que casi ningún equipo
-  // tenía BPI.
-  //
-  // El endpoint por equipo sí lo trae
-  // para todos (ej. Wofford 2027 = -4.76).
-  //
-  // Se guarda 24 horas por equipo y temporada,
-  // incluso cuando ESPN no lo tiene (null),
-  // para no repetir llamadas.
-  // ==========================================================
-
   const cacheKey =
-    `team:${season}:${teamId}`;
+    `profile:${season}:${teamId}`;
 
 
   const cached =
@@ -1486,7 +2177,7 @@ async function getNcaabSeasonBpi(
   }
 
 
-  let value =
+  let profile =
     null;
 
 
@@ -1503,24 +2194,44 @@ async function getNcaabSeasonBpi(
 
 
     const bpi =
-      extractBpiValue(
-        data
+      extractNamedStat(
+        data,
+        "bpi"
+      );
+
+    const off =
+      extractNamedStat(
+        data,
+        "bpioffense"
+      );
+
+    const def =
+      extractNamedStat(
+        data,
+        "bpidefense"
       );
 
 
-    value =
-      Number.isFinite(
-        bpi
-      )
-        ? bpi
+    profile =
+      Number.isFinite(bpi)
+        ? {
+            bpi,
+            off:
+              Number.isFinite(off)
+                ? off
+                : null,
+            def:
+              Number.isFinite(def)
+                ? def
+                : null
+          }
         : null;
 
   } catch (error) {
 
-    // Equipos sin BPI (ej. rivales
-    // fuera de Division I) dan error.
-    // No debe tumbar el análisis.
-    value =
+    // Rival sin BPI (ej. fuera de Division I).
+    // No tumba el análisis.
+    profile =
       null;
   }
 
@@ -1530,15 +2241,65 @@ async function getNcaabSeasonBpi(
   ] = {
 
     data:
-      value,
+      profile,
 
     time:
       Date.now()
   };
 
 
-  return value;
+  return profile;
 }
+
+
+// Lee una estadística por su nombre exacto
+// (ej. "bpi", "bpioffense", "bpidefense").
+function extractNamedStat(
+  data,
+  statName
+) {
+
+  const stats =
+    Array.isArray(
+      data?.stats
+    )
+      ? data.stats
+      : [];
+
+
+  const stat =
+    stats.find(
+      item =>
+        String(
+          item?.name || ""
+        ).toLowerCase() ===
+        statName
+    );
+
+
+  if (
+    !stat ||
+    stat.value === null ||
+    stat.value === undefined ||
+    stat.value === ""
+  ) {
+    return null;
+  }
+
+
+  const number =
+    Number(
+      stat.value
+    );
+
+
+  return Number.isFinite(
+    number
+  )
+    ? number
+    : null;
+}
+
 
 
 // ============================================================
