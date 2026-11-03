@@ -10141,6 +10141,19 @@ const projB =
     const totalProj = projA + projB;
     const projectedMargin = projA - projB;
 
+    // NCAAB — datos para la tarjeta
+    // (logos, Power 0-100, ajuste por nivel del rival).
+    const ncaabCardData =
+      selectedLeague === "ncaab"
+        ? buildNcaabCardData({
+            awayGames,
+            homeGames,
+            awayCalc,
+            homeCalc,
+            projA,
+            projB
+          })
+        : null;
    const hasSpreadMarket =
   currentMarket.awaySpread !== null &&
   currentMarket.homeSpread !== null &&
@@ -11105,7 +11118,15 @@ injuries: {
     }
   : {}),
 
-
+        // NCAAB: logos y Power se ven aunque
+        // la jugada esté bloqueada (no revelan el pick).
+        ...(ncaabCardData
+          ? {
+              ncaabCard:
+                ncaabCardData.public
+            }
+          : {}),
+        
         factors: [
 
           "Forma reciente",
@@ -11357,14 +11378,21 @@ card: {
             awayGames
           ),
 
-        homeRecentForm:
+                homeRecentForm:
           buildRecentForm(
             homeAll,
             homeGames
-          )
+          ),
+
+        // NCAAB: ajuste por nivel del rival (solo premium/desbloqueado).
+        ...(ncaabCardData
+          ? {
+              ncaabDetail:
+                ncaabCardData.premium
+            }
+          : {})
       }
     };
-
  const {
   data: savedDailyPick,
   error: dailyPickError
@@ -12762,6 +12790,82 @@ function calcNBAProjection(
   return {
     projection:
       (A + B) / 2
+  };
+}
+// ============================================================
+// NCAAB — DATOS DE LA TARJETA
+// POWER 0-100: puesto BPI de ESPN entre ~365 equipos D-I.
+// Puesto 1 = 100, último = 0.
+// AJUSTE POR NIVEL DEL RIVAL: proyección con escala BPI
+// − proyección con puntos crudos (fórmula de edges sin ajustar).
+// ============================================================
+
+const NCAAB_DIVISION_I_TEAMS = 365;
+
+
+function getNcaabPowerFromRank(rank) {
+  const value = getNBAFormulaValue(rank);
+
+  if (value === null || value < 1) {
+    return null;
+  }
+
+  const power =
+    100 *
+    (NCAAB_DIVISION_I_TEAMS - value) /
+    (NCAAB_DIVISION_I_TEAMS - 1);
+
+  return Math.round(Math.max(0, Math.min(100, power)));
+}
+
+
+function buildNcaabCardData({
+  awayGames,
+  homeGames,
+  awayCalc,
+  homeCalc,
+  projA,
+  projB
+}) {
+
+  const rawAway =
+    calcNBAProjection(awayGames, homeGames).projection;
+
+  const rawHome =
+    calcNBAProjection(homeGames, awayGames).projection;
+
+  const teamPublic = games => {
+    const g = (games || [])[0] || {};
+    return {
+      logo: g.teamLogo || null,
+      bpi: getNBAFormulaValue(g.teamBpi),
+      bpiRank: getNBAFormulaValue(g.teamBpiRank),
+      power: getNcaabPowerFromRank(g.teamBpiRank)
+    };
+  };
+
+  const round1 = value =>
+    Number.isFinite(Number(value))
+      ? Number(Number(value).toFixed(1))
+      : null;
+
+  return {
+    public: {
+      away: teamPublic(awayGames),
+      home: teamPublic(homeGames)
+    },
+    premium: {
+      away: {
+        projection: round1(projA),
+        rawProjection: round1(rawAway),
+        strengthAdjustment: round1(awayCalc.projection - rawAway)
+      },
+      home: {
+        projection: round1(projB),
+        rawProjection: round1(rawHome),
+        strengthAdjustment: round1(homeCalc.projection - rawHome)
+      }
+    }
   };
 }
 // ============================================================
