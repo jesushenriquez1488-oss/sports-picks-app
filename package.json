@@ -4,6 +4,7 @@
     "micro": "^9.3.4",
     "@supabase/supabase-js": "^2.45.4",
     "@apple/app-store-server-library": "^3.1.0",
-    "@vercel/og": "0.6.8"
+    "@vercel/og": "0.6.8",
+    "ffmpeg-static": "^5.2.0"
   }
 }
