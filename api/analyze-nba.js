@@ -9596,12 +9596,12 @@ const downstreamOptions = {
 };
 
 awayGames = await fetchJson(
-  `${origin}/api/basketball-recent-games?league=${selectedLeague}&team=${encodeURIComponent(awayTeam)}`,
+    `${origin}/api/basketball-recent-games?league=${selectedLeague}&team=${encodeURIComponent(awayTeam)}${selectedLeague === "ncaab" ? `&opponent=${encodeURIComponent(homeTeam)}` : ""}`,
   downstreamOptions
 );
 
 homeGames = await fetchJson(
-  `${origin}/api/basketball-recent-games?league=${selectedLeague}&team=${encodeURIComponent(homeTeam)}`,
+    `${origin}/api/basketball-recent-games?league=${selectedLeague}&team=${encodeURIComponent(homeTeam)}${selectedLeague === "ncaab" ? `&opponent=${encodeURIComponent(awayTeam)}` : ""}`,
   downstreamOptions
 );
 
@@ -9871,8 +9871,16 @@ const useCorrectedBasketballFormula =
   selectedLeague === "ncaab";
 
 
+// NCAAB usa la misma fórmula de edges,
+// pero con los puntos de cada juego ajustados
+// al rival de hoy (escala BPI propia de cada equipo).
 const awayCalc =
-  useCorrectedBasketballFormula
+  selectedLeague === "ncaab"
+    ? calcNcaabProjection(
+        awayGames,
+        homeGames
+      )
+    : useCorrectedBasketballFormula
     ? calcNBAProjection(
         awayGames,
         homeGames
@@ -9884,7 +9892,12 @@ const awayCalc =
 
 
 const homeCalc =
-  useCorrectedBasketballFormula
+  selectedLeague === "ncaab"
+    ? calcNcaabProjection(
+        homeGames,
+        awayGames
+      )
+    : useCorrectedBasketballFormula
     ? calcNBAProjection(
         homeGames,
         awayGames
@@ -9903,26 +9916,20 @@ const homeCalc =
 // cuando estamos analizando NCAAB.
 // ============================================================
 
-const awayBpi =
-  selectedLeague === "ncaab"
-    ? calcNcaabBpiAdjustment(
-        awayGames,
-        homeGames
-      )
-    : {
-        points: 0
-      };
+// NCAAB: el BPI ya entra dentro de calcNcaabProjection
+// (juego por juego). Las pendientes viejas quedan apagadas
+// para no contar el BPI dos veces.
+const awayBpi = {
+  points: 0
+};
 
 
-const homeBpi =
-  selectedLeague === "ncaab"
-    ? calcNcaabBpiAdjustment(
-        homeGames,
-        awayGames
-      )
-    : {
-        points: 0
-      };
+// NCAAB: el BPI ya entra dentro de calcNcaabProjection
+// (juego por juego). Las pendientes viejas quedan apagadas
+// para no contar el BPI dos veces.
+const homeBpi = {
+  points: 0
+};
 
 
 // ============================================================
@@ -10301,22 +10308,72 @@ if (
         };
       };
 
-    const debugBpi =
-      bpi => ({
-        points: round2(bpi?.points),
-        teamBpi: round2(bpi?.currentTeamBpi),
-        opponentBpi: round2(bpi?.currentOpponentBpi),
-        offenseAdj: round2(bpi?.offenseAdjustment),
-        defenseAdj: round2(bpi?.defenseAdjustment),
-        offenseSlope: round2(bpi?.offenseSlope),
-        offenseRawSlope: round2(bpi?.offenseRawSlope),
-        defenseSlope: round2(bpi?.defenseSlope),
-        defenseRawSlope: round2(bpi?.defenseRawSlope),
-        offenseAvgOppBpi: round2(bpi?.offenseAverageOpponentBpi),
-        defenseAvgOppBpi: round2(bpi?.defenseAverageOpponentBpi),
-        offenseSamples: bpi?.offenseSampleSize ?? null,
-        defenseSamples: bpi?.defenseSampleSize ?? null
+    // BPI de hoy (esta temporada) del equipo y del rival.
+    const debugBpiToday =
+      games => {
+        const g = (games || [])[0] || {};
+        return {
+          team: round2(g.teamBpi),
+          teamOff: round2(g.teamBpiOff),
+          teamDef: round2(g.teamBpiDef),
+          opponent: round2(g.todayOpponentBpi),
+          opponentOff: round2(g.todayOpponentOff),
+          opponentDef: round2(g.todayOpponentDef)
+        };
+      };
+
+    // Escala propia del equipo (toda la temporada).
+    const debugScale =
+      games => {
+        const scale = (games || [])[0]?.teamScale || null;
+        const side = x => x ? {
+          usable: x.usable,
+          reason: x.reason,
+          slope: round2(x.slope),
+          games: x.games,
+          pairs: x.pairs
+        } : null;
+        return scale ? {
+          offense: side(scale.offense),
+          defense: side(scale.defense)
+        } : null;
+      };
+
+    // Caminos A y B de la fórmula, con y sin ajuste.
+    const debugCalc =
+      calc => ({
+        pathA: round2(calc?.pathA),
+        pathB: round2(calc?.pathB),
+        teamAdjustedScored: round2(calc?.teamAdjustedScored),
+        rawTeamScored: round2(calc?.rawTeamScored),
+        opponentAdjustedAllowed: round2(calc?.opponentAdjustedAllowed),
+        rawOpponentAllowed: round2(calc?.rawOpponentAllowed),
+        teamOffensiveEdge: round2(calc?.teamOffensiveEdge),
+        opponentDefensiveEdge: round2(calc?.opponentDefensiveEdge)
       });
+
+    // Verificación: lo que hizo de verdad contra rivales
+    // de BPI parecido al de hoy (±5), toda la temporada.
+    const debugSimilar =
+      (games, finalProjection) => {
+        const c = (games || [])[0]?.similarCheck || null;
+        if (!c) return null;
+        return {
+          games: c.games,
+          range: c.range,
+          realAvgScored: round2(c.avgScored),
+          realAvgAllowed: round2(c.avgAllowed),
+          projectionMinusReal:
+            Number.isFinite(c.avgScored)
+              ? round2(finalProjection - c.avgScored)
+              : null,
+          flag:
+            c.games >= 3 &&
+            Number.isFinite(c.avgScored) &&
+            Math.abs(finalProjection - c.avgScored) > 10,
+          opponents: c.opponents || []
+        };
+      };
 
     const debugGames =
       games =>
@@ -10329,7 +10386,12 @@ if (
           round2(g?.allowed),
           round2(g?.opponentAvgScored),
           round2(g?.opponentAvgAllowed),
-          round2(g?.opponentBpi)
+          round2(g?.opponentBpi),
+          round2(g?.opponentBpiOff),
+          round2(g?.opponentBpiDef),
+          round2(g?.adjustedScored),
+          round2(g?.adjustedAllowed),
+          round2(g?.similarityWeight)
         ]);
 
     // 1) RESUMEN DEL PARTIDO
@@ -10347,27 +10409,33 @@ if (
           team: awayTeam,
           sample: debugSeasonCount(awayGames),
           formula: debugFormula(awayGames),
+          bpiToday: debugBpiToday(awayGames),
+          scale: debugScale(awayGames),
+          calc: debugCalc(awayCalc),
           baseProjection: round2(awayCalc.projection),
-          bpi: debugBpi(awayBpi),
           afterBpi: round2(awayProjectionAfterBpi),
           afterPace: round2(awayProjectionAfterPace),
           rest: round2(awayRest?.points),
           injuryOffense: round2(awayInjuries?.offenseImpact),
           injuryDefense: round2(awayInjuries?.defenseImpact),
-          final: round2(projA)
+          final: round2(projA),
+          similarCheck: debugSimilar(awayGames, projA)
         },
         home: {
           team: homeTeam,
           sample: debugSeasonCount(homeGames),
           formula: debugFormula(homeGames),
+          bpiToday: debugBpiToday(homeGames),
+          scale: debugScale(homeGames),
+          calc: debugCalc(homeCalc),
           baseProjection: round2(homeCalc.projection),
-          bpi: debugBpi(homeBpi),
           afterBpi: round2(homeProjectionAfterBpi),
           afterPace: round2(homeProjectionAfterPace),
           rest: round2(homeRest?.points),
           injuryOffense: round2(homeInjuries?.offenseImpact),
           injuryDefense: round2(homeInjuries?.defenseImpact),
-          final: round2(projB)
+          final: round2(projB),
+          similarCheck: debugSimilar(homeGames, projB)
         },
         projectedTotal: round2(totalProj),
         projectedMargin_awayMinusHome: round2(projectedMargin),
@@ -10388,7 +10456,9 @@ if (
 
     // 2) JUEGOS USADOS POR CADA EQUIPO
     // [fecha, temporada, H/A, rival, anotó, permitió,
-    //  rival anotaba antes, rival permitía antes, BPI rival]
+    //  rival anotaba antes, rival permitía antes,
+    //  BPI rival, BPI Off rival, BPI Def rival,
+    //  anotó ajustado, permitió ajustado, peso]
     console.log(
       "[NCAAB_DEBUG] GAMES " +
       JSON.stringify({
@@ -12689,6 +12759,106 @@ function calcNBAProjection(
   return {
     projection:
       (A + B) / 2
+  };
+}
+// ============================================================
+// NCAAB — PROYECCIÓN CON ESCALA BPI POR EQUIPO
+// ============================================================
+//
+// Misma fórmula de edges de CashEdge:
+//   A = lo que permite el rival + mi Offensive Edge
+//   B = lo que yo anoto        + Defensive Edge del rival
+//   proyección = (A + B) / 2
+//
+// Lo nuevo: "lo que permite el rival" y "lo que yo anoto"
+// usan los puntos de cada juego AJUSTADOS al rival de hoy,
+// y los juegos contra rivales de BPI parecido pesan más.
+// Los edges NO cambian.
+// ============================================================
+
+function calcNcaabWeightedAverage(
+  games,
+  valueKey,
+  fallbackKey
+) {
+
+  let sum = 0;
+  let weightSum = 0;
+
+  for (const game of games || []) {
+
+    const value =
+      getNBAFormulaValue(game?.[valueKey]) ??
+      getNBAFormulaValue(game?.[fallbackKey]);
+
+    if (value === null) {
+      continue;
+    }
+
+    const weight =
+      getNBAFormulaValue(game?.similarityWeight);
+
+    const safeWeight =
+      weight !== null && weight > 0
+        ? weight
+        : 1;
+
+    sum += value * safeWeight;
+    weightSum += safeWeight;
+  }
+
+  return weightSum > 0
+    ? sum / weightSum
+    : null;
+}
+
+
+function calcNcaabProjection(
+  teamGames,
+  opponentGames
+) {
+
+  // Edges de siempre (sin ajustar).
+  const team =
+    calcNBATeamFormula(teamGames);
+
+  const opponent =
+    calcNBATeamFormula(opponentGames);
+
+  // Lo que yo anoto, llevado a la defensa del rival de hoy.
+  const teamAdjustedScored =
+    calcNcaabWeightedAverage(
+      teamGames,
+      "adjustedScored",
+      "scored"
+    ) ?? team.offenseAvg;
+
+  // Lo que permite el rival, llevado a mi ataque.
+  const opponentAdjustedAllowed =
+    calcNcaabWeightedAverage(
+      opponentGames,
+      "adjustedAllowed",
+      "allowed"
+    ) ?? opponent.defenseAllowedAvg;
+
+  const A =
+    opponentAdjustedAllowed +
+    team.offensiveEdgeAvg;
+
+  const B =
+    teamAdjustedScored +
+    opponent.defensiveEdgeAvg;
+
+  return {
+    projection: (A + B) / 2,
+    pathA: A,
+    pathB: B,
+    teamAdjustedScored,
+    opponentAdjustedAllowed,
+    rawTeamScored: team.offenseAvg,
+    rawOpponentAllowed: opponent.defenseAllowedAvg,
+    teamOffensiveEdge: team.offensiveEdgeAvg,
+    opponentDefensiveEdge: opponent.defensiveEdgeAvg
   };
 }
 // ============================================================
