@@ -12912,7 +12912,45 @@ function calcNcaabBpiTrend(
         0
     };
   }
+  // ==========================================================
+  // REGLA DE SIGNO
+  //
+  // scored  (ataque):  contra rival MÁS fuerte → anota MENOS.
+  //                    La pendiente no puede ser positiva.
+  //
+  // allowed (defensa): contra rival MÁS fuerte → permite MÁS.
+  //                    La pendiente no puede ser negativa.
+  //
+  // Si los juegos dan la tendencia al revés
+  // (ej. LSU: 99 permitidos vs Ole Miss BPI 10.6),
+  // esa pieza NO se usa y el ajuste queda
+  // solo con la otra pieza.
+  // ==========================================================
 
+  const wrongDirection =
+    (
+      valueKey === "scored" &&
+      rawSlope > 0
+    ) ||
+    (
+      valueKey === "allowed" &&
+      rawSlope < 0
+    );
+
+
+  if (
+    wrongDirection
+  ) {
+    return {
+      usable: false,
+      sampleSize:
+        samples.length,
+      averageOpponentBpi,
+      rawSlope,
+      slope:
+        0
+    };
+  }
 
   // Proteccion contra datos raros.
   //
