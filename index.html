@@ -6166,9 +6166,26 @@ Player Props and Premium Plays for informational purposes only.
   }
 
 
- document.addEventListener(
+document.addEventListener(
   "DOMContentLoaded",
   function () {
+
+    // CashEdge iOS: no utilizar consentimiento publicitario.
+    // No mostrar avisos ni ventanas de cookies.
+    if (IS_IOS_APP) {
+      window.ceSetPrivacyPreferences({
+        analytics: false,
+        advertising: false
+      });
+
+      const banner = document.getElementById("cePrivacyBanner");
+      const modal = document.getElementById("cePrivacyModal");
+
+      if (banner) banner.style.display = "none";
+      if (modal) modal.style.display = "none";
+
+      return;
+    }
 
     const preferences =
       window.ceGetPrivacyPreferences();
