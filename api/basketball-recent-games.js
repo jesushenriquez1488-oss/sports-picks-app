@@ -1079,6 +1079,43 @@ function calcNcaabSimilarCheck(
 
 
 // ============================================================
+// NCAAB — LOGO DEL EQUIPO (ESPN)
+// ============================================================
+
+function getNcaabTeamLogo(
+  team
+) {
+
+  const logos =
+    Array.isArray(
+      team?.logos
+    )
+      ? team.logos
+      : [];
+
+
+  const href =
+    logos.find(
+      logo =>
+        Array.isArray(logo?.rel) &&
+        logo.rel.includes("default")
+    )?.href ||
+    logos[0]?.href ||
+    null;
+
+
+  if (href) {
+    return href;
+  }
+
+
+  return team?.id
+    ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${team.id}.png`
+    : null;
+}
+
+
+// ============================================================
 // NCAAB — LÍMITE DE LLAMADAS EN PARALELO A ESPN
 // ============================================================
 
@@ -1937,6 +1974,21 @@ async function enrichNcaabGame(
     teamBpiDef:
       teamProfile?.def ?? null,
 
+    teamBpiRank:
+      teamProfile?.rank ?? null,
+
+
+    // Para la tarjeta: id y logo ESPN del equipo.
+    teamEspnId:
+      team?.id
+        ? String(team.id)
+        : null,
+
+    teamLogo:
+      getNcaabTeamLogo(
+        team
+      ),
+
 
     // BPI del rival de ESE juego
     // (de la temporada de ese juego).
@@ -2211,6 +2263,15 @@ async function getNcaabBpiProfile(
         "bpidefense"
       );
 
+    // Puesto en el ranking BPI de Division I
+    // (1 = mejor). Se usa para el "Power" 0-100
+    // de la tarjeta.
+    const rank =
+      extractNamedStat(
+        data,
+        "bpirank"
+      );
+
 
     profile =
       Number.isFinite(bpi)
@@ -2223,6 +2284,10 @@ async function getNcaabBpiProfile(
             def:
               Number.isFinite(def)
                 ? def
+                : null,
+            rank:
+              Number.isFinite(rank)
+                ? rank
                 : null
           }
         : null;
