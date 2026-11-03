@@ -10472,8 +10472,11 @@ if (
     console.error("[NCAAB_DEBUG] ERROR", debugError?.message);
   }
 }
+           // NBA y NCAAB muestran el pick desde 51%.
+      // WNBA se queda en 60%.
       const minimumVisibleConfidence =
-      selectedLeague === "nba"
+      selectedLeague === "nba" ||
+      selectedLeague === "ncaab"
         ? 51
         : 60;
 
