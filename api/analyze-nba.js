@@ -10255,7 +10255,153 @@ else if (hasTotalMarket) {
     pickPrice = Number(rawPrice);
   }
 }
+// ============================================================
+// NCAAB DEBUG LOG — SOLO LECTURA
+// No cambia cálculos ni la respuesta. Buscar en Vercel: [NCAAB_DEBUG]
+// ============================================================
 
+if (
+  selectedLeague === "ncaab"
+) {
+  try {
+
+    const round2 =
+      value =>
+        Number.isFinite(Number(value))
+          ? Number(Number(value).toFixed(2))
+          : null;
+
+    const debugSeasonCount =
+      games => {
+        const seasons =
+          (games || [])
+            .map(g => Number(g?.season))
+            .filter(Number.isFinite);
+
+        const newest =
+          seasons.length ? Math.max(...seasons) : null;
+
+        return {
+          total: (games || []).length,
+          newestSeason: newest,
+          newestSeasonGames: seasons.filter(s => s === newest).length,
+          olderSeasonGames: seasons.filter(s => s !== newest).length
+        };
+      };
+
+    const debugFormula =
+      games => {
+        const f = calcNBATeamFormula(games);
+
+        return {
+          offenseAvg: round2(f.offenseAvg),
+          defenseAllowedAvg: round2(f.defenseAllowedAvg),
+          offensiveEdgeAvg: round2(f.offensiveEdgeAvg),
+          defensiveEdgeAvg: round2(f.defensiveEdgeAvg)
+        };
+      };
+
+    const debugBpi =
+      bpi => ({
+        points: round2(bpi?.points),
+        teamBpi: round2(bpi?.currentTeamBpi),
+        opponentBpi: round2(bpi?.currentOpponentBpi),
+        offenseAdj: round2(bpi?.offenseAdjustment),
+        defenseAdj: round2(bpi?.defenseAdjustment),
+        offenseSlope: round2(bpi?.offenseSlope),
+        offenseRawSlope: round2(bpi?.offenseRawSlope),
+        defenseSlope: round2(bpi?.defenseSlope),
+        defenseRawSlope: round2(bpi?.defenseRawSlope),
+        offenseAvgOppBpi: round2(bpi?.offenseAverageOpponentBpi),
+        defenseAvgOppBpi: round2(bpi?.defenseAverageOpponentBpi),
+        offenseSamples: bpi?.offenseSampleSize ?? null,
+        defenseSamples: bpi?.defenseSampleSize ?? null
+      });
+
+    const debugGames =
+      games =>
+        (games || []).map(g => [
+          String(g?.date || "").slice(0, 10),
+          g?.season ?? null,
+          g?.isHome ? "H" : "A",
+          g?.opponent || "",
+          round2(g?.scored),
+          round2(g?.allowed),
+          round2(g?.opponentAvgScored),
+          round2(g?.opponentAvgAllowed),
+          round2(g?.opponentBpi)
+        ]);
+
+    // 1) RESUMEN DEL PARTIDO
+    console.log(
+      "[NCAAB_DEBUG] SUMMARY " +
+      JSON.stringify({
+        game: `${awayTeam} @ ${homeTeam}`,
+        gameTime,
+        market: {
+          awaySpread: currentMarket.awaySpread,
+          homeSpread: currentMarket.homeSpread,
+          total: currentMarket.total
+        },
+        away: {
+          team: awayTeam,
+          sample: debugSeasonCount(awayGames),
+          formula: debugFormula(awayGames),
+          baseProjection: round2(awayCalc.projection),
+          bpi: debugBpi(awayBpi),
+          afterBpi: round2(awayProjectionAfterBpi),
+          afterPace: round2(awayProjectionAfterPace),
+          rest: round2(awayRest?.points),
+          injuryOffense: round2(awayInjuries?.offenseImpact),
+          injuryDefense: round2(awayInjuries?.defenseImpact),
+          final: round2(projA)
+        },
+        home: {
+          team: homeTeam,
+          sample: debugSeasonCount(homeGames),
+          formula: debugFormula(homeGames),
+          baseProjection: round2(homeCalc.projection),
+          bpi: debugBpi(homeBpi),
+          afterBpi: round2(homeProjectionAfterBpi),
+          afterPace: round2(homeProjectionAfterPace),
+          rest: round2(homeRest?.points),
+          injuryOffense: round2(homeInjuries?.offenseImpact),
+          injuryDefense: round2(homeInjuries?.defenseImpact),
+          final: round2(projB)
+        },
+        projectedTotal: round2(totalProj),
+        projectedMargin_awayMinusHome: round2(projectedMargin),
+        edges: {
+          awaySpread: round2(awaySpreadEdge),
+          homeSpread: round2(homeSpreadEdge),
+          total: round2(totalEdge)
+        },
+        confidence: {
+          spread: spreadConfidence,
+          total: totalConfidence
+        },
+        pick,
+        mainEdge: round2(mainEdge),
+        premium: mainEdge >= 13
+      })
+    );
+
+    // 2) JUEGOS USADOS POR CADA EQUIPO
+    // [fecha, temporada, H/A, rival, anotó, permitió,
+    //  rival anotaba antes, rival permitía antes, BPI rival]
+    console.log(
+      "[NCAAB_DEBUG] GAMES " +
+      JSON.stringify({
+        game: `${awayTeam} @ ${homeTeam}`,
+        away: debugGames(awayGames),
+        home: debugGames(homeGames)
+      })
+    );
+
+  } catch (debugError) {
+    console.error("[NCAAB_DEBUG] ERROR", debugError?.message);
+  }
+}
       const minimumVisibleConfidence =
       selectedLeague === "nba"
         ? 51
