@@ -1450,23 +1450,94 @@ async function getNcaabSeasonBpi(
   }
 
 
-  const bpiMap =
-    await getNcaabSeasonBpiMap(
-      season
-    );
+  // ==========================================================
+  // BPI POR EQUIPO
+  //
+  // La lista completa (getNcaabSeasonBpiMap)
+  // solo devuelve 25 equipos aunque pidamos
+  // limit=100, así que casi ningún equipo
+  // tenía BPI.
+  //
+  // El endpoint por equipo sí lo trae
+  // para todos (ej. Wofford 2027 = -4.76).
+  //
+  // Se guarda 24 horas por equipo y temporada,
+  // incluso cuando ESPN no lo tiene (null),
+  // para no repetir llamadas.
+  // ==========================================================
+
+  const cacheKey =
+    `team:${season}:${teamId}`;
 
 
-  const value =
-    bpiMap[
-      String(teamId)
+  const cached =
+    ncaabBpiCache[
+      cacheKey
     ];
 
 
-  return Number.isFinite(
-    value
-  )
-    ? value
-    : null;
+  if (
+    cached &&
+    Date.now() -
+      cached.time <
+      BPI_CACHE_TIME
+  ) {
+    return cached.data;
+  }
+
+
+  let value =
+    null;
+
+
+  try {
+
+    const url =
+      `https://sports.core.api.espn.com/v2/sports/basketball/leagues/mens-college-basketball/seasons/${season}/powerindex/${teamId}?lang=en&region=us`;
+
+
+    const data =
+      await fetchEspnJson(
+        url
+      );
+
+
+    const bpi =
+      extractBpiValue(
+        data
+      );
+
+
+    value =
+      Number.isFinite(
+        bpi
+      )
+        ? bpi
+        : null;
+
+  } catch (error) {
+
+    // Equipos sin BPI (ej. rivales
+    // fuera de Division I) dan error.
+    // No debe tumbar el análisis.
+    value =
+      null;
+  }
+
+
+  ncaabBpiCache[
+    cacheKey
+  ] = {
+
+    data:
+      value,
+
+    time:
+      Date.now()
+  };
+
+
+  return value;
 }
 
 
