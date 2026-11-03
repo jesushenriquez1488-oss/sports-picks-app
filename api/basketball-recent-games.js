@@ -841,14 +841,18 @@ function mapNcaabScheduleEvent(
       ?.completed === true;
 
 
+  // ESPN schedule manda score como objeto
+  // { value: 70, displayValue: "70" }.
+  // El scoreboard lo manda como texto "70".
+  // parseEspnScore acepta los dos formatos.
   const scored =
-    Number(
+    parseEspnScore(
       ourTeam.score
     );
 
 
   const allowed =
-    Number(
+    parseEspnScore(
       opponent.score
     );
 
@@ -887,6 +891,40 @@ function mapNcaabScheduleEvent(
       opponent.team.abbreviation ||
       ""
   };
+}
+
+
+// ============================================================
+// NCAAB — PARSE ESPN SCORE
+// ============================================================
+
+function parseEspnScore(
+  score
+) {
+
+  if (
+    score === null ||
+    score === undefined ||
+    score === ""
+  ) {
+    return NaN;
+  }
+
+
+  if (
+    typeof score ===
+    "object"
+  ) {
+    return Number(
+      score.value ??
+      score.displayValue
+    );
+  }
+
+
+  return Number(
+    score
+  );
 }
 
 
