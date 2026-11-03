@@ -11,6 +11,9 @@
 // Oct-31: ROTATION → 5 versions (A–E) of text, hashtags and image colors, changing every 2 days
 //         (Mon Nov 2 = A). Same version on X and Facebook. Preview any version with &v=a … &v=e.
 // Oct-31: the same posts also go to the Facebook page "CashEdge AI" (FB_PAGE_ID + FB_PAGE_TOKEN).
+// Nov-3: on Facebook every post goes out as a REEL (9 s vertical video, audio of the day's version,
+//        files /reel-a.mp3 … /reel-e.mp3 at the root of the site). If the Reel fails, it posts the photo.
+//        Turn Reels off without touching code: Vercel env var FB_REELS = off.
 // On Facebook: real link instead of "link in bio" and the full 21+ / 1-800-MY-RESET line.
 // Each network is logged on its own in social_post_log (channel "x" / "facebook"):
 // if one fails, the other still posts, and the failed one retries on the next run.
@@ -30,6 +33,9 @@ const FB_PAGE_ID = process.env.FB_PAGE_ID;
 const FB_PAGE_TOKEN = process.env.FB_PAGE_TOKEN;
 const FB_API = "https://graph.facebook.com/v26.0";
 const FB_ON = !!(FB_PAGE_ID && FB_PAGE_TOKEN);
+const REELS_ON = process.env.FB_REELS !== "off";
+const REEL_W = 1080;
+const REEL_H = 1920;
 
 // ── CONFIG ─────────────────────────────────────────────────────────────────
 const TABLE = "picks_history";
@@ -167,6 +173,34 @@ async function postFacebook(text, png) {
     }
   }
   return send("feed", false);
+}
+
+// ── Facebook REELS ─────────────────────────────────────────────────────────
+// 3 steps (Meta Reels Publishing API): start the upload → upload the mp4 → publish with the text.
+async function fbForm(url, params) {
+  const res = await fetch(url, { method: "POST", body: new URLSearchParams(params) });
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(`Facebook Reel: ${data?.error?.message || JSON.stringify(data)}`);
+  return data;
+}
+
+async function postFacebookReel(text, mp4) {
+  const start = await fbForm(`${FB_API}/${FB_PAGE_ID}/video_reels`,
+    { upload_phase: "start", access_token: FB_PAGE_TOKEN });
+  const videoId = start.video_id;
+  const up = await fetch(start.upload_url || `https://rupload.facebook.com/video-upload/v26.0/${videoId}`, {
+    method: "POST",
+    headers: { "Authorization": `OAuth ${FB_PAGE_TOKEN}`, "offset": "0", "file_size": String(mp4.length) },
+    body: mp4
+  });
+  const upData = await up.json().catch(() => ({}));
+  if (!up.ok || upData.success === false || upData.error) {
+    throw new Error(`Facebook Reel upload: ${upData?.error?.message || JSON.stringify(upData)}`);
+  }
+  const fin = await fbForm(`${FB_API}/${FB_PAGE_ID}/video_reels`, {
+    upload_phase: "finish", video_id: videoId, video_state: "PUBLISHED", description: text, access_token: FB_PAGE_TOKEN
+  });
+  return { reel: true, video_id: videoId, ...fin };
 }
 
 // ── Supabase ───────────────────────────────────────────────────────────────
@@ -508,7 +542,9 @@ const PROPS_HEAD = ["3 FREE PLAYER PROPS", "PROPS ON THE BOARD TODAY", "PLAYER P
 
 function winnersImage(wins) {
   const t = theme();
-  const shown = wins.slice(0, 5);
+  // Max 4 rows (same as the post text): with 5 rows the footer with the 21+ line falls out of the image
+  const MAX = 4;
+  const shown = wins.slice(0, MAX);
   return frame(`YESTERDAY · ${prettyDate(-1)}`,
     h("div", { display: "flex", alignItems: "baseline" },
       h("div", { display: "flex", fontSize: 80, color: t.a, fontWeight: 900 }, String(wins.length)),
@@ -527,7 +563,7 @@ function winnersImage(wins) {
         ),
         badge("win")
       )),
-      wins.length > 5 ? h("div", { display: "flex", fontSize: 22, color: t.a, fontWeight: 800 }, `+${wins.length - 5} more winners`) : null
+      wins.length > MAX ? h("div", { display: "flex", fontSize: 22, color: t.a, fontWeight: 800 }, `+${wins.length - MAX} more winners`) : null
     )
   );
 }
@@ -663,10 +699,10 @@ async function loadFonts() {
   return FONTS;
 }
 
-async function renderPng(element) {
+async function renderPng(element, width = IMG_W, height = IMG_H) {
   const { ImageResponse } = await import("@vercel/og");
   const fonts = await loadFonts();
-  const img = new ImageResponse(element, { width: IMG_W, height: IMG_H, fonts });
+  const img = new ImageResponse(element, { width, height, fonts });
   return Buffer.from(await img.arrayBuffer());
 }
 
@@ -709,12 +745,91 @@ const PROPS_COPY = [
 ];
 const LEGAL = "\n\n21+ | Not betting advice";
 
+// ── REEL (Facebook): vertical 1080x1920 background + the post image sliding in + audio ──
+const REEL_HEAD = {
+  pick: ["FREE PREMIUM PLAY", "TODAY'S FREE ONE", "ONE PREMIUM PICK, FREE", "FREE PLAY OF THE DAY", "NO PAYWALL TODAY"],
+  market: ["THE MARKET JUST MOVED", "WATCH THIS LINE", "SHARP SIGNAL?", "LINE MOVE ALERT", "WHERE'S THE MONEY?"]
+};
+const REEL_CARD_Y = 760; // where the post image (1000 x 562) lands in the video
+
+// Background of the Reel: headline on top, empty space for the image, link + 21+ line below.
+// Everything important stays between y 260 and 1460 (Facebook covers the top and bottom with its buttons).
+function reelFrame(head, sub) {
+  const t = theme();
+  return h("div", {
+    width: REEL_W, height: REEL_H, display: "flex", flexDirection: "column", alignItems: "center", position: "relative",
+    backgroundColor: t.bg, fontFamily: "Inter, InterGreek", padding: "250px 60px 0 60px",
+    backgroundImage: `radial-gradient(circle at 50% 28%, ${t.glow}, rgba(0,0,0,0) 62%)`
+  },
+    h("div", { display: "flex", fontSize: 66, fontWeight: 900 },
+      h("span", { color: C.white }, "Cash"),
+      h("span", { color: t.a }, "Edge")
+    ),
+    h("div", { display: "flex", width: 260, height: 8, marginTop: 14, backgroundImage: `linear-gradient(90deg, ${t.a}, ${t.b})` }),
+    h("div", { display: "flex", fontSize: 30, color: t.a, letterSpacing: 6, fontWeight: 800, marginTop: 44 }, sub || ""),
+    h("div", { display: "flex", fontSize: 84, color: C.white, fontWeight: 900, textAlign: "center", justifyContent: "center",
+      marginTop: 18, lineHeight: 1.05, maxWidth: 960 }, head || ""),
+    h("div", { position: "absolute", top: REEL_CARD_Y - 10, left: 30, width: 1020, height: 582, display: "flex",
+      borderRadius: 24, border: `3px solid ${t.a}66` }),
+    h("div", { position: "absolute", top: 1380, left: 0, width: REEL_W, display: "flex", flexDirection: "column", alignItems: "center" },
+      h("div", { display: "flex", fontSize: 40, color: t.b, fontWeight: 900 }, "Free picks daily → cashedgeapp.com"),
+      h("div", { display: "flex", fontSize: 28, color: C.muted, marginTop: 16 }, "21+ | Not betting advice | 1-800-MY-RESET")
+    )
+  );
+}
+
+// 9-second mp4: fade in, the post image slides up into place, slow zoom, audio of the day's version
+async function makeReelVideo(post, png) {
+  const { default: ffmpegPath } = await import("ffmpeg-static");
+  const { spawn } = await import("child_process");
+  const fs = (await import("fs")).promises;
+  const id = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+  const f = { bg: `/tmp/reel-bg-${id}.png`, card: `/tmp/reel-card-${id}.png`, audio: `/tmp/reel-${id}.mp3`, out: `/tmp/reel-${id}.mp4` };
+
+  const letter = VERSION_NAMES[versionIdx()].toLowerCase();
+  const audio = await fetch(`${SITE}/reel-${letter}.mp3`); // files at the root of the site
+  if (!audio.ok) throw new Error(`Reel audio reel-${letter}.mp3: HTTP ${audio.status}`);
+  await fs.writeFile(f.audio, Buffer.from(await audio.arrayBuffer()));
+  await fs.writeFile(f.bg, await renderPng(reelFrame(post.reelHead, post.reelSub), REEL_W, REEL_H));
+  await fs.writeFile(f.card, png);
+
+  const D = 9, FPS = 30;
+  const filter =
+    `[1:v]scale=1000:-2,format=rgba[c];` +
+    `[0:v][c]overlay=x=40:y='if(lt(t,0.3),${REEL_H},max(${REEL_CARD_Y},${REEL_H}-(t-0.3)*2600))'[o];` +
+    `[o]zoompan=z='1+0.05*on/${D * FPS}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${REEL_W}x${REEL_H}:fps=${FPS},` +
+    `fade=t=in:st=0:d=0.3,fade=t=out:st=${D - 0.6}:d=0.6,format=yuv420p[v]`;
+  const args = [
+    "-y", "-loop", "1", "-framerate", String(FPS), "-t", String(D), "-i", f.bg,
+    "-loop", "1", "-framerate", String(FPS), "-t", String(D), "-i", f.card,
+    "-i", f.audio,
+    "-filter_complex", filter, "-map", "[v]", "-map", "2:a",
+    "-t", String(D), "-r", String(FPS), "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
+    "-g", String(FPS * 2), "-keyint_min", String(FPS * 2), "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
+    "-movflags", "+faststart", f.out
+  ];
+  try {
+    await new Promise((resolve, reject) => {
+      const p = spawn(ffmpegPath, args);
+      let err = "";
+      p.stderr.on("data", d => { err = (err + d).slice(-1500); });
+      p.on("error", reject);
+      p.on("close", code => code === 0 ? resolve() : reject(new Error(`ffmpeg ${code}: ${err}`)));
+    });
+    return await fs.readFile(f.out);
+  } finally {
+    await Promise.all(Object.values(f).map(x => fs.unlink(x).catch(() => {})));
+  }
+}
+
 async function buildFreePick(kick) {
   const p = await getTodayFreePick(kick);
   if (!p) return null;
   const s = sportOf(p);
   return {
     text: FREE_PICK_COPY[versionIdx()](SPORT_TAG[s] || "Sports", SPORT_EMOJI[s] || "🎯", pickLabel(p), gameLabel(p)) + LEGAL,
+    reelHead: REEL_HEAD.pick[versionIdx()],
+    reelSub: `${SPORT_TAG[s] || "TODAY"} · ${prettyDate(0)}`,
     image: freePickImage(p),
     pickId: p.id,
     gameId: p.game_id,
@@ -734,6 +849,8 @@ function buildWinners(rows) {
   const sp = Object.keys(count).sort((a, b) => count[b] - count[a])[0] || "Sports";
   return {
     text: WINNERS_COPY[versionIdx()](wins.length, prettyDate(-1), lines.join("\n") + more, sp) + LEGAL,
+    reelHead: `${wins.length} ${WINNERS_HEAD[versionIdx()](wins.length)}`,
+    reelSub: `YESTERDAY · ${prettyDate(-1)}`,
     image: winnersImage(wins)
   };
 }
@@ -746,6 +863,8 @@ async function buildProps(kick) {
   const tag = SPORT_TAG[props[0].sport] || "";
   return {
     text: PROPS_COPY[versionIdx()](tag, lines.join("\n")) + LEGAL,
+    reelHead: PROPS_HEAD[versionIdx()],
+    reelSub: `${tag ? tag + " " : ""}PLAYER PROPS · ${prettyDate(0)}`,
     image: propsImage(props)
   };
 }
@@ -795,7 +914,8 @@ async function buildMarketAuto() {
   const order = [...AUTO_MARKET_TYPES.slice(k), ...AUTO_MARKET_TYPES.slice(0, k)];
   const s = await buildMarketStory("x", order);
   if (!s) return null;
-  return { text: s.text, png: s.png, templateId: s.templateId, gameId: s.gameId };
+  return { text: s.text, png: s.png, templateId: s.templateId, gameId: s.gameId,
+    reelHead: REEL_HEAD.market[k], reelSub: `MARKET INTEL · ${prettyDate(0)}` };
 }
 
 const BUILDERS = {
@@ -996,7 +1116,7 @@ async function makeImage(post) {
 
 // ── Handler ────────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
-  const { type, dry, img, set, v } = req.query;
+  const { type, dry, img, set, v, reel } = req.query;
   // &v=a … &v=e forces a version (only for previews); otherwise the version of today's date
   FORCED_V = /^[a-e]$/i.test(String(v || "")) ? "abcde".indexOf(String(v).toLowerCase()) : null;
 
@@ -1019,6 +1139,13 @@ export default async function handler(req, res) {
       }
 
       if (dry === "1") {
+        // &reel=1 → the Facebook Reel video (mp4) of the post that is due now
+        if (reel === "1" && post) {
+          const mp4 = await makeReelVideo(post, await makeImage(post));
+          res.setHeader("Content-Type", "video/mp4");
+          res.setHeader("Cache-Control", "no-store");
+          return res.status(200).send(mp4);
+        }
         if (img === "1" && post) {
           const png = await makeImage(post);
           res.setHeader("Content-Type", "image/png");
@@ -1065,7 +1192,16 @@ export default async function handler(req, res) {
       }
       if (channels.includes("facebook")) {
         try {
-          posted.facebook = await postFacebook(fbText(post.text), png);
+          // Reel first; if anything fails (video, upload, publish) → the normal photo post
+          let fbRes = null;
+          if (png && REELS_ON && post.reelHead) {
+            try {
+              fbRes = await postFacebookReel(fbText(post.text), await makeReelVideo(post, png));
+            } catch (e) {
+              console.error("Facebook Reel failed, posting photo:", e);
+            }
+          }
+          posted.facebook = fbRes || await postFacebook(fbText(post.text), png);
           await logPost("facebook", slot, post.templateId || slot, post.gameId || null);
         } catch (e) {
           console.error("Facebook post failed:", e);
@@ -1095,6 +1231,13 @@ export default async function handler(req, res) {
 
     // Preview (posts nothing): &dry=1 shows the text, &dry=1&img=1 shows the image
     if (dry === "1") {
+      if (reel === "1") {
+        if (!post) return res.status(200).json({ ok: true, type, preview: null });
+        const mp4 = await makeReelVideo(post, await makeImage(post));
+        res.setHeader("Content-Type", "video/mp4");
+        res.setHeader("Cache-Control", "no-store");
+        return res.status(200).send(mp4);
+      }
       if (img === "1") {
         if (!post) return res.status(200).json({ ok: true, type, preview: null });
         const png = await makeImage(post);
