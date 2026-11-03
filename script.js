@@ -4242,6 +4242,59 @@ function ensureNcaabCardStyles() {
       cursor:pointer;
       text-transform:uppercase;
     }
+    /* ===== PREMIUM: estilo llama (naranja) ===== */
+    .ce-ncaab-card.is-premium{
+      border-color:rgba(255,140,26,.55);
+      background:
+        radial-gradient(circle at 100% 0%, rgba(255,140,26,.16), transparent 42%),
+        radial-gradient(circle at 0% 100%, rgba(124,60,255,.10), transparent 45%),
+        #050b16;
+      box-shadow:0 0 0 1px rgba(255,140,26,.10), 0 0 28px rgba(255,90,20,.12), 0 18px 45px rgba(0,0,0,.35);
+    }
+    .ce-ncaab-card.is-premium::before{
+      content:"";
+      position:absolute;
+      top:0;left:0;right:0;
+      height:3px;
+      background:linear-gradient(90deg, #ff3d00, #ff8c1a, #ffb35c, #ff8c1a, #ff3d00);
+    }
+    .ce-ncaab-badge.is-premium{
+      color:#ffb35c;
+      background:rgba(255,140,26,.12);
+      border-color:rgba(255,140,26,.45);
+    }
+    .ce-ncaab-card.is-premium .ce-ncaab-conf{
+      border-color:#ff8c1a;
+      background:radial-gradient(circle, rgba(255,140,26,.18), rgba(255,61,0,.04) 70%);
+      animation:ceNcaabFlame 2.4s ease-in-out infinite;
+    }
+    .ce-ncaab-card.is-premium .ce-ncaab-conf strong{
+      color:#ffb35c;
+    }
+    .ce-ncaab-card.is-premium .ce-ncaab-pick-label{
+      color:#ff8c1a;
+    }
+    .ce-ncaab-card.is-premium .ce-ncaab-edge{
+      border-color:rgba(255,140,26,.40);
+      background:rgba(255,140,26,.06);
+    }
+    .ce-ncaab-card.is-premium .ce-ncaab-edge strong{
+      color:#ffb35c;
+    }
+    .ce-ncaab-tag{
+      font-size:9px;
+      font-weight:800;
+      letter-spacing:.12em;
+      color:#ff8c1a;
+      text-transform:uppercase;
+    }
+    @keyframes ceNcaabFlame{
+      0%,100%{ box-shadow:0 0 10px rgba(255,140,26,.35), 0 0 22px rgba(255,61,0,.15); }
+      50%{ box-shadow:0 0 18px rgba(255,140,26,.60), 0 0 36px rgba(255,61,0,.28); }
+    }
+    @media (prefers-reduced-motion: reduce){
+      .ce-ncaab-card.is-premium .ce-ncaab-conf{ animation:none; }
+    }
     @media (max-width:420px){
       .ce-ncaab-pick{ font-size:20px; }
       .ce-ncaab-score{ font-size:26px; }
@@ -4411,7 +4464,7 @@ function renderNCAABCard({
 
   const statsHTML = `
     <div class="ce-ncaab-stats">
-      <div class="ce-ncaab-stat">
+      <div class="ce-ncaab-stat ce-ncaab-edge">
         <small>Edge</small>
         <strong>${locked || !Number.isFinite(edge) ? "--" : edge.toFixed(1)}</strong>
         ${locked ? "" : `<em style="color:#5f7699;">pts vs line</em>`}
@@ -4454,10 +4507,11 @@ function renderNCAABCard({
     <div class="ce-ncaab-card ${isPremium ? "is-premium" : ""}">
 
       <div class="ce-ncaab-top">
-        <span class="ce-ncaab-badge ${isPremium ? "" : "is-normal"}">
-          <span class="ce-ncaab-dot"></span>
+        <span class="ce-ncaab-badge ${isPremium ? "is-premium" : "is-normal"}">
+          ${isPremium ? "🔥" : `<span class="ce-ncaab-dot"></span>`}
           ${isPremium ? "Premium Pick · NCAAB" : "Featured Play · NCAAB"}
         </span>
+        ${isPremium ? `<span class="ce-ncaab-tag">High edge</span>` : ""}
       </div>
 
       <div class="ce-ncaab-pickrow">
