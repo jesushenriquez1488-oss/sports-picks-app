@@ -259,7 +259,19 @@ async function getTodayFreePick(kick = new Map()) {
 
   const saved = await sbSelect("x_free_plays", `select=pick_id&post_date=eq.${chicagoDate(0)}&limit=1`);
   if (saved[0]) {
-    const rows = await sbSelect(TABLE, `select=*&id=eq.${saved[0].pick_id}&limit=1`);
+    let rows = await sbSelect(TABLE, `select=*&id=eq.${saved[0].pick_id}&limit=1`);
+    if (!rows[0]) {
+      // The pick was regenerated after it was posted (new id). Use today's Premium pick of the SAME game,
+      // taken from the game logged when the free pick was posted. A Premium pick never flips sides.
+      const logged = await sbSelect("social_post_log",
+        `select=game_id,posted_at&slot=eq.pick&game_id=not.is.null&posted_at=gte.${new Date(Date.now() - 26 * 3600e3).toISOString()}&order=posted_at.asc&limit=20`);
+      const gid = logged.find(l => chiParts(new Date(l.posted_at)).date === chicagoDate(0))?.game_id;
+      if (gid) {
+        rows = await sbSelect(TABLE,
+          `select=*&is_premium=eq.true&game_id=eq.${encodeURIComponent(gid)}&${DATE_COL}=eq.${chicagoDate(0)}&limit=1`);
+        if (rows[0]) await saveFreePlay(rows[0].id); // x_free_plays points to the live pick again
+      }
+    }
     return playable(rows[0]) ? rows[0] : null;
   }
 
@@ -283,11 +295,19 @@ function chiParts(d = new Date()) {
 const hhmm = m => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
 
 // Kickoff of every game today, from the odds feed (same source the story engine uses)
+// Supabase returns at most 1,000 rows per request, so it reads page by page (Nov-3 fix:
+// with a single request the early games were cut off and the bot thought the day started later).
 async function getTodayKickoffs() {
   const since = new Date(Date.now() - 36 * 3600e3).toISOString();
-  const rows = await sbSelect("market_odds_updates",
-    `select=cashedge_game_id,commence:raw_payload->>commence_time,home:raw_payload->>home_team,away:raw_payload->>away_team` +
-    `&observed_at=gte.${since}&limit=10000`);
+  const PAGE = 1000;
+  const rows = [];
+  for (let page = 0; page < 30; page++) {
+    const batch = await sbSelect("market_odds_updates",
+      `select=cashedge_game_id,commence:raw_payload->>commence_time,home:raw_payload->>home_team,away:raw_payload->>away_team` +
+      `&observed_at=gte.${since}&order=observed_at.desc,cashedge_game_id.asc&limit=${PAGE}&offset=${page * PAGE}`);
+    rows.push(...batch);
+    if (batch.length < PAGE) break;
+  }
   const today = chicagoDate(0);
   const map = new Map();
   for (const r of rows) {
@@ -338,7 +358,9 @@ async function getTodayFreeProps(kick = new Map()) {
     if (seenGames.has(r.game)) continue; // newest analysis per game only
     seenGames.add(r.game);
     const t = kick.get(r.game);
-    if (t && t.getTime() <= soon) continue; // game about to start / started
+    // Only games with a confirmed kickoff TODAY (the cache can hold tomorrow's games, e.g. Sunday NFL
+    // props on Saturday), and never a game about to start / started
+    if (!t || t.getTime() <= soon) continue;
     for (const p of r.analysis_json?.props || []) {
       if (!p?.player || p.line == null || !p.side) continue;
       all.push({ ...p, sport: String(r.sport || "").toLowerCase(), game: r.game, american: americanOdds(p.odds) });
@@ -776,7 +798,12 @@ async function buildMarketAuto() {
   return { text: s.text, png: s.png, templateId: s.templateId, gameId: s.gameId };
 }
 
-const BUILDERS = { morning: buildReceipts, pick: buildFreePick, teaser: buildTeaser, results: buildRecord, market: buildMarket };
+const BUILDERS = {
+  morning: buildReceipts, pick: buildFreePick, teaser: buildTeaser, results: buildRecord, market: buildMarket,
+  // previews of the auto posts (e.g. ?type=winners&dry=1&img=1&v=c)
+  winners: async () => buildWinners(await getYesterdayPremium()),
+  props: async () => buildProps(await getTodayKickoffs())
+};
 
 // ── AUTO: decides which posts are due right now and on which channels ───────
 // Returns the due slots in order (winners → pick → props), each with the channels still missing it.
@@ -1057,7 +1084,7 @@ export default async function handler(req, res) {
   // ── Manual types (previews / one-off posts; no longer in the cron) ──
   const build = BUILDERS[type];
   if (!build) {
-    return res.status(400).json({ error: "Invalid type. Use: auto, morning, pick, teaser, results, market" });
+    return res.status(400).json({ error: "Invalid type. Use: auto, winners, pick, props, market, morning, teaser, results" });
   }
 
   try {
