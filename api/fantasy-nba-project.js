@@ -132,13 +132,24 @@ const CONFIG = {
   blowoutExpected: 10,
   blowoutCut: 0.2,
   // ESTRELLA 80/20: candidatas = salario de 18% del tope o mas
-  // (DK $9,000 / FD $10,800), fuera de partidos con paliza (salvo la
-  // estrella del favorito). Se ordenan por su TECHO (noche 9,000 de
+  // (DK $9,000 / FD $10,800), fuera de partidos con paliza. 3-nov:
+  // tampoco la estrella del favorito (Wembanyama jugo 24 min el 2-nov). Se ordenan por su TECHO (noche 9,000 de
   // 10,000: ya cuenta defensa rival, minutos y mercado). La #1 va en
   // el 80% de las alineaciones y la #2 en el resto.
   starCore: true,
   starSalaryShare: 0.18,
   starShare: 0.8,
+  // 3-nov (aprobado, prueba 2-nov: 300+ de 5 a 45 en 500):
+  // MINUTOS QUE NO CUADRAN: antes se sacaba a TODO el equipo (el 2-nov
+  // saco a Indiana y Atlanta). Ahora entran con tope de minutos por
+  // jugador. 0 = como antes (fuera el equipo).
+  warnMinutesCap: 38,
+  // BARATOS EN EQUIPO EN CRISIS: uno de $3,500 o menos entra SOLO si
+  // 1) a su equipo le faltan 4+ de sus 7 jugadores con mas minutos esta
+  //    temporada, 2) la formula le da 25+ minutos y 3) jugo la mitad
+  //    de los partidos de su equipo. 24-oct al 2-nov: solo Slawson y
+  //    Kobe Brown (IND 2-nov), los dos cumplieron. null = apagada.
+  cheapCrisis: { top: 7, minOut: 4, minMinutes: 25, minGamesShare: 0.5 },
   // Muestra de prueba: alineaciones extra por version SOLO para
   // medir (nadie las juega). 10 por noche es muy poco para saber
   // que version es mejor.
@@ -173,7 +184,10 @@ const CONFIG = {
   // Antes: "mercado60+techo+recientes".
   // 2-nov (aprobado): + regla del 50% + palizas (titulares -20%) +
   // estrella 80/20. Antes: "mercado70+minutos".
-  formulaVersion: "mercado70+estrella",
+  // 3-nov (aprobado): + minutos con tope 38 (no se saca al equipo) +
+  // baratos en equipo en crisis + sin estrella de paliza.
+  // Antes: "mercado70+estrella".
+  formulaVersion: "mercado70+estrella+crisis",
   // Pruebas en paralelo: mismos datos, un solo ajuste distinto.
   // Solo se archivan; nunca cambian las alineaciones oficiales.
   // 2-nov: la prueba al lado es la formula ANTERIOR (70% sin las 3
@@ -186,6 +200,8 @@ const CONFIG = {
         minGamesShare: 0,
         blowoutCut: 0,
         starCore: false,
+        warnMinutesCap: 0,
+        cheapCrisis: null,
         // La prueba de la anterior se queda en 200, solo DraftKings,
         // para no pasarnos del tiempo de Vercel.
         testLineupCount: 200,
@@ -2670,6 +2686,36 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     return played.size / tg.length;
   };
 
+  // 3-nov: EQUIPO EN CRISIS. Cuantos de sus 7 jugadores con mas
+  // minutos esta temporada (antes de hoy) no estan hoy.
+  const crisisCache = new Map();
+  const crisisOut = team => {
+    if (crisisCache.has(team)) return crisisCache.get(team);
+    const cc = CONFIG.cheapCrisis;
+    const tg = (ctx.teamGames.get(team) || []).filter(g => g.season === CUR);
+    const ids = new Set(tg.map(g => g.id));
+    const totals = new Map();
+    for (const [pid, rows] of ctx.byPlayer) {
+      for (const r of rows) {
+        if (r.team !== team || !ids.has(r.gameId) || !(r.min > 0)) continue;
+        totals.set(Number(pid), (totals.get(Number(pid)) || 0) + r.min);
+      }
+    }
+    const top = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, cc ? cc.top : 7).map(x => x[0]);
+    const tp = teamProjections.get(team);
+    const here = new Set((tp?.rows || []).filter(r => r.minutes > 0).map(r => Number(r.id)));
+    const out = top.filter(id => !here.has(id)).length;
+    crisisCache.set(team, out);
+    return out;
+  };
+  const cheapCrisisOk = (id, team, row) => {
+    const cc = CONFIG.cheapCrisis;
+    if (!cc || !row || !(row.minutes >= cc.minMinutes)) return false;
+    const share = playedShare(id, team);
+    if (share === null || share < cc.minGamesShare) return false;
+    return crisisOut(team) >= cc.minOut;
+  };
+
   const fantasyCache = new Map();
   const projectionRows = [];
   const lineupRows = [];
@@ -2690,10 +2736,15 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
       const id = Number(p.player_id);
       const team = Number(p.team_id);
       const tp = teamProjections.get(team);
-      const row = tp?.rows.find(r => r.id === id);
+      const baseRow = tp?.rows.find(r => r.id === id);
+      // 3-nov: minutos que no cuadran -> tope por jugador (no fuera).
+      const capWarn = tp?.warnings.length && CONFIG.warnMinutesCap > 0;
+      const row = baseRow && capWarn && baseRow.minutes > CONFIG.warnMinutesCap
+        ? { ...baseRow, minutes: CONFIG.warnMinutesCap, minutesCapped: round(baseRow.minutes, 1) }
+        : baseRow;
       const outRow = tp && !row && (ctx.depthByTeam.get(team) || []).some(d => Number(d.nba_player_id) === id);
 
-      if (!(Number(p.salary) >= CONFIG.minSalary)) exclude(p, "SALARIO_3500_O_MENOS", { row });
+      if (!(Number(p.salary) >= CONFIG.minSalary) && !cheapCrisisOk(id, team, row)) exclude(p, "SALARIO_3500_O_MENOS", { row });
       else if (!p.positions?.length) exclude(p, "SIN_POSICION", { row });
       else if (!tp) exclude(p, "EQUIPO_SIN_DEPTH_CHART");
       else if (outRow) exclude(p, "LESION_OUT");
@@ -2702,7 +2753,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
         exclude(p, "JUGO_MENOS_DE_LA_MITAD", { row });
       }
       else if (row.status === "DUDA" || (slateStatus.get(id) || []).some(s => injuryClass(s) !== "")) exclude(p, "LESION_O_DUDA", { row });
-      else if (tp.warnings.length) exclude(p, "MINUTOS_EQUIPO_NO_CUADRAN", { row });
+      else if (tp.warnings.length && !(CONFIG.warnMinutesCap > 0)) exclude(p, "MINUTOS_EQUIPO_NO_CUADRAN", { row });
       // Solo los puestos 1 y 2 que publico ESPN. Un #3 que sube por
       // lesion cuenta para repartir minutos, pero NO entra.
       else if (row.originalRank > CONFIG.maxDepthRank) exclude(p, "FUERA_DEL_TOP2_ESPN", { row });
@@ -2890,7 +2941,8 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
       .filter(p => p.salary >= starMin && p.p90 !== null && p.p90 !== undefined)
       .filter(p => {
         const x = eligible.find(y => String(y.p.player_id) === p.id);
-        return !blowoutTeams.has(Number(x.p.team_id)) || favoriteStars.has(p.id);
+        // 3-nov: ninguna estrella de partido con paliza (ni la del favorito).
+        return !blowoutTeams.has(Number(x.p.team_id));
       })
       .sort((a, b) => b.p90 - a.p90)
       .slice(0, 2);
