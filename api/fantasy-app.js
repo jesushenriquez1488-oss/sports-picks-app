@@ -724,18 +724,23 @@ function dkGameTime(info) {
 
 function normName(v) {
   return str(v).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
-    .replace(/[.'’\-]/g, " ").replace(/\b(jr|sr|ii|iii|iv|v)\b/g, " ").replace(/[^a-z ]/g, " ")
+    .replace(/[.'’]/g, "").replace(/-/g, " ").replace(/\b(jr|sr|ii|iii|iv|v)\b/g, " ").replace(/[^a-z ]/g, " ")
     .replace(/\s+/g, " ").trim();
 }
 
 // Indice nombre+equipo -> nuestra llave (NBA: player_id BDL | NFL: gsis / DST:TEAM)
 async function dkMatchIndex(sport, day) {
   const from = new Date(Date.parse(`${day}T12:00:00Z`) - 10 * 86400000).toISOString().slice(0, 10);
-  const byNameTeam = new Map(), byName = new Map();
+  const byNameTeam = new Map(), byName = new Map(), byLastTeam = new Map();
   const add = (name, team, key) => {
     const n = normName(name);
     if (!n || !key) return;
     byNameTeam.set(`${n}|${team}`, key);
+    // apellido + equipo (para apodos: "Nic" Claxton, "GG" Jackson, "Bub" Carrington)
+    const last = n.split(" ").pop();
+    const lk = `${last}|${team}`;
+    if (!byLastTeam.has(lk)) byLastTeam.set(lk, new Set());
+    byLastTeam.get(lk).add(key);
     if (!byName.has(n)) byName.set(n, new Set());
     byName.get(n).add(key);
   };
@@ -758,7 +763,9 @@ async function dkMatchIndex(sport, day) {
     const exact = byNameTeam.get(`${n}|${team}`);
     if (exact) return exact;
     const any = byName.get(n);
-    return any && any.size === 1 ? [...any][0] : null;   // mismo nombre, cambio de equipo
+    if (any && any.size === 1) return [...any][0];        // mismo nombre, cambio de equipo
+    const sameLast = byLastTeam.get(`${n.split(" ").pop()}|${team}`);
+    return sameLast && sameLast.size === 1 ? [...sameLast][0] : null;  // apodo, mismo apellido y equipo
   };
 }
 
