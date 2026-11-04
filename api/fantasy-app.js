@@ -76,6 +76,8 @@ const TAGS = {
 const str = v => (v === null || v === undefined ? "" : String(v));
 const num = v => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
 const round = (v, d = 1) => (v === null || v === undefined || !Number.isFinite(v) ? null : Math.round(v * 10 ** d) / 10 ** d);
+// BallDontLie a veces guarda el texto "None" o "Active": eso es sin novedad
+const cleanStatus = v => { const t = str(v).trim(); return !t || /^(none|null|active|available)$/i.test(t) ? null : t; };
 const nflTeam = raw => { const v = str(raw).toUpperCase(); return NFL_ALIASES[v] || v; };
 const avg = a => (a.length ? a.reduce((s, x) => s + x, 0) / a.length : null);
 const sd = a => { const m = avg(a); return a.length > 1 ? Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / (a.length - 1)) : null; };
@@ -374,7 +376,7 @@ async function buildNbaCards(slate, version) {
       opp: pj?.opp_team_id ? (NBA_TEAMS[Number(pj.opp_team_id)] || null) : null,
       positions: Array.isArray(sp.positions) ? sp.positions : [],
       salary,
-      status: sp.status || null,
+      status: cleanStatus(sp.status),
       proj: round(proj, 2),
       proj_minutes: round(num(pj?.minutes), 1),
       pts_per_1k: proj !== null && salary ? round(proj / (salary / 1000), 2) : null,
@@ -519,7 +521,7 @@ async function buildNflCards(slate, version) {
       opp: pj?.opponent ? nflTeam(pj.opponent) : null,
       positions: [isDst ? "DST" : str(sp.position || pj?.position).toUpperCase()].filter(Boolean),
       salary,
-      status: sp.status || null,
+      status: cleanStatus(sp.status),
       proj: round(proj, 2),
       proj_minutes: isDst ? null : pct(num(pj?.snap_pct)),
       pts_per_1k: proj !== null && salary ? round(proj / (salary / 1000), 2) : null,
