@@ -13,6 +13,9 @@
 //          (ultimos 10 partidos, promedio de temporada, etiquetas)
 //   action=build-cards &secret=... [&sport=nba|nfl] [&date=YYYY-MM-DD]
 //       -> (cron / manual) prepara las fichas de todos los slates del dia
+//   action=sync-dk &secret=... [&sport=nba|nfl]
+//       -> (cron cada 15 min) lee de DraftKings todos los slates Classic
+//          y Captain de hoy con sus IDs oficiales para el CSV
 //
 // SEGURIDAD
 //   slates y players: solo Premium. El frontend manda el token de
@@ -650,12 +653,217 @@ async function actionBuildCards(req) {
 
 
 // ============================================================
+// DRAFTKINGS: SLATES E IDS OFICIALES (sync-dk)
+// ============================================================
+//
+// Lee la lista publica de concursos de DraftKings y, de cada slate
+// Classic y Showdown Captain, baja su archivo oficial de salarios
+// (el mismo DKSalaries.csv). De ahi salen los IDs exactos que pide
+// el CSV de subida: Classic = un ID por jugador; Captain = un ID
+// para CPT y otro para UTIL.
+// FanDuel NO se lee aqui (se sube a mano).
+
+const DK_LOBBY = "https://www.draftkings.com/lobby/getcontests?sport=";
+const DK_CSV = "https://www.draftkings.com/lineup/getavailableplayerscsv";
+const DK_GAME_TYPES = { "classic": "classic", "showdown captain mode": "captain" };
+const DK_NBA_TEAMS = { GS: "GSW", NO: "NOP", NY: "NYK", SA: "SAS", PHO: "PHX", UTAH: "UTA", WSH: "WAS", BRK: "BKN", CHO: "CHA" };
+const DK_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+  "Accept": "application/json, text/csv, */*"
+};
+
+async function dkFetch(url, asText = false) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const r = await fetch(url, { headers: DK_HEADERS, signal: controller.signal });
+    if (!r.ok) throw new Error(`DraftKings ${r.status} ${url}`);
+    return asText ? await r.text() : await r.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// CSV simple con comillas
+function parseCsv(text) {
+  const rows = [];
+  let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (c === '"') q = false;
+      else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(cell); cell = "";
+      if (row.some(x => x !== "")) rows.push(row);
+      row = [];
+    } else cell += c;
+  }
+  row.push(cell);
+  if (row.some(x => x !== "")) rows.push(row);
+  const head = (rows.shift() || []).map(h => h.trim());
+  return rows.map(r => Object.fromEntries(head.map((h, i) => [h, (r[i] ?? "").trim()])));
+}
+
+// "TOR@DEN 11/04/2026 09:00PM ET" -> fecha UTC (ET = America/New_York)
+function dkGameTime(info) {
+  const m = str(info).match(/(\d{2})\/(\d{2})\/(\d{4}) (\d{1,2}):(\d{2})(AM|PM)/i);
+  if (!m) return null;
+  let h = Number(m[4]) % 12;
+  if (/pm/i.test(m[6])) h += 12;
+  const guess = Date.UTC(Number(m[3]), Number(m[1]) - 1, Number(m[2]), h, Number(m[5]));
+  // diferencia de New York con UTC ese dia (4 o 5 horas)
+  const ny = new Date(new Date(guess).toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const utc = new Date(new Date(guess).toLocaleString("en-US", { timeZone: "UTC" }));
+  return new Date(guess + (utc - ny));
+}
+
+function normName(v) {
+  return str(v).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+    .replace(/[.'’\-]/g, " ").replace(/\b(jr|sr|ii|iii|iv|v)\b/g, " ").replace(/[^a-z ]/g, " ")
+    .replace(/\s+/g, " ").trim();
+}
+
+// Indice nombre+equipo -> nuestra llave (NBA: player_id BDL | NFL: gsis / DST:TEAM)
+async function dkMatchIndex(sport, day) {
+  const from = new Date(Date.parse(`${day}T12:00:00Z`) - 10 * 86400000).toISOString().slice(0, 10);
+  const byNameTeam = new Map(), byName = new Map();
+  const add = (name, team, key) => {
+    const n = normName(name);
+    if (!n || !key) return;
+    byNameTeam.set(`${n}|${team}`, key);
+    if (!byName.has(n)) byName.set(n, new Set());
+    byName.get(n).add(key);
+  };
+  if (sport === "nba") {
+    const rows = await selectAll("fantasy_nba_slate_players", "player_id,player_name,team_abbr,slate_date",
+      q => q.gte("slate_date", from).lte("slate_date", day));
+    for (const r of rows) add(r.player_name, str(r.team_abbr).toUpperCase(), String(r.player_id));
+  } else {
+    const rows = await selectAll("fantasy_nfl_slate_players", "entity_type,gsis_player_id,player_name,team,slate_date",
+      q => q.gte("slate_date", from).lte("slate_date", day));
+    for (const r of rows) {
+      const team = nflTeam(r.team);
+      if (r.entity_type === "team") byNameTeam.set(`DST|${team}`, `DST:${team}`);
+      else if (r.gsis_player_id) add(r.player_name, team, String(r.gsis_player_id));
+    }
+  }
+  return (name, team, isDst) => {
+    if (isDst) return byNameTeam.get(`DST|${team}`) || `DST:${team}`;
+    const n = normName(name);
+    const exact = byNameTeam.get(`${n}|${team}`);
+    if (exact) return exact;
+    const any = byName.get(n);
+    return any && any.size === 1 ? [...any][0] : null;   // mismo nombre, cambio de equipo
+  };
+}
+
+async function syncDkSport(sport, day, nowIso) {
+  const lobby = await dkFetch(DK_LOBBY + sport.toUpperCase());
+  const groups = new Map();
+  for (const c of lobby?.Contests || []) {
+    const type = DK_GAME_TYPES[str(c.gameType).toLowerCase()];
+    if (!type || !c.dg) continue;
+    const ms = Number(str(c.sd).replace(/\D/g, "")) || null;
+    if (!ms || chicagoDay(new Date(ms)) !== day) continue;
+    if (!groups.has(c.dg)) groups.set(c.dg, { dg: Number(c.dg), type, typeId: Number(c.gameTypeId), startsAt: new Date(ms).toISOString(), contests: 0 });
+    groups.get(c.dg).contests++;
+  }
+
+  const match = await dkMatchIndex(sport, day);
+  const out = [];
+  for (const g of groups.values()) {
+    try {
+      const csv = await dkFetch(`${DK_CSV}?contestTypeId=${g.typeId}&draftGroupId=${g.dg}`, true);
+      const rows = parseCsv(csv).filter(r => r.ID && r.Name);
+      const games = new Map();
+      const players = rows.map(r => {
+        const rawTeam = str(r.TeamAbbrev).toUpperCase();
+        const team = sport === "nba" ? (DK_NBA_TEAMS[rawTeam] || rawTeam) : nflTeam(rawTeam);
+        const isDst = sport === "nfl" && /^(DST|D)$/i.test(r.Position);
+        const gi = str(r["Game Info"]);
+        const gameKey = gi.split(" ")[0] || null;
+        if (gameKey && !games.has(gameKey)) games.set(gameKey, dkGameTime(gi));
+        const key = match(r.Name, team, isDst);
+        return {
+          draft_group_id: g.dg,
+          dk_id: Number(r.ID),
+          sport,
+          slate_date: day,
+          roster_position: r["Roster Position"] || null,
+          slot: g.type === "captain" ? (/^CPT$/i.test(r["Roster Position"]) ? "CPT" : "UTIL") : null,
+          player_name: r.Name,
+          team,
+          positions: isDst ? ["DST"] : str(r.Position).toUpperCase().split("/").filter(Boolean),
+          salary: num(r.Salary),
+          status: cleanStatus(r.Status),
+          avg_ppg: num(r.AvgPointsPerGame),
+          game: gameKey,
+          game_start: games.get(gameKey) ? games.get(gameKey).toISOString() : null,
+          player_key: key,
+          checked_at: nowIso
+        };
+      });
+      const times = [...games.values()].filter(Boolean).map(d => d.getTime());
+      await upsertAll("fantasy_app_dk_slates", [{
+        draft_group_id: g.dg, sport, slate_date: day, game_type: g.type, game_type_id: g.typeId,
+        starts_at: times.length ? new Date(Math.min(...times)).toISOString() : g.startsAt,
+        last_starts_at: times.length ? new Date(Math.max(...times)).toISOString() : g.startsAt,
+        games: games.size, game_list: [...games.keys()], contests: g.contests,
+        players: players.length, unmatched: players.filter(p => !p.player_key).length,
+        checked_at: nowIso
+      }], "draft_group_id");
+      if (players.length) {
+        await upsertAll("fantasy_app_dk_players", players, "draft_group_id,dk_id");
+        const { error } = await supabaseAdmin.from("fantasy_app_dk_players").delete()
+          .eq("draft_group_id", g.dg).lt("checked_at", nowIso);
+        if (error) throw new Error(`Supabase fantasy_app_dk_players: ${error.message}`);
+      }
+      out.push({
+        draft_group_id: g.dg, type: g.type, games: games.size, players: players.length,
+        sin_cruce: players.filter(p => !p.player_key).length,
+        ejemplos_sin_cruce: players.filter(p => !p.player_key && p.salary >= 4000).slice(0, 5).map(p => `${p.player_name} ${p.team}`)
+      });
+    } catch (e) {
+      out.push({ draft_group_id: g.dg, type: g.type, error: e.message });
+    }
+  }
+  return out;
+}
+
+async function actionSyncDk(req) {
+  const day = chicagoDay();
+  const nowIso = new Date().toISOString();
+  const only = parseSport(req.query.sport);
+  const result = {};
+  for (const sport of only ? [only] : ["nba", "nfl"]) {
+    try {
+      result[sport] = await syncDkSport(sport, day, nowIso);
+    } catch (e) {
+      result[sport] = { error: e.message };
+    }
+  }
+  return { status: 200, body: { ok: true, date: day, draftkings: result } };
+}
+
+
+// ============================================================
 // HANDLER
 // ============================================================
 
 module.exports = async function handler(req, res) {
   try {
     const action = str(req.query.action).toLowerCase();
+
+    if (action === "sync-dk") {
+      if (!checkSecret(req)) return send(res, 401, { ok: false, error: "BAD_SECRET" });
+      const r = await actionSyncDk(req);
+      return send(res, r.status, r.body);
+    }
 
     if (action === "build-cards") {
       if (!checkSecret(req)) return send(res, 401, { ok: false, error: "BAD_SECRET" });
@@ -670,7 +878,7 @@ module.exports = async function handler(req, res) {
       return send(res, r.status, r.body);
     }
 
-    return send(res, 400, { ok: false, error: "UNKNOWN_ACTION", actions: ["slates", "players", "build-cards"] });
+    return send(res, 400, { ok: false, error: "UNKNOWN_ACTION", actions: ["slates", "players", "build-cards", "sync-dk"] });
   } catch (e) {
     console.error("fantasy-app", e);
     return send(res, 500, { ok: false, error: "SERVER_ERROR", detail: e.message });
@@ -680,4 +888,4 @@ module.exports = async function handler(req, res) {
 module.exports.config = { maxDuration: 60 };
 
 // Para pruebas locales
-module.exports._test = { computeTags, nbaScore, nbaSeason, nflSeason };
+module.exports._test = { computeTags, nbaScore, nbaSeason, nflSeason, parseCsv, dkGameTime, normName };
