@@ -151,6 +151,10 @@ const CONFIG = {
   starCore: true,
   starSalaryShare: 0.18,
   starShare: 0.8,
+  // 4-nov (aprobado): REPARTO DE ESTRELLAS segun cuantas candidatas
+  // haya (las 4 primeras por techo, ninguna de partido con paliza).
+  // Con 1 sola: 80% con ella y 20% libre.
+  starShares: { 1: [0.8], 2: [0.8, 0.2], 3: [0.7, 0.2, 0.1], 4: [0.6, 0.2, 0.1, 0.1] },
   // 3-nov (aprobado, prueba 2-nov: 300+ de 5 a 45 en 500):
   // MINUTOS QUE NO CUADRAN: antes se sacaba a TODO el equipo (el 2-nov
   // saco a Indiana y Atlanta). Ahora entran con tope de minutos por
@@ -3127,7 +3131,16 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
         return !blowoutTeams.has(Number(x.p.team_id));
       })
       .sort((a, b) => b.p90 - a.p90)
-      .slice(0, 2);
+      .slice(0, 4);
+    // Cuantas alineaciones lleva cada estrella (de la #1 a la #4).
+    const starCounts = count => {
+      const shares = CONFIG.starShares[Math.min(stars.length, 4)] || [];
+      const out = shares.map(sh => Math.floor(sh * count + 1e-9));
+      // lo que sobra por redondeo va a la #1 (sin pasar del total del reparto)
+      const target = Math.floor(shares.reduce((a, b) => a + b, 0) * count + 1e-9);
+      for (let i = 0; out.reduce((a, b) => a + b, 0) < target; i = (i + 1) % out.length) out[i]++;
+      return out;
+    };
 
     const lineupOptions = count => {
       if (!CONFIG.lineupStrategy) return {};
@@ -3135,15 +3148,15 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
       // demas se arma sin pilas, con la regla titular/suplente.
       // 30-oct: sin pilas (useStacks false) -> solo la regla.
       if (!CONFIG.useStacks || !CONFIG.stackPlatforms.includes(platform)) {
-        // 2-nov: ESTRELLA 80/20 (la #1 en el 80%, la #2 en el resto).
+        // 4-nov: REPARTO DE ESTRELLAS (60/20/10/10, 70/20/10, 80/20,
+        // o 80 + 20 libre si hay una sola).
         if (!stars.length) return { noStarterBackup: true };
+        const counts = starCounts(count);
         return {
           noStarterBackup: true,
           stackPlan: {
-            core: { ids: [stars[0].id], names: [stars[0].name], lineups: Math.floor(CONFIG.starShare * count) },
-            pairs: stars[1] ? [{ ids: [stars[1].id], names: [stars[1].name] }] : []
-          },
-          coreExposure: CONFIG.starShare
+            groups: stars.slice(0, counts.length).map((st, i) => ({ ids: [st.id], names: [st.name], lineups: counts[i] }))
+          }
         };
       }
       return {
@@ -3228,7 +3241,11 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
       platform,
       // 2-nov: reglas nuevas de este dia.
       estrellas: stars.length
-        ? stars.map((st, i) => `${i === 0 ? "80%" : "resto"}: ${st.name} ($${st.salary}, techo ${round(st.p90, 1)})`)
+        ? (() => {
+          const shares = CONFIG.starShares[Math.min(stars.length, 4)] || [];
+          return stars.slice(0, shares.length).map((st, i) => `${Math.round(shares[i] * 100)}%: ${st.name} ($${st.salary}, techo ${round(st.p90, 1)})`)
+            .concat(shares.length === 1 ? ["20%: libre"] : []);
+        })()
         : (CONFIG.starCore ? ["ninguna candidata"] : null),
       palizas: CONFIG.blowoutCut > 0 ? (blowoutGames.length ? blowoutGames : ["ninguna"]) : null,
       // 31-oct: corrida de cierre que solo cambio a los OUT.
