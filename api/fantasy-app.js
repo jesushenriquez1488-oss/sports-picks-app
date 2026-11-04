@@ -437,7 +437,7 @@ async function buildNflCards(slate, version) {
   const teams = [...new Set(players.map(sp => nflTeam(sp.team)))];
 
   const [projections, weekStats, snaps, teamStats, roster] = await Promise.all([
-    runId ? selectAll("fantasy_nfl_projections", "entity_key,opponent,position,snap_pct,dk_points,dk_p90,fd_points,fd_p90", q => q.eq("run_id", runId)) : [],
+    runId ? selectAll("fantasy_nfl_projections", "entity_key,opponent,position,snap_pct,stats,dk_points,dk_p90,fd_points,fd_p90", q => q.eq("run_id", runId)) : [],
     gsisList.length ? selectIn("football_player_week_stats", "*", "gsis_player_id", gsisList, q => q.in("season", [cur, prev])) : [],
     gsisList.length ? selectIn("football_player_game_stats", "gsis_player_id,game_date,offense_pct", "gsis_player_id", gsisList, q => q.eq("sport", "nfl").in("season", [cur, prev])) : [],
     selectAll("football_team_week_stats", "*", q => q.in("season", [cur, prev])),
@@ -512,7 +512,9 @@ async function buildNflCards(slate, version) {
     const usage = isDst ? [] : curRows.map(x => x.snap);
     const sAvg = k => round(avg(curRows.map(x => x[k]).filter(v => v !== null && v !== undefined)), 1);
     const tGames = teamGames.get(team) || 0;
-    const proj = num(pj?.[`${pkey}_points`]);
+    // 4-nov: DraftKings muestra la misma proyeccion que usan las
+    // alineaciones (70% mercado + 30% formula) cuando la hay.
+    const proj = pkey === "dk" && num(pj?.stats?.mercado70_dk) !== null ? num(pj.stats.mercado70_dk) : num(pj?.[`${pkey}_points`]);
     const salary = num(sp.salary);
     const espnId = isDst ? "" : espnByGsis.get(str(sp.gsis_player_id));
 
@@ -762,10 +764,19 @@ async function dkMatchIndex(sport, day) {
   } else {
     const rows = await selectAll("fantasy_nfl_slate_players", "entity_type,gsis_player_id,player_name,team,slate_date",
       q => q.gte("slate_date", from).lte("slate_date", day));
+    const seen = new Set();
     for (const r of rows) {
       const team = nflTeam(r.team);
       if (r.entity_type === "team") byNameTeam.set(`DST|${team}`, `DST:${team}`);
-      else if (r.gsis_player_id) add(r.player_name, team, String(r.gsis_player_id));
+      else if (r.gsis_player_id) { add(r.player_name, team, String(r.gsis_player_id)); seen.add(String(r.gsis_player_id)); }
+    }
+    // Respaldo: plantillas actuales (football_players) para jugadores
+    // que BallDontLie no puso en su lista.
+    const roster = await selectAll("football_players", "gsis_player_id,player_name,team,roster_status");
+    for (const r of roster) {
+      const id = str(r.gsis_player_id);
+      if (!id || seen.has(id) || !r.team) continue;
+      add(r.player_name, nflTeam(r.team), id);
     }
   }
   return (name, team, isDst) => {
