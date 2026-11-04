@@ -4721,12 +4721,75 @@ const activeSports =
         }
 
 
-        const events =
-          Array.isArray(
-            body?.data
-          )
-            ? body.data
-            : [];
+       
+const events =
+  Array.isArray(
+    body?.data
+  )
+    ? body.data
+    : [];
+
+// NCAAB MATCH DIAGNOSTIC — READ ONLY
+// One report per deployment.
+if (
+  sport === "ncaab" &&
+  !refreshBettingSplits.ncaabDiagnosticDone
+) {
+  refreshBettingSplits.ncaabDiagnosticDone = true;
+
+  const tracked = getAllTrackedGames()
+    .filter(g =>
+      String(g.sport).toLowerCase() === "ncaab"
+    );
+
+  const samples = events.slice(0, 8).map(event => {
+    const away = normalizeTeamForGameKey(
+      "ncaab",
+      event.away_team
+    );
+
+    const home = normalizeTeamForGameKey(
+      "ncaab",
+      event.home_team
+    );
+
+    const sameTeams = tracked.filter(g =>
+      normalizeTeamForGameKey("ncaab", g.away_team) === away &&
+      normalizeTeamForGameKey("ncaab", g.home_team) === home
+    );
+
+    return {
+      owls: `${event.away_team} @ ${event.home_team}`,
+      eventId: event.event_id ?? event.id ?? null,
+      exactTeamMatches: sameTeams.length,
+      cashEdgeMatches: sameTeams.slice(0, 3).map(g => ({
+        game: `${g.away_team} @ ${g.home_team}`,
+        date: g.game_date,
+        time: g.game_time,
+        premium: g.current_is_premium
+      }))
+    };
+  });
+
+  console.log(
+    "[NCAAB MATCH DIAGNOSTIC]",
+    JSON.stringify({
+      trackedGames: tracked.length,
+      trackedPremium: tracked.filter(
+        g => g.current_is_premium === true
+      ).length,
+      owlsEvents: events.length,
+      trackedExamples: tracked.slice(0, 8).map(g => ({
+        game: `${g.away_team} @ ${g.home_team}`,
+        date: g.game_date,
+        time: g.game_time,
+        premium: g.current_is_premium
+      })),
+      owlsExamples: samples
+    }, null, 2)
+  );
+}
+
 console.log(
   `[${WORKER_NAME}] ${sport} splits board — events: ${events.length}, status: ${body?.meta?.status || "unknown"}, reason: ${body?.meta?.partial_reason || "none"}, total: ${body?.meta?.total_games ?? body?.meta?.active_games ?? "unknown"}, books: ${Array.isArray(body?.meta?.books) ? body.meta.books.join(",") : "unknown"}`
 );
