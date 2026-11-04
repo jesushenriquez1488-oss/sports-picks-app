@@ -752,12 +752,15 @@ async function loadSlatePlayers(slate, idx, runAt) {
   if (rows.length) await upsertAll("fantasy_nfl_slate_players", rows, "slate_id,entity_key");
 
   // Quien la casa retiro del slate.
-  const { error } = await supabaseAdmin
-    .from("fantasy_nfl_slate_players")
-    .delete()
-    .eq("slate_id", slate.slate_id)
-    .lt("checked_at", runAt);
-  if (error) throw new Error(`Supabase fantasy_nfl_slate_players: ${error.message}`);
+  // 4-nov: seguro extra: si la lista llego vacia, NO se borra nada.
+  if (rows.length) {
+    const { error } = await supabaseAdmin
+      .from("fantasy_nfl_slate_players")
+      .delete()
+      .eq("slate_id", slate.slate_id)
+      .lt("checked_at", runAt);
+    if (error) throw new Error(`Supabase fantasy_nfl_slate_players: ${error.message}`);
+  }
 
   const players = rows.filter(r => r.entity_type === "player");
   const unlinked = players.filter(r => !r.gsis_player_id);
@@ -832,8 +835,16 @@ async function stepSlates() {
 
   markMain(slates);
 
-  const report = [];
-  for (const slate of slates.sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)))) {
+  // 4-nov (bug FanDuel): los slates que YA EMPEZARON no se vuelven a
+  // leer ni a guardar. Al cerrar, FanDuel marca a sus jugadores como
+  // inactivos; la lista salia vacia y se borraban todos los jugadores
+  // del slate (la evaluacion del martes quedaba en 0).
+  const nowMs = Date.now();
+  const started = slates.filter(s => Date.parse(s.starts_at) <= nowMs);
+  const open = slates.filter(s => !(Date.parse(s.starts_at) <= nowMs));
+
+  const report = started.map(s => ({ slate: s.slate_id, plataforma: s.platform, fecha: s.slate_date, estado: "ya empezo: lista congelada, no se toca" }));
+  for (const slate of open.sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)))) {
     try {
       const r = await loadSlatePlayers(slate, idx, runAt);
       report.push({ slate: slate.slate_id, plataforma: slate.platform, fecha: slate.slate_date, principal: slate.is_main, partidos: slate.event_count, ...r });
@@ -842,7 +853,7 @@ async function stepSlates() {
     }
   }
 
-  if (slates.length) await upsertAll("fantasy_nfl_slates", slates, "slate_id");
+  if (open.length) await upsertAll("fantasy_nfl_slates", open, "slate_id");
 
   return {
     desde: today,
