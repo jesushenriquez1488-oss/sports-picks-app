@@ -614,13 +614,15 @@ async function actionPlayers(req) {
   const slate = await getSlate(sport, slateId);
   if (!slate) return { status: 404, body: { ok: false, error: "SLATE_NOT_FOUND" } };
   await refreshCards(sport, slate);
-  const players = await readCards(sport, slateId);
+  // OUT no se muestran (no juegan). Q / GTD si, con su status.
+  const all = await readCards(sport, slateId);
+  const players = all.filter(p => !/^(out|o|inactive|ir|suspended)$/i.test(str(p.status)));
   return {
     status: 200,
     body: {
       ok: true, sport, slate_id: slateId, platform: slate.platform, salary_cap: num(slate.salary_cap),
       starts_at: slate.starts_at, roster_slots: slate.roster_slots || null,
-      count: players.length, players
+      count: players.length, out_hidden: all.length - players.length, players
     }
   };
 }
