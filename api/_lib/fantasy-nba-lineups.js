@@ -26,6 +26,7 @@
 //       estrella vs estrella si el partido se espera parejo).
 //     - El resto de cada alineacion lo completa el optimizador con
 //       los que mas proyectan (no al azar).
+//  3. (4-nov) REPARTO DE ESTRELLAS: stackPlan.groups (ver buildLineups).
 //
 // Archivo con "_" al inicio: Vercel NO lo publica como endpoint.
 // ============================================================
@@ -377,7 +378,17 @@ function buildLineups(platform, players, {
   }
   const coreIds = new Set(stackPlan?.core?.ids || []);
   const coreUses = Math.max(maxUses, Math.floor(coreExposure * count + 1e-9));
-  const capOf = id => (coreIds.has(id) ? coreUses : maxUses);
+  // 4-nov: REPARTO DE ESTRELLAS. stackPlan.groups = [{ ids, names, lineups }]
+  // en orden: las primeras "lineups" alineaciones llevan la estrella #1,
+  // las siguientes la #2, etc. Lo que sobre va libre. Cada estrella
+  // puede llegar a sus alineaciones aunque pase el tope normal.
+  const groups = stackPlan?.groups || null;
+  const groupCap = new Map();
+  if (groups) {
+    for (const g of groups) for (const id of g.ids) groupCap.set(id, Math.max(maxUses, g.lineups));
+    coreNote = "Estrellas: " + groups.map(g => `${g.names.join(" + ")} ${g.lineups}`).join(" | ");
+  }
+  const capOf = id => (groupCap.has(id) ? groupCap.get(id) : coreIds.has(id) ? coreUses : maxUses);
   const uses = new Map();
 
   const startedAt = Date.now();
@@ -387,6 +398,11 @@ function buildLineups(platform, players, {
   // Que jugadores obligar en la alineacion k (en orden de intento).
   const candidatesFor = k => {
     if (!stackPlan) return [null];
+    if (groups) {
+      let acc = 0;
+      for (const g of groups) { acc += g.lineups; if (k < acc) return [g, null]; }
+      return [null];
+    }
     const list = [];
     if (stackPlan.core && k < stackPlan.core.lineups) list.push(stackPlan.core);
     const pairs = stackPlan.pairs || [];
@@ -424,7 +440,7 @@ function buildLineups(platform, players, {
     }
     if (!r) break;
     if (!r.complete) allOptimal = false;
-    if (used && used !== stackPlan?.core) pairTurn++;
+    if (used && used !== stackPlan?.core && !groups) pairTurn++;
 
     const clean = p => {
       if (p.realPoints === undefined) return p;
