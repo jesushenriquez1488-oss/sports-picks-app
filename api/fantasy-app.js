@@ -748,6 +748,17 @@ async function dkMatchIndex(sport, day) {
     const rows = await selectAll("fantasy_nba_slate_players", "player_id,player_name,team_abbr,slate_date",
       q => q.gte("slate_date", from).lte("slate_date", day));
     for (const r of rows) add(r.player_name, str(r.team_abbr).toUpperCase(), String(r.player_id));
+    // Respaldo: jugadores que BallDontLie no puso en su lista de salarios,
+    // pero que si tienen partidos esta temporada (mismo id de jugador).
+    const seen = new Set(rows.map(r => String(r.player_id)));
+    const logs = await selectAll("nba_player_game_roles", "player_id,player_name,team_id,game_date",
+      q => q.eq("season", nbaSeason(day)).order("game_date", { ascending: false }));
+    for (const r of logs) {
+      const id = String(r.player_id);
+      if (seen.has(id)) continue;
+      seen.add(id);                     // el mas reciente = su equipo actual
+      add(r.player_name, NBA_TEAMS[Number(r.team_id)] || "", id);
+    }
   } else {
     const rows = await selectAll("fantasy_nfl_slate_players", "entity_type,gsis_player_id,player_name,team,slate_date",
       q => q.gte("slate_date", from).lte("slate_date", day));
