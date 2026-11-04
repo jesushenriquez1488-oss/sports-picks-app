@@ -232,7 +232,93 @@ async function loadToday(today) {
     ? await selectAll("fantasy_nfl_slate_players", "*", q => q.in("slate_id", slateIds))
     : [];
 
-  return { schedule, depth, depthSnapshot: snapshot, injuries, slates, slatePlayers, weather };
+  // 4-nov: slates de DraftKings con la lista COMPLETA de DraftKings.
+  const dk = await useDraftKingsLists(slates, slatePlayers);
+
+  return { schedule, depth, depthSnapshot: snapshot, injuries, slates, slatePlayers: dk.players, dkLists: dk.info, weather };
+}
+
+// 4-nov: Para cada slate de DraftKings (de BallDontLie), si hay un
+// slate Classic de DraftKings del mismo dia con EXACTAMENTE los
+// mismos equipos (fantasy_app_dk_players, lo llena
+// fantasy-app?action=sync-dk), la lista de jugadores sale de
+// DraftKings: completa, con su status y sus IDs oficiales.
+// - Jugador que BallDontLie tambien tenia: se queda con su misma
+//   llave (entity_key) para que la evaluacion siga igual.
+// - Jugador nuevo: llave "dk:<id de DraftKings>".
+// Si no hay lista de DraftKings o no cuadra, todo sigue igual.
+// FanDuel no cambia.
+async function useDraftKingsLists(slates, slatePlayers) {
+  const dkSlates = slates.filter(s => s.platform === "draftkings");
+  if (!dkSlates.length) return { players: slatePlayers, info: [] };
+  let groups = [];
+  try {
+    const days = [...new Set(dkSlates.map(s => s.slate_date))];
+    groups = await selectAll("fantasy_app_dk_slates", "*",
+      q => q.eq("sport", "nfl").eq("game_type", "classic").in("slate_date", days));
+  } catch (e) {
+    return { players: slatePlayers, info: [{ usada: "balldontlie", motivo: `tabla DraftKings no disponible: ${e.message}` }] };
+  }
+  const info = [];
+  let players = slatePlayers;
+  for (const slate of dkSlates) {
+    const bdl = players.filter(p => Number(p.slate_id) === Number(slate.slate_id));
+    const teams = new Set(bdl.map(p => teamCode(p.team)));
+    const fresh = groups.filter(g => g.slate_date === slate.slate_date && Date.now() - Date.parse(g.checked_at) <= 3 * 3600000);
+    let match = null;
+    for (const g of fresh) {
+      const rows = await selectAll("fantasy_app_dk_players", "*", q => q.eq("draft_group_id", Number(g.draft_group_id)));
+      const dkTeams = new Set(rows.map(r => teamCode(r.team)));
+      if (dkTeams.size === teams.size && [...teams].every(t => dkTeams.has(t))) { match = { g, rows }; break; }
+    }
+    if (!match) {
+      info.push({ slate: slate.slate_id, usada: "balldontlie", motivo: fresh.length ? "ningun slate de DraftKings con los mismos partidos" : "sin lista de DraftKings reciente (sync-dk)" });
+      continue;
+    }
+    const byKey = new Map();
+    for (const p of bdl) {
+      const key = p.entity_type === "team" ? `DST:${teamCode(p.team)}` : p.gsis_player_id;
+      if (key && !byKey.has(key)) byKey.set(key, p);
+    }
+    const eventOfTeam = new Map(bdl.map(p => [teamCode(p.team), p.event_id]));
+    const seen = new Set();
+    const out = [];
+    let sinCruce = 0;
+    const nuevos = [];
+    for (const r of match.rows) {
+      const key = r.player_key;
+      if (!key) { sinCruce++; continue; }
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const old = byKey.get(key);
+      const isDst = key.startsWith("DST:");
+      if (!old) nuevos.push(`${r.player_name} ${teamCode(r.team)} $${r.salary}`);
+      out.push({
+        ...(old || {}),
+        slate_id: slate.slate_id,
+        entity_key: old ? old.entity_key : `dk:${r.dk_id}`,
+        platform: "draftkings",
+        slate_date: slate.slate_date,
+        entity_type: isDst ? "team" : "player",
+        gsis_player_id: isDst ? null : key,
+        player_name: r.player_name,
+        position: isDst ? "DST" : (r.positions || [])[0] || old?.position || null,
+        team: teamCode(r.team),
+        event_id: old?.event_id ?? eventOfTeam.get(teamCode(r.team)) ?? null,
+        salary: Number(r.salary),
+        status: r.status || null,
+        dk_id: Number(r.dk_id),
+        checked_at: r.checked_at
+      });
+    }
+    if (out.length < bdl.length * 0.9) {
+      info.push({ slate: slate.slate_id, usada: "balldontlie", motivo: `DraftKings trae pocos (${out.length} vs ${bdl.length})` });
+      continue;
+    }
+    players = players.filter(p => Number(p.slate_id) !== Number(slate.slate_id)).concat(out);
+    info.push({ slate: slate.slate_id, usada: "draftkings", draft_group_id: Number(match.g.draft_group_id), jugadores: out.length, balldontlie_tenia: bdl.length, nuevos, sin_cruce: sinCruce });
+  }
+  return { players, info };
 }
 
 
@@ -564,6 +650,10 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
   const testLineupsOut = [];
   const slateReports = [];
   const inPool = new Set();
+  // 4-nov: puntos con mercado (70/30) de cada jugador en DraftKings,
+  // para guardarlos en su proyeccion (la ficha muestra lo mismo que
+  // usan las alineaciones).
+  const marketBlend = new Map();
 
   for (const slate of todayData.slates) {
     const starts = Date.parse(slate.starts_at || "");
@@ -614,6 +704,7 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
         gameId: g.game_id
       });
       inPool.add(key);
+      if (slate.platform === "draftkings" && mPts !== undefined) marketBlend.set(key, pool[pool.length - 1].points);
     }
 
     debug("optimizador", slate.slate_id, slate.platform, "pool", pool.length);
@@ -644,6 +735,7 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
     debug("alineaciones", result.lineups.length);
     slateReports.push({
       slate: slate.slate_id, plataforma: slate.platform, fecha: slate.slate_date, principal: slate.is_main,
+      listaDraftKings: (todayData.dkLists || []).find(x => Number(x.slate) === Number(slate.slate_id)) || null,
       partidos: slate.event_count, pool: pool.length, excluidos: excluded,
       estado: result.status, optimo: result.optimal,
       stacks: result.stacks ? result.stacks.filter(s => s.lineups > 0) : undefined,
@@ -670,7 +762,7 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
       rows.push({
         entity_key: key, game_id: p.game_id, kickoff: p.kickoff.toISOString(), team: p.team, opponent: p.opponent,
         player_name: `${p.team} DST`, position: "DST", depth_rank: null, available: true, status_reason: null,
-        in_pool: inPool.has(key), stats: Object.fromEntries(Object.entries(p.stats).map(([k, v]) => [k, round(v, 3)])),
+        in_pool: inPool.has(key), stats: { ...Object.fromEntries(Object.entries(p.stats).map(([k, v]) => [k, round(v, 3)])), ...(marketBlend.has(key) ? { mercado70_dk: marketBlend.get(key) } : {}) },
         dk_points: dk?.mean, dk_p10: dk?.p10, dk_p90: dk?.p90, fd_points: fd?.mean, fd_p10: fd?.p10, fd_p90: fd?.p90
       });
       continue;
@@ -681,7 +773,7 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
       status_reason: null, in_pool: inPool.has(key),
       snap_pct: round(p.snapPct, 3), target_share: round(p.tshare, 3), carry_share: round(p.cshare, 3),
       inherits: p.inherits, def_factor: p.defFactor, archetype: p.archetype,
-      stats: Object.fromEntries(Object.entries(p.stats).map(([k, v]) => [k, round(v, 2)])),
+      stats: { ...Object.fromEntries(Object.entries(p.stats).map(([k, v]) => [k, round(v, 2)])), ...(marketBlend.has(key) ? { mercado70_dk: marketBlend.get(key) } : {}) },
       dk_points: dk?.mean, dk_p10: dk?.p10, dk_p90: dk?.p90, fd_points: fd?.mean, fd_p10: fd?.p10, fd_p90: fd?.p90
     });
   }
@@ -907,6 +999,25 @@ async function runEvaluation() {
       b.sesgo = round(b.bias / b.n);
       delete b.abs;
       delete b.bias;
+    }
+
+    // 4-nov: jugadores de las alineaciones que vinieron de la lista de
+    // DraftKings y no estan en la de BallDontLie ("dk:..."): sus puntos
+    // reales se buscan por su llave (gsis o DST:EQUIPO).
+    for (const l of lineups) {
+      for (const p of l.players || []) {
+        if (actual.has(p.id) || !p.key) continue;
+        const team = teamCode(p.team);
+        const tg = teamGame(team);
+        if (!tg) continue;
+        if (String(p.key).startsWith("DST:")) {
+          const opp = teamByKey.get(`${tg.opponent}|${tg.game_id}`);
+          actual.set(p.id, { points: actualDst(tg, opp), key: p.key });
+        } else {
+          const r = (statsByGsis.get(p.key) || []).find(x => x.game_id === tg.game_id);
+          actual.set(p.id, { points: r ? actualOffense(r, platform) : 0, key: p.key });
+        }
+      }
     }
 
     // Alineaciones: puntos reales de las nuestras vs la perfecta.
