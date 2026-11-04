@@ -14,6 +14,12 @@
 //
 // La tarea diaria (fantasy-nba-daily) la corre sola.
 //
+// 4-nov: el slate principal de DraftKings usa la lista COMPLETA de
+// DraftKings (fantasy_app_dk_players, de fantasy-app?action=sync-dk).
+// Si esa lista falta o no cuadra, sigue con BallDontLie como antes.
+// Con esa lista, las LESIONES (OUT / Q / sin novedad) salen de
+// DraftKings y mandan sobre ESPN y la tabla de lesiones.
+//
 // ------------------------------------------------------------
 // LA FORMULA, EN ORDEN
 // ------------------------------------------------------------
@@ -758,12 +764,103 @@ async function loadToday(day) {
   ]);
 
 
+  // 4-nov: DraftKings Main con la lista COMPLETA de DraftKings
+  // (BallDontLie a veces no manda algunos jugadores, ej. Ace Bailey).
+  const dkMain = await useDraftKingsMainList(day, slates, slatePlayers);
+
   return {
     snapshotDate,
     slates,
-    slatePlayers,
+    slatePlayers: dkMain.players,
+    dkMain: dkMain.info,
+    // 4-nov: lesiones de DraftKings mandan (OUT / Q / sin novedad)
+    dkStatus: dkMain.info.usada === "draftkings"
+      ? new Map(dkMain.players.filter(p => p.dk_id).map(p => [Number(p.player_id), str(p.status)]))
+      : null,
     depth,
     injuries: new Map(injuries.map(i => [Number(i.player_id), str(i.status)]))
+  };
+}
+
+
+// 4-nov: Para el slate principal de DraftKings, la lista de jugadores
+// sale de DraftKings (fantasy_app_dk_players, la llena
+// fantasy-app?action=sync-dk cada 15 min) en vez de BallDontLie.
+// Mismo slate (mismos partidos), mismos salarios, pero completa.
+// Se queda con BallDontLie (sin cambiar nada) si:
+//   - no hay lista de DraftKings de hoy, o tiene mas de 3 horas,
+//   - los partidos no son exactamente los mismos.
+// FanDuel no cambia.
+const BDL_TEAM_ID = {
+  ATL: 1, BOS: 2, BKN: 3, CHA: 4, CHI: 5, CLE: 6, DAL: 7, DEN: 8, DET: 9, GSW: 10,
+  HOU: 11, IND: 12, LAC: 13, LAL: 14, MEM: 15, MIA: 16, MIL: 17, MIN: 18, NOP: 19, NYK: 20,
+  OKC: 21, ORL: 22, PHI: 23, PHX: 24, POR: 25, SAC: 26, SAS: 27, TOR: 28, UTA: 29, WAS: 30
+};
+
+async function useDraftKingsMainList(day, slates, slatePlayers) {
+  const keep = (why) => ({ players: slatePlayers, info: { usada: "balldontlie", motivo: why } });
+  const bdl = slates.find(s => s.platform === "draftkings");
+  if (!bdl) return keep("sin slate DraftKings de BallDontLie");
+  const bdlPlayers = slatePlayers.filter(p => Number(p.slate_id) === Number(bdl.slate_id));
+
+  let groups;
+  try {
+    groups = await selectAll("fantasy_app_dk_slates", "*",
+      q => q.eq("sport", "nba").eq("slate_date", day).eq("game_type", "classic"));
+  } catch (e) {
+    return keep(`tabla DraftKings no disponible: ${e.message}`);
+  }
+  const main = groups.sort((a, b) => Number(b.games) - Number(a.games) || Number(b.players) - Number(a.players))[0];
+  if (!main) return keep("sin slates DraftKings de hoy (sync-dk)");
+  if (Date.now() - Date.parse(main.checked_at) > 3 * 3600000) return keep("lista DraftKings con mas de 3 horas");
+
+  // Mismos partidos: los equipos de BallDontLie = los de DraftKings
+  const bdlTeams = new Set(bdlPlayers.map(p => str(p.team_abbr).toUpperCase()));
+  const dkRows = await selectAll("fantasy_app_dk_players", "*", q => q.eq("draft_group_id", Number(main.draft_group_id)));
+  const dkTeams = new Set(dkRows.map(r => str(r.team).toUpperCase()));
+  const same = bdlTeams.size === dkTeams.size && [...bdlTeams].every(t => dkTeams.has(t));
+  if (!same) return keep(`partidos distintos (BallDontLie ${bdlTeams.size} equipos, DraftKings ${dkTeams.size})`);
+
+  const eventOfTeam = new Map(bdlPlayers.map(p => [str(p.team_abbr).toUpperCase(), p.event_id]));
+  const seen = new Set();
+  const dkPlayers = [];
+  let sinCruce = 0;
+  for (const r of dkRows) {
+    const id = Number(r.player_key);
+    if (!id) { sinCruce++; continue; }
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const team = str(r.team).toUpperCase();
+    dkPlayers.push({
+      slate_id: Number(bdl.slate_id),
+      player_id: id,
+      platform: "draftkings",
+      slate_date: day,
+      player_name: r.player_name,
+      team_id: BDL_TEAM_ID[team] || null,
+      team_abbr: team,
+      event_id: eventOfTeam.get(team) ?? null,
+      salary: Number(r.salary),
+      positions: (r.positions || []).filter(x => ["PG", "SG", "SF", "PF", "C"].includes(x)).sort(),
+      status: r.status || null,
+      dk_id: Number(r.dk_id),
+      checked_at: r.checked_at
+    });
+  }
+  if (dkPlayers.length < bdlPlayers.length * 0.9) return keep(`DraftKings trae pocos jugadores (${dkPlayers.length} vs ${bdlPlayers.length})`);
+
+  const bdlIds = new Set(bdlPlayers.map(p => Number(p.player_id)));
+  const nuevos = dkPlayers.filter(p => !bdlIds.has(p.player_id)).map(p => `${p.player_name} ${p.team_abbr} $${p.salary}`);
+  return {
+    players: slatePlayers.filter(p => Number(p.slate_id) !== Number(bdl.slate_id)).concat(dkPlayers),
+    info: {
+      usada: "draftkings",
+      draft_group_id: Number(main.draft_group_id),
+      jugadores: dkPlayers.length,
+      balldontlie_tenia: bdlPlayers.length,
+      nuevos_que_no_tenia_balldontlie: nuevos,
+      sin_cruce: sinCruce
+    }
   };
 }
 
@@ -1394,6 +1491,10 @@ function statusOf(depthRow, ctx) {
   const id = Number(depthRow.nba_player_id);
   // Escenario "el dudoso no juega".
   if (ctx.forceOut?.has(id)) return "OUT";
+  // 4-nov: si el jugador esta en la lista de DraftKings de hoy, manda
+  // DraftKings (es lo mas nuevo). Asi un OUT viejo de ESPN no deja
+  // fuera a quien DraftKings ya pone Q o sin novedad, y al reves.
+  if (ctx.dkStatus?.has(id)) return injuryClass(ctx.dkStatus.get(id));
   const all = [
     str(depthRow.injury_status),
     ctx.injuries.get(id) || "",
@@ -2503,6 +2604,10 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     if (!slateStatus.has(id)) slateStatus.set(id, []);
     if (p.status) slateStatus.get(id).push(str(p.status));
   }
+  // 4-nov: con lista de DraftKings, su status es el unico que cuenta.
+  if (today.dkStatus) {
+    for (const [id, st] of today.dkStatus) slateStatus.set(id, st ? [st] : []);
+  }
 
   const depthByTeam = new Map();
   for (const d of today.depth) {
@@ -2517,6 +2622,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     models,
     injuries: today.injuries,
     slateStatus,
+    dkStatus: today.dkStatus,
     depthByTeam
   };
 
@@ -3183,6 +3289,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
   const result = {
     date: day,
     depthChartDate: today.snapshotDate,
+    listaDraftKings: today.dkMain || null,
     avisos: dataWarnings,
     seconds: (Date.now() - t0) / 1000,
     historyGames: history.gamesCount,
@@ -3586,6 +3693,11 @@ th,td{border:1px solid #1d3550;padding:4px 8px;text-align:left}th{background:#0b
     else {
       body += `<div class="box">Depth chart: ${escapeHtml(result.depthChartDate)} | partidos de historial: ${result.historyGames} |
         suplente a titular: ${escapeHtml(result.medido.suplenteATitular)}<br>palizas: ${escapeHtml(result.medido.palizas || result.medido.palizasTitulares)} | ${result.seconds}s</div>`;
+      if (result.listaDraftKings) {
+        const L = result.listaDraftKings;
+        body += `<div class="box">Lista DraftKings: ${escapeHtml(L.usada)}${L.motivo ? " (" + escapeHtml(L.motivo) + ")" : ""}` +
+          (L.usada === "draftkings" ? ` | slate DK ${L.draft_group_id} | ${L.jugadores} jugadores (BallDontLie tenia ${L.balldontlie_tenia}) | nuevos: ${escapeHtml((L.nuevos_que_no_tenia_balldontlie || []).join(", ") || "ninguno")}` : "") + `</div>`;
+      }
       if (result.avisos?.length) body += `<div class="box" style="color:#ffb547">AVISOS: ${result.avisos.map(escapeHtml).join("<br>")}</div>`;
       body += `<h2>Paso 1-2: rol y minutos por equipo</h2>`;
       body += table(result.teams.map(t => ({
