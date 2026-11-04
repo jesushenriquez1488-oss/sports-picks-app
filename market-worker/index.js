@@ -1109,8 +1109,67 @@ function normalizeTeamForGameKey(
   }
 
 
+
+  // NCAAB — equivalencias explícitas de universidades.
+  // Owls puede usar solo el nombre de la universidad,
+  // mientras CashEdge incluye la mascota.
+  // No afecta ninguna otra liga.
+
+  if (normalizeText(sport) === "ncaab") {
+    const aliases = {
+      "arkansas pine bluff golden lions": "arkansas pine bluff",
+      "arkansas pine bluff": "arkansas pine bluff",
+      "uapb": "arkansas pine bluff",
+
+      "arkansas razorbacks": "arkansas",
+      "arkansas": "arkansas",
+
+      "cleveland st vikings": "cleveland state",
+      "cleveland st": "cleveland state",
+      "cleveland state": "cleveland state",
+
+      "missouri tigers": "missouri",
+      "missouri": "missouri",
+
+      "holy cross crusaders": "holy cross",
+      "holy cross": "holy cross",
+
+      "rhode island rams": "rhode island",
+      "rhode island": "rhode island",
+
+      "new orleans privateers": "new orleans",
+      "new orleans": "new orleans",
+
+      "lsu tigers": "lsu",
+      "lsu": "lsu",
+
+      "sam houston st bearkats": "sam houston state",
+      "sam houston st": "sam houston state",
+      "sam houston state": "sam houston state",
+
+      "alabama crimson tide": "alabama",
+      "alabama": "alabama",
+
+      "wofford terriers": "wofford",
+      "wofford": "wofford",
+
+      "tennessee volunteers": "tennessee",
+      "tennessee": "tennessee",
+
+      "coppin st eagles": "coppin state",
+      "coppin st": "coppin state",
+      "coppin state": "coppin state",
+
+      "virginia tech hokies": "virginia tech",
+      "virginia tech": "virginia tech"
+    };
+
+    return aliases[normalized] || normalized;
+  }
+
   return normalized;
 }
+
 
 
 function makeGameKey({
