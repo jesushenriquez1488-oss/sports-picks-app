@@ -933,6 +933,10 @@ async function runDraftKingsSlate(day, draftGroupId, count) {
     // Captain: sin la regla de $3,500 (aprobado 4-nov). OUT, dudas y
     // pocos minutos se quitan igual que siempre.
     if (dk.captain) set({ minSalary: 0 });
+    // 4-nov: Classic pequeno: la estrella 80/20 es la que mas techo
+    // tenga de ESE slate, sin pedir salario de $9,000 (en 2-3 partidos
+    // muchas veces nadie llega a $9,000 y la regla no se aplicaba).
+    else set({ starSalaryShare: 0 });
     return await runProjectionCore(day, { version: `a pedido ${draftGroupId}`, preview: true, dk });
   } finally {
     Object.assign(CONFIG, saved);
