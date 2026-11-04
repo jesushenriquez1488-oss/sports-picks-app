@@ -14,11 +14,16 @@
 //
 // La tarea diaria (fantasy-nba-daily) la corre sola.
 //
+// 4-nov: A PEDIDO (cualquier slate de DraftKings de hoy, Classic o
+// Captain, NO guarda nada):
+//   /api/fantasy-nba-project?secret=...&mode=slate&dg=156083&count=20&view=1
+//   (los numeros dg salen de fantasy-app?action=sync-dk)
+//
 // 4-nov: el slate principal de DraftKings usa la lista COMPLETA de
 // DraftKings (fantasy_app_dk_players, de fantasy-app?action=sync-dk).
 // Si esa lista falta o no cuadra, sigue con BallDontLie como antes.
-// Con esa lista, las LESIONES (OUT / Q / sin novedad) salen de
-// DraftKings y mandan sobre ESPN y la tabla de lesiones.
+// Lesiones: igual que siempre, se juntan ESPN + tabla de lesiones +
+// status de la lista (ahora el de DraftKings) y gana el peor.
 //
 // ------------------------------------------------------------
 // LA FORMULA, EN ORDEN
@@ -113,6 +118,7 @@
 
 const { createClient } = require("@supabase/supabase-js");
 const { buildLineups, planStacks, assignSlots, starterBackupConflict, RULES } = require("./_lib/fantasy-nba-lineups.js");
+const { buildCaptainLineups } = require("./_lib/fantasy-nba-captain.js");
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
@@ -773,10 +779,6 @@ async function loadToday(day) {
     slates,
     slatePlayers: dkMain.players,
     dkMain: dkMain.info,
-    // 4-nov: lesiones de DraftKings mandan (OUT / Q / sin novedad)
-    dkStatus: dkMain.info.usada === "draftkings"
-      ? new Map(dkMain.players.filter(p => p.dk_id).map(p => [Number(p.player_id), str(p.status)]))
-      : null,
     depth,
     injuries: new Map(injuries.map(i => [Number(i.player_id), str(i.status)]))
   };
@@ -862,6 +864,79 @@ async function useDraftKingsMainList(day, slates, slatePlayers) {
       sin_cruce: sinCruce
     }
   };
+}
+
+
+// 4-nov: A PEDIDO. Un slate cualquiera de DraftKings (Classic o
+// Captain) armado con la misma formula, SIN guardar nada oficial.
+// Jugadores, salarios e IDs: fantasy_app_dk_players (sync-dk).
+async function loadDraftKingsSlate(day, draftGroupId) {
+  const { data: g, error } = await supabaseAdmin
+    .from("fantasy_app_dk_slates").select("*").eq("draft_group_id", draftGroupId).maybeSingle();
+  if (error) throw new Error(`Supabase fantasy_app_dk_slates: ${error.message}`);
+  if (!g) throw new Error(`No existe el slate ${draftGroupId} de DraftKings. Corre fantasy-app?action=sync-dk`);
+  if (g.sport !== "nba") throw new Error(`El slate ${draftGroupId} no es de NBA`);
+  if (g.slate_date !== day) throw new Error(`El slate ${draftGroupId} es del ${g.slate_date}, no de hoy`);
+  const rows = await selectAll("fantasy_app_dk_players", "*", q => q.eq("draft_group_id", draftGroupId));
+  const captain = g.game_type === "captain";
+
+  // Un "partido" por cada juego de DraftKings (TOR@DEN -> id fijo)
+  const gameIds = new Map((g.game_list || []).map((k, i) => [k, 9000000 + i]));
+  const players = new Map();
+  const dkIds = new Map();   // player_id -> { id } o { cpt, util }
+  let sinCruce = 0;
+  for (const r of rows) {
+    const id = Number(r.player_key);
+    if (!id) { sinCruce++; continue; }
+    const ids = dkIds.get(id) || {};
+    if (captain) {
+      if (r.slot === "CPT") { ids.cpt = Number(r.dk_id); ids.cptSalary = Number(r.salary); }
+      else { ids.util = Number(r.dk_id); ids.utilSalary = Number(r.salary); }
+    } else ids.id = Number(r.dk_id);
+    dkIds.set(id, ids);
+    if (captain && r.slot === "CPT") continue;          // el jugador se arma con su fila UTIL
+    if (players.has(id)) continue;
+    const team = str(r.team).toUpperCase();
+    players.set(id, {
+      slate_id: draftGroupId,
+      player_id: id,
+      platform: "draftkings",
+      slate_date: day,
+      player_name: r.player_name,
+      team_id: BDL_TEAM_ID[team] || null,
+      team_abbr: team,
+      event_id: gameIds.get(r.game) ?? 9000099,
+      salary: Number(r.salary),
+      positions: (r.positions || []).filter(x => ["PG", "SG", "SF", "PF", "C"].includes(x)).sort(),
+      status: r.status || null
+    });
+  }
+  return {
+    slate: {
+      slate_id: draftGroupId, platform: "draftkings", slate_date: day,
+      style: captain ? "Showdown Captain Mode" : "Classic",
+      salary_cap: 50000, starts_at: g.starts_at, event_count: g.games, events: []
+    },
+    players: [...players.values()],
+    dkIds,
+    captain,
+    info: { draft_group_id: draftGroupId, tipo: captain ? "captain" : "classic", partidos: g.game_list, jugadores: players.size, sin_cruce: sinCruce }
+  };
+}
+
+async function runDraftKingsSlate(day, draftGroupId, count) {
+  const saved = {};
+  const set = obj => { for (const k of Object.keys(obj)) { if (!(k in saved)) saved[k] = CONFIG[k]; CONFIG[k] = obj[k]; } };
+  try {
+    const dk = await loadDraftKingsSlate(day, draftGroupId);
+    set({ lineupCount: count, testCountByPlatform: { draftkings: 0, fanduel: 0 }, closingSwapOnly: false });
+    // Captain: sin la regla de $3,500 (aprobado 4-nov). OUT, dudas y
+    // pocos minutos se quitan igual que siempre.
+    if (dk.captain) set({ minSalary: 0 });
+    return await runProjectionCore(day, { version: `a pedido ${draftGroupId}`, preview: true, dk });
+  } finally {
+    Object.assign(CONFIG, saved);
+  }
 }
 
 
@@ -1491,10 +1566,6 @@ function statusOf(depthRow, ctx) {
   const id = Number(depthRow.nba_player_id);
   // Escenario "el dudoso no juega".
   if (ctx.forceOut?.has(id)) return "OUT";
-  // 4-nov: si el jugador esta en la lista de DraftKings de hoy, manda
-  // DraftKings (es lo mas nuevo). Asi un OUT viejo de ESPN no deja
-  // fuera a quien DraftKings ya pone Q o sin novedad, y al reves.
-  if (ctx.dkStatus?.has(id)) return injuryClass(ctx.dkStatus.get(id));
   const all = [
     str(depthRow.injury_status),
     ctx.injuries.get(id) || "",
@@ -2573,6 +2644,12 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
   }
 
   const [history, today] = await Promise.all([loadHistory(day), loadToday(day)]);
+  // 4-nov: a pedido, solo el slate de DraftKings que se pidio.
+  if (opts.dk) {
+    today.slates = [opts.dk.slate];
+    today.slatePlayers = opts.dk.players;
+    today.dkMain = { usada: "draftkings (a pedido)", ...opts.dk.info };
+  }
   if (!today.slates.length) {
     return { date: day, message: "No hay slate guardado para hoy. Corre fantasy-nba-daily?step=slate", platforms: [] };
   }
@@ -2604,10 +2681,6 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     if (!slateStatus.has(id)) slateStatus.set(id, []);
     if (p.status) slateStatus.get(id).push(str(p.status));
   }
-  // 4-nov: con lista de DraftKings, su status es el unico que cuenta.
-  if (today.dkStatus) {
-    for (const [id, st] of today.dkStatus) slateStatus.set(id, st ? [st] : []);
-  }
 
   const depthByTeam = new Map();
   for (const d of today.depth) {
@@ -2622,7 +2695,6 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     models,
     injuries: today.injuries,
     slateStatus,
-    dkStatus: today.dkStatus,
     depthByTeam
   };
 
@@ -3079,7 +3151,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     };
 
     // Promedio proyectado de una alineacion (aunque se arme con el techo).
-    const meanOf = l => round(l.players.reduce((s, p) => s + (meanById.get(p.id) ?? p.points), 0), 2);
+    const meanOf = l => round(l.players.reduce((s, p) => s + (meanById.get(p.id) ?? p.points) * (p.slot === "CPT" ? 1.5 : 1), 0), 2);
 
     // 31-oct: CIERRE SIN REARMAR. A 60 min o menos del inicio, si ya
     // hay alineaciones de una corrida anterior de hoy, se dejan iguales
@@ -3094,8 +3166,13 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     const baseOfficial = swapMode ? await loadBaseLineups(Number(slate.slate_id), opts.version, runAt) : null;
     const baseTest = swapMode ? await loadBaseLineups(Number(slate.slate_id), `${opts.version} [prueba ${testCountFor(platform)}]`, runAt) : null;
 
-    const officialOptions = lineupOptions(CONFIG.lineupCount);
-    const lineupResult = baseOfficial
+    const officialOptions = opts.dk?.captain ? {} : lineupOptions(CONFIG.lineupCount);
+    const lineupResult = opts.dk?.captain
+      ? buildCaptainLineups(optimizerPool.map(x => {
+        const ids = opts.dk.dkIds.get(Number(x.id)) || {};
+        return { id: x.id, name: x.name, team: x.team, salary: ids.utilSalary ?? x.salary, cptSalary: ids.cptSalary, points: x.points, utilId: ids.util, cptId: ids.cpt };
+      }), { count: CONFIG.lineupCount, minDifferent: 1, maxExposure: 1 })
+      : baseOfficial
       ? swapOutPlayers(platform, baseOfficial.rows, optimizerPool, isOut, CONFIG.lineupMaxExposure, slateExtra)
       : buildLineups(platform, optimizerPool, {
         count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure,
@@ -3165,7 +3242,12 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
         techo: CONFIG.aimCeiling ? l.points : null,
         salario: l.salary,
         pila: l.pila || "-",
-        jugadores: l.players.map(p => `${p.slot}: ${p.name} ($${p.salary}, ${round(meanById.get(p.id) ?? p.points, 1)})`).join(" | ")
+        jugadores: l.players.map(p => {
+          const mean = (meanById.get(p.id) ?? p.points) * (p.slot === "CPT" ? 1.5 : 1);
+          return `${p.slot}: ${p.name} ($${p.salary}, ${round(mean, 1)})`;
+        }).join(" | "),
+        // 4-nov: IDs oficiales de DraftKings (a pedido), para el CSV
+        ...(opts.dk ? { idsDraftKings: l.players.map(p => p.dkId ?? opts.dk.dkIds.get(Number(p.id))?.id ?? "").join(",") } : {})
       })),
       ritmoPartidos: slateGames
         .sort((a, b) => b.pace - a.pace)
@@ -3212,6 +3294,9 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     };
   }
 
+  // 4-nov: a pedido NO guarda nada (ni alineaciones, ni proyecciones,
+  // ni minutos, ni resumen): solo se ven.
+  if (!opts.preview) {
   // Guardar alineaciones (se reemplazan las anteriores del slate;
   // la copia de cada corrida queda en fantasy_nba_lineup_runs).
   for (const slate of today.slates) {
@@ -3285,6 +3370,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
       .lt("created_at", runAt);
     if (error) throw new Error(`Supabase fantasy_nba_team_minutes: ${error.message}`);
   }
+  }
 
   const result = {
     date: day,
@@ -3325,6 +3411,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     })),
     platforms
   };
+  if (opts.preview) return { ...result, aPedido: true, version: opts.version };
 
   // Guardar el resumen para verlo sin recalcular. Los slates
   // congelados conservan su resumen anterior.
@@ -3747,7 +3834,13 @@ async function handler(req, res) {
 
   try {
     let result;
-    if (mode === "evaluate") {
+    if (mode === "slate") {
+      // 4-nov: A PEDIDO. ?mode=slate&dg=156083[&count=20]&view=1
+      const dg = Number(req.query.dg);
+      if (!dg) return res.status(400).json({ ok: false, error: "Falta &dg= (numero del slate de DraftKings)" });
+      const count = Math.max(1, Math.min(150, Number(req.query.count) || 20));
+      result = await runDraftKingsSlate(chicagoDay(), dg, count);
+    } else if (mode === "evaluate") {
       const day = date || shiftDay(chicagoDay(), -1);
       result = (!run && await readStored("fantasy_nba_evaluations", "eval_date", day)) || await runEvaluation(day);
     } else {
