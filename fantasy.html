@@ -240,8 +240,17 @@ td.fp{font-weight:600}
   .pn .n{font-size:13px}
 }
 optgroup{color:var(--muted)}
-#slate{font-size:13px;padding:6px 8px;max-width:100%;white-space:nowrap;text-overflow:ellipsis}
-#slate option,#slate optgroup{font-size:13px}
+#slate{display:none}
+/* 5-nov: selector propio (el del telefono sale con letra gigante) */
+.spick{position:relative;max-width:100%}
+.spick>button{display:flex;align-items:center;gap:8px;max-width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:500 13px/1.2 var(--body);cursor:pointer}
+.spick>button span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spick>button i{font-style:normal;color:var(--muted);font-size:11px}
+.spick .sl{position:absolute;z-index:30;top:calc(100% + 4px);left:0;min-width:240px;max-width:min(92vw,360px);max-height:60vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.spick .sl .dh{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:8px 8px 4px}
+.spick .sl button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--ink);font:13px/1.3 var(--body);padding:7px 8px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.spick .sl button:hover,.spick .sl button.on{background:var(--accent-soft);color:var(--accent)}
+.spick .sl button:disabled{color:var(--muted);opacity:.6;cursor:default;background:none}
 .delbtn{border:1px solid #3a2323;background:transparent;color:#d98c8c;border-radius:6px;padding:2px 8px;font-size:12px;cursor:pointer}
 .delall{font-size:12px;color:#d98c8c;background:none;border:0;cursor:pointer;padding:0;text-decoration:underline}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center;z-index:50;padding:16px}
@@ -272,7 +281,7 @@ body.closed .salary,body.closed #slots,body.closed #editBar,body.closed .cta-fil
       <div class="step"><label>Site</label><div class="seg" id="site"><button aria-pressed="true">DraftKings</button><button aria-pressed="false">FanDuel</button></div></div>
       <div class="step"><label>Sport</label><div class="seg" id="sport"><button aria-pressed="true" data-sp="NBA">NBA</button><button aria-pressed="false" data-sp="NFL">NFL</button><button aria-pressed="false" data-sp="MLB">MLB</button></div></div>
       <div class="step"><label>Game</label><div class="seg" id="gtype"><button aria-pressed="true" data-gt="classic">Classic</button><button aria-pressed="false" data-gt="captain">Captain</button></div></div>
-      <div class="step"><label for="slate">Slate</label><select id="slate"><option>Loading…</option></select></div>
+      <div class="step"><label for="slate">Slate</label><div class="spick" id="spick"><button type="button" id="spBtn" aria-haspopup="listbox"><span id="spTxt">Loading…</span><i>▾</i></button><div class="sl" id="spList" role="listbox" hidden></div></div><select id="slate"><option>Loading…</option></select></div>
     </div>
     <span class="lock-note">Recommended lineups update at 4:30 PM CT. After that, only players ruled OUT are swapped.</span>
   </header>
@@ -474,10 +483,34 @@ async function loadSlate() {
       days.map(d => `<optgroup label="${dayName(d)}">` + SLATES.filter(x => x.slate_date === d).map(x =>
         `<option value="${x.slate_id}" ${hasStarted(x) ? "disabled" : ""} ${pick && x.slate_id === pick.slate_id ? "selected" : ""}>${slateLabel(x)}</option>`).join("") + `</optgroup>`).join("")
     : `<option>No ${SPORT} ${GTYPE === "captain" ? "Captain " : ""}slates right now</option>`;
+  renderSlatePicker();
   await openSlate(pick);
 }
 
 function hasStarted(x) { return !!x && Date.parse(x.starts_at) <= Date.now(); }
+
+// Selector propio: copia las opciones del select (agrupadas por dia)
+function renderSlatePicker() {
+  const sel = $("#slate");
+  const cur = sel.options[sel.selectedIndex];
+  $("#spTxt").textContent = cur ? cur.textContent : "No slates";
+  let html = "";
+  for (const node of sel.children) {
+    if (node.tagName === "OPTGROUP") {
+      html += `<div class="dh">${esc(node.label)}</div>`;
+      for (const o of node.children) html += `<button type="button" data-v="${esc(o.value)}" ${o.disabled ? "disabled" : ""} class="${o.selected ? "on" : ""}">${esc(o.textContent)}</button>`;
+    } else if (!node.disabled) {
+      html += `<button type="button" data-v="${esc(node.value)}" class="${node.selected ? "on" : ""}">${esc(node.textContent)}</button>`;
+    }
+  }
+  $("#spList").innerHTML = html;
+  $("#spList").querySelectorAll("button[data-v]").forEach(b => (b.onclick = () => {
+    $("#spList").hidden = true;
+    sel.value = b.dataset.v;
+    sel.dispatchEvent(new Event("change"));
+    renderSlatePicker();
+  }));
+}
 
 // 5-nov: Captain: el CPT cuesta y suma 1.5 veces
 const CAPTAIN_POS = { NBA: ["PG", "SG", "SF", "PF", "C"], NFL: ["QB", "RB", "WR", "TE", "K", "DST"] };
@@ -503,8 +536,8 @@ function dayName(d) {
 // "Main · 11 games · Thu–Sun · 7:15 PM ET"
 function slateLabel(x) {
   const a = etDay(x.starts_at), b = x.last_starts_at ? etDay(x.last_starts_at) : a;
-  const days = a === b ? a : `${a}–${b}`;
-  return `${x.is_main ? "Main · " : ""}${x.games || "?"} game${x.games === 1 ? "" : "s"} · ${days} ${etTime(x.starts_at)} ET${hasStarted(x) ? " · Started" : ""}`;
+  const days = a === b ? "" : `${a}–${b} · `;
+  return `${x.is_main ? "Main · " : ""}${x.games || "?"} game${x.games === 1 ? "" : "s"} · ${days}${etTime(x.starts_at)} ET${hasStarted(x) ? " · Started" : ""}`;
 }
 
 // Abre un slate. Sin slate abierto: aviso y se cierra el constructor (My lineups sigue).
@@ -880,7 +913,7 @@ function startEdit(id, num) {
   if (l.sport !== sport() || l.platform !== site()) { toast(`Switch to ${l.sport.toUpperCase()} · ${l.platform === "draftkings" ? "DraftKings" : "FanDuel"} to edit this lineup.`); return; }
   if (SLATE && Number(l.slate_key) !== Number(SLATE.slate_id)) {
     const sl = SLATES.find(x => Number(x.slate_id) === Number(l.slate_key));
-    if (sl && !hasStarted(sl)) { $("#slate").value = String(sl.slate_id); openSlate(sl).then(() => startEdit(id, num)); return; }
+    if (sl && !hasStarted(sl)) { $("#slate").value = String(sl.slate_id); renderSlatePicker(); openSlate(sl).then(() => startEdit(id, num)); return; }
     toast("This lineup belongs to another slate."); return;
   }
   const byKey = new Map(P.map(p => [p.key, p.i]));
@@ -953,6 +986,8 @@ function slateClosed() {
 }
 
 function wire() {
+  $("#spBtn").onclick = e => { e.stopPropagation(); $("#spList").hidden = !$("#spList").hidden; };
+  document.addEventListener("click", e => { if (!e.target.closest("#spick")) $("#spList").hidden = true; });
   $("#slate").onchange = () => openSlate(SLATES.find(x => String(x.slate_id) === $("#slate").value) || null);
   $("#q").oninput = renderList; $("#price").onchange = renderList;
   $("#autofill").onclick = autofill; $("#saveLu").onclick = saveLineup;
