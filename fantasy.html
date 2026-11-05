@@ -240,6 +240,13 @@ td.fp{font-weight:600}
   .pn .n{font-size:13px}
 }
 optgroup{color:var(--muted)}
+.fbox{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;background:linear-gradient(135deg,#0f2417,#0e1311);border:1px solid #1f5a33;border-radius:12px;padding:12px 14px}
+.fbox .ft{display:grid;gap:2px;max-width:60ch}
+.fbox .ft b{font-family:var(--display);font-size:19px;letter-spacing:.3px}
+.fbox .fa{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn.big{font-size:15px;padding:10px 16px}
+.riskbox{border-color:#3a2f12!important}
+body.closed #formulaBox{display:none!important}
 body.closed #posTabs,body.closed #lkbar,body.closed .filters,body.closed .head,body.closed .slotpick,
 body.closed .salary,body.closed #slots,body.closed #editBar,body.closed .cta-fill,body.closed #lockBox,body.closed #buildBox,body.closed #clear{display:none!important}
 .closedmsg{padding:28px 16px;text-align:center;display:grid;gap:6px}
@@ -270,6 +277,14 @@ body.closed .salary,body.closed #slots,body.closed #editBar,body.closed .cta-fil
     <section class="panel" id="empty" hidden style="padding:28px 20px;text-align:center;gap:6px;align-items:center">
       <h2 style="font-family:var(--display);margin:0;font-size:24px">MLB is coming</h2>
       <p class="note" style="margin:0;max-width:52ch">There are no MLB slates right now. Player pool, projections and the lineup builder will open here when the season starts.</p>
+    </section>
+    <section class="fbox" id="formulaBox">
+      <div class="ft"><b>⚡ CashEdge formula lineups</b><span class="note" id="fNote">Built with the real CashEdge formula for this slate.</span></div>
+      <div class="fa" id="fActions">
+        <button class="btn pri big" id="buildMine">Build my lineup</button>
+        <select id="nPick" aria-label="How many"><option>5</option><option selected>10</option><option>20</option><option>50</option></select>
+        <button class="btn sec" id="getMany">Get lineups</button>
+      </div>
     </section>
     <div class="tipbar" role="note">⏰ <span><b>Best results: use your lineups after 4:30 PM CT.</b> That's when starting lineups and injury news settle. Keep an eye on late scratches. We swap OUT players for you, but you still need to upload the new CSV.</span></div>
     <div class="outalert" id="outAlert" role="alert" hidden>
@@ -302,21 +317,20 @@ body.closed .salary,body.closed #slots,body.closed #editBar,body.closed .cta-fil
           </div>
           <div class="editbar" id="editBar" hidden><span id="editTxt"></span><button class="lnk" id="editCancel">Cancel edit</button></div>
           <div class="slots" id="slots"></div>
-          <div class="cta cta-fill"><button class="btn pri" id="autofill">Complete the rest for me</button><button class="btn pri savebtn" id="saveLu" hidden>💾 Save lineup</button><span class="note" id="autoNote"></span></div>
+          <div class="cta cta-fill"><button class="btn sec" id="autofill">Fill open spots by projection</button><button class="btn pri savebtn" id="saveLu" hidden>💾 Save lineup</button><span class="note" id="autoNote"></span></div>
           <div class="box" id="lockBox">
             <div class="cta" style="justify-content:space-between"><h4>Locked and excluded</h4><span><button class="lnk" id="clrLocks">Clear locks</button> · <button class="lnk" id="clrBans">Clear excluded</button> · <button class="lnk" id="clrAll">Clear all</button></span></div>
             <div class="pills" id="lockPills"></div>
             <span class="note">Locked players go in every lineup the system builds; each one takes its own spot (shown after the arrow). You can lock as many as fit in one lineup. Excluded players never go in.</span>
           </div>
-          <div class="box" id="buildBox">
-            <h4>Build lineups for me</h4>
+          <div class="box riskbox" id="buildBox">
+            <h4>Build your own (by projection)</h4>
             <div class="cta">
               <label for="nLu" class="note">How many</label>
               <select id="nLu"><option>5</option><option selected>10</option><option>20</option><option>50</option></select>
-              <button class="btn pri" id="build">Build with my locks</button>
-              <button class="btn sec" id="ready">Get ready-made lineups</button>
+              <button class="btn sec" id="build">Build with my locks</button>
             </div>
-            <span class="note">Ready-made lineups are drawn at random from today's pool, so no two members get the same set. Limit: 50 per slate.</span>
+            <span class="note">Not a CashEdge formula lineup. Keeps your locks and excludes and fills the rest with the highest projections. Your picks, your call.</span>
           </div>
           <div class="box">
             <h4>My lineups · <span class="num" id="myCount">0</span></h4>
@@ -447,6 +461,14 @@ async function loadSlate() {
 
 function hasStarted(x) { return !!x && Date.parse(x.starts_at) <= Date.now(); }
 
+// Caja de la formula: cada slate con su formula
+function renderFormulaBox() {
+  $("#fActions").hidden = !SLATE;
+  $("#fNote").innerHTML = !SLATE ? "" : SLATE.has_formula
+    ? "Built with the real CashEdge formula for this slate. Want a player in it? Pick or lock him first and we'll find a formula lineup that has him."
+    : "The CashEdge formula for this slate is being built (a few minutes after the slate opens). Until then we fill by projection.";
+}
+
 const etDay = t => new Date(t).toLocaleDateString("en-US", { weekday: "short", timeZone: "America/New_York" });
 const etTime = t => new Date(t).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
 function dayName(d) {
@@ -465,6 +487,7 @@ async function openSlate(slate) {
   SLATE = slate;
   lineup = Array(SLOTS.length).fill(null); locks = new Set(); bans = new Set(); auto = new Set(); active = 0; sel = null; showOver = false; EDITING = null;
   document.body.classList.toggle("closed", !SLATE);
+  renderFormulaBox();
   if (!SLATE) {
     P = [];
     const msg = SLATES.length
@@ -656,11 +679,14 @@ function renderBuilder() {
   $("#dots").innerHTML = lineup.map(x => `<i class="${x !== null ? "f" : ""}"></i>`).join("");
   if (!SLATE) { $("#sheetTxt").textContent = "My lineups · " + ($("#myCount").textContent || "0"); $("#dots").innerHTML = ""; }
   const done = !open && left >= 0;
-  $("#autofill").hidden = done; $("#saveLu").hidden = !done;
+  const picked = lineup.some(x => x !== null);
+  $("#autofill").hidden = done || !picked; $("#saveLu").hidden = !done;
   $("#editBar").hidden = !EDITING; if (EDITING) $("#editTxt").innerHTML = `✎ Editing <b>Lineup #${EDITING.num}</b>`;
   $("#saveLu").textContent = EDITING ? `💾 Update lineup #${EDITING.num}` : "💾 Save lineup";
   $("#autoNote").textContent = EDITING ? (done ? "Tap Update to replace the old version." : "Fill the open spot, or tap Complete the rest for me.")
-    : done ? "Lineup complete. Save it and build the next one." : (!open && left < 0 ? `Over the cap by ${money(-left)}. Swap someone cheaper to save it.` : "Keeps your picks and fills the open spots with our best fit under the cap.");
+    : done ? "Lineup complete. Save it and build the next one." : (!open && left < 0 ? `Over the cap by ${money(-left)}. Swap someone cheaper to save it.`
+      : picked ? "Your picks, your call: we fill the open spots with the highest projections. Not a CashEdge formula lineup."
+        : "Pick players yourself, or use Build my lineup above for a CashEdge formula lineup.");
   $("#perSlot").textContent = open ? `${open} spot${open > 1 ? "s" : ""} open · avg ${money(Math.max(0, Math.round(left / open)))} per player` : "Lineup complete";
   const asg = assignLocks([...locks]) || {};
   const pills = [...locks].map(i => `<span class="pill lock">${ICON_LOCK} ${esc(P[i].name)} → ${SLOTS[asg[i]]?.[0] || ""}<button data-un="${i}" aria-label="Unlock">×</button></span>`).join("") +
@@ -717,20 +743,38 @@ async function buildWithLocks() {
   toast(`Built ${r.built} lineup${r.built > 1 ? "s" : ""} with your rules.`); loadMine();
 }
 
-async function getReady() {
+// 5-nov: alineaciones de la FORMULA (lista del Main). Con jugadores
+// elegidos o bloqueados: solo las de la lista que los tienen.
+async function pickFormula(count) {
   if (slateClosed()) return;
-  if (!SLATE?.is_main) { toast("Ready-made lineups are only for the Main slate. Pick Main above, or build with your locks here."); return; }
-  const n = Number($("#nLu").value);
-  $("#ready").disabled = true;
-  const r = await api("ready", { sport: sport(), site: site(), count: n });
-  $("#ready").disabled = false;
+  const chosen = new Set([...lineup.filter(i => i !== null), ...locks]);
+  const body = { sport: sport(), site: site(), slate_id: SLATE.slate_id, src: SLATE.src || null, count,
+    locks: [...chosen].map(i => P[i].key), bans: [...bans].map(i => P[i].key) };
+  $("#buildMine").disabled = $("#getMany").disabled = true;
+  const r = await api("pick", {}, body);
+  $("#buildMine").disabled = $("#getMany").disabled = false;
   if (!r.ok) {
-    toast(r.error === "LIMIT_50_PER_SLATE" ? "You reached the limit of 50 ready-made lineups for this slate." :
-      r.error === "POOL_BUILDING" ? "Lineups are being built. Try again in a minute." :
-        r.error === "SLATE_STARTED" ? "This slate already started." : "Couldn't get lineups: " + r.error);
+    toast(r.error === "LIMIT_50_PER_SLATE" ? "You reached the limit of 50 formula lineups for this slate." :
+      r.error === "SLATE_STARTED" ? "This slate already started." : r.message || ("Couldn't get lineups: " + r.error));
     return;
   }
-  toast(`${r.given} ready-made lineup${r.given > 1 ? "s" : ""} added to My lineups.`); loadMine();
+  await loadMine();
+  const fromFormula = r.formula ?? r.given ?? 0, byProj = r.byProjection ?? (r.built || 0);
+  if (count === 1 && r.lineups?.[0]) {
+    showLineup(r.lineups[0].id);
+    toast(fromFormula ? (chosen.size ? "CashEdge formula lineup with your picks added to My lineups." : "CashEdge formula lineup added to My lineups.")
+      : "No formula lineup has all your picks, so we filled the rest with the highest projections. Added to My lineups.");
+  } else {
+    toast(`${fromFormula} formula lineup${fromFormula === 1 ? "" : "s"}` + (byProj ? ` + ${byProj} filled by projection (your picks didn't fit more formula lineups)` : "") + " added to My lineups.");
+  }
+}
+
+// Muestra una alineacion guardada en el constructor (para verla o editarla)
+function showLineup(id) {
+  for (const g of MINE.groups || []) {
+    const k = g.lineups.findIndex(l => l.id === id);
+    if (k >= 0) { startEdit(id, k + 1); return; }
+  }
 }
 
 // ---------------- mis alineaciones ----------------
@@ -857,7 +901,9 @@ function wire() {
   $("#clear").onclick = () => { lineup = Array(SLOTS.length).fill(null); auto.clear(); EDITING = null; renderAll(); };
   $("#editCancel").onclick = () => { EDITING = null; lineup = lineup.map(i => (locks.has(i) ? i : null)); renderAll(); renderMine(); };
   $("#clrLocks").onclick = () => { locks.clear(); renderAll(); }; $("#clrBans").onclick = () => { bans.clear(); renderAll(); }; $("#clrAll").onclick = () => { locks.clear(); bans.clear(); renderAll(); };
-  $("#build").onclick = buildWithLocks; $("#ready").onclick = getReady;
+  $("#build").onclick = buildWithLocks;
+  $("#buildMine").onclick = () => pickFormula(1);
+  $("#getMany").onclick = () => pickFormula(Number($("#nPick").value));
   $("#sheetbar").onclick = () => { const o = $("#builder").classList.toggle("open"); $("#sheetHint").textContent = o ? "Close ▼" : "Tap to open ▲"; };
   $("#oaRev").onclick = () => { const l = $("#oaList"), open = l.hidden; l.hidden = !open; $("#oaRev").textContent = open ? "Hide changes ▴" : "Review changes ▾"; };
   $("#oaDl").onclick = () => downloadCsv(sport(), null);
