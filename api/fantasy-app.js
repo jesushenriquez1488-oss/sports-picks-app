@@ -993,8 +993,9 @@ const POOL = { target: 1000, batch: 200, refillBelow: 200, ownerTop: 10, maxPerU
   minDifferent: 2, maxExposure: 0.4, nodeLimit: 200000, batchSeconds: 40 };
 const DK_HEADER_POOL = { nba: { draftkings: ["PG", "SG", "SF", "PF", "C", "G", "F", "UTIL"], fanduel: ["PG", "PG", "SG", "SG", "SF", "SF", "PF", "PF", "C"] } };
 
-let nbaLineupsLib = null;
+let nbaLineupsLib = null, nflLineupsLib = null;
 const lineupsLib = () => (nbaLineupsLib ||= require("./_lib/fantasy-nba-lineups.js"));
+const nflLib = () => (nflLineupsLib ||= require("./_lib/fantasy-nfl-lineups.js"));
 
 async function ownerUserId() {
   if (!OWNER_EMAIL) return null;
@@ -1019,20 +1020,34 @@ function starGroups(stars, count) {
 }
 
 async function poolBatch(sp, count, existing) {
-  const groups = starGroups(sp.stars, count);
-  const r = lineupsLib().buildLineups(sp.platform, sp.players, {
-    count, minDifferent: POOL.minDifferent, maxExposure: POOL.maxExposure,
-    nodeLimit: POOL.nodeLimit, timeLimitMs: POOL.batchSeconds * 1000,
-    noStarterBackup: true,
-    stackPlan: groups ? { groups } : null,
-    prior: existing.map(l => (l.players || []).map(p => String(p.id)))
-  });
+  const prior = existing.map(l => (l.players || []).map(p => String(p.id)));
+  let r;
+  if (sp.sport === "nfl") {
+    // NFL: la misma forma de la formula (4 partidos de Vegas + 2
+    // principales; sin mercado, las pilas de antes).
+    const m = sp.stars || {};
+    const base = { count, minDifferent: POOL.minDifferent, maxExposure: POOL.maxExposure, prior };
+    r = m.metodo === "partidos"
+      ? nflLib().buildGameStackLineups(sp.platform, sp.players, { ...base, games: m.games, extras: m.extras, gameTotals: new Map(m.gameTotals || []), teamImplied: new Map(m.teamImplied || []) })
+      : m.metodo === "pilas"
+        ? nflLib().buildStackLineups(sp.platform, sp.players, base)
+        : nflLib().buildLineups(sp.platform, sp.players, base);
+  } else {
+    const groups = starGroups(sp.stars, count);
+    r = lineupsLib().buildLineups(sp.platform, sp.players, {
+      count, minDifferent: POOL.minDifferent, maxExposure: POOL.maxExposure,
+      nodeLimit: POOL.nodeLimit, timeLimitMs: POOL.batchSeconds * 1000,
+      noStarterBackup: true,
+      stackPlan: groups ? { groups } : null,
+      prior
+    });
+  }
   const byId = new Map(sp.players.map(p => [String(p.id), p]));
   return r.lineups.map(l => ({
     players: l.players.map(p => ({ slot: p.slot, id: String(p.id), dkId: byId.get(String(p.id))?.dkId ?? null, name: p.name, team: p.team, salary: p.salary, points: round(p.points, 2) })),
     salary: l.salary,
     proj: round(l.points, 2),
-    star: l.pila || null
+    star: l.pila || (l.stack ? `${l.stack.qb} (${l.stack.team})` : null)
   }));
 }
 
@@ -1090,12 +1105,15 @@ async function refillPool(sport, platform, day) {
 
 async function actionPoolCron(req) {
   const day = chicagoDay();
-  const out = [];
-  for (const platform of ["draftkings", "fanduel"]) {
-    try { out.push(await refillPool("nba", platform, day)); }
-    catch (e) { out.push({ platform, error: e.message }); }
+  const body = { ok: true, date: day };
+  for (const sport of ["nba", "nfl"]) {
+    body[sport] = [];
+    for (const platform of ["draftkings", "fanduel"]) {
+      try { body[sport].push(await refillPool(sport, platform, day)); }
+      catch (e) { body[sport].push({ platform, error: e.message }); }
+    }
   }
-  return { status: 200, body: { ok: true, date: day, nba: out } };
+  return { status: 200, body };
 }
 
 // ---- cliente ----
