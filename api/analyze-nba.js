@@ -16167,13 +16167,81 @@ return {
     "NO_FINAL_GAME_FOUND"
 };
 }
+// ============================================================
+// BASKET — NOMBRES DE EQUIPO (The Odds API vs ESPN)
+//
+// "Cleveland St Vikings" (Odds) = "Cleveland State Vikings" (ESPN)
+// "Sam Houston St Bearkats"     = "Sam Houston Bearkats"
+// "St" y "State" cuentan igual; si no hay match directo,
+// se compara la mascota + el inicio del nombre de la escuela.
+// ============================================================
+
+function normalizeBasketballTeamName(value = "") {
+  return String(value)
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/\bstate\b/g, "st")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+
+function basketballTeamNamesMatch(oddsName, espnTeam) {
+
+  const target = normalizeBasketballTeamName(oddsName);
+
+  if (!target) {
+    return false;
+  }
+
+  const fullName = normalizeBasketballTeamName(espnTeam?.name);
+  const shortName = normalizeBasketballTeamName(espnTeam?.shortName);
+
+  // 1) Igual al nombre completo o corto, o uno contiene
+  //    al otro (solo con el nombre COMPLETO, para no
+  //    confundir "Miami" con "Miami (OH) RedHawks").
+  if (
+    (fullName && (
+      fullName === target ||
+      fullName.includes(target) ||
+      target.includes(fullName)
+    )) ||
+    (shortName && shortName === target)
+  ) {
+    return true;
+  }
+
+  // 2) Misma mascota + la escuela empieza igual
+  const mascot = normalizeBasketballTeamName(espnTeam?.mascot);
+  const espnFull = normalizeBasketballTeamName(espnTeam?.name);
+
+  if (
+    mascot &&
+    target.endsWith(mascot) &&
+    espnFull.endsWith(mascot)
+  ) {
+    const oddsSchool = target.slice(0, -mascot.length).replace(/st$/, "");
+    const espnSchool = espnFull.slice(0, -mascot.length).replace(/st$/, "");
+
+    if (
+      oddsSchool.length >= 4 &&
+      espnSchool.length >= 4 &&
+      (
+        oddsSchool.startsWith(espnSchool) ||
+        espnSchool.startsWith(oddsSchool)
+      )
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
 async function gradeBasketballPick(pick) {
   const sport = String(pick.sport || "").toLowerCase();
-
-  const normalize = (value = "") =>
-    String(value)
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "");
 
   const sportPath =
     sport === "nba"
@@ -16182,8 +16250,16 @@ async function gradeBasketballPick(pick) {
       ? "basketball/wnba"
       : "basketball/mens-college-basketball";
 
+  // NCAAB: sin groups=50 ESPN solo devuelve los juegos
+  // destacados (Top 25). Con groups=50 trae todo Division I.
+  const extraParams =
+    sport === "ncaab"
+      ? "&groups=50&limit=500"
+      : "";
+
   const baseDate = pick.game_date || pick.created_at;
   const created = new Date(baseDate);
+
   const dates = [];
 
   for (let i = 0; i <= 4; i++) {
@@ -16195,7 +16271,8 @@ async function gradeBasketballPick(pick) {
   }
 
   for (const date of dates) {
-    const url = `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard?dates=${date}`;
+    const url = `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard?dates=${date}${extraParams}`;
+
     const res = await fetch(url);
     const data = await res.json();
 
@@ -16216,25 +16293,17 @@ async function gradeBasketballPick(pick) {
       const teams = competitors.map(c => ({
         name: c.team?.displayName,
         shortName: c.team?.shortDisplayName,
+        mascot: c.team?.name,
         score: Number(c.score || 0),
         homeAway: c.homeAway
       }));
 
-      const pickAway = normalize(pick.away_team);
-      const pickHome = normalize(pick.home_team);
-
       const gameHasAway = teams.some(t =>
-        normalize(t.name) === pickAway ||
-        normalize(t.shortName) === pickAway ||
-        normalize(t.name).includes(pickAway) ||
-        pickAway.includes(normalize(t.name))
+        basketballTeamNamesMatch(pick.away_team, t)
       );
 
       const gameHasHome = teams.some(t =>
-        normalize(t.name) === pickHome ||
-        normalize(t.shortName) === pickHome ||
-        normalize(t.name).includes(pickHome) ||
-        pickHome.includes(normalize(t.name))
+        basketballTeamNamesMatch(pick.home_team, t)
       );
 
       if (!gameHasAway || !gameHasHome) continue;
@@ -16255,18 +16324,14 @@ async function gradeBasketballPick(pick) {
   return null;
 }
 
+
 function calculateBasketballResult({ pick, home, away }) {
-  const normalize = (value = "") =>
-    String(value)
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "");
 
   const pickType = String(pick.pick_type || "").toLowerCase();
   const line = Number(pick.line);
 
+  if (!Number.isFinite(line)) return null;
 
-
-if (!Number.isFinite(line)) return null;
   const finalScore = `${away.name} ${away.score} - ${home.name} ${home.score}`;
 
   if (pickType === "total") {
@@ -16296,18 +16361,11 @@ if (!Number.isFinite(line)) return null;
   }
 
   if (pickType === "spread") {
-    const pickTeam = normalize(pick.pick_team);
 
     const selected =
-      normalize(home.name) === pickTeam ||
-      normalize(home.shortName) === pickTeam ||
-      normalize(home.name).includes(pickTeam) ||
-      pickTeam.includes(normalize(home.name))
+      basketballTeamNamesMatch(pick.pick_team, home)
         ? home
-        : normalize(away.name) === pickTeam ||
-          normalize(away.shortName) === pickTeam ||
-          normalize(away.name).includes(pickTeam) ||
-          pickTeam.includes(normalize(away.name))
+        : basketballTeamNamesMatch(pick.pick_team, away)
         ? away
         : null;
 
