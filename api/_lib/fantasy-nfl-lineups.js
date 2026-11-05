@@ -219,7 +219,12 @@ function solveOne(pool, rule, previous, minDifferent, nodeLimit, forced = [], no
 // maxExposure: parte maxima de las alineaciones en que puede salir un
 // mismo jugador (0.4 = 40%: con 10 alineaciones, maximo 4). Asi una
 // lesion o una paliza no hunde todas las alineaciones.
-function buildLineups(platform, players, { count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1 } = {}) {
+// 4-nov: "prior" = alineaciones que ya existen (listas de ids). Las
+// nuevas tienen que ser distintas de esas tambien (pool de clientes).
+const priorOf = prior => (prior || []).map(ids => ids.map(id => ({ id: String(id) })));
+
+function buildLineups(platform, players, { count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1, prior = [] } = {}) {
+  const priorRaw = priorOf(prior);
   const rule = RULES[platform];
   if (!rule) return { status: "PLATAFORMA_NO_SOPORTADA", lineups: [] };
 
@@ -236,7 +241,7 @@ function buildLineups(platform, players, { count = 10, minDifferent = 2, nodeLim
 
   for (let k = 0; k < count; k++) {
     const available = pool.filter(p => (uses.get(p.id) || 0) < maxUses);
-    const r = solveOne(available, rule, lineups.map(l => l.players), minDifferent, nodeLimit);
+    const r = solveOne(available, rule, priorRaw.concat(lineups.map(l => l.players)), minDifferent, nodeLimit);
     if (!r.complete) allOptimal = false;
     if (!r.best) break;
 
@@ -291,7 +296,8 @@ function seededRandom(seed) {
   };
 }
 
-function buildStackLineups(platform, players, { count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1, sims = 20000, sd = STACK_SD, seed = 12345 } = {}) {
+function buildStackLineups(platform, players, { count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1, sims = 20000, sd = STACK_SD, seed = 12345, prior = [] } = {}) {
+  const priorRaw = priorOf(prior);
   const rule = RULES[platform];
   if (!rule) return { status: "PLATAFORMA_NO_SOPORTADA", lineups: [] };
 
@@ -368,7 +374,7 @@ function buildStackLineups(platform, players, { count = 10, minDifferent = 2, no
     const forced = [st.qb, ...rec];
     const fid = new Set(forced.map(p => p.id));
     const available = pool.filter(p => !fid.has(p.id) && p.positions[0] !== "QB" && free(p));
-    const r = solveOne(available, rule, built.map(l => l.raw), minDifferent, nodeLimit, forced, true);
+    const r = solveOne(available, rule, priorRaw.concat(built.map(l => l.raw)), minDifferent, nodeLimit, forced, true);
     if (!r.complete) allOptimal = false;
     if (!r.best) return false;
 
@@ -443,11 +449,12 @@ function buildStackLineups(platform, players, { count = 10, minDifferent = 2, no
 // Sin totales de Las Vegas -> buildStackLineups (como antes).
 function buildGameStackLineups(platform, players, {
   count = 20, minDifferent = 2, nodeLimit = 1e5, maxExposure = 0.4,
-  games = 4, extras = 2, gameTotals = null, teamImplied = null
+  games = 4, extras = 2, gameTotals = null, teamImplied = null, prior = []
 } = {}) {
   const rule = RULES[platform];
   if (!rule) return { status: "PLATAFORMA_NO_SOPORTADA", lineups: [] };
-  const fallback = () => ({ ...buildStackLineups(platform, players, { count, minDifferent, maxExposure }), partidos: [] });
+  const priorRaw = priorOf(prior);
+  const fallback = () => ({ ...buildStackLineups(platform, players, { count, minDifferent, maxExposure, prior }), partidos: [] });
   if (!gameTotals || !gameTotals.size) return fallback();
 
   const pool = players
@@ -503,7 +510,7 @@ function buildGameStackLineups(platform, players, {
     for (let x = 0; x < extras && cand.length; x++) forced.push(cand.splice((k + x) % cand.length, 1)[0]);
     const fid = new Set(forced.map(p => p.id));
     const available = pool.filter(p => !fid.has(p.id) && p.positions[0] !== "QB" && free(p));
-    const r = solveOne(available, rule, built.map(l => l.raw), minDifferent, nodeLimit, forced, true);
+    const r = solveOne(available, rule, priorRaw.concat(built.map(l => l.raw)), minDifferent, nodeLimit, forced, true);
     if (!r.complete) allOptimal = false;
     return r.best ? { r, forced } : null;
   };
