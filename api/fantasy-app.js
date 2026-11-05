@@ -640,7 +640,7 @@ async function refreshDkCards(sport, s) {
   const dg = Number(s.draft_group_id);
   const day = s.slate_date;
   const dkPlayers = (await selectAll("fantasy_app_dk_players", "*", q => q.eq("draft_group_id", dg)))
-    .filter(p => p.player_key && !p.slot);
+    .filter(p => p.player_key && (!p.slot || p.slot === "UTIL"));
   let projVersion = "none", projections = [], runId = null;
   if (sport === "nba") {
     const ids = dkPlayers.map(p => Number(p.player_key)).filter(Boolean);
@@ -698,20 +698,21 @@ async function listPageSlates(sport, platform, day) {
   const now = Date.now();
   if (platform === "draftkings") {
     const [rows, pools] = await Promise.all([
-      selectAll("fantasy_app_dk_slates", "*", q => q.eq("sport", sport).eq("game_type", "classic").gte("slate_date", day).lte("slate_date", lastDay)),
+      selectAll("fantasy_app_dk_slates", "*", q => q.eq("sport", sport).in("game_type", ["classic", "captain"]).gte("slate_date", day).lte("slate_date", lastDay)),
       selectAll("fantasy_app_slate_pools", "slate_key,slate_date", q => q.eq("sport", sport).eq("platform", "draftkings").gte("slate_date", day))
     ]);
     const withFormula = new Set(pools.map(p => Number(p.slate_key)));
     // Main = el de mas partidos de su dia
     const mainOf = new Map();
     for (const r of rows) {
+      if (r.game_type !== "classic") continue;
       const m = mainOf.get(r.slate_date);
       if (!m || num(r.games) > num(m.games)) mainOf.set(r.slate_date, r);
     }
     return rows
       .filter(r => Date.parse(r.starts_at) > now || r.slate_date === day)
       .map(r => ({
-        slate_id: Number(r.draft_group_id), src: "dk", platform, slate_date: r.slate_date, game_type: "classic",
+        slate_id: Number(r.draft_group_id), src: "dk", platform, slate_date: r.slate_date, game_type: r.game_type,
         starts_at: r.starts_at, last_starts_at: r.last_starts_at, games: num(r.games), game_list: r.game_list || [],
         is_main: mainOf.get(r.slate_date)?.draft_group_id === r.draft_group_id,
         has_formula: withFormula.has(Number(r.draft_group_id)), started: Date.parse(r.starts_at) <= now
@@ -1234,6 +1235,14 @@ const DK_HEADER_POOL = { nba: { draftkings: ["PG", "SG", "SF", "PF", "C", "G", "
 let nbaLineupsLib = null, nflLineupsLib = null;
 const lineupsLib = () => (nbaLineupsLib ||= require("./_lib/fantasy-nba-lineups.js"));
 const nflLib = () => (nflLineupsLib ||= require("./_lib/fantasy-nfl-lineups.js"));
+let captainLibRef = null;
+const captainLib = () => (captainLibRef ||= require("./_lib/fantasy-nba-captain.js"));
+// NFL Showdown: la formula pide un QB con un receptor (WR/TE) de su equipo
+const nflShowdownCheck = (cpt, utils) => {
+  const all = [cpt, ...utils];
+  const qbs = all.filter(p => (p.positions || []).includes("QB"));
+  return !qbs.length || qbs.some(q => all.some(r => r !== q && r.team === q.team && (r.positions || []).some(x => x === "WR" || x === "TE")));
+};
 
 async function ownerUserId() {
   if (!OWNER_EMAIL) return null;
@@ -1267,6 +1276,7 @@ function slateGames(sp) {
 }
 function poolTier(sp) {
   const g = slateGames(sp);
+  if (sp.game_type === "captain") return { games: g, target: 150, minDifferent: 2, maxPairShare: 0.5, captain: true };
   if (g >= 5) return { games: g, target: 1000, minDifferent: 3, maxPairShare: 0.3 };
   if (g === 4) return { games: g, target: 500, minDifferent: 3, maxPairShare: 0.4 };
   if (g === 3) return { games: g, target: 300, minDifferent: 2, maxPairShare: 0.5 };
@@ -1277,7 +1287,17 @@ async function poolBatch(sp, count, existing) {
   const prior = existing.map(l => (l.players || []).map(p => String(p.id)));
   const { minDifferent, maxPairShare } = poolTier(sp);
   let r;
-  if (sp.sport === "nfl") {
+  if (sp.game_type === "captain") {
+    // 5-nov: Captain (1 CPT x1.5 + 5 UTIL), el armador de Captain de la formula
+    r = captainLib().buildCaptainLineups(sp.players.map(p => ({ ...p, id: String(p.id) })), {
+      count, minDifferent, maxExposure: 1, maxPairShare, nodeLimit: 3e5,
+      check: sp.sport === "nfl" ? nflShowdownCheck : null,
+      prior: existing.map(l => {
+        const ps = l.players || [];
+        return { cpt: String(ps.find(x => x.slot === "CPT")?.id || ""), ids: ps.map(x => String(x.id)) };
+      })
+    });
+  } else if (sp.sport === "nfl") {
     // NFL: la misma forma de la formula (4 partidos de Vegas + 2
     // principales; sin mercado, las pilas de antes).
     const m = sp.stars || {};
@@ -1301,7 +1321,8 @@ async function poolBatch(sp, count, existing) {
   return r.lineups.map(l => ({
     players: l.players.map(p => {
       const src = byId.get(String(p.id)) || {};
-      return { slot: p.slot, id: String(p.id), key: src.key ?? String(p.id), dkId: src.dkId ?? null, name: p.name, team: p.team, positions: src.positions || p.positions || [], salary: p.salary, points: round(p.points, 2) };
+      const dkId = p.slot === "CPT" ? (src.cptId ?? p.dkId ?? null) : (src.dkId ?? p.dkId ?? null);
+      return { slot: p.slot, id: String(p.id), key: src.key ?? String(p.id), dkId, name: p.name, team: p.team, positions: src.positions || p.positions || [], salary: p.salary, points: round(p.points, 2) };
     }),
     salary: l.salary,
     proj: round(l.points, 2),
@@ -1476,7 +1497,7 @@ async function latestPoolsBy(sport, platform, fromDay, toDay) {
 
 async function nbaSlatePools(day, t0, out) {
   const [dk, pools, stamp] = await Promise.all([
-    selectAll("fantasy_app_dk_slates", "*", q => q.eq("sport", "nba").eq("game_type", "classic").eq("slate_date", day)),
+    selectAll("fantasy_app_dk_slates", "*", q => q.eq("sport", "nba").in("game_type", ["classic", "captain"]).eq("slate_date", day)),
     latestPoolsBy("nba", "draftkings", day, day),
     supabaseAdmin.from("fantasy_nba_projections").select("created_at").eq("slate_date", day)
       .order("created_at", { ascending: false }).limit(1).maybeSingle()
@@ -1491,7 +1512,7 @@ async function nbaSlatePools(day, t0, out) {
     if (Date.now() - t0 > 150000) { out.push({ slate: dg, estado: "sigue en la proxima vuelta" }); continue; }
     try {
       const r = await nbaProject().runDraftKingsSlate(day, dg, 20, { savePool: true });
-      out.push({ slate: dg, partidos: s.games, estado: "lista guardada", alineaciones: r.platforms?.[0]?.lineups?.length ?? 0 });
+      out.push({ slate: dg, tipo: s.game_type, partidos: s.games, estado: "lista guardada", alineaciones: r.platforms?.[0]?.lineups?.length ?? 0 });
     } catch (e) {
       out.push({ slate: dg, error: e.message });
     }
@@ -1503,7 +1524,7 @@ async function nflSlatePools(day, out) {
   const run = await nflLatestRun(day);
   if (!run) { out.push({ estado: "la formula NFL todavia no ha corrido" }); return; }
   const [dk, pools] = await Promise.all([
-    selectAll("fantasy_app_dk_slates", "*", q => q.eq("sport", "nfl").eq("game_type", "classic").gte("slate_date", day).lte("slate_date", lastDay)),
+    selectAll("fantasy_app_dk_slates", "*", q => q.eq("sport", "nfl").in("game_type", ["classic", "captain"]).gte("slate_date", day).lte("slate_date", lastDay)),
     latestPoolsBy("nfl", "draftkings", day, lastDay)
   ]);
   for (const s of dk) {
@@ -1515,7 +1536,10 @@ async function nflSlatePools(day, out) {
     if (have && !oldMethod && Number(have.stars?.run_id) === Number(run.run_id)) continue;   // al dia
     // la formula NFL corre seguido: se rehace como maximo cada 3 horas
     if (have && !oldMethod && Date.now() - Date.parse(have.version) < 3 * 3600000) continue;
-    const dkPlayers = (await selectAll("fantasy_app_dk_players", "*", q => q.eq("draft_group_id", dg))).filter(p => p.player_key && !p.slot);
+    const allRows = (await selectAll("fantasy_app_dk_players", "*", q => q.eq("draft_group_id", dg))).filter(p => p.player_key);
+    const captain = s.game_type === "captain";
+    const cptRow = new Map(allRows.filter(p => p.slot === "CPT").map(p => [str(p.player_key), p]));
+    const dkPlayers = allRows.filter(p => !p.slot || p.slot === "UTIL");
     const keys = dkPlayers.map(p => p.player_key);
     const proj = keys.length ? await selectIn("fantasy_nfl_projections", "entity_key,dk_points,stats,in_pool,available", "entity_key", keys,
       q => q.eq("run_id", run.run_id)) : [];
@@ -1526,12 +1550,14 @@ async function nflSlatePools(day, out) {
       if (/^(out|o|ir|d|doubtful|suspended)$/i.test(str(p.status))) return null;
       const points = num(pj.stats?.mercado70_dk) ?? num(pj.dk_points);
       if (!points || points <= 0) return null;
+      const c = cptRow.get(str(p.player_key));
       return {
         id: str(p.player_key), key: str(p.player_key), name: p.player_name, team: p.team, opp: dkOpp(p.game, p.team),
-        gameId: p.game, positions: p.positions, salary: Number(p.salary), points: round(points, 2), dkId: Number(p.dk_id)
+        gameId: p.game, positions: p.positions, salary: Number(p.salary), points: round(points, 2), dkId: Number(p.dk_id),
+        ...(captain ? { utilId: Number(p.dk_id), cptId: c ? Number(c.dk_id) : null, cptSalary: c ? Number(c.salary) : Math.round(Number(p.salary) * 1.5) } : {})
       };
     }).filter(Boolean);
-    if (players.length < 20) { out.push({ slate: dg, estado: "sin proyecciones suficientes", jugadores: players.length }); continue; }
+    if (players.length < (captain ? 8 : 20)) { out.push({ slate: dg, estado: "sin proyecciones suficientes", jugadores: players.length }); continue; }
     // 5-nov: el metodo completo de la formula (partidos de Vegas) con los
     // puntos que Vegas espera de cada equipo (ultima corrida NFL). Sin
     // lineas: stacks, siempre QB + 2 receptores.
@@ -1541,16 +1567,16 @@ async function nflSlatePools(day, out) {
       const [a, h] = str(g).split("@").map(t => nflTeam(t));
       if (implied.has(a) && implied.has(h)) gameTotals.push([g, implied.get(a) + implied.get(h)]);
     }
-    const stars = gameTotals.length
+    const stars = captain ? { metodo: "captain", extra: true, run_id: run.run_id } : gameTotals.length
       ? { metodo: "partidos", games: run.summary.mercado.partidosVegas || 4, extras: run.summary.mercado.extrasVegas || 2,
         gameTotals, teamImplied: [...implied.entries()], extra: true, run_id: run.run_id }
       : { metodo: "pilas", siempreDos: true, extra: true, run_id: run.run_id };
     const { error } = await supabaseAdmin.from("fantasy_app_slate_pools").insert({
-      sport: "nfl", platform: "draftkings", slate_key: dg, game_type: "classic", slate_date: s.slate_date,
+      sport: "nfl", platform: "draftkings", slate_key: dg, game_type: captain ? "captain" : "classic", slate_date: s.slate_date,
       starts_at: s.starts_at, version: new Date().toISOString(), players, stars
     });
     if (error) throw new Error(`Supabase fantasy_app_slate_pools: ${error.message}`);
-    out.push({ slate: dg, partidos: s.games, estado: "lista guardada", jugadores: players.length, metodo: stars.metodo });
+    out.push({ slate: dg, tipo: s.game_type, partidos: s.games, estado: "lista guardada", jugadores: players.length, metodo: stars.metodo });
   }
 }
 
@@ -1851,7 +1877,8 @@ async function actionCsvMine(req, res, user) {
     list = reserved.map(r => r.players).concat(list);
   }
   if (!list.length) return send(res, 404, { ok: false, error: "NO_LINEUPS" });
-  const header = DK_HEADER_POOL[sport]?.draftkings || DK_HEADER[sport];
+  const isCaptain = list.some(ps => (ps || []).some(p => p.slot === "CPT"));
+  const header = isCaptain ? ["CPT", "UTIL", "UTIL", "UTIL", "UTIL", "UTIL"] : (DK_HEADER_POOL[sport]?.draftkings || DK_HEADER[sport]);
   const out = [header];
   for (const players of list) {
     const ordered = orderBySlots(header, players);
@@ -1899,35 +1926,48 @@ function swapLineup(players, rule, candidates, info, now) {
     const used = new Set(list.map(x => str(x.key || x.id)));
     const left = rule.salaryCap - list.reduce((s, x, j) => s + (j === i ? 0 : Number(x.salary) || 0), 0);
     const ok = rule.eligible[str(p.slot).toUpperCase()] || [str(p.slot).toUpperCase()];
+    // 5-nov: Captain: el CPT cuesta y suma 1.5 veces, con su ID de CPT
+    const isCpt = str(p.slot).toUpperCase() === "CPT";
+    const cost = c => (isCpt ? Number(c.cptSalary) || Math.round(Number(c.salary) * 1.5) : Number(c.salary));
     const best = candidates
       .filter(c => !used.has(str(c.key || c.id)) && !info.out.has(str(c.key || c.id)))
       .filter(c => !(info.start.get(str(c.key || c.id)) <= now))
-      .filter(c => (c.positions || []).some(x => ok.includes(String(x).toUpperCase())))
-      .filter(c => Number(c.salary) <= left)
+      .filter(c => ok === "ALL" || (c.positions || []).some(x => ok.includes(String(x).toUpperCase())))
+      .filter(c => cost(c) <= left)
       .sort((a, b) => b.points - a.points)[0];
     if (!best) continue;
-    list[i] = { slot: p.slot, id: String(best.id), key: best.key ?? String(best.id), dkId: best.dkId ?? null, name: best.name, team: best.team, positions: best.positions || [], salary: Number(best.salary), points: round(best.points, 2) };
+    list[i] = { slot: p.slot, id: String(best.id), key: best.key ?? String(best.id), dkId: (isCpt ? best.cptId : best.dkId) ?? null, name: best.name, team: best.team,
+      positions: best.positions || [], salary: cost(best), points: round(Number(best.points) * (isCpt ? 1.5 : 1), 2) };
     changes.push({ slot: p.slot, out: p.name, in: best.name });
   }
   return { players: list, changes };
 }
 
+// 5-nov: cada alineacion se cambia con los jugadores de SU slate (la lista
+// de la formula de ese slate), tambien Captain.
 async function runOutSwaps(sport, day) {
   const info = await outInfo(sport, day);
   if (!info.out.size) return { sport, cambios: 0 };
   const lib = sport === "nfl" ? nflLib() : lineupsLib();
   const now = Date.now();
   let total = 0, clientes = 0;
+  const poolCache = new Map();
+  const candsFor = async (platform, slateKey) => {
+    const k = `${platform}|${slateKey}`;
+    if (!poolCache.has(k)) poolCache.set(k, await poolForSlate(sport, platform, Number(slateKey)));
+    return poolCache.get(k);
+  };
+  const ruleFor = (platform, gameType) => gameType === "captain"
+    ? { salaryCap: 50000, eligible: { CPT: "ALL", UTIL: "ALL" } }
+    : lib.RULES[platform];
   for (const platform of ["draftkings", "fanduel"]) {
-    const sp = await latestSlatePool(sport, platform, day);
-    if (!sp) continue;
-    const rule = lib.RULES[platform];
-    const cands = sp.players || [];
     // 1) alineaciones de clientes
     const users = await selectAll("fantasy_app_user_lineups", "*", q => q.eq("sport", sport).eq("platform", platform).eq("slate_date", day).is("deleted_at", null));
     for (const ul of users) {
       if (!(ul.players || []).some(p => info.out.has(str(p.key || p.id)))) continue;
-      const r = swapLineup(ul.players, rule, cands, info, now);
+      const sp = await candsFor(platform, ul.slate_key);
+      if (!sp) continue;
+      const r = swapLineup(ul.players, ruleFor(platform, ul.game_type), sp.players || [], info, now);
       if (!r.changes.length) continue;
       const salary = r.players.reduce((s, x) => s + (Number(x.salary) || 0), 0);
       const proj = round(r.players.reduce((s, x) => s + (Number(x.points) || 0), 0), 2);
@@ -1941,11 +1981,13 @@ async function runOutSwaps(sport, day) {
       total += r.changes.length; clientes++;
     }
     // 2) pool (libres y tuyas)
-    const pool = await selectAll("fantasy_app_pool_lineups", "id,players",
+    const pool = await selectAll("fantasy_app_pool_lineups", "id,players,slate_key,game_type",
       q => q.eq("sport", sport).eq("platform", platform).eq("slate_date", day).in("status", ["free", "owner"]));
     for (const pl of pool) {
       if (!(pl.players || []).some(p => info.out.has(str(p.key || p.id)))) continue;
-      const r = swapLineup(pl.players, rule, cands, info, now);
+      const sp = await candsFor(platform, pl.slate_key);
+      if (!sp) continue;
+      const r = swapLineup(pl.players, ruleFor(platform, pl.game_type), sp.players || [], info, now);
       if (!r.changes.length) continue;
       const salary = r.players.reduce((s, x) => s + (Number(x.salary) || 0), 0);
       const proj = round(r.players.reduce((s, x) => s + (Number(x.points) || 0), 0), 2);
@@ -2024,7 +2066,8 @@ async function playerIndex(sport, platform, slateId, src = null) {
   const dkRows = dkGroup
     ? await selectAll("fantasy_app_dk_players", "player_key,dk_id,draft_group_id,slot", q => q.eq("draft_group_id", dkGroup))
     : [];
-  const dkByKey = new Map(dkRows.filter(r => r.player_key && !r.slot).map(r => [r.player_key, Number(r.dk_id)]));
+  const dkByKey = new Map(dkRows.filter(r => r.player_key && (!r.slot || r.slot === "UTIL")).map(r => [r.player_key, Number(r.dk_id)]));
+  const cptByKey = new Map(dkRows.filter(r => r.player_key && r.slot === "CPT").map(r => [r.player_key, Number(r.dk_id)]));
   const map = new Map();
   for (const c of cards) {
     const pool = poolByKey.get(c.player_key);
@@ -2032,20 +2075,27 @@ async function playerIndex(sport, platform, slateId, src = null) {
       id: pool ? String(pool.id) : c.player_key, key: c.player_key, name: c.player_name, team: c.team, opp: c.opp,
       positions: c.positions || [], salary: Number(c.salary), points: Number(pool?.points ?? c.proj ?? 0),
       dkId: pool?.dkId ?? dkByKey.get(c.player_key) ?? null, status: c.status,
+      cptId: pool?.cptId ?? cptByKey.get(c.player_key) ?? null, cptSalary: pool?.cptSalary ?? Math.round(Number(c.salary) * 1.5),
       gameId: pool?.gameId ?? [c.team, c.opp || "?"].sort().join("@")
     });
   }
-  return { map, sp, slateKey: Number(slateId), day, startsAt };
+  return { map, sp, slateKey: Number(slateId), day, startsAt, gameType: dkSlate?.game_type || "classic" };
 }
 
 // Guardar (nueva) o actualizar (con lineup_id) una alineacion armada por el cliente
+// 5-nov: Captain (Showdown): 1 CPT (x1.5 salario y puntos) + 5 UTIL, cualquier posicion
+const CAPTAIN_POS = { nba: ["PG", "SG", "SF", "PF", "C"], nfl: ["QB", "RB", "WR", "TE", "K", "DST"] };
+const captainRule = sport => ({ cap: 50000, slots: ["CPT", "UTIL", "UTIL", "UTIL", "UTIL", "UTIL"], eligible: { CPT: CAPTAIN_POS[sport], UTIL: CAPTAIN_POS[sport] } });
+
 async function actionSave(req, user) {
   const b = await readBody(req);
   const sport = parseSport(b.sport), platform = parseSite(b.site), slateId = num(b.slate_id);
-  const rule = PAGE_RULES[sport]?.[platform];
-  if (!rule || !slateId || !Array.isArray(b.players)) return { status: 400, body: { ok: false, error: "BAD_PARAMS" } };
-  if (b.players.length !== rule.slots.length) return { status: 400, body: { ok: false, error: "LINEUP_INCOMPLETE" } };
+  if (!sport || !slateId || !Array.isArray(b.players)) return { status: 400, body: { ok: false, error: "BAD_PARAMS" } };
   const idx = await playerIndex(sport, platform, slateId, str(b.src) || null);
+  const captain = idx.gameType === "captain";
+  const rule = captain ? captainRule(sport) : PAGE_RULES[sport]?.[platform];
+  if (!rule) return { status: 400, body: { ok: false, error: "BAD_PARAMS" } };
+  if (b.players.length !== rule.slots.length) return { status: 400, body: { ok: false, error: "LINEUP_INCOMPLETE" } };
   const day = idx.day;
   if (idx.startsAt && Date.parse(idx.startsAt) <= Date.now()) return { status: 409, body: { ok: false, error: "SLATE_STARTED" } };
   const players = [];
@@ -2056,8 +2106,11 @@ async function actionSave(req, user) {
     if (!p) return { status: 400, body: { ok: false, error: "UNKNOWN_PLAYER", player: want.key || want.id } };
     if (!(p.positions || []).some(x => rule.eligible[slot].includes(String(x).toUpperCase()))) return { status: 400, body: { ok: false, error: "WRONG_POSITION", player: p.name, slot } };
     if (/^(out|o)$/i.test(str(p.status))) return { status: 400, body: { ok: false, error: "PLAYER_OUT", player: p.name } };
-    players.push({ slot, id: p.id, key: p.key, dkId: p.dkId, name: p.name, team: p.team, positions: p.positions, salary: p.salary, points: round(p.points, 2) });
+    const isCpt = slot === "CPT";
+    players.push({ slot, id: p.id, key: p.key, dkId: isCpt ? p.cptId : p.dkId, name: p.name, team: p.team, positions: p.positions,
+      salary: isCpt ? p.cptSalary : p.salary, points: round(p.points * (isCpt ? 1.5 : 1), 2) });
   }
+  if (captain && new Set(players.map(p => p.team)).size < 2) return { status: 400, body: { ok: false, error: "ONE_TEAM", message: "Captain lineups need players from both teams." } };
   if (new Set(players.map(p => p.key)).size !== players.length) return { status: 400, body: { ok: false, error: "DUPLICATE_PLAYER" } };
   const salary = players.reduce((s, p) => s + p.salary, 0);
   if (salary > rule.cap) return { status: 400, body: { ok: false, error: "OVER_CAP", salary } };
@@ -2071,10 +2124,42 @@ async function actionSave(req, user) {
     return { status: 200, body: { ok: true, lineup: data[0] } };
   }
   const { data, error } = await supabaseAdmin.from("fantasy_app_user_lineups").insert({
-    user_id: user.userId, sport, platform, slate_key: idx.slateKey, game_type: "classic", slate_date: day, source: "built", ...row
+    user_id: user.userId, sport, platform, slate_key: idx.slateKey, game_type: captain ? "captain" : "classic", slate_date: day, source: "built", ...row
   }).select("*");
   if (error) throw new Error(`Supabase fantasy_app_user_lineups: ${error.message}`);
   return { status: 200, body: { ok: true, lineup: data[0] } };
+}
+
+
+// 5-nov: Captain armado para el cliente (sus bloqueados + la lista de la formula o proyecciones)
+async function buildCaptainForUser({ sport, platform, idx, players, locks, count, user, BONUS }) {
+  const list = players.map(p => ({ ...p, id: String(p.key || p.id), cptSalary: p.cptSalary ?? Math.round(Number(p.salary) * 1.5),
+    utilId: p.dkId ?? null, cptId: p.cptId ?? null }));
+  const opts = { minDifferent: 2, maxExposure: 1, nodeLimit: 3e5, check: sport === "nfl" ? nflShowdownCheck : null };
+  let r = captainLib().buildCaptainLineups(list, { ...opts, count, maxPairShare: 0.5 });
+  let lines = (r.lineups || []).filter(l => [...locks].every(k => l.players.some(p => String(p.id) === k)));
+  if (lines.length < count) {   // nunca quedarse corto: reglas sueltas
+    const prior = lines.map(l => ({ cpt: String(l.players[0].id), ids: l.players.map(p => String(p.id)) }));
+    const r2 = captainLib().buildCaptainLineups(list, { ...opts, count: count - lines.length, minDifferent: 1, maxPairShare: 1, check: null, prior });
+    lines = lines.concat((r2.lineups || []).filter(l => [...locks].every(k => l.players.some(p => String(p.id) === k))));
+  }
+  if (!lines.length) return { status: 409, body: { ok: false, error: "LOCKS_DO_NOT_FIT", message: "Your locked players don't fit together under the cap." } };
+  const byId = new Map(list.map(p => [String(p.id), p]));
+  const now = new Date().toISOString();
+  const rows = lines.map(l => {
+    const ps = l.players.map(p => {
+      const src = byId.get(String(p.id)) || {};
+      const isCpt = p.slot === "CPT";
+      const pts = Number(p.points) - (src._locked ? BONUS * (isCpt ? 1.5 : 1) : 0);
+      return { slot: p.slot, id: String(p.id), key: src.key ?? String(p.id), dkId: isCpt ? src.cptId : src.dkId, name: p.name, team: p.team,
+        positions: src.positions || [], salary: p.salary, points: round(pts, 2) };
+    });
+    return { user_id: user.userId, sport, platform, slate_key: idx.slateKey, game_type: "captain", slate_date: idx.day, source: "locks",
+      players: ps, salary: ps.reduce((s, x) => s + x.salary, 0), proj: round(ps.reduce((s, x) => s + x.points, 0), 2), created_at: now, updated_at: now };
+  });
+  const { data, error } = await supabaseAdmin.from("fantasy_app_user_lineups").insert(rows).select("*");
+  if (error) throw new Error(`Supabase fantasy_app_user_lineups: ${error.message}`);
+  return { status: 200, body: { ok: true, built: data.length, lineups: data } };
 }
 
 // Armar N con sus bloqueados y excluidos (maximo 10 pedidos cada 5 minutos)
@@ -2082,7 +2167,7 @@ async function actionBuild(req, user) {
   const b = await readBody(req);
   const sport = parseSport(b.sport), platform = parseSite(b.site), slateId = num(b.slate_id);
   const count = Math.max(1, Math.min(50, Number(b.count) || 10));
-  if (!PAGE_RULES[sport]?.[platform] || !slateId) return { status: 400, body: { ok: false, error: "BAD_PARAMS" } };
+  if (!sport || !platform || !slateId) return { status: 400, body: { ok: false, error: "BAD_PARAMS" } };
   const since = new Date(Date.now() - 5 * 60000).toISOString();
   const recent = await selectAll("fantasy_app_user_lineups", "id,created_at",
     q => q.eq("user_id", user.userId).eq("source", "locks").gte("created_at", since));
@@ -2099,10 +2184,11 @@ async function actionBuild(req, user) {
   const fromCards = () => [...idx.map.values()]
     .filter(p => p.points > 0 && !/^(out|o|q|gtd|d|questionable|doubtful)/i.test(str(p.status)));
   const base = (idx.sp ? idx.sp.players : fromCards()).filter(p => !bans.has(str(p.key || p.id)));
-  if (base.length < 12) return { status: 409, body: { ok: false, error: "NO_PROJECTIONS", message: "Projections for this slate aren't ready yet. Try again later." } };
+  if (base.length < (idx.gameType === "captain" ? 7 : 12)) return { status: 409, body: { ok: false, error: "NO_PROJECTIONS", message: "Projections for this slate aren't ready yet. Try again later." } };
   for (const k of locks) if (!base.some(p => str(p.key || p.id) === k) && idx.map.get(k)) base.push({ ...idx.map.get(k) });
   const BONUS = 1000;   // obliga a los bloqueados
   const players = base.map(p => (locks.has(str(p.key || p.id)) ? { ...p, points: Number(p.points) + BONUS, _locked: true } : p));
+  if (idx.gameType === "captain") return buildCaptainForUser({ sport, platform, idx, players, locks, count, user, BONUS });
   // 5-nov: mismas reglas de variedad; los bloqueados no cuentan para parejas
   const tier = poolTier({ players: base });
   const opts = { count, minDifferent: tier.minDifferent, maxExposure: 1, maxPairShare: tier.maxPairShare, pairExempt: players.filter(p => p._locked).map(p => p.id) };
