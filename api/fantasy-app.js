@@ -24,7 +24,7 @@
 //   slates y players: solo Premium. El frontend manda el token de
 //   Supabase en el header  Authorization: Bearer <access_token>.
 //   Se verifica con auth.getUser(token) y luego users.is_premium.
-//   El dueño (FANTASY_OWNER_EMAIL) siempre entra. 
+//   El dueño (FANTASY_OWNER_EMAIL) siempre entra.
 //   build-cards: solo con ?secret= (CRON_SECRET).
 //
 // REGLAS INTERNAS
@@ -429,7 +429,7 @@ async function buildNbaCards(slate, version, opts = {}) {
 
 async function nflLatestRun(day) {
   const { data, error } = await supabaseAdmin
-    .from("fantasy_nfl_runs").select("run_id,run_at,run_date")
+    .from("fantasy_nfl_runs").select("run_id,run_at,run_date,summary")
     .lte("run_date", day).order("run_at", { ascending: false }).limit(1).maybeSingle();
   if (error) throw new Error(`Supabase fantasy_nfl_runs: ${error.message}`);
   return data;
@@ -1251,7 +1251,7 @@ async function poolBatch(sp, count, existing) {
     r = m.metodo === "partidos"
       ? nflLib().buildGameStackLineups(sp.platform, sp.players, { ...base, games: m.games, extras: m.extras, gameTotals: new Map(m.gameTotals || []), teamImplied: new Map(m.teamImplied || []) })
       : m.metodo === "pilas"
-        ? nflLib().buildStackLineups(sp.platform, sp.players, base)
+        ? nflLib().buildStackLineups(sp.platform, sp.players, { ...base, alwaysTwo: !!m.siempreDos })
         : nflLib().buildLineups(sp.platform, sp.players, base);
   } else {
     const groups = starGroups(sp.stars, count);
@@ -1464,9 +1464,10 @@ async function nflSlatePools(day, out) {
     if (Date.parse(s.starts_at) <= Date.now()) continue;
     const have = pools.get(dg);
     if (have && !have.stars?.extra) continue;                          // la hizo la formula (Main)
-    if (have && Number(have.stars?.run_id) === Number(run.run_id)) continue;   // al dia
+    const oldMethod = have && have.stars?.metodo === "pilas" && !have.stars?.siempreDos;   // hechas antes del 5-nov tarde
+    if (have && !oldMethod && Number(have.stars?.run_id) === Number(run.run_id)) continue;   // al dia
     // la formula NFL corre seguido: se rehace como maximo cada 3 horas
-    if (have && Date.now() - Date.parse(have.version) < 3 * 3600000) continue;
+    if (have && !oldMethod && Date.now() - Date.parse(have.version) < 3 * 3600000) continue;
     const dkPlayers = (await selectAll("fantasy_app_dk_players", "*", q => q.eq("draft_group_id", dg))).filter(p => p.player_key && !p.slot);
     const keys = dkPlayers.map(p => p.player_key);
     const proj = keys.length ? await selectIn("fantasy_nfl_projections", "entity_key,dk_points,stats,in_pool,available", "entity_key", keys,
@@ -1484,13 +1485,25 @@ async function nflSlatePools(day, out) {
       };
     }).filter(Boolean);
     if (players.length < 20) { out.push({ slate: dg, estado: "sin proyecciones suficientes", jugadores: players.length }); continue; }
+    // 5-nov: el metodo completo de la formula (partidos de Vegas) con los
+    // puntos que Vegas espera de cada equipo (ultima corrida NFL). Sin
+    // lineas: stacks, siempre QB + 2 receptores.
+    const implied = new Map(run.summary?.mercado?.puntosEquipo || []);
+    const gameTotals = [];
+    for (const g of new Set(players.map(p => p.gameId))) {
+      const [a, h] = str(g).split("@").map(t => nflTeam(t));
+      if (implied.has(a) && implied.has(h)) gameTotals.push([g, implied.get(a) + implied.get(h)]);
+    }
+    const stars = gameTotals.length
+      ? { metodo: "partidos", games: run.summary.mercado.partidosVegas || 4, extras: run.summary.mercado.extrasVegas || 2,
+        gameTotals, teamImplied: [...implied.entries()], extra: true, run_id: run.run_id }
+      : { metodo: "pilas", siempreDos: true, extra: true, run_id: run.run_id };
     const { error } = await supabaseAdmin.from("fantasy_app_slate_pools").insert({
       sport: "nfl", platform: "draftkings", slate_key: dg, game_type: "classic", slate_date: s.slate_date,
-      starts_at: s.starts_at, version: new Date().toISOString(), players,
-      stars: { metodo: "pilas", extra: true, run_id: run.run_id }
+      starts_at: s.starts_at, version: new Date().toISOString(), players, stars
     });
     if (error) throw new Error(`Supabase fantasy_app_slate_pools: ${error.message}`);
-    out.push({ slate: dg, partidos: s.games, estado: "lista guardada", jugadores: players.length });
+    out.push({ slate: dg, partidos: s.games, estado: "lista guardada", jugadores: players.length, metodo: stars.metodo });
   }
 }
 
