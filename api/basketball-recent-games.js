@@ -132,7 +132,20 @@ module.exports =
           : null;
 
 
-      if (!token) {
+      // MODO AUDITORÍA (solo admin):
+      // ?secret=CRON_SECRET permite abrir el endpoint
+      // desde el navegador para revisar un partido.
+      const auditSecret =
+        process.env.CRON_SECRET ||
+        process.env.GENERATE_DAILY_SECRET ||
+        null;
+
+      const isAudit =
+        Boolean(auditSecret) &&
+        req.query.secret === auditSecret;
+
+
+      if (!token && !isAudit) {
         return res
           .status(401)
           .json({
@@ -146,9 +159,11 @@ module.exports =
         data: authData,
         error: authError
       } =
-        await supabaseAdmin.auth.getUser(
-          token
-        );
+        isAudit
+          ? { data: { user: { id: "audit" } }, error: null }
+          : await supabaseAdmin.auth.getUser(
+              token
+            );
 
 
       if (
@@ -201,10 +216,22 @@ module.exports =
         // Con él se ajusta cada juego al nivel
         // del rival de hoy usando la escala BPI
         // propia del equipo.
+        // before=YYYY-MM-DD (solo auditoría):
+        // reconstruye el partido usando solo juegos
+        // anteriores a esa fecha.
         const games =
           await getEspnNcaabRecentGames(
             team,
-            req.query.opponent || null
+            req.query.opponent || null,
+            {
+              before:
+                isAudit && req.query.before
+                  ? String(req.query.before)
+                  : null,
+
+              audit:
+                isAudit
+            }
           );
 
 
@@ -475,8 +502,24 @@ module.exports =
 
 async function getEspnNcaabRecentGames(
   teamName,
-  opponentName = null
+  opponentName = null,
+  options = {}
 ) {
+
+  const beforeDate =
+    options?.before
+      ? new Date(`${options.before}T00:00:00Z`)
+      : null;
+
+  const keepBefore =
+    games =>
+      beforeDate
+        ? games.filter(
+            game =>
+              new Date(game.date) < beforeDate
+          )
+        : games;
+
 
   const team =
     await resolveNcaabTeam(
@@ -562,8 +605,8 @@ async function getEspnNcaabRecentGames(
   // ==========================================================
 
   const [
-    currentGames,
-    previousGames
+    currentGamesAll,
+    previousGamesAll
   ] =
     await Promise.all([
 
@@ -577,6 +620,33 @@ async function getEspnNcaabRecentGames(
         previousSeason
       )
     ]);
+
+
+  // En auditoría con before=, solo juegos anteriores.
+  const currentGames =
+    keepBefore(currentGamesAll);
+
+  const previousGames =
+    keepBefore(previousGamesAll);
+
+
+  // AUDITORÍA: BPI de la temporada PASADA del rival de hoy,
+  // para comparar contra el BPI de pretemporada.
+  const todayOpponentProfilePrev =
+    options?.audit && todayOpponent
+      ? await getNcaabBpiProfile(
+          todayOpponent.id,
+          previousSeason
+        )
+      : null;
+
+  const teamProfilePrev =
+    options?.audit
+      ? await getNcaabBpiProfile(
+          team.id,
+          previousSeason
+        )
+      : null;
 
 
   let selectedGames =
@@ -733,7 +803,13 @@ async function getEspnNcaabRecentGames(
             scale,
             todayOpponentProfile,
             similarCheck,
-            teamProfile
+            teamProfile,
+            options?.audit
+              ? {
+                  todayOpponentProfilePrev,
+                  teamProfilePrev
+                }
+              : null
           )
       )
     );
@@ -1813,7 +1889,8 @@ async function enrichNcaabGame(
   scale = null,
   todayOpponentProfile = null,
   similarCheck = null,
-  teamProfile = null
+  teamProfile = null,
+  audit = null
 ) {
 
   const opponentHistory =
@@ -2032,7 +2109,48 @@ async function enrichNcaabGame(
     teamScale:
       scale,
 
-    similarCheck
+    similarCheck,
+
+
+    // SOLO AUDITORÍA: mismo ajuste pero usando el BPI
+    // de la temporada PASADA del rival de hoy.
+    ...(audit
+      ? (() => {
+          const prev = audit.todayOpponentProfilePrev;
+
+          const prevScored =
+            scale?.offense?.usable === true &&
+            Number.isFinite(prev?.def) &&
+            Number.isFinite(rivalDef)
+              ? game.scored +
+                scale.offense.slope *
+                (prev.def - rivalDef)
+              : game.scored;
+
+          const prevAllowed =
+            scale?.defense?.usable === true &&
+            Number.isFinite(prev?.off) &&
+            Number.isFinite(rivalOff)
+              ? game.allowed +
+                scale.defense.slope *
+                (prev.off - rivalOff)
+              : game.allowed;
+
+          return {
+            auditTodayOpponentPrev:
+              prev,
+
+            auditTeamPrev:
+              audit.teamProfilePrev,
+
+            auditAdjustedScoredPrevBpi:
+              prevScored,
+
+            auditAdjustedAllowedPrevBpi:
+              prevAllowed
+          };
+        })()
+      : {})
   };
 }
 
