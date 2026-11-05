@@ -647,6 +647,7 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
   };
 
   const lineupsOut = [];
+  const slatePoolsOut = [];
   const testLineupsOut = [];
   const slateReports = [];
   const inPool = new Set();
@@ -708,6 +709,21 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
     }
 
     debug("optimizador", slate.slate_id, slate.platform, "pool", pool.length);
+    // 4-nov: lista del slate para el POOL de clientes (solo el principal).
+    if (slate.is_main) {
+      const dkOf = new Map(sps.filter(x => x.dk_id).map(x => [x.entity_key, Number(x.dk_id)]));
+      const dkInfo = (todayData.dkLists || []).find(x => Number(x.slate) === Number(slate.slate_id) && x.usada === "draftkings");
+      slatePoolsOut.push({
+        sport: "nfl", platform: slate.platform,
+        slate_key: dkInfo ? dkInfo.draft_group_id : Number(slate.slate_id),
+        game_type: "classic", slate_date: slate.slate_date, starts_at: slate.starts_at || null,
+        version: new Date(t0).toISOString(),
+        players: pool.map(p => ({ ...p, dkId: dkOf.get(p.id) ?? null })),
+        stars: useMarket && gameTotals.size
+          ? { metodo: "partidos", games: CONFIG.market.games, extras: CONFIG.market.extras, gameTotals: [...gameTotals.entries()], teamImplied: [...implied.entries()] }
+          : { metodo: CONFIG.lineupStack ? "pilas" : "simple" }
+      });
+    }
     const lineupOpts = { count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure };
     // 2-nov: DK con mercado -> 4 partidos de Las Vegas + 2 principales.
     const gameOpts = { games: CONFIG.market.games, extras: CONFIG.market.extras, gameTotals, teamImplied: implied };
@@ -806,6 +822,13 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
   const runId = runRow.run_id;
 
   await insertAll("fantasy_nfl_projections", rows.map(r => ({ run_id: runId, ...r })));
+  // 4-nov: listas para el pool de clientes (si falla, no tumba la corrida).
+  if (slatePoolsOut.length) {
+    try {
+      const { error: poolErr } = await supabaseAdmin.from("fantasy_app_slate_pools").insert(slatePoolsOut.map(x => ({ ...x, version: new Date().toISOString() })));
+      if (poolErr) console.warn("fantasy_app_slate_pools:", poolErr.message);
+    } catch (e) { console.warn("fantasy_app_slate_pools:", e.message); }
+  }
   await insertAll("fantasy_nfl_lineups", lineupsOut.map(l => ({ run_id: runId, ...l })));
   // 2-nov: las de prueba aparte (si la tabla falla, no tumba la corrida).
   if (testLineupsOut.length) {
