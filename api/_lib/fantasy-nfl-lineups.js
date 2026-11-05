@@ -49,6 +49,8 @@ const RULES = {
 
 // ¿Se pueden acomodar estos jugadores en las posiciones?
 // Devuelve la asignacion o null.
+const { pairTracker } = require("./fantasy-pairs");
+
 function assignSlots(players, rule) {
   const slots = rule.slots;
   const slotOf = new Array(slots.length).fill(-1);
@@ -84,7 +86,7 @@ const TOPK = 4;
 
 // forced: jugadores que YA van en la alineacion (el stack).
 // noDstVsOwn: rechaza una DST cuyo rival tenga jugadores en la alineacion.
-function solveOne(pool, rule, previous, minDifferent, nodeLimit, forced = [], noDstVsOwn = false) {
+function solveOne(pool, rule, previous, minDifferent, nodeLimit, forced = [], noDstVsOwn = false, pairs = null) {
   const size = rule.slots.length;
   const maxShared = size - minDifferent;
   const n = pool.length;
@@ -202,7 +204,7 @@ function solveOne(pool, rule, previous, minDifferent, nodeLimit, forced = [], no
       counts[g]++;
       const dst = noDstVsOwn ? chosen.find(c => c.positions[0] === "DST") : null;
       const dstOk = !dst || !chosen.some(c => c !== dst && c.opp === dst.team);
-      const ok = dstOk && (!rule.maxPerTeam || chosen.filter(c => c.team === p.team).length <= rule.maxPerTeam) &&
+      const ok = dstOk && (!pairs || pairs.ok(chosen, p)) && (!rule.maxPerTeam || chosen.filter(c => c.team === p.team).length <= rule.maxPerTeam) &&
         previousSets.every(set => chosen.filter(c => set.has(c.id)).length <= maxShared);
       if (ok) search(j + 1, salary + p.salary, points + p.points);
       counts[g]--;
@@ -223,7 +225,9 @@ function solveOne(pool, rule, previous, minDifferent, nodeLimit, forced = [], no
 // nuevas tienen que ser distintas de esas tambien (pool de clientes).
 const priorOf = prior => (prior || []).map(ids => ids.map(id => ({ id: String(id) })));
 
-function buildLineups(platform, players, { count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1, prior = [] } = {}) {
+function buildLineups(platform, players, { count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1, prior = [], maxPairShare = 1, pairExempt = [] } = {}) {
+  const exemptIds = new Set((pairExempt || []).map(String));
+  const pairs = pairTracker(maxPairShare, count, id => exemptIds.has(String(id)));
   const priorRaw = priorOf(prior);
   const rule = RULES[platform];
   if (!rule) return { status: "PLATAFORMA_NO_SOPORTADA", lineups: [] };
@@ -241,12 +245,13 @@ function buildLineups(platform, players, { count = 10, minDifferent = 2, nodeLim
 
   for (let k = 0; k < count; k++) {
     const available = pool.filter(p => (uses.get(p.id) || 0) < maxUses);
-    const r = solveOne(available, rule, priorRaw.concat(lineups.map(l => l.players)), minDifferent, nodeLimit);
+    const r = solveOne(available, rule, priorRaw.concat(lineups.map(l => l.players)), minDifferent, nodeLimit, [], false, pairs);
     if (!r.complete) allOptimal = false;
     if (!r.best) break;
 
     const ordered = r.best.slots.map((pi, s) => ({ slot: rule.slots[s], ...r.best.players[pi] }));
     for (const pl of r.best.players) uses.set(pl.id, (uses.get(pl.id) || 0) + 1);
+    pairs.add(r.best.players);
     lineups.push({
       number: k + 1,
       players: ordered,
@@ -296,7 +301,8 @@ function seededRandom(seed) {
   };
 }
 
-function buildStackLineups(platform, players, { count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1, sims = 20000, sd = STACK_SD, seed = 12345, prior = [] } = {}) {
+function buildStackLineups(platform, players, { count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1, sims = 20000, sd = STACK_SD, seed = 12345, prior = [], maxPairShare = 1 } = {}) {
+  const pairCap = pairTracker(maxPairShare, count);
   const priorRaw = priorOf(prior);
   const rule = RULES[platform];
   if (!rule) return { status: "PLATAFORMA_NO_SOPORTADA", lineups: [] };
@@ -315,7 +321,7 @@ function buildStackLineups(platform, players, { count = 10, minDifferent = 2, no
     if (rec.length < 2) continue;
     stacks.push({ team, qb, rec, value: qb.points + rec[0].points + rec[1].points, prob: 0, quota: 0 });
   }
-  if (!stacks.length) return { ...buildLineups(platform, players, { count, minDifferent, nodeLimit, maxExposure }), stacks: [] };
+  if (!stacks.length) return { ...buildLineups(platform, players, { count, minDifferent, nodeLimit, maxExposure, prior, maxPairShare }), stacks: [] };
 
   // ---- 2) Probabilidad de ser el mejor bloque ----
   const rand = seededRandom(seed);
@@ -374,12 +380,13 @@ function buildStackLineups(platform, players, { count = 10, minDifferent = 2, no
     const forced = [st.qb, ...rec];
     const fid = new Set(forced.map(p => p.id));
     const available = pool.filter(p => !fid.has(p.id) && p.positions[0] !== "QB" && free(p));
-    const r = solveOne(available, rule, priorRaw.concat(built.map(l => l.raw)), minDifferent, nodeLimit, forced, true);
+    const r = solveOne(available, rule, priorRaw.concat(built.map(l => l.raw)), minDifferent, nodeLimit, forced, true, pairCap);
     if (!r.complete) allOptimal = false;
     if (!r.best) return false;
 
     // El QB no cuenta: a el lo limita la cuota de su bloque.
     for (const pl of r.best.players) if (pl.id !== st.qb.id) uses.set(pl.id, (uses.get(pl.id) || 0) + 1);
+    pairCap.add(r.best.players);
     const ordered = r.best.slots.map((pi, s) => ({ slot: rule.slots[s], ...r.best.players[pi] }));
     built.push({
       raw: r.best.players,
@@ -449,12 +456,13 @@ function buildStackLineups(platform, players, { count = 10, minDifferent = 2, no
 // Sin totales de Las Vegas -> buildStackLineups (como antes).
 function buildGameStackLineups(platform, players, {
   count = 20, minDifferent = 2, nodeLimit = 1e5, maxExposure = 0.4,
-  games = 4, extras = 2, gameTotals = null, teamImplied = null, prior = []
+  games = 4, extras = 2, gameTotals = null, teamImplied = null, prior = [], maxPairShare = 1
 } = {}) {
+  const pairCap = pairTracker(maxPairShare, count);
   const rule = RULES[platform];
   if (!rule) return { status: "PLATAFORMA_NO_SOPORTADA", lineups: [] };
   const priorRaw = priorOf(prior);
-  const fallback = () => ({ ...buildStackLineups(platform, players, { count, minDifferent, maxExposure, prior }), partidos: [] });
+  const fallback = () => ({ ...buildStackLineups(platform, players, { count, minDifferent, maxExposure, prior, maxPairShare }), partidos: [] });
   if (!gameTotals || !gameTotals.size) return fallback();
 
   const pool = players
@@ -510,7 +518,7 @@ function buildGameStackLineups(platform, players, {
     for (let x = 0; x < extras && cand.length; x++) forced.push(cand.splice((k + x) % cand.length, 1)[0]);
     const fid = new Set(forced.map(p => p.id));
     const available = pool.filter(p => !fid.has(p.id) && p.positions[0] !== "QB" && free(p));
-    const r = solveOne(available, rule, priorRaw.concat(built.map(l => l.raw)), minDifferent, nodeLimit, forced, true);
+    const r = solveOne(available, rule, priorRaw.concat(built.map(l => l.raw)), minDifferent, nodeLimit, forced, true, pairCap);
     if (!r.complete) allOptimal = false;
     return r.best ? { r, forced } : null;
   };
@@ -523,6 +531,7 @@ function buildGameStackLineups(platform, players, {
     if (!hit) return false;
     const { r, forced } = hit;
     for (const pl of r.best.players) if (pl.id !== st.qb.id) uses.set(pl.id, (uses.get(pl.id) || 0) + 1);
+    pairCap.add(r.best.players);
     const ordered = r.best.slots.map((pi, s) => ({ slot: rule.slots[s], ...r.best.players[pi] }));
     built.push({
       raw: r.best.players,
