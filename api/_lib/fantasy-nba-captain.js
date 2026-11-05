@@ -20,12 +20,15 @@ const CAP = 50000;
 const SIZE = 6; // 1 CPT + 5 UTIL
 
 // players: [{ id, name, team, salary (UTIL), cptSalary, points, utilId, cptId }]
+const { pairTracker } = require("./fantasy-pairs");
+
 function buildCaptainLineups(players, {
   count = 20,
   minDifferent = 1,
   maxExposure = 1,
   nodeLimit = 3e6,
-  salaryCap = CAP
+  salaryCap = CAP,
+  maxPairShare = 1   // 5-nov: misma pareja en maximo esta parte de las alineaciones
 } = {}) {
   const pool = players
     .filter(p => Number(p.points) > 0 && Number(p.salary) > 0 && Number(p.cptSalary) > 0)
@@ -40,15 +43,17 @@ function buildCaptainLineups(players, {
   const maxUses = Math.max(1, Math.floor(maxExposure * count + 1e-9));
   const previous = [];
   const lineups = [];
+  const pairs = pairTracker(maxPairShare, count);
   let allOptimal = true;
 
   for (let n = 0; n < count; n++) {
     const blocked = id => (uses.get(id) || 0) >= maxUses;
-    const r = solveOne(pool, previous, minDifferent, nodeLimit, blocked, salaryCap);
+    const r = solveOne(pool, previous, minDifferent, nodeLimit, blocked, salaryCap, pairs);
     if (!r) break;
     if (!r.optimal) allOptimal = false;
     const cpt = r.cpt, utils = r.utils;
     for (const p of [cpt, ...utils]) uses.set(p.id, (uses.get(p.id) || 0) + 1);
+    pairs.add([cpt, ...utils]);
     previous.push({ cpt: cpt.id, ids: new Set([cpt.id, ...utils.map(u => u.id)]) });
     lineups.push({
       number: n + 1,
@@ -70,7 +75,7 @@ function buildCaptainLineups(players, {
 
 // Mejor alineacion: prueba cada CPT y llena 5 UTIL con busqueda
 // exacta (cota: los mejores puntos que todavia caben).
-function solveOne(pool, previous, minDifferent, nodeLimit, blocked, cap) {
+function solveOne(pool, previous, minDifferent, nodeLimit, blocked, cap, pairs = null) {
   let best = null, bestPts = -1, nodes = 0, cut = false;
   const utilPool = pool; // ya ordenado de mas a menos puntos
 
@@ -105,6 +110,7 @@ function solveOne(pool, previous, minDifferent, nodeLimit, blocked, cap) {
         const u = utilPool[i];
         if (u.id === cpt.id || blocked(u.id)) continue;
         if (salary + u.salary > cap) continue;
+        if (pairs && !pairs.ok([cpt, ...chosen], u)) continue;
         // cota: estos puntos + los siguientes "need" mejores
         let b = pts, c = 0;
         for (let j = i; j < utilPool.length && c < need; j++) {
