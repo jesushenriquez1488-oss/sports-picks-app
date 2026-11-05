@@ -7,7 +7,7 @@
     "api/fantasy-nfl-weekly.js": {"maxDuration": 300},
     "api/fantasy-nfl-daily.js": {"maxDuration": 300},
     "api/fantasy-nfl-project.js": {"maxDuration": 300},
-    "api/fantasy-app.js": {"maxDuration": 60}
+    "api/fantasy-app.js": {"maxDuration": 300}
   },
   "crons": [
     { "path": "/api/analyze-nba?mode=generate-daily&sport=baseball_mlb&limit=4&offset=0&force=true", "schedule": "0 11 * * *" },
@@ -55,6 +55,7 @@
     { "path": "/api/process-market-notification-deliveries", "schedule": "* * * * *" },
     { "path": "/api/nba-data?type=maintenance", "schedule": "0 8 * * *" },
     { "path": "/api/fantasy-app?action=sync-dk", "schedule": "*/15 * * * *" },
+    { "path": "/api/fantasy-app?action=pool-cron", "schedule": "*/5 * * * *" },
     { "path": "/api/fantasy-nba-daily?step=all", "schedule": "30 8 * * *" },
     { "path": "/api/fantasy-nba-daily?step=refresh", "schedule": "30 21 * * *" },
     { "path": "/api/fantasy-nba-daily?step=props&auto=1", "schedule": "*/15 13-23 * * *" },
