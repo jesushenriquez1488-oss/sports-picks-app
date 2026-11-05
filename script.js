@@ -42456,14 +42456,14 @@ function openPromoModal(context = "general") {
   ) {
     return goPremiumMonthly();
   }
-  const validContexts = [
+    const validContexts = [
     "general",
     "free_limit",
     "premium_pick",
     "radar",
-    "player_props"
+    "player_props",
+    "fantasy"
   ];
-
 
   const safeContext =
     validContexts.includes(context)
@@ -42547,7 +42547,20 @@ function openPromoModal(context = "general") {
         "UNLOCK ADVANCED PLAYER PROPS"
     },
 
+    fantasy: {
 
+      kicker:
+        "DRAFTKINGS & FANDUEL · NBA & NFL",
+
+      title:
+        "YOUR LINEUPS, BUILT WITH THE CASHEDGE FORMULA.",
+
+      body:
+        `Premium Fantasy Sports builds your DraftKings and FanDuel lineups with <strong>the real CashEdge formula for every slate — projections, Vegas lines and injury updates.</strong> Get up to 50 lineups per slate and download the CSV ready to upload.`,
+
+      cta:
+        "UNLOCK FANTASY SPORTS"
+    },
     general: {
 
       kicker:
