@@ -170,7 +170,7 @@ td.fp{font-weight:600}
 .btn.sec{background:transparent;border:1px solid var(--line)}
 .note{font-size:12px;color:var(--muted)}
 .lu{border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:grid;gap:4px;font-size:12.5px}
-.lu .hd{display:flex;justify-content:space-between;font-weight:600}
+.lu .hd{display:flex;flex-wrap:wrap;gap:6px;justify-content:space-between;align-items:center;font-weight:600}
 .lu .ln{display:grid;grid-template-columns:34px 1fr auto auto;gap:6px}
 .lu .ln span:first-child{color:var(--muted)}
 .grp{border:1px solid var(--line);border-radius:10px;overflow:hidden}
@@ -196,7 +196,7 @@ td.fp{font-weight:600}
 .oa-row .ok{color:var(--muted);font-size:12px}
 .savebtn{font-size:16px;padding:12px 18px;box-shadow:0 0 0 3px rgba(46,224,90,.25)}
 .chip.own{background:#11281a;color:var(--accent);border:1px solid #1f5a33}
-.lu .hd .r{display:flex;gap:8px;align-items:center}
+.lu .hd .r{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:flex-end}
 .edbtn{background:none;border:1px solid var(--line);color:var(--accent);border-radius:6px;padding:2px 8px;font-size:12px}
 .edbtn:hover{border-color:var(--accent)}
 .lu.editing{border-color:var(--accent);box-shadow:0 0 0 2px rgba(46,224,90,.25)}
@@ -240,6 +240,8 @@ td.fp{font-weight:600}
   .pn .n{font-size:13px}
 }
 optgroup{color:var(--muted)}
+#slate{font-size:13px;padding:6px 8px;max-width:100%;white-space:nowrap;text-overflow:ellipsis}
+#slate option,#slate optgroup{font-size:13px}
 .delbtn{border:1px solid #3a2323;background:transparent;color:#d98c8c;border-radius:6px;padding:2px 8px;font-size:12px;cursor:pointer}
 .delall{font-size:12px;color:#d98c8c;background:none;border:0;cursor:pointer;padding:0;text-decoration:underline}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center;z-index:50;padding:16px}
@@ -269,6 +271,7 @@ body.closed .salary,body.closed #slots,body.closed #editBar,body.closed .cta-fil
     <div class="steps">
       <div class="step"><label>Site</label><div class="seg" id="site"><button aria-pressed="true">DraftKings</button><button aria-pressed="false">FanDuel</button></div></div>
       <div class="step"><label>Sport</label><div class="seg" id="sport"><button aria-pressed="true" data-sp="NBA">NBA</button><button aria-pressed="false" data-sp="NFL">NFL</button><button aria-pressed="false" data-sp="MLB">MLB</button></div></div>
+      <div class="step"><label>Game</label><div class="seg" id="gtype"><button aria-pressed="true" data-gt="classic">Classic</button><button aria-pressed="false" data-gt="captain">Captain</button></div></div>
       <div class="step"><label for="slate">Slate</label><select id="slate"><option>Loading…</option></select></div>
     </div>
     <span class="lock-note">Recommended lineups update at 4:30 PM CT. After that, only players ruled OUT are swapped.</span>
@@ -393,6 +396,7 @@ const ICON_LOCK = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" s
 const ICON_BAN = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M6.5 6.5l11 11"/></svg>';
 const COLORS = ["#0b7285", "#5f3dc4", "#c2255c", "#e67700", "#2b8a3e", "#1864ab", "#862e9c", "#a61e4d", "#087f5b", "#364fc7"];
 
+let GTYPE = "classic";
 let SITE = "DraftKings", SPORT = "NBA", SLOTS = [], CAP = 50000, P = [], SLATE = null;
 let showOver = false, auto = new Set(), active = 0, sel = null, lineup = [], locks = new Set(), bans = new Set(), EDITING = null;
 let TOKEN = null, MINE = { groups: [] }, SLATES = [];
@@ -449,14 +453,17 @@ function toPlayer(c, i) {
 }
 
 async function loadSlate() {
-  const r = RULES[SPORT][SITE]; SLOTS = r.slots; CAP = r.cap;
+  const r = GTYPE === "captain"
+    ? { cap: 50000, slots: [["CPT", CAPTAIN_POS[SPORT]]].concat(Array.from({ length: 5 }, () => ["UTIL", CAPTAIN_POS[SPORT]])) }
+    : RULES[SPORT][SITE];
+  SLOTS = r.slots; CAP = r.cap;
   lineup = Array(SLOTS.length).fill(null); locks = new Set(); bans = new Set(); auto = new Set(); active = 0; sel = null; showOver = false; EDITING = null;
   $("#list").innerHTML = `<div class="loading">Loading players…</div>`;
   $("#hMin").textContent = SPORT === "NFL" ? "Snap%" : "Min";
   const sl = await api("slates", { sport: sport(), site: site() });
   if (!sl.ok) return showError(sl);
   // 5-nov: todos los slates disponibles (hoy y proximos dias), agrupados por dia.
-  SLATES = (sl.slates || []).filter(x => x.game_type === "classic")
+  SLATES = (sl.slates || []).filter(x => (x.game_type || "classic") === GTYPE)
     .sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at) || (b.games || 0) - (a.games || 0));
   const open = SLATES.filter(x => !hasStarted(x));
   const today = open.filter(x => x.slate_date === SLATES[0]?.slate_date);
@@ -466,11 +473,18 @@ async function loadSlate() {
     ? (pick ? "" : `<option selected disabled>All slates started</option>`) +
       days.map(d => `<optgroup label="${dayName(d)}">` + SLATES.filter(x => x.slate_date === d).map(x =>
         `<option value="${x.slate_id}" ${hasStarted(x) ? "disabled" : ""} ${pick && x.slate_id === pick.slate_id ? "selected" : ""}>${slateLabel(x)}</option>`).join("") + `</optgroup>`).join("")
-    : `<option>No ${SPORT} slates right now</option>`;
+    : `<option>No ${SPORT} ${GTYPE === "captain" ? "Captain " : ""}slates right now</option>`;
   await openSlate(pick);
 }
 
 function hasStarted(x) { return !!x && Date.parse(x.starts_at) <= Date.now(); }
+
+// 5-nov: Captain: el CPT cuesta y suma 1.5 veces
+const CAPTAIN_POS = { NBA: ["PG", "SG", "SF", "PF", "C"], NFL: ["QB", "RB", "WR", "TE", "K", "DST"] };
+const isCptSlot = k => SLOTS[k]?.[0] === "CPT";
+const salAt = (k, i) => (isCptSlot(k) ? Math.round(P[i].salary * 1.5) : P[i].salary);
+const ptsAt = (k, i) => (isCptSlot(k) ? P[i].proj * 1.5 : P[i].proj);
+const usedSalary = () => lineup.reduce((s, id, k) => s + (id === null ? 0 : salAt(k, id)), 0);
 
 // Caja de la formula: cada slate con su formula
 function renderFormulaBox() {
@@ -560,7 +574,7 @@ function toggleLock(i) {
 }
 function budgetMax() {
   const open = SLOTS.map((s, i) => i).filter(i => lineup[i] === null);
-  const left = CAP - lineup.reduce((s, id) => s + (id === null ? 0 : P[id].salary), 0);
+  const left = CAP - usedSalary();
   const cheap = P.filter(p => !inLineup(p.i) && !bans.has(p.i)).map(p => p.salary).sort((a, b) => a - b).slice(0, Math.max(0, open.length - 1)).reduce((a, b) => a + b, 0);
   return { open: open.length, max: left - cheap, left };
 }
@@ -570,7 +584,9 @@ function renderTabs() {
   $("#posTabs").querySelectorAll("button").forEach(b => (b.onclick = () => { active = +b.dataset.i; sel = null; renderAll(); }));
 }
 
-function rowHtml(p, over) {
+function rowHtml(p0, over) {
+  const cpt = isCptSlot(active);
+  const p = cpt ? { ...p0, salary: Math.round(p0.salary * 1.5), proj: p0.proj * 1.5 } : p0;
   const q = p.status && /^(q|gtd|questionable|d|doubtful)/i.test(p.status) ? `<span class="tg c-q">${esc(p.status.toUpperCase())}</span>` : "";
   const proj = p.proj > 0 ? `<b>${p.proj.toFixed(1)}</b>` : `<span class="np" title="No projection yet">–</span>`;
   return `<div class="row ${p.i === sel ? "sel" : ""} ${bans.has(p.i) ? "banned" : ""} ${over ? "over" : ""}" data-id="${p.i}" tabindex="0">
@@ -592,7 +608,8 @@ function renderList() {
   $("#poolCount").textContent = rows.length + " eligible for " + SLOTS[active][0] + " · sorted by projection";
   $("#headPos").textContent = SLOTS[active][0] === "UTIL" ? "Any position" : "Eligible for " + SLOTS[active][0] + " (" + SLOTS[active][1].join("/") + ")";
   const bm = budgetMax(), filled = lineup[active] !== null;
-  const fit = filled ? rows : rows.filter(p => p.salary <= bm.max), over = filled ? [] : rows.filter(p => p.salary > bm.max);
+  const costNow = p => (isCptSlot(active) ? Math.round(p.salary * 1.5) : p.salary);
+  const fit = filled ? rows : rows.filter(p => costNow(p) <= bm.max), over = filled ? [] : rows.filter(p => costNow(p) > bm.max);
   const limit = bm.open <= 2 && !filled;
   let html = (!filled && over.length ? `<div class="fitnote">Showing players that fit: up to ${money(Math.max(0, bm.max))} for ${SLOTS[active][0]} (${money(bm.left)} left, ${bm.open} spot${bm.open > 1 ? "s" : ""} open)</div>` : "") + fit.map(p => rowHtml(p, false)).join("");
   if (over.length) {
@@ -676,7 +693,7 @@ function renderBuilder() {
   $("#slots").innerHTML = SLOTS.map((s, k) => {
     const i = lineup[k];
     if (i === null) return `<div class="slot ${k === active ? "active" : ""}" data-s="${k}"><span class="pos">${s[0]}</span><span class="note">${k === active ? "Choosing now →" : "Empty · tap to choose"}</span><span></span><span></span><span></span></div>`;
-    const p = P[i]; used += p.salary;
+    const p = { ...P[i], salary: salAt(k, i), proj: ptsAt(k, i) }; used += p.salary;
     return `<div class="slot full ${k === active ? "active" : ""}" data-s="${k}"><span class="pos">${s[0]}</span><span><b>${esc(p.name)}</b>${auto.has(i) ? ' <span class="chip c-new">Auto</span>' : ""}<br><span class="pp">${esc(p.team)} · proj ${p.proj.toFixed(1)}</span></span><span class="num">${money(p.salary)}</span><button class="lk ${locks.has(i) ? "on" : ""}" data-l="${i}" aria-label="${locks.has(i) ? "Unlock" : "Lock"} ${esc(p.name)}">${ICON_LOCK}</button><button class="x" data-i="${k}" aria-label="Remove ${esc(p.name)}">×</button></div>`;
   }).join("");
   $("#slots").querySelectorAll(".lk").forEach(b => (b.onclick = e => { e.stopPropagation(); toggleLock(+b.dataset.l); }));
@@ -711,7 +728,7 @@ function renderBuilder() {
 
 function autofill() {
   const open = SLOTS.map((s, i) => i).filter(i => lineup[i] === null); if (!open.length) return;
-  const left0 = CAP - lineup.reduce((s, id) => s + (id === null ? 0 : P[id].salary), 0), used = new Set(lineup.filter(x => x !== null));
+  const left0 = CAP - usedSalary(), used = new Set(lineup.filter(x => x !== null));
   const pool = P.filter(p => !bans.has(p.i) && !(p.status && /^(q|gtd|d)/i.test(p.status)));
   const order = open.slice().sort((a, b) => SLOTS[a][1].length - SLOTS[b][1].length);
   const C = order.map(i => pool.filter(p => p.pos.some(x => SLOTS[i][1].includes(x))).sort((a, b) => b.proj - a.proj).slice(0, 40));
@@ -722,8 +739,9 @@ function autofill() {
     if (k === order.length) { if (pts > bestPts) { bestPts = pts; best = pick.slice(); } return; }
     const rest = order.length - k - 1, minRest = cheapest.slice(0, rest).reduce((a, b) => a + b, 0);
     for (const p of C[k]) {
-      if (used.has(p.i) || p.salary + minRest > left) continue;
-      used.add(p.i); pick.push(p.i); go(k + 1, left - p.salary, pts + p.proj); pick.pop(); used.delete(p.i);
+      const cost = salAt(order[k], p.i), val = ptsAt(order[k], p.i);
+      if (used.has(p.i) || cost + minRest > left) continue;
+      used.add(p.i); pick.push(p.i); go(k + 1, left - cost, pts + val); pick.pop(); used.delete(p.i);
       if (nodes > 60000) return;
     }
   };
@@ -818,7 +836,7 @@ function renderMine() {
     const sl = SLATES.find(x => Number(x.slate_id) === Number(g.slate_key));
     const where = sl ? slateLabel(sl) : (g.slate_date ? dayName(g.slate_date) : "Main");
     if (!g.title) g.title = `${isDk ? "DraftKings" : "FanDuel"} · ${where}`;
-    return `<details class="grp" ${g.sport === sport() && g.platform === site() ? "open" : ""}><summary><span class="gt"><b>${esc(g.title || (isDk ? "DraftKings" : "FanDuel") + " · Main")}</b><span><span class="tagtype">Classic</span> · ${g.lineups.length} lineup${g.lineups.length > 1 ? "s" : ""}</span></span>
+    return `<details class="grp" ${g.sport === sport() && g.platform === site() ? "open" : ""}><summary><span class="gt"><b>${esc(g.title || (isDk ? "DraftKings" : "FanDuel") + " · Main")}</b><span><span class="tagtype">${g.game_type === "captain" ? "Captain" : "Classic"}</span> · ${g.lineups.length} lineup${g.lineups.length > 1 ? "s" : ""}</span></span>
       <span style="display:grid;gap:4px;justify-items:end">${isDk ? `<button class="btn sec" data-csv="${g.sport}" data-sk="${g.slate_key}" data-rs="${g.reserved ? 1 : 0}">⬇ CSV</button>` : `<span class="fdnote">FanDuel: enter by hand</span>`}
       <button class="delall" data-da="${g.sport}|${g.platform}|${g.slate_key}|${g.reserved ? 1 : 0}" data-n="${g.lineups.length}">Delete all</button></span></summary>
       <div class="gb">${g.lineups.map((l, k) => `<div class="lu ${EDITING?.id === l.id ? "editing" : ""}"><div class="hd"><span>Lineup #${k + 1}${l.source === "built" || l.source === "locks" ? ' <span class="chip own">Built by you</span>' : ""}${l.edited ? ' <span class="chip own">Edited</span>' : ""}</span><span class="r"><span class="num">${money(l.salary)}</span>${l.reserved ? "" : `<button class="edbtn" data-ed="${l.id}" data-k="${k + 1}">✎ Edit</button>`}<button class="delbtn" data-del="${l.id}" data-rs="${l.reserved ? 1 : 0}" aria-label="Delete lineup ${k + 1}">Delete</button></span></div>
@@ -957,6 +975,7 @@ function wire() {
       SPORT = b.dataset.sp;
     }
     if (g.id === "site") SITE = b.textContent.trim();
+    if (g.id === "gtype") GTYPE = b.dataset.gt;
     loadSlate(); renderMine();
   })));
 }
