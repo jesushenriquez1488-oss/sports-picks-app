@@ -100,6 +100,7 @@ function dayIn(tz, v = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(v));
 }
 const chicagoDay = v => dayIn("America/Chicago", v);
+const addDaysStr = (day, n) => new Date(Date.parse(`${day}T12:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 const nbaDay = v => dayIn("America/New_York", v);
 
 // Temporada NBA (BallDontLie usa el año en que empieza: 2026-27 = 2026)
@@ -267,9 +268,9 @@ function computeTags(sport, fpts, usage, seasonGames, teamGames) {
 // SLATES
 // ============================================================
 
-async function listSlates(sport, platform, day) {
+async function listSlates(sport, platform, day, lastDay = day) {
   const table = sport === "nfl" ? "fantasy_nfl_slates" : "fantasy_nba_slates";
-  const rows = await selectAll(table, "*", q => q.eq("slate_date", day).eq("platform", platform).order("starts_at", { ascending: true }));
+  const rows = await selectAll(table, "*", q => q.gte("slate_date", day).lte("slate_date", lastDay).eq("platform", platform).order("starts_at", { ascending: true }));
   const now = Date.now();
   return rows.map(s => ({
     slate_id: Number(s.slate_id),
@@ -306,19 +307,21 @@ async function nbaSourceVersion(slateId) {
   return data ? `nba:${data.created_at}` : "nba:none";
 }
 
-async function buildNbaCards(slate, version) {
+async function buildNbaCards(slate, version, opts = {}) {
   const slateId = Number(slate.slate_id);
   const platform = slate.platform;
   const day = slate.slate_date;
   const cur = nbaSeason(day), prev = cur - 1;
 
-  const [players, projections] = await Promise.all([
+  // 5-nov: opts.players / opts.projections = slate de DraftKings directo
+  const [players, projections] = opts.players ? [opts.players, opts.projections || []] : await Promise.all([
     selectAll("fantasy_nba_slate_players", "*", q => q.eq("slate_id", slateId)),
     selectAll("fantasy_nba_projections", "player_id,opp_team_id,minutes,proj_mean,proj_p90", q => q.eq("slate_id", slateId))
   ]);
   if (!players.length) return [];
   const projById = new Map(projections.map(p => [Number(p.player_id), p]));
   const ids = players.map(p => Number(p.player_id)).filter(Boolean);
+  const photos = await dkPhotos("nba", ids.map(String));
 
   const [logs, games] = await Promise.all([
     selectIn("nba_player_game_roles",
@@ -392,7 +395,7 @@ async function buildNbaCards(slate, version) {
       player_key: String(id),
       player_name: sp.player_name,
       team: sp.team_abbr || NBA_TEAMS[teamId] || null,
-      opp: pj?.opp_team_id ? (NBA_TEAMS[Number(pj.opp_team_id)] || null) : null,
+      opp: pj?.opp_team_id ? (NBA_TEAMS[Number(pj.opp_team_id)] || null) : (sp.opp_abbr || null),
       positions: Array.isArray(sp.positions) ? sp.positions : [],
       salary,
       status: cleanStatus(sp.status),
@@ -411,7 +414,7 @@ async function buildNbaCards(slate, version) {
       } : null,
       // ultimos 10: temporada actual primero; si faltan, se completan con la anterior
       games: rowsOut.slice(0, LAST_GAMES),
-      photo_url: null,
+      photo_url: photos.get(String(id)) || null,
       source_version: version,
       updated_at: now
     });
@@ -437,15 +440,17 @@ async function nflSourceVersion(day) {
   return run ? `nfl:${run.run_id}` : "nfl:none";
 }
 
-async function buildNflCards(slate, version) {
+async function buildNflCards(slate, version, opts = {}) {
   const slateId = Number(slate.slate_id);
   const platform = slate.platform;
   const day = slate.slate_date;
   const cur = nflSeason(day), prev = cur - 1;
   const pkey = platform === "fanduel" ? "fd" : "dk";
-  const runId = version.startsWith("nfl:") && version !== "nfl:none" ? Number(version.slice(4)) : null;
+  const runId = opts.players ? (opts.runId ?? null)
+    : version.startsWith("nfl:") && version !== "nfl:none" ? Number(version.slice(4)) : null;
 
-  const players = await selectAll("fantasy_nfl_slate_players", "*", q => q.eq("slate_id", slateId));
+  // 5-nov: opts.players = slate de DraftKings directo
+  const players = opts.players || await selectAll("fantasy_nfl_slate_players", "*", q => q.eq("slate_id", slateId));
   if (!players.length) return [];
 
   const keyOf = sp => (sp.entity_type === "team" ? `DST:${nflTeam(sp.team)}` : str(sp.gsis_player_id) || `SLATE:${sp.entity_key}`);
@@ -461,6 +466,7 @@ async function buildNflCards(slate, version) {
   ]);
 
   const projByKey = new Map(projections.map(p => [str(p.entity_key), p]));
+  const photos = await dkPhotos("nfl", players.map(keyOf));
   const espnByGsis = new Map(roster.map(r => [str(r.gsis_player_id), str(r.espn_athlete_id)]));
   const snapByKey = new Map(snaps.map(s => [`${s.gsis_player_id}|${String(s.game_date).slice(0, 10)}`, num(s.offense_pct)]));
   const statsByGsis = new Map();
@@ -539,7 +545,7 @@ async function buildNflCards(slate, version) {
       player_key: key,
       player_name: isDst ? (sp.player_name || `${team} DST`) : sp.player_name,
       team,
-      opp: pj?.opponent ? nflTeam(pj.opponent) : null,
+      opp: pj?.opponent ? nflTeam(pj.opponent) : (sp.opp_abbr || null),
       positions: [isDst ? "DST" : str(sp.position || pj?.position).toUpperCase()].filter(Boolean),
       salary,
       status: cleanStatus(sp.status),
@@ -560,7 +566,7 @@ async function buildNflCards(slate, version) {
       games: rowsOut.slice(0, LAST_GAMES),
       photo_url: isDst
         ? `https://a.espncdn.com/i/teamlogos/nfl/500/${team.toLowerCase()}.png`
-        : espnId ? `https://a.espncdn.com/i/headshots/nfl/players/full/${espnId}.png` : null,
+        : espnId ? `https://a.espncdn.com/i/headshots/nfl/players/full/${espnId}.png` : (photos.get(key) || null),
       source_version: version,
       updated_at: now
     });
@@ -597,6 +603,118 @@ async function refreshCards(sport, slate, force = false) {
   return { rebuilt: true, version, players: cards.length };
 }
 
+// 5-nov: fotos de DraftKings por jugador (columna image_url, SQL paso 4).
+// Si la columna no existe todavia: sin fotos, sin error.
+async function dkPhotos(sport, keys) {
+  const out = new Map();
+  if (!keys.length) return out;
+  try {
+    const rows = await selectIn("fantasy_app_dk_players", "player_key,image_url,checked_at", "player_key", keys,
+      q => q.eq("sport", sport).not("image_url", "is", null));
+    rows.sort((a, b) => String(a.checked_at).localeCompare(String(b.checked_at)));
+    for (const r of rows) out.set(str(r.player_key), r.image_url);
+  } catch { /* sin columna image_url */ }
+  return out;
+}
+
+const NBA_TEAM_ID = Object.fromEntries(Object.entries(NBA_TEAMS).map(([id, abbr]) => [abbr, Number(id)]));
+const hashStr = t => { let h = 5381; for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+
+// "TOR@DEN" -> rival del equipo
+function dkOpp(game, team) {
+  const [a, b] = str(game).split("@");
+  const fix = t => DK_NBA_TEAMS[t] || t;
+  if (!a || !b) return null;
+  return fix(a) === team || a === team ? fix(b) : fix(b) === team || b === team ? fix(a) : null;
+}
+
+async function getDkSlate(dg) {
+  const { data, error } = await supabaseAdmin.from("fantasy_app_dk_slates").select("*").eq("draft_group_id", dg).maybeSingle();
+  if (error) throw new Error(`Supabase fantasy_app_dk_slates: ${error.message}`);
+  return data;
+}
+
+// Fichas de un slate de DraftKings (todos los slates, tambien los de otros
+// dias y los mixtos). Proyeccion: la de la formula para ese jugador y dia.
+async function refreshDkCards(sport, s) {
+  const dg = Number(s.draft_group_id);
+  const day = s.slate_date;
+  const dkPlayers = (await selectAll("fantasy_app_dk_players", "*", q => q.eq("draft_group_id", dg)))
+    .filter(p => p.player_key && !p.slot);
+  let projVersion = "none", projections = [], runId = null;
+  if (sport === "nba") {
+    const ids = dkPlayers.map(p => Number(p.player_key)).filter(Boolean);
+    const rows = ids.length ? await selectIn("fantasy_nba_projections", "player_id,opp_team_id,minutes,proj_mean,proj_p90,created_at", "player_id", ids,
+      q => q.eq("slate_date", day).eq("platform", "draftkings")) : [];
+    const latest = new Map();
+    for (const r of rows) {
+      const k = Number(r.player_id);
+      if (!latest.has(k) || String(r.created_at) > String(latest.get(k).created_at)) latest.set(k, r);
+    }
+    projections = [...latest.values()];
+    projVersion = projections.reduce((m, r) => (String(r.created_at) > m ? String(r.created_at) : m), "none");
+  } else {
+    const run = await nflLatestRun(day);
+    runId = run?.run_id ?? null;
+    projVersion = String(runId ?? "none");
+  }
+  const sig = hashStr(dkPlayers.map(p => `${p.dk_id}:${p.status || ""}:${p.salary}:${p.image_url ? 1 : 0}`).sort().join("|"));
+  const version = `dk:${projVersion}:${sig}`;
+  const { data: have } = await supabaseAdmin.from(CARDS).select("source_version").eq("sport", sport).eq("slate_id", dg).limit(1).maybeSingle();
+  if (have && have.source_version === version) return { rebuilt: false };
+
+  const slate = { slate_id: dg, platform: "draftkings", slate_date: day };
+  const cards = sport === "nba"
+    ? await buildNbaCards(slate, version, {
+      players: dkPlayers.map(p => ({
+        player_id: Number(p.player_key), team_id: NBA_TEAM_ID[p.team] || null, team_abbr: p.team,
+        player_name: p.player_name, positions: p.positions, salary: p.salary, status: p.status, opp_abbr: dkOpp(p.game, p.team)
+      })),
+      projections
+    })
+    : await buildNflCards(slate, version, {
+      runId,
+      players: dkPlayers.map(p => {
+        const dst = str(p.player_key).startsWith("DST:");
+        return {
+          entity_type: dst ? "team" : "player", gsis_player_id: dst ? null : p.player_key, entity_key: p.player_key,
+          team: p.team, player_name: p.player_name, position: (p.positions || [])[0], salary: p.salary, status: p.status,
+          opp_abbr: dkOpp(p.game, p.team)
+        };
+      })
+    });
+  if (cards.length) {
+    await upsertAll(CARDS, cards, "sport,slate_id,player_key");
+    const { error } = await supabaseAdmin.from(CARDS).delete().eq("sport", sport).eq("slate_id", dg).neq("source_version", version);
+    if (error) throw new Error(`Supabase ${CARDS}: ${error.message}`);
+  }
+  return { rebuilt: true, players: cards.length };
+}
+
+// Slates de la pagina: DraftKings directo de su lobby (todos los
+// disponibles, de hoy en adelante); FanDuel de nuestras listas.
+async function listPageSlates(sport, platform, day) {
+  const lastDay = addDaysStr(day, DK_DAYS_AHEAD[sport] || 0);
+  const now = Date.now();
+  if (platform === "draftkings") {
+    const [rows, pools] = await Promise.all([
+      selectAll("fantasy_app_dk_slates", "*", q => q.eq("sport", sport).eq("game_type", "classic").gte("slate_date", day).lte("slate_date", lastDay)),
+      selectAll("fantasy_app_slate_pools", "slate_key,slate_date", q => q.eq("sport", sport).eq("platform", "draftkings").gte("slate_date", day))
+    ]);
+    const mains = new Set(pools.map(p => Number(p.slate_key)));
+    return rows
+      .filter(r => Date.parse(r.starts_at) > now || r.slate_date === day)
+      .map(r => ({
+        slate_id: Number(r.draft_group_id), src: "dk", platform, slate_date: r.slate_date, game_type: "classic",
+        starts_at: r.starts_at, last_starts_at: r.last_starts_at, games: num(r.games), game_list: r.game_list || [],
+        is_main: mains.has(Number(r.draft_group_id)), started: Date.parse(r.starts_at) <= now
+      }))
+      .sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at) || b.games - a.games);
+  }
+  const rows = await listSlates(sport, platform, day, lastDay);
+  return rows.filter(r => !r.started || r.slate_date === day).map(r => ({ ...r, src: "bdl" }));
+}
+
 async function readCards(sport, slateId) {
   const rows = await selectAll(CARDS, "*", q => q.eq("sport", sport).eq("slate_id", slateId));
   return rows
@@ -625,13 +743,26 @@ async function actionSlates(req) {
   const site = parseSite(req.query.site);
   if (!sport || !site) return { status: 400, body: { ok: false, error: "BAD_PARAMS", need: "sport=nba|nfl & site=draftkings|fanduel" } };
   const day = chicagoDay();
-  return { status: 200, body: { ok: true, sport, site, date: day, slates: await listSlates(sport, site, day) } };
+  return { status: 200, body: { ok: true, sport, site, date: day, slates: await listPageSlates(sport, site, day) } };
 }
 
 async function actionPlayers(req) {
   const sport = parseSport(req.query.sport);
   const slateId = num(req.query.slate_id);
   if (!sport || !slateId) return { status: 400, body: { ok: false, error: "BAD_PARAMS", need: "sport=nba|nfl & slate_id" } };
+  // 5-nov: &src=dk -> slate de DraftKings directo (slate_id = draft group)
+  if (str(req.query.src) === "dk") {
+    const dk = await getDkSlate(slateId);
+    if (!dk) return { status: 404, body: { ok: false, error: "SLATE_NOT_FOUND" } };
+    await refreshDkCards(sport, dk);
+    const all = await readCards(sport, slateId);
+    const players = all.filter(p => !/^(out|o|inactive|ir|suspended)$/i.test(str(p.status)));
+    return {
+      status: 200,
+      body: { ok: true, sport, slate_id: slateId, src: "dk", platform: "draftkings", salary_cap: 50000, starts_at: dk.starts_at,
+        count: players.length, out_hidden: all.length - players.length, projected: players.filter(p => num(p.proj) > 0).length, players }
+    };
+  }
   const slate = await getSlate(sport, slateId);
   if (!slate) return { status: 404, body: { ok: false, error: "SLATE_NOT_FOUND" } };
   await refreshCards(sport, slate);
@@ -807,24 +938,64 @@ async function dkMatchIndex(sport, day) {
   };
 }
 
+// 5-nov: dias hacia adelante que se leen de DraftKings (todos los
+// slates disponibles, no solo los de hoy). NBA: hoy y manana. NFL: 7 dias
+// (incluye los mixtos, ej. jueves + domingo).
+const DK_DAYS_AHEAD = { nba: 1, nfl: 6 };
+
+// Fotos: lista de jugadores del slate en la API publica de DraftKings
+// (draftableId = el ID del CSV). Sin foto si falla.
+async function dkImages(dg) {
+  try {
+    const j = await dkFetch(`https://api.draftkings.com/draftgroups/v1/draftgroups/${dg}/draftables`);
+    const out = new Map();
+    for (const d of j?.draftables || []) {
+      const img = d.playerImage160 || d.playerImageFull || d.playerImage50 || null;
+      if (d.draftableId && img) out.set(Number(d.draftableId), img);
+    }
+    return out;
+  } catch {
+    return new Map();
+  }
+}
+
 async function syncDkSport(sport, day, nowIso) {
   const lobby = await dkFetch(DK_LOBBY + sport.toUpperCase());
+  const lastDay = addDaysStr(day, DK_DAYS_AHEAD[sport] || 0);
   const groups = new Map();
   for (const c of lobby?.Contests || []) {
     const type = DK_GAME_TYPES[str(c.gameType).toLowerCase()];
     if (!type || !c.dg) continue;
     const ms = Number(str(c.sd).replace(/\D/g, "")) || null;
-    if (!ms || chicagoDay(new Date(ms)) !== day) continue;
-    if (!groups.has(c.dg)) groups.set(c.dg, { dg: Number(c.dg), type, typeId: Number(c.gameTypeId), startsAt: new Date(ms).toISOString(), contests: 0 });
+    if (!ms || ms <= Date.now()) continue;
+    const gDay = chicagoDay(new Date(ms));
+    if (gDay < day || gDay > lastDay) continue;
+    if (!groups.has(c.dg)) groups.set(c.dg, { dg: Number(c.dg), type, typeId: Number(c.gameTypeId), startsAt: new Date(ms).toISOString(), day: gDay, contests: 0 });
     groups.get(c.dg).contests++;
   }
 
-  const match = await dkMatchIndex(sport, day);
+  // Los que empiezan en mas de 6 horas se vuelven a leer cada hora (no cada 15 min)
+  const prevRows = await selectAll("fantasy_app_dk_slates", "draft_group_id,checked_at,starts_at",
+    q => q.eq("sport", sport).gte("slate_date", day));
+  const prevChecked = new Map(prevRows.map(r => [Number(r.draft_group_id), Date.parse(r.checked_at || 0) || 0]));
+
+  const matchers = new Map();
+  const matchFor = async d => {
+    if (!matchers.has(d)) matchers.set(d, await dkMatchIndex(sport, d));
+    return matchers.get(d);
+  };
   const out = [];
   for (const g of groups.values()) {
+    const far = Date.parse(g.startsAt) - Date.now() > 6 * 3600000;
+    if (far && Date.now() - (prevChecked.get(g.dg) || 0) < 60 * 60000) {
+      out.push({ draft_group_id: g.dg, type: g.type, day: g.day, estado: "leido hace menos de 1 hora" });
+      continue;
+    }
+    const match = await matchFor(g.day);
     try {
       const csv = await dkFetch(`${DK_CSV}?contestTypeId=${g.typeId}&draftGroupId=${g.dg}`, true);
       const rows = parseCsv(csv).filter(r => r.ID && r.Name);
+      const images = await dkImages(g.dg);
       const games = new Map();
       const players = rows.map(r => {
         const rawTeam = str(r.TeamAbbrev).toUpperCase();
@@ -838,7 +1009,8 @@ async function syncDkSport(sport, day, nowIso) {
           draft_group_id: g.dg,
           dk_id: Number(r.ID),
           sport,
-          slate_date: day,
+          slate_date: g.day,
+          image_url: images.get(Number(r.ID)) || null,
           roster_position: r["Roster Position"] || null,
           slot: g.type === "captain" ? (/^CPT$/i.test(r["Roster Position"]) ? "CPT" : "UTIL") : null,
           player_name: r.Name,
@@ -855,7 +1027,7 @@ async function syncDkSport(sport, day, nowIso) {
       });
       const times = [...games.values()].filter(Boolean).map(d => d.getTime());
       await upsertAll("fantasy_app_dk_slates", [{
-        draft_group_id: g.dg, sport, slate_date: day, game_type: g.type, game_type_id: g.typeId,
+        draft_group_id: g.dg, sport, slate_date: g.day, game_type: g.type, game_type_id: g.typeId,
         starts_at: times.length ? new Date(Math.min(...times)).toISOString() : g.startsAt,
         last_starts_at: times.length ? new Date(Math.max(...times)).toISOString() : g.startsAt,
         games: games.size, game_list: [...games.keys()], contests: g.contests,
@@ -863,13 +1035,19 @@ async function syncDkSport(sport, day, nowIso) {
         checked_at: nowIso
       }], "draft_group_id");
       if (players.length) {
-        await upsertAll("fantasy_app_dk_players", players, "draft_group_id,dk_id");
+        try {
+          await upsertAll("fantasy_app_dk_players", players, "draft_group_id,dk_id");
+        } catch (e) {
+          // Sin la columna image_url (falta el SQL paso 4): se guarda sin fotos
+          if (!/image_url/i.test(e.message)) throw e;
+          await upsertAll("fantasy_app_dk_players", players.map(({ image_url, ...rest }) => rest), "draft_group_id,dk_id");
+        }
         const { error } = await supabaseAdmin.from("fantasy_app_dk_players").delete()
           .eq("draft_group_id", g.dg).lt("checked_at", nowIso);
         if (error) throw new Error(`Supabase fantasy_app_dk_players: ${error.message}`);
       }
       out.push({
-        draft_group_id: g.dg, type: g.type, games: games.size, players: players.length,
+        draft_group_id: g.dg, type: g.type, day: g.day, games: games.size, players: players.length, fotos: images.size,
         sin_cruce: players.filter(p => !p.player_key).length,
         ejemplos_sin_cruce: players.filter(p => !p.player_key && p.salary >= 4000).slice(0, 5).map(p => `${p.player_name} ${p.team}`)
       });
@@ -1215,7 +1393,8 @@ async function actionReady(req, user) {
 
 async function actionMine(req, user) {
   const day = /^\d{4}-\d{2}-\d{2}$/.test(str(req.query.date)) ? str(req.query.date) : chicagoDay();
-  const rows = await selectAll("fantasy_app_user_lineups", "*", q => q.eq("user_id", user.userId).eq("slate_date", day).order("id", { ascending: true }));
+  // 5-nov: hoy y los slates de los proximos dias
+  const rows = await selectAll("fantasy_app_user_lineups", "*", q => q.eq("user_id", user.userId).gte("slate_date", day).order("id", { ascending: true }));
   // Tus 10 del pool (solo el dueno)
   let reserved = [];
   if (user.isOwner) {
@@ -1224,7 +1403,7 @@ async function actionMine(req, user) {
   const groups = {};
   for (const r of rows) {
     const k = `${r.sport}|${r.platform}|${r.slate_key}|${r.game_type}`;
-    (groups[k] ||= { sport: r.sport, platform: r.platform, slate_key: r.slate_key, game_type: r.game_type, lineups: [] }).lineups.push(r);
+    (groups[k] ||= { sport: r.sport, platform: r.platform, slate_key: r.slate_key, slate_date: r.slate_date, game_type: r.game_type, lineups: [] }).lineups.push(r);
   }
   return { status: 200, body: { ok: true, date: day, groups: Object.values(groups), tus10: reserved.length ? reserved : undefined } };
 }
@@ -1232,12 +1411,22 @@ async function actionMine(req, user) {
 async function actionCsvMine(req, res, user) {
   const sport = parseSport(req.query.sport) || "nba";
   const day = chicagoDay();
+  // 5-nov: un CSV por slate (&slate_key=). Sin slate_key: los de hoy.
+  const slateKey = num(req.query.slate_key);
   const rows = await selectAll("fantasy_app_user_lineups", "*",
-    q => q.eq("user_id", user.userId).eq("sport", sport).eq("platform", "draftkings").eq("slate_date", day).order("id", { ascending: true }));
+    q => {
+      let x = q.eq("user_id", user.userId).eq("sport", sport).eq("platform", "draftkings");
+      x = slateKey ? x.eq("slate_key", slateKey) : x.eq("slate_date", day);
+      return x.order("id", { ascending: true });
+    });
   let list = rows.map(r => r.players);
-  if (user.isOwner && str(req.query.tus10) === "1") {
+  if (user.isOwner && (str(req.query.tus10) === "1" || (slateKey && str(req.query.reserved) === "1"))) {
     const reserved = await selectAll("fantasy_app_pool_lineups", "players,proj",
-      q => q.eq("user_id", user.userId).eq("status", "owner").eq("slate_date", day).eq("platform", "draftkings").order("proj", { ascending: false }));
+      q => {
+        let x = q.eq("user_id", user.userId).eq("status", "owner").eq("sport", sport).eq("platform", "draftkings");
+        x = slateKey ? x.eq("slate_key", slateKey) : x.eq("slate_date", day);
+        return x.order("proj", { ascending: false });
+      });
     list = reserved.map(r => r.players).concat(list);
   }
   if (!list.length) return send(res, 404, { ok: false, error: "NO_LINEUPS" });
@@ -1248,7 +1437,7 @@ async function actionCsvMine(req, res, user) {
     if (ordered.some(p => !p?.dkId)) return send(res, 409, { ok: false, error: "MISSING_DK_ID" });
     out.push(ordered.map(p => p.dkId));
   }
-  return sendCsv(res, `cashedge-${sport}-draftkings-${day}.csv`, out);
+  return sendCsv(res, `cashedge-${sport}-draftkings-${slateKey || day}.csv`, out);
 }
 
 
@@ -1398,26 +1587,34 @@ const PAGE_RULES = {
 };
 
 // Datos completos de cada jugador del slate (ficha + ID DraftKings + id del pool)
-async function playerIndex(sport, platform, slateId, day) {
-  const cards = await selectAll(CARDS, "player_key,player_name,team,positions,salary,proj,status",
+// 5-nov: sirve para cualquier slate (DraftKings directo con src "dk",
+// o nuestras listas). La lista de 1000 (pool) solo si es ese mismo slate.
+async function playerIndex(sport, platform, slateId, src = null) {
+  const dkSlate = src === "dk" ? await getDkSlate(slateId) : null;
+  const ourSlate = dkSlate ? null : await getSlate(sport, slateId);
+  const day = dkSlate?.slate_date || ourSlate?.slate_date || chicagoDay();
+  const startsAt = dkSlate?.starts_at || ourSlate?.starts_at || null;
+  const cards = await selectAll(CARDS, "player_key,player_name,team,opp,positions,salary,proj,status",
     q => q.eq("sport", sport).eq("slate_id", slateId));
-  const sp = await latestSlatePool(sport, platform, day);
+  const spAny = await latestSlatePool(sport, platform, day);
+  const sp = spAny && Number(spAny.slate_key) === Number(slateId) ? spAny : null;
   const poolByKey = new Map((sp?.players || []).map(p => [str(p.key || p.id), p]));
-  const dkRows = platform === "draftkings"
-    ? await selectAll("fantasy_app_dk_players", "player_key,dk_id,draft_group_id",
-      q => q.eq("sport", sport).eq("slate_date", day).eq("draft_group_id", Number(sp?.slate_key) || -1))
+  const dkGroup = dkSlate ? Number(slateId) : platform === "draftkings" ? Number(spAny?.slate_key) || -1 : null;
+  const dkRows = dkGroup
+    ? await selectAll("fantasy_app_dk_players", "player_key,dk_id,draft_group_id,slot", q => q.eq("draft_group_id", dkGroup))
     : [];
-  const dkByKey = new Map(dkRows.filter(r => r.player_key).map(r => [r.player_key, Number(r.dk_id)]));
+  const dkByKey = new Map(dkRows.filter(r => r.player_key && !r.slot).map(r => [r.player_key, Number(r.dk_id)]));
   const map = new Map();
   for (const c of cards) {
     const pool = poolByKey.get(c.player_key);
     map.set(c.player_key, {
-      id: pool ? String(pool.id) : c.player_key, key: c.player_key, name: c.player_name, team: c.team,
+      id: pool ? String(pool.id) : c.player_key, key: c.player_key, name: c.player_name, team: c.team, opp: c.opp,
       positions: c.positions || [], salary: Number(c.salary), points: Number(pool?.points ?? c.proj ?? 0),
-      dkId: pool?.dkId ?? dkByKey.get(c.player_key) ?? null, status: c.status
+      dkId: pool?.dkId ?? dkByKey.get(c.player_key) ?? null, status: c.status,
+      gameId: pool?.gameId ?? [c.team, c.opp || "?"].sort().join("@")
     });
   }
-  return { map, sp, slateKey: Number(sp?.slate_key) || Number(slateId) };
+  return { map, sp, slateKey: Number(slateId), day, startsAt };
 }
 
 // Guardar (nueva) o actualizar (con lineup_id) una alineacion armada por el cliente
@@ -1427,8 +1624,9 @@ async function actionSave(req, user) {
   const rule = PAGE_RULES[sport]?.[platform];
   if (!rule || !slateId || !Array.isArray(b.players)) return { status: 400, body: { ok: false, error: "BAD_PARAMS" } };
   if (b.players.length !== rule.slots.length) return { status: 400, body: { ok: false, error: "LINEUP_INCOMPLETE" } };
-  const day = chicagoDay();
-  const idx = await playerIndex(sport, platform, slateId, day);
+  const idx = await playerIndex(sport, platform, slateId, str(b.src) || null);
+  const day = idx.day;
+  if (idx.startsAt && Date.parse(idx.startsAt) <= Date.now()) return { status: 409, body: { ok: false, error: "SLATE_STARTED" } };
   const players = [];
   for (let i = 0; i < rule.slots.length; i++) {
     const slot = rule.slots[i];
@@ -1470,11 +1668,17 @@ async function actionBuild(req, user) {
   const batches = new Set(recent.map(r => String(r.created_at).slice(0, 19))).size;
   if (batches >= 10) return { status: 429, body: { ok: false, error: "TOO_MANY_BUILDS", message: "Max 10 builds every 5 minutes." } };
 
-  const day = chicagoDay();
-  const idx = await playerIndex(sport, platform, slateId, day);
+  const idx = await playerIndex(sport, platform, slateId, str(b.src) || null);
+  const day = idx.day;
+  if (idx.startsAt && Date.parse(idx.startsAt) <= Date.now()) return { status: 409, body: { ok: false, error: "SLATE_STARTED" } };
   const locks = new Set((b.locks || []).map(String)), bans = new Set((b.bans || []).map(String));
-  // Base: la lista de la formula (las reglas) + los bloqueados aunque no esten en ella
-  const base = (idx.sp?.players || []).filter(p => !bans.has(str(p.key || p.id)));
+  // Base: la lista de la formula (las reglas) + los bloqueados aunque no esten en ella.
+  // 5-nov: otros slates (sin lista de la formula): los jugadores con proyeccion,
+  // sin OUT ni en duda.
+  const fromCards = () => [...idx.map.values()]
+    .filter(p => p.points > 0 && !/^(out|o|q|gtd|d|questionable|doubtful)/i.test(str(p.status)));
+  const base = (idx.sp ? idx.sp.players : fromCards()).filter(p => !bans.has(str(p.key || p.id)));
+  if (base.length < 12) return { status: 409, body: { ok: false, error: "NO_PROJECTIONS", message: "Projections for this slate aren't ready yet. Try again later." } };
   for (const k of locks) if (!base.some(p => str(p.key || p.id) === k) && idx.map.get(k)) base.push({ ...idx.map.get(k) });
   const BONUS = 1000;   // obliga a los bloqueados
   const players = base.map(p => (locks.has(str(p.key || p.id)) ? { ...p, points: Number(p.points) + BONUS, _locked: true } : p));
