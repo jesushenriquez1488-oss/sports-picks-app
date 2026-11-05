@@ -809,7 +809,11 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
     slates: slateReports,
     mercado: market.error ? { error: market.error } : {
       partidosConLineas: market.games,
-      totalesVegas: [...gameTotals.entries()].sort((a, b) => b[1] - a[1]).map(([g, v]) => `${g} ${round(v, 2)}`)
+      totalesVegas: [...gameTotals.entries()].sort((a, b) => b[1] - a[1]).map(([g, v]) => `${g} ${round(v, 2)}`),
+      // 5-nov: para las listas de los demas slates de DraftKings (fantasy-app)
+      puntosEquipo: [...implied.entries()],
+      partidosVegas: CONFIG.market.games,
+      extrasVegas: CONFIG.market.extras
     },
     refresh: refresh ? refreshReport : undefined,
     seconds: { datos: (t1 - t0) / 1000, formula: (t2 - t1) / 1000, total: (Date.now() - t0) / 1000 }
