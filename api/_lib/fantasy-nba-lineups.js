@@ -324,7 +324,8 @@ function planStacks(players, games, count, { coreShare = 0.5, platform = "draftk
 // coreExposure: tope de los jugadores del nucleo (0.5 = 50%).
 function buildLineups(platform, players, {
   count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1, timeLimitMs = Infinity,
-  noStarterBackup = false, stackPlan = null, coreExposure = 0.5, trioMaxLoss = 3
+  noStarterBackup = false, stackPlan = null, coreExposure = 0.5, trioMaxLoss = 3,
+  prior = []   // 4-nov: alineaciones que ya existen (listas de ids): las nuevas deben ser distintas
 } = {}) {
   const rule = RULES[platform];
   if (!rule) return { status: "PLATAFORMA_NO_SOPORTADA", lineups: [] };
@@ -336,6 +337,7 @@ function buildLineups(platform, players, {
 
   const lineups = [];
   let allOptimal = true;
+  const priorPlayers = (prior || []).map(ids => ids.map(id => ({ id: String(id) })));
 
   const maxUses = Math.max(1, Math.floor(maxExposure * count + 1e-9));
   const check = noStarterBackup ? (chosen, p) => !starterBackupConflict(chosen, p) : null;
@@ -430,7 +432,7 @@ function buildLineups(platform, players, {
       if (cand) attempts++;
       const forced = new Set(cand ? cand.ids : []);
       const list = forced.size ? forcePool(available, cand.ids) : available;
-      const res = solveOne(list, rule, lineups.map(l => l.players), minDifferent, nodeLimit, check);
+      const res = solveOne(list, rule, priorPlayers.concat(lineups.map(l => l.players)), minDifferent, nodeLimit, check);
       if (!res.best) continue;
       // Con pila: todos los obligados deben haber entrado.
       if (forced.size && !cand.ids.every(id => res.best.players.some(p => p.id === id))) continue;
