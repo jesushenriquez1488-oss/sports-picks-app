@@ -301,7 +301,7 @@ function seededRandom(seed) {
   };
 }
 
-function buildStackLineups(platform, players, { count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1, sims = 20000, sd = STACK_SD, seed = 12345, prior = [], maxPairShare = 1 } = {}) {
+function buildStackLineups(platform, players, { count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1, sims = 20000, sd = STACK_SD, seed = 12345, prior = [], maxPairShare = 1, alwaysTwo = false } = {}) {
   const pairCap = pairTracker(maxPairShare, count);
   const priorRaw = priorOf(prior);
   const rule = RULES[platform];
@@ -372,9 +372,12 @@ function buildStackLineups(platform, players, { count = 10, minDifferent = 2, no
     const pairs = pairsOf(st.rec);
     // Receptores: el turno que toca; si alguno ya llego al tope de
     // exposicion, la siguiente opcion del mismo bloque que este libre.
-    const options = k % 2 === 0
-      ? pairs.map((_, j) => pairs[(k / 2 + j) % pairs.length])
-      : st.rec.slice(0, 2).map((_, j) => [st.rec[((k - 1) / 2 + j) % 2]]);
+    // 5-nov: alwaysTwo -> siempre QB + 2 receptores (rotando la pareja)
+    const options = alwaysTwo
+      ? pairs.map((_, j) => pairs[(k + j) % pairs.length])
+      : k % 2 === 0
+        ? pairs.map((_, j) => pairs[(k / 2 + j) % pairs.length])
+        : st.rec.slice(0, 2).map((_, j) => [st.rec[((k - 1) / 2 + j) % 2]]);
     const rec = options.find(o => o.every(free));
     if (!rec) return false;
     const forced = [st.qb, ...rec];
