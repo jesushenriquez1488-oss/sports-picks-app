@@ -63,7 +63,7 @@ select{background:var(--panel);color:var(--ink);border:1px solid var(--line);bor
 .row.banned{opacity:.45}
 .av{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:12px;color:#fff}
 .pn{min-width:0}
-.pn .n{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pn .n{font-weight:600;white-space:normal;line-height:1.2;overflow-wrap:anywhere}
 .pn .m{font-size:11.5px;color:var(--muted);display:flex;gap:4px;align-items:center;flex-wrap:wrap}
 .chip{font-size:10.5px;border-radius:999px;padding:0 6px;border:1px solid currentColor;white-space:nowrap}
 .c-hot{color:var(--hot)}.c-up{color:var(--up)}.c-down{color:var(--down)}.c-warn{color:var(--warn)}.c-steady{color:var(--steady)}.c-new{color:var(--accent)}
@@ -107,7 +107,7 @@ select{background:var(--panel);color:var(--ink);border:1px solid var(--line);bor
   .head,.row{grid-template-columns:32px minmax(0,1fr) 58px 42px 26px 26px 28px}
   .lock-note{margin-left:0;font-size:11px}
   .top{gap:8px}.brand{font-size:19px}
-  .steps{flex-wrap:nowrap;overflow-x:auto;width:100%;padding-bottom:2px}
+  .steps{flex-wrap:wrap;gap:8px 12px;width:100%}.step select{max-width:100%}
   .step label{font-size:10px}.seg button{padding:4px 9px;font-size:13px}
   .ph h2{font-size:17px}.slotpick{display:none}
 }
@@ -212,6 +212,10 @@ td.fp{font-weight:600}
 .chip.c-q{background:#2a2207;color:#ffd24a;border:1px solid #6b5a1d}
 .fdnote{font-size:12px;color:var(--muted)}
 .av{position:relative;overflow:hidden}
+body.closed #posTabs,body.closed #lkbar,body.closed .filters,body.closed .head,body.closed .slotpick,
+body.closed .salary,body.closed #slots,body.closed #editBar,body.closed .cta-fill,body.closed #lockBox,body.closed #buildBox,body.closed #clear{display:none!important}
+.closedmsg{padding:28px 16px;text-align:center;display:grid;gap:6px}
+.closedmsg b{font-family:var(--display);font-size:22px;letter-spacing:.3px}
 .av img{position:absolute;inset:0}
 </style>
 </head>
@@ -269,13 +273,13 @@ td.fp{font-weight:600}
           </div>
           <div class="editbar" id="editBar" hidden><span id="editTxt"></span><button class="lnk" id="editCancel">Cancel edit</button></div>
           <div class="slots" id="slots"></div>
-          <div class="cta"><button class="btn pri" id="autofill">Complete the rest for me</button><button class="btn pri savebtn" id="saveLu" hidden>💾 Save lineup</button><span class="note" id="autoNote"></span></div>
-          <div class="box">
+          <div class="cta cta-fill"><button class="btn pri" id="autofill">Complete the rest for me</button><button class="btn pri savebtn" id="saveLu" hidden>💾 Save lineup</button><span class="note" id="autoNote"></span></div>
+          <div class="box" id="lockBox">
             <div class="cta" style="justify-content:space-between"><h4>Locked and excluded</h4><span><button class="lnk" id="clrLocks">Clear locks</button> · <button class="lnk" id="clrBans">Clear excluded</button> · <button class="lnk" id="clrAll">Clear all</button></span></div>
             <div class="pills" id="lockPills"></div>
             <span class="note">🔒 Locked players go in every lineup the system builds; each one takes its own spot (shown after the arrow). You can lock as many as fit in one lineup. ⛔ Excluded players never go in.</span>
           </div>
-          <div class="box">
+          <div class="box" id="buildBox">
             <h4>Build lineups for me</h4>
             <div class="cta">
               <label for="nLu" class="note">How many</label>
@@ -335,7 +339,7 @@ const COLORS = ["#0b7285", "#5f3dc4", "#c2255c", "#e67700", "#2b8a3e", "#1864ab"
 
 let SITE = "DraftKings", SPORT = "NBA", SLOTS = [], CAP = 50000, P = [], SLATE = null;
 let showOver = false, auto = new Set(), active = 0, sel = null, lineup = [], locks = new Set(), bans = new Set(), EDITING = null;
-let TOKEN = null, MINE = { groups: [] };
+let TOKEN = null, MINE = { groups: [] }, SLATES = [];
 
 const $ = s => document.querySelector(s);
 const money = v => "$" + Number(v || 0).toLocaleString("en-US");
@@ -394,12 +398,36 @@ async function loadSlate() {
   $(".head span:nth-child(5)").textContent = SPORT === "NFL" ? "Snap%" : "Min";
   const sl = await api("slates", { sport: sport(), site: site() });
   if (!sl.ok) return showError(sl);
-  const open = (sl.slates || []).filter(s => s.game_type === "classic");
-  SLATE = open.find(s => s.is_main) || open.sort((a, b) => (b.games || 0) - (a.games || 0))[0] || null;
-  $("#slate").innerHTML = SLATE
-    ? `<option>${esc(SLATE.games)} games · ${new Date(SLATE.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })} ET${SLATE.started ? " · started" : ""}</option>`
+  // Todos los Classic del dia, por hora. Los que ya empezaron no se pueden elegir.
+  SLATES = (sl.slates || []).filter(x => x.game_type === "classic")
+    .sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at));
+  const open = SLATES.filter(x => !hasStarted(x));
+  const pick = open.find(x => x.is_main) || open.sort((a, b) => (b.games || 0) - (a.games || 0))[0] || null;
+  const et = t => new Date(t).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
+  $("#slate").innerHTML = SLATES.length
+    ? (pick ? "" : `<option selected disabled>All today's slates started</option>`) + SLATES.map(x => `<option value="${x.slate_id}" ${hasStarted(x) ? "disabled" : ""} ${pick && x.slate_id === pick.slate_id ? "selected" : ""}>${x.is_main ? "Main · " : ""}${esc(x.games)} games · ${et(x.starts_at)} ET${hasStarted(x) ? " · Started" : ""}</option>`).join("")
     : `<option>No ${SPORT} slate today</option>`;
-  if (!SLATE) { P = []; $("#list").innerHTML = `<div class="loading">There's no ${SPORT} slate on ${SITE} today.</div>`; renderAll(); return; }
+  await openSlate(pick);
+}
+
+function hasStarted(x) { return !!x && Date.parse(x.starts_at) <= Date.now(); }
+
+// Abre un slate. Sin slate abierto: aviso y se cierra el constructor (My lineups sigue).
+async function openSlate(slate) {
+  SLATE = slate;
+  lineup = Array(SLOTS.length).fill(null); locks = new Set(); bans = new Set(); auto = new Set(); active = 0; sel = null; showOver = false; EDITING = null;
+  document.body.classList.toggle("closed", !SLATE);
+  if (!SLATE) {
+    P = [];
+    const msg = SLATES.length
+      ? `<b>Today's ${SPORT} slates already started</b><span class="note">Tomorrow's slate opens in the morning. Your lineups for today are in My lineups.</span>`
+      : `<b>No ${SPORT} slate on ${SITE} today</b><span class="note">Check back tomorrow morning.</span>`;
+    $("#list").innerHTML = `<div class="closedmsg">${msg}</div>`;
+    $("#poolCount").textContent = "";
+    renderAll();
+    return;
+  }
+  $("#list").innerHTML = `<div class="loading">Loading today's players…</div>`;
   const pl = await api("players", { sport: sport(), slate_id: SLATE.slate_id });
   if (!pl.ok) return showError(pl);
   P = (pl.players || []).map(toPlayer);
@@ -575,6 +603,7 @@ function renderBuilder() {
   $("#bar").classList.toggle("over", left < 0); $("#bar i").style.width = Math.min(100, used / CAP * 100) + "%";
   $("#sheetTxt").textContent = `My lineup ${SLOTS.length - open}/${SLOTS.length} · ${left < 0 ? "over by " + money(-left) : money(left) + " left"}`;
   $("#dots").innerHTML = lineup.map(x => `<i class="${x !== null ? "f" : ""}"></i>`).join("");
+  if (!SLATE) { $("#sheetTxt").textContent = "My lineups · " + ($("#myCount").textContent || "0"); $("#dots").innerHTML = ""; }
   const done = !open && left >= 0;
   $("#autofill").hidden = done; $("#saveLu").hidden = !done;
   $("#editBar").hidden = !EDITING; if (EDITING) $("#editTxt").innerHTML = `✎ Editing <b>Lineup #${EDITING.num}</b>`;
@@ -617,6 +646,7 @@ function autofill() {
 }
 
 async function saveLineup() {
+  if (slateClosed()) return;
   const players = lineup.map(i => ({ key: P[i].key }));
   const body = { sport: sport(), site: site(), slate_id: SLATE?.slate_id, players, lineup_id: EDITING?.id };
   const r = await api("save", {}, body);
@@ -627,6 +657,7 @@ async function saveLineup() {
 }
 
 async function buildWithLocks() {
+  if (slateClosed()) return;
   const n = Number($("#nLu").value);
   $("#build").disabled = true; toast("Building your lineups…");
   const r = await api("build", {}, { sport: sport(), site: site(), slate_id: SLATE?.slate_id, count: n, locks: [...locks].map(i => P[i].key), bans: [...bans].map(i => P[i].key) });
@@ -636,6 +667,7 @@ async function buildWithLocks() {
 }
 
 async function getReady() {
+  if (slateClosed()) return;
   const n = Number($("#nLu").value);
   $("#ready").disabled = true;
   const r = await api("ready", { sport: sport(), site: site(), count: n });
@@ -673,6 +705,7 @@ function renderMine() {
         ${(l.players || []).map(p => `<div class="ln"><span>${esc(p.slot)}</span><span>${esc(p.name)}</span><span class="num">${money(p.salary)}</span><span class="num note">proj ${Number(p.points || 0).toFixed(1)}</span></div>`).join("")}</div>`).join("")}</div></details>`;
   }).join("")}</div>`).join("") : `<span class="note">No lineups yet today. Build one above or get ready-made lineups.</span>`;
   $("#myCount").textContent = total;
+  if (!SLATE) $("#sheetTxt").textContent = "My lineups · " + total;
   document.querySelectorAll("[data-csv]").forEach(b => (b.onclick = e => { e.preventDefault(); e.stopPropagation(); downloadCsv(); }));
   document.querySelectorAll("[data-ed]").forEach(b => (b.onclick = e => { e.preventDefault(); startEdit(Number(b.dataset.ed), Number(b.dataset.k)); }));
 }
@@ -742,7 +775,16 @@ function renderBadges() {
 
 function renderAll() { renderTabs(); renderList(); renderBuilder(); }
 
+// Si el slate empezo con la pagina abierta: avisar y cerrar
+function slateClosed() {
+  if (SLATE && !hasStarted(SLATE)) return false;
+  toast("This slate already started. Lineups can't be changed now.");
+  loadSlate();
+  return true;
+}
+
 function wire() {
+  $("#slate").onchange = () => openSlate(SLATES.find(x => String(x.slate_id) === $("#slate").value) || null);
   $("#q").oninput = renderList; $("#price").onchange = renderList;
   $("#autofill").onclick = autofill; $("#saveLu").onclick = saveLineup;
   $("#clear").onclick = () => { lineup = Array(SLOTS.length).fill(null); auto.clear(); EDITING = null; renderAll(); };
