@@ -4976,16 +4976,7 @@ before the game starts.
     <span class="league-arrow">»</span>
   </button>
 
-  <button class="league-btn" onclick="selectSport(event,'basketball_euroleague','EuroLeague')">
-    <div class="league-icon">🌐</div>
-
-    <div class="league-info">
-      <strong>EuroLeague</strong>
-      <small>Advanced Analysis</small>
-    </div>
-
-    <span class="league-arrow">»</span>
-  </button>
+ 
 
   <button class="league-btn" onclick="selectSport(event,'baseball_mlb','MLB')">
     <div class="league-icon">⚾</div>
@@ -5227,6 +5218,42 @@ before the game starts.
     »
   </span>
 
+</button>
+  
+<!-- FANTASY SPORTS: escondido hasta que /api/fantasy-app?action=access diga visible -->
+<button
+  id="fantasySportsBtn"
+  class="league-btn premium-radar-league-btn"
+  onclick="openFantasySports()"
+  style="display:none"
+>
+  <div class="league-icon premium-market-icon">🏆</div>
+
+  <div class="league-info">
+    <strong
+      class="premium-market-title"
+      style="font-size:15px !important;line-height:1.05;letter-spacing:.2px;"
+    >
+      FANTASY SPORTS
+    </strong>
+
+    <small style="margin-top:5px;font-size:9px !important;line-height:1.2;">
+      <span style="color:#00ffe7;font-weight:900;">PREMIUM</span>
+      &nbsp;·&nbsp;
+      <span style="color:#00e676;font-weight:900;">DRAFTKINGS · FANDUEL</span>
+    </small>
+
+    <small style="margin-top:3px;font-size:9px !important;line-height:1.1;color:#8ca0b8;font-weight:800;">
+      NBA · NFL LINEUPS
+    </small>
+  </div>
+
+  <span
+    class="league-arrow"
+    style="color:#00e676;text-shadow:0 0 8px rgba(0,230,118,.45);"
+  >
+    »
+  </span>
 </button>
 </div>
 
@@ -6255,5 +6282,34 @@ document.addEventListener(
 <script src="script.js"></script>
 <script src="push-client.js"></script>
 <script src="push-native-client.js"></script>
+  <script>
+// FANTASY SPORTS: mostrar el boton solo si el servidor lo permite
+// (mientras FANTASY_PUBLIC no este activo, solo el dueno lo ve).
+function openFantasySports() {
+  window.location.href = "fantasy.html";
+}
+
+async function checkFantasySportsAccess() {
+  const btn = document.getElementById("fantasySportsBtn");
+  if (!btn || typeof supabaseClient === "undefined") return;
+  try {
+    const { data } = await supabaseClient.auth.getSession();
+    const token = data && data.session ? data.session.access_token : null;
+    if (!token) { btn.style.display = "none"; return; }
+    const r = await fetch("https://www.cashedgeapp.com/api/fantasy-app?action=access", {
+      headers: { Authorization: "Bearer " + token }
+    });
+    const j = await r.json();
+    btn.style.display = j && j.visible ? "" : "none";
+  } catch (e) {
+    btn.style.display = "none";
+  }
+}
+
+checkFantasySportsAccess();
+if (typeof supabaseClient !== "undefined") {
+  supabaseClient.auth.onAuthStateChange(function () { checkFantasySportsAccess(); });
+}
+</script>
 </body>
 </html>
