@@ -1359,6 +1359,8 @@ async function refillOne(sp, isMain) {
   if (Date.now() > poolDeadline) return { slate_key: sp.slate_key, estado: "sin tiempo, sigue en la proxima vuelta" };
   const { sport, platform, slate_date: day } = sp;
   const tier = poolTier(sp);
+  // Meta por tamano del slate (1000 / 500 / 300 / 150), en tandas de 200.
+  // Despues, 200 mas cada vez que quedan pocas libres.
   const batchSize = Math.min(POOL.batch, tier.target);
   const refillBelow = Math.min(POOL.refillBelow, Math.round(tier.target / 5));
   if (sp.starts_at && Date.parse(sp.starts_at) <= Date.now()) return { slate_key: sp.slate_key, estado: "el slate ya empezo" };
@@ -2024,7 +2026,9 @@ async function actionChangesAck(req, user) {
 // ¿Mostrar el boton Fantasy Sports? (sin error si no hay sesion)
 async function actionAccess(req) {
   const r = await requirePremium(req);
-  return { status: 200, body: { ok: true, visible: r.ok, reason: r.ok ? null : r.error, owner: !!r.isOwner } };
+  // button: el boton se muestra a TODOS cuando Fantasy esta lanzado (FANTASY_PUBLIC=1);
+  // antes del lanzamiento solo lo ve el dueno. visible = puede entrar (Premium).
+  return { status: 200, body: { ok: true, visible: r.ok, button: FANTASY_PUBLIC || !!r.isOwner, reason: r.ok ? null : r.error, owner: !!r.isOwner } };
 }
 
 function readBody(req) {
