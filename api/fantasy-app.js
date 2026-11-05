@@ -1044,7 +1044,10 @@ async function poolBatch(sp, count, existing) {
   }
   const byId = new Map(sp.players.map(p => [String(p.id), p]));
   return r.lineups.map(l => ({
-    players: l.players.map(p => ({ slot: p.slot, id: String(p.id), dkId: byId.get(String(p.id))?.dkId ?? null, name: p.name, team: p.team, salary: p.salary, points: round(p.points, 2) })),
+    players: l.players.map(p => {
+      const src = byId.get(String(p.id)) || {};
+      return { slot: p.slot, id: String(p.id), key: src.key ?? String(p.id), dkId: src.dkId ?? null, name: p.name, team: p.team, positions: src.positions || p.positions || [], salary: p.salary, points: round(p.points, 2) };
+    }),
     salary: l.salary,
     proj: round(l.points, 2),
     star: l.pila || (l.stack ? `${l.stack.qb} (${l.stack.team})` : null)
@@ -1105,8 +1108,11 @@ async function refillPool(sport, platform, day) {
 
 async function actionPoolCron(req) {
   const day = chicagoDay();
-  const body = { ok: true, date: day };
+  const body = { ok: true, date: day, cambiosPorOut: [] };
   for (const sport of ["nba", "nfl"]) {
+    // primero los cambios por OUT, despues rellenar
+    try { body.cambiosPorOut.push(await runOutSwaps(sport, day)); }
+    catch (e) { body.cambiosPorOut.push({ sport, error: e.message }); }
     body[sport] = [];
     for (const platform of ["draftkings", "fanduel"]) {
       try { body[sport].push(await refillPool(sport, platform, day)); }
@@ -1210,6 +1216,119 @@ async function actionCsvMine(req, res, user) {
 
 
 // ============================================================
+// CAMBIOS AUTOMATICOS POR OUT (dentro de pool-cron)
+// ============================================================
+//
+// Para cada alineacion de HOY (de clientes, tuyas y las libres del
+// pool) con un jugador que DraftKings marca OUT y cuyo partido
+// todavia no empezo:
+//   - Se cambia por el que mas proyecta de la lista mas nueva de la
+//     formula que: juega ese puesto, cabe en el salario que queda,
+//     no esta ya en la alineacion, no esta OUT y su partido no empezo.
+//   - En las de clientes se guarda el cambio (para el aviso rojo).
+// NBA y NFL, DraftKings y FanDuel.
+
+async function outInfo(sport, day) {
+  const rows = await selectAll("fantasy_app_dk_players", "player_key,status,game_start",
+    q => q.eq("sport", sport).eq("slate_date", day));
+  const out = new Set(), start = new Map();
+  for (const r of rows) {
+    if (!r.player_key) continue;
+    if (/^(out|o|inactive)$/i.test(str(r.status))) out.add(r.player_key);
+    if (r.game_start && !start.has(r.player_key)) start.set(r.player_key, Date.parse(r.game_start));
+  }
+  return { out, start };
+}
+
+function swapLineup(players, rule, candidates, info, now) {
+  const changes = [];
+  let list = players.map(p => ({ ...p }));
+  for (let i = 0; i < list.length; i++) {
+    const p = list[i];
+    const key = str(p.key || p.id);
+    if (!info.out.has(key)) continue;
+    const st = info.start.get(key);
+    if (st && st <= now) continue;                       // su partido ya empezo: no se puede
+    const used = new Set(list.map(x => str(x.key || x.id)));
+    const left = rule.salaryCap - list.reduce((s, x, j) => s + (j === i ? 0 : Number(x.salary) || 0), 0);
+    const ok = rule.eligible[str(p.slot).toUpperCase()] || [str(p.slot).toUpperCase()];
+    const best = candidates
+      .filter(c => !used.has(str(c.key || c.id)) && !info.out.has(str(c.key || c.id)))
+      .filter(c => !(info.start.get(str(c.key || c.id)) <= now))
+      .filter(c => (c.positions || []).some(x => ok.includes(String(x).toUpperCase())))
+      .filter(c => Number(c.salary) <= left)
+      .sort((a, b) => b.points - a.points)[0];
+    if (!best) continue;
+    list[i] = { slot: p.slot, id: String(best.id), key: best.key ?? String(best.id), dkId: best.dkId ?? null, name: best.name, team: best.team, positions: best.positions || [], salary: Number(best.salary), points: round(best.points, 2) };
+    changes.push({ slot: p.slot, out: p.name, in: best.name });
+  }
+  return { players: list, changes };
+}
+
+async function runOutSwaps(sport, day) {
+  const info = await outInfo(sport, day);
+  if (!info.out.size) return { sport, cambios: 0 };
+  const lib = sport === "nfl" ? nflLib() : lineupsLib();
+  const now = Date.now();
+  let total = 0, clientes = 0;
+  for (const platform of ["draftkings", "fanduel"]) {
+    const sp = await latestSlatePool(sport, platform, day);
+    if (!sp) continue;
+    const rule = lib.RULES[platform];
+    const cands = sp.players || [];
+    // 1) alineaciones de clientes
+    const users = await selectAll("fantasy_app_user_lineups", "*", q => q.eq("sport", sport).eq("platform", platform).eq("slate_date", day));
+    for (const ul of users) {
+      if (!(ul.players || []).some(p => info.out.has(str(p.key || p.id)))) continue;
+      const r = swapLineup(ul.players, rule, cands, info, now);
+      if (!r.changes.length) continue;
+      const salary = r.players.reduce((s, x) => s + (Number(x.salary) || 0), 0);
+      const proj = round(r.players.reduce((s, x) => s + (Number(x.points) || 0), 0), 2);
+      const { error } = await supabaseAdmin.from("fantasy_app_user_lineups")
+        .update({ players: r.players, salary, proj, updated_at: new Date().toISOString() }).eq("id", ul.id);
+      if (error) throw new Error(`Supabase fantasy_app_user_lineups: ${error.message}`);
+      const { error: e2 } = await supabaseAdmin.from("fantasy_app_lineup_changes").insert(r.changes.map(c => ({
+        user_lineup_id: ul.id, user_id: ul.user_id, out_player: c.out, in_player: c.in, slot: c.slot, changed_by: "auto"
+      })));
+      if (e2) throw new Error(`Supabase fantasy_app_lineup_changes: ${e2.message}`);
+      total += r.changes.length; clientes++;
+    }
+    // 2) pool (libres y tuyas)
+    const pool = await selectAll("fantasy_app_pool_lineups", "id,players",
+      q => q.eq("sport", sport).eq("platform", platform).eq("slate_date", day).in("status", ["free", "owner"]));
+    for (const pl of pool) {
+      if (!(pl.players || []).some(p => info.out.has(str(p.key || p.id)))) continue;
+      const r = swapLineup(pl.players, rule, cands, info, now);
+      if (!r.changes.length) continue;
+      const salary = r.players.reduce((s, x) => s + (Number(x.salary) || 0), 0);
+      const proj = round(r.players.reduce((s, x) => s + (Number(x.points) || 0), 0), 2);
+      const { error } = await supabaseAdmin.from("fantasy_app_pool_lineups").update({ players: r.players, salary, proj }).eq("id", pl.id);
+      if (error) throw new Error(`Supabase fantasy_app_pool_lineups: ${error.message}`);
+      total += r.changes.length;
+    }
+  }
+  return { sport, cambios: total, alineacionesDeClientes: clientes };
+}
+
+// Aviso rojo: cambios sin confirmar de hoy
+async function actionChanges(req, user) {
+  const day = chicagoDay();
+  const since = new Date(Date.parse(`${day}T00:00:00-06:00`)).toISOString();
+  const rows = await selectAll("fantasy_app_lineup_changes", "*",
+    q => q.eq("user_id", user.userId).is("uploaded_at", null).gte("changed_at", since).order("changed_at", { ascending: true }));
+  return { status: 200, body: { ok: true, pendientes: rows.length, cambios: rows } };
+}
+
+// "I uploaded it": marca los cambios como subidos
+async function actionChangesAck(req, user) {
+  const { error } = await supabaseAdmin.from("fantasy_app_lineup_changes")
+    .update({ uploaded_at: new Date().toISOString() }).eq("user_id", user.userId).is("uploaded_at", null);
+  if (error) throw new Error(`Supabase fantasy_app_lineup_changes: ${error.message}`);
+  return { status: 200, body: { ok: true } };
+}
+
+
+// ============================================================
 // HANDLER
 // ============================================================
 
@@ -1223,11 +1342,14 @@ module.exports = async function handler(req, res) {
       return send(res, r.status, r.body);
     }
 
-    if (action === "ready" || action === "mine" || action === "csv-mine") {
+    if (["ready", "mine", "csv-mine", "changes", "changes-ack"].includes(action)) {
       const user = await resolveUser(req);
       if (!user.ok) return send(res, user.status, { ok: false, error: user.error });
       if (action === "csv-mine") return await actionCsvMine(req, res, user);
-      const r = action === "ready" ? await actionReady(req, user) : await actionMine(req, user);
+      const r = action === "ready" ? await actionReady(req, user)
+        : action === "mine" ? await actionMine(req, user)
+          : action === "changes" ? await actionChanges(req, user)
+            : await actionChangesAck(req, user);
       return send(res, r.status, r.body);
     }
 
@@ -1259,7 +1381,7 @@ module.exports = async function handler(req, res) {
       return send(res, r.status, r.body);
     }
 
-    return send(res, 400, { ok: false, error: "UNKNOWN_ACTION", actions: ["slates", "players", "build-cards", "sync-dk", "csv-official", "pool-cron", "ready", "mine", "csv-mine"] });
+    return send(res, 400, { ok: false, error: "UNKNOWN_ACTION", actions: ["slates", "players", "build-cards", "sync-dk", "csv-official", "pool-cron", "ready", "mine", "csv-mine", "changes", "changes-ack"] });
   } catch (e) {
     console.error("fantasy-app", e);
     return send(res, 500, { ok: false, error: "SERVER_ERROR", detail: e.message });
@@ -1269,4 +1391,4 @@ module.exports = async function handler(req, res) {
 module.exports.config = { maxDuration: 60 };
 
 // Para pruebas locales
-module.exports._test = { computeTags, nbaScore, nbaSeason, nflSeason, parseCsv, dkGameTime, normName, poolBatch, starGroups };
+module.exports._test = { computeTags, nbaScore, nbaSeason, nflSeason, parseCsv, dkGameTime, normName, poolBatch, starGroups, swapLineup };
