@@ -240,6 +240,13 @@ td.fp{font-weight:600}
   .pn .n{font-size:13px}
 }
 optgroup{color:var(--muted)}
+.delbtn{border:1px solid #3a2323;background:transparent;color:#d98c8c;border-radius:6px;padding:2px 8px;font-size:12px;cursor:pointer}
+.delall{font-size:12px;color:#d98c8c;background:none;border:0;cursor:pointer;padding:0;text-decoration:underline}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center;z-index:50;padding:16px}
+.modal .mb{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;max-width:380px;width:100%;display:grid;gap:10px}
+.modal .mb b{font-family:var(--display);font-size:20px}
+.modal .ma{display:flex;gap:8px;justify-content:flex-end}
+.btn.danger{background:#c43c3c;color:#fff;border-color:#c43c3c}
 .fbox{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;background:linear-gradient(135deg,#0f2417,#0e1311);border:1px solid #1f5a33;border-radius:12px;padding:12px 14px}
 .fbox .ft{display:grid;gap:2px;max-width:60ch}
 .fbox .ft b{font-family:var(--display);font-size:19px;letter-spacing:.3px}
@@ -346,6 +353,10 @@ body.closed .salary,body.closed #slots,body.closed #editBar,body.closed .cta-fil
       </section>
     </main>
   </div>
+</div>
+<div class="modal" id="confirmBox" hidden role="dialog" aria-modal="true" aria-labelledby="cTitle">
+  <div class="mb"><b id="cTitle"></b><span class="note" id="cText"></span>
+    <div class="ma"><button class="btn sec" id="cNo">Cancel</button><button class="btn danger" id="cYes">Delete</button></div></div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -808,14 +819,41 @@ function renderMine() {
     const where = sl ? slateLabel(sl) : (g.slate_date ? dayName(g.slate_date) : "Main");
     if (!g.title) g.title = `${isDk ? "DraftKings" : "FanDuel"} · ${where}`;
     return `<details class="grp" ${g.sport === sport() && g.platform === site() ? "open" : ""}><summary><span class="gt"><b>${esc(g.title || (isDk ? "DraftKings" : "FanDuel") + " · Main")}</b><span><span class="tagtype">Classic</span> · ${g.lineups.length} lineup${g.lineups.length > 1 ? "s" : ""}</span></span>
-      ${isDk ? `<button class="btn sec" data-csv="${g.sport}" data-sk="${g.slate_key}" data-rs="${g.reserved ? 1 : 0}">⬇ CSV</button>` : `<span class="fdnote">FanDuel: enter by hand</span>`}</summary>
-      <div class="gb">${g.lineups.map((l, k) => `<div class="lu ${EDITING?.id === l.id ? "editing" : ""}"><div class="hd"><span>Lineup #${k + 1}${l.source === "built" || l.source === "locks" ? ' <span class="chip own">Built by you</span>' : ""}${l.edited ? ' <span class="chip own">Edited</span>' : ""}</span><span class="r"><span class="num">${money(l.salary)}</span>${l.reserved ? "" : `<button class="edbtn" data-ed="${l.id}" data-k="${k + 1}">✎ Edit</button>`}</span></div>
+      <span style="display:grid;gap:4px;justify-items:end">${isDk ? `<button class="btn sec" data-csv="${g.sport}" data-sk="${g.slate_key}" data-rs="${g.reserved ? 1 : 0}">⬇ CSV</button>` : `<span class="fdnote">FanDuel: enter by hand</span>`}
+      <button class="delall" data-da="${g.sport}|${g.platform}|${g.slate_key}|${g.reserved ? 1 : 0}" data-n="${g.lineups.length}">Delete all</button></span></summary>
+      <div class="gb">${g.lineups.map((l, k) => `<div class="lu ${EDITING?.id === l.id ? "editing" : ""}"><div class="hd"><span>Lineup #${k + 1}${l.source === "built" || l.source === "locks" ? ' <span class="chip own">Built by you</span>' : ""}${l.edited ? ' <span class="chip own">Edited</span>' : ""}</span><span class="r"><span class="num">${money(l.salary)}</span>${l.reserved ? "" : `<button class="edbtn" data-ed="${l.id}" data-k="${k + 1}">✎ Edit</button>`}<button class="delbtn" data-del="${l.id}" data-rs="${l.reserved ? 1 : 0}" aria-label="Delete lineup ${k + 1}">Delete</button></span></div>
         ${(l.players || []).map(p => `<div class="ln"><span>${esc(p.slot)}</span><span>${esc(p.name)}${p.team ? ` <span class="note">· ${esc(p.team)}</span>` : ""}</span><span class="num">${money(p.salary)}</span><span class="num note">proj ${Number(p.points || 0).toFixed(1)}</span></div>`).join("")}</div>`).join("")}</div></details>`;
   }).join("")}</div>`).join("") : `<span class="note">No lineups yet. Build one above or get ready-made lineups.</span>`;
   $("#myCount").textContent = total;
   if (!SLATE) $("#sheetTxt").textContent = "My lineups · " + total;
   document.querySelectorAll("[data-csv]").forEach(b => (b.onclick = e => { e.preventDefault(); e.stopPropagation(); downloadCsv(b.dataset.csv, b.dataset.sk, b.dataset.rs === "1"); }));
   document.querySelectorAll("[data-ed]").forEach(b => (b.onclick = e => { e.preventDefault(); startEdit(Number(b.dataset.ed), Number(b.dataset.k)); }));
+  document.querySelectorAll("[data-del]").forEach(b => (b.onclick = e => {
+    e.preventDefault(); e.stopPropagation();
+    askDelete("Delete this lineup?", { lineup_id: Number(b.dataset.del), reserved: b.dataset.rs === "1" });
+  }));
+  document.querySelectorAll("[data-da]").forEach(b => (b.onclick = e => {
+    e.preventDefault(); e.stopPropagation();
+    const [sp, pf, sk, rs] = b.dataset.da.split("|");
+    askDelete(`Delete all ${b.dataset.n} lineups in this group?`, { sport: sp, site: pf, slate_key: Number(sk), reserved: rs === "1" });
+  }));
+}
+
+// 5-nov: borrar con aviso (no se pueden recuperar)
+function askDelete(title, body) {
+  $("#cTitle").textContent = title;
+  $("#cText").textContent = "Deleted lineups can't be recovered." + (body.reserved ? " Your reserved lineups for this slate won't come back." : " You can always get new ones.");
+  $("#confirmBox").hidden = false;
+  $("#cNo").onclick = () => ($("#confirmBox").hidden = true);
+  $("#cYes").onclick = async () => {
+    $("#cYes").disabled = true;
+    const r = await api("delete", {}, body);
+    $("#cYes").disabled = false; $("#confirmBox").hidden = true;
+    if (!r.ok) { toast("Couldn't delete: " + r.error); return; }
+    if (EDITING && body.lineup_id === EDITING.id) { EDITING = null; renderAll(); }
+    toast(`${r.deleted} lineup${r.deleted === 1 ? "" : "s"} deleted.`);
+    loadMine();
+  };
 }
 
 function startEdit(id, num) {
