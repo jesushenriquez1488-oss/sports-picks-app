@@ -28,7 +28,9 @@ function buildCaptainLineups(players, {
   maxExposure = 1,
   nodeLimit = 3e6,
   salaryCap = CAP,
-  maxPairShare = 1   // 5-nov: misma pareja en maximo esta parte de las alineaciones
+  maxPairShare = 1,  // 5-nov: misma pareja en maximo esta parte de las alineaciones
+  check = null,      // 5-nov: regla extra al final (NFL: QB con un receptor de su equipo)
+  prior = []         // 5-nov: alineaciones que ya existen [{ cpt, ids:[...] }]: las nuevas deben ser distintas
 } = {}) {
   const pool = players
     .filter(p => Number(p.points) > 0 && Number(p.salary) > 0 && Number(p.cptSalary) > 0)
@@ -41,14 +43,14 @@ function buildCaptainLineups(players, {
 
   const uses = new Map();
   const maxUses = Math.max(1, Math.floor(maxExposure * count + 1e-9));
-  const previous = [];
+  const previous = (prior || []).map(p => ({ cpt: String(p.cpt), ids: new Set((p.ids || []).map(String)) }));
   const lineups = [];
   const pairs = pairTracker(maxPairShare, count);
   let allOptimal = true;
 
   for (let n = 0; n < count; n++) {
     const blocked = id => (uses.get(id) || 0) >= maxUses;
-    const r = solveOne(pool, previous, minDifferent, nodeLimit, blocked, salaryCap, pairs);
+    const r = solveOne(pool, previous, minDifferent, nodeLimit, blocked, salaryCap, pairs, check);
     if (!r) break;
     if (!r.optimal) allOptimal = false;
     const cpt = r.cpt, utils = r.utils;
@@ -75,7 +77,7 @@ function buildCaptainLineups(players, {
 
 // Mejor alineacion: prueba cada CPT y llena 5 UTIL con busqueda
 // exacta (cota: los mejores puntos que todavia caben).
-function solveOne(pool, previous, minDifferent, nodeLimit, blocked, cap, pairs = null) {
+function solveOne(pool, previous, minDifferent, nodeLimit, blocked, cap, pairs = null, check = null) {
   let best = null, bestPts = -1, nodes = 0, cut = false;
   const utilPool = pool; // ya ordenado de mas a menos puntos
 
@@ -96,6 +98,7 @@ function solveOne(pool, previous, minDifferent, nodeLimit, blocked, cap, pairs =
         const ids = new Set([cpt.id, ...chosen.map(c => c.id)]);
         const teams = new Set([cpt.team, ...chosen.map(c => c.team)]);
         if (teams.size < 2) return;
+        if (check && !check(cpt, chosen)) return;
         for (const prev of previous) {
           let same = 0;
           for (const id of ids) if (prev.ids.has(id)) same++;
