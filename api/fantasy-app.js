@@ -58,6 +58,8 @@ const supabaseAdmin = createClient(
 );
 
 const OWNER_EMAIL = String(process.env.FANTASY_OWNER_EMAIL || "").trim().toLowerCase();
+// Activar para todos los Premium: variable FANTASY_PUBLIC = 1 en Vercel.
+const FANTASY_PUBLIC = String(process.env.FANTASY_PUBLIC || "").trim() === "1";
 const CARDS = "fantasy_app_player_cards";
 const LAST_GAMES = 10;
 
@@ -137,7 +139,16 @@ async function upsertAll(table, rows, onConflict) {
   }
 }
 
+// La app (iOS / Android) llama desde otro origen: se permite con el
+// token del usuario en Authorization.
+function cors(res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+}
+
 function send(res, status, body) {
+  cors(res);
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
   res.status(status).send(JSON.stringify(body));
@@ -165,6 +176,8 @@ async function requirePremium(req) {
   if (uErr) throw new Error(`Supabase users: ${uErr.message}`);
 
   if (!isOwner && row?.is_premium !== true) return { ok: false, status: 403, error: "PREMIUM_ONLY" };
+  // MODO ESCONDIDO: mientras FANTASY_PUBLIC no sea "1", solo entra el dueno.
+  if (!isOwner && !FANTASY_PUBLIC) return { ok: false, status: 403, error: "NOT_AVAILABLE_YET" };
   return { ok: true, userId: authUser.id, email, isOwner };
 }
 
@@ -907,6 +920,7 @@ function orderBySlots(header, players) {
 }
 
 function sendCsv(res, filename, rows) {
+  cors(res);
   const body = rows.map(r => r.map(v => {
     const t = str(v);
     return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
@@ -1329,12 +1343,168 @@ async function actionChangesAck(req, user) {
 
 
 // ============================================================
+// PAGINA FANTASY: acceso, guardar, armar con bloqueos
+// ============================================================
+
+// ¿Mostrar el boton Fantasy Sports? (sin error si no hay sesion)
+async function actionAccess(req) {
+  const r = await requirePremium(req);
+  return { status: 200, body: { ok: true, visible: r.ok, reason: r.ok ? null : r.error, owner: !!r.isOwner } };
+}
+
+function readBody(req) {
+  if (req.body && typeof req.body === "object") return Promise.resolve(req.body);
+  if (typeof req.body === "string") { try { return Promise.resolve(JSON.parse(req.body)); } catch { return Promise.resolve({}); } }
+  return new Promise(resolve => {
+    let raw = "";
+    req.on("data", c => (raw += c));
+    req.on("end", () => { try { resolve(JSON.parse(raw || "{}")); } catch { resolve({}); } });
+    req.on("error", () => resolve({}));
+  });
+}
+
+const PAGE_RULES = {
+  nba: {
+    draftkings: { cap: 50000, slots: ["PG", "SG", "SF", "PF", "C", "G", "F", "UTIL"], eligible: { PG: ["PG"], SG: ["SG"], SF: ["SF"], PF: ["PF"], C: ["C"], G: ["PG", "SG"], F: ["SF", "PF"], UTIL: ["PG", "SG", "SF", "PF", "C"] } },
+    fanduel: { cap: 60000, slots: ["PG", "PG", "SG", "SG", "SF", "SF", "PF", "PF", "C"], eligible: { PG: ["PG"], SG: ["SG"], SF: ["SF"], PF: ["PF"], C: ["C"] } }
+  },
+  nfl: {
+    draftkings: { cap: 50000, slots: ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "FLEX", "DST"], eligible: { QB: ["QB"], RB: ["RB"], WR: ["WR"], TE: ["TE"], FLEX: ["RB", "WR", "TE"], DST: ["DST"] } },
+    fanduel: { cap: 60000, slots: ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "FLEX", "DEF"], eligible: { QB: ["QB"], RB: ["RB"], WR: ["WR"], TE: ["TE"], FLEX: ["RB", "WR", "TE"], DEF: ["DST"] } }
+  }
+};
+
+// Datos completos de cada jugador del slate (ficha + ID DraftKings + id del pool)
+async function playerIndex(sport, platform, slateId, day) {
+  const cards = await selectAll(CARDS, "player_key,player_name,team,positions,salary,proj,status",
+    q => q.eq("sport", sport).eq("slate_id", slateId));
+  const sp = await latestSlatePool(sport, platform, day);
+  const poolByKey = new Map((sp?.players || []).map(p => [str(p.key || p.id), p]));
+  const dkRows = platform === "draftkings"
+    ? await selectAll("fantasy_app_dk_players", "player_key,dk_id,draft_group_id",
+      q => q.eq("sport", sport).eq("slate_date", day).eq("draft_group_id", Number(sp?.slate_key) || -1))
+    : [];
+  const dkByKey = new Map(dkRows.filter(r => r.player_key).map(r => [r.player_key, Number(r.dk_id)]));
+  const map = new Map();
+  for (const c of cards) {
+    const pool = poolByKey.get(c.player_key);
+    map.set(c.player_key, {
+      id: pool ? String(pool.id) : c.player_key, key: c.player_key, name: c.player_name, team: c.team,
+      positions: c.positions || [], salary: Number(c.salary), points: Number(pool?.points ?? c.proj ?? 0),
+      dkId: pool?.dkId ?? dkByKey.get(c.player_key) ?? null, status: c.status
+    });
+  }
+  return { map, sp, slateKey: Number(sp?.slate_key) || Number(slateId) };
+}
+
+// Guardar (nueva) o actualizar (con lineup_id) una alineacion armada por el cliente
+async function actionSave(req, user) {
+  const b = await readBody(req);
+  const sport = parseSport(b.sport), platform = parseSite(b.site), slateId = num(b.slate_id);
+  const rule = PAGE_RULES[sport]?.[platform];
+  if (!rule || !slateId || !Array.isArray(b.players)) return { status: 400, body: { ok: false, error: "BAD_PARAMS" } };
+  if (b.players.length !== rule.slots.length) return { status: 400, body: { ok: false, error: "LINEUP_INCOMPLETE" } };
+  const day = chicagoDay();
+  const idx = await playerIndex(sport, platform, slateId, day);
+  const players = [];
+  for (let i = 0; i < rule.slots.length; i++) {
+    const slot = rule.slots[i];
+    const want = b.players[i] || {};
+    const p = idx.map.get(str(want.key || want.id));
+    if (!p) return { status: 400, body: { ok: false, error: "UNKNOWN_PLAYER", player: want.key || want.id } };
+    if (!(p.positions || []).some(x => rule.eligible[slot].includes(String(x).toUpperCase()))) return { status: 400, body: { ok: false, error: "WRONG_POSITION", player: p.name, slot } };
+    if (/^(out|o)$/i.test(str(p.status))) return { status: 400, body: { ok: false, error: "PLAYER_OUT", player: p.name } };
+    players.push({ slot, id: p.id, key: p.key, dkId: p.dkId, name: p.name, team: p.team, positions: p.positions, salary: p.salary, points: round(p.points, 2) });
+  }
+  if (new Set(players.map(p => p.key)).size !== players.length) return { status: 400, body: { ok: false, error: "DUPLICATE_PLAYER" } };
+  const salary = players.reduce((s, p) => s + p.salary, 0);
+  if (salary > rule.cap) return { status: 400, body: { ok: false, error: "OVER_CAP", salary } };
+  const proj = round(players.reduce((s, p) => s + p.points, 0), 2);
+  const row = { players, salary, proj, updated_at: new Date().toISOString() };
+  if (b.lineup_id) {
+    const { data, error } = await supabaseAdmin.from("fantasy_app_user_lineups")
+      .update({ ...row, edited: true }).eq("id", Number(b.lineup_id)).eq("user_id", user.userId).select("*");
+    if (error) throw new Error(`Supabase fantasy_app_user_lineups: ${error.message}`);
+    if (!data?.length) return { status: 404, body: { ok: false, error: "LINEUP_NOT_FOUND" } };
+    return { status: 200, body: { ok: true, lineup: data[0] } };
+  }
+  const { data, error } = await supabaseAdmin.from("fantasy_app_user_lineups").insert({
+    user_id: user.userId, sport, platform, slate_key: idx.slateKey, game_type: "classic", slate_date: day, source: "built", ...row
+  }).select("*");
+  if (error) throw new Error(`Supabase fantasy_app_user_lineups: ${error.message}`);
+  return { status: 200, body: { ok: true, lineup: data[0] } };
+}
+
+// Armar N con sus bloqueados y excluidos (maximo 10 pedidos cada 5 minutos)
+async function actionBuild(req, user) {
+  const b = await readBody(req);
+  const sport = parseSport(b.sport), platform = parseSite(b.site), slateId = num(b.slate_id);
+  const count = Math.max(1, Math.min(50, Number(b.count) || 10));
+  if (!PAGE_RULES[sport]?.[platform] || !slateId) return { status: 400, body: { ok: false, error: "BAD_PARAMS" } };
+  const since = new Date(Date.now() - 5 * 60000).toISOString();
+  const recent = await selectAll("fantasy_app_user_lineups", "id,created_at",
+    q => q.eq("user_id", user.userId).eq("source", "locks").gte("created_at", since));
+  const batches = new Set(recent.map(r => String(r.created_at).slice(0, 19))).size;
+  if (batches >= 10) return { status: 429, body: { ok: false, error: "TOO_MANY_BUILDS", message: "Max 10 builds every 5 minutes." } };
+
+  const day = chicagoDay();
+  const idx = await playerIndex(sport, platform, slateId, day);
+  const locks = new Set((b.locks || []).map(String)), bans = new Set((b.bans || []).map(String));
+  // Base: la lista de la formula (las reglas) + los bloqueados aunque no esten en ella
+  const base = (idx.sp?.players || []).filter(p => !bans.has(str(p.key || p.id)));
+  for (const k of locks) if (!base.some(p => str(p.key || p.id) === k) && idx.map.get(k)) base.push({ ...idx.map.get(k) });
+  const BONUS = 1000;   // obliga a los bloqueados
+  const players = base.map(p => (locks.has(str(p.key || p.id)) ? { ...p, points: Number(p.points) + BONUS, _locked: true } : p));
+  const opts = { count, minDifferent: 2, maxExposure: 1 };
+  const r = sport === "nfl"
+    ? nflLib().buildLineups(platform, players, opts)
+    : lineupsLib().buildLineups(platform, players, { ...opts, nodeLimit: POOL.nodeLimit, timeLimitMs: 40000, noStarterBackup: true });
+  const byId = new Map(players.map(p => [String(p.id), p]));
+  const lines = r.lineups.filter(l => [...locks].every(k => l.players.some(p => str(byId.get(String(p.id))?.key || p.id) === k)));
+  if (!lines.length) return { status: 409, body: { ok: false, error: "LOCKS_DO_NOT_FIT", message: "Your locked players don't fit together under the cap." } };
+  const now = new Date().toISOString();
+  const rows = lines.map(l => {
+    const ps = l.players.map(p => {
+      const src = byId.get(String(p.id)) || {};
+      const pts = Number(p.points) - (src._locked ? BONUS : 0);
+      return { slot: p.slot, id: String(p.id), key: src.key ?? String(p.id), dkId: src.dkId ?? idx.map.get(str(src.key || p.id))?.dkId ?? null, name: p.name, team: p.team, positions: src.positions || [], salary: p.salary, points: round(pts, 2) };
+    });
+    return { user_id: user.userId, sport, platform, slate_key: idx.slateKey, game_type: "classic", slate_date: day, source: "locks",
+      players: ps, salary: ps.reduce((s, x) => s + x.salary, 0), proj: round(ps.reduce((s, x) => s + x.points, 0), 2), created_at: now, updated_at: now };
+  });
+  const { data, error } = await supabaseAdmin.from("fantasy_app_user_lineups").insert(rows).select("*");
+  if (error) throw new Error(`Supabase fantasy_app_user_lineups: ${error.message}`);
+  return { status: 200, body: { ok: true, built: data.length, lineups: data } };
+}
+
+async function actionDelete(req, user) {
+  const b = await readBody(req);
+  const { error } = await supabaseAdmin.from("fantasy_app_user_lineups").delete().eq("id", Number(b.lineup_id)).eq("user_id", user.userId);
+  if (error) throw new Error(`Supabase fantasy_app_user_lineups: ${error.message}`);
+  return { status: 200, body: { ok: true } };
+}
+
+
+// ============================================================
 // HANDLER
 // ============================================================
 
 module.exports = async function handler(req, res) {
   try {
     const action = str(req.query.action).toLowerCase();
+    if (req.method === "OPTIONS") { cors(res); return res.status(204).end(); }
+
+    if (action === "access") {
+      const r = await actionAccess(req);
+      return send(res, r.status, r.body);
+    }
+
+    if (["save", "build", "delete"].includes(action)) {
+      const user = await resolveUser(req);
+      if (!user.ok) return send(res, user.status, { ok: false, error: user.error });
+      const r = action === "save" ? await actionSave(req, user) : action === "build" ? await actionBuild(req, user) : await actionDelete(req, user);
+      return send(res, r.status, r.body);
+    }
 
     if (action === "pool-cron") {
       if (!checkSecret(req)) return send(res, 401, { ok: false, error: "BAD_SECRET" });
@@ -1381,7 +1551,7 @@ module.exports = async function handler(req, res) {
       return send(res, r.status, r.body);
     }
 
-    return send(res, 400, { ok: false, error: "UNKNOWN_ACTION", actions: ["slates", "players", "build-cards", "sync-dk", "csv-official", "pool-cron", "ready", "mine", "csv-mine", "changes", "changes-ack"] });
+    return send(res, 400, { ok: false, error: "UNKNOWN_ACTION", actions: ["slates", "players", "build-cards", "sync-dk", "csv-official", "pool-cron", "ready", "mine", "csv-mine", "changes", "changes-ack", "access", "save", "build", "delete"] });
   } catch (e) {
     console.error("fantasy-app", e);
     return send(res, 500, { ok: false, error: "SERVER_ERROR", detail: e.message });
