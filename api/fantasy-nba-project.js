@@ -3861,6 +3861,17 @@ async function handler(req, res) {
       if (!dg) return res.status(400).json({ ok: false, error: "Falta &dg= (numero del slate de DraftKings)" });
       const count = Math.max(1, Math.min(150, Number(req.query.count) || 20));
       result = await runDraftKingsSlate(chicagoDay(), dg, count);
+      // &csv=1 -> descarga el CSV para subir a DraftKings
+      if (String(req.query.csv || "") === "1") {
+        const pl = result.platforms?.[0];
+        if (!pl?.lineups?.length) return res.status(404).json({ ok: false, error: result.message || "sin alineaciones" });
+        const captain = /captain/i.test(result.listaDraftKings?.tipo || "");
+        const header = captain ? ["CPT", "UTIL", "UTIL", "UTIL", "UTIL", "UTIL"] : ["PG", "SG", "SF", "PF", "C", "G", "F", "UTIL"];
+        const body = [header.join(",")].concat(pl.lineups.map(l => l.idsDraftKings)).join("\r\n") + "\r\n";
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename="cashedge-nba-dk-${dg}.csv"`);
+        return res.status(200).send(body);
+      }
     } else if (mode === "evaluate") {
       const day = date || shiftDay(chicagoDay(), -1);
       result = (!run && await readStored("fantasy_nba_evaluations", "eval_date", day)) || await runEvaluation(day);
