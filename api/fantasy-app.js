@@ -13,6 +13,9 @@
 //          (ultimos 10 partidos, promedio de temporada, etiquetas)
 //   action=build-cards &secret=... [&sport=nba|nfl] [&date=YYYY-MM-DD]
 //       -> (cron / manual) prepara las fichas de todos los slates del dia
+//   action=csv-official &secret=... &sport=nba|nfl
+//       -> CSV de tus alineaciones oficiales de hoy (Main DraftKings)
+//          listo para subir a DraftKings
 //   action=sync-dk &secret=... [&sport=nba|nfl]
 //       -> (cron cada 15 min) lee de DraftKings todos los slates Classic
 //          y Captain de hoy con sus IDs oficiales para el CSV
@@ -881,12 +884,110 @@ async function actionSyncDk(req) {
 
 
 // ============================================================
+// CSV PARA DRAFTKINGS (csv-official)
+// ============================================================
+//
+// Tus alineaciones oficiales de hoy (Main de DraftKings) en el
+// formato de subida de DraftKings: primera fila = puestos, cada
+// fila = una alineacion con los IDs oficiales.
+// FanDuel: por ahora sin CSV (se meten a mano).
+
+const DK_HEADER = {
+  nba: ["PG", "SG", "SF", "PF", "C", "G", "F", "UTIL"],
+  nfl: ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "FLEX", "DST"]
+};
+
+// Pone los jugadores en el orden de las columnas de DraftKings.
+function orderBySlots(header, players) {
+  const left = players.slice();
+  return header.map(slot => {
+    const i = left.findIndex(p => str(p.slot).toUpperCase() === slot || (slot === "DST" && /^(DST|DEF|D)$/i.test(str(p.slot))));
+    return i >= 0 ? left.splice(i, 1)[0] : null;
+  });
+}
+
+function sendCsv(res, filename, rows) {
+  const body = rows.map(r => r.map(v => {
+    const t = str(v);
+    return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+  }).join(",")).join("\r\n") + "\r\n";
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.setHeader("Cache-Control", "no-store");
+  return res.status(200).send(body);
+}
+
+async function officialCsv(sport, day) {
+  const header = DK_HEADER[sport];
+  const groups = await selectAll("fantasy_app_dk_slates", "*",
+    q => q.eq("sport", sport).eq("slate_date", day).eq("game_type", "classic"));
+  if (!groups.length) return { error: "No hay slates de DraftKings de hoy. Corre ?action=sync-dk" };
+
+  let lineups = [];
+  if (sport === "nba") {
+    const rows = await selectAll("fantasy_nba_lineups", "*", q => q.eq("slate_date", day).eq("platform", "draftkings"));
+    lineups = rows.sort((a, b) => a.lineup_number - b.lineup_number)
+      .map(l => (l.players || []).map(p => ({ slot: p.slot, key: String(p.player_id), name: p.name })));
+  } else {
+    // Ultima corrida con alineaciones del slate principal de DraftKings de hoy
+    const slates = await selectAll("fantasy_nfl_slates", "*", q => q.eq("slate_date", day).eq("platform", "draftkings"));
+    const main = slates.find(x => x.is_main) || slates[0];
+    if (!main) return { error: "No hay slate de DraftKings de NFL hoy" };
+    const runs = await selectAll("fantasy_nfl_lineups", "run_id", q => q.eq("slate_id", main.slate_id));
+    const runId = Math.max(...runs.map(r => Number(r.run_id)));
+    if (!Number.isFinite(runId)) return { error: "Todavia no hay alineaciones de NFL para hoy" };
+    const rows = await selectAll("fantasy_nfl_lineups", "*", q => q.eq("run_id", runId).eq("slate_id", main.slate_id));
+    lineups = rows.sort((a, b) => a.lineup_number - b.lineup_number)
+      .map(l => (l.players || []).map(p => ({ slot: p.slot, key: str(p.key), name: p.name })));
+  }
+  if (!lineups.length) return { error: "Todavia no hay alineaciones oficiales de hoy" };
+
+  // El slate de DraftKings que tiene a TODOS los jugadores de las alineaciones
+  const needed = new Set(lineups.flat().map(p => p.key));
+  let best = null;
+  for (const g of groups.sort((a, b) => Number(b.games) - Number(a.games))) {
+    const rows = await selectAll("fantasy_app_dk_players", "player_key,dk_id,slot", q => q.eq("draft_group_id", Number(g.draft_group_id)));
+    const ids = new Map();
+    for (const r of rows) if (r.player_key && !ids.has(r.player_key)) ids.set(r.player_key, Number(r.dk_id));
+    const missing = [...needed].filter(k => !ids.has(k));
+    if (!best || missing.length < best.missing.length) best = { g, ids, missing };
+    if (!missing.length) break;
+  }
+  if (best.missing.length) {
+    const names = lineups.flat().filter(p => best.missing.includes(p.key)).map(p => p.name);
+    return { error: `Faltan IDs de DraftKings para: ${[...new Set(names)].join(", ")}` };
+  }
+  const out = [header];
+  for (const l of lineups) out.push(orderBySlots(header, l).map(p => (p ? best.ids.get(p.key) : "")));
+  return { rows: out, draftGroupId: Number(best.g.draft_group_id) };
+}
+
+async function actionCsvOfficial(req, res) {
+  const sport = parseSport(req.query.sport);
+  if (!sport) return send(res, 400, { ok: false, error: "BAD_PARAMS", need: "sport=nba|nfl" });
+  const day = chicagoDay();
+  const r = await officialCsv(sport, day);
+  if (r.error) return send(res, 404, { ok: false, error: r.error });
+  return sendCsv(res, `cashedge-${sport}-draftkings-${day}.csv`, r.rows);
+}
+
+
+// ============================================================
 // HANDLER
 // ============================================================
 
 module.exports = async function handler(req, res) {
   try {
     const action = str(req.query.action).toLowerCase();
+
+    if (action === "csv-official") {
+      // Por ahora solo tu (secret o tu sesion). Los clientes van con su pool.
+      if (!checkSecret(req)) {
+        const auth = await requirePremium(req);
+        if (!auth.ok || !auth.isOwner) return send(res, 401, { ok: false, error: "OWNER_ONLY" });
+      }
+      return await actionCsvOfficial(req, res);
+    }
 
     if (action === "sync-dk") {
       if (!checkSecret(req)) return send(res, 401, { ok: false, error: "BAD_SECRET" });
@@ -907,7 +1008,7 @@ module.exports = async function handler(req, res) {
       return send(res, r.status, r.body);
     }
 
-    return send(res, 400, { ok: false, error: "UNKNOWN_ACTION", actions: ["slates", "players", "build-cards", "sync-dk"] });
+    return send(res, 400, { ok: false, error: "UNKNOWN_ACTION", actions: ["slates", "players", "build-cards", "sync-dk", "csv-official"] });
   } catch (e) {
     console.error("fantasy-app", e);
     return send(res, 500, { ok: false, error: "SERVER_ERROR", detail: e.message });
