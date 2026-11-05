@@ -973,12 +973,245 @@ async function actionCsvOfficial(req, res) {
 
 
 // ============================================================
+// POOL DE ALINEACIONES PARA CLIENTES (pool-cron, ready, mine)
+// ============================================================
+//
+// pool-cron (cada 5 min, con secret):
+//   - Toma la lista mas nueva de cada slate (fantasy_app_slate_pools,
+//     la guarda la formula en cada corrida oficial).
+//   - Corrida nueva de la formula = version nueva: se borran las
+//     alineaciones LIBRES (y las tuyas) de versiones viejas. Las ya
+//     repartidas se quedan con su cliente.
+//   - Arma de 200 en 200 (con el reparto de estrellas) hasta 1,000;
+//     despues, si quedan menos de 200 libres, arma 200 mas.
+//   - Tus 10: las 10 de mas proyeccion de la version actual.
+// ready (cliente): toma N al azar de las libres (maximo 50 por slate).
+// mine (cliente): sus alineaciones de hoy.
+// csv-mine (cliente): su CSV de DraftKings.
+
+const POOL = { target: 1000, batch: 200, refillBelow: 200, ownerTop: 10, maxPerUser: 50,
+  minDifferent: 2, maxExposure: 0.4, nodeLimit: 200000, batchSeconds: 40 };
+const DK_HEADER_POOL = { nba: { draftkings: ["PG", "SG", "SF", "PF", "C", "G", "F", "UTIL"], fanduel: ["PG", "PG", "SG", "SG", "SF", "SF", "PF", "PF", "C"] } };
+
+let nbaLineupsLib = null;
+const lineupsLib = () => (nbaLineupsLib ||= require("./_lib/fantasy-nba-lineups.js"));
+
+async function ownerUserId() {
+  if (!OWNER_EMAIL) return null;
+  const { data } = await supabaseAdmin.from("users").select("id").ilike("email", OWNER_EMAIL).limit(1).maybeSingle();
+  return data?.id || null;
+}
+
+async function latestSlatePool(sport, platform, day) {
+  const { data, error } = await supabaseAdmin.from("fantasy_app_slate_pools").select("*")
+    .eq("sport", sport).eq("platform", platform).eq("slate_date", day)
+    .order("version", { ascending: false }).limit(1).maybeSingle();
+  if (error) throw new Error(`Supabase fantasy_app_slate_pools: ${error.message}`);
+  return data;
+}
+
+function starGroups(stars, count) {
+  if (!stars?.length) return null;
+  const out = stars.map(s => Math.floor(s.share * count + 1e-9));
+  const target = Math.floor(stars.reduce((a, s) => a + s.share, 0) * count + 1e-9);
+  for (let i = 0; out.reduce((a, b) => a + b, 0) < target; i = (i + 1) % out.length) out[i]++;
+  return stars.map((s, i) => ({ ids: [s.id], names: [s.name], lineups: out[i] }));
+}
+
+async function poolBatch(sp, count, existing) {
+  const groups = starGroups(sp.stars, count);
+  const r = lineupsLib().buildLineups(sp.platform, sp.players, {
+    count, minDifferent: POOL.minDifferent, maxExposure: POOL.maxExposure,
+    nodeLimit: POOL.nodeLimit, timeLimitMs: POOL.batchSeconds * 1000,
+    noStarterBackup: true,
+    stackPlan: groups ? { groups } : null,
+    prior: existing.map(l => (l.players || []).map(p => String(p.id)))
+  });
+  const byId = new Map(sp.players.map(p => [String(p.id), p]));
+  return r.lineups.map(l => ({
+    players: l.players.map(p => ({ slot: p.slot, id: String(p.id), dkId: byId.get(String(p.id))?.dkId ?? null, name: p.name, team: p.team, salary: p.salary, points: round(p.points, 2) })),
+    salary: l.salary,
+    proj: round(l.points, 2),
+    star: l.pila || null
+  }));
+}
+
+async function refillPool(sport, platform, day) {
+  const sp = await latestSlatePool(sport, platform, day);
+  if (!sp) return { platform, estado: "sin lista de la formula hoy" };
+  if (sp.starts_at && Date.parse(sp.starts_at) <= Date.now()) return { platform, estado: "el slate ya empezo" };
+
+  // Version nueva: fuera las libres y las tuyas de versiones viejas
+  const { error: delErr } = await supabaseAdmin.from("fantasy_app_pool_lineups").delete()
+    .eq("sport", sport).eq("platform", platform).eq("slate_date", day)
+    .neq("version", sp.version).in("status", ["free", "owner"]);
+  if (delErr) throw new Error(`Supabase fantasy_app_pool_lineups: ${delErr.message}`);
+
+  const current = await selectAll("fantasy_app_pool_lineups", "id,lineup_number,players,status,proj",
+    q => q.eq("sport", sport).eq("platform", platform).eq("slate_date", day).eq("version", sp.version));
+  const free = current.filter(l => l.status === "free").length;
+  let need = 0;
+  if (current.length < POOL.target) need = Math.min(POOL.batch, POOL.target - current.length);
+  else if (free < POOL.refillBelow) need = POOL.batch;
+
+  let built = 0;
+  if (need > 0) {
+    const t = Date.now();
+    const lines = await poolBatch(sp, need, current);
+    const startNum = current.reduce((m, l) => Math.max(m, l.lineup_number), 0);
+    const rows = lines.map((l, i) => ({
+      sport, platform, slate_key: sp.slate_key, game_type: sp.game_type, slate_date: day, version: sp.version,
+      lineup_number: startNum + i + 1, ...l, status: "free"
+    }));
+    for (const part of chunks(rows, 200)) {
+      const { error } = await supabaseAdmin.from("fantasy_app_pool_lineups").insert(part);
+      if (error) throw new Error(`Supabase fantasy_app_pool_lineups: ${error.message}`);
+    }
+    built = rows.length;
+    current.push(...rows.map(r => ({ ...r, id: null })));
+    console.log("pool", sport, platform, built, (Date.now() - t) / 1000, "s");
+  }
+
+  // Tus 10: las mejores de la version actual
+  const owner = await ownerUserId();
+  const mine = current.filter(l => l.status === "owner").length;
+  if (owner && mine < POOL.ownerTop) {
+    const best = await selectAll("fantasy_app_pool_lineups", "id,proj",
+      q => q.eq("sport", sport).eq("platform", platform).eq("slate_date", day).eq("version", sp.version).eq("status", "free")
+        .order("proj", { ascending: false }).limit(POOL.ownerTop - mine));
+    if (best.length) {
+      const { error } = await supabaseAdmin.from("fantasy_app_pool_lineups")
+        .update({ status: "owner", user_id: owner, assigned_at: new Date().toISOString() }).in("id", best.map(b => b.id));
+      if (error) throw new Error(`Supabase fantasy_app_pool_lineups: ${error.message}`);
+    }
+  }
+  return { platform, version: sp.version, armadas: built, total: current.length, libres: Math.max(0, free + built - Math.max(0, POOL.ownerTop - mine)) };
+}
+
+async function actionPoolCron(req) {
+  const day = chicagoDay();
+  const out = [];
+  for (const platform of ["draftkings", "fanduel"]) {
+    try { out.push(await refillPool("nba", platform, day)); }
+    catch (e) { out.push({ platform, error: e.message }); }
+  }
+  return { status: 200, body: { ok: true, date: day, nba: out } };
+}
+
+// ---- cliente ----
+
+async function resolveUser(req) {
+  // Pruebas tuyas desde el navegador: ?secret=...&as=owner
+  if (checkSecret(req) && str(req.query.as) === "owner") {
+    const id = await ownerUserId();
+    return id ? { ok: true, userId: id, isOwner: true } : { ok: false, status: 404, error: "OWNER_NOT_FOUND" };
+  }
+  return requirePremium(req);
+}
+
+async function actionReady(req, user) {
+  const sport = parseSport(req.query.sport) || "nba";
+  const platform = parseSite(req.query.site);
+  const want = Math.max(1, Math.min(POOL.maxPerUser, Number(req.query.count) || 10));
+  if (!platform) return { status: 400, body: { ok: false, error: "BAD_PARAMS", need: "site=draftkings|fanduel & count" } };
+  const day = chicagoDay();
+  const sp = await latestSlatePool(sport, platform, day);
+  if (!sp) return { status: 404, body: { ok: false, error: "NO_SLATE_TODAY" } };
+  if (sp.starts_at && Date.parse(sp.starts_at) <= Date.now()) return { status: 409, body: { ok: false, error: "SLATE_STARTED" } };
+
+  const had = await selectAll("fantasy_app_user_lineups", "id",
+    q => q.eq("user_id", user.userId).eq("sport", sport).eq("platform", platform).eq("slate_date", day).eq("source", "pool"));
+  const room = POOL.maxPerUser - had.length;
+  if (room <= 0) return { status: 429, body: { ok: false, error: "LIMIT_50_PER_SLATE" } };
+  const count = Math.min(want, room);
+
+  const free = await selectAll("fantasy_app_pool_lineups", "id",
+    q => q.eq("sport", sport).eq("platform", platform).eq("slate_date", day).eq("version", sp.version).eq("status", "free"));
+  // Al azar
+  const ids = free.map(f => f.id);
+  for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; }
+
+  const got = [];
+  for (const part of chunks(ids, Math.max(count, 1))) {
+    if (got.length >= count) break;
+    const take = part.slice(0, count - got.length);
+    const { data, error } = await supabaseAdmin.from("fantasy_app_pool_lineups")
+      .update({ status: "assigned", user_id: user.userId, assigned_at: new Date().toISOString() })
+      .in("id", take).eq("status", "free").select("*");
+    if (error) throw new Error(`Supabase fantasy_app_pool_lineups: ${error.message}`);
+    got.push(...(data || []));
+  }
+  if (!got.length) return { status: 503, body: { ok: false, error: "POOL_BUILDING", message: "Lineups are being built. Try again in a minute." } };
+
+  const rows = got.map(l => ({
+    user_id: user.userId, sport, platform, slate_key: l.slate_key, game_type: l.game_type, slate_date: day,
+    source: "pool", pool_lineup_id: l.id, players: l.players, salary: l.salary, proj: l.proj
+  }));
+  const { data: saved, error } = await supabaseAdmin.from("fantasy_app_user_lineups").insert(rows).select("*");
+  if (error) throw new Error(`Supabase fantasy_app_user_lineups: ${error.message}`);
+  return { status: 200, body: { ok: true, given: saved.length, asked: want, lineups: saved } };
+}
+
+async function actionMine(req, user) {
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(str(req.query.date)) ? str(req.query.date) : chicagoDay();
+  const rows = await selectAll("fantasy_app_user_lineups", "*", q => q.eq("user_id", user.userId).eq("slate_date", day).order("id", { ascending: true }));
+  // Tus 10 del pool (solo el dueno)
+  let reserved = [];
+  if (user.isOwner) {
+    reserved = await selectAll("fantasy_app_pool_lineups", "*", q => q.eq("user_id", user.userId).eq("status", "owner").eq("slate_date", day));
+  }
+  const groups = {};
+  for (const r of rows) {
+    const k = `${r.sport}|${r.platform}|${r.slate_key}|${r.game_type}`;
+    (groups[k] ||= { sport: r.sport, platform: r.platform, slate_key: r.slate_key, game_type: r.game_type, lineups: [] }).lineups.push(r);
+  }
+  return { status: 200, body: { ok: true, date: day, groups: Object.values(groups), tus10: reserved.length ? reserved : undefined } };
+}
+
+async function actionCsvMine(req, res, user) {
+  const sport = parseSport(req.query.sport) || "nba";
+  const day = chicagoDay();
+  const rows = await selectAll("fantasy_app_user_lineups", "*",
+    q => q.eq("user_id", user.userId).eq("sport", sport).eq("platform", "draftkings").eq("slate_date", day).order("id", { ascending: true }));
+  let list = rows.map(r => r.players);
+  if (user.isOwner && str(req.query.tus10) === "1") {
+    const reserved = await selectAll("fantasy_app_pool_lineups", "players,proj",
+      q => q.eq("user_id", user.userId).eq("status", "owner").eq("slate_date", day).eq("platform", "draftkings").order("proj", { ascending: false }));
+    list = reserved.map(r => r.players).concat(list);
+  }
+  if (!list.length) return send(res, 404, { ok: false, error: "NO_LINEUPS" });
+  const header = DK_HEADER_POOL[sport]?.draftkings || DK_HEADER[sport];
+  const out = [header];
+  for (const players of list) {
+    const ordered = orderBySlots(header, players);
+    if (ordered.some(p => !p?.dkId)) return send(res, 409, { ok: false, error: "MISSING_DK_ID" });
+    out.push(ordered.map(p => p.dkId));
+  }
+  return sendCsv(res, `cashedge-${sport}-draftkings-${day}.csv`, out);
+}
+
+
+// ============================================================
 // HANDLER
 // ============================================================
 
 module.exports = async function handler(req, res) {
   try {
     const action = str(req.query.action).toLowerCase();
+
+    if (action === "pool-cron") {
+      if (!checkSecret(req)) return send(res, 401, { ok: false, error: "BAD_SECRET" });
+      const r = await actionPoolCron(req);
+      return send(res, r.status, r.body);
+    }
+
+    if (action === "ready" || action === "mine" || action === "csv-mine") {
+      const user = await resolveUser(req);
+      if (!user.ok) return send(res, user.status, { ok: false, error: user.error });
+      if (action === "csv-mine") return await actionCsvMine(req, res, user);
+      const r = action === "ready" ? await actionReady(req, user) : await actionMine(req, user);
+      return send(res, r.status, r.body);
+    }
 
     if (action === "csv-official") {
       // Por ahora solo tu (secret o tu sesion). Los clientes van con su pool.
@@ -1008,7 +1241,7 @@ module.exports = async function handler(req, res) {
       return send(res, r.status, r.body);
     }
 
-    return send(res, 400, { ok: false, error: "UNKNOWN_ACTION", actions: ["slates", "players", "build-cards", "sync-dk", "csv-official"] });
+    return send(res, 400, { ok: false, error: "UNKNOWN_ACTION", actions: ["slates", "players", "build-cards", "sync-dk", "csv-official", "pool-cron", "ready", "mine", "csv-mine"] });
   } catch (e) {
     console.error("fantasy-app", e);
     return send(res, 500, { ok: false, error: "SERVER_ERROR", detail: e.message });
@@ -1018,4 +1251,4 @@ module.exports = async function handler(req, res) {
 module.exports.config = { maxDuration: 60 };
 
 // Para pruebas locales
-module.exports._test = { computeTags, nbaScore, nbaSeason, nflSeason, parseCsv, dkGameTime, normName };
+module.exports._test = { computeTags, nbaScore, nbaSeason, nflSeason, parseCsv, dkGameTime, normName, poolBatch, starGroups };
