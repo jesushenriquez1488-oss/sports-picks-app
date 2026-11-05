@@ -1038,12 +1038,16 @@ function starGroups(stars, count) {
 
 async function poolBatch(sp, count, existing) {
   const prior = existing.map(l => (l.players || []).map(p => String(p.id)));
+  // 5-nov: slate pequeno (3 partidos o menos): reglas de antes
+  const small = new Set((sp.players || []).map(p => String(p.gameId))).size <= 3;
+  const minDifferent = small ? 2 : POOL.minDifferent;
+  const maxPairShare = small ? 1 : POOL.maxPairShare;
   let r;
   if (sp.sport === "nfl") {
     // NFL: la misma forma de la formula (4 partidos de Vegas + 2
     // principales; sin mercado, las pilas de antes).
     const m = sp.stars || {};
-    const base = { count, minDifferent: POOL.minDifferent, maxExposure: POOL.maxExposure, maxPairShare: POOL.maxPairShare, nodeLimit: POOL.nodeLimit, prior };
+    const base = { count, minDifferent, maxExposure: POOL.maxExposure, maxPairShare, nodeLimit: POOL.nodeLimit, prior };
     r = m.metodo === "partidos"
       ? nflLib().buildGameStackLineups(sp.platform, sp.players, { ...base, games: m.games, extras: m.extras, gameTotals: new Map(m.gameTotals || []), teamImplied: new Map(m.teamImplied || []) })
       : m.metodo === "pilas"
@@ -1052,7 +1056,7 @@ async function poolBatch(sp, count, existing) {
   } else {
     const groups = starGroups(sp.stars, count);
     r = lineupsLib().buildLineups(sp.platform, sp.players, {
-      count, minDifferent: POOL.minDifferent, maxExposure: POOL.maxExposure, maxPairShare: POOL.maxPairShare,
+      count, minDifferent, maxExposure: POOL.maxExposure, maxPairShare,
       nodeLimit: POOL.nodeLimit, timeLimitMs: POOL.batchSeconds * 1000,
       noStarterBackup: true,
       stackPlan: groups ? { groups } : null,
