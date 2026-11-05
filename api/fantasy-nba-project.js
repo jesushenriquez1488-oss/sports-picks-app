@@ -132,6 +132,10 @@ const CONFIG = {
   lineupCount: 20,          // alineaciones por casa (de la mas optima a la menos). 28-oct: 10 -> 25. 29-oct: 25 -> 20
   lineupMinDifferent: 3,    // cada alineacion cambia al menos 3 jugadores (5-nov: 2 -> 3, maximo 5 de 8 repetidos)
   lineupMaxPairShare: 0.3,  // 5-nov: dos jugadores juntos en maximo 30% de las alineaciones
+  // 5-nov: SLATE PEQUENO (3 partidos o menos): reglas de antes (2
+  // distintos, sin tope de parejas). Con tan pocos jugadores las
+  // reglas nuevas no dejan armar las 20 ni darle su cuota a la estrella.
+  smallSlateGames: 3,
   lineupMaxExposure: 0.4,   // ningun jugador en mas del 40% de las alineaciones
   // 2-nov (aprobado, prueba 27-oct al 1-nov):
   // REGLA DEL 50%: solo entra quien jugo en por lo menos la mitad de
@@ -3271,16 +3275,20 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
       });
     }
     const officialOptions = opts.dk?.captain ? {} : lineupOptions(CONFIG.lineupCount);
+    const smallSlate = new Set(optimizerPool.map(p => p.gameId)).size <= CONFIG.smallSlateGames;
+    const variety = smallSlate
+      ? { minDifferent: 2, maxPairShare: 1 }
+      : { minDifferent: CONFIG.lineupMinDifferent, maxPairShare: CONFIG.lineupMaxPairShare };
     const lineupResult = opts.dk?.captain
       ? buildCaptainLineups(optimizerPool.map(x => {
         const ids = opts.dk.dkIds.get(Number(x.id)) || {};
         return { id: x.id, name: x.name, team: x.team, salary: ids.utilSalary ?? x.salary, cptSalary: ids.cptSalary, points: x.points, utilId: ids.util, cptId: ids.cpt };
-      }), { count: CONFIG.lineupCount, minDifferent: 2, maxExposure: 1, maxPairShare: CONFIG.lineupMaxPairShare })
+      }), { count: CONFIG.lineupCount, minDifferent: smallSlate ? 1 : 2, maxExposure: 1, maxPairShare: variety.maxPairShare })
       : baseOfficial
       ? swapOutPlayers(platform, baseOfficial.rows, optimizerPool, isOut, CONFIG.lineupMaxExposure, slateExtra)
       : buildLineups(platform, optimizerPool, {
-        count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure,
-        maxPairShare: CONFIG.lineupMaxPairShare,
+        count: CONFIG.lineupCount, maxExposure: CONFIG.lineupMaxExposure,
+        ...variety,
         ...officialOptions
       });
 
@@ -3294,9 +3302,8 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
         ? swapOutPlayers(platform, baseTest.rows, optimizerPool, isOut, CONFIG.lineupMaxExposure, slateExtra)
         : buildLineups(platform, optimizerPool, {
           count: testCountFor(platform),
-          minDifferent: CONFIG.lineupMinDifferent,
           maxExposure: CONFIG.lineupMaxExposure,
-          maxPairShare: CONFIG.lineupMaxPairShare,
+          ...variety,
           nodeLimit: CONFIG.testNodeLimit,
           timeLimitMs: CONFIG.testSecondsPerPlatform * 1000,
           ...lineupOptions(testCountFor(platform))
@@ -3337,6 +3344,9 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
         })()
         : (CONFIG.starCore ? ["ninguna candidata"] : null),
       palizas: CONFIG.blowoutCut > 0 ? (blowoutGames.length ? blowoutGames : ["ninguna"]) : null,
+      variedad: opts.dk?.captain ? null : smallSlate
+        ? `slate pequeno (${CONFIG.smallSlateGames} partidos o menos): reglas de antes, 2 distintos y sin tope de parejas`
+        : `${CONFIG.lineupMinDifferent} distintos (maximo ${8 - CONFIG.lineupMinDifferent} repetidos) y parejas en maximo ${Math.round(CONFIG.lineupMaxPairShare * 100)}%`,
       // 31-oct: corrida de cierre que solo cambio a los OUT.
       cierreSoloOut: baseOfficial
         ? {
@@ -3916,7 +3926,9 @@ th,td{border:1px solid #1d3550;padding:4px 8px;text-align:left}th{background:#0b
         body += `<h2>${escapeHtml(p.platform)} — slate ${p.slateId} (${p.games} partidos)</h2>`;
         body += `<div class="box">Jugadores ${p.players} | elegibles ${p.eligible} | excluidos ${escapeHtml(JSON.stringify(p.excluded))}</div>`;
         body += table(p.top);
-        body += `<div class="box"><b>Ritmo de los partidos:</b> ${escapeHtml((p.ritmoPartidos || []).join(" | ") || "sin datos")}<br><b>Plan de pilas:</b> ${escapeHtml(p.plan || "sin datos")}</div>`;
+        body += `<div class="box"><b>Ritmo de los partidos:</b> ${escapeHtml((p.ritmoPartidos || []).join(" | ") || "sin datos")}<br><b>Plan de pilas:</b> ${escapeHtml(p.plan || "sin datos")}` +
+          `<br><b>Palizas:</b> ${escapeHtml(p.palizas ? p.palizas.join(" | ") : "apagadas en este slate")}` +
+          (p.variedad ? `<br><b>Variedad:</b> ${escapeHtml(p.variedad)}` : "") + `</div>`;
         body += `<h2>${escapeHtml(p.platform)} — ${p.lineups?.length || 0} alineaciones (de la mas optima a la menos)${p.lineupsOptimal ? " · optimo garantizado" : ""}</h2>`;
         body += table(p.lineups || []);
       }
