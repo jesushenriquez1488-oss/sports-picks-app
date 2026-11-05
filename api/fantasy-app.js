@@ -1003,8 +1003,11 @@ async function actionCsvOfficial(req, res) {
 // mine (cliente): sus alineaciones de hoy.
 // csv-mine (cliente): su CSV de DraftKings.
 
+// 5-nov: minDifferent 2 -> 3 (maximo 5 de 8 repetidos; NFL 6 de 9),
+// parejas al 30% y busqueda de 20,000 pasos por alineacion (con 200,000
+// no alcanzaba a hacer 200 en 40 s y los topes se rompian entre tandas).
 const POOL = { target: 1000, batch: 200, refillBelow: 200, ownerTop: 10, maxPerUser: 50,
-  minDifferent: 2, maxExposure: 0.4, nodeLimit: 200000, batchSeconds: 40 };
+  minDifferent: 3, maxExposure: 0.4, maxPairShare: 0.3, nodeLimit: 20000, batchSeconds: 40 };
 const DK_HEADER_POOL = { nba: { draftkings: ["PG", "SG", "SF", "PF", "C", "G", "F", "UTIL"], fanduel: ["PG", "PG", "SG", "SG", "SF", "SF", "PF", "PF", "C"] } };
 
 let nbaLineupsLib = null, nflLineupsLib = null;
@@ -1040,7 +1043,7 @@ async function poolBatch(sp, count, existing) {
     // NFL: la misma forma de la formula (4 partidos de Vegas + 2
     // principales; sin mercado, las pilas de antes).
     const m = sp.stars || {};
-    const base = { count, minDifferent: POOL.minDifferent, maxExposure: POOL.maxExposure, prior };
+    const base = { count, minDifferent: POOL.minDifferent, maxExposure: POOL.maxExposure, maxPairShare: POOL.maxPairShare, nodeLimit: POOL.nodeLimit, prior };
     r = m.metodo === "partidos"
       ? nflLib().buildGameStackLineups(sp.platform, sp.players, { ...base, games: m.games, extras: m.extras, gameTotals: new Map(m.gameTotals || []), teamImplied: new Map(m.teamImplied || []) })
       : m.metodo === "pilas"
@@ -1049,7 +1052,7 @@ async function poolBatch(sp, count, existing) {
   } else {
     const groups = starGroups(sp.stars, count);
     r = lineupsLib().buildLineups(sp.platform, sp.players, {
-      count, minDifferent: POOL.minDifferent, maxExposure: POOL.maxExposure,
+      count, minDifferent: POOL.minDifferent, maxExposure: POOL.maxExposure, maxPairShare: POOL.maxPairShare,
       nodeLimit: POOL.nodeLimit, timeLimitMs: POOL.batchSeconds * 1000,
       noStarterBackup: true,
       stackPlan: groups ? { groups } : null,
@@ -1104,14 +1107,30 @@ async function refillPool(sport, platform, day) {
     console.log("pool", sport, platform, built, (Date.now() - t) / 1000, "s");
   }
 
-  // Tus 10: las mejores de la version actual
+  // Tus 10: las mejores de la version actual.
+  // 5-nov: consulta directa con limite (selectAll pagina con .range() y
+  // borraba el .limit(): te reservaba TODAS las libres). Y si ya tienes
+  // mas de 10, las de menos proyeccion vuelven a quedar libres.
   const owner = await ownerUserId();
-  const mine = current.filter(l => l.status === "owner").length;
+  let mine = current.filter(l => l.status === "owner").length;
+  if (owner && mine > POOL.ownerTop) {
+    const { data: extra, error: exErr } = await supabaseAdmin.from("fantasy_app_pool_lineups").select("id")
+      .eq("sport", sport).eq("platform", platform).eq("slate_date", day).eq("version", sp.version).eq("status", "owner")
+      .order("proj", { ascending: true }).limit(mine - POOL.ownerTop);
+    if (exErr) throw new Error(`Supabase fantasy_app_pool_lineups: ${exErr.message}`);
+    if (extra?.length) {
+      const { error } = await supabaseAdmin.from("fantasy_app_pool_lineups")
+        .update({ status: "free", user_id: null, assigned_at: null }).in("id", extra.map(b => b.id)).eq("status", "owner");
+      if (error) throw new Error(`Supabase fantasy_app_pool_lineups: ${error.message}`);
+      mine -= extra.length;
+    }
+  }
   if (owner && mine < POOL.ownerTop) {
-    const best = await selectAll("fantasy_app_pool_lineups", "id,proj",
-      q => q.eq("sport", sport).eq("platform", platform).eq("slate_date", day).eq("version", sp.version).eq("status", "free")
-        .order("proj", { ascending: false }).limit(POOL.ownerTop - mine));
-    if (best.length) {
+    const { data: best, error: bErr } = await supabaseAdmin.from("fantasy_app_pool_lineups").select("id,proj")
+      .eq("sport", sport).eq("platform", platform).eq("slate_date", day).eq("version", sp.version).eq("status", "free")
+      .order("proj", { ascending: false }).limit(POOL.ownerTop - mine);
+    if (bErr) throw new Error(`Supabase fantasy_app_pool_lineups: ${bErr.message}`);
+    if (best?.length) {
       const { error } = await supabaseAdmin.from("fantasy_app_pool_lineups")
         .update({ status: "owner", user_id: owner, assigned_at: new Date().toISOString() }).in("id", best.map(b => b.id));
       if (error) throw new Error(`Supabase fantasy_app_pool_lineups: ${error.message}`);
@@ -1455,7 +1474,8 @@ async function actionBuild(req, user) {
   for (const k of locks) if (!base.some(p => str(p.key || p.id) === k) && idx.map.get(k)) base.push({ ...idx.map.get(k) });
   const BONUS = 1000;   // obliga a los bloqueados
   const players = base.map(p => (locks.has(str(p.key || p.id)) ? { ...p, points: Number(p.points) + BONUS, _locked: true } : p));
-  const opts = { count, minDifferent: 2, maxExposure: 1 };
+  // 5-nov: mismas reglas de variedad; los bloqueados no cuentan para parejas
+  const opts = { count, minDifferent: POOL.minDifferent, maxExposure: 1, maxPairShare: POOL.maxPairShare, pairExempt: players.filter(p => p._locked).map(p => p.id) };
   const r = sport === "nfl"
     ? nflLib().buildLineups(platform, players, opts)
     : lineupsLib().buildLineups(platform, players, { ...opts, nodeLimit: POOL.nodeLimit, timeLimitMs: 40000, noStarterBackup: true });
