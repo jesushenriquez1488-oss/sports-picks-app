@@ -31,6 +31,8 @@
 // Archivo con "_" al inicio: Vercel NO lo publica como endpoint.
 // ============================================================
 
+const { pairTracker } = require("./fantasy-pairs");
+
 const RULES = {
   draftkings: {
     salaryCap: 50000,
@@ -325,7 +327,9 @@ function planStacks(players, games, count, { coreShare = 0.5, platform = "draftk
 function buildLineups(platform, players, {
   count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1, timeLimitMs = Infinity,
   noStarterBackup = false, stackPlan = null, coreExposure = 0.5, trioMaxLoss = 3,
-  prior = []   // 4-nov: alineaciones que ya existen (listas de ids): las nuevas deben ser distintas
+  prior = [],   // 4-nov: alineaciones que ya existen (listas de ids): las nuevas deben ser distintas
+  maxPairShare = 1,  // 5-nov: parte maxima de las alineaciones con la misma PAREJA de jugadores (0.3 = 30%)
+  pairExempt = []    // 5-nov: ids que no cuentan para las parejas (los bloqueados del cliente)
 } = {}) {
   const rule = RULES[platform];
   if (!rule) return { status: "PLATAFORMA_NO_SOPORTADA", lineups: [] };
@@ -340,7 +344,13 @@ function buildLineups(platform, players, {
   const priorPlayers = (prior || []).map(ids => ids.map(id => ({ id: String(id) })));
 
   const maxUses = Math.max(1, Math.floor(maxExposure * count + 1e-9));
-  const check = noStarterBackup ? (chosen, p) => !starterBackupConflict(chosen, p) : null;
+  // 5-nov: PAREJAS. Dos jugadores juntos en maximo maxPairShare de las
+  // alineaciones, asi uno o dos jugadores que fallen no tumban la mitad.
+  // Tambien cuenta para las estrellas: la estrella sale en su 60%, pero
+  // con companeros distintos (ninguna pareja con ella pasa del 30%).
+  const exemptIds = new Set((pairExempt || []).map(String));
+  const pairs = pairTracker(maxPairShare, count, id => exemptIds.has(String(id)));
+  const check = (chosen, p) => (!noStarterBackup || !starterBackupConflict(chosen, p)) && pairs.ok(chosen, p);
 
   // Obliga a que entren estos jugadores (puntos extra internos).
   const forcePool = (list, ids) => {
@@ -451,6 +461,7 @@ function buildLineups(platform, players, {
     };
     const players = r.best.slots.map((pi, s) => ({ slot: rule.slots[s], ...clean(r.best.players[pi]) }));
     for (const pl of players) uses.set(pl.id, (uses.get(pl.id) || 0) + 1);
+    pairs.add(players);
     lineups.push({
       number: k + 1,
       players,
