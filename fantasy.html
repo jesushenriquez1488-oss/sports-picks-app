@@ -691,7 +691,14 @@ async function loadMine() {
 
 function renderMine() {
   const groups = (MINE.groups || []).slice();
-  if (MINE.tus10?.length) groups.unshift({ sport: MINE.tus10[0].sport, platform: MINE.tus10[0].platform, slate_key: MINE.tus10[0].slate_key, game_type: "classic", lineups: MINE.tus10.map(l => ({ ...l, reserved: true })), title: "Your top 10 (reserved)" });
+  // Tus 10 reservadas: un grupo por deporte y sitio
+  const res = {};
+  for (const l of MINE.tus10 || []) (res[`${l.sport}|${l.platform}`] ||= []).push({ ...l, reserved: true });
+  for (const list of Object.values(res).reverse()) {
+    list.sort((a, b) => Number(b.proj) - Number(a.proj));
+    groups.unshift({ sport: list[0].sport, platform: list[0].platform, slate_key: list[0].slate_key, game_type: "classic", lineups: list,
+      title: `Your top ${list.length} (reserved) · ${list[0].platform === "draftkings" ? "DraftKings" : "FanDuel"}` });
+  }
   let total = 0;
   const bySport = {};
   for (const g of groups) (bySport[g.sport] ||= []).push(g);
