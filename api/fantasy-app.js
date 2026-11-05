@@ -976,6 +976,25 @@ async function dkImages(dg) {
   }
 }
 
+// 5-nov: DraftKings bloquea su API de fotos (403). Fotos NBA de ESPN:
+// plantillas de los 30 equipos (una vez por corrida), por nombre.
+let espnNbaCache = null;
+async function espnNbaPhotos() {
+  if (espnNbaCache) return espnNbaCache;
+  const out = new Map();
+  await Promise.all(Array.from({ length: 30 }, (_, i) => i + 1).map(async id => {
+    try {
+      const j = await dkFetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${id}/roster`);
+      for (const a of j?.athletes || []) {
+        const img = a.headshot?.href || (a.id ? `https://a.espncdn.com/i/headshots/nba/players/full/${a.id}.png` : null);
+        if (a.fullName && img) out.set(normName(a.fullName), img);
+      }
+    } catch { /* equipo sin respuesta */ }
+  }));
+  espnNbaCache = out;
+  return out;
+}
+
 async function syncDkSport(sport, day, nowIso) {
   const lobby = await dkFetch(DK_LOBBY + sport.toUpperCase());
   const lastDay = addDaysStr(day, DK_DAYS_AHEAD[sport] || 0);
@@ -1013,6 +1032,8 @@ async function syncDkSport(sport, day, nowIso) {
       const csv = await dkFetch(`${DK_CSV}?contestTypeId=${g.typeId}&draftGroupId=${g.dg}`, true);
       const rows = parseCsv(csv).filter(r => r.ID && r.Name);
       const images = await dkImages(g.dg);
+      // Sin fotos de DraftKings (NBA): las de ESPN por nombre
+      const espn = sport === "nba" && !images.size ? await espnNbaPhotos() : null;
       const games = new Map();
       const players = rows.map(r => {
         const rawTeam = str(r.TeamAbbrev).toUpperCase();
@@ -1027,7 +1048,7 @@ async function syncDkSport(sport, day, nowIso) {
           dk_id: Number(r.ID),
           sport,
           slate_date: g.day,
-          image_url: images.get(Number(r.ID)) || null,
+          image_url: images.get(Number(r.ID)) || espn?.get(normName(r.Name)) || null,
           roster_position: r["Roster Position"] || null,
           slot: g.type === "captain" ? (/^CPT$/i.test(r["Roster Position"]) ? "CPT" : "UTIL") : null,
           player_name: r.Name,
@@ -1066,6 +1087,7 @@ async function syncDkSport(sport, day, nowIso) {
       out.push({
         draft_group_id: g.dg, type: g.type, day: g.day, games: games.size, players: players.length, fotos: images.size,
         fotos_error: images.size ? undefined : lastImageError,
+        fotos_espn: espn ? players.filter(p => p.image_url).length : undefined,
         sin_cruce: players.filter(p => !p.player_key).length,
         ejemplos_sin_cruce: players.filter(p => !p.player_key && p.salary >= 4000).slice(0, 5).map(p => `${p.player_name} ${p.team}`)
       });
@@ -1079,6 +1101,7 @@ async function syncDkSport(sport, day, nowIso) {
 let syncForce = false;
 async function actionSyncDk(req) {
   syncForce = str(req.query.force) === "1";
+  espnNbaCache = null;
   const day = chicagoDay();
   const nowIso = new Date().toISOString();
   const only = parseSport(req.query.sport);
