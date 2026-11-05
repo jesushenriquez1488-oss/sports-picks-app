@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CashEdge Fantasy Sports</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+
+:root{
+  /* CashEdge brand: black base, neon-green crown/CE, silver text. Single dark theme by choice. */
+  --bg:#050706; --panel:#0e1311; --ink:#eef3f0; --muted:#8c9a93; --line:#1f2a25;
+  --accent:#2ee05a; --accent-ink:#04110a; --accent-soft:#11281a;
+  --hot:#ff8a3d; --up:#4fb3ff; --down:#e6c200; --warn:#ff5c5c; --steady:#2ee05a;
+  --display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.45 var(--body)}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.app{display:flex;flex-direction:column;min-height:100%;padding:12px 16px;gap:12px}
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.brand{font-family:var(--display);font-size:22px;letter-spacing:.5px;display:flex;align-items:center;gap:8px}
+.brand b{background:radial-gradient(circle at 30% 30%,#1b1f1d,#000);color:var(--accent);border:2px solid var(--accent);border-radius:50%;width:36px;height:36px;display:grid;place-items:center;font-size:18px;box-shadow:0 0 12px rgba(46,224,90,.35);position:relative}
+.brand b::before{content:"♛";position:absolute;top:-13px;font-size:13px;color:var(--accent)}
+.brand span{color:var(--accent)}
+.steps{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.step{display:flex;flex-direction:column;gap:2px}
+.step label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:5px 11px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+select{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font:inherit}
+.lock-note{margin-left:auto;font-size:12px;color:var(--muted)}
+.example{font-size:11px;background:var(--accent-soft);color:var(--ink);border-radius:999px;padding:2px 8px}
+/* grid */
+.grid{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(300px,1fr);gap:12px;flex:1;min-height:0;align-items:start}
+.builder{position:sticky;top:12px;max-height:calc(100vh - 24px)}
+@media (max-width:860px){.grid{grid-template-columns:1fr}}
+.panel{background:linear-gradient(180deg,#101613,var(--panel));border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.ph{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.ph h2{margin:0;font-family:var(--display);font-size:19px;letter-spacing:.4px;text-transform:uppercase}
+.sub{font-size:12px;color:var(--muted)}
+/* pool */
+.tabs{display:flex;gap:4px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--line)}
+.tabs button{border:1px solid var(--line);background:transparent;border-radius:999px;padding:3px 10px;font-size:12px}
+.tabs button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);font-weight:600}
+.filters{display:flex;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line)}
+.filters input{flex:1;min-width:0;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:5px 9px;font:inherit}
+.list{overflow:auto;flex:1}
+.head,.row{display:grid;grid-template-columns:36px minmax(0,1fr) 62px 48px 40px 28px 28px 30px;align-items:center;gap:6px;padding:7px 12px}
+.head{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;position:sticky;top:0;background:var(--panel);border-bottom:1px solid var(--line);z-index:1}
+.row{border-bottom:1px solid var(--line);cursor:pointer}
+.row:hover{background:var(--accent-soft)}
+.row.sel{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
+.row.banned{opacity:.45}
+.av{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:12px;color:#fff}
+.pn{min-width:0}
+.pn .n{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pn .m{font-size:11.5px;color:var(--muted);display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.chip{font-size:10.5px;border-radius:999px;padding:0 6px;border:1px solid currentColor;white-space:nowrap}
+.c-hot{color:var(--hot)}.c-up{color:var(--up)}.c-down{color:var(--down)}.c-warn{color:var(--warn)}.c-steady{color:var(--steady)}.c-new{color:var(--accent)}
+.r{text-align:right}
+.ib{border:1px solid var(--line);background:transparent;border-radius:6px;width:26px;height:26px;display:grid;place-items:center;font-size:13px;padding:0}
+.ib.on{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
+.ib.ban.on{border-color:var(--warn);background:var(--warn);color:#fff}
+.add{border:0;box-shadow:0 0 8px rgba(46,224,90,.35);background:var(--accent);color:var(--accent-ink);border-radius:6px;width:28px;height:26px;font-size:17px;line-height:1;padding:0}
+.add:disabled{opacity:.35;cursor:not-allowed}
+/* inline player file (opens under the row) */
+.pf{border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--accent-soft) 45%,var(--panel));padding:10px 12px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:12px}
+.pf .mini{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px}
+.pf .avgs{border-top:1px solid var(--line);padding-top:6px}
+.pf .avgs b{font-size:16px}
+.pf .mini b{font-family:var(--display);font-size:18px;display:block;line-height:1.1}
+.pf .why{margin:0;padding:8px 10px;font-size:12px}
+.pf .chart{height:120px}
+.pf .tblwrap table{font-size:12px}
+.pf .close{justify-self:end;border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:2px 8px;font-size:12px}
+@media (max-width:620px){.pf{grid-template-columns:1fr}}
+.slot{cursor:pointer}
+.slot.active{border-color:var(--accent);border-style:solid;box-shadow:0 0 0 2px var(--accent-soft)}
+.slotpick{font-size:12px;color:var(--muted)}
+/* phone: builder becomes a bottom sheet */
+.sheetbar{display:none}
+@media (max-width:860px){
+  .builder{position:fixed;left:0;right:0;bottom:0;top:auto;max-height:78vh;border-radius:14px 14px 0 0;z-index:5;box-shadow:0 -6px 24px rgba(0,0,0,.18)}
+  .builder:not(.open) .body,.builder:not(.open) .ph{display:none}
+  .sheetbar{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:6px 14px 12px;border:0;background:var(--accent);color:var(--accent-ink);width:100%;font-weight:700;border-radius:14px 14px 0 0;animation:glow 2.2s ease-in-out infinite}
+  .sheetbar::before{content:"";align-self:center;width:42px;height:5px;border-radius:999px;background:rgba(0,0,0,.35)}
+  .sheetbar .row1{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .sheetbar .open-hint{background:var(--accent-ink);color:var(--accent);border-radius:999px;padding:3px 10px;font-size:12px}
+  .sheetbar .dots{display:flex;gap:3px}.sheetbar .dots i{width:9px;height:9px;border-radius:50%;background:rgba(0,0,0,.25)}.sheetbar .dots i.f{background:var(--accent-ink)}
+  .builder.open .sheetbar{animation:none}
+  .sheetbar.bump{animation:bump .5s ease}
+  @keyframes glow{0%,100%{box-shadow:0 -4px 14px rgba(46,224,90,.25)}50%{box-shadow:0 -6px 26px rgba(46,224,90,.7)}}
+  @keyframes bump{0%{transform:translateY(0)}35%{transform:translateY(-8px)}100%{transform:translateY(0)}}
+  @media (prefers-reduced-motion:reduce){.sheetbar{animation:none}}
+  .app{padding-bottom:70px}
+  .head span:nth-child(5),.row>span:nth-child(5){display:none}
+  .head,.row{grid-template-columns:32px minmax(0,1fr) 58px 42px 26px 26px 28px}
+  .lock-note{margin-left:0;font-size:11px}
+  .top{gap:8px}.brand{font-size:19px}
+  .steps{flex-wrap:nowrap;overflow-x:auto;width:100%;padding-bottom:2px}
+  .step label{font-size:10px}.seg button{padding:4px 9px;font-size:13px}
+  .ph h2{font-size:17px}.slotpick{display:none}
+}
+/* detail */
+.detail{overflow:auto}
+.dh{display:flex;gap:12px;align-items:center;padding:12px}
+.dh .av{width:56px;height:56px;font-size:18px}
+.dh h3{margin:0;font-family:var(--display);font-size:26px;letter-spacing:.3px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 12px 12px}
+.kpi{border:1px solid var(--line);border-radius:10px;padding:8px}
+.kpi .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.kpi .v{font-family:var(--display);font-size:24px}
+.why{margin:0 12px 12px;border-radius:10px;padding:10px 12px;background:var(--accent-soft);font-size:13px;display:grid;gap:4px}
+.why b{font-weight:600}
+.sect{padding:0 12px 12px}
+.sect h4{margin:4px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+.chart{width:100%;height:170px;display:block}
+.splits{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.split{border:1px solid var(--line);border-radius:10px;padding:8px;font-size:12.5px}
+.split .t{font-size:11px;color:var(--muted);text-transform:uppercase}
+.split .big{font-family:var(--display);font-size:22px}
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{padding:5px 8px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+th{font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:500;background:var(--panel);position:sticky;top:0}
+td:first-child,th:first-child,td:nth-child(2),th:nth-child(2){text-align:left}
+td.fp{font-weight:600}
+/* builder */
+.builder .body{overflow:auto;flex:1;padding:12px;display:grid;gap:12px;align-content:start}
+.salary{display:grid;gap:6px}
+.bar{height:8px;border-radius:999px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,#1fa83a,var(--accent));width:0}
+.bar.over i{background:var(--warn)}
+.slots{display:grid;gap:6px}
+.slot{display:grid;grid-template-columns:42px 1fr auto auto auto;gap:8px;align-items:center;border:1px dashed var(--line);border-radius:10px;padding:6px 8px;min-height:44px}
+.slot.full{border-style:solid}
+.slot .pos{font-family:var(--display);font-size:16px;color:var(--muted)}
+.slot .x{border:0;background:transparent;color:var(--muted);font-size:16px}
+.slot .pp{font-size:12px;color:var(--muted)}
+.box{border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;gap:8px}
+.box h4{margin:0;font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{font-size:12px;border-radius:999px;padding:2px 9px;border:1px solid var(--line)}
+.pill{display:inline-flex;align-items:center;gap:6px}
+.pill button{border:0;background:transparent;color:inherit;font-size:14px;line-height:1;padding:0 0 0 2px}
+.pill.lock{border-color:var(--accent);color:var(--accent)}
+.lkbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);font-size:12.5px}
+.lkbar .lbl{color:var(--muted)}
+.overhead{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;font-size:12.5px;color:var(--muted);border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--warn) 8%,transparent)}
+.row.over .r b,.row.over .n{opacity:.7}
+.fitnote{padding:6px 12px;font-size:12px;color:var(--accent);border-bottom:1px solid var(--line)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:90px;background:var(--warn);color:#fff;padding:9px 14px;border-radius:10px;font-size:13px;z-index:20;max-width:92vw;box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.lnk{border:0;background:transparent;color:var(--accent);text-decoration:underline;padding:0;font-size:12.5px}
+.slot .lk{border:1px solid var(--line);background:transparent;border-radius:6px;width:26px;height:26px;padding:0;font-size:12px}
+.slot .lk.on{background:var(--accent);border-color:var(--accent)}
+.pill.ban{border-color:var(--warn);color:var(--warn)}
+.cta{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{border:0;border-radius:8px;padding:8px 12px;font-weight:600}
+.btn.pri{background:var(--accent);color:var(--accent-ink)}
+.btn.sec{background:transparent;border:1px solid var(--line)}
+.note{font-size:12px;color:var(--muted)}
+.lu{border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:grid;gap:4px;font-size:12.5px}
+.lu .hd{display:flex;justify-content:space-between;font-weight:600}
+.lu .ln{display:grid;grid-template-columns:34px 1fr auto auto;gap:6px}
+.lu .ln span:first-child{color:var(--muted)}
+.grp{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.grp>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;background:color-mix(in srgb,var(--accent-soft) 60%,var(--panel))}
+.grp>summary::-webkit-details-marker{display:none}
+.grp .gt{display:grid;font-size:12.5px}.grp .gt b{font-size:13px}
+.grp .gb{display:grid;gap:8px;padding:8px}
+.tagtype{font-size:10.5px;border-radius:999px;padding:0 6px;border:1px solid var(--muted);color:var(--muted)}
+.swap{font-size:12px;border-radius:8px;background:color-mix(in srgb,var(--warn) 12%,transparent);color:var(--warn);padding:4px 8px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.outalert{display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:#2a0b0b;border:2px solid var(--warn);border-radius:12px;padding:14px 16px;animation:oaPulse 1.6s ease-in-out infinite}
+@keyframes oaPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,92,92,.45)}50%{box-shadow:0 0 0 8px rgba(255,92,92,0)}}
+@media (prefers-reduced-motion:reduce){.outalert{animation:none}}
+.oa-ic{font-size:30px;color:var(--warn);line-height:1}
+.oa-tx{display:grid;gap:3px;flex:1;min-width:220px}.oa-tx b{font-family:var(--display);font-size:22px;letter-spacing:.3px}
+.oa-warn{color:#ffb3b3;font-weight:600}
+.oa-act{display:flex;gap:8px;flex-wrap:wrap}.oa-btn{background:var(--warn);color:#1a0505;border:0;font-weight:700;padding:10px 14px;border-radius:8px}
+.oa-x{background:none;border:1px solid #6b2a2a;color:var(--ink);border-radius:8px;padding:10px 12px}
+.oa-rev{flex-basis:100%;display:grid;gap:8px;border-top:1px solid #6b2a2a;padding-top:10px}
+.oa-row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;background:#1a0606;border:1px solid #4a1d1d;border-radius:8px;padding:8px 10px}
+.oa-row .who{flex:1;min-width:200px}.oa-row s{color:#ff9b9b}.oa-row b{color:var(--accent)}
+.oa-row select{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px}
+.oa-row .ok{color:var(--muted);font-size:12px}
+.savebtn{font-size:16px;padding:12px 18px;box-shadow:0 0 0 3px rgba(46,224,90,.25)}
+.chip.own{background:#11281a;color:var(--accent);border:1px solid #1f5a33}
+.lu .hd .r{display:flex;gap:8px;align-items:center}
+.edbtn{background:none;border:1px solid var(--line);color:var(--accent);border-radius:6px;padding:2px 8px;font-size:12px}
+.edbtn:hover{border-color:var(--accent)}
+.lu.editing{border-color:var(--accent);box-shadow:0 0 0 2px rgba(46,224,90,.25)}
+.editbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;background:var(--accent-soft);border:1px solid #1f5a33;border-radius:8px;padding:8px 10px;margin-bottom:8px}
+.tipbar{display:flex;gap:10px;align-items:flex-start;background:var(--panel);border:1px solid #1f5a33;border-left:4px solid var(--accent);border-radius:10px;padding:10px 14px;font-size:13.5px}
+
+.backbtn{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;padding:7px 11px;font-weight:600;text-decoration:none;font-size:13px}
+.backbtn:hover{border-color:var(--accent);color:var(--accent)}
+.gate{max-width:520px;margin:60px auto;text-align:center;display:grid;gap:10px}
+.gate h2{font-family:var(--display);font-size:28px;margin:0}
+.loading{padding:24px;text-align:center;color:var(--muted)}
+.av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.chip.c-q{background:#2a2207;color:#ffd24a;border:1px solid #6b5a1d}
+.fdnote{font-size:12px;color:var(--muted)}
+.av{position:relative;overflow:hidden}
+.av img{position:absolute;inset:0}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <a class="backbtn" href="index.html" aria-label="Back to CashEdge">← Back</a>
+    <div class="brand"><b>CE</b> CashEdge <span>Fantasy</span></div>
+    <div class="steps">
+      <div class="step"><label>Site</label><div class="seg" id="site"><button aria-pressed="true">DraftKings</button><button aria-pressed="false">FanDuel</button></div></div>
+      <div class="step"><label>Sport</label><div class="seg" id="sport"><button aria-pressed="true" data-sp="NBA">NBA</button><button aria-pressed="false" data-sp="NFL">NFL</button><button aria-pressed="false" data-sp="MLB">MLB</button></div></div>
+      <div class="step"><label for="slate">Slate</label><select id="slate"><option>Loading…</option></select></div>
+    </div>
+    <span class="lock-note">Recommended lineups update at 4:30 PM CT. After that, only players ruled OUT are swapped.</span>
+  </header>
+
+  <section class="gate" id="gate" hidden>
+    <h2>Fantasy Sports</h2>
+    <p class="note" id="gateMsg"></p>
+    <a class="btn pri" href="index.html">Back to CashEdge</a>
+  </section>
+
+  <div id="app">
+    <section class="panel" id="empty" hidden style="padding:28px 20px;text-align:center;gap:6px;align-items:center">
+      <h2 style="font-family:var(--display);margin:0;font-size:24px">MLB is coming</h2>
+      <p class="note" style="margin:0;max-width:52ch">There are no MLB slates right now. Player pool, projections and the lineup builder will open here when the season starts.</p>
+    </section>
+    <div class="tipbar" role="note">⏰ <span><b>Best results: use your lineups after 4:30 PM CT.</b> That's when starting lineups and injury news settle. Keep an eye on late scratches. We swap OUT players for you, but you still need to upload the new CSV.</span></div>
+    <div class="outalert" id="outAlert" role="alert" hidden>
+      <div class="oa-ic">⚠</div>
+      <div class="oa-tx"><b id="oaTitle"></b><span id="oaSub"></span>
+        <span class="oa-warn">Your contests still have the old lineups. On DraftKings, download the new CSV and upload it there. On FanDuel, change the player by hand. Do it before his game starts.</span></div>
+      <div class="oa-act"><button class="oa-x" id="oaRev" aria-expanded="false">Review changes ▾</button><button class="btn oa-btn" id="oaDl">⬇ Download new CSV</button><button class="oa-x" id="oaSeen" aria-label="I uploaded it">I uploaded it ✓</button></div>
+      <div class="oa-rev" id="oaList" hidden></div>
+    </div>
+    <main class="grid" id="main">
+      <section class="panel" aria-label="Player pool">
+        <div class="ph"><h2>Player pool</h2><span class="sub num" id="poolCount"></span></div>
+        <div class="slotpick" style="padding:8px 12px 0">Pick a spot, then add a player. Tap a name to open his file right here.</div>
+        <div class="tabs" id="posTabs"></div>
+        <div class="lkbar" id="lkbar"></div>
+        <div class="filters"><input id="q" placeholder="Search player or team" aria-label="Search player or team"><select id="price" aria-label="Price range"><option value="all">All prices</option><option value="hi">$8,000+</option><option value="mid">$5,000 – $7,900</option><option value="lo">Under $5,000</option></select></div>
+        <div class="head"><span></span><span id="headPos">Player</span><span class="r">Salary</span><span class="r">Proj</span><span class="r">Min</span><span title="Lock">🔒</span><span title="Exclude">⛔</span><span></span></div>
+        <div class="list" id="list"><div class="loading">Loading…</div></div>
+      </section>
+
+      <section class="panel builder" aria-label="Lineup builder" id="builder">
+        <button class="sheetbar" id="sheetbar" aria-label="Open my lineup"><span class="row1"><span id="sheetTxt">My lineup</span><span class="open-hint" id="sheetHint">Tap to open ▲</span></span><span class="dots" id="dots"></span></button>
+        <div class="ph"><h2>Lineup builder</h2><button class="btn sec" id="clear">Clear</button></div>
+        <div class="body">
+          <div class="salary">
+            <div class="cta" style="justify-content:space-between"><span id="capTxt"></span><span class="num" id="left"></span></div>
+            <div class="bar" id="bar"><i></i></div>
+            <span class="note" id="perSlot"></span>
+          </div>
+          <div class="editbar" id="editBar" hidden><span id="editTxt"></span><button class="lnk" id="editCancel">Cancel edit</button></div>
+          <div class="slots" id="slots"></div>
+          <div class="cta"><button class="btn pri" id="autofill">Complete the rest for me</button><button class="btn pri savebtn" id="saveLu" hidden>💾 Save lineup</button><span class="note" id="autoNote"></span></div>
+          <div class="box">
+            <div class="cta" style="justify-content:space-between"><h4>Locked and excluded</h4><span><button class="lnk" id="clrLocks">Clear locks</button> · <button class="lnk" id="clrBans">Clear excluded</button> · <button class="lnk" id="clrAll">Clear all</button></span></div>
+            <div class="pills" id="lockPills"></div>
+            <span class="note">🔒 Locked players go in every lineup the system builds; each one takes its own spot (shown after the arrow). You can lock as many as fit in one lineup. ⛔ Excluded players never go in.</span>
+          </div>
+          <div class="box">
+            <h4>Build lineups for me</h4>
+            <div class="cta">
+              <label for="nLu" class="note">How many</label>
+              <select id="nLu"><option>5</option><option selected>10</option><option>20</option><option>50</option></select>
+              <button class="btn pri" id="build">Build with my locks</button>
+              <button class="btn sec" id="ready">Get ready-made lineups</button>
+            </div>
+            <span class="note">Ready-made lineups are drawn at random from today's pool, so no two members get the same set. Limit: 50 per slate.</span>
+          </div>
+          <div class="box">
+            <h4>My lineups · <span class="num" id="myCount">0</span></h4>
+            <span class="note">Grouped by sport, then site, then slate. Each slate has its own CSV. DraftKings: download the CSV on a computer and upload it on DraftKings. FanDuel: enter the players by hand.</span>
+            <div id="myLineups" style="display:grid;gap:8px"></div>
+          </div>
+          <div class="box" id="badges">
+            <h4>Rep CashEdge App</h4>
+            <span class="note">Pick a badge, download it and set it as your profile picture on DraftKings or FanDuel. The small circle shows how it reads at profile-picture size.</span>
+            <div id="badgeGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ============================================================
+// CASHEDGE FANTASY SPORTS — PAGINA (fantasy.html)
+// Datos reales: https://www.cashedgeapp.com/api/fantasy-app
+// ============================================================
+
+const SUPABASE_URL = "https://chwuftiqbxqjbhdixdwk.supabase.co";
+const SUPABASE_KEY = "sb_publishable_WLTdeKrWOWO404USqEcqtg_bSfDTzJ3";
+const API = "https://www.cashedgeapp.com/api/fantasy-app";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const RULES = {
+  NBA: {
+    DraftKings: { cap: 50000, slots: [["PG", ["PG"]], ["SG", ["SG"]], ["SF", ["SF"]], ["PF", ["PF"]], ["C", ["C"]], ["G", ["PG", "SG"]], ["F", ["SF", "PF"]], ["UTIL", ["PG", "SG", "SF", "PF", "C"]]] },
+    FanDuel: { cap: 60000, slots: [["PG", ["PG"]], ["PG", ["PG"]], ["SG", ["SG"]], ["SG", ["SG"]], ["SF", ["SF"]], ["SF", ["SF"]], ["PF", ["PF"]], ["PF", ["PF"]], ["C", ["C"]]] }
+  },
+  NFL: {
+    DraftKings: { cap: 50000, slots: [["QB", ["QB"]], ["RB", ["RB"]], ["RB", ["RB"]], ["WR", ["WR"]], ["WR", ["WR"]], ["WR", ["WR"]], ["TE", ["TE"]], ["FLEX", ["RB", "WR", "TE"]], ["DST", ["DST"]]] },
+    FanDuel: { cap: 60000, slots: [["QB", ["QB"]], ["RB", ["RB"]], ["RB", ["RB"]], ["WR", ["WR"]], ["WR", ["WR"]], ["WR", ["WR"]], ["TE", ["TE"]], ["FLEX", ["RB", "WR", "TE"]], ["DEF", ["DST"]]] }
+  }
+};
+const TAG = {
+  hot: ["🔥 Hot", "c-hot", "Last 3 games 20%+ above his season average."],
+  up: ["📈 Rising", "c-up", "Last 5 games above his season average."],
+  down: ["📉 Falling", "c-down", "Last 5 games below his season average."],
+  steady: ["✅ Steady", "c-steady", "His fantasy points stay in a tight range game to game."],
+  warn: ["⚠️ Inconsistent", "c-warn", "Big swings game to game: one big night can hide several quiet ones."],
+  bench: ["⛔ Doesn't always play", "c-warn", "Has played in fewer than 60% of his team's games this season."],
+  new: ["🆕 New role", "c-new", "His minutes or snaps jumped over the last 3 games."]
+};
+const COLORS = ["#0b7285", "#5f3dc4", "#c2255c", "#e67700", "#2b8a3e", "#1864ab", "#862e9c", "#a61e4d", "#087f5b", "#364fc7"];
+
+let SITE = "DraftKings", SPORT = "NBA", SLOTS = [], CAP = 50000, P = [], SLATE = null;
+let showOver = false, auto = new Set(), active = 0, sel = null, lineup = [], locks = new Set(), bans = new Set(), EDITING = null;
+let TOKEN = null, MINE = { groups: [] };
+
+const $ = s => document.querySelector(s);
+const money = v => "$" + Number(v || 0).toLocaleString("en-US");
+const ini = n => String(n || "").split(" ").map(w => w[0]).slice(0, 2).join("");
+const esc = v => String(v ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const site = () => SITE.toLowerCase();
+const sport = () => SPORT.toLowerCase();
+
+function toast(msg) {
+  let t = $("#toast");
+  if (!t) { t = document.createElement("div"); t.id = "toast"; t.className = "toast"; t.setAttribute("role", "status"); document.body.appendChild(t); }
+  t.textContent = msg; t.hidden = false; clearTimeout(t._h); t._h = setTimeout(() => (t.hidden = true), 3600);
+}
+
+async function api(action, params = {}, body = null) {
+  const qs = new URLSearchParams({ action, ...params }).toString();
+  const r = await fetch(`${API}?${qs}`, {
+    method: body ? "POST" : "GET",
+    headers: { Authorization: `Bearer ${TOKEN}`, ...(body ? { "Content-Type": "application/json" } : {}) },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const data = await r.json().catch(() => ({ ok: false, error: "BAD_RESPONSE" }));
+  if (!r.ok && !data.error) data.error = `HTTP ${r.status}`;
+  return data;
+}
+
+async function downloadCsv() {
+  const r = await fetch(`${API}?action=csv-mine&sport=${sport()}`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+  if (!r.ok) { const d = await r.json().catch(() => ({})); toast(d.error === "NO_LINEUPS" ? "You have no DraftKings lineups yet." : "Couldn't build the CSV: " + (d.error || r.status)); return; }
+  const blob = await r.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `cashedge-${sport()}-draftkings.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+// ---------------- datos ----------------
+
+function toPlayer(c, i) {
+  const fps = (c.games || []).map(g => Number(g.fpts) || 0);
+  return {
+    i, key: c.player_key, name: c.player_name, team: c.team || "", opp: c.opp || "",
+    pos: (c.positions || []).map(x => String(x).toUpperCase()), salary: Number(c.salary) || 0,
+    proj: Number(c.proj) || 0, min: Number(c.proj_minutes) || 0, tags: (c.tags || []).filter(t => TAG[t]),
+    status: c.status, photo: c.photo_url, games: c.games || [], season: c.season || null,
+    last3: c.last3, last5: c.last5, avg: c.season_avg, sg: c.season_games, tg: c.team_games, fps,
+    color: COLORS[i % COLORS.length]
+  };
+}
+
+async function loadSlate() {
+  const r = RULES[SPORT][SITE]; SLOTS = r.slots; CAP = r.cap;
+  lineup = Array(SLOTS.length).fill(null); locks = new Set(); bans = new Set(); auto = new Set(); active = 0; sel = null; showOver = false; EDITING = null;
+  $("#list").innerHTML = `<div class="loading">Loading today's players…</div>`;
+  $(".head span:nth-child(5)").textContent = SPORT === "NFL" ? "Snap%" : "Min";
+  const sl = await api("slates", { sport: sport(), site: site() });
+  if (!sl.ok) return showError(sl);
+  const open = (sl.slates || []).filter(s => s.game_type === "classic");
+  SLATE = open.find(s => s.is_main) || open.sort((a, b) => (b.games || 0) - (a.games || 0))[0] || null;
+  $("#slate").innerHTML = SLATE
+    ? `<option>${esc(SLATE.games)} games · ${new Date(SLATE.starts_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })} ET${SLATE.started ? " · started" : ""}</option>`
+    : `<option>No ${SPORT} slate today</option>`;
+  if (!SLATE) { P = []; $("#list").innerHTML = `<div class="loading">There's no ${SPORT} slate on ${SITE} today.</div>`; renderAll(); return; }
+  const pl = await api("players", { sport: sport(), slate_id: SLATE.slate_id });
+  if (!pl.ok) return showError(pl);
+  P = (pl.players || []).map(toPlayer);
+  renderAll();
+}
+
+function showError(d) {
+  const msg = d.error === "PREMIUM_ONLY" ? "Fantasy Sports is for Premium members." :
+    d.error === "NOT_AVAILABLE_YET" ? "Fantasy Sports is coming soon." :
+      d.error === "LOGIN_REQUIRED" ? "Log in to CashEdge first." : "Something went wrong: " + (d.error || "");
+  $("#list").innerHTML = `<div class="loading">${esc(msg)}</div>`;
+}
+
+// ---------------- pool ----------------
+
+const chip = t => `<span class="chip ${TAG[t][1]}">${TAG[t][0]}</span>`;
+function fits(p) { return p.pos.some(x => SLOTS[active][1].includes(x)); }
+function inLineup(i) { return lineup.some(x => x === i); }
+function nextEmpty(from) { for (let k = 1; k <= SLOTS.length; k++) { const i = (from + k) % SLOTS.length; if (lineup[i] === null) return i; } return from; }
+
+function assignLocks(ids) {
+  const out = {}; const order = ids.slice().sort((a, b) => P[a].pos.length - P[b].pos.length);
+  const used = new Array(SLOTS.length).fill(false);
+  const go = k => {
+    if (k === order.length) return true; const p = P[order[k]];
+    for (let i = 0; i < SLOTS.length; i++) {
+      if (used[i] || !p.pos.some(x => SLOTS[i][1].includes(x))) continue;
+      used[i] = true; out[order[k]] = i; if (go(k + 1)) return true; used[i] = false; delete out[order[k]];
+    }
+    return false;
+  };
+  return go(0) ? out : null;
+}
+function lockProblem(ids) {
+  if (!assignLocks(ids)) return "no slot";
+  const sal = ids.reduce((s, i) => s + P[i].salary, 0);
+  const rest = SLOTS.length - ids.length;
+  const cheap = P.filter(p => !ids.includes(p.i) && !bans.has(p.i)).map(p => p.salary).sort((a, b) => a - b).slice(0, rest).reduce((a, b) => a + b, 0);
+  return sal + cheap > CAP ? "salary" : null;
+}
+function toggleLock(i) {
+  if (locks.has(i)) { locks.delete(i); return renderAll(); }
+  const prob = lockProblem([...locks, i]), p = P[i];
+  if (prob === "no slot") { toast(`Can't lock ${p.name}: your locks already fill every spot he can play.`); return; }
+  if (prob === "salary") { toast(`Can't lock ${p.name}: with your other locks there isn't enough salary left to fill the lineup.`); return; }
+  bans.delete(i); locks.add(i); renderAll();
+}
+function budgetMax() {
+  const open = SLOTS.map((s, i) => i).filter(i => lineup[i] === null);
+  const left = CAP - lineup.reduce((s, id) => s + (id === null ? 0 : P[id].salary), 0);
+  const cheap = P.filter(p => !inLineup(p.i) && !bans.has(p.i)).map(p => p.salary).sort((a, b) => a - b).slice(0, Math.max(0, open.length - 1)).reduce((a, b) => a + b, 0);
+  return { open: open.length, max: left - cheap, left };
+}
+
+function renderTabs() {
+  $("#posTabs").innerHTML = SLOTS.map((s, i) => `<button aria-pressed="${i === active}" data-i="${i}">${s[0]}${lineup[i] !== null ? " ✓" : ""}</button>`).join("");
+  $("#posTabs").querySelectorAll("button").forEach(b => (b.onclick = () => { active = +b.dataset.i; sel = null; renderAll(); }));
+}
+
+function rowHtml(p, over) {
+  const q = p.status && /^(q|gtd|questionable|d|doubtful)/i.test(p.status) ? `<span class="chip c-q">${esc(p.status.toUpperCase())}</span>` : "";
+  return `<div class="row ${p.i === sel ? "sel" : ""} ${bans.has(p.i) ? "banned" : ""} ${over ? "over" : ""}" data-id="${p.i}" tabindex="0">
+  <div class="av" style="background:${p.color}">${esc(ini(p.name))}${p.photo ? `<img src="${esc(p.photo)}" alt="" loading="lazy" onerror="this.remove()">` : ""}</div>
+  <div class="pn"><div class="n">${esc(p.name)}</div><div class="m"><span>${esc(p.pos.join("/"))} · ${esc(p.team)}${p.opp ? " vs " + esc(p.opp) : ""}</span>${q}${p.tags.slice(0, 2).map(chip).join("")}</div></div>
+  <span class="r num">${money(p.salary)}</span><span class="r num"><b>${p.proj.toFixed(1)}</b></span><span class="r num">${p.min ? p.min.toFixed(0) : "–"}</span>
+  <button class="ib ${locks.has(p.i) ? "on" : ""}" data-act="lock" aria-label="Lock ${esc(p.name)}">🔒</button>
+  <button class="ib ban ${bans.has(p.i) ? "on" : ""}" data-act="ban" aria-label="Exclude ${esc(p.name)}">⛔</button>
+  <button class="add" data-act="add" aria-label="Add ${esc(p.name)}" ${inLineup(p.i) || bans.has(p.i) || over ? "disabled" : ""}>+</button></div>${p.i === sel ? fileFor(p) : ""}`;
+}
+
+function renderList() {
+  if (!P.length) return;
+  const q = $("#q").value.toLowerCase(), pr = $("#price").value;
+  const rows = P.filter(p => fits(p) && (!q || p.name.toLowerCase().includes(q) || p.team.toLowerCase().includes(q)) &&
+    (pr === "all" || (pr === "hi" && p.salary >= 8000) || (pr === "mid" && p.salary >= 5000 && p.salary < 8000) || (pr === "lo" && p.salary < 5000)))
+    .sort((a, b) => b.proj - a.proj);
+  $("#poolCount").textContent = rows.length + " eligible for " + SLOTS[active][0] + " · sorted by projection";
+  $("#headPos").textContent = SLOTS[active][0] === "UTIL" ? "Any position" : "Eligible for " + SLOTS[active][0] + " (" + SLOTS[active][1].join("/") + ")";
+  const bm = budgetMax(), filled = lineup[active] !== null;
+  const fit = filled ? rows : rows.filter(p => p.salary <= bm.max), over = filled ? [] : rows.filter(p => p.salary > bm.max);
+  const limit = bm.open <= 2 && !filled;
+  let html = (!filled && over.length ? `<div class="fitnote">Showing players that fit: up to ${money(Math.max(0, bm.max))} for ${SLOTS[active][0]} (${money(bm.left)} left, ${bm.open} spot${bm.open > 1 ? "s" : ""} open)</div>` : "") + fit.map(p => rowHtml(p, false)).join("");
+  if (over.length) {
+    html += limit && !showOver
+      ? `<div class="overhead"><span>${over.length} more players are over your budget. To use one, remove someone first.</span><button class="lnk" id="showOver">Show them</button></div>`
+      : `<div class="overhead"><span>Over your budget · remove someone to fit them</span>${limit ? '<button class="lnk" id="hideOver">Hide</button>' : ""}</div>` + over.map(p => rowHtml(p, true)).join("");
+  }
+  $("#list").innerHTML = html || `<div class="loading">No players for this spot.</div>`;
+  const so = $("#showOver"); if (so) so.onclick = e => { e.stopPropagation(); showOver = true; renderList(); };
+  const ho = $("#hideOver"); if (ho) ho.onclick = e => { e.stopPropagation(); showOver = false; renderList(); };
+  const c = $("#list .close"); if (c) c.onclick = e => { e.stopPropagation(); sel = null; renderList(); };
+  $("#list").querySelectorAll(".row").forEach(r => {
+    const i = +r.dataset.id;
+    r.onclick = e => {
+      if (e.target.closest(".pf")) return;
+      const a = e.target.closest("button")?.dataset.act;
+      if (a === "add") addP(i);
+      else if (a === "lock") toggleLock(i);
+      else if (a === "ban") { locks.delete(i); bans.has(i) ? bans.delete(i) : bans.add(i); lineup = lineup.map(x => (x === i ? null : x)); renderAll(); }
+      else { sel = sel === i ? null : i; renderList(); }
+    };
+    r.onkeydown = e => { if (e.key === "Enter") { sel = sel === i ? null : i; renderList(); } };
+  });
+}
+
+function nflCols(p) {
+  const ps = p.pos[0];
+  if (ps === "QB") return [["Pass yds", "pass_yds"], ["Pass TD", "pass_td"], ["INT", "int"], ["Rush yds", "rush_yds"], ["Rush TD", "rush_td"]];
+  if (ps === "DST") return [["Pts allowed", "pts_allowed"], ["Sacks", "sacks"], ["INT", "int"], ["Fum rec", "fum_rec"], ["Def TD", "def_td"]];
+  if (ps === "RB") return [["Rush att", "rush_att"], ["Rush yds", "rush_yds"], ["Rec", "rec"], ["Rec yds", "rec_yds"], ["TD", g => (g.rush_td || 0) + (g.rec_td || 0)]];
+  return [["Targets", "targets"], ["Rec", "rec"], ["Rec yds", "rec_yds"], ["TD", "rec_td"]];
+}
+function fileFor(p) {
+  const log = p.games.slice().reverse();               // viejo -> nuevo
+  const fps = log.map(g => Number(g.fpts) || 0);
+  const cur = p.games.length ? Math.max(...p.games.map(g => Number(g.season) || 0)) : null;
+  const W = 420, H = 120, pad = 18;
+  const max = Math.max(...fps, p.proj, 1) * 1.18, bw = (W - pad * 2) / Math.max(fps.length, 1), y = v => H - pad - (v / max) * (H - pad * 2);
+  const label = g => SPORT === "NFL" ? `W${g.week ?? ""}` : String(g.date || "").slice(5);
+  const bars = fps.map((v, i) => `<rect x="${pad + i * bw + 3}" y="${y(v)}" width="${Math.max(2, bw - 6)}" height="${H - pad - y(v)}" rx="3" fill="var(--accent)" opacity="${i === fps.length - 1 ? 1 : .55}"></rect><text x="${pad + i * bw + bw / 2}" y="${y(v) - 3}" font-size="9.5" text-anchor="middle" fill="var(--muted)">${v.toFixed(0)}</text><text x="${pad + i * bw + bw / 2}" y="${H - 5}" font-size="9" text-anchor="middle" fill="var(--muted)">${esc(label(log[i]))}</text>`).join("");
+  const val = (g, c) => typeof c[1] === "function" ? c[1](g) : (g[c[1]] ?? 0);
+  const prevMark = g => (cur && g.season !== cur ? ` <span class="note">(${g.season}-${String(g.season + 1).slice(2)})</span>` : "");
+  let head, body, seasonRow = "";
+  if (SPORT === "NFL") {
+    const cols = nflCols(p);
+    head = `<th>Week</th><th>Opp</th>${p.pos[0] === "DST" ? "" : "<th>Snaps</th>"}<th>FPTS</th>${cols.map(c => `<th>${c[0]}</th>`).join("")}`;
+    body = p.games.map(g => `<tr><td>W${esc(g.week)}${prevMark(g)}</td><td>${esc(g.opp)}</td>${p.pos[0] === "DST" ? "" : `<td class="num">${g.snap ?? "–"}${g.snap != null ? "%" : ""}</td>`}<td class="num fp">${g.fpts}</td>${cols.map(c => `<td class="num">${val(g, c)}</td>`).join("")}</tr>`).join("");
+    if (p.season) seasonRow = `<tr><td colspan="2"><b>Season avg</b></td>${p.pos[0] === "DST" ? "" : `<td class="num">${p.season.snap ?? "–"}</td>`}<td class="num fp">${p.season.fpts ?? "–"}</td>${cols.map(c => `<td class="num">${typeof c[1] === "string" ? (p.season[c[1]] ?? "–") : "–"}</td>`).join("")}</tr>`;
+  } else {
+    head = `<th>Date</th><th>Opp</th><th>Min</th><th>FPTS</th><th>Pts</th><th>Reb</th><th>Ast</th><th>Stl</th><th>Blk</th><th>TO</th><th>3PM-3PA</th>`;
+    body = p.games.map(g => `<tr><td>${esc(String(g.date || "").slice(5))}${prevMark(g)}</td><td>${esc(g.opp)}</td><td class="num">${g.min}</td><td class="num fp">${g.fpts}</td><td class="num">${g.pts}</td><td class="num">${g.reb}</td><td class="num">${g.ast}</td><td class="num">${g.stl}</td><td class="num">${g.blk}</td><td class="num">${g.tov}</td><td class="num">${g.fg3m}-${g.fg3a}</td></tr>`).join("");
+    if (p.season) seasonRow = `<tr><td colspan="2"><b>Season avg</b></td><td class="num">${p.season.min}</td><td class="num fp">${p.season.fpts}</td><td class="num">${p.season.pts}</td><td class="num">${p.season.reb}</td><td class="num">${p.season.ast}</td><td class="num">${p.season.stl}</td><td class="num">${p.season.blk}</td><td class="num">${p.season.tov}</td><td class="num">${p.season.fg3m}-${p.season.fg3a}</td></tr>`;
+  }
+  const f = v => (v == null ? "–" : Number(v).toFixed(1));
+  return `<div class="pf" role="region" aria-label="${esc(p.name)} file">
+  <div style="display:grid;gap:8px;align-content:start">
+   <div class="mini"><span>Last 3<b class="num">${f(p.last3)}</b></span><span>Last 5<b class="num">${f(p.last5)}</b></span><span>Season<b class="num">${f(p.avg)}</b></span><span>Pts per $1K<b class="num">${p.salary ? (p.proj / p.salary * 1000).toFixed(1) : "–"}</b></span></div>
+   <span class="note">Played ${p.sg ?? 0} of ${p.tg ?? 0} team games this season.</span>
+   ${p.tags.length ? `<div class="why">${p.tags.map(t => `<div><b>${TAG[t][0]}:</b> ${TAG[t][2]}</div>`).join("")}</div>` : `<span class="note">No flags today.</span>`}
+   ${p.status ? `<div class="why"><b>${esc(p.status.toUpperCase())}:</b> may not play. Check news before lock.</div>` : ""}
+   ${fps.length ? `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Fantasy points, last games">${bars}<line x1="${pad}" x2="${W - pad}" y1="${y(p.proj)}" y2="${y(p.proj)}" stroke="var(--hot)" stroke-dasharray="5 4" stroke-width="1.5"></line><text x="${pad}" y="11" font-size="9.5" fill="var(--hot)">- - Today's projection ${p.proj.toFixed(1)}</text></svg>` : `<span class="note">No games yet this season.</span>`}
+  </div>
+  <div style="display:grid;gap:6px;align-content:start">
+   <button class="close" aria-label="Close file">Close ✕</button>
+   <div class="tblwrap"><table><thead><tr>${head}</tr></thead><tbody>${body}${seasonRow}</tbody></table></div>
+   <span class="note">Last ${p.games.length} games. Fantasy points use ${SITE} scoring.</span>
+  </div></div>`;
+}
+
+// ---------------- builder ----------------
+
+function addP(i) {
+  const p = P[i]; if (inLineup(i)) return;
+  let slot = fits(p) && lineup[active] === null ? active : SLOTS.findIndex((s, k) => lineup[k] === null && p.pos.some(x => s[1].includes(x)));
+  if (slot < 0) slot = active;
+  lineup[slot] = i; auto.delete(i); active = nextEmpty(slot); sel = null; renderAll();
+}
+
+function renderBuilder() {
+  let used = 0;
+  $("#slots").innerHTML = SLOTS.map((s, k) => {
+    const i = lineup[k];
+    if (i === null) return `<div class="slot ${k === active ? "active" : ""}" data-s="${k}"><span class="pos">${s[0]}</span><span class="note">${k === active ? "Choosing now →" : "Empty · tap to choose"}</span><span></span><span></span><span></span></div>`;
+    const p = P[i]; used += p.salary;
+    return `<div class="slot full ${k === active ? "active" : ""}" data-s="${k}"><span class="pos">${s[0]}</span><span><b>${esc(p.name)}</b>${auto.has(i) ? ' <span class="chip c-new">Auto</span>' : ""}<br><span class="pp">${esc(p.team)} · proj ${p.proj.toFixed(1)}</span></span><span class="num">${money(p.salary)}</span><button class="lk ${locks.has(i) ? "on" : ""}" data-l="${i}" aria-label="${locks.has(i) ? "Unlock" : "Lock"} ${esc(p.name)}">🔒</button><button class="x" data-i="${k}" aria-label="Remove ${esc(p.name)}">×</button></div>`;
+  }).join("");
+  $("#slots").querySelectorAll(".lk").forEach(b => (b.onclick = e => { e.stopPropagation(); toggleLock(+b.dataset.l); }));
+  $("#slots").querySelectorAll(".x").forEach(b => (b.onclick = e => { e.stopPropagation(); lineup[+b.dataset.i] = null; active = +b.dataset.i; renderAll(); }));
+  $("#slots").querySelectorAll(".slot").forEach(d => (d.onclick = () => { active = +d.dataset.s; sel = null; $("#builder").classList.remove("open"); $("#sheetHint").textContent = "Tap to open ▲"; renderAll(); if (window.innerWidth <= 860) $("#posTabs").scrollIntoView({ behavior: "smooth", block: "start" }); }));
+  const left = CAP - used, open = lineup.filter(x => x === null).length;
+  $("#capTxt").innerHTML = `Salary used <b class="num">${money(used)}</b> / ${money(CAP)}`;
+  $("#left").textContent = left < 0 ? "Over by " + money(-left) : money(left) + " left";
+  $("#bar").classList.toggle("over", left < 0); $("#bar i").style.width = Math.min(100, used / CAP * 100) + "%";
+  $("#sheetTxt").textContent = `My lineup ${SLOTS.length - open}/${SLOTS.length} · ${left < 0 ? "over by " + money(-left) : money(left) + " left"}`;
+  $("#dots").innerHTML = lineup.map(x => `<i class="${x !== null ? "f" : ""}"></i>`).join("");
+  const done = !open && left >= 0;
+  $("#autofill").hidden = done; $("#saveLu").hidden = !done;
+  $("#editBar").hidden = !EDITING; if (EDITING) $("#editTxt").innerHTML = `✎ Editing <b>Lineup #${EDITING.num}</b>`;
+  $("#saveLu").textContent = EDITING ? `💾 Update lineup #${EDITING.num}` : "💾 Save lineup";
+  $("#autoNote").textContent = EDITING ? (done ? "Tap Update to replace the old version." : "Fill the open spot, or tap Complete the rest for me.")
+    : done ? "Lineup complete. Save it and build the next one." : (!open && left < 0 ? `Over the cap by ${money(-left)}. Swap someone cheaper to save it.` : "Keeps your picks and fills the open spots with our best fit under the cap.");
+  $("#perSlot").textContent = open ? `${open} spot${open > 1 ? "s" : ""} open · avg ${money(Math.max(0, Math.round(left / open)))} per player` : "Lineup complete";
+  const asg = assignLocks([...locks]) || {};
+  const pills = [...locks].map(i => `<span class="pill lock">🔒 ${esc(P[i].name)} → ${SLOTS[asg[i]]?.[0] || ""}<button data-un="${i}" aria-label="Unlock">×</button></span>`).join("") +
+    [...bans].map(i => `<span class="pill ban">⛔ ${esc(P[i].name)}<button data-unb="${i}" aria-label="Allow again">×</button></span>`).join("");
+  $("#lockPills").innerHTML = pills || `<span class="note">None yet. Use 🔒 or ⛔ next to any player.</span>`;
+  $("#lkbar").innerHTML = (locks.size || bans.size) ? `<span class="lbl">Your rules:</span>${pills}<button class="lnk" id="clrAllTop">Clear all</button>` : `<span class="lbl">🔒 Lock = in every lineup · ⛔ Exclude = never in a lineup</span>`;
+  document.querySelectorAll("[data-un]").forEach(b => (b.onclick = () => { locks.delete(+b.dataset.un); renderAll(); }));
+  document.querySelectorAll("[data-unb]").forEach(b => (b.onclick = () => { bans.delete(+b.dataset.unb); renderAll(); }));
+  const ct = $("#clrAllTop"); if (ct) ct.onclick = () => { locks.clear(); bans.clear(); renderAll(); };
+}
+
+function autofill() {
+  const open = SLOTS.map((s, i) => i).filter(i => lineup[i] === null); if (!open.length) return;
+  const left0 = CAP - lineup.reduce((s, id) => s + (id === null ? 0 : P[id].salary), 0), used = new Set(lineup.filter(x => x !== null));
+  const pool = P.filter(p => !bans.has(p.i) && !(p.status && /^(q|gtd|d)/i.test(p.status)));
+  const order = open.slice().sort((a, b) => SLOTS[a][1].length - SLOTS[b][1].length);
+  const C = order.map(i => pool.filter(p => p.pos.some(x => SLOTS[i][1].includes(x))).sort((a, b) => b.proj - a.proj).slice(0, 40));
+  const cheapest = pool.map(p => p.salary).sort((a, b) => a - b);
+  let best = null, bestPts = -1, nodes = 0; const pick = [];
+  const go = (k, left, pts) => {
+    if (++nodes > 60000) return;
+    if (k === order.length) { if (pts > bestPts) { bestPts = pts; best = pick.slice(); } return; }
+    const rest = order.length - k - 1, minRest = cheapest.slice(0, rest).reduce((a, b) => a + b, 0);
+    for (const p of C[k]) {
+      if (used.has(p.i) || p.salary + minRest > left) continue;
+      used.add(p.i); pick.push(p.i); go(k + 1, left - p.salary, pts + p.proj); pick.pop(); used.delete(p.i);
+      if (nodes > 60000) return;
+    }
+  };
+  go(0, left0, 0);
+  if (!best) { toast("No player combination fits the open spots under the cap. Remove a pricey pick and try again."); return; }
+  order.forEach((i, k) => { lineup[i] = best[k]; auto.add(best[k]); });
+  active = nextEmpty(active); renderAll();
+}
+
+async function saveLineup() {
+  const players = lineup.map(i => ({ key: P[i].key }));
+  const body = { sport: sport(), site: site(), slate_id: SLATE?.slate_id, players, lineup_id: EDITING?.id };
+  const r = await api("save", {}, body);
+  if (!r.ok) { toast("Couldn't save: " + (r.player ? r.player + " · " : "") + r.error); return; }
+  toast(EDITING ? `Lineup #${EDITING.num} updated. Download the CSV again and upload it to ${SITE}.` : "Lineup saved. Your locked players stay, so build the next one.");
+  EDITING = null; lineup = lineup.map(i => (locks.has(i) ? i : null)); auto.clear(); active = nextEmpty(0);
+  renderAll(); loadMine();
+}
+
+async function buildWithLocks() {
+  const n = Number($("#nLu").value);
+  $("#build").disabled = true; toast("Building your lineups…");
+  const r = await api("build", {}, { sport: sport(), site: site(), slate_id: SLATE?.slate_id, count: n, locks: [...locks].map(i => P[i].key), bans: [...bans].map(i => P[i].key) });
+  $("#build").disabled = false;
+  if (!r.ok) { toast(r.message || ("Couldn't build: " + r.error)); return; }
+  toast(`Built ${r.built} lineup${r.built > 1 ? "s" : ""} with your rules.`); loadMine();
+}
+
+async function getReady() {
+  const n = Number($("#nLu").value);
+  $("#ready").disabled = true;
+  const r = await api("ready", { sport: sport(), site: site(), count: n });
+  $("#ready").disabled = false;
+  if (!r.ok) {
+    toast(r.error === "LIMIT_50_PER_SLATE" ? "You reached the limit of 50 ready-made lineups for this slate." :
+      r.error === "POOL_BUILDING" ? "Lineups are being built. Try again in a minute." :
+        r.error === "SLATE_STARTED" ? "This slate already started." : "Couldn't get lineups: " + r.error);
+    return;
+  }
+  toast(`${r.given} ready-made lineup${r.given > 1 ? "s" : ""} added to My lineups.`); loadMine();
+}
+
+// ---------------- mis alineaciones ----------------
+
+async function loadMine() {
+  const r = await api("mine");
+  if (!r.ok) return;
+  MINE = r; renderMine();
+}
+
+function renderMine() {
+  const groups = (MINE.groups || []).slice();
+  if (MINE.tus10?.length) groups.unshift({ sport: MINE.tus10[0].sport, platform: MINE.tus10[0].platform, slate_key: MINE.tus10[0].slate_key, game_type: "classic", lineups: MINE.tus10.map(l => ({ ...l, reserved: true })), title: "Your top 10 (reserved)" });
+  let total = 0;
+  const bySport = {};
+  for (const g of groups) (bySport[g.sport] ||= []).push(g);
+  $("#myLineups").innerHTML = Object.keys(bySport).length ? Object.entries(bySport).map(([sp, gs]) => `<div style="display:grid;gap:8px"><b style="font-family:var(--display);font-size:18px;letter-spacing:.4px">${sp.toUpperCase()}</b>
+    ${gs.map(g => {
+    total += g.lineups.length;
+    const isDk = g.platform === "draftkings";
+    return `<details class="grp" ${g.sport === sport() && g.platform === site() ? "open" : ""}><summary><span class="gt"><b>${esc(g.title || (isDk ? "DraftKings" : "FanDuel") + " · Main")}</b><span><span class="tagtype">Classic</span> · ${g.lineups.length} lineup${g.lineups.length > 1 ? "s" : ""}</span></span>
+      ${isDk ? `<button class="btn sec" data-csv="${g.sport}">⬇ CSV</button>` : `<span class="fdnote">FanDuel: enter by hand</span>`}</summary>
+      <div class="gb">${g.lineups.map((l, k) => `<div class="lu ${EDITING?.id === l.id ? "editing" : ""}"><div class="hd"><span>Lineup #${k + 1}${l.source === "built" || l.source === "locks" ? ' <span class="chip own">Built by you</span>' : ""}${l.edited ? ' <span class="chip own">Edited</span>' : ""}</span><span class="r"><span class="num">${money(l.salary)}</span>${l.reserved ? "" : `<button class="edbtn" data-ed="${l.id}" data-k="${k + 1}">✎ Edit</button>`}</span></div>
+        ${(l.players || []).map(p => `<div class="ln"><span>${esc(p.slot)}</span><span>${esc(p.name)}</span><span class="num">${money(p.salary)}</span><span class="num note">proj ${Number(p.points || 0).toFixed(1)}</span></div>`).join("")}</div>`).join("")}</div></details>`;
+  }).join("")}</div>`).join("") : `<span class="note">No lineups yet today. Build one above or get ready-made lineups.</span>`;
+  $("#myCount").textContent = total;
+  document.querySelectorAll("[data-csv]").forEach(b => (b.onclick = e => { e.preventDefault(); e.stopPropagation(); downloadCsv(); }));
+  document.querySelectorAll("[data-ed]").forEach(b => (b.onclick = e => { e.preventDefault(); startEdit(Number(b.dataset.ed), Number(b.dataset.k)); }));
+}
+
+function startEdit(id, num) {
+  const l = (MINE.groups || []).flatMap(g => g.lineups).find(x => x.id === id);
+  if (!l) return;
+  if (l.sport !== sport() || l.platform !== site()) { toast(`Switch to ${l.sport.toUpperCase()} · ${l.platform === "draftkings" ? "DraftKings" : "FanDuel"} to edit this lineup.`); return; }
+  const byKey = new Map(P.map(p => [p.key, p.i]));
+  // Cada jugador va a su mismo puesto (PG, G, UTIL...). Si no cuadra, al primer puesto libre donde pueda jugar.
+  lineup = Array(SLOTS.length).fill(null);
+  const left = [];
+  for (const pl of l.players || []) {
+    const i = byKey.get(String(pl.key || pl.id));
+    if (i === undefined) continue;
+    const k = SLOTS.findIndex((s, n) => lineup[n] === null && s[0] === String(pl.slot).toUpperCase());
+    if (k >= 0) lineup[k] = i; else left.push(i);
+  }
+  for (const i of left) {
+    const k = SLOTS.findIndex((s, n) => lineup[n] === null && P[i].pos.some(x => s[1].includes(x)));
+    if (k >= 0) lineup[k] = i;
+  }
+  if (lineup.some(x => x === null)) toast("Some players in this lineup are no longer in the pool (OUT or removed). Pick a replacement.");
+  EDITING = { id, num }; auto.clear(); active = nextEmpty(0); sel = null; renderAll(); renderMine();
+  $("#builder").scrollIntoView({ behavior: "smooth", block: "start" });
+  if (window.innerWidth <= 860) $("#builder").classList.add("open");
+  toast(`Lineup #${num} loaded. Swap any player, then tap Update.`);
+}
+
+// ---------------- aviso rojo (cambios por OUT) ----------------
+
+async function loadChanges() {
+  const r = await api("changes");
+  if (!r.ok || !r.pendientes) { $("#outAlert").hidden = true; return; }
+  const list = r.cambios;
+  const lines = new Set(list.map(c => c.user_lineup_id)).size;
+  $("#oaTitle").textContent = `We changed ${lines} of your lineups`;
+  $("#oaSub").textContent = [...new Set(list.map(c => `${c.out_player} (OUT) → ${c.in_player}`))].slice(0, 3).join(" · ");
+  $("#oaList").innerHTML = `<span class="note" style="color:#ffb3b3">Want a different player? Tap Edit on that lineup in My lineups and pick someone else.</span>` +
+    list.map(c => `<div class="oa-row"><span class="who">${esc(c.slot || "")}: <s>${esc(c.out_player)} (OUT)</s> → <b>${esc(c.in_player)}</b></span><span class="ok">${new Date(c.changed_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span></div>`).join("");
+  $("#outAlert").hidden = false;
+}
+
+// ---------------- logos ----------------
+
+const BADGES = [["Classic", "#050706", "#2ee05a", "#eef3f0"], ["Neon", "#2ee05a", "#050706", "#050706"], ["Silver", "#0e1311", "#c9d3ce", "#2ee05a"],
+  ["White", "#ffffff", "#050706", "#1a9c3c"], ["Gold", "#0b0b0b", "#f2c94c", "#eef3f0"], ["Blue", "#0a1a33", "#4fb3ff", "#eef3f0"], ["Red", "#1a0707", "#ff5c5c", "#eef3f0"], ["Purple", "#170c2b", "#b78cff", "#eef3f0"]];
+function drawBadge(c, [, bg, main, sub]) {
+  const x = c.getContext("2d"), S = c.width, F = '"Barlow Condensed","Arial Narrow",sans-serif';
+  x.fillStyle = bg; x.fillRect(0, 0, S, S);
+  x.strokeStyle = main; x.lineWidth = S * .025; x.beginPath(); x.arc(S / 2, S / 2, S * .47, 0, Math.PI * 2); x.stroke();
+  x.textAlign = "center"; x.textBaseline = "middle";
+  const fit = (t, w, size) => { x.font = `700 ${size}px ${F}`; const m = x.measureText(t).width; if (m > w) x.font = `700 ${size * w / m}px ${F}`; };
+  x.fillStyle = main; fit("CASH", S * .74, S * .34); x.fillText("CASH", S / 2, S * .31); fit("EDGE", S * .74, S * .34); x.fillText("EDGE", S / 2, S * .58);
+  x.fillStyle = sub; fit("APP", S * .5, S * .2); x.fillText("APP", S / 2, S * .81);
+}
+function renderBadges() {
+  $("#badgeGrid").innerHTML = BADGES.map((b, i) => `<div style="display:grid;gap:6px;justify-items:center"><canvas data-b="${i}" width="1080" height="1080" style="width:96px;height:96px;border-radius:50%;border:1px solid var(--line)"></canvas><canvas data-b="${i}" width="1080" height="1080" style="width:36px;height:36px;border-radius:50%"></canvas><button class="btn sec" data-dl="${i}" style="padding:4px 10px">⬇ ${b[0]}</button></div>`).join("");
+  document.querySelectorAll("canvas[data-b]").forEach(c => drawBadge(c, BADGES[c.dataset.b]));
+  document.querySelectorAll("[data-dl]").forEach(btn => (btn.onclick = () => {
+    const c = document.querySelector(`canvas[data-b="${btn.dataset.dl}"]`);
+    const a = document.createElement("a"); a.download = `cashedge-app-${BADGES[btn.dataset.dl][0].toLowerCase()}.png`; a.href = c.toDataURL("image/png"); a.click();
+  }));
+}
+
+// ---------------- arranque ----------------
+
+function renderAll() { renderTabs(); renderList(); renderBuilder(); }
+
+function wire() {
+  $("#q").oninput = renderList; $("#price").onchange = renderList;
+  $("#autofill").onclick = autofill; $("#saveLu").onclick = saveLineup;
+  $("#clear").onclick = () => { lineup = Array(SLOTS.length).fill(null); auto.clear(); EDITING = null; renderAll(); };
+  $("#editCancel").onclick = () => { EDITING = null; lineup = lineup.map(i => (locks.has(i) ? i : null)); renderAll(); renderMine(); };
+  $("#clrLocks").onclick = () => { locks.clear(); renderAll(); }; $("#clrBans").onclick = () => { bans.clear(); renderAll(); }; $("#clrAll").onclick = () => { locks.clear(); bans.clear(); renderAll(); };
+  $("#build").onclick = buildWithLocks; $("#ready").onclick = getReady;
+  $("#sheetbar").onclick = () => { const o = $("#builder").classList.toggle("open"); $("#sheetHint").textContent = o ? "Close ▼" : "Tap to open ▲"; };
+  $("#oaRev").onclick = () => { const l = $("#oaList"), open = l.hidden; l.hidden = !open; $("#oaRev").textContent = open ? "Hide changes ▴" : "Review changes ▾"; };
+  $("#oaDl").onclick = downloadCsv;
+  $("#oaSeen").onclick = async () => { await api("changes-ack"); $("#outAlert").hidden = true; };
+  document.querySelectorAll(".seg").forEach(g => g.querySelectorAll("button").forEach(b => (b.onclick = () => {
+    g.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", "false")); b.setAttribute("aria-pressed", "true");
+    if (g.id === "sport") {
+      const mlb = b.dataset.sp === "MLB";
+      $("#empty").hidden = !mlb; $("#main").hidden = mlb;
+      if (mlb) return;
+      SPORT = b.dataset.sp;
+    }
+    if (g.id === "site") SITE = b.textContent.trim();
+    loadSlate(); renderMine();
+  })));
+}
+
+(async function start() {
+  wire();
+  const { data } = await sb.auth.getSession();
+  TOKEN = data?.session?.access_token || null;
+  const gate = msg => { $("#app").hidden = true; $("#gate").hidden = false; $("#gateMsg").textContent = msg; };
+  if (!TOKEN) return gate("Log in to CashEdge first, then come back here.");
+  const acc = await api("access");
+  if (!acc.visible) return gate(acc.reason === "PREMIUM_ONLY" ? "Fantasy Sports is for Premium members." : "Fantasy Sports is coming soon.");
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(renderBadges);
+  await loadSlate();
+  loadMine(); loadChanges();
+  setInterval(loadChanges, 5 * 60000);
+})();
+
+</script>
+</body>
+</html>
