@@ -24,7 +24,7 @@
 //   slates y players: solo Premium. El frontend manda el token de
 //   Supabase en el header  Authorization: Bearer <access_token>.
 //   Se verifica con auth.getUser(token) y luego users.is_premium.
-//   El dueño (FANTASY_OWNER_EMAIL) siempre entra.
+//   El dueño (FANTASY_OWNER_EMAIL) siempre entra. 
 //   build-cards: solo con ?secret= (CRON_SECRET).
 //
 // REGLAS INTERNAS
