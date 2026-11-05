@@ -1350,7 +1350,20 @@ async function refillOne(sp, isMain) {
   // 5-nov: consulta directa con limite (selectAll pagina con .range() y
   // borraba el .limit(): te reservaba TODAS las libres). Y si ya tienes
   // mas de 10, las de menos proyeccion vuelven a quedar libres.
-  const owner = isMain ? await ownerUserId() : null;
+  // 5-nov: tus 10 solo en DraftKings (no juegas FanDuel) y nunca si las borraste
+  let owner = isMain && platform === "draftkings" ? await ownerUserId() : null;
+  if (platform !== "draftkings" && isMain) {
+    const ownerId = await ownerUserId();
+    if (ownerId) {
+      await supabaseAdmin.from("fantasy_app_pool_lineups").update({ status: "free", user_id: null, assigned_at: null })
+        .eq("slate_key", sp.slate_key).eq("platform", platform).eq("user_id", ownerId).eq("status", "owner");
+    }
+  }
+  if (owner) {
+    const { data: dropped } = await supabaseAdmin.from("fantasy_app_pool_lineups").select("id")
+      .eq("sport", sport).eq("platform", platform).eq("slate_key", sp.slate_key).eq("user_id", owner).eq("status", "dropped").limit(1);
+    if (dropped?.length) owner = null;
+  }
   let mine = current.filter(l => l.status === "owner").length;
   if (owner && mine > POOL.ownerTop) {
     const { data: extra, error: exErr } = await supabaseAdmin.from("fantasy_app_pool_lineups").select("id")
@@ -1517,6 +1530,132 @@ async function actionPoolSlates() {
 }
 
 // ============================================================
+// 5-nov: RESULTADOS (cron evaluate, cada manana)
+// Puntos reales de TODAS las alineaciones entregadas a clientes (aunque
+// las hayan borrado) y de todas las de la formula, mas la mejor
+// alineacion posible del slate. Se guarda en:
+//   fantasy_app_user_lineups.actual_points / evaluated_at
+//   fantasy_app_pool_lineups.actual_points / evaluated_at
+//   fantasy_app_slate_results (resumen por slate)
+// Ganar o no (1er lugar, ultimo que cobra, top 20) se mide aparte con
+// los datos de cada contest que manda el dueno.
+// ============================================================
+
+async function slateInfo(sport, platform, slateKey) {
+  const dk = await getDkSlate(slateKey).catch(() => null);
+  if (dk) return { from: dk.slate_date, to: chicagoDay(new Date(dk.last_starts_at || dk.starts_at)), dk };
+  const ours = await getSlate(sport, slateKey).catch(() => null);
+  if (!ours) return null;
+  return { from: ours.slate_date, to: sport === "nfl" ? addDaysStr(ours.slate_date, 4) : ours.slate_date, dk: null };
+}
+
+// Puntos reales por llave de jugador (NBA: id BDL | NFL: gsis o DST:TEAM)
+async function actualPoints(sport, platform, from, to) {
+  const out = new Map();
+  if (sport === "nba") {
+    const games = await selectAll("nba_games", "game_id,game_date",
+      q => q.gte("game_date", `${addDaysStr(from, -1)}T00:00:00Z`).lte("game_date", `${addDaysStr(to, 1)}T23:59:59Z`));
+    const ids = games.filter(g => { const d = nbaDay(g.game_date); return d >= from && d <= to; }).map(g => Number(g.game_id));
+    if (!ids.length) return out;
+    const rows = await selectIn("nba_player_game_roles",
+      "player_id,points,rebounds,assists,steals,blocks,turnovers,three_pointers_made", "game_id", ids);
+    for (const r of rows) {
+      out.set(String(r.player_id), round(nbaScore({
+        pts: num(r.points) || 0, reb: num(r.rebounds) || 0, ast: num(r.assists) || 0, stl: num(r.steals) || 0,
+        blk: num(r.blocks) || 0, tov: num(r.turnovers) || 0, fg3m: num(r.three_pointers_made) || 0
+      }, platform), 2));
+    }
+    return out;
+  }
+  const [players, teams] = await Promise.all([
+    selectAll("football_player_week_stats", "*", q => q.gte("game_date", from).lte("game_date", to)),
+    selectAll("football_team_week_stats", "*", q => q.gte("game_date", from).lte("game_date", to))
+  ]);
+  for (const r of players) out.set(str(r.gsis_player_id), round(nflOffenseScore(r, platform), 2));
+  const byGame = new Map(teams.map(t => [`${nflTeam(t.team)}|${t.game_id}`, t]));
+  for (const t of teams) out.set(`DST:${nflTeam(t.team)}`, round(nflDstScore(t, byGame.get(`${nflTeam(t.opponent)}|${t.game_id}`)), 2));
+  return out;
+}
+
+const lineupPoints = (players, pts) => round((players || []).reduce((s, p) => s + (pts.get(str(p.key || p.id)) || 0), 0), 2);
+
+async function evaluateSlate(sport, platform, slateKey) {
+  const info = await slateInfo(sport, platform, slateKey);
+  if (!info) return { slate: slateKey, estado: "slate no encontrado" };
+  if (info.to >= chicagoDay()) return { slate: slateKey, estado: "todavia se juega" };
+  const pts = await actualPoints(sport, platform, info.from, info.to);
+  if (pts.size < 20) return { slate: slateKey, estado: "faltan estadisticas", jugadores: pts.size };
+  const now = new Date().toISOString();
+
+  const users = await selectAll("fantasy_app_user_lineups", "id,user_id,players,source,deleted_at",
+    q => q.eq("sport", sport).eq("platform", platform).eq("slate_key", slateKey));
+  const pool = await selectAll("fantasy_app_pool_lineups", "id,players,status,user_id",
+    q => q.eq("sport", sport).eq("platform", platform).eq("slate_key", slateKey));
+  const uScored = users.map(u => ({ ...u, actual: lineupPoints(u.players, pts) }));
+  const pScored = pool.map(l => ({ ...l, actual: lineupPoints(l.players, pts) }));
+  for (const part of chunks(uScored, 200)) {
+    await Promise.all(part.map(u => supabaseAdmin.from("fantasy_app_user_lineups").update({ actual_points: u.actual, evaluated_at: now }).eq("id", u.id)));
+  }
+  for (const part of chunks(pScored, 200)) {
+    await Promise.all(part.map(l => supabaseAdmin.from("fantasy_app_pool_lineups").update({ actual_points: l.actual, evaluated_at: now }).eq("id", l.id)));
+  }
+
+  // La mejor alineacion posible (con lo que paso de verdad)
+  let optimal = null;
+  if (info.dk) {
+    const dkPlayers = (await selectAll("fantasy_app_dk_players", "player_key,player_name,team,positions,salary,game,slot", q => q.eq("draft_group_id", Number(slateKey))))
+      .filter(p => p.player_key && !p.slot && pts.has(str(p.player_key)));
+    const list = dkPlayers.map(p => ({ id: str(p.player_key), key: str(p.player_key), name: p.player_name, team: p.team, opp: dkOpp(p.game, p.team),
+      gameId: p.game, positions: p.positions, salary: Number(p.salary), points: Math.max(0.01, pts.get(str(p.player_key))) }));
+    const r = sport === "nfl" ? nflLib().buildLineups(platform, list, { count: 1, nodeLimit: 2e6 })
+      : lineupsLib().buildLineups(platform, list, { count: 1, nodeLimit: 2e6, timeLimitMs: 40000 });
+    const best = r.lineups?.[0];
+    if (best) optimal = { points: round(best.points, 2), players: best.players.map(p => ({ slot: p.slot, name: p.name, team: p.team, salary: p.salary, points: round(p.points, 2) })) };
+  }
+
+  const given = uScored;
+  const bestGiven = given.slice().sort((a, b) => b.actual - a.actual)[0] || null;
+  let bestEmail = null;
+  if (bestGiven) {
+    const { data } = await supabaseAdmin.from("users").select("email").eq("id", bestGiven.user_id).maybeSingle();
+    bestEmail = data?.email || null;
+  }
+  const avg = list => (list.length ? round(list.reduce((s, x) => s + x.actual, 0) / list.length, 2) : null);
+  const row = {
+    sport, platform, slate_key: Number(slateKey), slate_date: info.from, evaluated_at: now,
+    lineups_given: given.length, users: new Set(given.map(u => u.user_id)).size,
+    from_formula: given.filter(u => u.source === "pool").length,
+    avg_given: avg(given), best_given: bestGiven?.actual ?? null, best_given_lineup_id: bestGiven?.id ?? null, best_given_email: bestEmail,
+    pool_lineups: pScored.length, avg_pool: avg(pScored), best_pool: pScored.reduce((m, x) => Math.max(m, x.actual), 0) || null,
+    optimal_points: optimal?.points ?? null, optimal_players: optimal?.players ?? null
+  };
+  const { error } = await supabaseAdmin.from("fantasy_app_slate_results").upsert(row, { onConflict: "sport,platform,slate_key" });
+  if (error) throw new Error(`Supabase fantasy_app_slate_results: ${error.message}`);
+  return { slate: slateKey, estado: "evaluado", entregadas: given.length, promedio: row.avg_given, mejor: row.best_given, perfecta: row.optimal_points };
+}
+
+async function actionEvaluate(req) {
+  const day = chicagoDay();
+  const from = /^\d{4}-\d{2}-\d{2}$/.test(str(req.query.date)) ? str(req.query.date) : addDaysStr(day, -7);
+  const body = { ok: true, desde: from, slates: [] };
+  const t0 = Date.now();
+  for (const table of ["fantasy_app_user_lineups", "fantasy_app_pool_lineups"]) {
+    const rows = await selectAll(table, "sport,platform,slate_key",
+      q => q.gte("slate_date", from).lt("slate_date", day).is("evaluated_at", null));
+    const seen = new Set(body.slates.map(x => x.key));
+    for (const r of rows) {
+      const key = `${r.sport}|${r.platform}|${r.slate_key}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (Date.now() - t0 > 200000) { body.slates.push({ key, estado: "sigue en la proxima vuelta" }); continue; }
+      try { body.slates.push({ key, ...(await evaluateSlate(r.sport, r.platform, Number(r.slate_key))) }); }
+      catch (e) { body.slates.push({ key, error: e.message }); }
+    }
+  }
+  return { status: 200, body };
+}
+
+// ============================================================
 // 5-nov: BUILD MY LINEUP — alineaciones de la FORMULA (lista del Main)
 // Si el cliente eligio o bloqueo jugadores: solo las de la lista que
 // los tienen a todos (y ninguno de sus excluidos). Al azar.
@@ -1549,7 +1688,7 @@ async function actionPick(req, user) {
   if (sp.starts_at && Date.parse(sp.starts_at) <= Date.now()) return { status: 409, body: { ok: false, error: "SLATE_STARTED" } };
 
   const had = await selectAll("fantasy_app_user_lineups", "id",
-    q => q.eq("user_id", user.userId).eq("sport", sport).eq("platform", platform).eq("slate_key", slateKey).eq("source", "pool"));
+    q => q.eq("user_id", user.userId).eq("sport", sport).eq("platform", platform).eq("slate_key", slateKey).eq("source", "pool").is("deleted_at", null));
   const room = POOL.maxPerUser - had.length;
   if (room <= 0) return { status: 429, body: { ok: false, error: "LIMIT_50_PER_SLATE" } };
   const count = Math.min(want, room);
@@ -1607,7 +1746,7 @@ async function actionReady(req, user) {
   if (sp.starts_at && Date.parse(sp.starts_at) <= Date.now()) return { status: 409, body: { ok: false, error: "SLATE_STARTED" } };
 
   const had = await selectAll("fantasy_app_user_lineups", "id",
-    q => q.eq("user_id", user.userId).eq("sport", sport).eq("platform", platform).eq("slate_date", day).eq("source", "pool"));
+    q => q.eq("user_id", user.userId).eq("sport", sport).eq("platform", platform).eq("slate_date", day).eq("source", "pool").is("deleted_at", null));
   const room = POOL.maxPerUser - had.length;
   if (room <= 0) return { status: 429, body: { ok: false, error: "LIMIT_50_PER_SLATE" } };
   const count = Math.min(want, room);
@@ -1642,7 +1781,7 @@ async function actionReady(req, user) {
 async function actionMine(req, user) {
   const day = /^\d{4}-\d{2}-\d{2}$/.test(str(req.query.date)) ? str(req.query.date) : chicagoDay();
   // 5-nov: hoy y los slates de los proximos dias
-  const rows = await selectAll("fantasy_app_user_lineups", "*", q => q.eq("user_id", user.userId).gte("slate_date", day).order("id", { ascending: true }));
+  const rows = await selectAll("fantasy_app_user_lineups", "*", q => q.eq("user_id", user.userId).gte("slate_date", day).is("deleted_at", null).order("id", { ascending: true }));
   // Tus 10 del pool (solo el dueno)
   let reserved = [];
   if (user.isOwner) {
@@ -1663,7 +1802,7 @@ async function actionCsvMine(req, res, user) {
   const slateKey = num(req.query.slate_key);
   const rows = await selectAll("fantasy_app_user_lineups", "*",
     q => {
-      let x = q.eq("user_id", user.userId).eq("sport", sport).eq("platform", "draftkings");
+      let x = q.eq("user_id", user.userId).eq("sport", sport).eq("platform", "draftkings").is("deleted_at", null);
       x = slateKey ? x.eq("slate_key", slateKey) : x.eq("slate_date", day);
       return x.order("id", { ascending: true });
     });
@@ -1751,7 +1890,7 @@ async function runOutSwaps(sport, day) {
     const rule = lib.RULES[platform];
     const cands = sp.players || [];
     // 1) alineaciones de clientes
-    const users = await selectAll("fantasy_app_user_lineups", "*", q => q.eq("sport", sport).eq("platform", platform).eq("slate_date", day));
+    const users = await selectAll("fantasy_app_user_lineups", "*", q => q.eq("sport", sport).eq("platform", platform).eq("slate_date", day).is("deleted_at", null));
     for (const ul of users) {
       if (!(ul.players || []).some(p => info.out.has(str(p.key || p.id)))) continue;
       const r = swapLineup(ul.players, rule, cands, info, now);
@@ -1965,11 +2104,32 @@ async function actionBuild(req, user) {
   return { status: 200, body: { ok: true, built: data.length, lineups: data } };
 }
 
+// 5-nov: borrar una (lineup_id), todas las de un slate (slate_key + sport + site),
+// o tus reservadas de un slate (reserved: true). No se pueden recuperar.
+// Tus reservadas quedan "dropped": no se reparten y no se te vuelven a reservar.
 async function actionDelete(req, user) {
   const b = await readBody(req);
-  const { error } = await supabaseAdmin.from("fantasy_app_user_lineups").delete().eq("id", Number(b.lineup_id)).eq("user_id", user.userId);
+  if (b.reserved) {
+    if (!user.isOwner) return { status: 403, body: { ok: false, error: "OWNER_ONLY" } };
+    let q = supabaseAdmin.from("fantasy_app_pool_lineups").update({ status: "dropped" })
+      .eq("user_id", user.userId).eq("status", "owner");
+    q = b.lineup_id ? q.eq("id", Number(b.lineup_id)) : q.eq("slate_key", Number(b.slate_key));
+    const { data, error } = await q.select("id");
+    if (error) throw new Error(`Supabase fantasy_app_pool_lineups: ${error.message}`);
+    return { status: 200, body: { ok: true, deleted: data?.length || 0 } };
+  }
+  // No se borra de verdad: se esconde (deleted_at) y queda para medir resultados
+  let q = supabaseAdmin.from("fantasy_app_user_lineups").update({ deleted_at: new Date().toISOString() })
+    .eq("user_id", user.userId).is("deleted_at", null);
+  if (b.lineup_id) q = q.eq("id", Number(b.lineup_id));
+  else {
+    const sport = parseSport(b.sport), platform = parseSite(b.site), slateKey = num(b.slate_key);
+    if (!sport || !platform || !slateKey) return { status: 400, body: { ok: false, error: "BAD_PARAMS" } };
+    q = q.eq("sport", sport).eq("platform", platform).eq("slate_key", slateKey);
+  }
+  const { data, error } = await q.select("id");
   if (error) throw new Error(`Supabase fantasy_app_user_lineups: ${error.message}`);
-  return { status: 200, body: { ok: true } };
+  return { status: 200, body: { ok: true, deleted: data?.length || 0 } };
 }
 
 
@@ -1995,6 +2155,11 @@ module.exports = async function handler(req, res) {
       return send(res, r.status, r.body);
     }
 
+    if (action === "evaluate") {
+      if (!checkSecret(req)) return send(res, 401, { ok: false, error: "BAD_SECRET" });
+      const r = await actionEvaluate(req);
+      return send(res, r.status, r.body);
+    }
     if (action === "pool-slates") {
       if (!checkSecret(req)) return send(res, 401, { ok: false, error: "BAD_SECRET" });
       const r = await actionPoolSlates();
@@ -2045,7 +2210,7 @@ module.exports = async function handler(req, res) {
       return send(res, r.status, r.body);
     }
 
-    return send(res, 400, { ok: false, error: "UNKNOWN_ACTION", actions: ["slates", "players", "build-cards", "sync-dk", "csv-official", "pool-cron", "ready", "mine", "csv-mine", "changes", "changes-ack", "access", "save", "build", "delete", "pick", "pool-slates"] });
+    return send(res, 400, { ok: false, error: "UNKNOWN_ACTION", actions: ["slates", "players", "build-cards", "sync-dk", "csv-official", "pool-cron", "ready", "mine", "csv-mine", "changes", "changes-ack", "access", "save", "build", "delete", "pick", "pool-slates", "evaluate"] });
   } catch (e) {
     console.error("fantasy-app", e);
     return send(res, 500, { ok: false, error: "SERVER_ERROR", detail: e.message });
