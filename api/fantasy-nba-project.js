@@ -130,7 +130,8 @@ const CONFIG = {
   minSalary: 3501,
   maxDepthRank: 2,
   lineupCount: 20,          // alineaciones por casa (de la mas optima a la menos). 28-oct: 10 -> 25. 29-oct: 25 -> 20
-  lineupMinDifferent: 2,    // cada alineacion cambia al menos 2 jugadores
+  lineupMinDifferent: 3,    // cada alineacion cambia al menos 3 jugadores (5-nov: 2 -> 3, maximo 5 de 8 repetidos)
+  lineupMaxPairShare: 0.3,  // 5-nov: dos jugadores juntos en maximo 30% de las alineaciones
   lineupMaxExposure: 0.4,   // ningun jugador en mas del 40% de las alineaciones
   // 2-nov (aprobado, prueba 27-oct al 1-nov):
   // REGLA DEL 50%: solo entra quien jugo en por lo menos la mitad de
@@ -3207,11 +3208,12 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
       ? buildCaptainLineups(optimizerPool.map(x => {
         const ids = opts.dk.dkIds.get(Number(x.id)) || {};
         return { id: x.id, name: x.name, team: x.team, salary: ids.utilSalary ?? x.salary, cptSalary: ids.cptSalary, points: x.points, utilId: ids.util, cptId: ids.cpt };
-      }), { count: CONFIG.lineupCount, minDifferent: 1, maxExposure: 1 })
+      }), { count: CONFIG.lineupCount, minDifferent: 2, maxExposure: 1, maxPairShare: CONFIG.lineupMaxPairShare })
       : baseOfficial
       ? swapOutPlayers(platform, baseOfficial.rows, optimizerPool, isOut, CONFIG.lineupMaxExposure, slateExtra)
       : buildLineups(platform, optimizerPool, {
         count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure,
+        maxPairShare: CONFIG.lineupMaxPairShare,
         ...officialOptions
       });
 
@@ -3227,6 +3229,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
           count: testCountFor(platform),
           minDifferent: CONFIG.lineupMinDifferent,
           maxExposure: CONFIG.lineupMaxExposure,
+          maxPairShare: CONFIG.lineupMaxPairShare,
           nodeLimit: CONFIG.testNodeLimit,
           timeLimitMs: CONFIG.testSecondsPerPlatform * 1000,
           ...lineupOptions(testCountFor(platform))
