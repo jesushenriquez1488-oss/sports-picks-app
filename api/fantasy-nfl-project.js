@@ -67,7 +67,8 @@ const CONFIG = {
     games: 4,                    // los 4 partidos con total mas alto
     extras: 2                    // principales extra del mismo partido
   },
-  lineupMinDifferent: 2,
+  lineupMinDifferent: 3,         // 5-nov: 2 -> 3 (maximo 6 de 9 repetidos)
+  lineupMaxPairShare: 0.3,       // 5-nov: dos jugadores juntos en maximo 30% (el QB con sus receptores del stack no cuenta entre ellos)
   lineupMaxExposure: 0.4,        // ningun jugador en mas del 40% de las alineaciones
                                  // (con stack: el QB lo limita la cuota de su bloque)
   lineupStack: true,             // QB + receptores en cada alineacion y nunca una
@@ -724,7 +725,7 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
           : { metodo: CONFIG.lineupStack ? "pilas" : "simple" }
       });
     }
-    const lineupOpts = { count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure };
+    const lineupOpts = { count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure, maxPairShare: CONFIG.lineupMaxPairShare };
     // 2-nov: DK con mercado -> 4 partidos de Las Vegas + 2 principales.
     const gameOpts = { games: CONFIG.market.games, extras: CONFIG.market.extras, gameTotals, teamImplied: implied };
     const result = useMarket && gameTotals.size
