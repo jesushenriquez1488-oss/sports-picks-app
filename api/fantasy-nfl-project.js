@@ -725,7 +725,11 @@ async function runProjection({ trigger = "manual", triggerKickoff = null, refres
           : { metodo: CONFIG.lineupStack ? "pilas" : "simple" }
       });
     }
-    const lineupOpts = { count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure, maxPairShare: CONFIG.lineupMaxPairShare };
+    // 5-nov: slate pequeno (3 partidos o menos): reglas de antes (2 distintos, sin tope de parejas)
+    const smallSlate = new Set(pool.map(p => String(p.gameId))).size <= 3;
+    const lineupOpts = smallSlate
+      ? { count: CONFIG.lineupCount, minDifferent: 2, maxExposure: CONFIG.lineupMaxExposure, maxPairShare: 1 }
+      : { count: CONFIG.lineupCount, minDifferent: CONFIG.lineupMinDifferent, maxExposure: CONFIG.lineupMaxExposure, maxPairShare: CONFIG.lineupMaxPairShare };
     // 2-nov: DK con mercado -> 4 partidos de Las Vegas + 2 principales.
     const gameOpts = { games: CONFIG.market.games, extras: CONFIG.market.extras, gameTotals, teamImplied: implied };
     const result = useMarket && gameTotals.size
