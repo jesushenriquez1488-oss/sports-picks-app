@@ -933,7 +933,7 @@ async function loadDraftKingsSlate(day, draftGroupId) {
   };
 }
 
-async function runDraftKingsSlate(day, draftGroupId, count) {
+async function runDraftKingsSlate(day, draftGroupId, count, { savePool = false } = {}) {
   const saved = {};
   const set = obj => { for (const k of Object.keys(obj)) { if (!(k in saved)) saved[k] = CONFIG[k]; CONFIG[k] = obj[k]; } };
   try {
@@ -946,7 +946,9 @@ async function runDraftKingsSlate(day, draftGroupId, count) {
     // tenga de ESE slate, sin pedir salario de $9,000 (en 2-3 partidos
     // muchas veces nadie llega a $9,000 y la regla no se aplicaba).
     else set({ starSalaryShare: 0 });
-    return await runProjectionCore(day, { version: `a pedido ${draftGroupId}`, preview: true, dk });
+    // 5-nov: savePool -> guarda la lista de la formula de ESTE slate para
+    // las alineaciones de los clientes (slates pequenos). Nada mas se guarda.
+    return await runProjectionCore(day, { version: `a pedido ${draftGroupId}`, preview: true, dk, savePool });
   } finally {
     Object.assign(CONFIG, saved);
   }
@@ -3258,8 +3260,10 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     const baseTest = swapMode ? await loadBaseLineups(Number(slate.slate_id), `${opts.version} [prueba ${testCountFor(platform)}]`, runAt) : null;
 
     // 4-nov: guardar la lista del slate para el pool (solo corridas oficiales).
-    if (!opts.preview && !opts.archiveOnly && !opts.dk) {
-      const dkIdOf = new Map(players.filter(p => p.dk_id).map(p => [String(p.player_id), Number(p.dk_id)]));
+    if ((!opts.preview && !opts.archiveOnly && !opts.dk) || (opts.savePool && !opts.dk?.captain)) {
+      const dkIdOf = opts.dk
+        ? new Map([...opts.dk.dkIds.entries()].filter(([, v]) => v.id).map(([k, v]) => [String(k), Number(v.id)]))
+        : new Map(players.filter(p => p.dk_id).map(p => [String(p.player_id), Number(p.dk_id)]));
       const dkGroup = platform === "draftkings" && today.dkMain?.usada === "draftkings" ? today.dkMain.draft_group_id : null;
       const shares = CONFIG.starShares[Math.min(stars.length, 4)] || [];
       slatePoolsOut.push({
@@ -3412,6 +3416,12 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
         ? [...teamProjections.values()].filter(tp => tp.doubtful.length).map(tp => `${tp.code}: ${tp.doubtful.join(", ")}`)
         : undefined
     };
+  }
+
+  // 5-nov: slate pequeno con savePool: solo se guarda su lista para el pool
+  if (opts.preview && opts.savePool && slatePoolsOut.length) {
+    const { error } = await supabaseAdmin.from("fantasy_app_slate_pools").insert(slatePoolsOut);
+    if (error) throw new Error(`Supabase fantasy_app_slate_pools: ${error.message}`);
   }
 
   // 4-nov: a pedido NO guarda nada (ni alineaciones, ni proyecciones,
@@ -4005,6 +4015,8 @@ async function handler(req, res) {
 }
 
 module.exports = handler;
+// 5-nov: para fantasy-app (listas de la formula de los slates pequenos)
+module.exports.runDraftKingsSlate = runDraftKingsSlate;
 module.exports.runProjection = runProjection;
 module.exports.runEvaluation = runEvaluation;
 module.exports.shiftDay = shiftDay;
