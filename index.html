@@ -6282,26 +6282,39 @@ document.addEventListener(
 <script src="script.js"></script>
 <script src="push-client.js"></script>
 <script src="push-native-client.js"></script>
-  <script>
-// FANTASY SPORTS: mostrar el boton solo si el servidor lo permite
-// (mientras FANTASY_PUBLIC no este activo, solo el dueno lo ve).
+ <script>
+// FANTASY SPORTS: el boton lo ven todos cuando Fantasy esta lanzado
+// (antes del lanzamiento solo el dueno). Al presionarlo: Premium entra,
+// los demas ven el bloqueo de pago, igual que Market Intelligence.
+let fantasySportsCanEnter = false;
+
 function openFantasySports() {
-  window.location.href = "fantasy.html";
+  if (fantasySportsCanEnter) {
+    window.location.href = "fantasy.html";
+    return;
+  }
+  if (typeof openPromoModal === "function") {
+    openPromoModal("fantasy");
+  }
 }
 
 async function checkFantasySportsAccess() {
   const btn = document.getElementById("fantasySportsBtn");
-  if (!btn || typeof supabaseClient === "undefined") return;
+  if (!btn) return;
   try {
-    const { data } = await supabaseClient.auth.getSession();
-    const token = data && data.session ? data.session.access_token : null;
-    if (!token) { btn.style.display = "none"; return; }
+    let token = null;
+    if (typeof supabaseClient !== "undefined") {
+      const { data } = await supabaseClient.auth.getSession();
+      token = data && data.session ? data.session.access_token : null;
+    }
     const r = await fetch("https://www.cashedgeapp.com/api/fantasy-app?action=access", {
-      headers: { Authorization: "Bearer " + token }
+      headers: token ? { Authorization: "Bearer " + token } : {}
     });
     const j = await r.json();
-    btn.style.display = j && j.visible ? "" : "none";
+    fantasySportsCanEnter = !!(j && j.visible);
+    btn.style.display = j && j.button ? "" : "none";
   } catch (e) {
+    fantasySportsCanEnter = false;
     btn.style.display = "none";
   }
 }
