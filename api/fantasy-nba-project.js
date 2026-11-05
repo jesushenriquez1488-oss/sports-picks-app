@@ -2642,6 +2642,68 @@ function swapOutPlayers(platform, baseRows, pool, isOut, maxExposure, extra = ne
   return { status: "CIERRE_SOLO_OUT", optimal: false, lineups, cambios };
 }
 
+
+// ============================================================
+// 5-nov: LINEA DE VEGAS (spread) para las palizas. SOLO LECTURA de
+// learning_market_states (la misma que usa Market Intelligence).
+// Por equipo: la ultima linea antes del partido; primero DraftKings,
+// si no hay, el promedio de las demas casas. Devuelve
+// Map(team_id BDL -> diferencia que espera Vegas a favor de ese equipo)
+// (Knicks -11.5 -> NYK +11.5, CHI -11.5).
+// ============================================================
+const NBA_FULL_NAME = {
+  "atlanta hawks": "ATL", "boston celtics": "BOS", "brooklyn nets": "BKN", "charlotte hornets": "CHA",
+  "chicago bulls": "CHI", "cleveland cavaliers": "CLE", "dallas mavericks": "DAL", "denver nuggets": "DEN",
+  "detroit pistons": "DET", "golden state warriors": "GSW", "houston rockets": "HOU", "indiana pacers": "IND",
+  "los angeles clippers": "LAC", "la clippers": "LAC", "los angeles lakers": "LAL", "memphis grizzlies": "MEM",
+  "miami heat": "MIA", "milwaukee bucks": "MIL", "minnesota timberwolves": "MIN", "new orleans pelicans": "NOP",
+  "new york knicks": "NYK", "oklahoma city thunder": "OKC", "orlando magic": "ORL", "philadelphia 76ers": "PHI",
+  "phoenix suns": "PHX", "portland trail blazers": "POR", "sacramento kings": "SAC", "san antonio spurs": "SAS",
+  "toronto raptors": "TOR", "utah jazz": "UTA", "washington wizards": "WAS"
+};
+
+async function loadVegasSpreads(day) {
+  const out = new Map();
+  try {
+    const games = await selectAll("learning_games", "cashedge_game_id,game_time",
+      q => q.eq("sport", "nba").eq("game_date", day));
+    if (!games.length) return out;
+    const startOf = new Map(games.map(g => [g.cashedge_game_id, Date.parse(g.game_time)]));
+    const rows = [];
+    for (const part of chunks(games.map(g => g.cashedge_game_id), 50)) {
+      rows.push(...await selectAll("learning_market_states", "cashedge_game_id,sportsbook_key,selection_key,line,observed_at",
+        q => q.eq("sport", "nba").eq("market_type", "spread").in("cashedge_game_id", part)));
+    }
+    const now = Date.now();
+    // ultima linea de cada casa y equipo (antes del partido)
+    const last = new Map();
+    for (const r of rows) {
+      const t = Date.parse(r.observed_at);
+      const start = startOf.get(r.cashedge_game_id);
+      if (r.line === null || r.line === undefined || t > now || (start && t > start)) continue;
+      const abbr = NBA_FULL_NAME[str(r.selection_key).toLowerCase().trim()];
+      if (!abbr) continue;
+      const k = `${abbr}|${r.sportsbook_key}`;
+      const prev = last.get(k);
+      if (!prev || t > prev.t) last.set(k, { t, abbr, book: str(r.sportsbook_key).toLowerCase(), line: Number(r.line) });
+    }
+    const byTeam = new Map();
+    for (const v of last.values()) {
+      if (!byTeam.has(v.abbr)) byTeam.set(v.abbr, []);
+      byTeam.get(v.abbr).push(v);
+    }
+    for (const [abbr, list] of byTeam) {
+      const dk = list.find(v => v.book === "draftkings");
+      const line = dk ? dk.line : list.reduce((s, v) => s + v.line, 0) / list.length;
+      const id = BDL_TEAM_ID[abbr];
+      if (id) out.set(id, round(-line, 1));
+    }
+  } catch (e) {
+    console.log("vegas spreads:", e.message);   // sin linea: se usa solo la formula
+  }
+  return out;
+}
+
 async function runProjectionCore(day = chicagoDay(), opts = {}) {
   const runAt = opts.runAt || new Date().toISOString();
   const t0 = Date.now();
@@ -2652,7 +2714,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     return { date: day, message: "Fecha pasada: no se recalcula para no contaminar la evaluacion", platforms: [] };
   }
 
-  const [history, today] = await Promise.all([loadHistory(day), loadToday(day)]);
+  const [history, today, vegasMargin] = await Promise.all([loadHistory(day), loadToday(day), loadVegasSpreads(day)]);
   // 4-nov: a pedido, solo el slate de DraftKings que se pidio.
   if (opts.dk) {
     today.slates = [opts.dk.slate];
@@ -3020,7 +3082,8 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
               const o = opponents.get(Number(p.team_id));
               if (!o) return null;
               const m = expectedMargin(Number(p.team_id), o);
-              return { total: round(m.total, 1), nivel: round(m.nivel, 1), localia: round(m.localia, 1), bajas: round(m.bajas, 1), cansancio: round(m.cansancio, 1) };
+              return { total: round(m.total, 1), nivel: round(m.nivel, 1), localia: round(m.localia, 1), bajas: round(m.bajas, 1), cansancio: round(m.cansancio, 1),
+                vegas: vegasMargin.has(Number(p.team_id)) ? vegasMargin.get(Number(p.team_id)) : null };
             })(),
             ajustePartido: round(row.blowoutFactor, 3),
             entraAJugar: round(row.appearance, 2),
@@ -3066,13 +3129,17 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
         const opp = opponents.get(team);
         if (!opp || seen.has(team)) continue;
         seen.add(team); seen.add(opp);
+        // 5-nov: paliza si CashEdge O Vegas esperan 10+ puntos
         const m = expectedMargin(team, opp).total;
-        if (Math.abs(m) < CONFIG.blowoutExpected) continue;
-        const fav = m > 0 ? team : opp;
+        const v = vegasMargin.has(team) ? vegasMargin.get(team) : vegasMargin.has(opp) ? -vegasMargin.get(opp) : null;
+        const byUs = Math.abs(m) >= CONFIG.blowoutExpected;
+        const byVegas = v !== null && Math.abs(v) >= CONFIG.blowoutExpected;
+        if (!byUs && !byVegas) continue;
+        const fav = (byVegas ? v : m) > 0 ? team : opp;
         blowoutTeams.add(team); blowoutTeams.add(opp);
         const star = eligible.filter(y => Number(y.p.team_id) === fav)[0];   // eligible va de mas a menos
         if (star) favoriteStars.add(String(star.p.player_id));
-        blowoutGames.push(`${teamProjections.get(team)?.code || team} vs ${teamProjections.get(opp)?.code || opp} (espera ${round(Math.abs(m), 1)}, favorito ${teamProjections.get(fav)?.code || fav})`);
+        blowoutGames.push(`${teamProjections.get(team)?.code || team} vs ${teamProjections.get(opp)?.code || opp} (CashEdge ${round(Math.abs(m), 1)}, Vegas ${v === null ? "sin linea" : round(Math.abs(v), 1)}, favorito ${teamProjections.get(fav)?.code || fav})`);
       }
     }
     const blowoutFactor = x => (
