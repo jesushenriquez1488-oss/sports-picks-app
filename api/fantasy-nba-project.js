@@ -3260,7 +3260,7 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     const baseTest = swapMode ? await loadBaseLineups(Number(slate.slate_id), `${opts.version} [prueba ${testCountFor(platform)}]`, runAt) : null;
 
     // 4-nov: guardar la lista del slate para el pool (solo corridas oficiales).
-    if ((!opts.preview && !opts.archiveOnly && !opts.dk) || (opts.savePool && !opts.dk?.captain)) {
+    if ((!opts.preview && !opts.archiveOnly && !opts.dk) || opts.savePool) {
       const dkIdOf = opts.dk
         ? new Map([...opts.dk.dkIds.entries()].filter(([, v]) => v.id).map(([k, v]) => [String(k), Number(v.id)]))
         : new Map(players.filter(p => p.dk_id).map(p => [String(p.player_id), Number(p.dk_id)]));
@@ -3270,11 +3270,17 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
         sport: "nba",
         platform,
         slate_key: dkGroup || Number(slate.slate_id),
-        game_type: "classic",
+        game_type: opts.dk?.captain ? "captain" : "classic",
         slate_date: day,
         starts_at: slate.starts_at || null,
         version: runAt,
-        players: optimizerPool.map(p => ({ ...p, dkId: dkIdOf.get(p.id) ?? null })),
+        // 5-nov: Captain: cada jugador con su ID y salario de UTIL y de CPT
+        players: opts.dk?.captain
+          ? optimizerPool.map(p => {
+            const ids = opts.dk.dkIds.get(Number(p.id)) || {};
+            return { ...p, salary: ids.utilSalary ?? p.salary, dkId: ids.util ?? null, utilId: ids.util ?? null, cptId: ids.cpt ?? null, cptSalary: ids.cptSalary ?? Math.round(Number(p.salary) * 1.5) };
+          })
+          : optimizerPool.map(p => ({ ...p, dkId: dkIdOf.get(p.id) ?? null })),
         stars: stars.slice(0, shares.length).map((st, i) => ({ id: st.id, name: st.name, share: shares[i] }))
       });
     }
