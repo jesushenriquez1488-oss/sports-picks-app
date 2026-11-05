@@ -57,6 +57,7 @@
     { "path": "/api/fantasy-app?action=sync-dk", "schedule": "*/15 * * * *" },
     { "path": "/api/fantasy-app?action=pool-cron", "schedule": "*/5 * * * *" },
     { "path": "/api/fantasy-app?action=pool-slates", "schedule": "*/10 * * * *" },
+    { "path": "/api/fantasy-app?action=evaluate", "schedule": "40 16 * * *" },
     { "path": "/api/fantasy-nba-daily?step=all", "schedule": "30 8 * * *" },
     { "path": "/api/fantasy-nba-daily?step=refresh", "schedule": "30 21 * * *" },
     { "path": "/api/fantasy-nba-daily?step=props&auto=1", "schedule": "*/15 13-23 * * *" },
