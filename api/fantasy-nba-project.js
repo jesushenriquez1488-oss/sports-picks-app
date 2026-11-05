@@ -2904,6 +2904,8 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
 
   const fantasyCache = new Map();
   const projectionRows = [];
+  // 4-nov: lista de jugadores de cada slate para el POOL de clientes.
+  const slatePoolsOut = [];
   const lineupRows = [];
   const testLineupRows = [];
   const testInfo = [];
@@ -3183,6 +3185,23 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
     const baseOfficial = swapMode ? await loadBaseLineups(Number(slate.slate_id), opts.version, runAt) : null;
     const baseTest = swapMode ? await loadBaseLineups(Number(slate.slate_id), `${opts.version} [prueba ${testCountFor(platform)}]`, runAt) : null;
 
+    // 4-nov: guardar la lista del slate para el pool (solo corridas oficiales).
+    if (!opts.preview && !opts.archiveOnly && !opts.dk) {
+      const dkIdOf = new Map(players.filter(p => p.dk_id).map(p => [String(p.player_id), Number(p.dk_id)]));
+      const dkGroup = platform === "draftkings" && today.dkMain?.usada === "draftkings" ? today.dkMain.draft_group_id : null;
+      const shares = CONFIG.starShares[Math.min(stars.length, 4)] || [];
+      slatePoolsOut.push({
+        sport: "nba",
+        platform,
+        slate_key: dkGroup || Number(slate.slate_id),
+        game_type: "classic",
+        slate_date: day,
+        starts_at: slate.starts_at || null,
+        version: runAt,
+        players: optimizerPool.map(p => ({ ...p, dkId: dkIdOf.get(p.id) ?? null })),
+        stars: stars.slice(0, shares.length).map((st, i) => ({ id: st.id, name: st.name, share: shares[i] }))
+      });
+    }
     const officialOptions = opts.dk?.captain ? {} : lineupOptions(CONFIG.lineupCount);
     const lineupResult = opts.dk?.captain
       ? buildCaptainLineups(optimizerPool.map(x => {
@@ -3329,6 +3348,15 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
       .eq("slate_id", Number(slate.slate_id))
       .lt("created_at", runAt);
     if (error) throw new Error(`Supabase fantasy_nba_lineups: ${error.message}`);
+  }
+
+  // 4-nov: lista de cada slate para el pool de clientes (si la tabla
+  // no existe todavia, no tumba la corrida).
+  if (slatePoolsOut.length) {
+    try {
+      const { error } = await supabaseAdmin.from("fantasy_app_slate_pools").insert(slatePoolsOut);
+      if (error) console.warn("fantasy_app_slate_pools:", error.message);
+    } catch (e) { console.warn("fantasy_app_slate_pools:", e.message); }
   }
 
   // Guardar proyecciones.
