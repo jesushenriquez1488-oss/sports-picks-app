@@ -954,16 +954,24 @@ const DK_DAYS_AHEAD = { nba: 1, nfl: 6 };
 
 // Fotos: lista de jugadores del slate en la API publica de DraftKings
 // (draftableId = el ID del CSV). Sin foto si falla.
+// 5-nov: devuelve tambien el motivo si no hay fotos (se ve en sync-dk)
+let lastImageError = null;
 async function dkImages(dg) {
+  lastImageError = null;
   try {
-    const j = await dkFetch(`https://api.draftkings.com/draftgroups/v1/draftgroups/${dg}/draftables`);
+    const j = await dkFetch(`https://api.draftkings.com/draftgroups/v1/draftgroups/${dg}/draftables?format=json`);
     const out = new Map();
-    for (const d of j?.draftables || []) {
-      const img = d.playerImage160 || d.playerImageFull || d.playerImage50 || null;
+    const list = j?.draftables || [];
+    for (const d of list) {
+      const img = d.playerImage160 || d.playerImageFull || d.playerImage50 || d.playerImage || null;
       if (d.draftableId && img) out.set(Number(d.draftableId), img);
     }
+    if (!out.size) lastImageError = list.length
+      ? `sin campo de foto (campos: ${Object.keys(list[0]).slice(0, 25).join(",")})`
+      : `respuesta sin draftables (claves: ${Object.keys(j || {}).slice(0, 10).join(",")})`;
     return out;
-  } catch {
+  } catch (e) {
+    lastImageError = e.message;
     return new Map();
   }
 }
@@ -996,7 +1004,7 @@ async function syncDkSport(sport, day, nowIso) {
   const out = [];
   for (const g of groups.values()) {
     const far = Date.parse(g.startsAt) - Date.now() > 6 * 3600000;
-    if (far && Date.now() - (prevChecked.get(g.dg) || 0) < 60 * 60000) {
+    if (far && !syncForce && Date.now() - (prevChecked.get(g.dg) || 0) < 60 * 60000) {
       out.push({ draft_group_id: g.dg, type: g.type, day: g.day, estado: "leido hace menos de 1 hora" });
       continue;
     }
@@ -1057,6 +1065,7 @@ async function syncDkSport(sport, day, nowIso) {
       }
       out.push({
         draft_group_id: g.dg, type: g.type, day: g.day, games: games.size, players: players.length, fotos: images.size,
+        fotos_error: images.size ? undefined : lastImageError,
         sin_cruce: players.filter(p => !p.player_key).length,
         ejemplos_sin_cruce: players.filter(p => !p.player_key && p.salary >= 4000).slice(0, 5).map(p => `${p.player_name} ${p.team}`)
       });
@@ -1067,7 +1076,9 @@ async function syncDkSport(sport, day, nowIso) {
   return out;
 }
 
+let syncForce = false;
 async function actionSyncDk(req) {
+  syncForce = str(req.query.force) === "1";
   const day = chicagoDay();
   const nowIso = new Date().toISOString();
   const only = parseSport(req.query.sport);
