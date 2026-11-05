@@ -789,11 +789,13 @@ function renderMine() {
   const groups = (MINE.groups || []).slice();
   // Tus 10 reservadas: un grupo por deporte y sitio
   const res = {};
-  for (const l of MINE.tus10 || []) (res[`${l.sport}|${l.platform}`] ||= []).push({ ...l, reserved: true });
+  for (const l of MINE.tus10 || []) (res[`${l.sport}|${l.platform}|${l.slate_key}`] ||= []).push({ ...l, reserved: true });
   for (const list of Object.values(res).reverse()) {
     list.sort((a, b) => Number(b.proj) - Number(a.proj));
+    const sl = SLATES.find(x => Number(x.slate_id) === Number(list[0].slate_key));
+    const where = sl ? slateLabel(sl) : (list[0].slate_date ? dayName(list[0].slate_date) : "Main");
     groups.unshift({ sport: list[0].sport, platform: list[0].platform, slate_key: list[0].slate_key, game_type: "classic", lineups: list, reserved: true,
-      title: `Your top ${list.length} (reserved) · ${list[0].platform === "draftkings" ? "DraftKings" : "FanDuel"}` });
+      title: `Your top ${list.length} (reserved) · ${list[0].platform === "draftkings" ? "DraftKings" : "FanDuel"} · ${where}` });
   }
   let total = 0;
   const bySport = {};
@@ -808,7 +810,7 @@ function renderMine() {
     return `<details class="grp" ${g.sport === sport() && g.platform === site() ? "open" : ""}><summary><span class="gt"><b>${esc(g.title || (isDk ? "DraftKings" : "FanDuel") + " · Main")}</b><span><span class="tagtype">Classic</span> · ${g.lineups.length} lineup${g.lineups.length > 1 ? "s" : ""}</span></span>
       ${isDk ? `<button class="btn sec" data-csv="${g.sport}" data-sk="${g.slate_key}" data-rs="${g.reserved ? 1 : 0}">⬇ CSV</button>` : `<span class="fdnote">FanDuel: enter by hand</span>`}</summary>
       <div class="gb">${g.lineups.map((l, k) => `<div class="lu ${EDITING?.id === l.id ? "editing" : ""}"><div class="hd"><span>Lineup #${k + 1}${l.source === "built" || l.source === "locks" ? ' <span class="chip own">Built by you</span>' : ""}${l.edited ? ' <span class="chip own">Edited</span>' : ""}</span><span class="r"><span class="num">${money(l.salary)}</span>${l.reserved ? "" : `<button class="edbtn" data-ed="${l.id}" data-k="${k + 1}">✎ Edit</button>`}</span></div>
-        ${(l.players || []).map(p => `<div class="ln"><span>${esc(p.slot)}</span><span>${esc(p.name)}</span><span class="num">${money(p.salary)}</span><span class="num note">proj ${Number(p.points || 0).toFixed(1)}</span></div>`).join("")}</div>`).join("")}</div></details>`;
+        ${(l.players || []).map(p => `<div class="ln"><span>${esc(p.slot)}</span><span>${esc(p.name)}${p.team ? ` <span class="note">· ${esc(p.team)}</span>` : ""}</span><span class="num">${money(p.salary)}</span><span class="num note">proj ${Number(p.points || 0).toFixed(1)}</span></div>`).join("")}</div>`).join("")}</div></details>`;
   }).join("")}</div>`).join("") : `<span class="note">No lineups yet. Build one above or get ready-made lineups.</span>`;
   $("#myCount").textContent = total;
   if (!SLATE) $("#sheetTxt").textContent = "My lineups · " + total;
