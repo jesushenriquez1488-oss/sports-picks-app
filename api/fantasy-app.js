@@ -1229,7 +1229,13 @@ async function actionCsvOfficial(req, res) {
 // parejas al 30% y busqueda de 20,000 pasos por alineacion (con 200,000
 // no alcanzaba a hacer 200 en 40 s y los topes se rompian entre tandas).
 const POOL = { target: 1000, batch: 200, refillBelow: 200, ownerTop: 10, maxPerUser: 50,
-  minDifferent: 3, maxExposure: 0.4, maxPairShare: 0.3, nodeLimit: 20000, batchSeconds: 40 };
+  minDifferent: 3, maxExposure: 0.4, maxPairShare: 0.3, nodeLimit: 20000, batchSeconds: 40,
+  nflBatch: 50, batchMaxSeconds: 60 };
+// 6-nov (consumo Vercel): NFL arma de 50 en 50 (antes 200). Con 400-600 ya
+// armadas, una tanda de 200 no terminaba antes de los 5 min de Vercel, se
+// cortaba sin guardar nada y se repetia cada 5 min. El tope de 40% y el de
+// parejas se calculan por tanda, asi que con 50 se mantiene la misma
+// proporcion. NFL y Captain ahora tambien tienen hora limite por tanda.
 const DK_HEADER_POOL = { nba: { draftkings: ["PG", "SG", "SF", "PF", "C", "G", "F", "UTIL"], fanduel: ["PG", "PG", "SG", "SG", "SF", "SF", "PF", "PF", "C"] } };
 
 let nbaLineupsLib = null, nflLineupsLib = null;
@@ -1286,11 +1292,14 @@ function poolTier(sp) {
 async function poolBatch(sp, count, existing) {
   const prior = existing.map(l => (l.players || []).map(p => String(p.id)));
   const { minDifferent, maxPairShare } = poolTier(sp);
+  // 6-nov: hora limite de la tanda (max 60 s y nunca pasado el tope de pool-cron + 40 s)
+  const t0 = Date.now();
+  const deadline = Math.min(t0 + POOL.batchMaxSeconds * 1000, poolDeadline + 40000);
   let r;
   if (sp.game_type === "captain") {
     // 5-nov: Captain (1 CPT x1.5 + 5 UTIL), el armador de Captain de la formula
     r = captainLib().buildCaptainLineups(sp.players.map(p => ({ ...p, id: String(p.id) })), {
-      count, minDifferent, maxExposure: 1, maxPairShare, nodeLimit: 3e5,
+      count, minDifferent, maxExposure: 1, maxPairShare, nodeLimit: 3e5, deadline,
       check: sp.sport === "nfl" ? nflShowdownCheck : null,
       prior: existing.map(l => {
         const ps = l.players || [];
@@ -1301,7 +1310,7 @@ async function poolBatch(sp, count, existing) {
     // NFL: la misma forma de la formula (4 partidos de Vegas + 2
     // principales; sin mercado, las pilas de antes).
     const m = sp.stars || {};
-    const base = { count, minDifferent, maxExposure: POOL.maxExposure, maxPairShare, nodeLimit: POOL.nodeLimit, prior };
+    const base = { count, minDifferent, maxExposure: POOL.maxExposure, maxPairShare, nodeLimit: POOL.nodeLimit, prior, deadline };
     r = m.metodo === "partidos"
       ? nflLib().buildGameStackLineups(sp.platform, sp.players, { ...base, games: m.games, extras: m.extras, gameTotals: new Map(m.gameTotals || []), teamImplied: new Map(m.teamImplied || []) })
       : m.metodo === "pilas"
@@ -1317,8 +1326,11 @@ async function poolBatch(sp, count, existing) {
       prior
     });
   }
+  // 6-nov: NBA no avisa si se le acabo el tiempo: si uso casi todo su
+  // tiempo (40 s) se toma como cortada por tiempo, no como agotada.
+  const timedOut = !!r.timedOut || (sp.game_type !== "captain" && sp.sport !== "nfl" && Date.now() - t0 >= POOL.batchSeconds * 1000 * 0.9);
   const byId = new Map(sp.players.map(p => [String(p.id), p]));
-  return r.lineups.map(l => ({
+  const out = r.lineups.map(l => ({
     players: l.players.map(p => {
       const src = byId.get(String(p.id)) || {};
       const dkId = p.slot === "CPT" ? (src.cptId ?? p.dkId ?? null) : (src.dkId ?? p.dkId ?? null);
@@ -1328,13 +1340,16 @@ async function poolBatch(sp, count, existing) {
     proj: round(l.points, 2),
     star: l.pila || (l.stack ? `${l.stack.qb} (${l.stack.team})` : null)
   }));
+  out.timedOut = timedOut;
+  return out;
 }
 
 // 5-nov: todas las listas del dia (Main y slates pequenos), cada una por su lado
-async function refillPool(sport, platform, day) {
+// 6-nov: solo carga las listas; pool-cron decide el orden (las mas vacias primero)
+async function loadPools(sport, platform, day) {
   const rows = await selectAll("fantasy_app_slate_pools", "slate_key,version",
     q => q.eq("sport", sport).eq("platform", platform).eq("slate_date", day));
-  if (!rows.length) return { platform, estado: "sin lista de la formula" };
+  if (!rows.length) return [];
   const latest = new Map();
   for (const r of rows) if (!latest.has(Number(r.slate_key)) || String(r.version) > String(latest.get(Number(r.slate_key)))) latest.set(Number(r.slate_key), r.version);
   const pools = [];
@@ -1346,12 +1361,16 @@ async function refillPool(sport, platform, day) {
   }
   // Tus 10 reservadas: solo en el Main (el de mas partidos del dia)
   const mainKey = pools.slice().sort((a, b) => slateGames(b) - slateGames(a))[0]?.slate_key;
-  const out = [];
-  for (const sp of pools) {
-    try { out.push(await refillOne(sp, Number(sp.slate_key) === Number(mainKey))); }
-    catch (e) { out.push({ slate_key: sp.slate_key, error: e.message }); }
-  }
-  return { platform, listas: out };
+  return pools.map(sp => ({ sp, isMain: Number(sp.slate_key) === Number(mainKey) }));
+}
+
+// 6-nov: que tan lleno esta un slate (0 = vacio, 1 = llego a su meta)
+async function poolFill(sp) {
+  const { count, error } = await supabaseAdmin.from("fantasy_app_pool_lineups").select("id", { count: "exact", head: true })
+    .eq("sport", sp.sport).eq("platform", sp.platform).eq("slate_key", sp.slate_key).eq("version", sp.version);
+  if (error) return 0;
+  if (sp.stars?.agotada) return 1;
+  return Math.min(1, (count || 0) / poolTier(sp).target);
 }
 
 let poolDeadline = Infinity;   // pool-cron: no pasarse del tiempo de Vercel
@@ -1361,7 +1380,7 @@ async function refillOne(sp, isMain) {
   const tier = poolTier(sp);
   // Meta por tamano del slate (1000 / 500 / 300 / 150), en tandas de 200.
   // Despues, 200 mas cada vez que quedan pocas libres.
-  const batchSize = Math.min(POOL.batch, tier.target);
+  const batchSize = Math.min(sport === "nfl" && sp.game_type !== "captain" ? POOL.nflBatch : POOL.batch, tier.target);
   const refillBelow = Math.min(POOL.refillBelow, Math.round(tier.target / 5));
   if (sp.starts_at && Date.parse(sp.starts_at) <= Date.now()) return { slate_key: sp.slate_key, estado: "el slate ya empezo" };
 
@@ -1395,12 +1414,14 @@ async function refillOne(sp, isMain) {
     }
     built = rows.length;
     current.push(...rows.map(r => ({ ...r, id: null })));
-    if (built < need) {
+    if (built < need && (!lines.timedOut || built === 0)) {
       // Slate chico: no hay mas combinaciones. Se marca para no repetir.
+      // 6-nov: si se acabo el tiempo pero si armo algunas, NO se marca (sigue en la
+      // proxima vuelta). Si en todo su tiempo no armo ninguna, si se marca.
       await supabaseAdmin.from("fantasy_app_slate_pools").update({ stars: { ...(sp.stars || {}), agotada: current.length } })
         .eq("sport", sport).eq("platform", platform).eq("slate_key", sp.slate_key).eq("version", sp.version);
     }
-    console.log("pool", sport, platform, built, (Date.now() - t) / 1000, "s");
+    console.log("pool", sport, platform, sp.slate_key, built, lines.timedOut ? "(cortada por tiempo)" : "", (Date.now() - t) / 1000, "s");
   }
 
   // Tus 10: las mejores de la version actual.
@@ -1446,7 +1467,7 @@ async function refillOne(sp, isMain) {
       if (error) throw new Error(`Supabase fantasy_app_pool_lineups: ${error.message}`);
     }
   }
-  return { slate_key: sp.slate_key, partidos: tier.games, meta: tier.target, version: sp.version, armadas: built, total: current.length, libres: Math.max(0, free + built - (owner ? Math.max(0, POOL.ownerTop - mine) : 0)) };
+  return { platform, day, slate_key: sp.slate_key, partidos: tier.games, meta: tier.target, version: sp.version, armadas: built, total: current.length, libres: Math.max(0, free + built - (owner ? Math.max(0, POOL.ownerTop - mine) : 0)) };
 }
 
 async function actionPoolCron(req) {
@@ -1459,6 +1480,10 @@ async function actionPoolCron(req) {
     try { body.cambiosPorOut.push(await runOutSwaps(sport, day)); }
     catch (e) { body.cambiosPorOut.push({ sport, error: e.message }); }
     body[sport] = [];
+    // 6-nov: se juntan todos los slates (DK y FD, hoy y proximos dias) y se
+    // atienden primero los Main y luego los demas, cada grupo del mas vacio
+    // al mas lleno. Asi un slate atascado ya no deja a los otros en 0.
+    const todo = [];
     for (const platform of ["draftkings", "fanduel"]) {
       // 5-nov: tambien el Main de los proximos dias (ej. NFL domingo desde el jueves)
       let days = [day];
@@ -1468,10 +1493,16 @@ async function actionPoolCron(req) {
         days = [...new Set([day, ...rows.map(r => r.slate_date)])].sort();
       } catch { /* solo hoy */ }
       for (const d of days) {
-        if (Date.now() - t0 > 200000) { body[sport].push({ platform, day: d, estado: "sin tiempo, sigue en la proxima vuelta" }); continue; }
-        try { body[sport].push({ day: d, ...(await refillPool(sport, platform, d)) }); }
+        try { todo.push(...(await loadPools(sport, platform, d))); }
         catch (e) { body[sport].push({ platform, day: d, error: e.message }); }
       }
+    }
+    const fills = await Promise.all(todo.map(x => poolFill(x.sp).catch(() => 0)));
+    todo.forEach((x, i) => { x.fill = fills[i]; });
+    todo.sort((a, b) => (b.isMain - a.isMain) || (a.fill - b.fill));
+    for (const { sp, isMain } of todo) {
+      try { body[sport].push(await refillOne(sp, isMain)); }
+      catch (e) { body[sport].push({ platform: sp.platform, day: sp.slate_date, slate_key: sp.slate_key, error: e.message }); }
     }
   }
   return { status: 200, body };
