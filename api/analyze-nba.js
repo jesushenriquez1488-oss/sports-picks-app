@@ -10463,7 +10463,7 @@ if (
         },
         pick,
         mainEdge: round2(mainEdge),
-        premium: mainEdge >= 13
+                premium: mainEdge >= ((pick === "Over" || pick === "Under") ? 18 : 13)
       })
     );
 
@@ -10726,7 +10726,14 @@ return res.status(200).json(
 
     }
 
-    const isPremiumPick = mainEdge >= 13;
+      // NCAAB: Premium spread desde 13, total desde 18. Resto igual.
+    const isMainTotalPick =
+      pick === "Over" || pick === "Under";
+
+    const isPremiumPick =
+      selectedLeague === "ncaab"
+        ? mainEdge >= (isMainTotalPick ? 18 : 13)
+        : mainEdge >= 13;
 
 const verdict = isPremiumPick ? "Premium" : "Moderado";
 const risk = isPremiumPick ? "Bajo" : "Medio";
@@ -12948,16 +12955,104 @@ function calcNcaabProjection(
       "allowed"
     ) ?? opponent.defenseAllowedAvg;
 
+  // ¿Este equipo es el underdog? (BPI mas bajo hoy)
+  const teamBpi =
+    getNBAFormulaValue(teamGames?.[0]?.teamBpi);
+
+  const opponentBpi =
+    getNBAFormulaValue(opponentGames?.[0]?.teamBpi);
+
+  const isUnderdog =
+    teamBpi !== null &&
+    opponentBpi !== null &&
+    teamBpi < opponentBpi;
+
+  // REGLA 2 — EDGE EN 0 (solo underdog):
+  // si el favorito permitio de mas (edge +) contra un rival
+  // que ataca MEJOR que el underdog de hoy, ese juego cuenta 0.
+  // Los edges negativos (buena defensa) se quedan igual.
+  let opponentDefensiveEdge =
+    opponent.defensiveEdgeAvg;
+
+  let edgeRuleGames = 0;
+
+  if (isUnderdog) {
+    const edges = [];
+
+    for (const game of opponentGames || []) {
+      const allowed = getNBAFormulaValue(game?.allowed);
+      const rivalAvgScored = getNBAFormulaValue(game?.opponentAvgScored);
+
+      if (allowed === null || rivalAvgScored === null) {
+        continue;
+      }
+
+      let edge = allowed - rivalAvgScored;
+
+      const rivalOff = getNBAFormulaValue(game?.opponentBpiOff);
+      const todayOff = getNBAFormulaValue(game?.todayOpponentOff);
+
+      if (
+        edge > 0 &&
+        rivalOff !== null &&
+        todayOff !== null &&
+        rivalOff > todayOff
+      ) {
+        edge = 0;
+        edgeRuleGames++;
+      }
+
+      edges.push(edge);
+    }
+
+    if (edges.length) {
+      opponentDefensiveEdge =
+        edges.reduce((sum, edge) => sum + edge, 0) /
+        edges.length;
+    }
+  }
+
   const A =
     opponentAdjustedAllowed +
     team.offensiveEdgeAvg;
 
   const B =
     teamAdjustedScored +
-    opponent.defensiveEdgeAvg;
+    opponentDefensiveEdge;
+
+  let projection = (A + B) / 2;
+
+  // REGLA 1 — TOPE (solo underdog):
+  // si el rival de hoy es mas fuerte que el promedio de los
+  // rivales de mi muestra, no puedo proyectar mas de lo que anotaba.
+  let capApplied = false;
+
+  if (isUnderdog) {
+    const rivalBpis =
+      (teamGames || [])
+        .map(game => getNBAFormulaValue(game?.opponentBpi))
+        .filter(value => value !== null);
+
+    const todayRivalBpi =
+      getNBAFormulaValue(teamGames?.[0]?.todayOpponentBpi);
+
+    if (rivalBpis.length && todayRivalBpi !== null) {
+      const avgRivalBpi =
+        rivalBpis.reduce((sum, value) => sum + value, 0) /
+        rivalBpis.length;
+
+      if (
+        todayRivalBpi > avgRivalBpi &&
+        projection > team.offenseAvg
+      ) {
+        projection = team.offenseAvg;
+        capApplied = true;
+      }
+    }
+  }
 
   return {
-    projection: (A + B) / 2,
+    projection,
     pathA: A,
     pathB: B,
     teamAdjustedScored,
@@ -12965,7 +13060,11 @@ function calcNcaabProjection(
     rawTeamScored: team.offenseAvg,
     rawOpponentAllowed: opponent.defenseAllowedAvg,
     teamOffensiveEdge: team.offensiveEdgeAvg,
-    opponentDefensiveEdge: opponent.defensiveEdgeAvg
+    opponentDefensiveEdge,
+    originalOpponentDefensiveEdge: opponent.defensiveEdgeAvg,
+    isUnderdog,
+    edgeRuleGames,
+    capApplied
   };
 }
 // ============================================================
