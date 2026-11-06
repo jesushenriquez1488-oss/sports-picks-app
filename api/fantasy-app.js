@@ -1639,7 +1639,9 @@ async function actualPoints(sport, platform, from, to) {
   return out;
 }
 
-const lineupPoints = (players, pts) => round((players || []).reduce((s, p) => s + (pts.get(str(p.key || p.id)) || 0), 0), 2);
+// 6-nov: en Captain el CPT suma 1.5 veces
+const lineupPoints = (players, pts) => round((players || []).reduce((s, p) =>
+  s + (pts.get(str(p.key || p.id)) || 0) * (str(p.slot).toUpperCase() === "CPT" ? 1.5 : 1), 0), 2);
 
 async function evaluateSlate(sport, platform, slateKey) {
   const info = await slateInfo(sport, platform, slateKey);
@@ -1876,7 +1878,9 @@ async function actionCsvMine(req, res, user) {
         x = slateKey ? x.eq("slate_key", slateKey) : x.eq("slate_date", day);
         return x.order("proj", { ascending: false });
       });
-    list = reserved.map(r => r.players).concat(list);
+    // 6-nov: el CSV de las reservadas trae SOLO las reservadas (antes
+    // sumaba tambien las que pediste aparte en ese slate). tus10 sin slate: igual que antes.
+    list = slateKey ? reserved.map(r => r.players) : reserved.map(r => r.players).concat(list);
   }
   if (!list.length) return send(res, 404, { ok: false, error: "NO_LINEUPS" });
   const isCaptain = list.some(ps => (ps || []).some(p => p.slot === "CPT"));
