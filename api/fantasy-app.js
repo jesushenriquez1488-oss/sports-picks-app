@@ -1230,7 +1230,7 @@ async function actionCsvOfficial(req, res) {
 // no alcanzaba a hacer 200 en 40 s y los topes se rompian entre tandas).
 const POOL = { target: 1000, batch: 200, refillBelow: 200, ownerTop: 10, maxPerUser: 50,
   minDifferent: 3, maxExposure: 0.4, maxPairShare: 0.3, nodeLimit: 20000, batchSeconds: 40,
-  nflBatch: 50, batchMaxSeconds: 60 };
+  nflBatch: 50, nflGroup: 20, batchMaxSeconds: 60 };
 // 6-nov (consumo Vercel): NFL arma de 50 en 50 (antes 200). Con 400-600 ya
 // armadas, una tanda de 200 no terminaba antes de los 5 min de Vercel, se
 // cortaba sin guardar nada y se repetia cada 5 min. El tope de 40% y el de
@@ -1309,13 +1309,26 @@ async function poolBatch(sp, count, existing) {
   } else if (sp.sport === "nfl") {
     // NFL: la misma forma de la formula (4 partidos de Vegas + 2
     // principales; sin mercado, las pilas de antes).
+    // 6-nov: en grupos de 20 hasta llenar la tanda o hasta la hora limite.
+    // El tope de 40% y el de parejas se calculan por grupo: si el tiempo
+    // corta a mitad de un grupo de 20, el tope sigue casi exacto (8 de 20).
     const m = sp.stars || {};
-    const base = { count, minDifferent, maxExposure: POOL.maxExposure, maxPairShare, nodeLimit: POOL.nodeLimit, prior, deadline };
-    r = m.metodo === "partidos"
-      ? nflLib().buildGameStackLineups(sp.platform, sp.players, { ...base, games: m.games, extras: m.extras, gameTotals: new Map(m.gameTotals || []), teamImplied: new Map(m.teamImplied || []) })
-      : m.metodo === "pilas"
-        ? nflLib().buildStackLineups(sp.platform, sp.players, { ...base, alwaysTwo: !!m.siempreDos })
-        : nflLib().buildLineups(sp.platform, sp.players, base);
+    const all = [];
+    let cut = false;
+    while (all.length < count && !cut) {
+      const n = Math.min(POOL.nflGroup, count - all.length);
+      const base = { count: n, minDifferent, maxExposure: POOL.maxExposure, maxPairShare, nodeLimit: POOL.nodeLimit,
+        prior: prior.concat(all.map(l => l.players.map(p => String(p.id)))), deadline };
+      const g = m.metodo === "partidos"
+        ? nflLib().buildGameStackLineups(sp.platform, sp.players, { ...base, games: m.games, extras: m.extras, gameTotals: new Map(m.gameTotals || []), teamImplied: new Map(m.teamImplied || []) })
+        : m.metodo === "pilas"
+          ? nflLib().buildStackLineups(sp.platform, sp.players, { ...base, alwaysTwo: !!m.siempreDos })
+          : nflLib().buildLineups(sp.platform, sp.players, base);
+      all.push(...g.lineups);
+      if (g.timedOut) cut = true;
+      else if (g.lineups.length < n) break;   // no salen mas con estas reglas
+    }
+    r = { lineups: all, timedOut: cut };
   } else {
     const groups = starGroups(sp.stars, count);
     r = lineupsLib().buildLineups(sp.platform, sp.players, {
