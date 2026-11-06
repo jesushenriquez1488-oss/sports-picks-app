@@ -1418,7 +1418,8 @@ async function refillOne(sp, isMain) {
   }
   if (owner) {
     const { data: dropped } = await supabaseAdmin.from("fantasy_app_pool_lineups").select("id")
-      .eq("sport", sport).eq("platform", platform).eq("slate_key", sp.slate_key).eq("user_id", owner).eq("status", "dropped").limit(1);
+      .eq("sport", sport).eq("platform", platform).eq("slate_key", sp.slate_key).eq("user_id", owner).in("status", ["dropped", "owner_fixed"]).limit(1);
+    // 6-nov: si ya descargaste tus reservadas (owner_fixed) no se te apartan otras
     if (dropped?.length) owner = null;
   }
   let mine = current.filter(l => l.status === "owner").length;
@@ -1849,7 +1850,7 @@ async function actionMine(req, user) {
   // Tus 10 del pool (solo el dueno)
   let reserved = [];
   if (user.isOwner) {
-    reserved = await selectAll("fantasy_app_pool_lineups", "*", q => q.eq("user_id", user.userId).eq("status", "owner").eq("slate_date", day));
+    reserved = await selectAll("fantasy_app_pool_lineups", "*", q => q.eq("user_id", user.userId).in("status", ["owner", "owner_fixed"]).eq("slate_date", day));
   }
   const groups = {};
   for (const r of rows) {
@@ -1872,15 +1873,22 @@ async function actionCsvMine(req, res, user) {
     });
   let list = rows.map(r => r.players);
   if (user.isOwner && (str(req.query.tus10) === "1" || (slateKey && str(req.query.reserved) === "1"))) {
-    const reserved = await selectAll("fantasy_app_pool_lineups", "players,proj",
+    const reserved = await selectAll("fantasy_app_pool_lineups", "id,status,players,proj",
       q => {
-        let x = q.eq("user_id", user.userId).eq("status", "owner").eq("sport", sport).eq("platform", "draftkings");
+        let x = q.eq("user_id", user.userId).in("status", ["owner", "owner_fixed"]).eq("sport", sport).eq("platform", "draftkings");
         x = slateKey ? x.eq("slate_key", slateKey) : x.eq("slate_date", day);
         return x.order("proj", { ascending: false });
       });
     // 6-nov: el CSV de las reservadas trae SOLO las reservadas (antes
     // sumaba tambien las que pediste aparte en ese slate). tus10 sin slate: igual que antes.
     list = slateKey ? reserved.map(r => r.players) : reserved.map(r => r.players).concat(list);
+    // 6-nov: al descargarlas quedan FIJAS (owner_fixed): ya no se cambian cuando
+    // la formula corre de nuevo; solo se cambian los jugadores OUT.
+    const toFix = reserved.filter(r => r.status === "owner").map(r => r.id);
+    if (toFix.length) {
+      const { error } = await supabaseAdmin.from("fantasy_app_pool_lineups").update({ status: "owner_fixed" }).in("id", toFix).eq("status", "owner");
+      if (error) throw new Error(`Supabase fantasy_app_pool_lineups: ${error.message}`);
+    }
   }
   if (!list.length) return send(res, 404, { ok: false, error: "NO_LINEUPS" });
   const isCaptain = list.some(ps => (ps || []).some(p => p.slot === "CPT"));
@@ -1988,7 +1996,7 @@ async function runOutSwaps(sport, day) {
     }
     // 2) pool (libres y tuyas)
     const pool = await selectAll("fantasy_app_pool_lineups", "id,players,slate_key,game_type",
-      q => q.eq("sport", sport).eq("platform", platform).eq("slate_date", day).in("status", ["free", "owner"]));
+      q => q.eq("sport", sport).eq("platform", platform).eq("slate_date", day).in("status", ["free", "owner", "owner_fixed"]));
     for (const pl of pool) {
       if (!(pl.players || []).some(p => info.out.has(str(p.key || p.id)))) continue;
       const sp = await candsFor(platform, pl.slate_key);
@@ -2240,7 +2248,7 @@ async function actionDelete(req, user) {
   if (b.reserved) {
     if (!user.isOwner) return { status: 403, body: { ok: false, error: "OWNER_ONLY" } };
     let q = supabaseAdmin.from("fantasy_app_pool_lineups").update({ status: "dropped" })
-      .eq("user_id", user.userId).eq("status", "owner");
+      .eq("user_id", user.userId).in("status", ["owner", "owner_fixed"]);
     q = b.lineup_id ? q.eq("id", Number(b.lineup_id)) : q.eq("slate_key", Number(b.slate_key));
     const { data, error } = await q.select("id");
     if (error) throw new Error(`Supabase fantasy_app_pool_lineups: ${error.message}`);
