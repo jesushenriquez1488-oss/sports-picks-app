@@ -5391,6 +5391,165 @@ async function runJobs(
 
 
 // ============================================================
+// 6-nov: LATIDOS EN UN SOLO PAQUETE
+//
+// Manda todos los latidos simples en una sola llamada
+// (hasta 200 por paquete). Vercel solo refresca los que
+// siguen con la misma linea y precio en la base.
+//
+// Los que Vercel devuelve en "fallback" (cambiaron, juego ya
+// no seguido, datos invalidos) y cualquier paquete que falle
+// se mandan uno por uno por el camino de siempre. Asi nunca
+// se pierde nada.
+// ============================================================
+
+const HEARTBEAT_BATCH_SIZE =
+  200;
+
+
+async function ingestHeartbeats(
+  jobs
+) {
+
+  let sent =
+    0;
+
+  const fallbackJobs =
+    [];
+
+
+  for (
+    let i = 0;
+    i < jobs.length;
+    i += HEARTBEAT_BATCH_SIZE
+  ) {
+
+    const part =
+      jobs.slice(
+        i,
+        i + HEARTBEAT_BATCH_SIZE
+      );
+
+
+    try {
+
+      const response =
+        await fetch(
+          INGEST_QUOTE_URL,
+          {
+            method:
+              "POST",
+
+            headers: {
+              Authorization:
+                `Bearer ${MARKET_INGEST_SECRET}`,
+
+              "Content-Type":
+                "application/json"
+            },
+
+            body:
+              JSON.stringify({
+                heartbeats:
+                  part.map(
+                    job =>
+                      job.payload
+                  )
+              })
+          }
+        );
+
+
+      const body =
+        await response
+          .json()
+          .catch(
+            () => null
+          );
+
+
+      if (
+        !response.ok ||
+        body?.ok !== true ||
+        !Array.isArray(
+          body?.fallback
+        )
+      ) {
+
+        throw new Error(
+          body?.error ||
+          `heartbeat batch HTTP ${response.status}`
+        );
+      }
+
+
+      const fallbackIndexes =
+        new Set(
+          body.fallback
+            .map(Number)
+        );
+
+
+      part.forEach(
+        (job, index) => {
+
+          if (
+            fallbackIndexes.has(
+              index
+            )
+          ) {
+
+            fallbackJobs.push(
+              job
+            );
+
+            return;
+          }
+
+
+          lastSentSignatures
+            .set(
+              job.signatureKey,
+              {
+                signature:
+                  job.signature,
+
+                sentAt:
+                  Date.now()
+              }
+            );
+
+
+          sent += 1;
+        }
+      );
+
+    } catch (error) {
+
+      /*
+       * El paquete fallo completo:
+       * esos latidos se mandan uno por uno, como antes.
+       */
+      console.error(
+        `[${WORKER_NAME}] heartbeat batch error, sending one by one: ${error.message}`
+      );
+
+
+      fallbackJobs.push(
+        ...part
+      );
+    }
+  }
+
+
+  return {
+    sent,
+    fallbackJobs
+  };
+}
+
+
+// ============================================================
 // PROCESS OWLS BOARD
 // ============================================================
 
@@ -6010,10 +6169,58 @@ for (
   }
 }
 
-  const result =
-    await runJobs(
-      jobs
+  // ==========================================================
+  // 6-nov: LATIDOS EN UN SOLO PAQUETE
+  //
+  // Los latidos simples (cotizacion sin cambio, sin refresco
+  // periodico) van juntos en UNA llamada a ingest-quote.
+  // Los cambios reales y el latido que lleva el refresco
+  // periodico de cada juego siguen yendo uno por uno, igual
+  // que antes.
+  // ==========================================================
+
+  const heartbeatJobs =
+    jobs.filter(
+      job =>
+        job.isRevalidation === true &&
+        job.payload
+          ?.allow_periodic_refresh !==
+          true
     );
+
+
+  const singleJobs =
+    jobs.filter(
+      job =>
+        !heartbeatJobs.includes(
+          job
+        )
+    );
+
+
+  const heartbeatResult =
+    await ingestHeartbeats(
+      heartbeatJobs
+    );
+
+
+  const singleResult =
+    await runJobs(
+      singleJobs.concat(
+        heartbeatResult
+          .fallbackJobs
+      )
+    );
+
+
+  const result = {
+    sent:
+      heartbeatResult.sent +
+      singleResult.sent,
+
+    errors:
+      singleResult.errors
+  };
 
 
   /*
