@@ -3105,7 +3105,7 @@ function findPremiumOutcome({
   }
 
 
-  return (
+    const exactOutcome =
     market.outcomes.find(
       outcome =>
         normalizeText(
@@ -3113,8 +3113,34 @@ function findPremiumOutcome({
         ) ===
         selection
     ) ||
-    null
-  );
+    null;
+
+  // Todas las ligas: igual que antes.
+  if (
+    exactOutcome ||
+    normalizeText(tracked.sport) !== "ncaab"
+  ) {
+    return exactOutcome;
+  }
+
+  // NCAAB: Owls "Towson" = CashEdge "Towson Tigers".
+  let bestOutcome = null;
+  let bestScore = 0;
+
+  for (const outcome of market.outcomes) {
+    const score =
+      ncaabTeamMatchScore(
+        outcome?.name,
+        tracked.selection_key
+      );
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestOutcome = outcome;
+    }
+  }
+
+  return bestOutcome;
 }
 
 
@@ -3501,6 +3527,50 @@ for (
     }
   }
 
+
+    // NCAAB: si no hubo match exacto, mismo cruce de nombres
+  // que en las cuotas. Solo se acepta si hay UN solo juego.
+  if (
+    normalizeText(sport) === "ncaab"
+  ) {
+    let best = [];
+    let bestScore = 0;
+
+    for (const tracked of getAllTrackedGames()) {
+
+      if (
+        tracked.current_is_premium !== true ||
+        tracked.sport !== sport
+      ) {
+        continue;
+      }
+
+      const awayScore =
+        ncaabTeamMatchScore(awayTeam, tracked.away_team);
+
+      const homeScore =
+        awayScore > 0
+          ? ncaabTeamMatchScore(homeTeam, tracked.home_team)
+          : 0;
+
+      if (!awayScore || !homeScore) {
+        continue;
+      }
+
+      const score = awayScore + homeScore;
+
+      if (score > bestScore + 1e-9) {
+        bestScore = score;
+        best = [tracked];
+      } else if (Math.abs(score - bestScore) <= 1e-9) {
+        best.push(tracked);
+      }
+    }
+
+    if (best.length === 1) {
+      return best[0];
+    }
+  }
 
   return null;
 }
