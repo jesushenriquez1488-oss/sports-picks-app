@@ -1398,11 +1398,14 @@ function resolveLearningMarketGame({
     });
 
 
-  const candidates =
-    trackedGameMap.get(
+   const candidates =
+    getTrackedCandidates({
+      sport,
+      awayTeam: event?.away_team,
+      homeTeam: event?.home_team,
+      gameDate,
       gameKey
-    ) ||
-    [];
+    });
 
 
   return resolveTrackedGame({
@@ -3084,11 +3087,14 @@ function resolveLearningSplitGame({
     });
 
 
-  const candidates =
-    trackedGameMap.get(
+   const candidates =
+    getTrackedCandidates({
+      sport,
+      awayTeam: event.away_team,
+      homeTeam: event.home_team,
+      gameDate: eventDate,
       gameKey
-    ) ||
-    [];
+    });
 
 
   /*
@@ -5186,11 +5192,14 @@ const premiumQuoteCounts =
         });
 
 
-      const trackedCandidates =
-  trackedGameMap.get(
-    gameKey
-  ) ||
-  [];
+           const trackedCandidates =
+        getTrackedCandidates({
+          sport,
+          awayTeam: event.away_team,
+          homeTeam: event.home_team,
+          gameDate,
+          gameKey
+        });
 
 
 const tracked =
