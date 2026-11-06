@@ -30,7 +30,8 @@ function buildCaptainLineups(players, {
   salaryCap = CAP,
   maxPairShare = 1,  // 5-nov: misma pareja en maximo esta parte de las alineaciones
   check = null,      // 5-nov: regla extra al final (NFL: QB con un receptor de su equipo)
-  prior = []         // 5-nov: alineaciones que ya existen [{ cpt, ids:[...] }]: las nuevas deben ser distintas
+  prior = [],        // 5-nov: alineaciones que ya existen [{ cpt, ids:[...] }]: las nuevas deben ser distintas
+  deadline = 0       // 6-nov: hora limite (ms). Al pasarla devuelve las que lleva con timedOut: true
 } = {}) {
   const pool = players
     .filter(p => Number(p.points) > 0 && Number(p.salary) > 0 && Number(p.cptSalary) > 0)
@@ -46,9 +47,10 @@ function buildCaptainLineups(players, {
   const previous = (prior || []).map(p => ({ cpt: String(p.cpt), ids: new Set((p.ids || []).map(String)) }));
   const lineups = [];
   const pairs = pairTracker(maxPairShare, count);
-  let allOptimal = true;
+  let allOptimal = true, timedOut = false;
 
   for (let n = 0; n < count; n++) {
+    if (deadline && Date.now() > deadline) { timedOut = true; break; }
     const blocked = id => (uses.get(id) || 0) >= maxUses;
     const r = solveOne(pool, previous, minDifferent, nodeLimit, blocked, salaryCap, pairs, check);
     if (!r) break;
@@ -71,7 +73,8 @@ function buildCaptainLineups(players, {
   return {
     lineups,
     status: lineups.length ? (lineups.length < count ? "MENOS_DE_LAS_PEDIDAS" : "OK") : "SIN_ALINEACIONES",
-    optimal: allOptimal
+    optimal: allOptimal,
+    timedOut
   };
 }
 
