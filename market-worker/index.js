@@ -1195,6 +1195,216 @@ function makeGameKey({
     gameDate
   ].join("|");
 }
+// ============================================================
+// NCAAB — CRUCE DE NOMBRES OWLS ↔ CASHEDGE
+//
+// Owls usa nombres cortos de escuela:
+//   "Stonehill", "C Connecticut", "N Illinois", "Jax State",
+//   "CA Baptist", "Pitt", "MTSU", "Coastal"
+// CashEdge (The Odds API) usa escuela + mascota:
+//   "Stonehill Skyhawks", "Central Connecticut St Blue Devils",
+//   "Northern Illinois Huskies", "Jacksonville St Gamecocks"
+//
+// Regla: se normaliza (St = State, Saint = St, & = and),
+// se expanden abreviaturas, y el nombre de Owls debe ser el
+// INICIO del nombre de CashEdge. Siempre deben coincidir los
+// DOS equipos; la hora la sigue validando resolveTrackedGame.
+// Solo aplica a NCAAB. Las demás ligas siguen igual.
+// ============================================================
+
+const NCAAB_OWLS_ALIASES = {
+  "mtsu": "middle tennessee",
+  "umkc": "kansas city",
+  "etsu": "east tennessee st",
+  "fau": "florida atlantic",
+  "fiu": "florida international",
+  "ualbany": "albany",
+  "long island": "liu",
+  "loyola chicago": "loyola chi",
+  "loyola md": "loyola maryland",
+  "jax state": "jacksonville st",
+  "pitt": "pittsburgh",
+  "siue": "siu edwardsville",
+  "uncw": "unc wilmington",
+  "csun": "csu northridge",
+  "bethune": "bethune cookman",
+  "coastal": "coastal carolina",
+  "n western st": "northwestern st",
+  "nwestern st": "northwestern st",
+  "ca baptist": "cal baptist",
+  "miami fl": "miami",
+  "mount st marys": "mt st marys"
+};
+
+const NCAAB_LETTER_EXPANSIONS = {
+  "n": ["north", "northern"],
+  "s": ["south", "southern"],
+  "e": ["east", "eastern"],
+  "w": ["west", "western"],
+  "c": ["central"],
+  "ga": ["georgia"],
+  "ca": ["cal", "california"],
+  "se": ["southeast", "southeastern"],
+  "sw": ["southwest", "southwestern"],
+  "ne": ["northeast", "northeastern"],
+  "nw": ["northwest", "northwestern"],
+  "fla": ["florida"],
+  "ark": ["arkansas"],
+  "miss": ["mississippi"],
+  "tenn": ["tennessee"]
+};
+
+
+function ncaabWords(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/['’.]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .map(word =>
+      word === "state" ? "st" :
+      word === "saint" ? "st" :
+      word
+    );
+}
+
+
+// Las llaves de alias se normalizan igual que los nombres
+// (ej. "jax state" → "jax st").
+const NCAAB_OWLS_ALIASES_NORMALIZED = new Map(
+  Object.entries(NCAAB_OWLS_ALIASES).map(
+    ([key, value]) => [ncaabWords(key).join(" "), value]
+  )
+);
+
+
+function ncaabOwlsVariants(owlsName) {
+
+  let words = ncaabWords(owlsName);
+
+  const alias =
+    NCAAB_OWLS_ALIASES_NORMALIZED.get(words.join(" "));
+
+  if (alias) {
+    words = ncaabWords(alias);
+  }
+
+  let variants = [[]];
+
+  for (const word of words) {
+    const options = NCAAB_LETTER_EXPANSIONS[word]
+      ? [word, ...NCAAB_LETTER_EXPANSIONS[word]]
+      : [word];
+
+    const next = [];
+
+    for (const base of variants) {
+      for (const option of options) {
+        next.push([...base, option]);
+      }
+    }
+
+    variants = next.slice(0, 32);
+  }
+
+  return variants.map(v => v.join(""));
+}
+
+
+// 0 = no coincide. Más alto = el nombre de Owls cubre
+// más del nombre de CashEdge (sirve para desempatar
+// "Utah" entre "Utah Utes" y "Utah St Aggies").
+function ncaabTeamMatchScore(owlsName, cashEdgeName) {
+
+  const target = ncaabWords(cashEdgeName).join("");
+
+  if (!target) {
+    return 0;
+  }
+
+  let best = 0;
+
+  for (const variant of ncaabOwlsVariants(owlsName)) {
+    if (
+      variant.length >= 3 &&
+      target.startsWith(variant)
+    ) {
+      best = Math.max(best, variant.length / target.length);
+    }
+  }
+
+  return best;
+}
+
+
+// ============================================================
+// CANDIDATOS CASHEDGE PARA UN EVENTO DE OWLS
+//
+// Todas las ligas: primero la llave exacta de siempre.
+// NCAAB: si la llave exacta no encuentra nada, busca entre
+// los juegos de CashEdge de esa fecha con la regla de nombres
+// de arriba y se queda con el mejor puntaje.
+// ============================================================
+
+function getTrackedCandidates({
+  sport,
+  awayTeam,
+  homeTeam,
+  gameDate,
+  gameKey
+}) {
+
+  const exact =
+    trackedGameMap.get(gameKey) || [];
+
+  if (
+    exact.length ||
+    normalizeText(sport) !== "ncaab"
+  ) {
+    return exact;
+  }
+
+  let bestScore = 0;
+  let best = [];
+
+  for (const game of getAllTrackedGames()) {
+
+    if (
+      normalizeText(game?.sport) !== "ncaab" ||
+      game?.game_date !== gameDate
+    ) {
+      continue;
+    }
+
+    const awayScore =
+      ncaabTeamMatchScore(awayTeam, game.away_team);
+
+    const homeScore =
+      awayScore > 0
+        ? ncaabTeamMatchScore(homeTeam, game.home_team)
+        : 0;
+
+    if (!awayScore || !homeScore) {
+      continue;
+    }
+
+    const score = awayScore + homeScore;
+
+    if (score > bestScore + 1e-9) {
+      bestScore = score;
+      best = [game];
+    } else if (Math.abs(score - bestScore) <= 1e-9) {
+      best.push(game);
+    }
+  }
+
+  return best;
+}
 function parseCashEdgeGameTime(
   value
 ) {
