@@ -225,7 +225,11 @@ function solveOne(pool, rule, previous, minDifferent, nodeLimit, forced = [], no
 // nuevas tienen que ser distintas de esas tambien (pool de clientes).
 const priorOf = prior => (prior || []).map(ids => ids.map(id => ({ id: String(id) })));
 
-function buildLineups(platform, players, { count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1, prior = [], maxPairShare = 1, pairExempt = [] } = {}) {
+// 6-nov: deadline (hora limite en ms, opcional). Al pasarla deja de armar
+// y devuelve las que lleva con timedOut: true (no es que se agotaran).
+const pastDeadline = d => !!d && Date.now() > d;
+
+function buildLineups(platform, players, { count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1, prior = [], maxPairShare = 1, pairExempt = [], deadline = 0 } = {}) {
   const exemptIds = new Set((pairExempt || []).map(String));
   const pairs = pairTracker(maxPairShare, count, id => exemptIds.has(String(id)));
   const priorRaw = priorOf(prior);
@@ -243,7 +247,9 @@ function buildLineups(platform, players, { count = 10, minDifferent = 2, nodeLim
   const maxUses = Math.max(1, Math.floor(maxExposure * count + 1e-9));
   const uses = new Map();
 
+  let timedOut = false;
   for (let k = 0; k < count; k++) {
+    if (pastDeadline(deadline)) { timedOut = true; break; }
     const available = pool.filter(p => (uses.get(p.id) || 0) < maxUses);
     const r = solveOne(available, rule, priorRaw.concat(lineups.map(l => l.players)), minDifferent, nodeLimit, [], false, pairs);
     if (!r.complete) allOptimal = false;
@@ -266,7 +272,8 @@ function buildLineups(platform, players, { count = 10, minDifferent = 2, nodeLim
     status: lineups.length ? "OK" : "SIN_SOLUCION",
     optimal: allOptimal,
     salaryCap: rule.salaryCap,
-    lineups
+    lineups,
+    timedOut
   };
 }
 
@@ -301,7 +308,7 @@ function seededRandom(seed) {
   };
 }
 
-function buildStackLineups(platform, players, { count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1, sims = 20000, sd = STACK_SD, seed = 12345, prior = [], maxPairShare = 1, alwaysTwo = false } = {}) {
+function buildStackLineups(platform, players, { count = 10, minDifferent = 2, nodeLimit = 5e6, maxExposure = 1, sims = 20000, sd = STACK_SD, seed = 12345, prior = [], maxPairShare = 1, alwaysTwo = false, deadline = 0 } = {}) {
   const pairCap = pairTracker(maxPairShare, count);
   const priorRaw = priorOf(prior);
   const rule = RULES[platform];
@@ -321,7 +328,7 @@ function buildStackLineups(platform, players, { count = 10, minDifferent = 2, no
     if (rec.length < 2) continue;
     stacks.push({ team, qb, rec, value: qb.points + rec[0].points + rec[1].points, prob: 0, quota: 0 });
   }
-  if (!stacks.length) return { ...buildLineups(platform, players, { count, minDifferent, nodeLimit, maxExposure, prior, maxPairShare }), stacks: [] };
+  if (!stacks.length) return { ...buildLineups(platform, players, { count, minDifferent, nodeLimit, maxExposure, prior, maxPairShare, deadline }), stacks: [] };
 
   // ---- 2) Probabilidad de ser el mejor bloque ----
   const rand = seededRandom(seed);
@@ -405,19 +412,24 @@ function buildStackLineups(platform, players, { count = 10, minDifferent = 2, no
   };
 
   // Primero la cuota de cada bloque.
+  let timedOut = false;
   for (const st of stacks) {
     st.built = 0;
-    for (let k = 0; k < st.quota; k++) buildOne(st, st.built);
+    for (let k = 0; k < st.quota; k++) {
+      if (pastDeadline(deadline)) { timedOut = true; break; }
+      buildOne(st, st.built);
+    }
   }
   // Si un bloque no pudo completar su cuota (sus receptores llegaron
   // al tope), esas alineaciones pasan a los bloques que si entraron,
   // del mas probable al menos probable.
   const inPlay = stacks.filter(st => st.quota > 0);
-  let progress = true;
+  let progress = !timedOut;
   while (built.length < count && progress) {
     progress = false;
     for (const st of inPlay) {
       if (built.length >= count) break;
+      if (pastDeadline(deadline)) { timedOut = true; progress = false; break; }
       if (buildOne(st, st.built)) progress = true;
     }
   }
@@ -431,6 +443,7 @@ function buildStackLineups(platform, players, { count = 10, minDifferent = 2, no
     optimal: allOptimal,
     salaryCap: rule.salaryCap,
     lineups,
+    timedOut,
     stacks: stacks.map(st => ({
       team: st.team, qb: st.qb.name, receivers: st.rec.map(p => p.name),
       value: Math.round(st.value * 100) / 100, prob: Math.round(st.prob * 1000) / 1000, lineups: st.built
@@ -459,13 +472,13 @@ function buildStackLineups(platform, players, { count = 10, minDifferent = 2, no
 // Sin totales de Las Vegas -> buildStackLineups (como antes).
 function buildGameStackLineups(platform, players, {
   count = 20, minDifferent = 2, nodeLimit = 1e5, maxExposure = 0.4,
-  games = 4, extras = 2, gameTotals = null, teamImplied = null, prior = [], maxPairShare = 1
+  games = 4, extras = 2, gameTotals = null, teamImplied = null, prior = [], maxPairShare = 1, deadline = 0
 } = {}) {
   const pairCap = pairTracker(maxPairShare, count);
   const rule = RULES[platform];
   if (!rule) return { status: "PLATAFORMA_NO_SOPORTADA", lineups: [] };
   const priorRaw = priorOf(prior);
-  const fallback = () => ({ ...buildStackLineups(platform, players, { count, minDifferent, maxExposure, prior, maxPairShare }), partidos: [] });
+  const fallback = () => ({ ...buildStackLineups(platform, players, { count, minDifferent, maxExposure, prior, maxPairShare, deadline }), partidos: [] });
   if (!gameTotals || !gameTotals.size) return fallback();
 
   const pool = players
@@ -550,11 +563,12 @@ function buildGameStackLineups(platform, players, {
   };
 
   // Turnos: una alineacion por partido, en orden, hasta completar.
-  let progress = true;
+  let progress = true, timedOut = false;
   while (built.length < count && progress) {
     progress = false;
     for (const st of stacks) {
       if (built.length >= count) break;
+      if (pastDeadline(deadline)) { timedOut = true; progress = false; break; }
       if (buildOne(st)) progress = true;
     }
   }
@@ -566,6 +580,7 @@ function buildGameStackLineups(platform, players, {
     optimal: allOptimal,
     salaryCap: rule.salaryCap,
     lineups,
+    timedOut,
     partidos: stacks.map(st => ({ partido: st.gameId, total: Math.round(st.total * 100) / 100, qb: st.qb.name, alineaciones: st.built || 0 }))
   };
 }
