@@ -777,6 +777,339 @@ async function maybeReanalyzeConsensusChange({
   }
 }
 // ============================================================
+// 6-nov: LATIDOS EN UN SOLO PAQUETE
+//
+// body: { heartbeats: [ cotizacion, cotizacion, ... ] }
+//
+// Hace lo mismo que el camino "SAME QUOTE" de una cotizacion
+// suelta (refresca la hora de visto por ultima vez), pero
+// para muchas en una sola llamada.
+//
+// Solo refresca una fila si en la base SIGUE con la misma
+// linea y el mismo precio. Todo lo demas (cambio, juego no
+// seguido, datos invalidos, error) se devuelve en
+// "fallback" con su posicion, y el worker lo manda uno por
+// uno por el camino de siempre. No corre el pipeline.
+// ============================================================
+
+const HEARTBEAT_CONCURRENCY =
+  10;
+
+
+async function handleHeartbeats(
+  items
+) {
+
+  const fallback =
+    [];
+
+  const valid =
+    [];
+
+
+  items.forEach(
+    (item, index) => {
+
+      try {
+
+        const quote =
+          buildCanonicalMarketQuote({
+            sport:
+              item?.sport,
+
+            cashedgeGameId:
+              item?.cashedge_game_id,
+
+            provider:
+              item?.provider,
+
+            providerEventId:
+              item?.provider_event_id,
+
+            sportsbookKey:
+              item?.sportsbook_key,
+
+            sportsbookName:
+              item?.sportsbook_name,
+
+            marketType:
+              item?.market_type,
+
+            selectionKey:
+              item?.selection_key,
+
+            selectionName:
+              item?.selection_name,
+
+            line:
+              item?.line,
+
+            priceAmerican:
+              item?.price_american,
+
+            providerTimestamp:
+              item?.provider_timestamp,
+
+            rawPayload:
+              item?.raw_payload ||
+              item
+          });
+
+
+        if (
+          !validateCanonicalMarketQuote(
+            quote
+          ).valid ||
+          safeAmericanPrice(
+            quote.price_american
+          ) === null
+        ) {
+
+          fallback.push(
+            index
+          );
+
+          return;
+        }
+
+
+        valid.push({
+          index,
+          quote
+        });
+
+      } catch {
+
+        fallback.push(
+          index
+        );
+      }
+    }
+  );
+
+
+  // Solo juegos que Market Intelligence sigue
+  // (igual que el 404 del camino suelto).
+
+  const gameIds = [
+    ...new Set(
+      valid.map(
+        v =>
+          v.quote
+            .cashedge_game_id
+      )
+    )
+  ];
+
+
+  const tracked =
+    new Set();
+
+
+  if (
+    gameIds.length
+  ) {
+
+    const {
+      data,
+      error
+    } =
+      await supabaseAdmin
+        .from(
+          "market_pick_context"
+        )
+        .select(
+          "cashedge_game_id"
+        )
+        .in(
+          "cashedge_game_id",
+          gameIds
+        );
+
+
+    if (error) {
+      throw error;
+    }
+
+
+    for (
+      const row
+      of data || []
+    ) {
+      tracked.add(
+        row.cashedge_game_id
+      );
+    }
+  }
+
+
+  const observedAt =
+    new Date()
+      .toISOString();
+
+
+  const refreshOne =
+    async ({
+      index,
+      quote
+    }) => {
+
+      if (
+        !tracked.has(
+          quote.cashedge_game_id
+        )
+      ) {
+
+        fallback.push(
+          index
+        );
+
+        return;
+      }
+
+
+      const update = {
+
+        provider:
+          quote.provider,
+
+        provider_event_id:
+          quote.provider_event_id,
+
+        provider_timestamp:
+          quote.provider_timestamp,
+
+        observed_at:
+          observedAt,
+
+        updated_at:
+          observedAt
+      };
+
+
+      // Igual que el camino suelto: si no viene nombre,
+      // se deja el que ya estaba.
+
+      if (
+        quote.sportsbook_name
+      ) {
+        update.sportsbook_name =
+          quote.sportsbook_name;
+      }
+
+
+      if (
+        quote.selection_name
+      ) {
+        update.selection_name =
+          quote.selection_name;
+      }
+
+
+      let query =
+        supabaseAdmin
+          .from(
+            "market_current_quotes"
+          )
+          .update(
+            update
+          )
+          .eq(
+            "cashedge_game_id",
+            quote.cashedge_game_id
+          )
+          .eq(
+            "sportsbook_key",
+            quote.sportsbook_key
+          )
+          .eq(
+            "market_type",
+            quote.market_type
+          )
+          .eq(
+            "selection_key",
+            quote.selection_key
+          )
+          .eq(
+            "price_american",
+            quote.price_american
+          );
+
+
+      query =
+        quote.line === null ||
+        quote.line === undefined
+          ? query.is(
+              "line",
+              null
+            )
+          : query.eq(
+              "line",
+              quote.line
+            );
+
+
+      const {
+        data,
+        error
+      } =
+        await query.select(
+          "id"
+        );
+
+
+      // Sin fila con esa misma linea y precio
+      // (cambio o primera vez) o error: camino suelto.
+
+      if (
+        error ||
+        !data ||
+        !data.length
+      ) {
+
+        fallback.push(
+          index
+        );
+      }
+    };
+
+
+  for (
+    let i = 0;
+    i < valid.length;
+    i += HEARTBEAT_CONCURRENCY
+  ) {
+
+    await Promise.all(
+      valid
+        .slice(
+          i,
+          i + HEARTBEAT_CONCURRENCY
+        )
+        .map(
+          refreshOne
+        )
+    );
+  }
+
+
+  return {
+    received:
+      items.length,
+
+    refreshed:
+      items.length -
+      fallback.length,
+
+    fallback:
+      fallback.sort(
+        (a, b) => a - b
+      )
+  };
+}
+
+
+// ============================================================
 // HANDLER
 // ============================================================
 
@@ -921,6 +1254,39 @@ module.exports =
               "Market ingestion is disabled"
           });
       }
+
+
+// 6-nov: paquete de latidos (worker de Railway)
+if (
+  Array.isArray(
+    req.body
+      ?.heartbeats
+  )
+) {
+
+  const heartbeatResult =
+    await handleHeartbeats(
+      req.body.heartbeats
+    );
+
+
+  return res
+    .status(200)
+    .json({
+
+      ok: true,
+
+      shadowMode:
+        settings
+          ?.shadow_mode ===
+        true,
+
+      result:
+        "heartbeats",
+
+      ...heartbeatResult
+    });
+}
 
 
 const body =
