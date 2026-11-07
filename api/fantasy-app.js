@@ -2603,7 +2603,7 @@ module.exports = async function handler(req, res) {
   }
 };
 
-module.exports.config = { maxDuration: 60 };
+module.exports.config = { maxDuration: 300 };   // 7-nov: igual que vercel.json (pool-cron usa hasta 200 s)
 
 // Para pruebas locales
 module.exports._test = { computeTags, nbaScore, nbaSeason, nflSeason, parseCsv, dkGameTime, normName, poolBatch, starGroups, swapLineup };
