@@ -194,6 +194,17 @@ td.fp{font-weight:600}
 .oa-row .who{flex:1;min-width:200px}.oa-row s{color:#ff9b9b}.oa-row b{color:var(--accent)}
 .oa-row select{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px}
 .oa-row .ok{color:var(--muted);font-size:12px}
+.oa-row .btn{padding:6px 10px}
+.oa-auto{flex-basis:100%;display:flex;gap:8px;align-items:center;color:#ffd0d0;font-size:13px}
+.upalert{display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:#0d2216;border:2px solid var(--accent);border-radius:12px;padding:14px 16px}
+.upalert .oa-tx b{color:var(--accent)}
+.up-row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;background:#0a1a10;border:1px solid #1f5a33;border-radius:8px;padding:8px 10px;flex-basis:100%}
+.up-row .who{flex:1;min-width:200px}
+.outln{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;background:#2a0b0b;border:1px solid var(--warn);border-radius:8px;padding:6px 8px;margin:4px 0;font-size:13px}
+.outln s{color:#ff9b9b}.outln b{color:var(--accent)}
+.outln button{background:var(--warn);color:#1a0505;border:0;border-radius:6px;padding:4px 8px;font-weight:700}
+.outln .ghost{background:none;color:var(--ink);border:1px solid #6b2a2a}
+.upbtn{background:var(--accent);color:#04140a;border:0;border-radius:8px;padding:6px 10px;font-weight:700}
 .savebtn{font-size:16px;padding:12px 18px;box-shadow:0 0 0 3px rgba(46,224,90,.25)}
 .chip.own{background:#11281a;color:var(--accent);border:1px solid #1f5a33}
 .lu .hd .r{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:flex-end}
@@ -305,7 +316,20 @@ body.closed .salary,body.closed #slots,body.closed #editBar,body.closed .cta-fil
         <button class="btn sec" id="getMany">Get lineups</button>
       </div>
     </section>
-    <div class="tipbar" role="note">⏰ <span><b>Best results: use your lineups after 4:30 PM CT.</b> That's when starting lineups and injury news settle. Keep an eye on late scratches. We swap OUT players for you, but you still need to upload the new CSV.</span></div>
+    <div class="tipbar" role="note">⏰ <span><b>Best results: use your lineups after 4:30 PM CT.</b> That's when starting lineups and injury news settle. Keep an eye on late scratches. If a player is ruled OUT, we'll alert you with a suggested replacement. You decide.</span></div>
+    <div class="upalert" id="upAlert" role="status" hidden>
+      <div class="oa-ic" style="color:var(--accent)">↻</div>
+      <div class="oa-tx"><b>We found a better opportunity</b><span>New CashEdge formula lineups are ready for a slate where you already have lineups. Want to update them? Yours stay saved if you keep them.</span></div>
+      <div id="upList" style="display:grid;gap:8px;flex-basis:100%"></div>
+    </div>
+    <div class="outalert" id="pendAlert" role="alert" hidden>
+      <div class="oa-ic">⚠</div>
+      <div class="oa-tx"><b id="paTitle"></b><span id="paSub"></span>
+        <span class="oa-warn">Replace swaps in the suggested player. Prefer someone else? Tap "I'll do it myself" and use Edit on that lineup.</span></div>
+      <div class="oa-act"><button class="btn oa-btn" id="paAll">Replace all</button><button class="oa-x" id="paSelf">I'll do it myself</button></div>
+      <div class="oa-rev" id="paList"></div>
+      <label class="oa-auto"><input type="checkbox" id="paAuto"> Always replace OUT players automatically</label>
+    </div>
     <div class="outalert" id="outAlert" role="alert" hidden>
       <div class="oa-ic">⚠</div>
       <div class="oa-tx"><b id="oaTitle"></b><span id="oaSub"></span>
@@ -354,6 +378,7 @@ body.closed .salary,body.closed #slots,body.closed #editBar,body.closed .cta-fil
           <div class="box">
             <h4>My lineups · <span class="num" id="myCount">0</span></h4>
             <span class="note">Grouped by sport, then site, then slate. Each slate has its own CSV. DraftKings: download the CSV on a computer and upload it on DraftKings. FanDuel: enter the players by hand.</span>
+            <label class="note" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="autoOut"> Always replace OUT players automatically</label>
             <div id="myLineups" style="display:grid;gap:8px"></div>
           </div>
           <div class="box" id="badges">
@@ -408,7 +433,7 @@ const COLORS = ["#0b7285", "#5f3dc4", "#c2255c", "#e67700", "#2b8a3e", "#1864ab"
 let GTYPE = "classic";
 let SITE = "DraftKings", SPORT = "NBA", SLOTS = [], CAP = 50000, P = [], SLATE = null;
 let showOver = false, auto = new Set(), active = 0, sel = null, lineup = [], locks = new Set(), bans = new Set(), EDITING = null;
-let TOKEN = null, MINE = { groups: [] }, SLATES = [];
+let TOKEN = null, MINE = { groups: [] }, SLATES = [], PENDING = [];
 
 const $ = s => document.querySelector(s);
 const money = v => "$" + Number(v || 0).toLocaleString("en-US");
@@ -856,7 +881,9 @@ function renderMine() {
     list.sort((a, b) => Number(b.proj) - Number(a.proj));
     const sl = SLATES.find(x => Number(x.slate_id) === Number(list[0].slate_key));
     const where = sl ? slateLabel(sl) : (list[0].slate_date ? dayName(list[0].slate_date) : "Main");
+    const upKey = `${list[0].sport}|${list[0].platform}|${list[0].slate_key}`;
     groups.unshift({ sport: list[0].sport, platform: list[0].platform, slate_key: list[0].slate_key, game_type: "classic", lineups: list, reserved: true,
+      upgrade: (MINE.tus10Upgrade || {})[upKey] || null,
       title: `Your top ${list.length} (reserved) · ${list[0].platform === "draftkings" ? "DraftKings" : "FanDuel"} · ${where}` });
   }
   let total = 0;
@@ -871,8 +898,10 @@ function renderMine() {
     if (!g.title) g.title = `${isDk ? "DraftKings" : "FanDuel"} · ${where}`;
     return `<details class="grp" ${g.sport === sport() && g.platform === site() ? "open" : ""}><summary><span class="gt"><b>${esc(g.title || (isDk ? "DraftKings" : "FanDuel") + " · Main")}</b><span><span class="tagtype">${g.game_type === "captain" ? "Captain" : "Classic"}</span> · ${g.lineups.length} lineup${g.lineups.length > 1 ? "s" : ""}</span></span>
       <span style="display:grid;gap:4px;justify-items:end">${isDk ? `<button class="btn sec" data-csv="${g.sport}" data-sk="${g.slate_key}" data-rs="${g.reserved ? 1 : 0}">⬇ CSV</button>` : `<span class="fdnote">FanDuel: enter by hand</span>`}
+      ${g.upgrade ? `<button class="upbtn" data-up="${g.sport}|${g.platform}|${g.slate_key}|${g.reserved ? 1 : 0}">↻ Update to new lineups</button>` : ""}
       <button class="delall" data-da="${g.sport}|${g.platform}|${g.slate_key}|${g.reserved ? 1 : 0}" data-n="${g.lineups.length}">Delete all</button></span></summary>
       <div class="gb">${g.lineups.map((l, k) => `<div class="lu ${EDITING?.id === l.id ? "editing" : ""}"><div class="hd"><span>Lineup #${k + 1}${l.source === "built" || l.source === "locks" ? ' <span class="chip own">Built by you</span>' : ""}${l.edited ? ' <span class="chip own">Edited</span>' : ""}</span><span class="r"><span class="num">${money(l.salary)}</span>${l.reserved ? "" : `<button class="edbtn" data-ed="${l.id}" data-k="${k + 1}">✎ Edit</button>`}<button class="delbtn" data-del="${l.id}" data-rs="${l.reserved ? 1 : 0}" aria-label="Delete lineup ${k + 1}">Delete</button></span></div>
+        ${PENDING.filter(c => (l.reserved ? Number(c.pool_lineup_id) : Number(c.user_lineup_id)) === Number(l.id)).map(c => `<div class="outln"><span><s>${esc(c.out_player)} (OUT)</s> → suggested <b>${esc(c.in_player)}</b></span><button data-rp="${l.reserved ? "p" : "u"}${l.id}">Replace</button><button class="ghost" data-sf="${l.reserved ? "p" : "u"}${l.id}">I'll do it myself</button></div>`).join("")}
         ${(l.players || []).map(p => `<div class="ln"><span>${esc(p.slot)}</span><span>${esc(p.name)}${p.team ? ` <span class="note">· ${esc(p.team)}</span>` : ""}</span><span class="num">${money(p.salary)}</span><span class="num note">proj ${Number(p.points || 0).toFixed(1)}</span></div>`).join("")}</div>`).join("")}</div></details>`;
   }).join("")}</div>`).join("") : `<span class="note">No lineups yet. Build one above or get ready-made lineups.</span>`;
   $("#myCount").textContent = total;
@@ -883,6 +912,10 @@ function renderMine() {
     e.preventDefault(); e.stopPropagation();
     askDelete("Delete this lineup?", { lineup_id: Number(b.dataset.del), reserved: b.dataset.rs === "1" });
   }));
+  document.querySelectorAll("[data-up]").forEach(b => (b.onclick = e => { e.preventDefault(); e.stopPropagation(); const [sp, pf, sk, rs] = b.dataset.up.split("|"); doUpgrade(sp, pf, sk, rs === "1"); }));
+  document.querySelectorAll("[data-rp]").forEach(b => (b.onclick = e => { e.preventDefault(); e.stopPropagation(); outApply(idBody(b.dataset.rp)); }));
+  document.querySelectorAll("[data-sf]").forEach(b => (b.onclick = e => { e.preventDefault(); e.stopPropagation(); outSelf(idBody(b.dataset.sf)); }));
+  renderUpgrades();
   document.querySelectorAll("[data-da]").forEach(b => (b.onclick = e => {
     e.preventDefault(); e.stopPropagation();
     const [sp, pf, sk, rs] = b.dataset.da.split("|");
@@ -941,14 +974,86 @@ function startEdit(id, num) {
 
 async function loadChanges() {
   const r = await api("changes");
-  if (!r.ok || !r.pendientes) { $("#outAlert").hidden = true; return; }
-  const list = r.cambios;
-  const lines = new Set(list.map(c => c.user_lineup_id)).size;
-  $("#oaTitle").textContent = `We changed ${lines} of your lineups`;
-  $("#oaSub").textContent = [...new Set(list.map(c => `${c.out_player} (OUT) → ${c.in_player}`))].slice(0, 3).join(" · ");
-  $("#oaList").innerHTML = `<span class="note" style="color:#ffb3b3">Want a different player? Tap Edit on that lineup in My lineups and pick someone else.</span>` +
-    list.map(c => `<div class="oa-row"><span class="who">${esc(c.slot || "")}: <s>${esc(c.out_player)} (OUT)</s> → <b>${esc(c.in_player)}</b></span><span class="ok">${new Date(c.changed_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span></div>`).join("");
-  $("#outAlert").hidden = false;
+  if (!r.ok) return;
+  PENDING = r.pending || [];
+  $("#paAuto").checked = $("#autoOut").checked = !!r.auto;
+  // 1) OUT con reemplazo sugerido: el usuario decide
+  if (PENDING.length) {
+    const nLu = new Set(PENDING.map(c => (c.user_lineup_id ? "u" + c.user_lineup_id : "p" + c.pool_lineup_id))).size;
+    const outs = [...new Set(PENDING.map(c => c.out_player))];
+    $("#paTitle").textContent = `${outs.slice(0, 2).join(" and ")}${outs.length > 2 ? ` +${outs.length - 2}` : ""} ${outs.length > 1 ? "are" : "is"} OUT in ${nLu} of your lineups`;
+    $("#paSub").textContent = [...new Set(PENDING.map(c => `${c.out_player} → ${c.in_player}`))].slice(0, 3).join(" · ");
+    $("#paList").innerHTML = PENDING.map(c => {
+      const id = c.user_lineup_id ? "u" + c.user_lineup_id : "p" + c.pool_lineup_id;
+      return `<div class="oa-row"><span class="who">${esc(lineupName(id))} · ${esc(c.slot || "")}: <s>${esc(c.out_player)} (OUT)</s> → <b>${esc(c.in_player)}</b></span><button class="btn oa-btn" data-rp="${id}">Replace</button><button class="oa-x" data-sf="${id}">I'll do it myself</button></div>`;
+    }).join("");
+    $("#paList").querySelectorAll("[data-rp]").forEach(b => (b.onclick = () => outApply(idBody(b.dataset.rp))));
+    $("#paList").querySelectorAll("[data-sf]").forEach(b => (b.onclick = () => outSelf(idBody(b.dataset.sf))));
+    $("#pendAlert").hidden = false;
+  } else $("#pendAlert").hidden = true;
+  // 2) Cambios ya hechos (automaticos o con Replace): falta subir el CSV
+  const list = r.done || [];
+  if (list.length) {
+    const lines = new Set(list.map(c => c.user_lineup_id || "p" + c.pool_lineup_id)).size;
+    $("#oaTitle").textContent = `We changed ${lines} of your lineups`;
+    $("#oaSub").textContent = [...new Set(list.map(c => `${c.out_player} (OUT) → ${c.in_player}`))].slice(0, 3).join(" · ");
+    $("#oaList").innerHTML = `<span class="note" style="color:#ffb3b3">Want a different player? Tap Edit on that lineup in My lineups and pick someone else.</span>` +
+      list.map(c => `<div class="oa-row"><span class="who">${esc(c.slot || "")}: <s>${esc(c.out_player)} (OUT)</s> → <b>${esc(c.in_player)}</b></span><span class="ok">${new Date(c.changed_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span></div>`).join("");
+    $("#outAlert").hidden = false;
+  } else $("#outAlert").hidden = true;
+  if (MINE.groups) renderMine();
+}
+
+const idBody = id => (id[0] === "p" ? { pool_lineup_id: Number(id.slice(1)) } : { lineup_id: Number(id.slice(1)) });
+
+function lineupName(id) {
+  const res = id[0] === "p";
+  const all = res ? (MINE.tus10 || []).slice().sort((a, b) => Number(b.proj) - Number(a.proj)) : null;
+  if (res) { const k = all.findIndex(l => Number(l.id) === Number(id.slice(1))); return k >= 0 ? `Reserved #${k + 1}` : "Reserved lineup"; }
+  for (const g of MINE.groups || []) { const k = g.lineups.findIndex(l => Number(l.id) === Number(id.slice(1))); if (k >= 0) return `Lineup #${k + 1}`; }
+  return "Lineup";
+}
+
+async function outApply(body = {}) {
+  const r = await api("out-apply", {}, body);
+  if (!r.ok) { toast("Couldn't replace: " + r.error); return; }
+  toast(r.applied ? `Replaced in ${r.applied} lineup${r.applied === 1 ? "" : "s"}. Download the new CSV and upload it.` : "No replacement fits right now. Use Edit to pick someone.");
+  await loadMine(); loadChanges();
+}
+
+async function outSelf(body = {}) {
+  const r = await api("out-dismiss", {}, body);
+  if (!r.ok) { toast("Couldn't update: " + r.error); return; }
+  toast("Got it. Tap Edit on that lineup to pick a player.");
+  loadChanges();
+}
+
+// ---------------- mejor oportunidad ----------------
+
+function upHidden(k, v) { try { return localStorage.getItem(`ceUp|${k}`) === String(v); } catch { return false; } }
+function upHide(k, v) { try { localStorage.setItem(`ceUp|${k}`, String(v)); } catch { /* sin storage */ } }
+
+function renderUpgrades() {
+  const items = [];
+  for (const g of MINE.groups || []) if (g.upgrade?.lineups) items.push({ k: `${g.sport}|${g.platform}|${g.slate_key}|0`, n: g.upgrade.lineups, v: g.upgrade.version, g });
+  for (const [key, u] of Object.entries(MINE.tus10Upgrade || {})) items.push({ k: `${key}|1`, n: u.reserved, v: u.version, g: { sport: key.split("|")[0], platform: key.split("|")[1], slate_key: key.split("|")[2] }, res: true });
+  const show = items.filter(x => !upHidden(x.k, x.v));
+  if (!show.length) { $("#upAlert").hidden = true; return; }
+  $("#upList").innerHTML = show.map(x => {
+    const sl = SLATES.find(s => Number(s.slate_id) === Number(x.g.slate_key));
+    const where = `${x.g.platform === "draftkings" ? "DraftKings" : "FanDuel"} · ${sl ? slateLabel(sl) : x.g.sport.toUpperCase()}`;
+    return `<div class="up-row"><span class="who"><b>${x.n}</b> ${x.res ? "reserved " : ""}lineup${x.n === 1 ? "" : "s"} · ${esc(where)}</span><button class="upbtn" data-upa="${x.k}">↻ Update</button><button class="oa-x" data-upk="${x.k}" data-v="${esc(x.v)}">Keep mine</button></div>`;
+  }).join("");
+  $("#upList").querySelectorAll("[data-upa]").forEach(b => (b.onclick = () => { const [sp, pf, sk, rs] = b.dataset.upa.split("|"); doUpgrade(sp, pf, sk, rs === "1"); }));
+  $("#upList").querySelectorAll("[data-upk]").forEach(b => (b.onclick = () => { upHide(b.dataset.upk, b.dataset.v); renderUpgrades(); }));
+  $("#upAlert").hidden = false;
+}
+
+async function doUpgrade(sp, pf, sk, reserved) {
+  const r = await api("upgrade", {}, { sport: sp, site: pf, slate_key: Number(sk), reserved });
+  if (!r.ok) { toast(r.error === "SLATE_STARTED" ? "This slate already started." : "Couldn't update: " + r.error); return; }
+  toast(r.given ? `Updated: ${r.given} new formula lineup${r.given === 1 ? "" : "s"}. Download the new CSV and upload it.` : (r.message || "Nothing to update."));
+  await loadMine(); loadChanges();
 }
 
 // ---------------- logos ----------------
@@ -1001,6 +1106,16 @@ function wire() {
   $("#oaRev").onclick = () => { const l = $("#oaList"), open = l.hidden; l.hidden = !open; $("#oaRev").textContent = open ? "Hide changes ▴" : "Review changes ▾"; };
   $("#oaDl").onclick = () => downloadCsv(sport(), null);
   $("#oaSeen").onclick = async () => { await api("changes-ack"); $("#outAlert").hidden = true; };
+  $("#paAll").onclick = () => outApply({});
+  $("#paSelf").onclick = () => outSelf({});
+  $("#autoOut").onchange = () => { $("#paAuto").checked = $("#autoOut").checked; $("#paAuto").onchange(); };
+  $("#paAuto").onchange = async () => {
+    const on = $("#paAuto").checked;
+    const r = await api("settings", {}, { auto_replace_out: on });
+    if (!r.ok) { toast("Couldn't save: " + r.error); $("#paAuto").checked = $("#autoOut").checked = !on; return; }
+    toast(on ? `OUT players will be replaced automatically.${r.applied ? ` Replaced in ${r.applied} lineup${r.applied === 1 ? "" : "s"}.` : ""}` : "We'll ask you before replacing OUT players.");
+    await loadMine(); loadChanges();
+  };
   document.querySelectorAll(".seg").forEach(g => g.querySelectorAll("button").forEach(b => (b.onclick = () => {
     g.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", "false")); b.setAttribute("aria-pressed", "true");
     if (g.id === "sport") {
