@@ -1302,11 +1302,15 @@ async function poolBatch(sp, count, existing) {
     // principales; sin mercado, las pilas de antes).
     const m = sp.stars || {};
     const base = { count, minDifferent, maxExposure: POOL.maxExposure, maxPairShare, nodeLimit: POOL.nodeLimit, prior };
+    // 7-nov: el armador NFL no tenia limite de tiempo y tumbaba el pool-cron (300 s)
+    nflLib().setDeadline?.(Math.min(Date.now() + POOL.batchSeconds * 1000, poolDeadline + 30000));
+    try {
     r = m.metodo === "partidos"
       ? nflLib().buildGameStackLineups(sp.platform, sp.players, { ...base, games: m.games, extras: m.extras, gameTotals: new Map(m.gameTotals || []), teamImplied: new Map(m.teamImplied || []) })
       : m.metodo === "pilas"
         ? nflLib().buildStackLineups(sp.platform, sp.players, { ...base, alwaysTwo: !!m.siempreDos })
         : nflLib().buildLineups(sp.platform, sp.players, base);
+    } finally { nflLib().setDeadline?.(Infinity); }
   } else {
     const groups = starGroups(sp.stars, count);
     r = lineupsLib().buildLineups(sp.platform, sp.players, {
@@ -1397,7 +1401,9 @@ async function refillOne(sp, isMain) {
     }
     built = rows.length;
     current.push(...rows.map(r => ({ ...r, id: null })));
-    if (built < need) {
+    // 7-nov: solo si termino antes de su limite de tiempo (si se corto por
+    // tiempo no esta agotada: sigue en la proxima vuelta).
+    if (built < need && Date.now() - t < POOL.batchSeconds * 1000 * 0.8 && Date.now() < poolDeadline) {
       // Slate chico: no hay mas combinaciones. Se marca para no repetir.
       await supabaseAdmin.from("fantasy_app_slate_pools").update({ stars: { ...(sp.stars || {}), agotada: current.length } })
         .eq("sport", sport).eq("platform", platform).eq("slate_key", sp.slate_key).eq("version", sp.version);
