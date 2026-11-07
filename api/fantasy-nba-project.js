@@ -506,6 +506,57 @@ function dayIn(zone, value) {
 }
 
 const chicagoDay = (v = new Date()) => dayIn("America/Chicago", v);
+
+// ============================================================
+// 7-nov: POOL FIJO (NBA). Las corridas hasta las 2 pm (Chicago) rearman
+// la lista del pool de clientes. Despues de las 2 pm queda FIJA: las
+// corridas siguientes ya no la cambian (solo se cambian los OUT dentro
+// de las mismas alineaciones, en pool-cron). Solo se rearma si hay un
+// cambio grande:
+//   a) un equipo entra en crisis (4+ de sus 7 de mas minutos fuera) que
+//      no lo estaba cuando se fijo -> oportunidad de baratos;
+//   b) 5+ jugadores de la lista salen OUT y juntos estan en el 50%+ de
+//      las alineaciones del pool.
+// ============================================================
+const POOL_LOCK = { hour: 14, crisisMinOut: 4, outPlayers: 5, outShare: 0.5 };
+const chicagoHour = () => Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", hour: "numeric", hourCycle: "h23" }).format(new Date()));
+
+async function gatePools(rows) {
+  const keep = [];
+  for (const r of rows) {
+    try {
+      const { data: prev, error } = await supabaseAdmin.from("fantasy_app_slate_pools").select("version,players,info")
+        .eq("sport", "nba").eq("platform", r.platform).eq("slate_key", r.slate_key)
+        .order("version", { ascending: false }).limit(1).maybeSingle();
+      if (error) throw error;
+      const locked = chicagoDay() > String(r.slate_date) || chicagoHour() >= POOL_LOCK.hour;
+      if (!prev || !locked) { keep.push(r); continue; }
+      // a) equipo nuevo en crisis
+      const before = new Set(prev.info?.crisis || []);
+      const newCrisis = prev.info ? (r.info?.crisis || []).filter(t => !before.has(t)) : [];
+      if (newCrisis.length) { keep.push({ ...r, info: { ...r.info, rearmado: `crisis: ${newCrisis.join(", ")}` } }); continue; }
+      // b) muchos OUT dentro de las alineaciones del pool
+      const outNow = new Set((r.info?.out || []).map(String));
+      const prevKeys = new Set((prev.players || []).map(p => String(p.key || p.id)));
+      const outInPool = [...prevKeys].filter(k => outNow.has(k));
+      if (outInPool.length >= POOL_LOCK.outPlayers) {
+        const outSet = new Set(outInPool);
+        const { data: lus } = await supabaseAdmin.from("fantasy_app_pool_lineups").select("players,orig_players")
+          .eq("sport", "nba").eq("platform", r.platform).eq("slate_key", r.slate_key).eq("version", prev.version).limit(5000);
+        const total = (lus || []).length;
+        const hit = (lus || []).filter(l => (l.orig_players || l.players || []).some(p => outSet.has(String(p.key || p.id)))).length;
+        if (total && hit / total >= POOL_LOCK.outShare) {
+          keep.push({ ...r, info: { ...r.info, rearmado: `${outInPool.length} OUT en ${Math.round(100 * hit / total)}% de las alineaciones` } });
+          continue;
+        }
+      }
+      // si no: el pool sigue fijo (no se guarda lista nueva)
+    } catch (e) {
+      console.warn("gatePools:", e.message);
+    }
+  }
+  return keep;
+}
 const nbaDay = v => dayIn("America/New_York", v);
 
 function shiftDay(day, delta) {
@@ -3281,7 +3332,13 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
             return { ...p, salary: ids.utilSalary ?? p.salary, dkId: ids.util ?? null, utilId: ids.util ?? null, cptId: ids.cpt ?? null, cptSalary: ids.cptSalary ?? Math.round(Number(p.salary) * 1.5) };
           })
           : optimizerPool.map(p => ({ ...p, dkId: dkIdOf.get(p.id) ?? null })),
-        stars: stars.slice(0, shares.length).map((st, i) => ({ id: st.id, name: st.name, share: shares[i] }))
+        stars: stars.slice(0, shares.length).map((st, i) => ({ id: st.id, name: st.name, share: shares[i] })),
+        // 7-nov: para decidir si el pool fijo se rearma despues de las 2 pm
+        info: {
+          crisis: [...new Set(players.map(p => Number(p.team_id)))].filter(t => teamProjections.has(t) && crisisOut(t) >= POOL_LOCK.crisisMinOut)
+            .map(t => teamProjections.get(t)?.code || String(t)),
+          out: [...outIds]
+        }
       });
     }
     const officialOptions = opts.dk?.captain ? {} : lineupOptions(CONFIG.lineupCount);
@@ -3426,8 +3483,11 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
 
   // 5-nov: slate pequeno con savePool: solo se guarda su lista para el pool
   if (opts.preview && opts.savePool && slatePoolsOut.length) {
-    const { error } = await supabaseAdmin.from("fantasy_app_slate_pools").insert(slatePoolsOut);
-    if (error) throw new Error(`Supabase fantasy_app_slate_pools: ${error.message}`);
+    const keep = await gatePools(slatePoolsOut);
+    if (keep.length) {
+      const { error } = await supabaseAdmin.from("fantasy_app_slate_pools").insert(keep);
+      if (error) throw new Error(`Supabase fantasy_app_slate_pools: ${error.message}`);
+    }
   }
 
   // 4-nov: a pedido NO guarda nada (ni alineaciones, ni proyecciones,
@@ -3450,7 +3510,8 @@ async function runProjectionCore(day = chicagoDay(), opts = {}) {
   // no existe todavia, no tumba la corrida).
   if (slatePoolsOut.length) {
     try {
-      const { error } = await supabaseAdmin.from("fantasy_app_slate_pools").insert(slatePoolsOut);
+      const keep = await gatePools(slatePoolsOut);
+      const { error } = keep.length ? await supabaseAdmin.from("fantasy_app_slate_pools").insert(keep) : { error: null };
       if (error) console.warn("fantasy_app_slate_pools:", error.message);
     } catch (e) { console.warn("fantasy_app_slate_pools:", e.message); }
   }
