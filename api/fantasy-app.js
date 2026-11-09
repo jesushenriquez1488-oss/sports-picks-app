@@ -1228,7 +1228,8 @@ async function actionCsvOfficial(req, res) {
 // 5-nov: minDifferent 2 -> 3 (maximo 5 de 8 repetidos; NFL 6 de 9),
 // parejas al 30% y busqueda de 20,000 pasos por alineacion (con 200,000
 // no alcanzaba a hacer 200 en 40 s y los topes se rompian entre tandas).
-const POOL = { target: 1000, batch: 200, refillBelow: 200, ownerTop: 10, maxPerUser: 50,
+// 9-nov: meta 100 por slate; 100 mas cuando quedan menos de 30 libres
+const POOL = { target: 100, batch: 100, refillBelow: 30, ownerTop: 10, maxPerUser: 50,
   minDifferent: 3, maxExposure: 0.4, maxPairShare: 0.3, nodeLimit: 20000, batchSeconds: 40 };
 const DK_HEADER_POOL = { nba: { draftkings: ["PG", "SG", "SF", "PF", "C", "G", "F", "UTIL"], fanduel: ["PG", "PG", "SG", "SG", "SF", "SF", "PF", "PF", "C"] } };
 
@@ -1276,11 +1277,14 @@ function slateGames(sp) {
 }
 function poolTier(sp) {
   const g = slateGames(sp);
-  if (sp.game_type === "captain") return { games: g, target: 150, minDifferent: 2, maxPairShare: 0.5, captain: true };
-  if (g >= 5) return { games: g, target: 1000, minDifferent: 3, maxPairShare: 0.3 };
-  if (g === 4) return { games: g, target: 500, minDifferent: 3, maxPairShare: 0.4 };
-  if (g === 3) return { games: g, target: 300, minDifferent: 2, maxPairShare: 0.5 };
-  return { games: g, target: 150, minDifferent: 2, maxPairShare: 1 };
+  // 9-nov: meta 100 en todos (antes 1000/500/300/150); se usaba menos del 4%.
+  // Las reglas de variedad siguen segun el tamano del slate.
+  const target = POOL.target;
+  if (sp.game_type === "captain") return { games: g, target, minDifferent: 2, maxPairShare: 0.5, captain: true };
+  if (g >= 5) return { games: g, target, minDifferent: 3, maxPairShare: 0.3 };
+  if (g === 4) return { games: g, target, minDifferent: 3, maxPairShare: 0.4 };
+  if (g === 3) return { games: g, target, minDifferent: 2, maxPairShare: 0.5 };
+  return { games: g, target, minDifferent: 2, maxPairShare: 1 };
 }
 
 async function poolBatch(sp, count, existing) {
@@ -1335,7 +1339,7 @@ async function poolBatch(sp, count, existing) {
 }
 
 // 5-nov: todas las listas del dia (Main y slates pequenos), cada una por su lado
-async function refillPool(sport, platform, day) {
+async function refillPool(sport, platform, day, onlyMain = false) {
   const rows = await selectAll("fantasy_app_slate_pools", "slate_key,version",
     q => q.eq("sport", sport).eq("platform", platform).eq("slate_date", day));
   if (!rows.length) return { platform, estado: "sin lista de la formula" };
@@ -1348,10 +1352,25 @@ async function refillPool(sport, platform, day) {
     if (error) throw new Error(`Supabase fantasy_app_slate_pools: ${error.message}`);
     if (data) pools.push(data);
   }
-  // Tus 10 reservadas: solo en el Main (el de mas partidos del dia)
-  const mainKey = pools.slice().sort((a, b) => slateGames(b) - slateGames(a))[0]?.slate_key;
+  // Tus 10 reservadas: solo en el Main (el de mas partidos del dia).
+  // 9-nov: no cuentan los slates que pasan de un dia a otro (ej. NFL
+  // domingo+lunes de 13 partidos, o jueves-lunes de 15): el Main es el
+  // del dia solo (domingo 11 partidos).
+  const oneDay = new Map();
+  if (platform === "draftkings") {
+    for (const sp of pools) {
+      const dk = await getDkSlate(sp.slate_key).catch(() => null);
+      const a = dk?.starts_at ? chicagoDay(new Date(dk.starts_at)) : null;
+      const b = dk?.last_starts_at ? chicagoDay(new Date(dk.last_starts_at)) : a;
+      oneDay.set(Number(sp.slate_key), !a || a === b);
+    }
+  }
+  const mainCands = pools.filter(sp => oneDay.get(Number(sp.slate_key)) !== false);
+  const mainKey = (mainCands.length ? mainCands : pools).slice().sort((a, b) => slateGames(b) - slateGames(a))[0]?.slate_key;
   const out = [];
   for (const sp of pools) {
+    // 9-nov: de pasado manana en adelante -> solo el Main (hoy y manana: todos)
+    if (onlyMain && Number(sp.slate_key) !== Number(mainKey)) continue;
     try { out.push(await refillOne(sp, Number(sp.slate_key) === Number(mainKey))); }
     catch (e) { out.push({ slate_key: sp.slate_key, error: e.message }); }
   }
@@ -1366,7 +1385,7 @@ async function refillOne(sp, isMain) {
   // Meta por tamano del slate (1000 / 500 / 300 / 150), en tandas de 200.
   // Despues, 200 mas cada vez que quedan pocas libres.
   const batchSize = Math.min(POOL.batch, tier.target);
-  const refillBelow = Math.min(POOL.refillBelow, Math.round(tier.target / 5));
+  const refillBelow = POOL.refillBelow;
   if (sp.starts_at && Date.parse(sp.starts_at) <= Date.now()) return { slate_key: sp.slate_key, estado: "el slate ya empezo" };
 
   // Version nueva: las libres y tus reservadas (no descargadas) de versiones
@@ -1477,7 +1496,7 @@ async function actionPoolCron(req) {
       } catch { /* solo hoy */ }
       for (const d of days) {
         if (Date.now() - t0 > 200000) { body[sport].push({ platform, day: d, estado: "sin tiempo, sigue en la proxima vuelta" }); continue; }
-        try { body[sport].push({ day: d, ...(await refillPool(sport, platform, d)) }); }
+        try { body[sport].push({ day: d, ...(await refillPool(sport, platform, d, d > addDaysStr(day, 1))) }); }
         catch (e) { body[sport].push({ platform, day: d, error: e.message }); }
       }
     }
@@ -1772,7 +1791,7 @@ async function actionPick(req, user) {
   const count = Math.min(want, room);
 
   const locks = (b.locks || []).map(String), bans = new Set((b.bans || []).map(String));
-  const free = await selectAll("fantasy_app_pool_lineups", "id,players",
+  const free = await selectAll("fantasy_app_pool_lineups", "id,players,proj",
     q => q.eq("sport", sport).eq("platform", platform).eq("slate_key", slateKey).eq("version", sp.version).eq("status", "free"));
   if (!free.length) return pickFallback(b, user, count);
   const matches = free.filter(l => {
@@ -1780,8 +1799,8 @@ async function actionPick(req, user) {
     return locks.every(k => keys.has(k)) && ![...keys].some(k => bans.has(k));
   });
   if (!matches.length) return pickFallback(b, user, count);
-  const ids = matches.map(m => m.id);
-  for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; }
+  // 9-nov: en orden de proyeccion (la mejor libre primero), no al azar
+  const ids = matches.slice().sort((a, b) => Number(b.proj) - Number(a.proj)).map(m => m.id);
 
   const got = [];
   for (let start = 0; start < ids.length && got.length < count; start += count) {
@@ -1829,11 +1848,10 @@ async function actionReady(req, user) {
   if (room <= 0) return { status: 429, body: { ok: false, error: "LIMIT_50_PER_SLATE" } };
   const count = Math.min(want, room);
 
-  const free = await selectAll("fantasy_app_pool_lineups", "id",
+  const free = await selectAll("fantasy_app_pool_lineups", "id,proj",
     q => q.eq("sport", sport).eq("platform", platform).eq("slate_date", day).eq("version", sp.version).eq("status", "free"));
-  // Al azar
-  const ids = free.map(f => f.id);
-  for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; }
+  // 9-nov: en orden de proyeccion
+  const ids = free.slice().sort((a, b) => Number(b.proj) - Number(a.proj)).map(f => f.id);
 
   const got = [];
   for (const part of chunks(ids, Math.max(count, 1))) {
@@ -2252,10 +2270,9 @@ async function actionUpgrade(req, user) {
   if (mine.length) for (const p of await selectIn("fantasy_app_pool_lineups", "id,version", "id", mine.map(r => r.pool_lineup_id).filter(Boolean))) vers.set(Number(p.id), String(p.version));
   const old = mine.filter(r => vers.get(Number(r.pool_lineup_id)) && vers.get(Number(r.pool_lineup_id)) < String(sp.version));
   if (!old.length) return { status: 200, body: { ok: true, replaced: 0, given: 0 } };
-  const free = await selectAll("fantasy_app_pool_lineups", "id",
+  const free = await selectAll("fantasy_app_pool_lineups", "id,proj",
     q => q.eq("sport", sport).eq("platform", platform).eq("slate_key", slateKey).eq("version", sp.version).eq("status", "free"));
-  const ids = free.map(f => f.id);
-  for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; }
+  const ids = free.slice().sort((a, b) => Number(b.proj) - Number(a.proj)).map(f => f.id);
   const got = [];
   for (let start = 0; start < ids.length && got.length < old.length; start += old.length) {
     const take = ids.slice(start, start + (old.length - got.length));
