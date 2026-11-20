@@ -101,9 +101,9 @@ async function trackUserEvent(eventType, options = {}) {
 
 const IS_ADMIN = false;
 
-const MONTHLY_PRICE = 49.99;
-const FIRST_MONTH_PRICE = 34.99;
-const FIRST_MONTH_DISCOUNT_PERCENT = 30;
+const MONTHLY_PRICE = 34.99;
+const FIRST_MONTH_PRICE = 19.99;
+const FIRST_MONTH_DISCOUNT_PERCENT = 43;
 
 const PREMIUM_WIN_RATE = 88;
 const NORMAL_WIN_RATE = 65;
@@ -32402,7 +32402,7 @@ function toggleGameHighlight(index, premiumJson, awayTeam, homeTeam) {
         <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;">🔒 Premium Content</div>
         <div style="font-size:11px;color:#556688;margin-bottom:12px;">The full game story — why the model made this call, factor by factor.</div>
         <button onclick="openPromoModal('premium_pick')" style="width:100%;padding:11px;border-radius:8px;border:none;background:linear-gradient(90deg,#00ffe7,#7c3cff);color:#020814;font-size:12px;font-weight:700;cursor:pointer;">
-          GET PREMIUM · $${MONTHLY_PRICE}/mo
+        GET PREMIUM · $${FIRST_MONTH_PRICE} FIRST MONTH
         </button>
       </div>
     `;
