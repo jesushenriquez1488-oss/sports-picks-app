@@ -213,58 +213,9 @@ module.exports = async function handler(req, res) {
      * se usa el cupón por defecto como siempre.
      * =========================
      */
-
-  let checkoutDiscount = {
+const checkoutDiscount = {
   coupon: DEFAULT_COUPON
 };
-
-if (cleanPromoCode) {
-  const found =
-    await stripe.promotionCodes.list({
-      code: cleanPromoCode,
-      active: true,
-      limit: 1
-    });
-
-  const promo = found.data[0];
-
-  if (!promo) {
-    return res.status(400).json({
-      error: "This promo code is invalid or expired."
-    });
-  }
-
-  const promoCouponId =
-    promo.promotion?.coupon ||
-    (
-      typeof promo.coupon === "string"
-        ? promo.coupon
-        : promo.coupon?.id
-    ) ||
-    "";
-
-  if (cleanPromoCode === "EDGE1999") {
-    // Código anterior: conservar el precio
-    // introductorio actual de $19.99.
-    checkoutDiscount = {
-      coupon: DEFAULT_COUPON
-    };
-  } else if (promoCouponId === DEFAULT_COUPON) {
-    checkoutDiscount = {
-      promotion_code: promo.id
-    };
-  } else {
-    return res.status(400).json({
-      error:
-        "This promo code is not available with the current offer."
-    });
-  }
-
-  console.log(
-    "PROMO CODE VALIDATED:",
-    cleanPromoCode
-  );
-}
 
     const baseMetadata = {
       userId: String(userId),
