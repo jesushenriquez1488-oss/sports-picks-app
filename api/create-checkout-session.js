@@ -7,8 +7,8 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Cupón por defecto que ve todo el mundo (precio de entrada)
-const DEFAULT_COUPON = "pLxcYNG7";
+// Descuento de $15 solo en la primera factura
+const DEFAULT_COUPON = "cXs60895";
 
 function parseCookies(cookieHeader = "") {
   return cookieHeader.split(";").reduce((cookies, item) => {
@@ -214,37 +214,57 @@ module.exports = async function handler(req, res) {
      * =========================
      */
 
-    let checkoutDiscount = {
+  let checkoutDiscount = {
+  coupon: DEFAULT_COUPON
+};
+
+if (cleanPromoCode) {
+  const found =
+    await stripe.promotionCodes.list({
+      code: cleanPromoCode,
+      active: true,
+      limit: 1
+    });
+
+  const promo = found.data[0];
+
+  if (!promo) {
+    return res.status(400).json({
+      error: "This promo code is invalid or expired."
+    });
+  }
+
+  const promoCouponId =
+    promo.promotion?.coupon ||
+    (
+      typeof promo.coupon === "string"
+        ? promo.coupon
+        : promo.coupon?.id
+    ) ||
+    "";
+
+  if (cleanPromoCode === "EDGE1999") {
+    // Código anterior: conservar el precio
+    // introductorio actual de $19.99.
+    checkoutDiscount = {
       coupon: DEFAULT_COUPON
     };
+  } else if (promoCouponId === DEFAULT_COUPON) {
+    checkoutDiscount = {
+      promotion_code: promo.id
+    };
+  } else {
+    return res.status(400).json({
+      error:
+        "This promo code is not available with the current offer."
+    });
+  }
 
-    if (cleanPromoCode) {
-      const found =
-        await stripe.promotionCodes.list({
-          code: cleanPromoCode,
-          active: true,
-          limit: 1
-        });
-
-      const promo = found.data[0];
-
-      if (!promo) {
-        return res.status(400).json({
-          error:
-            "This promo code is invalid or expired."
-        });
-      }
-
-      checkoutDiscount = {
-        promotion_code: promo.id
-      };
-
-      console.log(
-        "PROMO CODE APPLIED:",
-        cleanPromoCode,
-        promo.id
-      );
-    }
+  console.log(
+    "PROMO CODE VALIDATED:",
+    cleanPromoCode
+  );
+}
 
     const baseMetadata = {
       userId: String(userId),
@@ -368,13 +388,12 @@ module.exports = async function handler(req, res) {
           userId,
 
         line_items: [
-          {
-            price:
-              "price_1UIEGZJxhhhzBuV9nUIRlBdE",
-            quantity: 1
-          }
-        ],
-
+  {
+    price:
+      "price_1UdvDVJxhhhzBuV9TtutPr8J",
+    quantity: 1
+  }
+],
         discounts: [
           checkoutDiscount
         ],
