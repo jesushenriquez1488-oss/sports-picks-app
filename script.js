@@ -4626,11 +4626,19 @@ if (
 })
     });
 
-    const data = await response.json();
+   const data = await response.json();
 
-    if (!response.ok) {
-      throw new Error(data.error || "Error analyzing NBA");
-    }
+if (
+  data.limitReached === true ||
+  data.upgradeRequired === true
+) {
+  resultDiv.innerHTML = ceLimitScreenHTML(league);
+  return;
+}
+
+if (!response.ok) {
+  throw new Error(data.error || "Error analyzing NBA");
+}
 
     if (data.noPlay) {
       resultDiv.innerHTML = `
@@ -4836,18 +4844,34 @@ if (!locked && (displayPick === "Over" || displayPick === "Under")) {
 `;
 endAnalysisLock(index);
  } catch (error) {
-    if (error.message && (error.message.includes("free analyses") || error.message.includes("every 3 hours") || error.message.includes("unlock 5"))) {
-   resultDiv.innerHTML = ceLimitScreenHTML(league);
-    } else {
-      resultDiv.innerHTML = `
-        <div class="normal-result">
-          <p><strong>Error analyzing NBA</strong></p>
-          <p>${error.message}</p>
-        </div>
-      `;
-    }
-    endAnalysisLock(index);
+  const message = String(error?.message || "");
+
+  const sportKey =
+    selectedSport === "basketball_wnba"
+      ? "wnba"
+      : selectedSport === "basketball_ncaab"
+        ? "ncaab"
+        : "nba";
+
+  const limitReached =
+    /free analyses|every 3 hours|unlock 5|daily limit|limit reached|upgrade required/i.test(message);
+
+  if (limitReached) {
+    resultDiv.innerHTML = ceLimitScreenHTML(sportKey);
+  } else {
+    console.error("NBA ANALYSIS ERROR:", error);
+
+    resultDiv.innerHTML = `
+      <div class="normal-result">
+        <p><strong>Error analyzing NBA</strong></p>
+        <p>${message}</p>
+      </div>
+    `;
   }
+
+} finally {
+  endAnalysisLock(index);
+}
 }
 function analyzeOtherLeague(awayTeam, homeTeam, awaySpread, homeSpread, total, index) {
   const resultDiv = document.getElementById(`result${index}`);
